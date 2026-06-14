@@ -1,0 +1,9 @@
+<view class="login-container">
+  <view class="logo-section">
+    <text class="app-name">WorkTodo</text>
+    <text class="app-desc">工作待办提醒</text>
+  </view>
+  <button class="wx-login-btn" open-type="getPhoneNumber" bindtap="onWxLogin" loading="{{loading}}" disabled="{{loading}}">
+    微信一键登录
+  </button>
+</view>

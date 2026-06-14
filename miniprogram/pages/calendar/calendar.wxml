@@ -1,0 +1,29 @@
+<view class="container">
+  <view class="calendar-header">
+    <text class="nav-btn" bindtap="onPreMonth">&lt;</text>
+    <text class="current-month">{{currentYear}}年{{currentMonth}}月</text>
+    <text class="nav-btn" bindtap="onNextMonth">&gt;</text>
+  </view>
+
+  <view class="calendar-weekdays">
+    <text wx:for="{{['日','一','二','三','四','五','六']}}" wx:key="index" class="weekday">{{item}}</text>
+  </view>
+
+  <view class="calendar-grid">
+    <view wx:for="{{daysInMonth}}" wx:key="index" class="calendar-day {{item.empty ? 'empty' : ''}} {{item.date === selectedDate ? 'selected' : ''}}" bindtap="onDayTap" data-date="{{item.date}}">
+      <text class="day-number">{{item.day}}</text>
+      <view wx:if="{{item.hasTask}}" class="task-badge">{{item.taskCount}}</view>
+    </view>
+  </view>
+
+  <view class="selected-tasks">
+    <view class="section-title">{{selectedDate}} 的任务</view>
+    <view wx:if="{{selectedTasks.length === 0}}" class="empty-state">
+      <text>当日无任务</text>
+    </view>
+    <view wx:for="{{selectedTasks}}" wx:key="id" class="task-item" bindtap="onTaskTap" data-id="{{item.id}}">
+      <view class="priority-dot priority-{{item.priority === 2 ? 'high' : item.priority === 1 ? 'medium' : 'low'}}"></view>
+      <text class="task-title">{{item.title}}</text>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,21 @@
+<view class="category-picker">
+  <view
+    wx:if="{{showAll}}"
+    class="category-item {{localSelectedId === null ? 'active' : ''}}"
+    bindtap="onSelect"
+    data-id=""
+  >
+    全部
+  </view>
+  <view
+    wx:for="{{categories}}"
+    wx:key="id"
+    class="category-item {{localSelectedId === item.id ? 'active' : ''}}"
+    style="border-left: 4rpx solid {{item.color}}"
+    bindtap="onSelect"
+    data-id="{{item.id}}"
+  >
+    {{item.name}}
+    <text wx:if="{{item.task_count > 0}}" class="count">({{item.task_count}})</text>
+  </view>
+</view>

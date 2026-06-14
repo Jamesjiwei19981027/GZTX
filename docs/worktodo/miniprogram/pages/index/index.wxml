@@ -1,0 +1,119 @@
+<view class="container">
+  <!-- 顶部用户信息栏 -->
+  <view class="header-bar">
+    <view class="user-info" bindtap="goToSettings">
+      <image class="avatar" src="{{userInfo.avatar_url || '/assets/icons/user.png'}}" mode="aspectFill"/>
+      <text class="nickname">{{userInfo.nickname || '未登录'}}</text>
+    </view>
+    <view class="today-stats">
+      <view class="stat-item">
+        <text class="stat-num">{{todayStats.total}}</text>
+        <text class="stat-label">今日</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-num text-success">{{todayStats.completed}}</text>
+        <text class="stat-label">已完成</text>
+      </view>
+      <view class="stat-item">
+        <text class="stat-num text-warning">{{todayStats.pending}}</text>
+        <text class="stat-label">待办</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- 搜索栏 -->
+  <view class="search-bar">
+    <view class="search-input-wrap">
+      <icon type="search" size="16" color="#999"/>
+      <input
+        class="search-input"
+        placeholder="搜索任务..."
+        value="{{searchKeyword}}"
+        bindinput="onSearchInput"
+        bindconfirm="onSearchConfirm"
+      />
+      <icon wx:if="{{searchKeyword}}" type="clear" size="16" color="#999" bindtap="onClearSearch"/>
+    </view>
+  </view>
+
+  <!-- 筛选栏 -->
+  <view class="filter-bar">
+    <view class="filter-tabs">
+      <text
+        class="filter-tab {{filterStatus === 'all' ? 'active' : ''}}"
+        bindtap="onStatusFilterChange"
+        data-status="all"
+      >全部</text>
+      <text
+        class="filter-tab {{filterStatus === 'pending' ? 'active' : ''}}"
+        bindtap="onStatusFilterChange"
+        data-status="pending"
+      >待办</text>
+      <text
+        class="filter-tab {{filterStatus === 'completed' ? 'active' : ''}}"
+        bindtap="onStatusFilterChange"
+        data-status="completed"
+      >已完成</text>
+    </view>
+    <view class="category-scroll">
+      <view
+        class="category-tag {{selectedCategoryId === null ? 'active' : ''}}"
+        bindtap="onCategoryChange"
+        data-id=""
+      >全部</view>
+      <view
+        wx:for="{{categories}}"
+        wx:key="id"
+        class="category-tag {{selectedCategoryId === item.id ? 'active' : ''}}"
+        style="border-left: 4rpx solid {{item.color}}"
+        bindtap="onCategoryChange"
+        data-id="{{item.id}}"
+      >{{item.name}}</view>
+    </view>
+  </view>
+
+  <!-- 任务列表 -->
+  <scroll-view
+    class="task-list"
+    scroll-y
+    bindscrolltolower="loadMoreTasks"
+    enable-back-to-top
+  >
+    <view wx:if="{{tasks.length === 0 && !loading}}" class="empty-state">
+      <image class="empty-icon" src="/assets/icons/empty.png" mode="aspectFit"/>
+      <text class="empty-text">暂无任务</text>
+      <text class="empty-hint">点击下方按钮创建第一个任务</text>
+    </view>
+
+    <task-item
+      wx:for="{{tasks}}"
+      wx:key="id"
+      task="{{item}}"
+      bindtap="onTaskTap"
+      bindcomplete="onCompleteTask"
+      binduncomplete="onUncompleteTask"
+      binddelete="onDeleteTask"
+      bindedit="onEditTask"
+    />
+
+    <view wx:if="{{loading}}" class="loading-more">
+      <text>加载中...</text>
+    </view>
+
+    <view wx:if="{{!hasMore && tasks.length > 0}}" class="no-more">
+      <text>没有更多了</text>
+    </view>
+  </scroll-view>
+
+  <!-- 底部统计栏 -->
+  <view class="bottom-bar safe-area-bottom">
+    <view class="task-count">
+      共 {{tasks.length}} 个任务
+    </view>
+  </view>
+
+  <!-- 悬浮新建按钮 -->
+  <view class="fab" bindtap="onCreateTask">
+    <text class="fab-icon">+</text>
+  </view>
+</view>

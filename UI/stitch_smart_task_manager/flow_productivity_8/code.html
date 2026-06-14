@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Flow Productivity - Team Chat</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#006c49",
+                        "inverse-on-surface": "#f0f1f2",
+                        "surface-variant": "#e1e3e4",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "inverse-surface": "#2e3132",
+                        "surface-container-high": "#e7e8e9",
+                        "secondary-fixed": "#6ffbbe",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#924700",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f8f9fa",
+                        "on-surface": "#191c1d",
+                        "on-secondary-fixed-variant": "#005236",
+                        "tertiary-container": "#b75b00",
+                        "on-background": "#191c1d",
+                        "on-surface-variant": "#424754",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "on-primary-fixed-variant": "#004395",
+                        "on-primary-container": "#fefcff",
+                        "primary": "#0058be",
+                        "primary-fixed": "#d8e2ff",
+                        "primary-container": "#2170e4",
+                        "surface-container-highest": "#e1e3e4",
+                        "surface-bright": "#f8f9fa",
+                        "secondary-fixed-dim": "#4edea3",
+                        "on-error-container": "#93000a",
+                        "surface-container": "#edeeef",
+                        "inverse-primary": "#adc6ff",
+                        "outline": "#727785",
+                        "on-primary-fixed": "#001a42",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#fffbff",
+                        "surface-container-low": "#f3f4f5",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-container": "#00714d",
+                        "background": "#f8f9fa",
+                        "tertiary-fixed": "#ffdcc6",
+                        "error": "#ba1a1a",
+                        "surface-dim": "#d9dadb",
+                        "secondary-container": "#6cf8bb",
+                        "primary-fixed-dim": "#adc6ff",
+                        "outline-variant": "#c2c6d6",
+                        "on-tertiary-fixed": "#311400",
+                        "on-secondary-fixed": "#002113",
+                        "surface-tint": "#005ac2",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "md": "16px",
+                        "max-width": "1200px",
+                        "gutter": "24px",
+                        "lg": "24px",
+                        "base": "4px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "40px",
+                        "xl": "32px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md-mobile": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-md-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-family: 'Material Symbols Outlined';
+            font-weight: normal;
+            font-style: normal;
+            font-size: 24px;
+            line-height: 1;
+            letter-spacing: normal;
+            text-transform: none;
+            display: inline-block;
+            white-space: nowrap;
+            word-wrap: normal;
+            direction: ltr;
+            -webkit-font-feature-settings: 'liga';
+            -webkit-font-smoothing: antialiased;
+        }
+        /* Custom scrollbar for modern feel */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d9dadb;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #c2c6d6;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md h-screen w-full overflow-hidden flex">
+<!-- JSON Component: SideNavBar -->
+<nav class="fixed left-0 top-0 h-full w-[280px] bg-surface dark:bg-on-background border-r border-surface-variant dark:border-outline-variant shadow-sm flex flex-col py-lg px-md gap-sm z-50">
+<div class="mb-lg px-sm">
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary dark:text-inverse-primary">Flow Productivity</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Stay in the zone</p>
+</div>
+<button class="bg-primary text-on-primary font-label-md text-label-md py-sm px-md rounded-full mb-md flex items-center justify-center gap-sm hover:bg-primary-container transition-colors duration-200 shadow-sm w-full">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">add</span>
+            New Task
+        </button>
+<div class="flex flex-col gap-xs flex-1">
+<!-- Active Tab: Dashboard (Acting as Home/Comm hub in this context) -->
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-primary font-bold border-r-4 border-primary bg-primary-fixed/20 dark:bg-primary-container/20 transition-all duration-300 ease-in-out cursor-pointer" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-inverse-surface transition-all duration-300 ease-in-out cursor-pointer" href="#">
+<span class="material-symbols-outlined">checklist</span>
+<span class="font-label-md text-label-md">My Tasks</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-inverse-surface transition-all duration-300 ease-in-out cursor-pointer" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-label-md text-label-md">Calendar</span>
+</a>
+</div>
+<div class="mt-auto pt-sm border-t border-surface-variant">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-inverse-surface transition-all duration-300 ease-in-out cursor-pointer" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</div>
+</nav>
+<!-- Main Workspace Area -->
+<main class="ml-[280px] flex-1 flex h-full bg-surface-container-lowest">
+<!-- Left Panel: Chat List -->
+<aside class="w-[320px] border-r border-outline-variant bg-surface-container-lowest flex flex-col h-full flex-shrink-0">
+<!-- Header & Search -->
+<div class="p-lg border-b border-surface-variant">
+<div class="flex items-center justify-between mb-md">
+<h2 class="font-headline-sm text-headline-sm text-on-surface">团队沟通</h2>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">edit_square</span>
+</button>
+</div>
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" style="font-size: 20px;">search</span>
+<input class="w-full bg-surface-container pl-10 pr-4 py-2 rounded-lg border border-transparent focus:border-primary focus:bg-surface-container-lowest focus:ring-1 focus:ring-primary font-body-sm text-body-sm text-on-surface placeholder-on-surface-variant transition-all outline-none" placeholder="搜索聊天记录" type="text"/>
+</div>
+</div>
+<!-- Chat List Scrollable -->
+<div class="flex-1 overflow-y-auto p-sm">
+<!-- Group Category -->
+<div class="px-md py-sm flex items-center justify-between group cursor-pointer">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">群组</span>
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity" style="font-size: 16px;">add</span>
+</div>
+<!-- Chat Item 1 (Active) -->
+<div class="flex items-center gap-md p-md rounded-xl bg-primary-fixed/30 cursor-pointer relative">
+<div class="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full"></div>
+<div class="relative w-12 h-12 flex-shrink-0">
+<img alt="Team Avatar" class="w-full h-full rounded-lg object-cover shadow-sm" data-alt="A modern, bright office space showing a small team of diverse professionals collaborating around a glass table. The lighting is soft and natural, emphasizing a productive, clean, light-mode aesthetic with neutral tones and subtle blue accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDfqLguMR30SduMxCJvwKOGXKeU1Zz8npBsftHDoEk6jvybg780MLHTwqh1NfGklZZtucrgtVUD3eixM-ApVwFX72-bqr3tGdN4ej-P-es1u6kZCTSjWpljIkqJftNKn7NSyaXeRnT3zE0KnHrXyKRsd2bmPXUxynyBewvJ9B93npDSmvUgk5M1ttAndWC6j5Cjg7VLGiUTL6gVx3pcnUGEHgttw2X_NumleumVC5gy4Zhc2ieJmTgA3bgIhWo1hb_iVFsnIqxcPMs"/>
+<div class="absolute -bottom-1 -right-1 w-4 h-4 bg-secondary-fixed-dim rounded-full border-2 border-surface-container-lowest"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-xs">
+<span class="font-label-md text-label-md text-on-surface truncate">产品设计组</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">10:42 AM</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Sarah: 我们需要更新一下登录页的视觉稿...</p>
+</div>
+</div>
+<!-- Chat Item 2 -->
+<div class="flex items-center gap-md p-md rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer mt-sm">
+<div class="relative w-12 h-12 flex-shrink-0 bg-surface-container-high rounded-lg flex items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">campaign</span>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-xs">
+<span class="font-label-md text-label-md text-on-surface truncate font-semibold">全员通知</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">昨天</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">本周五下午有系统维护...</p>
+</div>
+</div>
+<div class="px-md py-sm mt-lg flex items-center justify-between group cursor-pointer">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">直接消息</span>
+<span class="material-symbols-outlined text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity" style="font-size: 16px;">add</span>
+</div>
+<!-- Chat Item 3 -->
+<div class="flex items-center gap-md p-md rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer">
+<div class="relative w-12 h-12 flex-shrink-0">
+<img alt="User Avatar" class="w-full h-full rounded-full object-cover shadow-sm" data-alt="A close-up, professional headshot of a smiling woman with glasses, lit by soft, bright natural light. The background is a clean, minimal white wall, fitting a modern productivity application's light-mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB5wWtQ_w7KdMxfWHcHeg00FR_VDwT4P6tJLMndnUwN3BB9xrtjaaxOrOUG_QpQ7oKVPAfF6-2jXQPpg7aoQmJtWQUv7uu4QbLr5Nu76NtvPOnThwxSyWJs9OnPOYYDLX4RvWaXI_uKwZuyo6frUbKdiEnPtDig6Gv1cZhIr1CXncm2NsvgdwwYgNWBPEbiyrILdjHpWhS0GIxwjdj3n_qZZR7EjKB9nBtITmBhCScleKa6eqtKZEeFFfpOUhvZ7K1dNzbHCC6-DE8"/>
+<div class="absolute -bottom-1 -right-1 w-4 h-4 bg-secondary-fixed-dim rounded-full border-2 border-surface-container-lowest"></div>
+</div>
+<div class="flex-1 min-w-0">
+<div class="flex items-center justify-between mb-xs">
+<span class="font-label-md text-label-md text-on-surface truncate">Alex Chen</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">周二</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">好的，文件我已经查收了。</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Center Panel: Conversation -->
+<section class="flex-1 flex flex-col min-w-0 bg-surface">
+<!-- Chat Header -->
+<header class="h-20 px-lg border-b border-outline-variant bg-surface/80 backdrop-blur-md flex items-center justify-between flex-shrink-0 z-10 sticky top-0">
+<div class="flex items-center gap-md">
+<div class="flex -space-x-3">
+<img alt="Avatar 1" class="w-10 h-10 rounded-full border-2 border-surface object-cover" data-alt="A professional headshot of a young woman with a neat hairstyle against a bright, minimalist background, suitable for a clean app UI." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBi5WvJWxASfoQ5aIg-t2nJn-I6KoBXLtsPrV4jhNkEKGL5NOoAmdBBUG5yVYv1lPmYcJxDAhz1mGCXm--kG3HYWHODYEUE3ornV3WfZV5Cbe_2ldnj4czTtRDToU3JTH2Z-WwTB4KD9kmj6l1D5feINt2M7-8jmmuRDSTM1zGIS51L0PhIA8mMBnFa_GD77dylQgOYmMSSke2exwWzH6NOZWxGu4Ovc7cgS9T1y5t6PWyJpGQ3Ztf2UhwOcBi55qo1SmYJDcpa2eA"/>
+<img alt="Avatar 2" class="w-10 h-10 rounded-full border-2 border-surface object-cover" data-alt="A professional headshot of a man looking confidently at the camera, set against a bright, clean background matching a modern software aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuChJWpuGIKaZ0wb6iGe3XXY3cQOa4G_wwcEGNZD-t_sAXnivm-mXSc7kNhECMj7iZSx6byWgSAWGTuWncG0jkhvr5AnYQmhtPOJtjZiXn4bAAySVODk6RUTEboPOr7H8X3HlNK9rH39ij4D_ZksrDyw3Tq0jrZ7GPRDGfXjdWlOfL1Kv7OydnHZrIfFmmc9DFCt-PtdAfiwxg3yvZ5UghfmiT3o6ETMDiwcV9YAjncjJL5dHnbdpm7qU_0Cim7ZzAqqAoKVH1YGlqw"/>
+<div class="w-10 h-10 rounded-full border-2 border-surface bg-surface-container-high flex items-center justify-center font-label-sm text-on-surface-variant">+4</div>
+</div>
+<div>
+<h2 class="font-headline-sm text-headline-sm text-on-surface flex items-center gap-2">
+                            产品设计组
+                            <span class="material-symbols-outlined text-outline" style="font-size: 18px;">lock</span>
+</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">6 位成员在线</p>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<button class="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined">call</span>
+</button>
+<button class="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined">videocam</span>
+</button>
+<div class="w-[1px] h-6 bg-outline-variant mx-2"></div>
+<button class="p-2 rounded-full text-on-surface-variant hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+</header>
+<!-- Messages Area -->
+<div class="flex-1 overflow-y-auto p-lg flex flex-col gap-lg">
+<!-- Date Divider -->
+<div class="flex justify-center my-md">
+<span class="px-md py-1 rounded-full bg-surface-container-low font-label-sm text-label-sm text-on-surface-variant">今天, 9:00 AM</span>
+</div>
+<!-- Received Message Block -->
+<div class="flex gap-md max-w-[80%]">
+<img class="w-10 h-10 rounded-full object-cover flex-shrink-0 self-end mb-1" data-alt="A close-up, professional headshot of a smiling woman with glasses, lit by soft, bright natural light. The background is a clean, minimal white wall, fitting a modern productivity application's light-mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPJ995hcAM9uleO2fK9ARq3WDytY0zceFBEfPL79b3sRB2J7ES4vlOKyTx6JvrAgFUfGMFTuTSoFP9JokECOF7YCyXUDirCUaVXk0hlY37HYmRiQeNcHaDjdNz4NYnEUPmwaX-iNyoek_j-MUfFr3wCFM71RDO7PajsIyw8ch4ugbU1_h3K4T6GIHW1AzzH92lTiewXCQZTX_0gJtJdWysoidqMhcyQXE6HYXjYSmS3mWH08v5PADDdcjbngmelooX1HAMe7344Io"/>
+<div class="flex flex-col gap-xs items-start">
+<div class="flex items-baseline gap-2 ml-1">
+<span class="font-label-md text-label-md text-on-surface">Alex Chen</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">9:05 AM</span>
+</div>
+<div class="bg-surface-container-low text-on-surface p-md rounded-2xl rounded-bl-sm font-body-md text-body-md shadow-sm border border-surface-variant">
+                            大家早上好！我刚把昨天讨论的首页重构方案上传到文件区了，请查收。
+                        </div>
+<!-- Embedded File Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-sm flex items-center gap-md w-72 mt-1 shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+<div class="w-10 h-10 bg-primary-fixed/30 rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">description</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-md text-label-md text-on-surface truncate">首页重构方案_v2.pdf</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">2.4 MB</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Sent Message Block -->
+<div class="flex gap-md max-w-[80%] self-end">
+<div class="flex flex-col gap-xs items-end">
+<div class="flex items-baseline gap-2 mr-1">
+<span class="font-label-sm text-label-sm text-on-surface-variant">10:42 AM</span>
+</div>
+<div class="bg-primary text-on-primary p-md rounded-2xl rounded-br-sm font-body-md text-body-md shadow-sm">
+                            收到，我大概看了一下，整体逻辑清晰很多。不过关于导航栏的交互我们可能还需要再讨论一下。
+                        </div>
+<div class="bg-primary text-on-primary p-md rounded-2xl font-body-md text-body-md shadow-sm mt-1">
+                            下午两点开个简短的碰头会？
+                        </div>
+</div>
+</div>
+<!-- System Message / Activity -->
+<div class="flex justify-center my-md">
+<span class="px-md py-1 rounded-full bg-surface-container-low font-label-sm text-label-sm text-on-surface-variant flex items-center gap-2">
+<span class="material-symbols-outlined" style="font-size: 14px;">task_alt</span>
+                        Alex Chen 完成了任务 "准备视觉资产"
+                    </span>
+</div>
+</div>
+<!-- Input Area -->
+<div class="p-md bg-surface border-t border-outline-variant z-10">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-2xl shadow-sm focus-within:ring-2 focus-within:ring-primary focus-within:border-transparent transition-all flex flex-col">
+<textarea class="w-full bg-transparent border-none focus:ring-0 resize-none font-body-md text-body-md text-on-surface p-md min-h-[80px]" placeholder="输入消息..." rows="2"></textarea>
+<div class="flex items-center justify-between p-sm border-t border-surface-container-low">
+<div class="flex items-center gap-xs">
+<button class="p-2 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined">add_circle</span>
+</button>
+<button class="p-2 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined">mood</span>
+</button>
+<button class="p-2 rounded-full text-on-surface-variant hover:bg-surface-container hover:text-primary transition-colors">
+<span class="material-symbols-outlined">attach_file</span>
+</button>
+</div>
+<button class="bg-primary hover:bg-primary-container text-on-primary p-2 rounded-xl flex items-center justify-center transition-colors shadow-sm">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Right Panel: Info & Files -->
+<aside class="w-[320px] border-l border-outline-variant bg-surface-container-lowest flex flex-col h-full flex-shrink-0 hidden lg:flex">
+<!-- Tabs -->
+<div class="flex items-center border-b border-surface-variant px-sm pt-sm">
+<button class="flex-1 py-md font-label-md text-label-md text-primary border-b-2 border-primary">
+                    文件
+                </button>
+<button class="flex-1 py-md font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors">
+                    任务
+                </button>
+<button class="flex-1 py-md font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-colors">
+                    关于
+                </button>
+</div>
+<!-- Panel Content -->
+<div class="flex-1 overflow-y-auto p-lg">
+<!-- Shared Files Section -->
+<div class="mb-xl">
+<div class="flex items-center justify-between mb-md">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">最近分享的文件</h3>
+<button class="text-primary font-label-sm text-label-sm hover:underline">查看全部</button>
+</div>
+<div class="flex flex-col gap-sm">
+<!-- File 1 -->
+<div class="group flex items-center gap-md p-sm rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer border border-transparent hover:border-surface-variant">
+<div class="w-10 h-10 rounded bg-error-container text-on-error-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">picture_as_pdf</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-md text-label-md text-on-surface truncate">首页重构方案_v2.pdf</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">由 Alex 分享 • 今天</p>
+</div>
+<button class="text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-primary">
+<span class="material-symbols-outlined" style="font-size: 20px;">download</span>
+</button>
+</div>
+<!-- File 2 -->
+<div class="group flex items-center gap-md p-sm rounded-lg hover:bg-surface-container-low transition-colors cursor-pointer border border-transparent hover:border-surface-variant">
+<div class="w-10 h-10 rounded bg-primary-fixed/50 text-primary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">image</span>
+</div>
+<div class="flex-1 min-w-0">
+<p class="font-label-md text-label-md text-on-surface truncate">Hero_Section_Mockup.png</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">由 Sarah 分享 • 昨天</p>
+</div>
+<button class="text-on-surface-variant opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-primary">
+<span class="material-symbols-outlined" style="font-size: 20px;">download</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Pinned Links Section -->
+<div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-md">固定链接</h3>
+<div class="flex flex-col gap-sm">
+<a class="flex items-center gap-sm p-sm rounded-lg border border-outline-variant hover:border-primary hover:bg-primary-fixed/10 transition-all text-on-surface" href="#">
+<span class="material-symbols-outlined text-outline">link</span>
+<span class="font-label-md text-label-md flex-1 truncate">Figma 设计源文件</span>
+<span class="material-symbols-outlined text-on-surface-variant" style="font-size: 16px;">open_in_new</span>
+</a>
+<a class="flex items-center gap-sm p-sm rounded-lg border border-outline-variant hover:border-primary hover:bg-primary-fixed/10 transition-all text-on-surface" href="#">
+<span class="material-symbols-outlined text-outline">link</span>
+<span class="font-label-md text-label-md flex-1 truncate">项目进度甘特图</span>
+<span class="material-symbols-outlined text-on-surface-variant" style="font-size: 16px;">open_in_new</span>
+</a>
+</div>
+</div>
+</div>
+</aside>
+</main>
+</body></html>

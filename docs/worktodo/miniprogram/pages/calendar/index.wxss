@@ -1,0 +1,218 @@
+/* 日历页面样式 */
+
+.container {
+  min-height: 100vh;
+  background-color: var(--bg-color);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 月份导航 */
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx;
+  background-color: var(--white);
+}
+
+.nav-btn {
+  width: 64rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-color);
+  border-radius: 50%;
+}
+
+.nav-icon {
+  font-size: 32rpx;
+  color: var(--text-primary);
+}
+
+.month-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+/* 星期标题 */
+.weekdays {
+  display: flex;
+  padding: 24rpx 16rpx;
+  background-color: var(--white);
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.weekday {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  color: var(--text-secondary);
+}
+
+.weekday.weekend {
+  color: var(--danger-color);
+}
+
+/* 日历网格 */
+.calendar {
+  background-color: var(--white);
+  padding: 16rpx;
+}
+
+.calendar-row {
+  display: flex;
+}
+
+.calendar-cell {
+  flex: 1;
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.calendar-cell.other-month {
+  opacity: 0.3;
+}
+
+.calendar-cell.today .day-number {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border-radius: 50%;
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.calendar-cell.selected {
+  background-color: rgba(64, 158, 255, 0.1);
+}
+
+.calendar-cell.selected .day-number {
+  background-color: var(--primary-color);
+  color: var(--white);
+  border-radius: 50%;
+  width: 56rpx;
+  height: 56rpx;
+}
+
+.day-number {
+  font-size: 28rpx;
+  color: var(--text-primary);
+  line-height: 56rpx;
+  text-align: center;
+}
+
+.task-dot {
+  position: absolute;
+  bottom: 8rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dot-inner {
+  width: 12rpx;
+  height: 12rpx;
+  background-color: var(--primary-color);
+  border-radius: 50%;
+}
+
+/* 选中日期的任务列表 */
+.selected-tasks {
+  flex: 1;
+  margin-top: 16rpx;
+  background-color: var(--white);
+  padding: 32rpx;
+}
+
+.tasks-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24rpx;
+}
+
+.tasks-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: var(--text-primary);
+}
+
+.tasks-count {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.no-tasks {
+  text-align: center;
+  padding: 64rpx;
+  color: var(--text-secondary);
+}
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid var(--border-color);
+}
+
+.task-item:last-child {
+  border-bottom: none;
+}
+
+.task-priority {
+  width: 8rpx;
+  height: 60rpx;
+  border-radius: 4rpx;
+  margin-right: 24rpx;
+}
+
+.task-priority.priority-0 {
+  background-color: var(--success-color);
+}
+
+.task-priority.priority-1 {
+  background-color: var(--warning-color);
+}
+
+.task-priority.priority-2 {
+  background-color: var(--danger-color);
+}
+
+.task-content {
+  flex: 1;
+}
+
+.task-title {
+  font-size: 28rpx;
+  color: var(--text-primary);
+  margin-bottom: 8rpx;
+}
+
+.task-time {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+}
+
+.task-status {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  padding: 8rpx 16rpx;
+  background-color: var(--bg-color);
+  border-radius: 8rpx;
+}
+
+.task-status.completed {
+  color: var(--success-color);
+  background-color: rgba(103, 194, 58, 0.1);
+}

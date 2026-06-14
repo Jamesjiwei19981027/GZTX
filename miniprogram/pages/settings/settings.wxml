@@ -1,0 +1,50 @@
+<view class="container">
+  <view class="user-section">
+    <view class="avatar">
+      <image wx:if="{{userInfo.avatar_url}}" src="{{userInfo.avatar_url}}" mode="aspectFill" />
+      <text wx:else>{{userInfo.nickname || userInfo.username}}</text>
+    </view>
+    <view class="user-name">{{userInfo.nickname || userInfo.username}}</view>
+    <view class="user-email">{{userInfo.email}}</view>
+  </view>
+
+  <view class="settings-section">
+    <view class="section-title">通知设置</view>
+
+    <view class="setting-item">
+      <text class="setting-label">邮件通知</text>
+      <switch checked="{{notifyPrefs.emailEnabled}}" bindchange="onEmailToggle" />
+    </view>
+
+    <view class="setting-item">
+      <text class="setting-label">微信订阅消息</text>
+      <switch checked="{{notifyPrefs.wxSubscribeEnabled}}" bindchange="onWxSubscribeToggle" />
+    </view>
+
+    <view class="setting-item">
+      <text class="setting-label">每日摘要时间</text>
+      <picker mode="time" value="{{notifyPrefs.dailyDigestTime}}" bindchange="onDailyDigestChange">
+        <text class="picker-value">{{notifyPrefs.dailyDigestTime}}</text>
+      </picker>
+    </view>
+
+    <view class="setting-item">
+      <text class="setting-label">默认提前提醒</text>
+      <picker mode="selector" range="{{[5, 10, 15, 30, 60]}}" bindchange="onRemindBeforeChange">
+        <text class="picker-value">{{notifyPrefs.defaultRemindBefore}} 分钟</text>
+      </picker>
+    </view>
+  </view>
+
+  <view class="settings-section">
+    <view class="section-title">其他</view>
+    <view class="setting-item">
+      <text class="setting-label">版本</text>
+      <text class="setting-value">v1.0.0</text>
+    </view>
+  </view>
+
+  <view class="logout-btn">
+    <button type="warn" bindtap="onLogout">退出登录</button>
+  </view>
+</view>

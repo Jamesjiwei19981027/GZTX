@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.env
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 数据（数据库、上传文件、备份）
+*.db
+*.sqlite3
+data/
+backups/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+nul
+
+# 日志
+*.log
+
+# 小程序
+miniprogram/node_modules/
+
+# QoderWork / AI 工具
+.qoder/
+
+# Docker 运行时
+*.pid
+*.seed
+*.pid.lock
+
+# 测试
+coverage/
+.coverage.*
+
+# 临时文件
+*.tmp
+*.bak

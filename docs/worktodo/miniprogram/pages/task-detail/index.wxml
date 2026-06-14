@@ -1,0 +1,100 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="loading">
+    <text>加载中...</text>
+  </view>
+
+  <view wx:elif="{{task}}" class="task-detail">
+    <!-- 任务状态标签 -->
+    <view class="status-bar">
+      <text class="status-tag {{task.status === 2 ? 'completed' : ''}}">
+        {{task.status_label}}
+      </text>
+      <text class="priority-tag {{getPriorityClass(task.priority)}}">
+        {{getPriorityText(task.priority)}}优先级
+      </text>
+    </view>
+
+    <!-- 任务标题 -->
+    <view class="task-title">{{task.title}}</view>
+
+    <!-- 任务描述 -->
+    <view wx:if="{{task.description}}" class="task-description">
+      {{task.description}}
+    </view>
+
+    <!-- 任务信息 -->
+    <view class="info-list">
+      <!-- 分类 -->
+      <view wx:if="{{task.category}}" class="info-item">
+        <text class="info-label">分类</text>
+        <view class="info-value category-badge" style="border-left: 4rpx solid {{task.category.color}}">
+          {{task.category.name}}
+        </view>
+      </view>
+
+      <!-- 截止日期 -->
+      <view wx:if="{{task.due_date}}" class="info-item">
+        <text class="info-label">截止时间</text>
+        <view class="info-value {{task.is_overdue ? 'overdue' : ''}}">
+          {{formatDateTime(task.due_date)}}
+          <text wx:if="{{task.is_overdue}}" class="overdue-tag">已过期</text>
+        </view>
+      </view>
+
+      <!-- 标签 -->
+      <view wx:if="{{task.tags.length > 0}}" class="info-item">
+        <text class="info-label">标签</text>
+        <view class="info-value tags-wrap">
+          <text wx:for="{{task.tags}}" wx:key="id" class="tag-badge" style="color: {{item.color}}">
+            {{item.name}}
+          </text>
+        </view>
+      </view>
+
+      <!-- 提醒 -->
+      <view wx:if="{{task.reminders.length > 0}}" class="info-item">
+        <text class="info-label">提醒</text>
+        <view class="info-value">
+          <text wx:for="{{task.reminders}}" wx:key="id" class="reminder-text">
+            {{formatDateTime(item.remind_at)}}
+          </text>
+        </view>
+      </view>
+
+      <!-- 创建时间 -->
+      <view class="info-item">
+        <text class="info-label">创建时间</text>
+        <text class="info-value">{{formatDateTime(task.created_at)}}</text>
+      </view>
+
+      <!-- 完成时间 -->
+      <view wx:if="{{task.completed_at}}" class="info-item">
+        <text class="info-label">完成时间</text>
+        <text class="info-value">{{formatDateTime(task.completed_at)}}</text>
+      </view>
+    </view>
+
+    <!-- 操作按钮 -->
+    <view class="action-bar">
+      <button wx:if="{{task.status !== 2}}" class="btn btn-success" bindtap="onComplete">
+        标记完成
+      </button>
+      <button wx:else class="btn btn-default" bindtap="onUncomplete">
+        取消完成
+      </button>
+      <button class="btn btn-primary" bindtap="onEdit">编辑</button>
+      <button class="btn btn-danger" bindtap="onDelete">删除</button>
+    </view>
+
+    <!-- 订阅消息 -->
+    <view class="subscribe-bar">
+      <button class="btn btn-default btn-block" bindtap="onSubscribeRemind">
+        订阅提醒
+      </button>
+    </view>
+  </view>
+
+  <view wx:else class="empty">
+    <text>任务不存在</text>
+  </view>
+</view>

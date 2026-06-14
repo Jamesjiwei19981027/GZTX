@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Flow Productivity - 设置</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#2e3132",
+                        "surface-container-high": "#e7e8e9",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#d8e2ff",
+                        "primary": "#0058be",
+                        "surface-tint": "#005ac2",
+                        "surface-dim": "#d9dadb",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#adc6ff",
+                        "outline": "#727785",
+                        "secondary-fixed-dim": "#4edea3",
+                        "on-secondary-fixed-variant": "#005236",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-surface-variant": "#424754",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e1e3e4",
+                        "on-tertiary-fixed": "#311400",
+                        "surface-container-low": "#f3f4f5",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "inverse-on-surface": "#f0f1f2",
+                        "tertiary-container": "#b75b00",
+                        "on-primary-container": "#fefcff",
+                        "inverse-primary": "#adc6ff",
+                        "background": "#f8f9fa",
+                        "on-primary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-container-highest": "#e1e3e4",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#fffbff",
+                        "outline-variant": "#c2c6d6",
+                        "surface-bright": "#f8f9fa",
+                        "secondary": "#006c49",
+                        "on-background": "#191c1d",
+                        "on-secondary-container": "#00714d",
+                        "on-secondary-fixed": "#002113",
+                        "on-error": "#ffffff",
+                        "surface-container": "#edeeef",
+                        "secondary-container": "#6cf8bb",
+                        "surface": "#f8f9fa",
+                        "on-primary-fixed-variant": "#004395",
+                        "primary-container": "#2170e4",
+                        "secondary-fixed": "#6ffbbe",
+                        "on-surface": "#191c1d",
+                        "tertiary": "#924700",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#001a42",
+                        "tertiary-fixed": "#ffdcc6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "margin-desktop": "40px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "base": "4px",
+                        "max-width": "1200px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md-mobile": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "headline-md-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .ambient-shadow {
+            box-shadow: 0px 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid #E5E7EB;
+        }
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #0058be;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #0058be;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- TopAppBar -->
+<header class="fixed top-0 z-50 bg-surface dark:bg-on-background border-b border-surface-variant dark:border-outline-variant flex justify-between items-center w-full px-lg h-16">
+<div class="flex items-center gap-md">
+<span class="text-headline-md font-headline-md font-bold text-primary dark:text-inverse-primary">Flow</span>
+<div class="hidden md:flex ml-lg items-center bg-surface-container rounded-full px-md py-xs">
+<span class="material-symbols-outlined text-on-surface-variant mr-xs">search</span>
+<input class="bg-transparent border-none focus:ring-0 font-body-sm text-body-sm w-64" placeholder="搜索设置..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="material-symbols-outlined text-primary dark:text-inverse-primary p-xs hover:bg-surface-container dark:hover:bg-inverse-surface transition-colors duration-200 rounded-full">notifications</button>
+<button class="material-symbols-outlined text-primary dark:text-inverse-primary p-xs hover:bg-surface-container dark:hover:bg-inverse-surface transition-colors duration-200 rounded-full">help_outline</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="A professional headshot of a friendly man with short hair and a warm smile, set against a clean, neutral architectural background. The lighting is soft and even, highlighting a modern, approachable corporate aesthetic that aligns with a clean productivity app interface. The colors are muted and professional, using soft greys and blues." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC3nDcUsokoM2sMzThEG22DP6J_RJ73jK988_axPKwS-7U7tS91_PLlI171m6EEcVUOxEu8wHZEBohHiJv_oGKBjW5t4yV-XRil7IJC2d5aZtqkJWuvJAjehPcHHe6eSLDt2qfYyAjT92Vwxrpr9rDFp1P76RNLwD_DbYuIzhAEO31comGxnmRAlB7BC5IIyHviDeZvejdTCDe8_MKsuJPMbdwnVyJX1NdjqtR80dVQQMXsOYZnufuMfZJkBM7cEHQ2rtDEpM-ryCw"/>
+</div>
+</div>
+</header>
+<div class="flex pt-16">
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-16 h-[calc(100vh-64px)] w-[280px] bg-surface dark:bg-on-background border-r border-surface-variant dark:border-outline-variant hidden md:flex flex-col py-lg px-md gap-sm transition-all duration-300 ease-in-out">
+<div class="mb-lg px-xs">
+<h2 class="font-headline-sm text-headline-sm font-bold text-primary dark:text-inverse-primary">Flow Productivity</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">专注每一刻</p>
+</div>
+<nav class="flex flex-col gap-xs flex-grow">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-inverse-surface transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">仪表盘</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-inverse-surface transition-all" href="#">
+<span class="material-symbols-outlined">checklist</span>
+<span class="font-label-md text-label-md">我的任务</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant dark:text-surface-variant hover:bg-surface-container-low dark:hover:bg-inverse-surface transition-all" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-label-md text-label-md">日历</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-primary font-bold border-r-4 border-primary bg-primary-fixed/20 dark:bg-primary-container/20 transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">设置</span>
+</a>
+</nav>
+<button class="w-full mt-auto bg-primary text-on-primary py-md rounded-xl font-label-md text-label-md flex items-center justify-center gap-sm active:scale-95 transition-all">
+<span class="material-symbols-outlined">add</span>
+                新建任务
+            </button>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-grow md:ml-[280px] min-h-screen p-md md:p-lg">
+<div class="max-w-[1200px] mx-auto">
+<header class="mb-xl">
+<h1 class="font-display-lg text-display-lg text-on-surface mb-xs">设置</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">管理您的个人资料、偏好设置和账号安全。</p>
+</header>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-lg">
+<!-- Left Column: Primary Sections -->
+<div class="lg:col-span-8 space-y-lg">
+<!-- Profile Section -->
+<section class="bg-surface ambient-shadow rounded-xl p-lg">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-lg">个人资料</h3>
+<div class="flex flex-col md:flex-row items-center gap-xl">
+<div class="relative group cursor-pointer">
+<div class="w-32 h-32 rounded-full overflow-hidden border-4 border-surface-container-highest shadow-sm">
+<img alt="User avatar Large" class="w-full h-full object-cover group-hover:opacity-75 transition-opacity" data-alt="A close-up portrait of a professional man in a bright, modern office setting. He is wearing a minimalist dark shirt, and the background is softly blurred to show hints of greenery and sleek furniture. The image has a calm, crisp look with natural daylight coming from the side, reinforcing a clean and productive atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDpgg1REX_0nbg5Sdx-JXR9j1iDHLp76xjU11xhlzdZYdfIeFUjfOFxFXxwWT3-Ibx3089-w8D5_x1MmahJTC58afvHm5aBYsG2ELZrY4WzCqIL9RcxTxYXP9LHnL0mmCCoMe0BvbaK41BFJhSDbmdBTC2Bpxy7PyhGTtPsEHVxTm6iA_pKY_shZ_XYrZS0zNDec532_VqwyEVrlOYv0n7OftWHFbj-eDDOQeQPY4eI2ZRh93kqRC-wt1eddmoousCi2Up0V1j5PM0"/>
+</div>
+<div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-on-primary-fixed bg-primary-fixed/80 p-sm rounded-full">photo_camera</span>
+</div>
+</div>
+<div class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-md w-full">
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface-variant">全名</label>
+<input class="bg-surface-container-low border border-outline-variant rounded-lg px-md py-sm focus:ring-2 focus:ring-primary focus:outline-none font-body-md text-body-md" type="text" value="Alexander Morgan"/>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface-variant">邮箱地址</label>
+<input class="bg-surface-container-low border border-outline-variant rounded-lg px-md py-sm focus:ring-2 focus:ring-primary focus:outline-none font-body-md text-body-md" type="email" value="alexander.morgan@flow.io"/>
+</div>
+<div class="md:col-span-2 flex justify-end">
+<button class="px-lg py-sm bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:opacity-90 transition-all">更新资料</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Notification Settings -->
+<section class="bg-surface ambient-shadow rounded-xl p-lg">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-lg">通知偏好</h3>
+<div class="space-y-md">
+<div class="flex items-center justify-between p-md bg-surface-container-lowest rounded-lg">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary">mail</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">邮件通知</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">每日摘要和任务提醒</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between p-md bg-surface-container-lowest rounded-lg">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary">notifications_active</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">推送通知</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">在您的设备上接收实时提醒</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<div class="flex items-center justify-between p-md bg-surface-container-lowest rounded-lg">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-primary">desktop_windows</span>
+<div>
+<p class="font-label-md text-label-md text-on-surface">桌面提醒</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">显示浏览器级弹窗</p>
+</div>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox"/>
+<div class="w-11 h-6 bg-surface-variant peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Task Defaults -->
+<section class="bg-surface ambient-shadow rounded-xl p-lg">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-lg">任务默认值</h3>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-lg">
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface-variant">默认优先级</label>
+<select class="bg-surface-container-low border border-outline-variant rounded-lg px-md py-sm focus:ring-2 focus:ring-primary focus:outline-none font-body-md text-body-md appearance-none">
+<option>低</option>
+<option selected="">中</option>
+<option>高</option>
+<option>紧急</option>
+</select>
+</div>
+<div class="flex flex-col gap-xs">
+<label class="font-label-md text-label-md text-on-surface-variant">默认类别</label>
+<select class="bg-surface-container-low border border-outline-variant rounded-lg px-md py-sm focus:ring-2 focus:ring-primary focus:outline-none font-body-md text-body-md appearance-none">
+<option>未分类</option>
+<option selected="">工作</option>
+<option>个人</option>
+<option>购物</option>
+</select>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column: System & Account -->
+<div class="lg:col-span-4 space-y-lg">
+<!-- Appearance Section -->
+<section class="bg-surface ambient-shadow rounded-xl p-lg">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-lg">外观</h3>
+<div class="flex flex-col gap-md">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md text-on-surface">颜色主题</span>
+<div class="flex bg-surface-container rounded-lg p-xs">
+<button class="px-md py-xs bg-surface shadow-sm rounded-md font-label-sm text-label-sm text-primary flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]">light_mode</span> 浅色
+                                        </button>
+<button class="px-md py-xs text-on-surface-variant font-label-sm text-label-sm flex items-center gap-xs hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-[18px]">dark_mode</span> 深色
+                                        </button>
+</div>
+</div>
+<div class="pt-md border-t border-outline-variant">
+<p class="font-label-sm text-label-sm text-on-surface-variant mb-sm">主题色</p>
+<div class="flex gap-sm">
+<div class="w-8 h-8 rounded-full bg-primary ring-2 ring-offset-2 ring-primary cursor-pointer"></div>
+<div class="w-8 h-8 rounded-full bg-secondary cursor-pointer hover:scale-110 transition-transform"></div>
+<div class="w-8 h-8 rounded-full bg-tertiary cursor-pointer hover:scale-110 transition-transform"></div>
+<div class="w-8 h-8 rounded-full bg-error cursor-pointer hover:scale-110 transition-transform"></div>
+</div>
+</div>
+</div>
+</section>
+<!-- Account Management -->
+<section class="bg-surface ambient-shadow rounded-xl p-lg">
+<h3 class="font-headline-sm text-headline-sm text-on-surface mb-lg">账号</h3>
+<div class="space-y-sm">
+<button class="w-full flex items-center justify-between p-md rounded-lg hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">security</span>
+<span class="font-label-md text-label-md text-on-surface">安全设置</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-md rounded-lg hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">payments</span>
+<span class="font-label-md text-label-md text-on-surface">账单与订阅</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</button>
+<button class="w-full flex items-center justify-between p-md rounded-lg hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">cloud_sync</span>
+<span class="font-label-md text-label-md text-on-surface">数据与隐私</span>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant">chevron_right</span>
+</button>
+<div class="pt-lg mt-md border-t border-outline-variant">
+<button class="w-full flex items-center gap-md p-md rounded-lg text-error hover:bg-error-container/20 transition-colors">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-label-md text-label-md">退出登录</span>
+</button>
+</div>
+</div>
+</section>
+</div>
+</div>
+<!-- Delete Account Footer -->
+<div class="mt-xl py-lg border-t border-outline-variant flex flex-col md:flex-row justify-between items-center gap-md">
+<div>
+<h4 class="font-label-md text-label-md text-error">危险区域</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant">永久删除您的账号及所有相关任务数据。</p>
+</div>
+<button class="px-lg py-sm border border-error text-error rounded-lg font-label-md text-label-md hover:bg-error hover:text-on-error transition-all">删除账号</button>
+</div>
+</div>
+</main>
+</div>
+<!-- Mobile Navigation (BottomNavBar) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full bg-surface border-t border-surface-variant flex justify-around items-center h-16 px-md z-50">
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-medium">仪表盘</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">checklist</span>
+<span class="text-[10px] font-medium">任务</span>
+</a>
+<div class="relative -top-6">
+<button class="w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="text-[10px] font-medium">日历</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-primary" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-medium font-bold">设置</span>
+</a>
+</nav>
+<script>
+        // Micro-interaction for Select elements
+        document.querySelectorAll('select').forEach(select => {
+            select.addEventListener('change', (e) => {
+                select.parentElement.classList.add('scale-[1.02]');
+                setTimeout(() => select.parentElement.classList.remove('scale-[1.02]'), 200);
+            });
+        });
+
+        // Hover lift effect for sections
+        document.querySelectorAll('section').forEach(section => {
+            section.addEventListener('mouseenter', () => {
+                section.style.boxShadow = "0px 10px 15px rgba(0,0,0,0.1)";
+            });
+            section.addEventListener('mouseleave', () => {
+                section.style.boxShadow = "0px 2px 4px rgba(0,0,0,0.05)";
+            });
+        });
+    </script>
+</body></html>

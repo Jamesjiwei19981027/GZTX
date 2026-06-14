@@ -1,0 +1,13 @@
+<view class="task-item {{task.is_overdue ? 'overdue' : ''}}" bindtap="onTap">
+  <view class="priority-bar priority-{{task.priority === 2 ? 'high' : task.priority === 1 ? 'medium' : 'low'}}"></view>
+  <view class="task-content">
+    <view class="task-title">{{task.title}}</view>
+    <view class="task-meta">
+      <text wx:if="{{task.category}}" class="category-tag" style="background-color: {{task.category.color}}">{{task.category.name}}</text>
+      <text class="due-date">{{task.due_date_relative}}</text>
+    </view>
+  </view>
+  <view class="task-status {{task.status === 2 ? 'completed' : ''}}">
+    <text wx:if="{{task.status === 2}}">✓</text>
+  </view>
+</view>

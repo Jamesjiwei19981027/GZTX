@@ -1,0 +1,63 @@
+<view class="container">
+  <view class="form-section">
+    <view class="form-label">任务标题 *</view>
+    <input class="form-input" value="{{title}}" placeholder="请输入任务标题" bindinput="onTitleChange" />
+  </view>
+
+  <view class="form-section">
+    <view class="form-label">任务描述</view>
+    <textarea class="form-textarea" value="{{description}}" placeholder="请输入任务描述" bindinput="onDescriptionChange" />
+  </view>
+
+  <view class="form-section">
+    <view class="form-label">优先级</view>
+    <radio-group bindchange="onPriorityChange">
+      <label class="radio-item">
+        <radio value="0" checked="{{priority === 0}}" />低
+      </label>
+      <label class="radio-item">
+        <radio value="1" checked="{{priority === 1}}" />中
+      </label>
+      <label class="radio-item">
+        <radio value="2" checked="{{priority === 2}}" />高
+      </label>
+    </radio-group>
+  </view>
+
+  <view class="form-section">
+    <view class="form-label">分类</view>
+    <picker mode="selector" range="{{categories}}" range-key="name" bindchange="onCategoryChange">
+      <view class="picker-value">
+        {{categoryId ? categories[categories.findIndex(c => c.id === categoryId)].name : '请选择分类'}}
+      </view>
+    </picker>
+  </view>
+
+  <view class="form-section">
+    <view class="form-label">标签</view>
+    <checkbox-group bindchange="onTagChange">
+      <label wx:for="{{tags}}" wx:key="id" class="checkbox-item">
+        <checkbox value="{{item.id}}" checked="{{tagIds.indexOf(item.id) !== -1}}" />
+        <text style="color: {{item.color}}">{{item.name}}</text>
+      </label>
+    </checkbox-group>
+  </view>
+
+  <view class="form-section">
+    <view class="form-label">截止日期</view>
+    <picker mode="datetime" value="{{dueDate}}" bindchange="onDueDateChange">
+      <view class="picker-value">
+        {{dueDate ? dueDate : '请选择截止日期'}}
+      </view>
+    </picker>
+  </view>
+
+  <view class="form-section">
+    <view class="form-label">重复任务</view>
+    <switch checked="{{isRecurring}}" bindchange="onRecurringChange" />
+  </view>
+
+  <view class="form-actions">
+    <button type="primary" bindtap="onSave">{{isEdit ? '更新' : '创建'}}</button>
+  </view>
+</view>

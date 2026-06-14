@@ -1,0 +1,50 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+
+  <view wx:if="{{task}}" class="task-detail">
+    <view class="task-header">
+      <view class="priority-badge priority-{{task.priority === 2 ? 'high' : task.priority === 1 ? 'medium' : 'low'}}">
+        {{task.priority === 2 ? '高' : task.priority === 1 ? '中' : '低'}}
+      </view>
+      <view class="status-badge {{task.status === 2 ? 'completed' : ''}}">
+        {{task.status_label}}
+      </view>
+    </view>
+
+    <view class="task-title">{{task.title}}</view>
+
+    <view wx:if="{{task.description}}" class="task-description">
+      {{task.description}}
+    </view>
+
+    <view class="info-section">
+      <view class="info-item">
+        <text class="info-label">截止日期</text>
+        <text class="info-value {{task.is_overdue ? 'overdue' : ''}}">{{task.due_date_formatted}} ({{task.due_date_relative}})</text>
+      </view>
+
+      <view wx:if="{{task.category}}" class="info-item">
+        <text class="info-label">分类</text>
+        <view class="category-tag" style="background-color: {{task.category.color}}">{{task.category.name}}</view>
+      </view>
+
+      <view wx:if="{{task.tags.length > 0}}" class="info-item">
+        <text class="info-label">标签</text>
+        <view class="tags-list">
+          <view wx:for="{{task.tags}}" wx:key="id" class="tag-item" style="background-color: {{item.color}}">{{item.name}}</view>
+        </view>
+      </view>
+
+      <view wx:if="{{task.reminders.length > 0}}" class="info-item">
+        <text class="info-label">提醒</text>
+        <text class="info-value">{{task.reminders.length}} 个提醒</text>
+      </view>
+    </view>
+
+    <view class="action-buttons">
+      <button wx:if="{{task.status !== 2}}" type="primary" bindtap="onComplete">完成</button>
+      <button bindtap="onEdit">编辑</button>
+      <button type="warn" bindtap="onDelete">删除</button>
+    </view>
+  </view>
+</view>

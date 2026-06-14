@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Flow Productivity - 项目协作</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-container": "#6cf8bb",
+                    "on-error": "#ffffff",
+                    "surface-variant": "#e1e3e4",
+                    "surface-container-high": "#e7e8e9",
+                    "on-surface-variant": "#424754",
+                    "outline-variant": "#c2c6d6",
+                    "background": "#f8f9fa",
+                    "surface-bright": "#f8f9fa",
+                    "primary": "#0058be",
+                    "tertiary-fixed": "#ffdcc6",
+                    "primary-container": "#2170e4",
+                    "inverse-on-surface": "#f0f1f2",
+                    "surface-tint": "#005ac2",
+                    "tertiary": "#924700",
+                    "on-secondary": "#ffffff",
+                    "on-surface": "#191c1d",
+                    "on-secondary-fixed": "#002113",
+                    "surface-container": "#edeeef",
+                    "on-tertiary-fixed": "#311400",
+                    "primary-fixed": "#d8e2ff",
+                    "on-secondary-fixed-variant": "#005236",
+                    "on-secondary-container": "#00714d",
+                    "on-background": "#191c1d",
+                    "tertiary-fixed-dim": "#ffb786",
+                    "secondary-fixed": "#6ffbbe",
+                    "primary-fixed-dim": "#adc6ff",
+                    "on-tertiary-container": "#fffbff",
+                    "on-tertiary": "#ffffff",
+                    "inverse-surface": "#2e3132",
+                    "secondary-fixed-dim": "#4edea3",
+                    "on-error-container": "#93000a",
+                    "on-primary": "#ffffff",
+                    "surface-dim": "#d9dadb",
+                    "secondary": "#006c49",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed-variant": "#004395",
+                    "tertiary-container": "#b75b00",
+                    "error": "#ba1a1a",
+                    "inverse-primary": "#adc6ff",
+                    "on-tertiary-fixed-variant": "#723600",
+                    "outline": "#727785",
+                    "surface-container-highest": "#e1e3e4",
+                    "surface": "#f8f9fa",
+                    "error-container": "#ffdad6",
+                    "surface-container-low": "#f3f4f5",
+                    "on-primary-fixed": "#001a42",
+                    "on-primary-container": "#fefcff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "24px",
+                    "xs": "4px",
+                    "md": "16px",
+                    "margin-mobile": "16px",
+                    "sm": "8px",
+                    "lg": "24px",
+                    "margin-desktop": "40px",
+                    "base": "4px",
+                    "xl": "32px",
+                    "max-width": "1200px"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "label-md": ["Inter"],
+                    "headline-md-mobile": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "body-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                    "headline-md-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .kanban-column { min-height: calc(100vh - 200px); }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e1e3e4; border-radius: 10px; }
+    </style>
+</head>
+<body class="text-on-surface overflow-hidden">
+<!-- Top Navigation Bar -->
+<header class="bg-surface border-b border-surface-variant flex justify-between items-center w-full px-lg h-16 fixed top-0 z-50">
+<div class="flex items-center gap-md">
+<span class="text-headline-md font-headline-md font-bold text-primary">Flow</span>
+<div class="h-6 w-[1px] bg-outline-variant mx-sm hidden md:block"></div>
+<!-- Project Selector -->
+<div class="relative group">
+<button class="flex items-center gap-sm px-md py-xs rounded-lg hover:bg-surface-container transition-colors">
+<span class="font-label-md text-label-md text-on-surface">企业云平台升级</span>
+<span class="material-symbols-outlined text-on-surface-variant" style="font-size: 20px;">expand_more</span>
+</button>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<button class="p-2 rounded-full hover:bg-surface-container text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 rounded-full hover:bg-surface-container text-on-surface-variant transition-colors">
+<span class="material-symbols-outlined">help_outline</span>
+</button>
+<img alt="User" class="w-8 h-8 rounded-full border border-outline-variant" data-alt="A professional headshot of a team leader in a modern office environment. The person has a friendly, confident expression with soft lighting illuminating their features. The background is a clean, out-of-focus workspace with minimalist decor, reinforcing a high-performance productivity atmosphere. The color palette is composed of soft greys and deep blues." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCLIUef_T9yyt5DBZHSqkERF3xdyYTgmkExsjowwmOPCEYRQlpWXzi78lcrcvTjbCU0QHp9lO4YVQcfKbl1nn4SKK68GiSOlMYQkcarpOgCvBwyaUAqqrdLXkitXC1wgo8wcIv5rZWU11JOarZIn8npNBEFpFmiGTWIuxY4jZfpSgClOr0g6yvoOvbwqjGD7ME2KOXL9LZ2D7V4oZ54-J99gXFCbP0zjI0wntd5jHUEn9ssLKf-hp_U4_Xfcc_te4u7uA1WYTxVFug"/>
+</div>
+</header>
+<!-- Side Navigation Bar -->
+<nav class="fixed left-0 top-16 h-[calc(100vh-64px)] w-[280px] bg-surface border-r border-surface-variant hidden md:flex flex-col py-lg px-md gap-sm">
+<div class="mb-lg px-sm">
+<h2 class="font-headline-sm text-headline-sm font-bold text-primary">项目空间</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant">保持专注，高效协作</p>
+</div>
+<a class="flex items-center gap-md px-md py-sm rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-all duration-300" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">仪表盘</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-xl text-primary font-bold border-r-4 border-primary bg-primary-fixed/20 transition-all duration-300" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">checklist</span>
+<span class="font-label-md text-label-md">任务列表</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-all duration-300" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-label-md text-label-md">日程表</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-xl text-on-surface-variant hover:bg-surface-container-low transition-all duration-300" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">设置</span>
+</a>
+<div class="mt-auto">
+<button class="w-full flex items-center justify-center gap-sm bg-primary text-on-primary py-md rounded-xl font-label-md text-label-md shadow-sm hover:opacity-90 active:scale-95 transition-all">
+<span class="material-symbols-outlined">add</span>
+                新建任务
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="md:ml-[280px] mt-16 p-lg h-[calc(100vh-64px)] overflow-hidden flex flex-col">
+<!-- Board Header -->
+<div class="flex justify-between items-center mb-lg">
+<div>
+<h1 class="font-display-lg text-display-lg text-on-surface">研发协作看板</h1>
+<div class="flex items-center gap-md mt-xs text-on-surface-variant font-body-sm text-body-sm">
+<span class="flex items-center gap-xs"><span class="w-2 h-2 rounded-full bg-secondary"></span> 正常运行</span>
+<span>•</span>
+<span>最后更新于 2分钟前</span>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<div class="flex -space-x-3 mr-md">
+<img alt="Member" class="w-8 h-8 rounded-full border-2 border-surface" data-alt="A smiling woman with glasses in a professional, light-filled creative studio. The background is blurred with hints of architectural designs and plants. The overall lighting is warm and natural, creating a welcoming and collaborative mood that fits the high-end productivity app's identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA6xUg38Bf5BfMhUHZPfmAOikKCidTMV0sFGCVzXQzE9uEMfSNfBsokfBhPPhuA1Orsws23P3FqYvtTsDa06CAd0qTQ1ImFlKLRi_xnMGoX-Rxs64EW1xOhgsJeQgyGXrl584YJWpOne8fgulifT1ZR6B_alkVHVgjsrefR4uKtBXVYGtbI92m0paDIo5e7cHAt_pp3a575GnHgc6X-wJ1zr4fb8hTtRkRpbYFxUP4011Ly2LyzafO-DyRCJX1zOGLGBoMIhsjHrkA"/>
+<img alt="Member" class="w-8 h-8 rounded-full border-2 border-surface" data-alt="A focused male developer working at a minimalist desk with a mechanical keyboard and a high-resolution screen in the background. Soft ambient lighting highlights his determined expression. The environment is orderly and serene, reflecting a flow-state atmosphere. Deep blues and clean whites dominate the visual space." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAj7BeNVHAPDCzodV-hnMYnreA5v2QyWJWK8HfVeLU4LpnW4H8Bi2zwpsBGjA8A7JD-pGOfOiIRxzUw91PHq5tDvZIn6dTLI-8FNOUPpqRhWIBvAlXMbZLmzJ8tJ12VakEjcb9py-7uhd83SrU_UzZ8iPCLzdaYmWw4tdhS2NSeGc1U8zYhI1feXICNwa4w-KkCSZmDaFEPOqUaTxlD7sA3BDwIRtisBNqmL4r_Oj77LRl9_E7JIjqyzVi4I_qSjOyL1hNiomN-2Oc"/>
+<img alt="Member" class="w-8 h-8 rounded-full border-2 border-surface" data-alt="A portrait of a male project manager in a high-tech corporate environment. He is leaning against a glass wall with digital data visualizations faintly visible. The lighting is crisp and modern, featuring cool tones. His expression is confident and organized, perfectly matching the reliability and focus of the 'Flow' brand." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBjj77R__joZCoKvjej-pm2-7iWSSx8X86_cxkxe2xzk5wKfudJOJo6TMeGl-g0uKygStJh-Z4qV37afIG8KHnpoK6If4ofdQsyxLNA3SZH9GML_6VbhNPgn4SUwswc5z5PxU1F-ORr95VHvAhHhIYCilXgM487wLjVE9sLoG-ziDTs6g0pEfZeRAXGIa1kDpgk0DzXUsyLsDUotEBgQBh2kk3b0OWJkk1NnQBNS7JriycsN9BP4Mwi5oq7drmyhg4cH-6wL_IQJP4"/>
+<div class="w-8 h-8 rounded-full border-2 border-white bg-surface-container-high flex items-center justify-center text-[10px] font-bold text-on-surface-variant">+5</div>
+</div>
+<button class="px-md py-xs rounded-lg border border-outline hover:bg-surface-container transition-colors text-label-md font-label-md flex items-center gap-xs">
+<span class="material-symbols-outlined" style="font-size: 18px;">filter_list</span> 筛选
+                </button>
+</div>
+</div>
+<!-- Kanban Board -->
+<div class="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar pb-lg">
+<div class="flex gap-lg min-w-[1000px] h-full">
+<!-- To Do Column -->
+<div class="flex-1 min-w-[320px] bg-surface-container-low rounded-2xl p-md flex flex-col gap-md">
+<div class="flex justify-between items-center px-sm">
+<div class="flex items-center gap-sm">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">待办</h3>
+<span class="bg-surface-container-highest px-sm py-[2px] rounded text-label-sm font-label-sm text-on-surface-variant">4</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+<div class="flex flex-col gap-md overflow-y-auto custom-scrollbar pr-sm h-full pb-md">
+<!-- Card 1 -->
+<div class="bg-surface p-md rounded-xl shadow-[0px_2px_4px_rgba(0,0,0,0.05)] border border-surface-variant hover:shadow-[0px_10px_15px_rgba(0,0,0,0.1)] transition-all cursor-grab active:cursor-grabbing group">
+<div class="flex justify-between items-start mb-sm">
+<span class="bg-primary-fixed/20 text-primary px-sm py-[2px] rounded-pill font-label-sm text-label-sm">技术调研</span>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-on-surface-variant">drag_indicator</span>
+</div>
+<h4 class="font-label-md text-label-md text-on-surface mb-md">设计新版用户权限模型文档</h4>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-xs text-error font-label-sm text-label-sm">
+<span class="material-symbols-outlined" style="font-size: 16px;">priority_high</span> 高
+                                </div>
+<img alt="Assignee" class="w-6 h-6 rounded-full" data-alt="A close-up portrait of a female software architect in a contemporary office setting with soft, diffused daylight. She has a thoughtful and intelligent gaze. The background shows a hint of a clean, white whiteboard with structured diagrams. The aesthetic is clean, professional, and focuses on high-level cognitive work." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFrx6aHoQ5QATRNanTAAnXlYt7DTovpcvtIMBkU1khQ2rcp0B9yRcj8NrzbgeIQ6BKJqyVPfB7sZJcjfy-uTRUnrX-bRERiKQ1UBKj1CXpvDxCWYsFV9wJZCDaL9C36r5XgbIYvPmpMgBmJ7Zx-xywWPXanpkZ14oN2No5X5Bje43cHLrh1QLTcprBkvm0fsrWi5o8wgnP_3tKe--Hc1EnJYRAFYolGQ3Qj7ZBVXmZWX3wwxZH1PsbA7ub2UIm41NWUIvzqwu9CxM"/>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface p-md rounded-xl shadow-[0px_2px_4px_rgba(0,0,0,0.05)] border border-surface-variant hover:shadow-[0px_10px_15px_rgba(0,0,0,0.1)] transition-all cursor-grab active:cursor-grabbing group">
+<div class="flex justify-between items-start mb-sm">
+<span class="bg-secondary-container/30 text-secondary px-sm py-[2px] rounded-pill font-label-sm text-label-sm">UI设计</span>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-on-surface-variant">drag_indicator</span>
+</div>
+<h4 class="font-label-md text-label-md text-on-surface mb-md">完成移动端详情页高保真原型</h4>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-xs text-on-tertiary-fixed-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined" style="font-size: 16px;">low_priority</span> 中
+                                </div>
+<img alt="Assignee" class="w-6 h-6 rounded-full" data-alt="A portrait of a creative professional designer with a stylish, modern look. The lighting is artful and creates soft shadows, reflecting a high-end minimalist design ethos. The background is a sophisticated workspace with artistic touches. Colors are muted with elegant highlights of Focus Blue." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBJOaPA42CXP8KRVGZTmnO2k3O0D0mQvQH9cjGF4WD5huE95HkdgjDAQKyPY2ZLl7ePDuoxvyxld5xZ73P9nHMNGgpq6QZ5VMecdFLtzQ1FwFrHFV_jwfYyj56L5NcKMNOt5bpUQn4yvSO0uhWqS_BI1457MI1WIi8xQLcfFYeVG_LMh3IXl26KIFSVr-JXu3huh2sz6dlLEmJDsmenFt5Y9Ihbw1sEYs412XKtn22e4vuWzJeIWGkwvaLXvzDaWkd7srw-hrssSFc"/>
+</div>
+</div>
+</div>
+</div>
+<!-- In Progress Column -->
+<div class="flex-1 min-w-[320px] bg-surface-container-low rounded-2xl p-md flex flex-col gap-md">
+<div class="flex justify-between items-center px-sm">
+<div class="flex items-center gap-sm">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">进行中</h3>
+<span class="bg-primary-container text-on-primary-container px-sm py-[2px] rounded text-label-sm font-label-sm">2</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_horiz</span>
+</button>
+</div>
+<div class="flex flex-col gap-md overflow-y-auto custom-scrollbar pr-sm h-full pb-md">
+<!-- Progress Card 1 -->
+<div class="bg-surface p-md rounded-xl shadow-[0px_2px_4px_rgba(0,0,0,0.05)] border border-primary-container/30 hover:shadow-[0px_10px_15px_rgba(0,0,0,0.1)] transition-all cursor-grab group">
+<div class="flex justify-between items-start mb-sm">
+<span class="bg-tertiary-fixed text-tertiary px-sm py-[2px] rounded-pill font-label-sm text-label-sm">后端开发</span>
+<span class="material-symbols-outlined text-outline-variant group-hover:text-on-surface-variant">drag_indicator</span>
+</div>
+<h4 class="font-label-md text-label-md text-on-surface mb-md">重构API认证层并对接OAuth2.0</h4>
+<div class="w-full bg-surface-container h-1 rounded-full mb-md overflow-hidden">
+<div class="bg-primary h-full w-2/3"></div>
+</div>
+<div class="flex justify-between items-center">
+<div class="flex items-center gap-xs text-error font-label-sm text-label-sm">
+<span class="material-symbols-outlined" style="font-size: 16px;">priority_high</span> 急
+                                </div>
+<div class="flex -space-x-2">
+<img alt="Assignee" class="w-6 h-6 rounded-full border border-surface" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAlskTdxLsPuquKYEa1kxHk0A7ezbgzRHHLWRK94oEX-02LxDQOn-BBTw-dsJbVtHs23hUfjEu6c-w-UyjH78vnV5RJ7bDI7bMLkFr0GiovmKBoGIynQx5cXHL3-j4nOdGYsntkJTufI6fsSqBPRXCDvBt4Ev4P8_e3gyOSOX1U2AbShVfYXunEuCPbJjYLjLt81ZLQFh_UpvHQrjR7Crvp3lBuIqNeax0o0kKcqhBwAKiTzSqp_GWdX75Dcol4rK98kNgh3G-4X8U"/>
+<img alt="Assignee" class="w-6 h-6 rounded-full border border-surface" data-alt="A portrait of a focused professional female developer in a bright, clean coding environment. She is working on a complex logical problem, suggested by her thoughtful expression. The lighting is crisp and the background is a minimalist, high-performance office." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBbNIbxQ2Cr-LmVmqZmf5Zxffv7m1klB-pxTv5KZ-fJMzR3MFkzQZsf0FkMmssmEXZ9kQu7O7XROf6YPVl6_yyBWQ68JinMgg5ne5FrHJC182547hrwnUDn-jbElPNn5kF8KXtoFbhbTMrTT7NrKGMnPUHw5Ksh14vO8g-s1mQQQKyCP1ARhFjrCt5wIFY364qIRMKSx5vEWEOYWGXW8wHIBRuWybXPoLhskcX7MV0IpXlZCi7045fxTj44kLFSX7aG7lgSgeTKISI"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Done Column -->
+<div class="flex-1 min-w-[320px] bg-surface-container-low rounded-2xl p-md flex flex-col gap-md opacity-80">
+<div class="flex justify-between items-center px-sm">
+<div class="flex items-center gap-sm">
+<h3 class="font-headline-sm text-headline-sm text-on-surface">已完成</h3>
+<span class="bg-secondary-fixed-dim text-on-secondary-fixed px-sm py-[2px] rounded text-label-sm font-label-sm">12</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">check_circle</span>
+</button>
+</div>
+<div class="flex flex-col gap-md overflow-y-auto custom-scrollbar pr-sm h-full pb-md">
+<!-- Done Card -->
+<div class="bg-surface p-md rounded-xl shadow-[0px_2px_4px_rgba(0,0,0,0.05)] border border-surface-variant opacity-60">
+<div class="flex justify-between items-start mb-sm">
+<span class="bg-surface-container-highest text-on-surface-variant px-sm py-[2px] rounded-pill font-label-sm text-label-sm">文档</span>
+<span class="material-symbols-outlined text-secondary" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+</div>
+<h4 class="font-label-md text-label-md text-on-surface mb-md line-through decoration-on-surface-variant">第二季度项目回顾报告</h4>
+<div class="flex justify-between items-center">
+<div class="text-on-surface-variant font-label-sm text-label-sm">完成于 昨日</div>
+<img alt="Assignee" class="w-6 h-6 rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuD8q_TMK4B1ZeLkW8ya26ATnPlM-RscPpJXwPWg2ypgvLdgAtZsxD00fYzXxBG-Y9Ga9cIkwje9yJKDspo9TM1y9TXLPz82AmFK_iHsLsQEUNjxxGRZKdUJDay-yOqdEtJdYdBWkXtel0xBtrANHrlzJ-bPzDDCOpMK8aXHng8xEuLKXzWulb8SdBLOqtXwj1FqEIVWqBUMpOiUesQVmdxwNTNCLSb0H8uZqHmnFbCO7icsL7TCNGN91ZL0K1r2Vn1IhrLW2H6JipE"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- FAB for New Task (Contextual for Home/Board) -->
+<button class="fixed bottom-lg right-lg w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all md:hidden">
+<span class="material-symbols-outlined" style="font-size: 32px;">add</span>
+</button>
+<script>
+        // Simple Interaction logic for drag-hover effect simulation
+        const cards = document.querySelectorAll('.bg-surface');
+        cards.forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                if (!card.classList.contains('opacity-60')) {
+                    card.style.transform = 'translateY(-2px)';
+                }
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0)';
+            });
+        });
+
+        // Simulating column scroll synchronization or simple interactions
+        console.log("协作看板已就绪");
+    </script>
+</body></html>

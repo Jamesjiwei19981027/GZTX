@@ -1,0 +1,154 @@
+<view class="container">
+  <view class="form">
+    <!-- 标题 -->
+    <view class="form-item">
+      <view class="form-label required">任务标题</view>
+      <input
+        class="input"
+        placeholder="请输入任务标题"
+        value="{{formData.title}}"
+        maxlength="100"
+        bindinput="onTitleInput"
+      />
+    </view>
+
+    <!-- 描述 -->
+    <view class="form-item">
+      <view class="form-label">任务描述</view>
+      <textarea
+        class="textarea"
+        placeholder="请输入任务描述（选填）"
+        value="{{formData.description}}"
+        maxlength="500"
+        bindinput="onDescriptionInput"
+      />
+    </view>
+
+    <!-- 优先级 -->
+    <view class="form-item">
+      <view class="form-label">优先级</view>
+      <view class="priority-select">
+        <view
+          class="priority-btn {{formData.priority === 0 ? 'active low' : ''}}"
+          bindtap="onPriorityChange"
+          data-value="0"
+        >低</view>
+        <view
+          class="priority-btn {{formData.priority === 1 ? 'active medium' : ''}}"
+          bindtap="onPriorityChange"
+          data-value="1"
+        >中</view>
+        <view
+          class="priority-btn {{formData.priority === 2 ? 'active high' : ''}}"
+          bindtap="onPriorityChange"
+          data-value="2"
+        >高</view>
+      </view>
+    </view>
+
+    <!-- 分类 -->
+    <view class="form-item">
+      <view class="form-label">分类</view>
+      <view class="category-list">
+        <view
+          class="category-btn {{formData.category_id === null ? 'active' : ''}}"
+          bindtap="onCategoryChange"
+          data-id=""
+        >不限</view>
+        <view
+          wx:for="{{categories}}"
+          wx:key="id"
+          class="category-btn {{formData.category_id === item.id ? 'active' : ''}}"
+          style="border-left: 4rpx solid {{item.color}}"
+          bindtap="onCategoryChange"
+          data-id="{{item.id}}"
+        >{{item.name}}</view>
+      </view>
+    </view>
+
+    <!-- 截止日期 -->
+    <view class="form-item">
+      <view class="form-label">截止日期</view>
+      <view class="datetime-row">
+        <view class="date-picker" bindtap="showDatePickerModal">
+          <text>{{formData.due_date || '选择日期'}}</text>
+        </view>
+        <view class="time-picker" bindtap="showTimePickerModal">
+          <text>{{formData.due_time || '选择时间'}}</text>
+        </view>
+        <view wx:if="{{formData.due_date}}" class="clear-btn" bindtap="onClearDate">
+          <text>清除</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 提醒设置 -->
+    <view class="form-item" wx:if="{{formData.due_date}}">
+      <view class="form-label">提醒</view>
+      <view class="reminder-list">
+        <view
+          wx:for="{{reminderOptions}}"
+          wx:key="value"
+          class="reminder-btn {{selectedReminder === item.value ? 'active' : ''}}"
+          bindtap="onReminderChange"
+          data-value="{{item.value}}"
+        >{{item.label}}</view>
+      </view>
+    </view>
+
+    <!-- 提交按钮 -->
+    <view class="form-actions">
+      <button class="btn btn-primary btn-block" bindtap="onSubmit" loading="{{submitting}}">
+        {{isEdit ? '保存修改' : '创建任务'}}
+      </button>
+    </view>
+  </view>
+
+  <!-- 日期选择器弹窗 -->
+  <view wx:if="{{showDatePicker}}" class="picker-mask" bindtap="closeDatePicker">
+    <view class="picker-content" catchtap="preventBubble">
+      <view class="picker-header">
+        <text bindtap="closeDatePicker">取消</text>
+        <text>选择日期</text>
+        <text bindtap="closeDatePicker">确定</text>
+      </view>
+      <picker-view
+        class="picker-view"
+        value="{{currentDate}}"
+        bindchange="onDateChange"
+      >
+        <picker-view-column>
+          <view wx:for="{{years}}" wx:key="*this" class="picker-item">{{item}}年</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view wx:for="{{months}}" wx:key="*this" class="picker-item">{{item}}月</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view wx:for="{{days}}" wx:key="*this" class="picker-item">{{item}}日</view>
+        </picker-view-column>
+      </picker-view>
+    </view>
+  </view>
+
+  <!-- 时间选择器弹窗 -->
+  <view wx:if="{{showTimePicker}}" class="picker-mask" bindtap="closeTimePicker">
+    <view class="picker-content" catchtap="preventBubble">
+      <view class="picker-header">
+        <text bindtap="closeTimePicker">取消</text>
+        <text>选择时间</text>
+        <text bindtap="closeTimePicker">确定</text>
+      </view>
+      <picker-view
+        class="picker-view"
+        bindchange="onTimeChange"
+      >
+        <picker-view-column>
+          <view wx:for="{{hours}}" wx:key="*this" class="picker-item">{{item}}</view>
+        </picker-view-column>
+        <picker-view-column>
+          <view wx:for="{{minutes}}" wx:key="*this" class="picker-item">{{item}}</view>
+        </picker-view-column>
+      </picker-view>
+    </view>
+  </view>
+</view>

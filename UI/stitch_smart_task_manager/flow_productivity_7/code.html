@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+
+<html class="light" lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>日历 | Flow 生产力</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#2e3132",
+                        "surface-container-high": "#e7e8e9",
+                        "on-error-container": "#93000a",
+                        "primary-fixed": "#d8e2ff",
+                        "primary": "#0058be",
+                        "surface-tint": "#005ac2",
+                        "surface-dim": "#d9dadb",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-fixed-dim": "#adc6ff",
+                        "outline": "#727785",
+                        "secondary-fixed-dim": "#4edea3",
+                        "on-secondary-fixed-variant": "#005236",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "on-surface-variant": "#424754",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e1e3e4",
+                        "on-tertiary-fixed": "#311400",
+                        "surface-container-low": "#f3f4f5",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "inverse-on-surface": "#f0f1f2",
+                        "tertiary-container": "#b75b00",
+                        "on-primary-container": "#fefcff",
+                        "inverse-primary": "#adc6ff",
+                        "background": "#f8f9fa",
+                        "on-primary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-container-highest": "#e1e3e4",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-container": "#fffbff",
+                        "outline-variant": "#c2c6d6",
+                        "surface-bright": "#f8f9fa",
+                        "secondary": "#006c49",
+                        "on-background": "#191c1d",
+                        "on-secondary-container": "#00714d",
+                        "on-secondary-fixed": "#002113",
+                        "on-error": "#ffffff",
+                        "surface-container": "#edeeef",
+                        "secondary-container": "#6cf8bb",
+                        "surface": "#f8f9fa",
+                        "on-primary-fixed-variant": "#004395",
+                        "primary-container": "#2170e4",
+                        "secondary-fixed": "#6ffbbe",
+                        "on-surface": "#191c1d",
+                        "tertiary": "#924700",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#001a42",
+                        "tertiary-fixed": "#ffdcc6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "xs": "4px",
+                        "sm": "8px",
+                        "margin-desktop": "40px",
+                        "xl": "32px",
+                        "lg": "24px",
+                        "md": "16px",
+                        "base": "4px",
+                        "max-width": "1200px",
+                        "gutter": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md-mobile": ["Inter"],
+                        "body-sm": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600"}],
+                        "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "headline-md-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            grid-template-rows: auto repeat(5, 1fr);
+        }
+        .task-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+            display: none;
+        }
+        .drag-preview {
+            opacity: 0.5;
+            cursor: grabbing;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-surface fixed top-0 z-50 flex justify-between items-center w-full px-lg h-16 border-b border-surface-variant">
+<div class="flex items-center gap-md">
+<span class="text-headline-md font-headline-md font-bold text-primary">Flow</span>
+<div class="hidden md:flex ml-xl gap-lg">
+<a class="text-on-surface-variant font-label-md text-label-md hover:bg-surface-container transition-colors duration-200 px-sm py-xs rounded" href="#">仪表盘</a>
+<a class="text-on-surface-variant font-label-md text-label-md hover:bg-surface-container transition-colors duration-200 px-sm py-xs rounded" href="#">我的任务</a>
+<a class="text-primary font-bold font-label-md text-label-md px-sm py-xs rounded" href="#">日历视图</a>
+</div>
+</div>
+<div class="flex items-center gap-md">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full w-64 focus:ring-2 focus:ring-primary text-body-sm" placeholder="搜索任务..." type="text"/>
+</div>
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="help_outline">help_outline</span>
+</button>
+<img alt="用户头像" class="w-8 h-8 rounded-full border border-outline-variant" data-alt="一位年轻的创意专业人士的专业头像，表情温暖自信。光线柔和均匀，背景是一个现代化的办公室，有模糊的绿色植物和极简主义家具。整体美感干净高端，与专注的生产力应用程序相匹配。" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCC7XOxDMpqeoXkBmsgJ4Pvm2YjjNbhDHttTLqqeio5qgDWkX8n8M620SuJmgbnZIJOwohhG5kfFtMDPg_BwUn6cilj9b90uy6dFcVMgklT1fAH_hoXGW3Tn021eRy36iWd4HZbuwyL4sjjbnB0Nr_7gW69q_PR8vKD5hbeutti1OVfQlZyWm_4xLDCCKtU66aGQ--fPxWjNUVGh6JXhfCbjIdGHH__BMuwDGq4_wiS551tQuPIDVD5tTISiNK7ObSs6PSrNdCvGrk"/>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-0 h-full w-[280px] bg-surface border-r border-surface-variant flex flex-col h-full py-lg px-md gap-sm hidden md:flex pt-20">
+<div class="px-md mb-lg">
+<h2 class="font-headline-sm text-headline-sm font-bold text-primary">Flow 生产力</h2>
+<p class="text-on-surface-variant text-body-sm">保持专注状态</p>
+</div>
+<nav class="flex-grow space-y-1">
+<a class="flex items-center gap-md px-md py-3 text-on-surface-variant hover:bg-surface-container-low transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">仪表盘</span>
+</a>
+<a class="flex items-center gap-md px-md py-3 text-on-surface-variant hover:bg-surface-container-low transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary" data-icon="checklist">checklist</span>
+<span class="font-label-md text-label-md">我的任务</span>
+</a>
+<a class="flex items-center gap-md px-md py-3 text-primary font-bold border-r-4 border-primary bg-primary-fixed/20 transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+<span class="font-label-md text-label-md">日历视图</span>
+</a>
+<a class="flex items-center gap-md px-md py-3 text-on-surface-variant hover:bg-surface-container-low transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">设置</span>
+</a>
+</nav>
+<button class="mt-auto w-full py-3 bg-primary text-on-primary rounded-xl font-label-md text-label-md flex items-center justify-center gap-sm hover:opacity-90 active:scale-95 transition-all shadow-sm">
+<span class="material-symbols-outlined" data-icon="add">add</span>
+        新建任务
+    </button>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-[280px] pt-16 h-screen overflow-hidden flex flex-col">
+<div class="flex flex-1 overflow-hidden">
+<!-- Calendar Section -->
+<div class="flex-grow flex flex-col p-lg">
+<!-- Calendar Header -->
+<div class="flex items-center justify-between mb-lg">
+<div class="flex items-center gap-md">
+<h1 class="font-display-lg text-display-lg">2024年 10月</h1>
+<div class="flex gap-xs ml-md">
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors" onclick="prevMonth()">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors" onclick="nextMonth()">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<button class="px-md py-1.5 border border-outline-variant rounded-full text-label-md font-label-md hover:bg-surface-container-low transition-colors ml-sm">今天</button>
+</div>
+<div class="flex bg-surface-container-low p-1 rounded-lg">
+<button class="px-lg py-1.5 bg-surface rounded-md shadow-sm text-label-md font-label-md text-primary">月</button>
+<button class="px-lg py-1.5 text-on-surface-variant text-label-md font-label-md hover:text-on-surface">周</button>
+<button class="px-lg py-1.5 text-on-surface-variant text-label-md font-label-md hover:text-on-surface">日</button>
+</div>
+</div>
+<!-- Calendar Content -->
+<div class="flex-grow bg-surface rounded-2xl border border-surface-variant shadow-sm overflow-hidden flex flex-col">
+<div class="grid grid-cols-7 border-b border-surface-variant">
+<div class="py-sm text-center font-label-md text-label-md text-on-surface-variant border-r border-surface-variant">周日</div>
+<div class="py-sm text-center font-label-md text-label-md text-on-surface-variant border-r border-surface-variant">周一</div>
+<div class="py-sm text-center font-label-md text-label-md text-on-surface-variant border-r border-surface-variant">周二</div>
+<div class="py-sm text-center font-label-md text-label-md text-on-surface-variant border-r border-surface-variant">周三</div>
+<div class="py-sm text-center font-label-md text-label-md text-on-surface-variant border-r border-surface-variant">周四</div>
+<div class="py-sm text-center font-label-md text-label-md text-on-surface-variant border-r border-surface-variant">周五</div>
+<div class="py-sm text-center font-label-md text-label-md text-on-surface-variant">周六</div>
+</div>
+<div class="grid grid-cols-7 flex-grow calendar-grid-content" id="calendarGrid">
+<!-- Example Grid Generation (Oct 2024 starts on Tue) -->
+<!-- Prev month days -->
+<div class="border-r border-b border-surface-variant p-sm bg-surface-container-lowest/30 opacity-40 h-full flex flex-col">
+<span class="text-label-sm font-label-sm">29</span>
+</div>
+<div class="border-r border-b border-surface-variant p-sm bg-surface-container-lowest/30 opacity-40 h-full flex flex-col">
+<span class="text-label-sm font-label-sm">30</span>
+</div>
+<!-- Current month -->
+<!-- Day 1 -->
+<div class="border-r border-b border-surface-variant p-sm hover:bg-surface-container-low transition-colors cursor-pointer group h-full flex flex-col">
+<span class="text-label-sm font-label-sm">1</span>
+<div class="mt-xs space-y-1">
+<div class="bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded truncate font-medium">设计评审</div>
+</div>
+</div>
+<!-- Day 2 -->
+<div class="border-r border-b border-surface-variant p-sm hover:bg-surface-container-low transition-colors cursor-pointer group h-full flex flex-col bg-primary-fixed/5">
+<span class="text-label-sm font-label-sm">2</span>
+<div class="mt-xs space-y-1">
+<div class="bg-secondary-container/50 text-secondary text-[10px] px-1.5 py-0.5 rounded truncate font-medium">冲刺同步</div>
+<div class="bg-tertiary-fixed text-tertiary text-[10px] px-1.5 py-0.5 rounded truncate font-medium">客户电话</div>
+</div>
+</div>
+<!-- Day 3... Repeat cells -->
+<script>
+                        const grid = document.getElementById('calendarGrid');
+                        const tasksCH = ['季度同步', '团队午餐'];
+                        for (let i = 3; i <= 31; i++) {
+                            const isToday = i === 15;
+                            const cell = document.createElement('div');
+                            cell.className = `border-r border-b border-surface-variant p-sm hover:bg-surface-container-low transition-colors cursor-pointer h-full flex flex-col ${isToday ? 'bg-primary-fixed/10 ring-1 ring-inset ring-primary/20' : ''}`;
+                            cell.innerHTML = `
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-label-sm font-label-sm ${isToday ? 'bg-primary text-on-primary w-6 h-6 flex items-center justify-center rounded-full' : ''}">${i}</span>
+                                        ${i % 7 === 0 ? '<div class="task-dot bg-error"></div>' : ''}
+                                    </div>
+                                    <div class="mt-xs space-y-1 overflow-hidden">
+                                        ${i % 4 === 0 ? '<div class="bg-primary-fixed/50 text-on-primary-fixed-variant text-[10px] px-1.5 py-0.5 rounded truncate font-medium">季度同步</div>' : ''}
+                                        ${i === 15 ? '<div class="bg-secondary-container/50 text-secondary text-[10px] px-1.5 py-0.5 rounded truncate font-medium">团队午餐</div>' : ''}
+                                    </div>
+                                `;
+                            grid.appendChild(cell);
+                        }
+                        // Fill remaining
+                        for (let i = 1; i <= 9; i++) {
+                            const cell = document.createElement('div');
+                            cell.className = "border-r border-b border-surface-variant p-sm bg-surface-container-lowest/30 opacity-40 h-full flex flex-col";
+                            cell.innerHTML = `<span class="text-label-sm font-label-sm">${i}</span>`;
+                            grid.appendChild(cell);
+                        }
+                    </script>
+</div>
+</div>
+</div>
+<!-- Sidebar Side Panel -->
+<aside class="w-80 border-l border-surface-variant bg-surface-container-lowest flex flex-col hidden lg:flex">
+<div class="p-lg border-b border-surface-variant">
+<h3 class="font-headline-sm text-headline-sm mb-xs">10月15日，周二</h3>
+<p class="text-body-sm text-on-surface-variant">今日已安排 4 项任务</p>
+<div class="mt-lg flex flex-col gap-sm">
+<div class="flex items-center justify-between">
+<span class="text-label-sm font-label-sm text-on-surface-variant uppercase tracking-wider">效率评分</span>
+<span class="text-label-sm font-label-sm text-secondary">85%</span>
+</div>
+<div class="h-1 bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-secondary w-[85%]"></div>
+</div>
+</div>
+</div>
+<div class="flex-grow overflow-y-auto p-lg space-y-md scrollbar-hide">
+<div class="group cursor-grab active:cursor-grabbing bg-surface border border-outline-variant p-md rounded-xl shadow-sm hover:shadow-md transition-all draggable-task" draggable="true">
+<div class="flex items-start gap-md">
+<div class="w-2 h-10 rounded-full bg-primary mt-1"></div>
+<div class="flex-grow">
+<p class="font-label-md text-label-md text-on-surface">完成品牌视觉识别</p>
+<div class="flex items-center gap-xs text-on-surface-variant text-[12px] mt-1">
+<span class="material-symbols-outlined text-[14px]">schedule</span>
+                                上午 09:00 - 10:30
+                            </div>
+</div>
+</div>
+</div>
+<div class="group cursor-grab active:cursor-grabbing bg-surface border border-outline-variant p-md rounded-xl shadow-sm hover:shadow-md transition-all draggable-task" draggable="true">
+<div class="flex items-start gap-md">
+<div class="w-2 h-10 rounded-full bg-secondary mt-1"></div>
+<div class="flex-grow">
+<p class="font-label-md text-label-md text-on-surface">团队每日站会</p>
+<div class="flex items-center gap-xs text-on-surface-variant text-[12px] mt-1">
+<span class="material-symbols-outlined text-[14px]">group</span>
+                                上午 11:00
+                            </div>
+</div>
+</div>
+</div>
+<div class="group cursor-grab active:cursor-grabbing bg-surface border border-outline-variant p-md rounded-xl shadow-sm hover:shadow-md transition-all draggable-task" draggable="true">
+<div class="flex items-start gap-md">
+<div class="w-2 h-10 rounded-full bg-tertiary mt-1"></div>
+<div class="flex-grow">
+<p class="font-label-md text-label-md text-on-surface">与 Sarah 午餐</p>
+<div class="flex items-center gap-xs text-on-surface-variant text-[12px] mt-1">
+<span class="material-symbols-outlined text-[14px]">restaurant</span>
+                                下午 01:00
+                            </div>
+</div>
+</div>
+</div>
+<div class="group cursor-grab active:cursor-grabbing bg-surface border border-outline-variant p-md rounded-xl shadow-sm hover:shadow-md transition-all draggable-task" draggable="true">
+<div class="flex items-start gap-md">
+<div class="w-2 h-10 rounded-full bg-primary mt-1"></div>
+<div class="flex-grow">
+<p class="font-label-md text-label-md text-on-surface">审查 PR #452</p>
+<div class="flex items-center gap-xs text-on-surface-variant text-[12px] mt-1">
+<span class="material-symbols-outlined text-[14px]">code</span>
+                                下午 03:30
+                            </div>
+</div>
+</div>
+</div>
+</div>
+<!-- Mini Weather / Motivation -->
+<div class="p-lg mt-auto">
+<div class="glass-panel p-md rounded-2xl border border-primary/10 flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">wb_sunny</span>
+</div>
+<div>
+<p class="text-label-sm font-label-sm text-on-surface-variant uppercase">今日展望</p>
+<p class="text-label-md font-label-md">晴空万里，别忘了补水！</p>
+</div>
+</div>
+</div>
+</aside>
+</div>
+</main>
+<!-- Floating Action Button - Contextual for New Task -->
+<button class="fixed bottom-lg right-lg w-14 h-14 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center hover:scale-105 active:scale-95 transition-all md:hidden">
+<span class="material-symbols-outlined">add</span>
+</button>
+<script>
+    // Micro-interactions for Drag and Drop (Visual Simulation)
+    const tasks = document.querySelectorAll('.draggable-task');
+    const cells = document.querySelectorAll('#calendarGrid > div:not(.opacity-40)');
+
+    tasks.forEach(task => {
+        task.addEventListener('dragstart', (e) => {
+            task.classList.add('drag-preview');
+            e.dataTransfer.setData('text/plain', task.querySelector('p').innerText);
+        });
+
+        task.addEventListener('dragend', () => {
+            task.classList.remove('drag-preview');
+        });
+    });
+
+    cells.forEach(cell => {
+        cell.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            cell.classList.add('bg-primary-fixed/20');
+        });
+
+        cell.addEventListener('dragleave', () => {
+            cell.classList.remove('bg-primary-fixed/20');
+        });
+
+        cell.addEventListener('drop', (e) => {
+            e.preventDefault();
+            cell.classList.remove('bg-primary-fixed/20');
+            const taskName = e.dataTransfer.getData('text/plain');
+
+            // Add a visual indicator of the drop
+            const indicator = document.createElement('div');
+            indicator.className = 'bg-primary/10 text-primary text-[10px] px-1.5 py-0.5 rounded truncate font-medium mt-xs animate-pulse';
+            indicator.innerText = taskName;
+
+            const contentArea = cell.querySelector('.space-y-1') || cell;
+            contentArea.appendChild(indicator);
+
+            // Simulate interaction feedback
+            setTimeout(() => indicator.classList.remove('animate-pulse'), 1000);
+        });
+    });
+
+    function prevMonth() {
+        console.log('正在导航至上个月');
+    }
+
+    function nextMonth() {
+        console.log('正在导航至下个月');
+    }
+</script>
+</body></html>

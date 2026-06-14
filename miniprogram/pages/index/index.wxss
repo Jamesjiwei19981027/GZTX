@@ -1,0 +1,31 @@
+.container { padding: 20rpx; }
+.loading, .empty { text-align: center; padding: 100rpx 0; color: #999; }
+.empty-text { font-size: 32rpx; }
+
+.task-card { margin-bottom: 20rpx; }
+.task-header { display: flex; align-items: center; }
+.task-checkbox {
+  width: 44rpx; height: 44rpx;
+  border: 2rpx solid #dcdfe6; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-right: 20rpx;
+}
+.task-info { flex: 1; }
+.task-title { font-size: 30rpx; color: #303133; }
+.task-meta { margin-top: 8rpx; display: flex; align-items: center; gap: 12rpx; }
+.priority-tag {
+  font-size: 22rpx; padding: 2rpx 12rpx;
+  border-radius: 8rpx; color: #fff;
+}
+.priority-0 { background: #909399; }
+.priority-1 { background: #409EFF; }
+.priority-2 { background: #F56C6C; }
+.due-date { font-size: 24rpx; color: #909399; }
+
+.fab {
+  position: fixed; right: 40rpx; bottom: 120rpx;
+  width: 100rpx; height: 100rpx; border-radius: 50%;
+  background: #409EFF; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 56rpx; box-shadow: 0 4rpx 16rpx rgba(64, 158, 255, 0.4);
+}

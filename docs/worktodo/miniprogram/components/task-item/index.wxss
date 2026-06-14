@@ -1,0 +1,159 @@
+/* 任务项组件样式 */
+
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  background-color: var(--white);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  position: relative;
+}
+
+/* 复选框 */
+.checkbox {
+  width: 44rpx;
+  height: 44rpx;
+  border: 4rpx solid var(--border-color);
+  border-radius: 50%;
+  margin-right: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 4rpx;
+}
+
+.checkbox.checked {
+  background-color: var(--success-color);
+  border-color: var(--success-color);
+}
+
+.check-icon {
+  width: 24rpx;
+  height: 24rpx;
+}
+
+/* 任务内容 */
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.priority {
+  font-size: 22rpx;
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+  margin-right: 12rpx;
+}
+
+.priority.priority-low {
+  color: var(--success-color);
+  background-color: rgba(103, 194, 58, 0.1);
+}
+
+.priority.priority-medium {
+  color: var(--warning-color);
+  background-color: rgba(230, 162, 60, 0.1);
+}
+
+.priority.priority-high {
+  color: var(--danger-color);
+  background-color: rgba(245, 108, 108, 0.1);
+}
+
+.category {
+  font-size: 22rpx;
+}
+
+.title {
+  font-size: 30rpx;
+  color: var(--text-primary);
+  line-height: 1.4;
+  margin-bottom: 8rpx;
+}
+
+.title.completed {
+  text-decoration: line-through;
+  color: var(--text-placeholder);
+}
+
+.description {
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  margin-bottom: 12rpx;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.time {
+  display: flex;
+  align-items: center;
+  font-size: 24rpx;
+  color: var(--text-secondary);
+  margin-right: 24rpx;
+}
+
+.time.overdue {
+  color: var(--danger-color);
+}
+
+.time-icon {
+  width: 28rpx;
+  height: 28rpx;
+  margin-right: 8rpx;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.tag {
+  font-size: 22rpx;
+  margin-right: 12rpx;
+}
+
+/* 操作按钮 */
+.actions {
+  display: flex;
+  flex-direction: column;
+  margin-left: 16rpx;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.task-item:active .actions {
+  opacity: 1;
+}
+
+.action-btn {
+  width: 48rpx;
+  height: 48rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 8rpx;
+}
+
+.action-btn image {
+  width: 32rpx;
+  height: 32rpx;
+  opacity: 0.6;
+}

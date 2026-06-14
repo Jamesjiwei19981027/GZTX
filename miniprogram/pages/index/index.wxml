@@ -1,0 +1,24 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+  
+  <view wx:if="{{!loading && tasks.length === 0}}" class="empty">
+    <text class="empty-text">暂无待办任务 🎉</text>
+  </view>
+
+  <view wx:for="{{tasks}}" wx:key="id" class="task-card card" bindtap="goToDetail" data-id="{{item.id}}">
+    <view class="task-header">
+      <view class="task-checkbox" catchtap="onTaskComplete" data-id="{{item.id}}">
+        <view class="checkbox-inner"></view>
+      </view>
+      <view class="task-info">
+        <text class="task-title">{{item.title}}</text>
+        <view class="task-meta">
+          <text class="priority-tag priority-{{item.priority}}">{{item.priority_label}}</text>
+          <text wx:if="{{item.due_date}}" class="due-date">{{item.due_date}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="fab" bindtap="goToAdd">+</view>
+</view>

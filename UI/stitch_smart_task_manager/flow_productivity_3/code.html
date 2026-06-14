@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>收件箱 - Flow Productivity</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary": "#006c49",
+                        "inverse-on-surface": "#f0f1f2",
+                        "surface-variant": "#e1e3e4",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed-dim": "#ffb786",
+                        "inverse-surface": "#2e3132",
+                        "surface-container-high": "#e7e8e9",
+                        "secondary-fixed": "#6ffbbe",
+                        "on-tertiary": "#ffffff",
+                        "tertiary": "#924700",
+                        "surface-container-lowest": "#ffffff",
+                        "surface": "#f8f9fa",
+                        "on-surface": "#191c1d",
+                        "on-secondary-fixed-variant": "#005236",
+                        "tertiary-container": "#b75b00",
+                        "on-background": "#191c1d",
+                        "on-surface-variant": "#424754",
+                        "on-tertiary-fixed-variant": "#723600",
+                        "on-primary-fixed-variant": "#004395",
+                        "on-primary-container": "#fefcff",
+                        "primary": "#0058be",
+                        "primary-fixed": "#d8e2ff",
+                        "primary-container": "#2170e4",
+                        "surface-container-highest": "#e1e3e4",
+                        "surface-bright": "#f8f9fa",
+                        "secondary-fixed-dim": "#4edea3",
+                        "on-error-container": "#93000a",
+                        "surface-container": "#edeeef",
+                        "inverse-primary": "#adc6ff",
+                        "outline": "#727785",
+                        "on-primary-fixed": "#001a42",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#fffbff",
+                        "surface-container-low": "#f3f4f5",
+                        "on-secondary": "#ffffff",
+                        "on-secondary-container": "#00714d",
+                        "background": "#f8f9fa",
+                        "tertiary-fixed": "#ffdcc6",
+                        "error": "#ba1a1a",
+                        "surface-dim": "#d9dadb",
+                        "secondary-container": "#6cf8bb",
+                        "primary-fixed-dim": "#adc6ff",
+                        "outline-variant": "#c2c6d6",
+                        "on-tertiary-fixed": "#311400",
+                        "on-secondary-fixed": "#002113",
+                        "surface-tint": "#005ac2",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "sm": "8px",
+                        "md": "16px",
+                        "max-width": "1200px",
+                        "gutter": "24px",
+                        "lg": "24px",
+                        "base": "4px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "40px",
+                        "xl": "32px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "headline-sm": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md-mobile": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "headline-sm": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-sm": ["12px", { "lineHeight": "16px", "fontWeight": "500" }],
+                        "headline-md-mobile": ["20px", { "lineHeight": "28px", "fontWeight": "600" }],
+                        "display-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-background text-on-background flex h-screen overflow-hidden">
+<!-- SideNavBar (Hidden on Mobile, Visible on Desktop) -->
+<nav class="hidden md:flex flex-col h-full py-lg px-md gap-sm bg-surface text-on-surface-variant border-r border-surface-variant shadow-sm w-[280px] flex-shrink-0 z-10 transition-all duration-300 ease-in-out">
+<div class="mb-xl px-md">
+<h1 class="font-headline-sm text-headline-sm font-bold text-primary">Flow Productivity</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant opacity-80 mt-xs">Stay in the zone</p>
+</div>
+<div class="flex-grow flex flex-col gap-sm">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-primary font-bold border-r-4 border-primary bg-primary-fixed/20 transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="inbox">inbox</span>
+<span class="font-label-md text-label-md">收件箱</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="checklist">checklist</span>
+<span class="font-label-md text-label-md">My Tasks</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="calendar_month">calendar_month</span>
+<span class="font-label-md text-label-md">Calendar</span>
+</a>
+</div>
+<div class="mt-auto pt-lg border-t border-surface-variant">
+<a class="flex items-center gap-md px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+<button class="mt-md w-full bg-primary hover:bg-primary/90 text-on-primary font-label-md text-label-md py-sm px-md rounded-lg flex items-center justify-center gap-sm shadow-sm transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="add">add</span>
+                写邮件
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-grow flex flex-col h-full bg-background relative">
+<!-- TopAppBar (Visible on Mobile, Hidden on Desktop for nav logic, but keeping top bar for actions) -->
+<header class="flex justify-between items-center w-full px-lg h-16 bg-surface text-primary full-width top-0 z-50 border-b border-surface-variant flex-shrink-0">
+<div class="flex items-center gap-md">
+<button class="md:hidden text-on-surface-variant p-sm rounded-full hover:bg-surface-container transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="menu">menu</span>
+</button>
+<span class="font-headline-md text-headline-md font-bold text-primary md:hidden">Flow</span>
+<h2 class="hidden md:block font-headline-sm text-headline-sm text-on-surface">收件箱</h2>
+</div>
+<div class="flex-1 max-w-md mx-lg hidden md:block">
+<div class="relative group">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-full py-xs pl-xl pr-md text-body-sm font-body-sm text-on-surface focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all placeholder:text-on-surface-variant/60" placeholder="搜索邮件..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-sm">
+<button class="text-on-surface-variant p-sm rounded-full hover:bg-surface-container transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant p-sm rounded-full hover:bg-surface-container transition-colors duration-200">
+<span class="material-symbols-outlined" data-icon="help_outline">help_outline</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden ml-xs border border-outline-variant shrink-0 cursor-pointer">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="A professional headshot of a person used as a user avatar. They have a calm expression and are looking directly at the camera. The background is a soft, out-of-focus light gray. The lighting is even and natural, fitting a professional productivity application. The overall tone is approachable and clean." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDt-P7U6oNmMIOQBjatNEGyLbsrCxStzoTvld3Z7NUbJ726P1I6UT6hHLgqrIejIRYfL2w1U6k_KMQjdjVvvRON3CG7LT3QwtuBrJrnj8PPCy2qJbvILzrfMLyNjUhpVcpI4jzhXFXYcD4538ZZimlD5Is_l9EJLFmeFcVSEGuqy8wu28Na3zBeug_oOoDO1OxtcW8BS9AdiqFjYguOL6w-pM8kh1CrF45VpZemwcBaaZ9eG1PuZVQkgwKHfiIlMjJmA9zvGoaKZ60"/>
+</div>
+</div>
+</header>
+<!-- Split Pane Layout -->
+<div class="flex-grow flex overflow-hidden">
+<!-- Email List Pane (Left) -->
+<div class="w-full md:w-[360px] lg:w-[420px] flex-shrink-0 border-r border-surface-variant bg-surface flex flex-col h-full overflow-hidden transition-all duration-300">
+<!-- List Header / Filters -->
+<div class="p-md border-b border-surface-variant shrink-0 bg-surface z-10 flex justify-between items-center">
+<div class="flex gap-sm overflow-x-auto no-scrollbar">
+<button class="px-sm py-xs rounded-full bg-primary-container text-on-primary-container font-label-sm text-label-sm whitespace-nowrap">全部</button>
+<button class="px-sm py-xs rounded-full bg-surface-container border border-outline-variant text-on-surface-variant font-label-sm text-label-sm whitespace-nowrap hover:bg-surface-container-high transition-colors">未读</button>
+<button class="px-sm py-xs rounded-full bg-surface-container border border-outline-variant text-on-surface-variant font-label-sm text-label-sm whitespace-nowrap hover:bg-surface-container-high transition-colors">需回复</button>
+</div>
+</div>
+<!-- Scrollable List -->
+<div class="flex-grow overflow-y-auto">
+<!-- Email Item 1 (Selected) -->
+<div class="p-md border-b border-surface-variant bg-primary-fixed/10 cursor-pointer hover:bg-primary-fixed/20 transition-colors border-l-4 border-l-primary group">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-label-md text-label-md text-on-surface truncate pr-2">设计团队 - Q3 规划会议</span>
+<span class="font-label-sm text-label-sm text-primary shrink-0">10:42 AM</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface mb-xs truncate">Sarah Jenkins</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">嗨团队，我们需要在周五前敲定Q3的UI/UX改版计划。请查看附件中的初步线框图并准备反馈。另外，开发资源的分配也需要...</p>
+<div class="mt-sm flex gap-xs">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-error-container text-on-error-container font-label-sm text-[10px]">高优先级</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full border border-outline-variant text-on-surface-variant font-label-sm text-[10px]">内部</span>
+</div>
+</div>
+<!-- Email Item 2 -->
+<div class="p-md border-b border-surface-variant bg-surface cursor-pointer hover:bg-surface-container-low transition-colors border-l-4 border-l-transparent">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-label-md text-label-md text-on-surface font-bold truncate pr-2 flex items-center gap-xs">
+<span class="w-2 h-2 rounded-full bg-primary inline-block"></span>
+                                客户反馈：全新看板视图
+                            </span>
+<span class="font-label-sm text-label-sm text-on-surface-variant shrink-0">昨天</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface font-medium mb-xs truncate">David Chen</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">部分早期访问用户报告说，在移动端拖拽卡片时偶有卡顿现象。建议前端团队优先排查手势冲突问题...</p>
+</div>
+<!-- Email Item 3 -->
+<div class="p-md border-b border-surface-variant bg-surface cursor-pointer hover:bg-surface-container-low transition-colors border-l-4 border-l-transparent opacity-70">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-label-md text-label-md text-on-surface truncate pr-2">周报摘要 - 7月第2周</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant shrink-0">周一</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface mb-xs truncate">System Auto-mailer</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">这是您本周的任务完成情况汇总。您总共完成了42项任务，效率比上周提升了15%...</p>
+</div>
+<!-- Email Item 4 -->
+<div class="p-md border-b border-surface-variant bg-surface cursor-pointer hover:bg-surface-container-low transition-colors border-l-4 border-l-transparent">
+<div class="flex justify-between items-start mb-xs">
+<span class="font-label-md text-label-md text-on-surface truncate pr-2">关于API接口更新的说明</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant shrink-0">7月8日</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface mb-xs truncate">Backend Team</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2">请注意，v2.4 API 将于下个月废弃。所有前端调用必须迁移至 v3.0 接口。详情见技术文档仓库...</p>
+</div>
+</div>
+</div>
+<!-- Reading Pane (Right - Hidden on mobile unless email selected, then covers list) -->
+<div class="hidden md:flex flex-1 bg-background flex-col h-full overflow-hidden relative">
+<!-- Reading Pane Toolbar -->
+<div class="h-16 px-lg border-b border-surface-variant flex justify-between items-center bg-surface shrink-0">
+<div class="flex items-center gap-md">
+<button class="p-sm rounded-full text-on-surface-variant hover:bg-surface-container transition-colors" title="归档">
+<span class="material-symbols-outlined" data-icon="archive">archive</span>
+</button>
+<button class="p-sm rounded-full text-on-surface-variant hover:bg-surface-container transition-colors" title="删除">
+<span class="material-symbols-outlined" data-icon="delete">delete</span>
+</button>
+<button class="p-sm rounded-full text-on-surface-variant hover:bg-surface-container transition-colors" title="标记为未读">
+<span class="material-symbols-outlined" data-icon="mark_email_unread">mark_email_unread</span>
+</button>
+</div>
+<div>
+<button class="bg-primary hover:bg-primary/90 text-on-primary font-label-md text-label-md py-sm px-lg rounded-lg flex items-center justify-center gap-sm shadow-sm transition-all group relative overflow-hidden">
+<span class="absolute inset-0 w-full h-full bg-white/20 -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
+<span class="material-symbols-outlined text-[18px]" data-icon="add_task">add_task</span>
+                            转为任务
+                        </button>
+</div>
+</div>
+<!-- Email Content Area -->
+<div class="flex-grow overflow-y-auto p-lg lg:p-xl bg-surface-container-lowest">
+<!-- Email Header -->
+<div class="mb-xl max-w-3xl mx-auto">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-md">设计团队 - Q3 规划会议</h2>
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-md">
+<div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-headline-sm font-bold shrink-0">
+                                    SJ
+                                </div>
+<div>
+<p class="font-label-md text-label-md text-on-surface">Sarah Jenkins <span class="text-on-surface-variant font-normal">&lt;s.jenkins@flow.app&gt;</span></p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">发给: 设计组; 产品组</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-body-sm text-body-sm text-on-surface-variant">今天 10:42 AM</p>
+<button class="text-primary font-label-sm text-label-sm hover:underline mt-xs">查看详情</button>
+</div>
+</div>
+</div>
+<!-- Email Body -->
+<div class="prose prose-slate max-w-3xl mx-auto font-body-md text-body-md text-on-surface leading-relaxed">
+<p class="mb-md">嗨团队，</p>
+<p class="mb-md">希望大家本周工作顺利。</p>
+<p class="mb-md">我们需要在周五前敲定 Q3 的 UI/UX 改版计划。重点将放在提升移动端的任务拖拽体验以及优化深色模式的对比度。</p>
+<p class="mb-md">请查看下方附件中的初步线框图并准备在周四的会议上提供反馈。另外，开发资源的分配也需要在会议上讨论确认。</p>
+<ul class="list-disc pl-xl mb-md space-y-sm text-on-surface-variant">
+<li>审查移动端手势交互设计稿</li>
+<li>确认深色模式色标更新</li>
+<li>评估前端重构工作量</li>
+</ul>
+<p class="mb-xl">谢谢，<br/>Sarah</p>
+<!-- Attachments -->
+<div class="border-t border-surface-variant pt-md mt-xl">
+<h4 class="font-label-md text-label-md text-on-surface-variant mb-sm flex items-center gap-xs">
+<span class="material-symbols-outlined text-[18px]" data-icon="attachment">attachment</span>
+                                附件 (1)
+                            </h4>
+<div class="flex gap-md">
+<div class="flex items-center gap-sm p-sm border border-outline-variant rounded-lg bg-surface w-64 hover:bg-surface-container-low cursor-pointer transition-colors">
+<div class="w-10 h-10 bg-error-container text-on-error-container rounded flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined" data-icon="picture_as_pdf">picture_as_pdf</span>
+</div>
+<div class="overflow-hidden">
+<p class="font-label-sm text-label-sm text-on-surface truncate">Q3_Design_Wireframes_v2.pdf</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant text-xs">4.2 MB</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Reply Box -->
+<div class="p-lg border-t border-surface-variant bg-surface shrink-0">
+<div class="max-w-3xl mx-auto flex gap-md items-start">
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden border border-outline-variant shrink-0 mt-xs">
+<img alt="User avatar" class="w-full h-full object-cover" data-alt="Small circular profile picture of the current user, identical to the top bar avatar. Professional headshot against light gray background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXV1Iyt3dRZhwNurx8860Jj5xjSJvCyQNq3ORsMiuRyYlt-__7QdfJmBb24nqUxJifypAVFUMk-LPEDCvxDL4JO7-KDcQ5mVInzXRUtK1L-u6R1UzCPSfphid4K1LiKhFnLVIHxq3cG72r_tLQvWJufP5SP17kPVKMs3dcW6ZK6-xOrbDwa02bAfBuGzLi-kruM2TbC7GCFmtDrX7e7gXueN24ucqbOmdTDT5pD3wkrUO9GvKEuJ-oy3WKDR3Gt8scm94Nn0nh_Ew"/>
+</div>
+<div class="flex-grow bg-surface-container-low border border-outline-variant rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all overflow-hidden">
+<textarea class="w-full bg-transparent border-none focus:ring-0 resize-none p-md font-body-sm text-body-sm text-on-surface" placeholder="快捷回复 Sarah Jenkins..." rows="3"></textarea>
+<div class="px-md py-sm flex justify-between items-center bg-surface-container">
+<div class="flex gap-sm">
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs rounded">
+<span class="material-symbols-outlined text-[20px]" data-icon="format_bold">format_bold</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs rounded">
+<span class="material-symbols-outlined text-[20px]" data-icon="format_italic">format_italic</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-xs rounded">
+<span class="material-symbols-outlined text-[20px]" data-icon="link">link</span>
+</button>
+</div>
+<button class="bg-primary hover:bg-primary/90 text-on-primary font-label-sm text-label-sm py-xs px-md rounded flex items-center gap-xs shadow-sm transition-all">
+<span class="material-symbols-outlined text-[16px]" data-icon="send">send</span>
+                                    发送
+                                </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Mobile Bottom Navigation (Visible only on mobile) -->
+<nav class="md:hidden fixed bottom-0 w-full bg-surface border-t border-surface-variant pb-safe flex justify-around items-center h-16 z-50">
+<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="dashboard">dashboard</span>
+<span class="text-[10px] font-label-sm">主页</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full text-primary relative" href="#">
+<div class="absolute -top-1 w-12 h-1 bg-primary rounded-b-full"></div>
+<span class="material-symbols-outlined mb-1" data-icon="inbox" data-weight="fill">inbox</span>
+<span class="text-[10px] font-label-sm font-bold">收件箱</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="checklist">checklist</span>
+<span class="text-[10px] font-label-sm">任务</span>
+</a>
+<a class="flex flex-col items-center justify-center w-full h-full text-on-surface-variant hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="settings">settings</span>
+<span class="text-[10px] font-label-sm">设置</span>
+</a>
+</nav>
+<!-- Mobile FAB (Visible only on mobile for quick actions) -->
+<button class="md:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary text-on-primary rounded-full shadow-[0_4px_12px_rgba(0,0,0,0.2)] flex items-center justify-center z-50 hover:bg-primary/90 active:scale-95 transition-all">
+<span class="material-symbols-outlined text-2xl" data-icon="edit">edit</span>
+</button>
+</body></html>
