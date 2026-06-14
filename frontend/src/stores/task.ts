@@ -17,10 +17,17 @@ import type {
   Task,
   CreateTaskRequest,
   UpdateTaskRequest,
+  TaskCompleteRequest,
   TaskFilterParams,
-  PaginatedResponse,
   TaskStats
 } from '@/types'
+
+import { ElNotification } from 'element-plus'
+
+// Simple notification helper
+function notifyFeedback(title: string, message: string) {
+  ElNotification({ title, message, duration: 3000 })
+}
 
 export const useTaskStore = defineStore('task', () => {
   // 状态
@@ -119,13 +126,22 @@ export const useTaskStore = defineStore('task', () => {
     }
   }
 
-  // 标记完成
-  async function markComplete(taskId: number) {
-    const response = await completeTask(taskId)
-    const task = tasks.value.find(t => t.id === taskId)
-    if (task) {
-      task.status = 2
-      task.completed_at = response.completed_at
+  // M1: 标记完成（带评价数据 + 条件反馈）
+  async function markComplete(taskId: number, data?: TaskCompleteRequest) {
+    const response = await completeTask(taskId, data)
+    const resultTask = response as any
+    const index = tasks.value.findIndex(t => t.id === taskId)
+    if (index !== -1) {
+      tasks.value[index] = resultTask
+    }
+    if (currentTask.value?.id === taskId) {
+      currentTask.value = resultTask
+    }
+    // M1: 根据是否需要跟进显示不同反馈
+    if (resultTask.needs_follow_up) {
+      notifyFeedback('📋 已设置跟进提醒', `「${resultTask.title}」将在指定时间提醒您继续跟进。`)
+    } else {
+      notifyFeedback('🎉 任务已完成', `「${resultTask.title}」已标记为完成！`)
     }
     return response
   }

@@ -22,21 +22,32 @@
     </div>
     <div class="actions">
       <el-button type="primary" @click="handleEdit">编辑</el-button>
-      <el-button @click="handleComplete">{{ task.status === 2 ? '取消完成' : '完成' }}</el-button>
+      <el-button v-if="task.status !== 2" type="success" @click="showCompleteDialog = true">完成</el-button>
+      <el-button v-else @click="handleUncomplete">取消完成</el-button>
       <el-button type="danger" @click="handleDelete">删除</el-button>
     </div>
+
+    <!-- 完成评价对话框 -->
+    <TaskCompleteDialog
+      v-model="showCompleteDialog"
+      :task-title="task.title"
+      @submit="handleComplete"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useTaskStore } from '@/stores/task'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import TaskCompleteDialog from '@/components/TaskCompleteDialog.vue'
 
 const router = useRouter()
 const route = useRoute()
 const taskStore = useTaskStore()
 const task = taskStore.currentTask
+const showCompleteDialog = ref(false)
 
 onMounted(() => {
   taskStore.fetchTaskDetail(Number(route.params.id))
@@ -50,16 +61,50 @@ function handleEdit() {
   router.push(`/tasks/${task?.id}/edit`)
 }
 
-async function handleComplete() {
-  if (task?.status === 2) {
-    await taskStore.markUncomplete(task.id)
-  } else {
-    await taskStore.markComplete(task.id)
+async function handleComplete(data: {
+  completion_rate: number
+  completion_comment: string
+  needs_follow_up: boolean
+  follow_up_reason: string
+  follow_up_remind_at?: string
+  follow_up_notify_channels?: string
+}) {
+  if (!task.value) return
+  try {
+    await taskStore.completeTask(task.value.id, {
+      completion_rate: data.completion_rate,
+      completion_comment: data.completion_comment,
+      needs_follow_up: data.needs_follow_up,
+      follow_up_reason: data.follow_up_reason || undefined,
+      follow_up_remind_at: data.follow_up_remind_at,
+      follow_up_notify_channels: data.follow_up_notify_channels
+    })
+    showCompleteDialog.value = false
+    loadTask()
+  } catch {
+    ElMessage.error('操作失败')
+  }
+}
+
+function loadTask() {
+  if (task.value) {
+    taskStore.fetchTaskDetail(task.value.id)
+  }
+}
+
+async function handleUncomplete() {
+  if (!task.value) return
+  try {
+    await taskStore.markUncomplete(task.value.id)
+    loadTask()
+  } catch {
+    ElMessage.error('操作失败')
   }
 }
 
 async function handleDelete() {
-  await taskStore.removeTask(task!.id)
+  if (!task.value) return
+  await taskStore.removeTask(task.value.id)
   router.push('/tasks')
 }
 </script>

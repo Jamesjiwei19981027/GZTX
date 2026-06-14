@@ -63,6 +63,15 @@ export interface Task {
   reminders: Reminder[]
   is_recurring: boolean
   recurrence_rule?: RecurrenceRule
+  // 完成评价字段
+  completion_rate?: number
+  completion_comment?: string
+  needs_follow_up?: boolean
+  follow_up_reason?: string
+  parent_task_id?: number
+  follow_up_remind_at?: string
+  follow_up_notify_channels?: string
+  attachments?: Attachment[]
   completed_at?: string
   created_at: string
   updated_at?: string
@@ -91,6 +100,15 @@ export interface CreateTaskRequest {
 
 export interface UpdateTaskRequest extends Partial<CreateTaskRequest> {
   status?: TaskStatus
+}
+
+export interface TaskCompleteRequest {
+  completion_rate?: number
+  completion_comment?: string
+  needs_follow_up?: boolean
+  follow_up_reason?: string
+  follow_up_remind_at?: string
+  follow_up_notify_channels?: string
 }
 
 // 分类相关类型
@@ -132,13 +150,25 @@ export interface Reminder {
   id: number
   task_id: number
   remind_at: string
-  remind_type: number // 0=截止前, 1=指定时间
+  remind_type: number // 0=截止前, 1=指定时间, 3=跟进
   is_sent: boolean
+  notify_channels?: string
 }
 
 export interface CreateReminderRequest {
   remind_at: string
   remind_type?: number
+}
+
+// 附件类型
+export interface Attachment {
+  id: number
+  task_id: number
+  original_name: string
+  file_size: number
+  mime_type: string
+  download_url: string
+  created_at: string
 }
 
 // 分页相关类型
@@ -213,6 +243,7 @@ export interface TaskFilterParams extends PaginationParams {
   due_date_to?: string
   search?: string
   is_recurring?: boolean
+  needs_follow_up?: boolean
   include_deleted?: boolean
 }
 

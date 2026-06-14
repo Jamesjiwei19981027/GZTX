@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import type { Task } from '@/types'
 import { relativeTime } from '@/utils/date'
-import { ElCheckbox, ElTag, ElText } from 'element-plus'
+import { ElCheckbox, ElTag, ElText, ElIcon } from 'element-plus'
 
 const props = defineProps<{
   task: Task
@@ -42,6 +42,7 @@ const isOverdue = computed(() => {
 })
 
 const isCompleted = computed(() => props.task.status === 2)
+const needsFollowUp = computed(() => props.task.needs_follow_up)
 
 function handleComplete() {
   emit('complete', props.task)
@@ -74,6 +75,11 @@ function handleSelect() {
           {{ task.title }}
         </span>
         <ElTag :type="priorityType" size="small">{{ priorityLabel }}</ElTag>
+        <!-- 跟进标识 -->
+        <span v-if="needsFollowUp" class="follow-up-badge" title="需要跟进">
+          <ElIcon size="14"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 5h6M9 14l2 2 4-4"/></svg></ElIcon>
+          <span class="follow-up-text">待跟进</span>
+        </span>
       </div>
 
       <div v-if="task.description" class="task-description">
@@ -171,5 +177,23 @@ function handleSelect() {
 
 .task-tag {
   display: flex;
+}
+
+/* 跟进标识样式 */
+.follow-up-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background-color: #fdf6ec;
+  color: #e6a23c;
+  font-size: 12px;
+  border: 1px solid #faecd8;
+}
+
+.follow-up-text {
+  font-size: 11px;
+  line-height: 1;
 }
 </style>

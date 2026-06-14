@@ -3,6 +3,7 @@ import type {
   Task,
   CreateTaskRequest,
   UpdateTaskRequest,
+  TaskCompleteRequest,
   TaskFilterParams,
   PaginatedResponse,
   TaskStats
@@ -33,9 +34,9 @@ export function updateTask(taskId: number, data: UpdateTaskRequest) {
   return request.put<Task>(`/tasks/${taskId}`, data)
 }
 
-// 标记任务完成
-export function completeTask(taskId: number) {
-  return request.patch<Task>(`/tasks/${taskId}/complete`)
+// 标记任务完成（含评价数据）
+export function completeTask(taskId: number, data?: TaskCompleteRequest) {
+  return request.patch<Task>(`/tasks/${taskId}/complete`, data || {})
 }
 
 // 取消任务完成

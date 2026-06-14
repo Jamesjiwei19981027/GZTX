@@ -5,12 +5,19 @@
       <el-button type="primary" @click="handleCreate">新建任务</el-button>
     </div>
     <div class="filters">
-      <el-select v-model="filterParams.status" placeholder="状态" clearable>
+      <el-select v-model="filterParams.status" placeholder="状态" clearable @change="applyFilters">
         <el-option label="全部" :value="undefined" />
         <el-option label="待办" :value="0" />
         <el-option label="进行中" :value="1" />
         <el-option label="已完成" :value="2" />
       </el-select>
+      <el-button
+        class="follow-up-filter-btn"
+        :type="filterParams.needs_follow_up ? 'warning' : 'default'"
+        @click="toggleFollowUpFilter()"
+      >
+        待跟进
+      </el-button>
     </div>
     <div class="task-list">
       <TaskItem v-for="task in tasks" :key="task.id" :task="task" @click="handleTaskClick(task.id)" />
@@ -52,6 +59,15 @@ function handleTaskClick(id: number) {
 function handlePageChange(page: number) {
   taskStore.fetchTasks({ ...filterParams.value, page })
 }
+
+function applyFilters() {
+  taskStore.fetchTasks({ ...filterParams.value, page: 1 })
+}
+
+function toggleFollowUpFilter() {
+  filterParams.value.needs_follow_up = filterParams.value.needs_follow_up ? undefined : true
+  applyFilters()
+}
 </script>
 
 <style scoped>
@@ -65,11 +81,22 @@ function handlePageChange(page: number) {
   margin-bottom: 20px;
 }
 .filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 20px;
 }
 .task-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+.follow-up-filter-btn {
+  border-radius: 16px;
+}
+.follow-up-filter-btn.is-warning {
+  color: #fff;
+  background-color: var(--el-color-warning);
+  border-color: var(--el-color-warning);
 }
 </style>
