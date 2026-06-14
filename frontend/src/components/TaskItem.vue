@@ -1,14 +1,35 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { Task } from '@/types'
+import dayjs from 'dayjs'
 import { relativeTime } from '@/utils/date'
-import { ElCheckbox, ElTag, ElText, ElIcon } from 'element-plus'
 
-const props = defineProps<{
-  task: Task
-  selectable?: boolean
-  selected?: boolean
-}>()
+interface Task {
+  id: number
+  title: string
+  description?: string
+  priority: 0 | 1 | 2
+  priority_label: string
+  status: 0 | 1 | 2
+  status_label: string
+  due_date?: string
+  is_overdue: boolean
+  category?: { name: string; color: string }
+  tags: { name: string; color: string }[]
+  needs_follow_up?: boolean
+  created_at?: string
+}
+
+const props = withDefaults(
+  defineProps<{
+    task: Task
+    selectable?: boolean
+    selected?: boolean
+  }>(),
+  {
+    selectable: true,
+    selected: false,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'click', task: Task): void
@@ -16,19 +37,29 @@ const emit = defineEmits<{
   (e: 'select', task: Task): void
 }>()
 
-const priorityType = computed(() => {
+const isCompleted = computed(() => props.task.status === 2)
+const isOverdue = computed(() => props.task.is_overdue && !isCompleted.value)
+const needsFollowUp = computed(() => props.task.needs_follow_up === true)
+
+const priorityBorderColor = computed(() => {
   switch (props.task.priority) {
-    case 2: return 'danger'
-    case 1: return 'warning'
-    default: return 'info'
+    case 2:
+      return 'border-l-error'
+    case 1:
+      return 'border-l-tertiary'
+    default:
+      return 'border-l-primary'
   }
 })
 
-const priorityLabel = computed(() => {
+const priorityBadgeClasses = computed(() => {
   switch (props.task.priority) {
-    case 2: return '高'
-    case 1: return '中'
-    default: return '低'
+    case 2:
+      return 'bg-[#ffdad6] text-[#410002]'
+    case 1:
+      return 'bg-[#f5e0c6] text-[#2a1800]'
+    default:
+      return 'bg-[#d3e3fd] text-[#003258]'
   }
 })
 
@@ -37,163 +68,148 @@ const dueDateDisplay = computed(() => {
   return relativeTime(props.task.due_date)
 })
 
-const isOverdue = computed(() => {
-  return props.task.is_overdue && props.task.status !== 2
+const dueDateFormatted = computed(() => {
+  if (!props.task.due_date) return null
+  const d = dayjs(props.task.due_date)
+  return d.format('MM/DD HH:mm')
 })
-
-const isCompleted = computed(() => props.task.status === 2)
-const needsFollowUp = computed(() => props.task.needs_follow_up)
-
-function handleComplete() {
-  emit('complete', props.task)
-}
 
 function handleClick() {
   emit('click', props.task)
 }
 
-function handleSelect() {
+function handleComplete(e: Event) {
+  e.stopPropagation()
+  emit('complete', props.task)
+}
+
+function handleSelect(e: Event) {
+  e.stopPropagation()
   emit('select', props.task)
 }
 </script>
 
 <template>
   <div
-    class="task-item"
-    :class="{ 'is-overdue': isOverdue, 'is-completed': isCompleted }"
+    class="group relative flex items-start gap-0 rounded-xl bg-surface border border-surface-variant border-l-4 p-4 cursor-pointer transition-all duration-200 hover:bg-surface-container-low hover:shadow-card"
+    :class="[
+      priorityBorderColor,
+      { 'opacity-60': isCompleted },
+      { 'bg-error/[0.04] hover:bg-error/[0.08]': isOverdue },
+    ]"
     @click="handleClick"
   >
-    <ElCheckbox
-      v-if="selectable"
-      :model-value="selected"
-      @click.stop
-      @change="handleSelect"
-    />
-    <div class="task-content">
-      <div class="task-header">
-        <span class="task-title" :class="{ 'is-completed': isCompleted }">
+    <!-- Priority Border Indicator (the border-l-4 above) -->
+
+    <!-- Checkbox -->
+    <div v-if="selectable" class="flex items-center pt-0.5 mr-3" @click.stop>
+      <button
+        class="relative w-5 h-5 rounded-md border-2 transition-all duration-150 flex items-center justify-center"
+        :class="
+          isCompleted || selected
+            ? 'bg-secondary border-secondary'
+            : 'border-outline hover:border-primary'
+        "
+        @click="handleComplete"
+      >
+        <span
+          v-if="isCompleted || selected"
+          class="material-symbols-outlined text-on-secondary text-sm leading-none"
+        >
+          check
+        </span>
+      </button>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-1 min-w-0">
+      <!-- Title Row -->
+      <div class="flex items-center gap-2 mb-1">
+        <span
+          class="font-label text-label-md text-on-surface leading-snug"
+          :class="{ 'line-through': isCompleted }"
+        >
           {{ task.title }}
         </span>
-        <ElTag :type="priorityType" size="small">{{ priorityLabel }}</ElTag>
-        <!-- 跟进标识 -->
-        <span v-if="needsFollowUp" class="follow-up-badge" title="需要跟进">
-          <ElIcon size="14"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 5h6M9 14l2 2 4-4"/></svg></ElIcon>
-          <span class="follow-up-text">待跟进</span>
+
+        <!-- Follow-up flag -->
+        <span
+          v-if="needsFollowUp"
+          class="inline-flex items-center gap-0.5 rounded-full bg-[#f5e0c6] px-2 py-0.5 font-label text-[11px] text-[#2a1800]"
+          title="需要跟进"
+        >
+          <span class="material-symbols-outlined text-xs">flag</span>
+          跟进
         </span>
       </div>
 
-      <div v-if="task.description" class="task-description">
-        <ElText truncated>{{ task.description }}</ElText>
-      </div>
+      <!-- Description Preview -->
+      <p
+        v-if="task.description"
+        class="text-body-sm text-on-surface-variant font-body truncate leading-relaxed mb-2 max-w-[90%]"
+      >
+        {{ task.description }}
+      </p>
 
-      <div class="task-meta">
-        <span v-if="task.category" class="task-category">
+      <!-- Meta Row -->
+      <div class="flex items-center flex-wrap gap-x-3 gap-y-1">
+        <!-- Category -->
+        <span
+          v-if="task.category"
+          class="inline-flex items-center gap-1 rounded-full bg-surface-container-low px-2 py-0.5 font-label text-[11px] text-on-surface-variant"
+        >
+          <span
+            class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            :style="{ backgroundColor: task.category.color }"
+          />
           {{ task.category.name }}
         </span>
-        <span v-if="dueDateDisplay" class="task-due-date" :class="{ 'is-overdue': isOverdue }">
-          {{ isOverdue ? '已过期 ' : '' }}{{ dueDateDisplay }}
+
+        <!-- Tags -->
+        <span
+          v-for="tag in task.tags"
+          :key="tag.name"
+          class="inline-flex items-center gap-1 rounded-full border border-outline-variant px-2 py-0.5 font-label text-[11px] text-on-surface-variant"
+        >
+          <span
+            class="w-1.5 h-1.5 rounded-full flex-shrink-0"
+            :style="{ backgroundColor: tag.color }"
+          />
+          {{ tag.name }}
         </span>
-        <span v-for="tag in task.tags" :key="tag.id" class="task-tag">
-          <ElTag size="small" :color="tag.color" effect="dark">{{ tag.name }}</ElTag>
+
+        <!-- Due Date -->
+        <span
+          v-if="dueDateDisplay"
+          class="inline-flex items-center gap-1 font-body text-[11px]"
+          :class="isOverdue ? 'text-error' : 'text-on-surface-variant'"
+        >
+          <span class="material-symbols-outlined text-xs">
+            {{ isOverdue ? 'warning' : 'calendar_today' }}
+          </span>
+          <span>{{ isOverdue ? '已逾期 ' : '' }}</span>
+          <span>{{ dueDateDisplay }}</span>
         </span>
       </div>
     </div>
+
+    <!-- Right Side -->
+    <div class="flex items-center gap-2 ml-3 flex-shrink-0">
+      <!-- Priority Badge -->
+      <span
+        class="inline-flex items-center rounded-full px-2.5 py-0.5 font-label text-[11px] leading-tight"
+        :class="priorityBadgeClasses"
+      >
+        {{ task.priority_label }}
+      </span>
+
+      <!-- Overflow Menu -->
+      <button
+        class="w-8 h-8 rounded-full flex items-center justify-center text-on-surface-variant transition opacity-0 group-hover:opacity-100 hover:bg-surface-container-high"
+        @click.stop
+      >
+        <span class="material-symbols-outlined text-xl">more_vert</span>
+      </button>
+    </div>
   </div>
 </template>
-
-<style scoped>
-.task-item {
-  display: flex;
-  align-items: flex-start;
-  padding: 12px 16px;
-  background: var(--el-fill-color-light);
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  gap: 12px;
-}
-
-.task-item:hover {
-  background: var(--el-fill-color);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.task-item.is-overdue {
-  border-left: 3px solid var(--el-color-danger);
-}
-
-.task-item.is-completed {
-  opacity: 0.6;
-}
-
-.task-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.task-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 4px;
-}
-
-.task-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--el-text-color-primary);
-}
-
-.task-title.is-completed {
-  text-decoration: line-through;
-  color: var(--el-text-color-secondary);
-}
-
-.task-description {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  margin-bottom: 6px;
-}
-
-.task-meta {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.task-category {
-  color: var(--el-text-color-secondary);
-}
-
-.task-due-date {
-  color: var(--el-text-color-secondary);
-}
-
-.task-due-date.is-overdue {
-  color: var(--el-color-danger);
-}
-
-.task-tag {
-  display: flex;
-}
-
-/* 跟进标识样式 */
-.follow-up-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 1px 8px;
-  border-radius: 10px;
-  background-color: #fdf6ec;
-  color: #e6a23c;
-  font-size: 12px;
-  border: 1px solid #faecd8;
-}
-
-.follow-up-text {
-  font-size: 11px;
-  line-height: 1;
-}
-</style>
