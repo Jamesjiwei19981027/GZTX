@@ -6,7 +6,6 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import App from './App.vue'
 import router from './router'
 import { useAuthStore } from './stores/auth'
-import './assets/main.css'
 
 // 创建 Vue 应用
 const app = createApp(App)
@@ -32,3 +31,12 @@ app.use(ElementPlus)
 
 // 挂载应用
 app.mount('#app')
+
+// 如果是 https 环境，注册 Service Worker
+if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Service Worker 注册失败，忽略
+    })
+  })
+}

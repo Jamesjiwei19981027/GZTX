@@ -76,6 +76,27 @@ async def check_new_emails():
         return result
 
 
+async def check_reminders():
+    """
+    Scheduled task to scan pending reminders and dispatch notifications.
+    Runs every 1 minute via APScheduler.
+    Mirrors check_new_emails but for the reminder-sending pipeline.
+    """
+    from app.services.reminder_service import ReminderService
+    from app.db.session import SessionLocal
+
+    db = SessionLocal()
+    try:
+        try:
+            sent = ReminderService.check_and_send_reminders(db)
+            if sent:
+                print(f"[ReminderCheck] Dispatched {len(sent)} reminder(s)")
+        except Exception as e:
+            print(f"[ReminderCheck] Failed: {e}")
+    finally:
+        db.close()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
@@ -86,8 +107,11 @@ async def lifespan(app: FastAPI):
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
     scheduler = AsyncIOScheduler()
 
-    # Register email check job
+    # Register email check job (every EMAIL_CHECK_INTERVAL seconds)
     scheduler.add_job(check_new_emails, 'interval', seconds=settings.EMAIL_CHECK_INTERVAL, id='check_new_emails')
+
+    # Register reminder dispatch job (every 1 minute)
+    scheduler.add_job(check_reminders, 'interval', minutes=1, id='check_reminders')
 
     scheduler.start()
     print(f"[Scheduler] Started APScheduler")
@@ -95,6 +119,7 @@ async def lifespan(app: FastAPI):
     print(f"✅ {settings.APP_NAME} v{settings.APP_VERSION} 启动成功")
     print(f"📊 数据库: {'SQLite' if settings.is_sqlite else 'PostgreSQL'}")
     print(f"📧 邮件检查间隔: {settings.EMAIL_CHECK_INTERVAL}秒")
+    print(f"⏰ 提醒检查: 每 1 分钟")
     print(f"📖 API文档: http://localhost:8000/docs")
 
     yield
