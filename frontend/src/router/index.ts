@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
+import SidebarLayout from '@/layouts/SidebarLayout.vue'
 
-// 路由配置
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
@@ -12,55 +12,77 @@ const routes: RouteRecordRaw[] = [
     path: '/register',
     name: 'Register',
     component: () => import('@/views/LoginView.vue'),
-    meta: { requiresAuth: false }
+    meta: { requiresAuth: false, isRegister: true }
   },
   {
     path: '/',
-    redirect: '/tasks'
-  },
-  {
-    path: '/tasks',
-    name: 'TaskList',
-    component: () => import('@/views/TaskListView.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/tasks/:id',
-    name: 'TaskDetail',
-    component: () => import('@/views/TaskDetailView.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/calendar',
-    name: 'Calendar',
-    component: () => import('@/views/CalendarView.vue'),
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/settings',
-    name: 'Settings',
-    component: () => import('@/views/SettingsView.vue'),
-    meta: { requiresAuth: true }
+    component: SidebarLayout,
+    meta: { requiresAuth: true },
+    children: [
+      { path: '', redirect: '/dashboard' },
+      {
+        path: 'dashboard',
+        name: 'Dashboard',
+        component: () => import('@/views/DashboardView.vue'),
+      },
+      {
+        path: 'inbox',
+        name: 'Inbox',
+        component: () => import('@/views/InboxView.vue'),
+      },
+      {
+        path: 'tasks',
+        name: 'TaskList',
+        component: () => import('@/views/TaskListView.vue'),
+      },
+      {
+        path: 'tasks/new',
+        name: 'TaskCreate',
+        component: () => import('@/views/TaskDetailView.vue'),
+        meta: { isCreate: true }
+      },
+      {
+        path: 'tasks/:id',
+        name: 'TaskDetail',
+        component: () => import('@/views/TaskDetailView.vue'),
+      },
+      {
+        path: 'kanban',
+        name: 'Kanban',
+        component: () => import('@/views/KanbanView.vue'),
+      },
+      {
+        path: 'calendar',
+        name: 'Calendar',
+        component: () => import('@/views/CalendarView.vue'),
+      },
+      {
+        path: 'chat',
+        name: 'Chat',
+        component: () => import('@/views/ChatView.vue'),
+      },
+      {
+        path: 'settings',
+        name: 'Settings',
+        component: () => import('@/views/SettingsView.vue'),
+      }
+    ]
   }
 ]
 
-// 创建路由实例
 const router = createRouter({
   history: createWebHistory(),
   routes
 })
 
-// 路由守卫
 router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('access_token')
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth !== false)
 
   if (requiresAuth && !token) {
-    // 需要认证但未登录，跳转到登录页
     next('/login')
   } else if ((to.path === '/login' || to.path === '/register') && token) {
-    // 已登录但访问登录页，跳转到任务列表
-    next('/tasks')
+    next('/dashboard')
   } else {
     next()
   }
