@@ -66,6 +66,7 @@ class ReminderCreate(BaseModel):
     """创建提醒"""
     remind_at: datetime
     remind_type: int = 0
+    notify_channels: Optional[str] = None  # 通知方式，逗号分隔: web_popup,email,sms,wechat,alarm
 
 
 class ReminderResponse(BaseModel):
@@ -73,6 +74,7 @@ class ReminderResponse(BaseModel):
     id: int
     remind_at: datetime
     remind_type: int
+    notify_channels: Optional[str] = None
     is_sent: bool
 
     model_config = {"from_attributes": True}
@@ -118,6 +120,7 @@ class TaskUpdate(BaseModel):
     category_id: Optional[int] = None
     tag_ids: Optional[List[int]] = None
     due_date: Optional[datetime] = None
+    reminders: Optional[List[ReminderCreate]] = None
     is_recurring: Optional[bool] = None
     recurrence_rule: Optional[dict] = None
     sort_order: Optional[int] = None
@@ -140,10 +143,41 @@ class TaskResponse(BaseModel):
     tags: List[TagResponse] = []
     reminders: List[ReminderResponse] = []
     is_deleted: bool = False
+    # 完成评价相关字段
+    completion_rate: int = 100
+    completion_comment: Optional[str] = None
+    needs_follow_up: bool = False
+    follow_up_reason: Optional[str] = None
+    follow_up_remind_at: Optional[datetime] = None
+    follow_up_notify_channels: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class TaskComplete(BaseModel):
+    """完成任务请求"""
+    completion_rate: int = 100
+    completion_comment: Optional[str] = None
+    needs_follow_up: bool = False
+    follow_up_reason: Optional[str] = None
+    follow_up_remind_at: Optional[datetime] = None
+    follow_up_notify_channels: Optional[str] = None
+
+
+class PriorityStat(BaseModel):
+    """优先级统计"""
+    total: int
+    completed: int
+
+
+class CategoryStat(BaseModel):
+    """分类统计"""
+    category_id: Optional[int] = None
+    category_name: str
+    total: int
+    completed: int
 
 
 class TaskStatsResponse(BaseModel):
@@ -154,6 +188,8 @@ class TaskStatsResponse(BaseModel):
     in_progress: int
     overdue: int
     completion_rate: float
+    by_priority: Optional[dict] = None  # {"high": {total, completed}, "medium": {...}, "low": {...}}
+    by_category: Optional[List[CategoryStat]] = None
 
 
 class BatchAction(BaseModel):

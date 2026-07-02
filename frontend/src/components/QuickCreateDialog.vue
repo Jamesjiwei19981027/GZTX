@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useTaskStore } from '@/stores/task'
-import type { TaskPriority } from '@/types'
+import type { TaskPriority, CreateReminderRequest } from '@/types'
+import dayjs from 'dayjs'
 
 const props = withDefaults(defineProps<{
   visible: boolean
@@ -26,6 +27,50 @@ const notes = ref('')
 const deadline = ref('')
 const priority = ref<TaskPriority>(1)
 const submitting = ref(false)
+const selectedChannels = ref<string[]>(['web_push'])
+const reminderMinutesBefore = ref<number | null>(null)
+
+// Notification channel options
+const channelOptions = [
+  { value: 'web_push', label: '网页弹窗', icon: 'web' },
+  { value: 'email', label: '邮件提醒', icon: 'mail' },
+  { value: 'wx', label: '微信提醒', icon: 'chat' },
+  { value: 'sms', label: '短信提醒', icon: 'sms' },
+  { value: 'desktop', label: '闹钟提醒', icon: 'notifications_active' },
+]
+
+// Quick reminder presets
+const reminderPresets = [
+  { label: '15分钟前', minutes: 15 },
+  { label: '30分钟前', minutes: 30 },
+  { label: '1小时前', minutes: 60 },
+  { label: '2小时前', minutes: 120 },
+]
+
+function toggleChannel(channel: string) {
+  const idx = selectedChannels.value.indexOf(channel)
+  if (idx > -1) {
+    selectedChannels.value.splice(idx, 1)
+  } else {
+    selectedChannels.value.push(channel)
+  }
+}
+
+function isChannelActive(channel: string): boolean {
+  return selectedChannels.value.includes(channel)
+}
+
+function setReminderPreset(minutes: number) {
+  if (reminderMinutesBefore.value === minutes) {
+    reminderMinutesBefore.value = null
+  } else {
+    reminderMinutesBefore.value = minutes
+  }
+}
+
+function isReminderPresetActive(minutes: number): boolean {
+  return reminderMinutesBefore.value === minutes
+}
 
 // Reset form when dialog opens
 watch(() => props.visible, (val) => {
@@ -34,6 +79,8 @@ watch(() => props.visible, (val) => {
     notes.value = ''
     deadline.value = ''
     priority.value = 1
+    selectedChannels.value = ['web_push']
+    reminderMinutesBefore.value = null
   }
 })
 
@@ -51,11 +98,23 @@ async function createTask() {
   if (!taskContent.value.trim()) return
   submitting.value = true
   try {
+    // Build reminders if deadline and reminder preset are set
+    const reminders: CreateReminderRequest[] = []
+    if (deadline.value && reminderMinutesBefore.value && selectedChannels.value.length > 0) {
+      const remindAt = dayjs(deadline.value).subtract(reminderMinutesBefore.value, 'minute').format('YYYY-MM-DDTHH:mm:ss')
+      reminders.push({
+        remind_at: remindAt,
+        remind_type: 0,
+        notify_channels: selectedChannels.value.join(',')
+      })
+    }
+
     const task = await taskStore.addTask({
       title: taskContent.value.trim(),
       description: notes.value.trim() || undefined,
       priority: priority.value,
       due_date: deadline.value || undefined,
+      reminders: reminders.length > 0 ? reminders : undefined,
     })
     emit('created', task)
     close()
@@ -173,6 +232,60 @@ async function createTask() {
                 </select>
                 <span class="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">expand_more</span>
               </div>
+            </div>
+          </div>
+
+          <!-- Reminder Settings (only show when deadline is set) -->
+          <div v-if="deadline" class="flex flex-col gap-md p-md rounded-xl bg-surface-container-low border border-surface-variant">
+            <div class="flex items-center gap-sm">
+              <span class="material-symbols-outlined text-primary text-body-md">alarm</span>
+              <span class="font-label text-label-md text-on-surface">提醒设置</span>
+            </div>
+
+            <!-- Quick reminder presets -->
+            <div class="flex flex-col gap-sm">
+              <span class="font-label text-label-sm text-on-surface-variant">提醒时间</span>
+              <div class="flex flex-wrap gap-sm">
+                <button
+                  v-for="preset in reminderPresets"
+                  :key="preset.minutes"
+                  type="button"
+                  class="inline-flex items-center gap-xs px-md py-xs rounded-full text-label-sm transition-all duration-200 cursor-pointer border"
+                  :class="isReminderPresetActive(preset.minutes)
+                    ? 'bg-primary text-on-primary border-primary'
+                    : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:border-primary hover:text-primary'"
+                  @click="setReminderPreset(preset.minutes)"
+                >
+                  <span class="material-symbols-outlined text-body-sm">schedule</span>
+                  {{ preset.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Notification channels -->
+            <div v-if="reminderMinutesBefore" class="flex flex-col gap-sm">
+              <span class="font-label text-label-sm text-on-surface-variant">提醒方式</span>
+              <div class="flex flex-wrap gap-sm">
+                <button
+                  v-for="ch in channelOptions"
+                  :key="ch.value"
+                  type="button"
+                  class="inline-flex items-center gap-xs px-md py-xs rounded-full text-label-sm transition-all duration-200 cursor-pointer border"
+                  :class="isChannelActive(ch.value)
+                    ? 'bg-primary text-on-primary border-primary'
+                    : 'bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:border-primary hover:text-primary'"
+                  @click="toggleChannel(ch.value)"
+                >
+                  <span class="material-symbols-outlined !text-[16px]">{{ ch.icon }}</span>
+                  {{ ch.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Reminder summary -->
+            <div v-if="reminderMinutesBefore && selectedChannels.length > 0" class="flex items-center gap-xs text-label-sm text-secondary bg-secondary/10 px-md py-xs rounded-lg">
+              <span class="material-symbols-outlined !text-[16px]">check_circle</span>
+              <span>将在截止前 {{ reminderMinutesBefore < 60 ? reminderMinutesBefore + '分钟' : reminderMinutesBefore < 1440 ? (reminderMinutesBefore / 60) + '小时' : (reminderMinutesBefore / 1440) + '天' }} 通过 {{ selectedChannels.length }} 种方式提醒您</span>
             </div>
           </div>
         </div>

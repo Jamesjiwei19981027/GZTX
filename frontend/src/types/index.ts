@@ -158,6 +158,7 @@ export interface Reminder {
 export interface CreateReminderRequest {
   remind_at: string
   remind_type?: number
+  notify_channels?: string // 通知方式，逗号分隔: web_push,email,sms,wx,desktop
 }
 
 // 附件类型

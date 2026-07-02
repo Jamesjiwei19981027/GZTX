@@ -6,13 +6,13 @@ from sqlalchemy.orm import Session
 from app.core.dependencies import get_db, get_current_user
 from app.core.config import settings
 from app.models.user import User
-from app.schemas.common import ResponseModel
+from app.schemas.common import ResponseData
 from app.utils.web_push import save_subscription, get_subscriptions
 
 router = APIRouter(prefix="/notifications", tags=["通知"])
 
 
-@router.get("/vapid-public-key", response_model=ResponseModel)
+@router.get("/vapid-public-key", response_model=ResponseData)
 async def get_vapid_public_key():
     """Get VAPID public key for Web Push subscription (public endpoint)."""
     if not settings.VAPID_PUBLIC_KEY:
@@ -20,19 +20,20 @@ async def get_vapid_public_key():
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": 503, "message": "Web Push 未配置"}
         )
-    return ResponseModel(data={"publicKey": settings.VAPID_PUBLIC_KEY})
+    return ResponseData(data={"publicKey": settings.VAPID_PUBLIC_KEY})
 
 
-@router.post("/subscribe", response_model=ResponseModel)
+@router.post("/subscribe", response_model=ResponseData)
 async def subscribe_push(
     subscription: dict,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Subscribe to Web Push notifications."""
+    print(f"[SUBSCRIBE] User {current_user.id} subscription: {subscription}")
     success = save_subscription(current_user.id, subscription)
     if success:
-        return ResponseModel(message="订阅成功")
+        return ResponseData(message="订阅成功")
     else:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -40,17 +41,17 @@ async def subscribe_push(
         )
 
 
-@router.get("/subscriptions", response_model=ResponseModel)
+@router.get("/subscriptions", response_model=ResponseData)
 async def get_push_subscriptions(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get user's Web Push subscriptions."""
     subs = get_subscriptions(current_user.id)
-    return ResponseModel(data={"subscriptions": subs})
+    return ResponseData(data={"subscriptions": subs})
 
 
-@router.delete("/unsubscribe", response_model=ResponseModel)
+@router.delete("/unsubscribe", response_model=ResponseData)
 async def unsubscribe_push(
     endpoint: str,
     current_user: User = Depends(get_current_user),
@@ -59,10 +60,40 @@ async def unsubscribe_push(
     """Unsubscribe from Web Push notifications."""
     from app.utils.web_push import remove_subscription
     remove_subscription(current_user.id, endpoint)
-    return ResponseModel(message="取消订阅成功")
+    return ResponseData(message="取消订阅成功")
 
 
-@router.post("/send-test-email", response_model=ResponseModel)
+@router.post("/test-push", response_model=ResponseData)
+async def test_push_notification(
+    current_user: User = Depends(get_current_user),
+):
+    """Send a test Web Push notification to the current user."""
+    from app.utils.web_push import send_web_push, get_subscriptions
+
+    subscriptions = get_subscriptions(current_user.id)
+    if not subscriptions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": 400, "message": "尚未订阅推送，请先在浏览器中允许通知权限。"}
+        )
+
+    result = send_web_push(
+        user=current_user,
+        title="🔔 烂笔头PM - 通知测试",
+        body="网页弹窗提醒功能已正常工作！您将在任务提醒时收到此类通知。",
+        url="/tasks"
+    )
+
+    if result:
+        return ResponseData(message="测试通知已发送，请查看浏览器通知。")
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"code": 500, "message": "推送发送失败，请检查 VAPID 配置。"}
+        )
+
+
+@router.post("/send-test-email", response_model=ResponseData)
 async def send_test_email_notification(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
@@ -127,7 +158,7 @@ async def send_test_email_notification(
     )
 
     if success:
-        return ResponseModel(message=f"测试邮件已发送至 {current_user.email}")
+        return ResponseData(message=f"测试邮件已发送至 {current_user.email}")
     else:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -135,7 +166,7 @@ async def send_test_email_notification(
         )
 
 
-@router.get("/email-status", response_model=ResponseModel)
+@router.get("/email-status", response_model=ResponseData)
 async def get_email_notification_status(
     current_user: User = Depends(get_current_user),
 ):
@@ -143,7 +174,7 @@ async def get_email_notification_status(
     has_email = bool(current_user.email)
     smtp_configured = bool(settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD)
 
-    return ResponseModel(data={
+    return ResponseData(data={
         "has_email": has_email,
         "email_address": current_user.email or "",
         "smtp_configured": smtp_configured,

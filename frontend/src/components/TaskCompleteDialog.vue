@@ -19,16 +19,50 @@ const form = ref({
   completion_comment: '',
   needs_follow_up: false,
   follow_up_reason: '',
+  follow_up_reason_custom: '',
   follow_up_remind_at: '',
-  follow_up_notify_channels: [] as string[]
+  follow_up_notify_channels: 'web_popup'
 })
 
 const channelOptions = [
-  { label: '浏览器推送', value: 'web_push', icon: 'notifications' },
-  { label: '邮件', value: 'email', icon: 'mail' },
-  { label: '短信', value: 'sms', icon: 'sms' },
-  { label: '桌面弹窗', value: 'desktop', icon: 'desktop_windows' }
+  { value: 'web_popup', label: '网页弹窗', icon: 'web' },
+  { value: 'email', label: '邮件提醒', icon: 'mail' },
+  { value: 'wechat', label: '微信提醒', icon: 'chat' },
+  { value: 'sms', label: '短信提醒', icon: 'sms' },
+  { value: 'alarm', label: '闹钟提醒', icon: 'notifications_active' },
 ]
+
+const followUpReasonOptions = [
+  '任务部分完成，需继续推进',
+  '等待他人反馈或确认',
+  '需要后续验证结果',
+  '存在待解决的依赖问题',
+  '需要补充相关材料',
+  '需要再次沟通确认',
+  '其他',
+]
+
+const isCustomReason = computed(() => form.value.follow_up_reason === '其他')
+
+function toggleChannel(channel: string) {
+  const channels = form.value.follow_up_notify_channels
+    ? form.value.follow_up_notify_channels.split(',').filter(Boolean)
+    : []
+  const idx = channels.indexOf(channel)
+  if (idx > -1) {
+    channels.splice(idx, 1)
+  } else {
+    channels.push(channel)
+  }
+  form.value.follow_up_notify_channels = channels.join(',')
+}
+
+function isChannelActive(channel: string) {
+  const channels = form.value.follow_up_notify_channels
+    ? form.value.follow_up_notify_channels.split(',').filter(Boolean)
+    : []
+  return channels.includes(channel)
+}
 
 const sliderMarks = computed(() => ({
   0: '0%',
@@ -52,8 +86,9 @@ watch(() => props.modelValue, (val) => {
       completion_comment: '',
       needs_follow_up: false,
       follow_up_reason: '',
+      follow_up_reason_custom: '',
       follow_up_remind_at: '',
-      follow_up_notify_channels: ['web_push']
+      follow_up_notify_channels: 'web_popup'
     }
   }
 })
@@ -70,20 +105,19 @@ function handleSubmit() {
   }
 
   if (form.value.needs_follow_up) {
-    data.follow_up_reason = form.value.follow_up_reason || undefined
-
-    if (form.value.follow_up_remind_at) {
-      // Append timezone offset
-      const tzOffset = new Date().getTimezoneOffset()
-      const offsetHours = Math.abs(Math.floor(tzOffset / 60))
-      const offsetMinutes = Math.abs(tzOffset % 60)
-      const offsetSign = tzOffset <= 0 ? '+' : '-'
-      const offsetStr = `${offsetSign}${String(offsetHours).padStart(2, '0')}:${String(offsetMinutes).padStart(2, '0')}`
-      data.follow_up_remind_at = form.value.follow_up_remind_at + offsetStr
+    // 跟进原因：如果选了"其他"则使用自定义文本
+    if (isCustomReason.value) {
+      data.follow_up_reason = form.value.follow_up_reason_custom || undefined
+    } else {
+      data.follow_up_reason = form.value.follow_up_reason || undefined
     }
 
-    if (form.value.follow_up_notify_channels.length > 0) {
-      data.follow_up_notify_channels = form.value.follow_up_notify_channels.join(',')
+    if (form.value.follow_up_remind_at) {
+      data.follow_up_remind_at = form.value.follow_up_remind_at
+    }
+
+    if (form.value.follow_up_notify_channels) {
+      data.follow_up_notify_channels = form.value.follow_up_notify_channels
     }
   }
 
@@ -171,15 +205,29 @@ function handleSubmit() {
           <!-- Follow-up Reason -->
           <div>
             <label class="text-label-md text-on-surface-variant block mb-sm">
-              <span class="material-symbols-outlined text-body-md align-middle mr-xs">reason</span>
+              <span class="material-symbols-outlined text-body-md align-middle mr-xs">campaign</span>
               跟进原因
             </label>
-            <ElInput
+            <ElSelect
               v-model="form.follow_up_reason"
+              placeholder="请选择跟进原因"
+              style="width: 100%"
+            >
+              <ElOption
+                v-for="reason in followUpReasonOptions"
+                :key="reason"
+                :label="reason"
+                :value="reason"
+              />
+            </ElSelect>
+            <ElInput
+              v-if="isCustomReason"
+              v-model="form.follow_up_reason_custom"
               type="textarea"
               :rows="2"
               :autosize="{ minRows: 2, maxRows: 4 }"
-              placeholder="说明需要跟进的事项"
+              placeholder="请输入跟进原因"
+              class="mt-sm"
             />
           </div>
 
@@ -204,27 +252,23 @@ function handleSubmit() {
           <div>
             <label class="text-label-md text-on-surface-variant block mb-sm">
               <span class="material-symbols-outlined text-body-md align-middle mr-xs">cell_tower</span>
-              通知渠道
+              通知方式
             </label>
-            <ElSelect
-              v-model="form.follow_up_notify_channels"
-              multiple
-              placeholder="选择通知渠道"
-              style="width: 100%"
-              collapse-tags
-            >
-              <ElOption
+            <div class="flex flex-wrap gap-sm">
+              <button
                 v-for="opt in channelOptions"
                 :key="opt.value"
-                :label="opt.label"
-                :value="opt.value"
+                type="button"
+                class="flex items-center gap-xs rounded-lg px-sm py-xs text-label-sm transition border"
+                :class="isChannelActive(opt.value)
+                  ? 'bg-primary text-on-primary border-primary'
+                  : 'bg-surface border-outline-variant text-on-surface-variant hover:bg-surface-container-high'"
+                @click="toggleChannel(opt.value)"
               >
-                <div class="flex items-center gap-sm">
-                  <span class="material-symbols-outlined text-body-sm">{{ opt.icon }}</span>
-                  <span>{{ opt.label }}</span>
-                </div>
-              </ElOption>
-            </ElSelect>
+                <span class="material-symbols-outlined !text-[16px]">{{ opt.icon }}</span>
+                {{ opt.label }}
+              </button>
+            </div>
           </div>
         </div>
       </Transition>

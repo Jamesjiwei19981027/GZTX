@@ -44,6 +44,53 @@ const priorityLabelMap: Record<number, string> = {
   2: '高',
 }
 
+const channelLabels: Record<string, string> = {
+  web_popup: '网页弹窗',
+  web_push: '网页弹窗',
+  email: '邮件提醒',
+  wechat: '微信提醒',
+  wx: '微信提醒',
+  sms: '短信提醒',
+  alarm: '闹钟提醒',
+  desktop: '闹钟提醒',
+}
+
+const channelIcons: Record<string, string> = {
+  web_popup: 'notifications_active',
+  web_push: 'notifications_active',
+  email: 'mail',
+  wechat: 'chat',
+  wx: 'chat',
+  sms: 'sms',
+  alarm: 'alarm',
+  desktop: 'alarm',
+}
+
+function formatChannels(channels: string): string {
+  if (!channels) return ''
+  return channels
+    .split(',')
+    .filter(Boolean)
+    .map((ch) => channelLabels[ch] || ch)
+    .join('、')
+}
+
+function getChannelList(channels: string): Array<{ key: string; icon: string; label: string }> {
+  if (!channels) return []
+  return channels
+    .split(',')
+    .filter(Boolean)
+    .map((ch) => ({
+      key: ch,
+      icon: channelIcons[ch] || 'notifications',
+      label: channelLabels[ch] || ch,
+    }))
+}
+
+function formatReminderTime(remindAt: string): string {
+  return dayjs(remindAt).format('MM-DD HH:mm')
+}
+
 const priorityIconMap: Record<number, string> = {
   0: 'low_priority',
   1: 'priority',
@@ -119,7 +166,11 @@ async function handleComplete(data: {
     await taskStore.markComplete(taskId.value, data)
     showCompleteDialog.value = false
     await taskStore.fetchTaskDetail(taskId.value)
-    ElMessage.success('任务已完成')
+    if (data.needs_follow_up) {
+      ElMessage.success('已标记为跟进任务，将在指定时间提醒您继续跟进')
+    } else {
+      ElMessage.success('任务已完成')
+    }
   } catch {
     ElMessage.error('操作失败')
   }
@@ -160,15 +211,43 @@ function formatDate(date?: string) {
   return dayjs(date).format('YYYY-MM-DD HH:mm')
 }
 
+const now = ref(Date.now())
+let timerInterval: ReturnType<typeof setInterval> | null = null
+
 onMounted(() => {
   if (taskId.value && !isCreateMode.value) {
     taskStore.fetchTaskDetail(taskId.value)
   }
+  timerInterval = setInterval(() => {
+    now.value = Date.now()
+  }, 1000)
 })
 
 onBeforeUnmount(() => {
   taskStore.clearCurrentTask()
+  if (timerInterval) {
+    clearInterval(timerInterval)
+    timerInterval = null
+  }
 })
+
+function getCountdown(remindAt: string): string {
+  // Force reactivity dependency on the timer tick
+  const _tick = now.value
+  if (!remindAt) return ''
+  const target = dayjs(remindAt)
+  const diffSeconds = target.diff(dayjs(), 'second')
+  if (diffSeconds < 0) return '已到时'
+  const hours = Math.floor(diffSeconds / 3600)
+  const minutes = Math.floor((diffSeconds % 3600) / 60)
+  const seconds = diffSeconds % 60
+  if (hours > 99) {
+    const days = Math.floor(hours / 24)
+    const remainHours = hours % 24
+    return `${days}天${String(remainHours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+  }
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
 </script>
 
 <template>
@@ -254,14 +333,20 @@ onBeforeUnmount(() => {
               class="bg-surface-container-lowest rounded-xl p-xl shadow-card border border-surface-variant border-l-4"
               :class="priorityBorderColor"
             >
-              <!-- Status Badge -->
-              <span
-                class="inline-flex items-center gap-xs px-md py-xs rounded-full font-label text-label-md"
-                :class="[currentStatusConfig.bg, currentStatusConfig.text]"
-              >
-                <span class="material-symbols-outlined text-base">{{ currentStatusConfig.icon }}</span>
-                {{ currentStatusLabel }}
-              </span>
+              <!-- Top Row: Status Badge + Created At -->
+              <div class="flex items-start justify-between">
+                <span
+                  class="inline-flex items-center gap-xs px-md py-xs rounded-full font-label text-label-md"
+                  :class="[currentStatusConfig.bg, currentStatusConfig.text]"
+                >
+                  <span class="material-symbols-outlined text-base">{{ currentStatusConfig.icon }}</span>
+                  {{ currentStatusLabel }}
+                </span>
+                <div class="flex items-center gap-xs text-on-surface-variant">
+                  <span class="material-symbols-outlined text-base">schedule</span>
+                  <span class="text-label-sm font-label">{{ formatDate(task.created_at) }}</span>
+                </div>
+              </div>
 
               <!-- Title -->
               <h1
@@ -278,30 +363,21 @@ onBeforeUnmount(() => {
                 {{ task.description || '暂无描述' }}
               </p>
 
-              <!-- Meta Grid -->
-              <div class="grid grid-cols-2 gap-md mt-lg">
-                <!-- Priority -->
-                <div class="flex items-center gap-sm">
-                  <span class="material-symbols-outlined text-on-surface-variant text-xl">
-                    {{ priorityIconMap[task.priority] }}
-                  </span>
-                  <span class="text-label-sm text-on-surface-variant font-label">优先级</span>
-                  <span class="text-body-sm text-on-surface font-body">
-                    {{ priorityLabelMap[task.priority] }}
-                  </span>
-                </div>
-
-                <!-- Due Date -->
-                <div class="flex items-center gap-sm">
+              <!-- Prominent Due Date -->
+              <div
+                class="mt-lg rounded-lg px-md py-sm inline-flex items-center gap-sm"
+                :class="task.is_overdue && task.status !== 2 ? 'bg-error/10' : 'bg-surface-container-high'"
+              >
+                <span
+                  class="material-symbols-outlined text-2xl"
+                  :class="task.is_overdue && task.status !== 2 ? 'text-error' : 'text-on-surface-variant'"
+                >
+                  {{ task.is_overdue && task.status !== 2 ? 'warning' : 'event' }}
+                </span>
+                <div class="flex flex-col">
+                  <span class="text-label-xs text-on-surface-variant font-label">截止日期</span>
                   <span
-                    class="material-symbols-outlined text-xl"
-                    :class="task.is_overdue && task.status !== 2 ? 'text-error' : 'text-on-surface-variant'"
-                  >
-                    {{ task.is_overdue && task.status !== 2 ? 'warning' : 'calendar_today' }}
-                  </span>
-                  <span class="text-label-sm text-on-surface-variant font-label">截止日期</span>
-                  <span
-                    class="text-body-sm font-body"
+                    class="text-title-lg font-headline font-bold leading-tight"
                     :class="task.is_overdue && task.status !== 2 ? 'text-error' : 'text-on-surface'"
                   >
                     {{ formatDate(task.due_date) }}
@@ -311,8 +387,19 @@ onBeforeUnmount(() => {
                     >(已逾期)</span>
                   </span>
                 </div>
+              </div>
 
-                <!-- Category -->
+              <!-- Meta: Priority + Category (compact row) -->
+              <div class="flex items-center gap-lg mt-md flex-wrap">
+                <div class="flex items-center gap-sm">
+                  <span class="material-symbols-outlined text-on-surface-variant text-xl">
+                    {{ priorityIconMap[task.priority] }}
+                  </span>
+                  <span class="text-label-sm text-on-surface-variant font-label">优先级</span>
+                  <span class="text-body-sm text-on-surface font-body">
+                    {{ priorityLabelMap[task.priority] }}
+                  </span>
+                </div>
                 <div v-if="task.category" class="flex items-center gap-sm">
                   <span class="material-symbols-outlined text-on-surface-variant text-xl">category</span>
                   <span class="text-label-sm text-on-surface-variant font-label">分类</span>
@@ -322,15 +409,6 @@ onBeforeUnmount(() => {
                       :style="{ backgroundColor: task.category.color }"
                     />
                     {{ task.category.name }}
-                  </span>
-                </div>
-
-                <!-- Created At -->
-                <div class="flex items-center gap-sm">
-                  <span class="material-symbols-outlined text-on-surface-variant text-xl">schedule</span>
-                  <span class="text-label-sm text-on-surface-variant font-label">创建时间</span>
-                  <span class="text-body-sm text-on-surface font-body">
-                    {{ formatDate(task.created_at) }}
                   </span>
                 </div>
               </div>
@@ -350,19 +428,119 @@ onBeforeUnmount(() => {
                 </span>
               </div>
 
+              <!-- Reminders -->
+              <div v-if="task.reminders && task.reminders.length > 0" class="mt-lg">
+                <div class="flex items-center gap-xs mb-sm">
+                  <span class="material-symbols-outlined text-primary text-lg">alarm</span>
+                  <span class="font-label text-label-md text-on-surface">提醒设置</span>
+                </div>
+                <div class="flex flex-col gap-sm">
+                  <div
+                    v-for="reminder in task.reminders"
+                    :key="reminder.id"
+                    class="flex flex-col gap-sm rounded-lg border px-md py-sm"
+                    :class="
+                      task.status === 2
+                        ? 'bg-surface-container-low border-surface-variant'
+                        : getCountdown(reminder.remind_at) === '已到时'
+                          ? 'bg-surface-container-low border-surface-variant'
+                          : 'bg-primary/5 border-primary/20'
+                    "
+                  >
+                    <!-- Top row: Absolute time + notification channels -->
+                    <div class="flex items-center justify-between gap-md flex-wrap">
+                      <div class="flex items-center gap-xs">
+                        <span
+                          class="material-symbols-outlined text-base"
+                          :class="
+                            task.status === 2
+                              ? 'text-on-surface-variant'
+                              : getCountdown(reminder.remind_at) === '已到时'
+                                ? 'text-on-surface-variant'
+                                : 'text-primary'
+                          "
+                        >event</span>
+                        <span
+                          class="font-body text-body-sm"
+                          :class="
+                            task.status === 2
+                              ? 'text-on-surface-variant'
+                              : getCountdown(reminder.remind_at) === '已到时'
+                                ? 'text-on-surface-variant'
+                                : 'text-on-surface'
+                          "
+                        >{{ formatReminderTime(reminder.remind_at) }}</span>
+                      </div>
+                      <div v-if="reminder.notify_channels" class="flex items-center gap-xs flex-wrap">
+                        <span
+                          v-for="ch in getChannelList(reminder.notify_channels)"
+                          :key="ch.key"
+                          class="inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 font-label text-[11px]"
+                          :class="
+                            task.status === 2
+                              ? 'bg-surface-container-high text-on-surface-variant'
+                              : 'bg-primary/10 text-primary'
+                          "
+                        >
+                          <span class="material-symbols-outlined text-[14px]" style="font-variation-settings: 'FILL' 1;">{{ ch.icon }}</span>
+                          {{ ch.label }}
+                        </span>
+                      </div>
+                      <span v-else class="font-label text-[11px] text-on-surface-variant">仅应用内提醒</span>
+                    </div>
+                    <!-- Bottom row: Countdown pinned to bottom-right -->
+                    <div class="flex items-center justify-end">
+                      <span
+                        v-if="task.status !== 2 && getCountdown(reminder.remind_at) && getCountdown(reminder.remind_at) !== '已到时'"
+                        class="inline-flex items-center gap-1 font-body text-body-md tabular-nums font-medium text-primary"
+                      >
+                        <span class="material-symbols-outlined text-base">timer</span>
+                        {{ getCountdown(reminder.remind_at) }}
+                      </span>
+                      <span
+                        v-else-if="task.status !== 2 && getCountdown(reminder.remind_at) === '已到时'"
+                        class="inline-flex items-center gap-1 font-label text-label-md text-on-surface-variant"
+                      >
+                        <span class="material-symbols-outlined text-base">check_circle</span>
+                        已到时
+                      </span>
+                      <span
+                        v-else-if="task.status === 2"
+                        class="font-label text-label-sm text-on-surface-variant"
+                      >任务已完成</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Follow-up Notice -->
               <div
                 v-if="task.needs_follow_up"
                 class="mt-lg bg-[#ffdcc6]/30 border border-[#924700]/20 rounded-xl p-md flex items-start gap-sm"
               >
                 <span class="material-symbols-outlined text-tertiary text-xl flex-shrink-0 mt-0.5">flag</span>
-                <div>
+                <div class="flex-grow">
                   <span class="font-label text-label-md text-tertiary block">需要跟进</span>
                   <p
                     v-if="task.follow_up_reason"
                     class="text-body-sm text-on-surface-variant m-0 mt-xs"
                   >
+                    <span class="material-symbols-outlined !text-[14px] align-middle mr-xs">campaign</span>
                     {{ task.follow_up_reason }}
+                  </p>
+                  <p
+                    v-if="task.follow_up_remind_at"
+                    class="text-body-sm text-on-surface-variant m-0 mt-xs"
+                  >
+                    <span class="material-symbols-outlined !text-[14px] align-middle mr-xs">alarm</span>
+                    提醒时间：{{ task.follow_up_remind_at }}
+                  </p>
+                  <p
+                    v-if="task.follow_up_notify_channels"
+                    class="text-body-sm text-on-surface-variant m-0 mt-xs"
+                  >
+                    <span class="material-symbols-outlined !text-[14px] align-middle mr-xs">cell_tower</span>
+                    通知方式：{{ formatChannels(task.follow_up_notify_channels) }}
                   </p>
                 </div>
               </div>

@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick } from 'vue'
 import type { Task, CreateTaskRequest, TaskPriority, CreateReminderRequest } from '@/types'
-import { ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElDatePicker, ElButton, ElTag } from 'element-plus'
+import { ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElDatePicker, ElButton, ElTag, ElDialog, ElColorPicker } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import CategoryPicker from './CategoryPicker.vue'
 import ReminderSetting from './ReminderSetting.vue'
-import { getTagList } from '@/api/tags'
+import { getTagList, createTag } from '@/api/tags'
 import type { Tag } from '@/types'
 
 const props = defineProps<{
@@ -21,6 +21,20 @@ const emit = defineEmits<{
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const allTags = ref<Tag[]>([])
+
+// Tag creation dialog state
+const showTagDialog = ref(false)
+const creatingTag = ref(false)
+const newTag = ref({
+  name: '',
+  color: '#0058be'
+})
+
+const tagPresetColors = [
+  '#0058be', '#006c49', '#924700', '#ba1a1a',
+  '#6750A4', '#006874', '#4A6267', '#7D5260',
+  '#2170e4', '#6cf8bb', '#ffb786', '#ffdad6'
+]
 
 const formData = ref<CreateTaskRequest>({
   title: '',
@@ -72,7 +86,8 @@ watch(
         due_date: task.due_date,
         reminders: task.reminders.map(r => ({
           remind_at: r.remind_at,
-          remind_type: r.remind_type
+          remind_type: r.remind_type,
+          notify_channels: r.notify_channels
         })),
         is_recurring: task.is_recurring
       }
@@ -136,6 +151,35 @@ function handleCategoryChange(categoryId: number | undefined) {
 function handleReminderChange(reminders: CreateReminderRequest[]) {
   formData.value.reminders = reminders
 }
+
+// Tag creation
+async function handleCreateTag() {
+  if (!newTag.value.name.trim()) return
+  creatingTag.value = true
+  try {
+    const created = await createTag({
+      name: newTag.value.name.trim(),
+      color: newTag.value.color
+    })
+    allTags.value.push(created)
+    if (formData.value.tag_ids) {
+      formData.value.tag_ids.push(created.id)
+    } else {
+      formData.value.tag_ids = [created.id]
+    }
+    showTagDialog.value = false
+    newTag.value = { name: '', color: '#0058be' }
+  } catch {
+    // handled by API interceptor
+  } finally {
+    creatingTag.value = false
+  }
+}
+
+function handleCloseTagDialog() {
+  showTagDialog.value = false
+  newTag.value = { name: '', color: '#0058be' }
+}
 </script>
 
 <template>
@@ -160,7 +204,7 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
         @submit.prevent="handleSubmit"
       >
         <!-- Title -->
-        <ElFormItem label="任务标题" prop="title" class="mb-md">
+        <ElFormItem label="任务标题" prop="title">
           <ElInput
             v-model="formData.title"
             placeholder="请输入任务标题"
@@ -175,7 +219,7 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
         </ElFormItem>
 
         <!-- Description -->
-        <ElFormItem label="任务描述" class="mb-md">
+        <ElFormItem label="任务描述">
           <ElInput
             v-model="formData.description"
             type="textarea"
@@ -189,7 +233,7 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
 
         <!-- Priority + Category row -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-md">
-          <ElFormItem label="优先级" class="mb-md">
+          <ElFormItem label="优先级">
             <ElSelect v-model="formData.priority" style="width: 100%" placeholder="选择优先级">
               <ElOption
                 v-for="opt in priorityOptions"
@@ -208,7 +252,7 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
             </ElSelect>
           </ElFormItem>
 
-          <ElFormItem label="分类" class="mb-md">
+          <ElFormItem label="分类">
             <CategoryPicker
               :value="formData.category_id"
               @change="handleCategoryChange"
@@ -217,7 +261,7 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
         </div>
 
         <!-- Due date -->
-        <ElFormItem label="截止日期" class="mb-md">
+        <ElFormItem label="截止日期">
           <ElDatePicker
             v-model="formData.due_date"
             type="datetime"
@@ -233,7 +277,7 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
         </ElFormItem>
 
         <!-- Tags -->
-        <ElFormItem label="标签" class="mb-md">
+        <ElFormItem label="标签">
           <ElSelect
             v-model="formData.tag_ids"
             multiple
@@ -257,6 +301,18 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
                 <span>{{ tag.name }}</span>
               </div>
             </ElOption>
+            <template #footer>
+              <div class="px-sm py-xs border-t border-surface-variant">
+                <button
+                  type="button"
+                  class="flex items-center gap-sm w-full px-sm py-xs rounded-lg text-primary text-label-md hover:bg-primary-fixed/30 transition-colors cursor-pointer"
+                  @click.stop="showTagDialog = true"
+                >
+                  <span class="material-symbols-outlined text-body-md">add_circle</span>
+                  新建标签
+                </button>
+              </div>
+            </template>
           </ElSelect>
           <!-- Selected tags preview -->
           <div v-if="formData.tag_ids && formData.tag_ids.length > 0" class="flex flex-wrap gap-xs mt-sm">
@@ -275,7 +331,7 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
         </ElFormItem>
 
         <!-- Reminders -->
-        <ElFormItem label="提醒设置" class="mb-md">
+        <ElFormItem label="提醒设置">
           <ReminderSetting
             :reminders="formData.reminders || []"
             :due-date="formData.due_date"
@@ -309,6 +365,91 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
         </ElFormItem>
       </ElForm>
     </div>
+
+    <!-- Tag Creation Dialog -->
+    <ElDialog
+      v-model="showTagDialog"
+      title=""
+      width="380px"
+      :close-on-click-modal="false"
+      :append-to-body="true"
+      class="create-tag-dialog"
+    >
+      <template #header>
+        <div class="flex items-center gap-md">
+          <span class="material-symbols-outlined text-primary text-headline-sm">sell</span>
+          <h3 class="text-headline-sm text-on-surface m-0">新建标签</h3>
+        </div>
+      </template>
+
+      <ElForm :model="newTag" label-position="top" @submit.prevent="handleCreateTag">
+        <ElFormItem label="标签名称" required>
+          <ElInput
+            v-model="newTag.name"
+            placeholder="请输入标签名称"
+            maxlength="20"
+            show-word-limit
+            clearable
+            @keydown.enter.prevent="handleCreateTag"
+          >
+            <template #prefix>
+              <span class="material-symbols-outlined text-outline text-body-sm">label</span>
+            </template>
+          </ElInput>
+        </ElFormItem>
+
+        <ElFormItem label="颜色">
+          <div class="flex flex-wrap gap-sm items-center">
+            <button
+              v-for="color in tagPresetColors"
+              :key="color"
+              type="button"
+              class="w-8 h-8 rounded-full border-2 transition-all duration-200 cursor-pointer hover:scale-110"
+              :class="newTag.color === color ? 'border-on-surface shadow-md scale-110' : 'border-transparent'"
+              :style="{ backgroundColor: color }"
+              @click="newTag.color = color"
+            />
+          </div>
+          <div class="flex items-center gap-sm mt-sm">
+            <ElColorPicker v-model="newTag.color" size="small" />
+            <span class="text-label-sm text-on-surface-variant">{{ newTag.color }}</span>
+          </div>
+        </ElFormItem>
+
+        <!-- Preview -->
+        <div class="bg-surface-container-low rounded-xl p-md mt-sm">
+          <span class="text-label-sm text-on-surface-variant block mb-xs">预览</span>
+          <div class="flex items-center gap-sm">
+            <span
+              class="inline-block w-3 h-3 rounded-full"
+              :style="{ backgroundColor: newTag.color }"
+            ></span>
+            <span class="text-body-md text-on-surface">
+              {{ newTag.name || '标签名称' }}
+            </span>
+          </div>
+        </div>
+      </ElForm>
+
+      <template #footer>
+        <div class="flex justify-end gap-md">
+          <button type="button" class="btn-ghost" @click="handleCloseTagDialog">
+            取消
+          </button>
+          <button
+            type="button"
+            class="btn-primary"
+            :disabled="!newTag.name.trim() || creatingTag"
+            @click="handleCreateTag"
+          >
+            <span class="material-symbols-outlined text-body-md">
+              {{ creatingTag ? 'progress_activity' : 'check' }}
+            </span>
+            创建
+          </button>
+        </div>
+      </template>
+    </ElDialog>
   </div>
 </template>
 
@@ -318,10 +459,11 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
   font-weight: 600;
   font-size: 14px;
   color: #424754;
+  margin-bottom: 4px;
 }
 
 :deep(.el-form-item) {
-  margin-bottom: 0;
+  margin-bottom: 20px;
 }
 
 /* Smooth loading spinner animation */
@@ -337,5 +479,30 @@ function handleReminderChange(reminders: CreateReminderRequest[]) {
 
 .btn-primary:disabled .material-symbols-outlined {
   animation: spin 1s linear infinite;
+}
+
+/* Dialog styling */
+:deep(.create-tag-dialog .el-dialog) {
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+:deep(.create-tag-dialog .el-dialog__header) {
+  border-bottom: 1px solid #e1e3e4;
+  margin-right: 0;
+  padding: 16px 24px;
+}
+
+:deep(.create-tag-dialog .el-dialog__body) {
+  padding: 20px 24px;
+}
+
+:deep(.create-tag-dialog .el-dialog__footer) {
+  border-top: 1px solid #e1e3e4;
+  padding: 12px 24px;
+}
+
+:deep(.el-select-dropdown__footer) {
+  padding: 0;
 }
 </style>

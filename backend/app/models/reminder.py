@@ -1,7 +1,7 @@
 """
 提醒模型
 """
-from sqlalchemy import Column, Integer, Boolean, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -17,6 +17,7 @@ class Reminder(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     remind_at = Column(DateTime(timezone=True), nullable=False, index=True)
     remind_type = Column(Integer, nullable=False, default=0)  # 0=截止前, 1=截止时, 2=逾期, 3=自定义
+    notify_channels = Column(String(255), nullable=True)  # 通知方式，逗号分隔: web_popup,email,sms,wechat,alarm
     is_sent = Column(Boolean, default=False, nullable=False)
     sent_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

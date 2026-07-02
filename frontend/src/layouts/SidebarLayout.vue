@@ -1,11 +1,53 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter, RouterView } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { useWebPush } from '@/composables/useWebPush'
+import request from '@/api/request'
+import { ElMessage } from 'element-plus'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
+const { subscribe, isSupported, permissionState } = useWebPush()
+const testingPush = ref(false)
+
+onMounted(async () => {
+  // 每次页面加载都尝试 subscribe()，确保后端重启后重新注册订阅
+  // subscribe() 内部会复用已有的 PushManager 订阅，只重新发送到后端
+  if (isSupported.value) {
+    try {
+      await subscribe()
+    } catch (e) {
+      console.warn('Web Push 自动订阅失败:', e)
+    }
+  }
+})
+
+async function testPushNotification() {
+  // 如果权限被拒绝，直接提示
+  if (permissionState.value === 'denied') {
+    ElMessage.warning('通知权限已被浏览器拒绝，请在地址栏左侧点击锁图标手动开启通知权限。')
+    return
+  }
+
+  testingPush.value = true
+  try {
+    // 先确保已订阅（处理后端重启后订阅丢失的情况）
+    await subscribe()
+    await request.post('/notifications/test-push')
+    ElMessage.success('测试通知已发送，请查看浏览器通知')
+  } catch (e: any) {
+    const data = e.response?.data
+    const detail = data?.detail
+    const msg = typeof detail === 'object' ? (detail?.message || '') : (detail || '')
+    const finalMsg = msg || data?.message || '发送失败，请打开 F12 控制台查看详细错误'
+    ElMessage.error(finalMsg)
+    console.error('[WebPush] test-push 失败:', e)
+  } finally {
+    testingPush.value = false
+  }
+}
 
 const currentRoute = computed(() => route.name as string)
 
@@ -45,9 +87,18 @@ const userName = computed(() => authStore.nickname || '用户')
     <!-- Sidebar -->
     <nav class="hidden md:flex fixed left-0 top-0 h-full w-sidebar bg-surface border-r border-surface-variant shadow-sm flex-col py-lg px-md gap-sm z-50">
       <!-- Brand -->
-      <div class="mb-lg px-sm">
-        <h1 class="font-headline text-headline-sm font-bold text-primary tracking-tight">Flow 生产力</h1>
-        <p class="font-body text-body-sm text-on-surface-variant mt-xs">Stay in the zone</p>
+      <div class="mb-lg px-sm flex items-center gap-sm cursor-pointer hover:opacity-80 transition-opacity" @click="navigate('/dashboard')">
+        <div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-sm flex-shrink-0">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M3 20L7 4L12 8L17 4L21 20" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M7 14L12 12L17 14" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" opacity="0.7"/>
+            <circle cx="12" cy="20" r="1.5" fill="white"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="font-headline text-headline-sm font-bold text-primary tracking-tight leading-none">烂笔头PM</h1>
+          <p class="font-body text-body-sm text-on-surface-variant mt-xs">好记性不如烂笔头</p>
+        </div>
       </div>
 
       <!-- Nav Items -->
@@ -105,6 +156,16 @@ const userName = computed(() => authStore.nickname || '用户')
             {{ userName.charAt(0).toUpperCase() }}
           </div>
           <span class="font-body text-body-sm text-on-surface truncate flex-1">{{ userName }}</span>
+          <button
+            v-if="isSupported"
+            class="flex items-center gap-xs px-sm py-xs rounded-lg text-on-surface-variant hover:text-white hover:bg-primary/80 transition-all mt-sm"
+            @click="testPushNotification"
+            :disabled="testingPush"
+            title="测试网页弹窗通知"
+          >
+            <span class="material-symbols-outlined" style="font-size: 20px;">{{ testingPush ? 'hourglass_empty' : 'notifications_active' }}</span>
+            <span class="font-label" style="font-size: 12px;">{{ testingPush ? '发送中...' : '测试通知' }}</span>
+          </button>
           <button
             class="text-on-surface-variant hover:text-error transition-colors"
             @click="handleLogout"

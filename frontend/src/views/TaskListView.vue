@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useTaskStore } from '@/stores/task'
-import { ElPagination } from 'element-plus'
+import { ElPagination, ElMessage } from 'element-plus'
 import TaskItem from '@/components/TaskItem.vue'
+import TaskDetailDialog from '@/components/TaskDetailDialog.vue'
+import TaskCompleteDialog from '@/components/TaskCompleteDialog.vue'
 
 const router = useRouter()
+const route = useRoute()
 const taskStore = useTaskStore()
 
 const searchQuery = ref('')
 const activeTab = ref<'all' | 0 | 1 | 2>('all')
+const activePriority = ref<'all' | 0 | 1 | 2>('all')
 const needsFollowUp = ref(false)
 
 const tasks = computed(() => taskStore.tasks)
@@ -24,6 +28,13 @@ const statusTabs = [
   { key: 2 as const, label: '已完成' },
 ]
 
+const priorityTabs = [
+  { key: 'all' as const, label: '全部' },
+  { key: 0 as const, label: '低' },
+  { key: 1 as const, label: '中' },
+  { key: 2 as const, label: '高' },
+]
+
 function buildFilterParams(page = 1): Record<string, unknown> {
   const params: Record<string, unknown> = {
     page,
@@ -31,6 +42,9 @@ function buildFilterParams(page = 1): Record<string, unknown> {
   }
   if (activeTab.value !== 'all') {
     params.status = activeTab.value
+  }
+  if (activePriority.value !== 'all') {
+    params.priority = activePriority.value
   }
   if (searchQuery.value.trim()) {
     params.search = searchQuery.value.trim()
@@ -50,6 +64,11 @@ function handleTabChange(key: 'all' | 0 | 1 | 2) {
   applyFilters()
 }
 
+function handlePriorityChange(key: 'all' | 0 | 1 | 2) {
+  activePriority.value = key
+  applyFilters()
+}
+
 function toggleFollowUp() {
   needsFollowUp.value = !needsFollowUp.value
   applyFilters()
@@ -63,6 +82,23 @@ watch(searchQuery, () => {
   }, 300)
 })
 
+// 监听路由 query 参数变化（从仪表板卡片跳转过来）
+watch(() => route.query, (query) => {
+  const qStatus = query.status
+  const qPriority = query.priority
+  if (qStatus !== undefined) {
+    activeTab.value = Number(qStatus) as 0 | 1 | 2
+  } else {
+    activeTab.value = 'all'
+  }
+  if (qPriority !== undefined) {
+    activePriority.value = Number(qPriority) as 0 | 1 | 2
+  } else {
+    activePriority.value = 'all'
+  }
+  applyFilters()
+}, { immediate: false })
+
 function handlePageChange(page: number) {
   taskStore.fetchTasks(buildFilterParams(page) as never)
 }
@@ -71,16 +107,101 @@ function handleCreate() {
   router.push({ name: 'TaskCreate' })
 }
 
-function handleTaskClick(taskId: number) {
-  router.push(`/tasks/${taskId}`)
+// ─── Task Detail Dialog ────────────────────────────────────────────────────────
+const showDetailDialog = ref(false)
+const selectedTaskId = ref<number | null>(null)
+const detailLoading = ref(false)
+const detailTask = ref<any>(null)
+
+async function handleTaskClick(taskId: number) {
+  selectedTaskId.value = taskId
+  detailLoading.value = true
+  showDetailDialog.value = true
+  try {
+    detailTask.value = await taskStore.fetchTaskDetail(taskId)
+  } catch {
+    ElMessage.error('加载任务详情失败')
+    showDetailDialog.value = false
+  } finally {
+    detailLoading.value = false
+  }
 }
 
+function handleDetailEdit(task: any) {
+  router.push(`/tasks/${task.id}`)
+}
+
+async function handleDetailDelete(task: any) {
+  try {
+    await taskStore.removeTask(task.id)
+    showDetailDialog.value = false
+    ElMessage.success('任务已删除')
+    applyFilters()
+  } catch {
+    ElMessage.error('删除失败')
+  }
+}
+
+async function handleDetailUncomplete(task: any) {
+  try {
+    await taskStore.markUncomplete(task.id)
+    showDetailDialog.value = false
+    ElMessage.success('已恢复为未完成')
+    applyFilters()
+  } catch {
+    ElMessage.error('操作失败')
+  }
+}
+
+// ─── Task Complete Dialog ──────────────────────────────────────────────────────
+const showCompleteDialog = ref(false)
+const completingTaskId = ref<number | null>(null)
+
 function handleTaskComplete(task: { id: number }) {
-  taskStore.markComplete(task.id)
+  completingTaskId.value = task.id
+  showCompleteDialog.value = true
+}
+
+function handleDetailComplete(task: any) {
+  completingTaskId.value = task.id
+  showCompleteDialog.value = true
+}
+
+async function handleCompleteSubmit(data: {
+  completion_rate: number
+  completion_comment: string
+  needs_follow_up: boolean
+  follow_up_reason?: string
+  follow_up_remind_at?: string
+  follow_up_notify_channels?: string
+}) {
+  if (!completingTaskId.value) return
+  try {
+    await taskStore.markComplete(completingTaskId.value, data)
+    showCompleteDialog.value = false
+    showDetailDialog.value = false
+    if (data.needs_follow_up) {
+      ElMessage.success('已标记为跟进任务，将在指定时间提醒您继续跟进')
+    } else {
+      ElMessage.success('任务已完成')
+    }
+    applyFilters()
+  } catch {
+    ElMessage.error('操作失败')
+  }
 }
 
 onMounted(() => {
-  taskStore.fetchTasks()
+  // 读取 URL query 参数初始化筛选
+  const qStatus = route.query.status
+  const qPriority = route.query.priority
+  if (qStatus !== undefined) {
+    activeTab.value = Number(qStatus) as 0 | 1 | 2
+  }
+  if (qPriority !== undefined) {
+    activePriority.value = Number(qPriority) as 0 | 1 | 2
+  }
+  taskStore.fetchTasks(buildFilterParams() as never)
 })
 </script>
 
@@ -117,7 +238,7 @@ onMounted(() => {
     </div>
 
     <!-- Filter Bar -->
-    <div class="px-lg py-md flex items-center gap-md flex-shrink-0">
+    <div class="px-lg py-md flex items-center gap-md flex-shrink-0 flex-wrap">
       <!-- Status Pills -->
       <div class="flex gap-sm">
         <button
@@ -130,6 +251,23 @@ onMounted(() => {
               : 'border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
           "
           @click="handleTabChange(tab.key)"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <!-- Priority Pills -->
+      <div class="flex gap-sm">
+        <button
+          v-for="tab in priorityTabs"
+          :key="String(tab.key)"
+          class="rounded-full px-md py-xs font-label text-label-md transition"
+          :class="
+            activePriority === tab.key
+              ? 'bg-tertiary text-on-tertiary'
+              : 'border border-outline-variant text-on-surface-variant hover:bg-surface-container-high'
+          "
+          @click="handlePriorityChange(tab.key)"
         >
           {{ tab.label }}
         </button>
@@ -167,22 +305,18 @@ onMounted(() => {
         <span class="text-body-sm text-on-surface-variant">加载中...</span>
       </div>
 
-      <!-- Task Items -->
+      <!-- Task Items Grid -->
       <div
         v-else-if="tasks.length > 0"
-        class="flex flex-col gap-sm"
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
       >
-        <div
+        <TaskItem
           v-for="task in tasks"
           :key="task.id"
-          class="bg-surface-container-lowest border border-surface-variant rounded-xl p-md mb-sm"
-        >
-          <TaskItem
-            :task="task"
-            @click="handleTaskClick(task.id)"
-            @complete="handleTaskComplete"
-          />
-        </div>
+          :task="task"
+          @click="handleTaskClick(task.id)"
+          @complete="handleTaskComplete"
+        />
       </div>
 
       <!-- Empty State -->
@@ -221,6 +355,24 @@ onMounted(() => {
         @current-change="handlePageChange"
       />
     </div>
+
+    <!-- Task Detail Dialog (opened on card click) -->
+    <TaskDetailDialog
+      v-model="showDetailDialog"
+      :task="detailTask"
+      :loading="detailLoading"
+      @edit="handleDetailEdit"
+      @complete="handleDetailComplete"
+      @uncomplete="handleDetailUncomplete"
+      @delete="handleDetailDelete"
+    />
+
+    <!-- Task Complete Dialog (rate + comment + follow-up) -->
+    <TaskCompleteDialog
+      v-model="showCompleteDialog"
+      :task-title="(tasks.find(t => t.id === completingTaskId)?.title) || ''"
+      @submit="handleCompleteSubmit"
+    />
   </div>
 </template>
 

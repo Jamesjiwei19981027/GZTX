@@ -13,6 +13,7 @@ services:
       - APP_NAME=WorkTodo
       - APP_VERSION=1.0.0
       - DEBUG=true
+      - PYTHONUNBUFFERED=1
       - DATABASE_URL=sqlite+aiosqlite:///./data/worktodo.db
       - SECRET_KEY=dev-secret-key-please-change-in-production
       - ALGORITHM=HS256
@@ -22,6 +23,25 @@ services:
       - WX_APP_SECRET=your-wx-app-secret
       - CORS_ORIGINS=["http://localhost:5173","http://localhost:3000","http://localhost:80"]
       - UPLOAD_DIR=./data/uploads
+      - VAPID_PUBLIC_KEY=BAbjkZ9bgnX2RUv2WGEMvWTP6v3cnZFN3zpyyDzoaeCxIYejB320UxPOGDXXlpJ3PYgeKYE6g6DyUsSiyXggr0s
+      - VAPID_PRIVATE_KEY=YzbF7qZDSZ5h1HwHaS_MTGemGe9Xi7l_tHMvURWddic
+      - VAPID_SUBJECT=mailto:admin@example.com
+      # ── SMTP 邮件发送 ──
+      - SMTP_HOST=smtp.qq.com
+      - SMTP_PORT=465
+      - SMTP_USER=1248880631@qq.com
+      - SMTP_PASSWORD=nmfniypezekrifge
+      - SMTP_FROM=1248880631@qq.com
+      # ── IMAP 邮件接收 ──
+      - IMAP_HOST=imap.qq.com
+      - IMAP_PORT=993
+      - IMAP_USER=
+      - IMAP_PASSWORD=
+      - EMAIL_REPLY_DOMAIN=yourdomain.com
+      - EMAIL_REPLY_SECRET=change-me-to-a-random-secret
+      # ── 每日摘要 ──
+      - DAILY_DIGEST_HOUR=8
+      - USER_TIMEZONE_OFFSET=8
     restart: unless-stopped
 
   frontend:

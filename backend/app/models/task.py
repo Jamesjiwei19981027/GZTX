@@ -36,6 +36,8 @@ class Task(Base):
     completion_comment = Column(Text, nullable=True)  # 完成评价/备注
     needs_follow_up = Column(Boolean, default=False, nullable=False)  # 是否需要继续提示/跟进
     follow_up_reason = Column(Text, nullable=True)  # 需要跟进的原因
+    follow_up_remind_at = Column(DateTime, nullable=True)  # 跟进提醒时间
+    follow_up_notify_channels = Column(String(255), nullable=True)  # 跟进通知渠道，逗号分隔
 
     # 邮件回复跟踪字段
     email_reply_count = Column(Integer, default=0, nullable=False)

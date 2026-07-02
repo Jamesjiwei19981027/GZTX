@@ -3,6 +3,7 @@ from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 import json
 
+from app.core.config import settings
 from app.models.reminder import Reminder
 from app.models.task import Task
 from app.models.user import User
@@ -14,10 +15,13 @@ class ReminderService:
     # 提醒方式配置
     CHANNEL_CONFIG = {
         "web_push": {"name": "浏览器推送", "icon": "🌐"},
+        "web_popup": {"name": "网页弹窗", "icon": "🌐"},
         "email": {"name": "邮件", "icon": "📧"},
         "sms": {"name": "短信", "icon": "📱"},
         "desktop": {"name": "桌面弹窗", "icon": "💻"},
+        "alarm": {"name": "闹钟提醒", "icon": "⏰"},
         "wx": {"name": "微信", "icon": "💬"},
+        "wechat": {"name": "微信", "icon": "💬"},
         "app": {"name": "手机APP", "icon": "📲"},
     }
 
@@ -36,17 +40,24 @@ class ReminderService:
             Reminder.remind_at <= now
         ).all()
 
+        if pending_reminders:
+            print(f"[ReminderCheck] Found {len(pending_reminders)} pending reminders (UTC now: {now})")
+
         sent_results = []
 
         for reminder in pending_reminders:
             # Get user and task info
             task = db.query(Task).filter(Task.id == reminder.task_id).first()
             if not task or task.is_deleted:
+                print(f"[ReminderCheck] Skipping reminder {reminder.id}: task deleted or not found")
                 continue
 
             user = db.query(User).filter(User.id == reminder.user_id).first()
             if not user:
+                print(f"[ReminderCheck] Skipping reminder {reminder.id}: user not found")
                 continue
+
+            print(f"[ReminderCheck] Processing reminder {reminder.id} for task '{task.title}' (user {user.id}), channels: {reminder.notify_channels}")
 
             # 根据提醒方式发送通知
             channels = reminder.notify_channels.split(",") if reminder.notify_channels else ["web_push"]
@@ -68,14 +79,20 @@ class ReminderService:
                 )
                 if success:
                     sent_channels.append(channel)
+                    print(f"[ReminderCheck] ✓ Channel '{channel}' succeeded for reminder {reminder.id}")
+                else:
+                    print(f"[ReminderCheck] ✗ Channel '{channel}' failed for reminder {reminder.id}")
 
             # C4: 如果所有渠道都失败，尝试 fallback 到 email
             if not sent_channels and "email" not in channels:
-                fallback_success = ReminderService._send_email(user, title, content)
+                fallback_success = ReminderService._send_email(user, task)
                 if fallback_success:
                     sent_channels.append("email(fallback)")
+                    print(f"[ReminderCheck] ✓ Email fallback succeeded for reminder {reminder.id}")
+                else:
+                    print(f"[ReminderCheck] ✗ All channels failed for reminder {reminder.id}, email fallback also failed")
 
-            # Mark reminder as sent
+            # Mark reminder as sent regardless of channel success
             reminder.is_sent = True
             reminder.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
 
@@ -90,6 +107,7 @@ class ReminderService:
 
         if sent_results:
             db.commit()
+            print(f"[ReminderCheck] Committed {len(sent_results)} reminder results")
 
         return sent_results
 
@@ -112,9 +130,17 @@ class ReminderService:
         if task.description:
             content += f"\n任务描述: {task.description}"
 
+        # Backward compatibility aliases
+        channel_aliases = {
+            "web_popup": "web_push",
+            "wechat": "wx",
+            "alarm": "desktop",
+        }
+        channel = channel_aliases.get(channel, channel)
+
         try:
             if channel == "email":
-                return ReminderService._send_email(user, title, content)
+                return ReminderService._send_email(user, task)
             elif channel == "sms":
                 return ReminderService._send_sms(user, title, content)
             elif channel == "web_push":
@@ -132,54 +158,51 @@ class ReminderService:
             return False
 
     @staticmethod
-    def _send_email(user: User, title: str, content: str) -> bool:
-        """Send email notification using user's channel config."""
+    def _send_email(user: User, task: Task) -> bool:
+        """Send email notification for a task using improved template."""
         if not user.email:
             return False
 
+        # Determine SMTP config: user-level first, then global env
         config = ReminderService._get_channel_config(user, "email")
-        smtp_host = config.get("smtp_host")
-        smtp_user = config.get("smtp_user")
-        smtp_password = config.get("smtp_password")
+        smtp_host = config.get("smtp_host") or settings.SMTP_HOST
+        smtp_user = config.get("smtp_user") or settings.SMTP_USER
+        smtp_password = config.get("smtp_password") or settings.SMTP_PASSWORD
+        smtp_port = int(config.get("smtp_port", settings.SMTP_PORT))
+        smtp_from = config.get("smtp_from") or settings.SMTP_FROM or smtp_user
 
         if not all([smtp_host, smtp_user, smtp_password]):
-            # Fallback to global settings
-            from app.core.config import settings as app_settings
-            smtp_host = app_settings.SMTP_HOST
-            smtp_user = app_settings.SMTP_USER
-            smtp_password = app_settings.SMTP_PASSWORD
-            if not all([smtp_host, smtp_user, smtp_password]):
-                print("[EMAIL] Not configured (neither user config nor env)")
-                return False
-
-        from app.utils.email import build_reminder_email
-        subject, html = build_reminder_email(title, content, "")
-
-        import smtplib
-        from email.mime.text import MIMEText
-        from email.mime.multipart import MIMEMultipart
-        from email.header import Header
-
-        try:
-            msg = MIMEMultipart("alternative")
-            smtp_from = config.get("smtp_from", smtp_user)
-            msg["From"] = Header(f"WorkTodo <{smtp_from}>", "utf-8")
-            msg["To"] = Header(user.email, "utf-8")
-            msg["Subject"] = Header(subject, "utf-8")
-            msg.attach(MIMEText(content, "plain", "utf-8"))
-            msg.attach(MIMEText(html, "html", "utf-8"))
-
-            port = int(config.get("smtp_port", 587))
-            server = smtplib.SMTP(smtp_host, port)
-            server.starttls()
-            server.login(smtp_user, smtp_password)
-            server.sendmail(smtp_from, [user.email], msg.as_string())
-            server.quit()
-            print(f"[EMAIL] Sent to {user.email}: {subject}")
-            return True
-        except Exception as e:
-            print(f"[EMAIL] Failed: {e}")
+            print("[EMAIL] Not configured (neither user config nor env)")
             return False
+
+        from app.utils.email import build_reminder_email, _send_smtp
+
+        subject, html_body = build_reminder_email(
+            task_id=task.id,
+            task_title=task.title,
+            remind_message=f"您的任务「{task.title}」需要您的关注。",
+            priority=task.priority or 1,
+            due_date=task.due_date,
+            description=task.description or "",
+        )
+
+        text_body = (
+            f"任务提醒：{task.title}\n"
+            f"截止时间：{task.due_date}\n"
+            f"直接回复此邮件可操作任务（完成/取消/回复/提醒）"
+        )
+
+        return _send_smtp(
+            to_email=user.email,
+            from_addr=smtp_from,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+            smtp_host=smtp_host,
+            smtp_port=smtp_port,
+            smtp_user=smtp_user,
+            smtp_password=smtp_password,
+        )
 
     @staticmethod
     def _send_sms(user: User, title: str, content: str) -> bool:

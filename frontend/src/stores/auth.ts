@@ -26,6 +26,17 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // 订阅 Web Push 通知（登录/注册后自动调用）
+  async function setupWebPush() {
+    try {
+      const { useWebPush } = await import('@/composables/useWebPush')
+      const { subscribe: subPush } = useWebPush()
+      await subPush()
+    } catch {
+      // 推送订阅失败不影响登录流程
+    }
+  }
+
   // 登录
   async function login(loginData: LoginRequest) {
     loading.value = true
@@ -37,6 +48,9 @@ export const useAuthStore = defineStore('auth', () => {
 
       localStorage.setItem('access_token', response.access_token)
       localStorage.setItem('refresh_token', response.refresh_token)
+
+      // 登录即完成推送订阅
+      setupWebPush()
 
       router.push('/tasks')
       return response
@@ -56,6 +70,9 @@ export const useAuthStore = defineStore('auth', () => {
 
       localStorage.setItem('access_token', response.access_token)
       localStorage.setItem('refresh_token', response.refresh_token)
+
+      // 注册即完成推送订阅
+      setupWebPush()
 
       router.push('/tasks')
       return response

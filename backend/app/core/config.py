@@ -52,7 +52,7 @@ class Settings(BaseSettings):
 
     # Email (SMTP) - from .env
     SMTP_HOST: str = "smtp.qq.com"
-    SMTP_PORT: int = 587
+    SMTP_PORT: int = 465
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_FROM: str = ""
@@ -67,6 +67,15 @@ class Settings(BaseSettings):
     EMAIL_CHECK_INTERVAL: int = 300  # 5 minutes
     EMAIL_REPLY_DOMAIN: str = "yourdomain.com"
     EMAIL_REPLY_SECRET: str = "change-me-to-a-random-secret"
+
+    # Daily digest configuration
+    DAILY_DIGEST_HOUR: int = 8  # Hour to send daily digest (local time)
+    USER_TIMEZONE_OFFSET: int = 8  # User timezone offset from UTC (hours)
+
+    # Web Push VAPID configuration
+    VAPID_PUBLIC_KEY: str = ""
+    VAPID_PRIVATE_KEY: str = ""
+    VAPID_SUBJECT: str = "mailto:admin@example.com"
 
     @property
     def is_sqlite(self) -> bool:

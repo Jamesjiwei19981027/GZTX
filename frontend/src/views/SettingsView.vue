@@ -2,8 +2,11 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElInput, ElSelect, ElOption } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
+import { useTheme } from '@/composables/useTheme'
+import type { AccentColor } from '@/composables/useTheme'
 
 const authStore = useAuthStore()
+const { theme, accent, setTheme, setAccent } = useTheme()
 
 // ─── Form State ───────────────────────────────────────────────────────────────
 const form = reactive({
@@ -14,15 +17,12 @@ const form = reactive({
 const defaultPriority = ref<number>(1)
 const defaultCategory = ref<string>('工作')
 
-// ─── Theme & Appearance ───────────────────────────────────────────────────────
-const theme = ref<'light' | 'dark' | 'system'>('light')
-const accentColor = ref('#0058be')
-
-const accentColors = [
-  { value: '#0058be', colorClass: 'bg-primary', label: '蓝色' },
-  { value: '#006c49', colorClass: 'bg-secondary', label: '绿色' },
-  { value: '#924700', colorClass: 'bg-tertiary', label: '琥珀' },
-  { value: '#ba1a1a', colorClass: 'bg-error', label: '红色' },
+// ─── Accent Colors ─────────────────────────────────────────────────────────────
+const accentColors: { value: AccentColor; colorClass: string; label: string }[] = [
+  { value: 'blue', colorClass: 'bg-primary', label: '蓝色' },
+  { value: 'green', colorClass: 'bg-secondary', label: '绿色' },
+  { value: 'amber', colorClass: 'bg-tertiary', label: '琥珀' },
+  { value: 'red', colorClass: 'bg-error', label: '红色' },
 ]
 
 // ─── Notification Preferences ─────────────────────────────────────────────────
@@ -248,7 +248,7 @@ async function handleLogout() {
                         ? 'bg-surface shadow-sm text-primary'
                         : 'text-on-surface-variant hover:bg-surface-container-high'
                     ]"
-                    @click="theme = 'light'"
+                    @click="setTheme('light')"
                   >
                     <span class="material-symbols-outlined text-[18px]">light_mode</span> 浅色
                   </button>
@@ -259,7 +259,7 @@ async function handleLogout() {
                         ? 'bg-surface shadow-sm text-primary'
                         : 'text-on-surface-variant hover:bg-surface-container-high'
                     ]"
-                    @click="theme = 'dark'"
+                    @click="setTheme('dark')"
                   >
                     <span class="material-symbols-outlined text-[18px]">dark_mode</span> 深色
                   </button>
@@ -270,7 +270,7 @@ async function handleLogout() {
                         ? 'bg-surface shadow-sm text-primary'
                         : 'text-on-surface-variant hover:bg-surface-container-high'
                     ]"
-                    @click="theme = 'system'"
+                    @click="setTheme('system')"
                   >
                     <span class="material-symbols-outlined text-[18px]">brightness_auto</span> 系统
                   </button>
@@ -287,12 +287,12 @@ async function handleLogout() {
                     :class="[
                       'w-8 h-8 rounded-full cursor-pointer transition-transform',
                       color.colorClass,
-                      accentColor === color.value
+                      accent === color.value
                         ? 'ring-2 ring-offset-2 ring-primary'
                         : 'hover:scale-110'
                     ]"
                     :title="color.label"
-                    @click="accentColor = color.value"
+                    @click="setAccent(color.value)"
                   ></div>
                 </div>
               </div>

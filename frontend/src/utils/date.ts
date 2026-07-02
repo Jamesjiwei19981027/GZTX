@@ -87,9 +87,9 @@ export const reminderPresets = [
   { label: '1天前', value: 1440 }
 ]
 
-// 计算提醒时间
+// 计算提醒时间（秒数归零，确保在第0秒触发）
 export function calculateReminderTime(dueDate: string, minutesBefore: number): string {
-  return dayjs(dueDate).subtract(minutesBefore, 'minute').toISOString()
+  return dayjs(dueDate).subtract(minutesBefore, 'minute').second(0).format('YYYY-MM-DDTHH:mm:ss')
 }
 
 // 获取日历日期范围
