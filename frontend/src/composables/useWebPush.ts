@@ -1,13 +1,8 @@
 import { ref } from 'vue'
-import request from '@/api/request'
+import { getVapidPublicKey, subscribePush, unsubscribePush } from '@/api/notifications'
+import type { PushSubscriptionPayload } from '@/types'
 
-export interface PushSubscriptionData {
-  endpoint: string
-  keys: {
-    auth: string
-    p256dh: string
-  }
-}
+export type PushSubscriptionData = PushSubscriptionPayload
 
 const isSupported = ref(false)
 const isSubscribed = ref(false)
@@ -27,20 +22,19 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 }
 
 export function useWebPush() {
-  // Check if web push is supported
   function checkSupport(): boolean {
-    isSupported.value = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+    isSupported.value =
+      'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
     if (isSupported.value && 'Notification' in window) {
       permissionState.value = Notification.permission
     }
     return isSupported.value
   }
 
-  // Fetch VAPID public key from backend
   async function fetchVapidPublicKey(): Promise<string | null> {
     try {
-      const response = await request.get('/notifications/vapid-public-key') as any
-      const key = response?.publicKey || response?.data?.publicKey
+      const response = await getVapidPublicKey()
+      const key = response?.publicKey
       if (key) {
         vapidPublicKey.value = key
         return key
@@ -51,7 +45,6 @@ export function useWebPush() {
     return null
   }
 
-  // Request notification permission
   async function requestPermission(): Promise<NotificationPermission> {
     if (!('Notification' in window)) {
       return 'denied'
@@ -61,28 +54,24 @@ export function useWebPush() {
     return permission
   }
 
-  // Register service worker
   async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
     if (!('serviceWorker' in navigator)) {
       return null
     }
     try {
-      const registration = await navigator.serviceWorker.register('/sw.js')
-      return registration
+      return await navigator.serviceWorker.register('/sw.js')
     } catch (error) {
       console.error('Service worker registration failed:', error)
       return null
     }
   }
 
-  // Subscribe to push notifications
   async function subscribe(): Promise<PushSubscriptionData | null> {
     if (!checkSupport()) {
       console.warn('Web Push not supported')
       return null
     }
 
-    // Request permission if not granted
     if (permissionState.value !== 'granted') {
       const permission = await requestPermission()
       if (permission !== 'granted') {
@@ -91,7 +80,6 @@ export function useWebPush() {
       }
     }
 
-    // Get VAPID public key
     let publicKey = vapidPublicKey.value
     if (!publicKey) {
       publicKey = await fetchVapidPublicKey()
@@ -101,7 +89,6 @@ export function useWebPush() {
       }
     }
 
-    // Register service worker
     const registration = await registerServiceWorker()
     if (!registration) {
       console.error('Service worker registration failed')
@@ -110,28 +97,30 @@ export function useWebPush() {
 
     try {
       const serverKeyBytes = urlBase64ToUint8Array(publicKey)
-      // Always start fresh — unsubscribe any existing subscription
-      // This ensures the subscription matches the current VAPID key
       const existing = await registration.pushManager.getSubscription()
       if (existing) {
         await existing.unsubscribe()
       }
 
-      // Create new subscription with current VAPID key
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: serverKeyBytes
+        applicationServerKey: serverKeyBytes,
       })
 
       const subscriptionData: PushSubscriptionData = {
         endpoint: subscription.endpoint,
         keys: {
-          auth: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')!))).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_'),
-          p256dh: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')!))).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
-        }
+          auth: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('auth')!)))
+            .replace(/=/g, '')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_'),
+          p256dh: btoa(String.fromCharCode(...new Uint8Array(subscription.getKey('p256dh')!)))
+            .replace(/=/g, '')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_'),
+        },
       }
 
-      // Send subscription to backend
       await sendSubscriptionToBackend(subscriptionData)
       isSubscribed.value = true
       return subscriptionData
@@ -141,7 +130,6 @@ export function useWebPush() {
     }
   }
 
-  // Unsubscribe from push notifications
   async function unsubscribe(): Promise<boolean> {
     if (!('serviceWorker' in navigator)) return false
 
@@ -149,13 +137,11 @@ export function useWebPush() {
       const registration = await navigator.serviceWorker.ready
       const subscription = await registration.pushManager.getSubscription()
       if (subscription) {
-        // Remove from backend first
         try {
-          await request.delete('/notifications/unsubscribe', { params: { endpoint: subscription.endpoint } })
+          await unsubscribePush(subscription.endpoint)
         } catch {
           // Continue even if backend call fails
         }
-        // Unsubscribe from push manager
         await subscription.unsubscribe()
         isSubscribed.value = false
         return true
@@ -166,17 +152,15 @@ export function useWebPush() {
     return false
   }
 
-  // Send subscription to backend
   async function sendSubscriptionToBackend(subscription: PushSubscriptionData): Promise<void> {
     try {
-      await request.post('/notifications/subscribe', subscription)
+      await subscribePush(subscription)
     } catch (error) {
       console.error('Failed to send subscription to backend:', error)
       throw error
     }
   }
 
-  // Check current subscription status
   async function checkSubscriptionStatus(): Promise<boolean> {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       return false
@@ -194,7 +178,6 @@ export function useWebPush() {
     return false
   }
 
-  // Initialize on load
   checkSupport()
 
   return {
@@ -207,6 +190,6 @@ export function useWebPush() {
     subscribe,
     unsubscribe,
     checkSubscriptionStatus,
-    fetchVapidPublicKey
+    fetchVapidPublicKey,
   }
 }

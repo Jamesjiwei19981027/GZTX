@@ -88,12 +88,23 @@ function convertToUTC(data: Record<string, any>): Record<string, any> {
   return result
 }
 
+const PRIORITY_LABELS: Record<number, string> = { 0: '低', 1: '中', 2: '高' }
+const STATUS_LABELS: Record<number, string> = { 0: '待办', 1: '进行中', 2: '已完成' }
+
 /**
  * Convert UTC datetime fields in task response back to local time for display.
+ * Also normalizes optional arrays / labels so store always holds a strict Task.
  */
-function convertFromUTC(task: any): any {
-  if (!task) return task
-  const result = { ...task }
+function convertFromUTC(task: Task | null | undefined): Task | null {
+  if (!task) return null
+  const result: Task = {
+    ...task,
+    priority_label: task.priority_label ?? PRIORITY_LABELS[task.priority] ?? '中',
+    status_label: task.status_label ?? STATUS_LABELS[task.status] ?? '待办',
+    tags: Array.isArray(task.tags) ? task.tags : [],
+    reminders: Array.isArray(task.reminders) ? task.reminders : [],
+    is_recurring: task.is_recurring ?? false,
+  }
   if (result.due_date) {
     result.due_date = fromUTC(result.due_date)
   }
@@ -109,12 +120,10 @@ function convertFromUTC(task: any): any {
   if (result.follow_up_remind_at) {
     result.follow_up_remind_at = fromUTC(result.follow_up_remind_at)
   }
-  if (Array.isArray(result.reminders)) {
-    result.reminders = result.reminders.map((r: any) => ({
-      ...r,
-      remind_at: fromUTC(r.remind_at) || r.remind_at
-    }))
-  }
+  result.reminders = result.reminders.map((r) => ({
+    ...r,
+    remind_at: fromUTC(r.remind_at) || r.remind_at,
+  }))
   return result
 }
 
@@ -144,12 +153,12 @@ export const useTaskStore = defineStore('task', () => {
         filterParams.value = { ...params }
       }
       const response = await getTaskList(filterParams.value)
-      tasks.value = response.items.map(convertFromUTC)
+      tasks.value = (response.items ?? []).map((t) => convertFromUTC(t)!).filter(Boolean)
       pagination.value = {
         total: response.total,
         page: response.page,
         page_size: response.page_size,
-        total_pages: response.total_pages
+        total_pages: response.total_pages,
       }
       return response
     } finally {
@@ -161,15 +170,16 @@ export const useTaskStore = defineStore('task', () => {
   async function fetchTodayTasks() {
     loading.value = true
     try {
-      const response = await getTodayTasks()
-      tasks.value = response.items.map(convertFromUTC)
+      const items = await getTodayTasks()
+      const list = (items ?? []).map((t) => convertFromUTC(t)!).filter(Boolean)
+      tasks.value = list
       pagination.value = {
-        total: response.total,
-        page: response.page,
-        page_size: response.page_size,
-        total_pages: response.total_pages
+        total: list.length,
+        page: 1,
+        page_size: list.length || 20,
+        total_pages: 1,
       }
-      return response
+      return list
     } finally {
       loading.value = false
     }
@@ -193,7 +203,9 @@ export const useTaskStore = defineStore('task', () => {
     try {
       const utcData = convertToUTC(data as any) as CreateTaskRequest
       const response = convertFromUTC(await createTask(utcData))
-      tasks.value.unshift(response)
+      if (response) {
+        tasks.value.unshift(response)
+      }
       return response
     } finally {
       loading.value = false
@@ -206,12 +218,14 @@ export const useTaskStore = defineStore('task', () => {
     try {
       const utcData = convertToUTC(data as any) as UpdateTaskRequest
       const response = convertFromUTC(await updateTask(taskId, utcData))
-      const index = tasks.value.findIndex(t => t.id === taskId)
-      if (index !== -1) {
-        tasks.value[index] = response
-      }
-      if (currentTask.value?.id === taskId) {
-        currentTask.value = response
+      if (response) {
+        const index = tasks.value.findIndex((t) => t.id === taskId)
+        if (index !== -1) {
+          tasks.value[index] = response
+        }
+        if (currentTask.value?.id === taskId) {
+          currentTask.value = response
+        }
       }
       return response
     } finally {
@@ -221,10 +235,10 @@ export const useTaskStore = defineStore('task', () => {
 
   // M1: 标记完成（带评价数据 + 条件反馈）
   async function markComplete(taskId: number, data?: TaskCompleteRequest) {
-    const utcData = data ? convertToUTC(data as any) as TaskCompleteRequest : data
-    const response = convertFromUTC(await completeTask(taskId, utcData))
-    const resultTask = response as any
-    const index = tasks.value.findIndex(t => t.id === taskId)
+    const utcData = data ? (convertToUTC(data as any) as TaskCompleteRequest) : data
+    const resultTask = convertFromUTC(await completeTask(taskId, utcData))
+    if (!resultTask) return null
+    const index = tasks.value.findIndex((t) => t.id === taskId)
     if (index !== -1) {
       tasks.value[index] = resultTask
     }
@@ -239,16 +253,20 @@ export const useTaskStore = defineStore('task', () => {
     }
     // Apple-style feedback sound: ascending triple note (achievement feel)
     playFeedbackSound('task_complete')
-    return response
+    return resultTask
   }
 
   // 取消完成
   async function markUncomplete(taskId: number) {
-    const response = await uncompleteTask(taskId)
-    const task = tasks.value.find(t => t.id === taskId)
-    if (task) {
-      task.status = 0
-      task.completed_at = undefined
+    const response = convertFromUTC(await uncompleteTask(taskId))
+    if (response) {
+      const index = tasks.value.findIndex((t) => t.id === taskId)
+      if (index !== -1) {
+        tasks.value[index] = response
+      }
+      if (currentTask.value?.id === taskId) {
+        currentTask.value = response
+      }
     }
     return response
   }

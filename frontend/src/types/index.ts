@@ -43,28 +43,28 @@ export interface RefreshResponse {
   expires_in: number
 }
 
-// 任务相关类型
+// 任务相关类型（与后端 TaskResponse 对齐）
 export type TaskStatus = 0 | 1 | 2 // 0=待办, 1=进行中, 2=已完成
 export type TaskPriority = 0 | 1 | 2 // 0=低, 1=中, 2=高
 
+/** API 任务 DTO：列表/详情接口返回体 */
 export interface Task {
   id: number
   title: string
   description?: string
   priority: TaskPriority
-  /** 后端可能省略，前端展示时用默认映射兜底 */
-  priority_label?: string
+  priority_label: string
   status: TaskStatus
-  status_label?: string
+  status_label: string
   due_date?: string
   due_date_relative?: string
+  /** 前端或扩展字段，后端 schema 未必始终下发 */
   is_overdue?: boolean
   category?: Category | null
-  tags?: Tag[]
-  reminders?: Reminder[]
-  is_recurring?: boolean
+  tags: Tag[]
+  reminders: Reminder[]
+  is_recurring: boolean
   recurrence_rule?: RecurrenceRule
-  // 完成评价字段
   completion_rate?: number
   completion_comment?: string
   needs_follow_up?: boolean
@@ -77,6 +77,13 @@ export interface Task {
   created_at?: string
   updated_at?: string
 }
+
+/**
+ * UI 展示用任务视图：允许缺省字段，组件内自行兜底。
+ * 不要用它替代 API 的 Task DTO。
+ */
+export type TaskView = Partial<Task> &
+  Pick<Task, 'id' | 'title' | 'priority' | 'status'>
 
 export interface RecurrenceRule {
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
@@ -151,7 +158,7 @@ export interface Reminder {
   id: number
   task_id: number
   remind_at: string
-  remind_type: number // 0=截止前, 1=指定时间, 3=跟进
+  remind_type: number // 0=截止前, 1=指定时间, 3=跟进, 4=每日
   is_sent: boolean
   notify_channels?: string
 }
@@ -225,13 +232,52 @@ export interface ReminderOverview {
 }
 
 // API 响应格式
-export interface ApiResponse<T> {
+export interface ApiResponse<T = unknown> {
   code: number
   message: string
   data?: T
   detail?: {
-    field: string
-    error: string
+    field?: string
+    error?: string
+    message?: string
+  }
+}
+
+// 通知 / SMTP / Web Push
+export interface VapidPublicKeyResponse {
+  publicKey: string
+}
+
+export interface SmtpConfig {
+  smtp_host: string
+  smtp_port: number
+  smtp_user: string
+  smtp_from: string
+  has_password: boolean
+}
+
+export interface SmtpConfigUpdate {
+  smtp_host?: string
+  smtp_port?: number
+  smtp_user?: string
+  smtp_password?: string
+  smtp_from?: string
+}
+
+export interface EmailStatus {
+  has_email: boolean
+  email_address: string
+  smtp_configured: boolean
+  user_smtp_configured: boolean
+  global_smtp_configured: boolean
+  smtp_source: 'user' | 'global' | 'none' | string
+}
+
+export interface PushSubscriptionPayload {
+  endpoint: string
+  keys: {
+    auth: string
+    p256dh: string
   }
 }
 

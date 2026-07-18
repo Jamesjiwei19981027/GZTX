@@ -5,7 +5,7 @@ import { useTaskStore } from '@/stores/task'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 import { getMonthCalendarDates } from '@/utils/date'
-import type { Task } from '@/types'
+import type { Task, TaskCompleteRequest } from '@/types'
 import TaskCompleteDialog from '@/components/TaskCompleteDialog.vue'
 import TaskDetailDialog from '@/components/TaskDetailDialog.vue'
 
@@ -265,7 +265,7 @@ function handleDialogComplete(task: Task) {
   showCompleteDialog.value = true
 }
 
-async function handleCompleteSubmit(data: import('@/types').TaskCompleteRequest) {
+async function handleCompleteSubmit(data: TaskCompleteRequest) {
   if (!selectedTaskId.value) return
   try {
     await taskStore.markComplete(selectedTaskId.value, data)

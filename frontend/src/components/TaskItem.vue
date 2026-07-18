@@ -334,7 +334,7 @@ onBeforeUnmount(() => {
 
       <!-- Tags -->
       <span
-        v-for="tag in (task.tags ?? []).slice(0, 3)"
+        v-for="tag in task.tags.slice(0, 3)"
         :key="tag.name"
         class="inline-flex items-center gap-1 rounded-full bg-surface-container-high/80 px-2 py-0.5 font-label text-[10px] text-on-surface-variant"
       >
@@ -345,10 +345,10 @@ onBeforeUnmount(() => {
         {{ tag.name }}
       </span>
       <span
-        v-if="(task.tags ?? []).length > 3"
+        v-if="task.tags.length > 3"
         class="inline-flex items-center rounded-full bg-surface-container-high/80 px-2 py-0.5 font-label text-[10px] text-on-surface-variant/60"
       >
-        +{{ (task.tags ?? []).length - 3 }}
+        +{{ task.tags.length - 3 }}
       </span>
     </div>
 

@@ -6,6 +6,7 @@ import { ElPagination, ElMessage } from 'element-plus'
 import TaskItem from '@/components/TaskItem.vue'
 import TaskDetailDialog from '@/components/TaskDetailDialog.vue'
 import TaskCompleteDialog from '@/components/TaskCompleteDialog.vue'
+import type { TaskCompleteRequest } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -183,7 +184,7 @@ function handleDetailComplete(task: any) {
   showCompleteDialog.value = true
 }
 
-async function handleCompleteSubmit(data: import('@/types').TaskCompleteRequest) {
+async function handleCompleteSubmit(data: TaskCompleteRequest) {
   if (!completingTaskId.value) return
   try {
     await taskStore.markComplete(completingTaskId.value, data)

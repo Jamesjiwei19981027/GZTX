@@ -14,9 +14,9 @@ export function getTaskList(params?: TaskFilterParams) {
   return request.get<PaginatedResponse<Task>>('/tasks', { params })
 }
 
-// 获取今日待办
+// 获取今日待办（后端直接返回任务数组，非分页信封）
 export function getTodayTasks() {
-  return request.get<PaginatedResponse<Task>>('/tasks/today')
+  return request.get<Task[]>('/tasks/today')
 }
 
 // 获取任务详情

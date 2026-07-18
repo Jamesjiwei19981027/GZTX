@@ -5,7 +5,15 @@ import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 import { useSoundEffects } from '@/composables/useSoundEffects'
 import type { AccentColor } from '@/composables/useTheme'
-import request from '@/api/request'
+import {
+  getEmailStatus,
+  getSmtpConfig,
+  sendTestEmail as sendTestEmailApi,
+  updateSmtpConfig,
+} from '@/api/notifications'
+import { updateUser } from '@/api/auth'
+import { getErrorMessage } from '@/api/request'
+import type { SmtpConfigUpdate } from '@/types'
 
 const authStore = useAuthStore()
 const { theme, accent, setTheme, setAccent } = useTheme()
@@ -46,7 +54,7 @@ const smtpHasPassword = ref(false)
 async function loadSmtpConfig() {
   smtpLoading.value = true
   try {
-    const data = await request.get('/notifications/smtp-config') as any
+    const data = await getSmtpConfig()
     if (data) {
       smtpForm.smtp_host = data.smtp_host || 'smtp.qq.com'
       smtpForm.smtp_port = data.smtp_port || 465
@@ -55,8 +63,7 @@ async function loadSmtpConfig() {
       smtpHasPassword.value = data.has_password || false
       smtpConfigured.value = data.has_password && !!data.smtp_host
     }
-    // Also check overall status
-    const status = await request.get('/notifications/email-status') as any
+    const status = await getEmailStatus()
     if (status) {
       smtpSource.value = status.smtp_source || 'none'
     }
@@ -70,7 +77,7 @@ async function loadSmtpConfig() {
 async function saveSmtpConfig() {
   smtpSaving.value = true
   try {
-    const payload: Record<string, any> = {
+    const payload: SmtpConfigUpdate = {
       smtp_host: smtpForm.smtp_host,
       smtp_port: smtpForm.smtp_port,
       smtp_user: smtpForm.smtp_user,
@@ -80,14 +87,14 @@ async function saveSmtpConfig() {
     if (smtpForm.smtp_password) {
       payload.smtp_password = smtpForm.smtp_password
     }
-    const result = await request.put('/notifications/smtp-config', payload) as any
+    const result = await updateSmtpConfig(payload)
     smtpHasPassword.value = result?.has_password || !!smtpForm.smtp_password
-    smtpForm.smtp_password = ''  // Clear password field after save
+    smtpForm.smtp_password = ''
     smtpConfigured.value = true
     smtpSource.value = 'user'
     ElMessage.success('邮件服务器配置已保存')
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '保存失败')
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '保存失败'))
   } finally {
     smtpSaving.value = false
   }
@@ -96,10 +103,10 @@ async function saveSmtpConfig() {
 async function sendTestEmail() {
   smtpTesting.value = true
   try {
-    const result = await request.post('/notifications/send-test-email') as any
+    await sendTestEmailApi()
     ElMessage.success('测试邮件已发送，请检查邮箱')
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '发送失败')
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '发送失败'))
   } finally {
     smtpTesting.value = false
   }
@@ -164,14 +171,14 @@ const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy5
 // ─── Profile Save ────────────────────────────────────────────────────────────
 async function updateProfile() {
   try {
-    await request.put('/users/me', {
+    await updateUser({
       nickname: form.nickname,
       email: form.email,
     })
     ElMessage.success('个人资料已更新')
     await authStore.fetchCurrentUser()
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || '更新失败')
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '更新失败'))
   }
 }
 

@@ -3,7 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter, RouterView } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWebPush } from '@/composables/useWebPush'
-import request from '@/api/request'
+import { sendTestPush } from '@/api/notifications'
+import { getErrorMessage } from '@/api/request'
 import { ElMessage } from 'element-plus'
 
 const route = useRoute()
@@ -35,14 +36,10 @@ async function testPushNotification() {
   try {
     // 先确保已订阅（处理后端重启后订阅丢失的情况）
     await subscribe()
-    await request.post('/notifications/test-push')
+    await sendTestPush()
     ElMessage.success('测试通知已发送，请查看浏览器通知')
-  } catch (e: any) {
-    const data = e.response?.data
-    const detail = data?.detail
-    const msg = typeof detail === 'object' ? (detail?.message || '') : (detail || '')
-    const finalMsg = msg || data?.message || '发送失败，请打开 F12 控制台查看详细错误'
-    ElMessage.error(finalMsg)
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '发送失败，请打开 F12 控制台查看详细错误'))
     console.error('[WebPush] test-push 失败:', e)
   } finally {
     testingPush.value = false
