@@ -2,51 +2,7 @@
 import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { ElDialog, ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
-
-interface TagInfo {
-  name: string
-  color: string
-}
-
-interface CategoryInfo {
-  id: number
-  name: string
-  color: string
-}
-
-interface ReminderInfo {
-  id: number
-  task_id?: number
-  remind_at: string
-  remind_type: number
-  is_sent: boolean
-  notify_channels?: string
-}
-
-interface Task {
-  id: number
-  title: string
-  description?: string
-  priority: 0 | 1 | 2
-  priority_label?: string
-  status: 0 | 1 | 2
-  status_label?: string
-  due_date?: string
-  completed_at?: string
-  created_at?: string
-  updated_at?: string
-  is_overdue?: boolean
-  is_recurring?: boolean
-  category?: CategoryInfo | null
-  tags?: TagInfo[]
-  reminders?: ReminderInfo[]
-  needs_follow_up?: boolean
-  follow_up_reason?: string
-  follow_up_remind_at?: string
-  follow_up_notify_channels?: string
-  completion_rate?: number
-  completion_comment?: string
-}
+import type { Task } from '@/types'
 
 const props = defineProps<{
   modelValue: boolean
@@ -215,7 +171,7 @@ function handleUncomplete() {
 <template>
   <ElDialog
     v-model="visible"
-    :title="null"
+    title=""
     :show-close="false"
     width="640px"
     class="task-detail-dialog"

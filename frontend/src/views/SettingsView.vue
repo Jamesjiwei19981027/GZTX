@@ -399,7 +399,7 @@ async function handleLogout() {
                   :max="100"
                   :step="5"
                   :disabled="!soundEnabled"
-                  @update:model-value="(v: number) => setSoundVolume(v / 100)"
+                  @update:model-value="(v) => setSoundVolume((Array.isArray(v) ? v[0] : v ?? 0) / 100)"
                 />
               </div>
             </div>

@@ -6,6 +6,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import TaskForm from '@/components/TaskForm.vue'
 import TaskCompleteDialog from '@/components/TaskCompleteDialog.vue'
 import dayjs from 'dayjs'
+import type { CreateTaskRequest, TaskCompleteRequest, UpdateTaskRequest } from '@/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -131,10 +132,10 @@ function handleCancelEdit() {
   isEditing.value = false
 }
 
-async function handleSaveEdit(data: Record<string, unknown>) {
+async function handleSaveEdit(data: CreateTaskRequest) {
   if (!taskId.value) return
   try {
-    await taskStore.editTask(taskId.value, data)
+    await taskStore.editTask(taskId.value, data as UpdateTaskRequest)
     await taskStore.fetchTaskDetail(taskId.value)
     isEditing.value = false
     ElMessage.success('任务已更新')
@@ -143,7 +144,7 @@ async function handleSaveEdit(data: Record<string, unknown>) {
   }
 }
 
-async function handleCreateTask(data: Record<string, unknown>) {
+async function handleCreateTask(data: CreateTaskRequest) {
   try {
     await taskStore.addTask(data)
     ElMessage.success('任务已创建')
@@ -153,14 +154,7 @@ async function handleCreateTask(data: Record<string, unknown>) {
   }
 }
 
-async function handleComplete(data: {
-  completion_rate: number
-  completion_comment: string
-  needs_follow_up: boolean
-  follow_up_reason?: string
-  follow_up_remind_at?: string
-  follow_up_notify_channels?: string
-}) {
+async function handleComplete(data: TaskCompleteRequest) {
   if (!taskId.value) return
   try {
     await taskStore.markComplete(taskId.value, data)

@@ -265,14 +265,7 @@ function handleDialogComplete(task: Task) {
   showCompleteDialog.value = true
 }
 
-async function handleCompleteSubmit(data: {
-  completion_rate: number
-  completion_comment: string
-  needs_follow_up: boolean
-  follow_up_reason?: string
-  follow_up_remind_at?: string
-  follow_up_notify_channels?: string
-}) {
+async function handleCompleteSubmit(data: import('@/types').TaskCompleteRequest) {
   if (!selectedTaskId.value) return
   try {
     await taskStore.markComplete(selectedTaskId.value, data)

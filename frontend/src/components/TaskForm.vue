@@ -82,9 +82,9 @@ watch(
         description: task.description || '',
         priority: task.priority,
         category_id: task.category?.id,
-        tag_ids: task.tags.map(t => t.id),
+        tag_ids: (task.tags ?? []).map(t => t.id),
         due_date: task.due_date,
-        reminders: task.reminders.map(r => ({
+        reminders: (task.reminders ?? []).map(r => ({
           remind_at: r.remind_at,
           remind_type: r.remind_type,
           notify_channels: r.notify_channels

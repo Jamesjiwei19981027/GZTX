@@ -3,7 +3,7 @@ import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import type { CreateReminderRequest } from '@/types'
 import dayjs from 'dayjs'
 import { calculateReminderTime } from '@/utils/date'
-import { ElDatePicker, ElButton, ElTag } from 'element-plus'
+import { ElDatePicker, ElTimePicker, ElButton, ElTag } from 'element-plus'
 
 const now = ref(Date.now())
 let timerInterval: ReturnType<typeof setInterval> | null = null
@@ -277,12 +277,15 @@ function toggleDailyReminder() {
   applyDailyReminders()
 }
 
-function handleDailyTimeChange(val: string) {
-  if (val) {
-    dailyTime.value = val
-    if (dailyEnabled.value) {
-      applyDailyReminders()
-    }
+function handleDailyTimeChange(val: string | Date | null | undefined) {
+  if (!val) return
+  const timeStr =
+    typeof val === 'string'
+      ? val
+      : dayjs(val).format('HH:mm')
+  dailyTime.value = timeStr
+  if (dailyEnabled.value) {
+    applyDailyReminders()
   }
 }
 
@@ -355,9 +358,8 @@ const dailyReminderCount = computed(() => {
       </div>
       <div v-if="dailyEnabled" class="flex items-center gap-sm mt-sm pl-9">
         <span class="text-label-sm text-on-surface-variant">每天</span>
-        <ElDatePicker
+        <ElTimePicker
           :model-value="dailyTime"
-          type="time"
           placeholder="选择时间"
           format="HH:mm"
           value-format="HH:mm"

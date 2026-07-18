@@ -130,7 +130,7 @@ const recentActivities = computed(() => {
       id: t.id,
       title: t.title,
       type: getActivityType(t),
-      created_at: t.updated_at || t.created_at,
+      created_at: t.updated_at || t.created_at || '',
       category: taskCategoryName(t),
       priority: t.priority,
     }))

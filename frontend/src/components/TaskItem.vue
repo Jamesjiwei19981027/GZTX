@@ -5,32 +5,7 @@ import { useTaskStore } from '@/stores/task'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import dayjs from 'dayjs'
 import { relativeTime } from '@/utils/date'
-
-interface Reminder {
-  id: number
-  task_id: number
-  remind_at: string
-  remind_type: number
-  is_sent: boolean
-  notify_channels?: string
-}
-
-interface Task {
-  id: number
-  title: string
-  description?: string
-  priority: 0 | 1 | 2
-  priority_label: string
-  status: 0 | 1 | 2
-  status_label: string
-  due_date?: string
-  is_overdue: boolean
-  category?: { name: string; color: string }
-  tags: { name: string; color: string }[]
-  reminders?: Reminder[]
-  needs_follow_up?: boolean
-  created_at?: string
-}
+import type { Task } from '@/types'
 
 const props = withDefaults(
   defineProps<{
@@ -133,6 +108,11 @@ const priorityBadgeClasses = computed(() => {
       return 'bg-[#d3e3fd] text-[#003258]'
   }
 })
+
+const priorityLabelMap: Record<number, string> = { 0: '低', 1: '中', 2: '高' }
+const priorityLabel = computed(
+  () => props.task.priority_label ?? priorityLabelMap[props.task.priority] ?? '中',
+)
 
 const dueDateDisplay = computed(() => {
   if (!props.task.due_date) return null
@@ -297,7 +277,7 @@ onBeforeUnmount(() => {
           class="inline-flex items-center rounded-full px-4 py-1.5 font-label text-[16px] leading-tight font-bold tracking-wide"
           :class="priorityBadgeClasses"
         >
-          {{ task.priority_label }}
+          {{ priorityLabel }}
         </span>
 
         <!-- Overflow Menu -->
@@ -354,7 +334,7 @@ onBeforeUnmount(() => {
 
       <!-- Tags -->
       <span
-        v-for="tag in task.tags.slice(0, 3)"
+        v-for="tag in (task.tags ?? []).slice(0, 3)"
         :key="tag.name"
         class="inline-flex items-center gap-1 rounded-full bg-surface-container-high/80 px-2 py-0.5 font-label text-[10px] text-on-surface-variant"
       >
@@ -365,10 +345,10 @@ onBeforeUnmount(() => {
         {{ tag.name }}
       </span>
       <span
-        v-if="task.tags.length > 3"
+        v-if="(task.tags ?? []).length > 3"
         class="inline-flex items-center rounded-full bg-surface-container-high/80 px-2 py-0.5 font-label text-[10px] text-on-surface-variant/60"
       >
-        +{{ task.tags.length - 3 }}
+        +{{ (task.tags ?? []).length - 3 }}
       </span>
     </div>
 

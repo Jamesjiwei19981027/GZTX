@@ -52,16 +52,17 @@ export interface Task {
   title: string
   description?: string
   priority: TaskPriority
-  priority_label: string
+  /** 后端可能省略，前端展示时用默认映射兜底 */
+  priority_label?: string
   status: TaskStatus
-  status_label: string
+  status_label?: string
   due_date?: string
   due_date_relative?: string
-  is_overdue: boolean
-  category?: Category
-  tags: Tag[]
-  reminders: Reminder[]
-  is_recurring: boolean
+  is_overdue?: boolean
+  category?: Category | null
+  tags?: Tag[]
+  reminders?: Reminder[]
+  is_recurring?: boolean
   recurrence_rule?: RecurrenceRule
   // 完成评价字段
   completion_rate?: number
@@ -73,7 +74,7 @@ export interface Task {
   follow_up_notify_channels?: string
   attachments?: Attachment[]
   completed_at?: string
-  created_at: string
+  created_at?: string
   updated_at?: string
 }
 
