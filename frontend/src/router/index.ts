@@ -26,11 +26,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/DashboardView.vue'),
       },
       {
-        path: 'inbox',
-        name: 'Inbox',
-        component: () => import('@/views/InboxView.vue'),
-      },
-      {
         path: 'tasks',
         name: 'TaskList',
         component: () => import('@/views/TaskListView.vue'),
@@ -47,25 +42,19 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/TaskDetailView.vue'),
       },
       {
-        path: 'kanban',
-        name: 'Kanban',
-        component: () => import('@/views/KanbanView.vue'),
-      },
-      {
         path: 'calendar',
         name: 'Calendar',
         component: () => import('@/views/CalendarView.vue'),
       },
       {
-        path: 'chat',
-        name: 'Chat',
-        component: () => import('@/views/ChatView.vue'),
-      },
-      {
         path: 'settings',
         name: 'Settings',
         component: () => import('@/views/SettingsView.vue'),
-      }
+      },
+      // 旧 Mock 路由兼容跳转
+      { path: 'inbox', redirect: '/dashboard' },
+      { path: 'kanban', redirect: '/tasks' },
+      { path: 'chat', redirect: '/dashboard' },
     ]
   }
 ]

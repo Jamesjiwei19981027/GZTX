@@ -1,6 +1,8 @@
 """Notification API endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_db, get_current_user
@@ -10,6 +12,14 @@ from app.schemas.common import ResponseData
 from app.utils.web_push import save_subscription, get_subscriptions
 
 router = APIRouter(prefix="/notifications", tags=["通知"])
+
+
+class SmtpConfigUpdate(BaseModel):
+    smtp_host: Optional[str] = None
+    smtp_port: Optional[int] = None
+    smtp_user: Optional[str] = None
+    smtp_password: Optional[str] = None
+    smtp_from: Optional[str] = None
 
 
 @router.get("/vapid-public-key", response_model=ResponseData)
@@ -81,7 +91,8 @@ async def test_push_notification(
         user=current_user,
         title="🔔 烂笔头PM - 通知测试",
         body="网页弹窗提醒功能已正常工作！您将在任务提醒时收到此类通知。",
-        url="/tasks"
+        url="/tasks",
+        priority=1
     )
 
     if result:
@@ -98,71 +109,73 @@ async def send_test_email_notification(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Send a test email notification to the current user."""
+    """Send a test email notification to the current user. Uses user-level SMTP first, falls back to global."""
     if not current_user.email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": 400, "message": "您尚未设置邮箱地址，请先在个人资料中填写邮箱。"}
         )
 
-    from app.utils.email import send_email
+    from app.utils.email import _send_smtp
 
-    subject = "🔔 Flow 生产力 - 通知测试"
-    html_content = f"""
-    <html>
-    <body style="font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333;">
-        <div style="max-width: 560px; margin: 0 auto; padding: 32px 24px;">
-            <div style="text-align: center; margin-bottom: 24px;">
-                <div style="display: inline-block; background: #0058be; color: #fff; width: 56px; height: 56px; border-radius: 50%; line-height: 56px; font-size: 28px;">
-                    🔔
-                </div>
-            </div>
-            <h2 style="text-align: center; color: #0058be; margin: 0 0 8px;">通知测试成功</h2>
-            <p style="text-align: center; color: #666; margin: 0 0 24px;">
-                您好，{current_user.nickname or current_user.username}！这是一封测试邮件，说明 Flow 生产力的邮件通知功能已正常工作。
-            </p>
-            <div style="background: #f5f7fa; padding: 20px; border-radius: 12px; margin: 20px 0;">
-                <h3 style="margin: 0 0 12px; font-size: 15px; color: #333;">您将收到以下类型的邮件通知：</h3>
-                <ul style="margin: 0; padding-left: 20px; color: #555;">
-                    <li style="margin-bottom: 8px;">⏰ <strong>任务即将到期</strong> — 截止前提醒您及时处理</li>
-                    <li style="margin-bottom: 8px;">🔴 <strong>任务已逾期</strong> — 超过截止日期时发出警告</li>
-                    <li style="margin-bottom: 8px;">🔔 <strong>定时提醒</strong> — 按您设定的提醒时间发送</li>
-                    <li>📊 <strong>每日摘要</strong> — 每天汇总当天待办任务</li>
-                </ul>
-            </div>
-            <p style="color: #999; font-size: 12px; text-align: center; margin: 24px 0 0;">
-                此邮件由 Flow 生产力系统自动发送，请勿回复。<br>
-                如需关闭邮件通知，请前往「设置 → 通知偏好」中管理。
-            </p>
-        </div>
-    </body>
-    </html>
-    """
+    # Determine SMTP config: user-level first, then global
+    notify_pref = current_user.notify_pref or {}
+    channels = notify_pref.get("channels", {})
+    email_config = channels.get("email", {})
 
-    plain_content = (
-        f"您好，{current_user.nickname or current_user.username}！\n\n"
-        "这是一封测试邮件，说明 Flow 生产力的邮件通知功能已正常工作。\n\n"
-        "您将收到以下类型的邮件通知：\n"
-        "- 任务即将到期提醒\n"
-        "- 任务已逾期警告\n"
-        "- 定时提醒\n"
-        "- 每日摘要\n\n"
-        "如需关闭邮件通知，请前往「设置 → 通知偏好」中管理。"
-    )
+    smtp_host = email_config.get("smtp_host") or settings.SMTP_HOST
+    smtp_user = email_config.get("smtp_user") or settings.SMTP_USER
+    smtp_password = email_config.get("smtp_password") or settings.SMTP_PASSWORD
+    smtp_port = int(email_config.get("smtp_port", settings.SMTP_PORT))
+    smtp_from = email_config.get("smtp_from") or settings.SMTP_FROM or smtp_user
 
-    success = send_email(
+    if not all([smtp_host, smtp_user, smtp_password]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": 400, "message": "SMTP 未配置，请先在设置中填写邮件服务器信息。"}
+        )
+
+    user_name = current_user.nickname or current_user.username
+    subject = "工作助理 - 通知测试"
+    html_content = f"""<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Arial,sans-serif;">
+<div style="background:#f5f5f7;padding:20px 0;">
+<div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+<div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:24px 30px;">
+<div style="color:#fff;font-size:20px;font-weight:700;">📋 工作助理</div>
+<div style="color:rgba(255,255,255,0.85);font-size:16px;margin-top:4px;">通知测试成功</div></div>
+<div style="padding:30px;">
+<p style="font-size:16px;color:#1d1d1f;">Hi {user_name}，</p>
+<p style="font-size:14px;color:#555;">这是一封测试邮件，说明邮件通知功能已正常工作。</p>
+<div style="background:#f8f9fa;padding:16px;border-radius:8px;margin:16px 0;font-size:14px;color:#495057;">
+您将收到以下类型的邮件通知：任务到期提醒、任务逾期警告、定时提醒、每日待办摘要。</div>
+</div>
+<div style="padding:16px 30px;background:#f8f9fa;border-top:1px solid #e9ecef;">
+<p style="font-size:12px;color:#8e8e93;margin:0;">此邮件由「工作助理」自动发送。</p></div>
+</div></div></body></html>"""
+
+    plain_content = f"Hi {user_name}，邮件通知功能已正常工作。"
+
+    success = _send_smtp(
         to_email=current_user.email,
+        from_addr=smtp_from,
         subject=subject,
-        content=plain_content,
-        html_content=html_content
+        text_body=plain_content,
+        html_body=html_content,
+        smtp_host=smtp_host,
+        smtp_port=smtp_port,
+        smtp_user=smtp_user,
+        smtp_password=smtp_password,
     )
 
     if success:
-        return ResponseData(message=f"测试邮件已发送至 {current_user.email}")
+        source = "用户配置" if email_config.get("smtp_host") else "系统配置"
+        return ResponseData(message=f"测试邮件已发送至 {current_user.email}（使用{source}）")
     else:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"code": 500, "message": "邮件发送失败，SMTP 服务可能未配置或连接失败。请联系管理员检查 SMTP 设置。"}
+            detail={"code": 500, "message": "邮件发送失败，请检查 SMTP 服务器地址、端口、账号密码是否正确。"}
         )
 
 
@@ -172,10 +185,81 @@ async def get_email_notification_status(
 ):
     """Check if email notifications are configured and available."""
     has_email = bool(current_user.email)
-    smtp_configured = bool(settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD)
+
+    # Check user-level SMTP config
+    notify_pref = current_user.notify_pref or {}
+    channels = notify_pref.get("channels", {})
+    email_config = channels.get("email", {})
+    user_smtp_configured = bool(
+        email_config.get("smtp_host")
+        and email_config.get("smtp_user")
+        and email_config.get("smtp_password")
+    )
+
+    # Check global SMTP config
+    global_smtp_configured = bool(settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD)
 
     return ResponseData(data={
         "has_email": has_email,
         "email_address": current_user.email or "",
-        "smtp_configured": smtp_configured,
+        "smtp_configured": user_smtp_configured or global_smtp_configured,
+        "user_smtp_configured": user_smtp_configured,
+        "global_smtp_configured": global_smtp_configured,
+        "smtp_source": "user" if user_smtp_configured else ("global" if global_smtp_configured else "none"),
     })
+
+
+@router.get("/smtp-config", response_model=ResponseData)
+async def get_smtp_config(
+    current_user: User = Depends(get_current_user),
+):
+    """Get user's SMTP configuration (password masked)."""
+    notify_pref = current_user.notify_pref or {}
+    channels = notify_pref.get("channels", {})
+    email_config = channels.get("email", {})
+
+    has_password = bool(email_config.get("smtp_password"))
+    safe_config = {
+        "smtp_host": email_config.get("smtp_host", ""),
+        "smtp_port": email_config.get("smtp_port", 465),
+        "smtp_user": email_config.get("smtp_user", ""),
+        "smtp_from": email_config.get("smtp_from", ""),
+        "has_password": has_password,
+    }
+    return ResponseData(data=safe_config)
+
+
+@router.put("/smtp-config", response_model=ResponseData)
+async def update_smtp_config(
+    data: SmtpConfigUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Save user's SMTP configuration (merged into notify_pref.channels.email)."""
+    notify_pref = current_user.notify_pref or {}
+    channels = notify_pref.get("channels", {})
+    email_config = channels.get("email", {})
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    # If password is empty string, don't overwrite existing password
+    if "smtp_password" in update_data and update_data["smtp_password"] == "":
+        del update_data["smtp_password"]
+
+    email_config.update(update_data)
+    channels["email"] = email_config
+    notify_pref["channels"] = channels
+    current_user.notify_pref = notify_pref
+
+    db.commit()
+
+    # Return masked config
+    has_password = bool(email_config.get("smtp_password"))
+    safe_config = {
+        "smtp_host": email_config.get("smtp_host", ""),
+        "smtp_port": email_config.get("smtp_port", 465),
+        "smtp_user": email_config.get("smtp_user", ""),
+        "smtp_from": email_config.get("smtp_from", ""),
+        "has_password": has_password,
+    }
+    return ResponseData(data=safe_config, message="邮件服务器配置已保存")

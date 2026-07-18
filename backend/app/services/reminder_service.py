@@ -144,15 +144,15 @@ class ReminderService:
             elif channel == "sms":
                 return ReminderService._send_sms(user, title, content)
             elif channel == "web_push":
-                return ReminderService._send_web_push(user, title, content)
+                return ReminderService._send_web_push(user, title, content, task)
             elif channel == "desktop":
-                return ReminderService._send_desktop_notification(user, title, content)
+                return ReminderService._send_desktop_notification(user, title, content, task)
             elif channel == "wx":
                 return ReminderService._send_wechat(user, title, content)
             elif channel == "app":
                 return ReminderService._send_app_push(user, title, content)
             else:
-                return ReminderService._send_web_push(user, title, content)
+                return ReminderService._send_web_push(user, title, content, task)
         except Exception as e:
             print(f"Failed to send reminder via {channel}: {e}")
             return False
@@ -222,21 +222,24 @@ class ReminderService:
         return False
 
     @staticmethod
-    def _send_web_push(user: User, title: str, content: str) -> bool:
+    def _send_web_push(user: User, title: str, content: str, task: Task = None) -> bool:
         """Send browser web push notification using user's VAPID config."""
         from app.utils.web_push import send_web_push
+        priority = (task.priority or 2) if task else 2
         return send_web_push(
             user=user,
             title=title,
             body=content,
-            url="/tasks"
+            url="/tasks",
+            priority=priority
         )
 
     @staticmethod
-    def _send_desktop_notification(user: User, title: str, content: str) -> bool:
+    def _send_desktop_notification(user: User, title: str, content: str, task: Task = None) -> bool:
         """Desktop notifications via frontend Web Notification API."""
         from app.utils.web_push import send_web_push
-        return send_web_push(user=user, title=title, body=content, url="/tasks")
+        priority = (task.priority or 2) if task else 2
+        return send_web_push(user=user, title=title, body=content, url="/tasks", priority=priority)
 
     @staticmethod
     def _send_wechat(user: User, title: str, content: str) -> bool:

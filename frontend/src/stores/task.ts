@@ -23,6 +23,10 @@ import type {
 } from '@/types'
 
 import { ElNotification } from 'element-plus'
+import { useSoundEffects } from '@/composables/useSoundEffects'
+
+// Sound effects instance (singleton via composable)
+const { playFeedbackSound } = useSoundEffects()
 
 // Simple notification helper
 function notifyFeedback(title: string, message: string) {
@@ -233,6 +237,8 @@ export const useTaskStore = defineStore('task', () => {
     } else {
       notifyFeedback('🎉 任务已完成', `「${resultTask.title}」已标记为完成！`)
     }
+    // Apple-style feedback sound: ascending triple note (achievement feel)
+    playFeedbackSound('task_complete')
     return response
   }
 
@@ -251,6 +257,8 @@ export const useTaskStore = defineStore('task', () => {
   async function removeTask(taskId: number) {
     await deleteTask(taskId)
     tasks.value = tasks.value.filter(t => t.id !== taskId)
+    // Apple-style feedback sound: descending single note (gentle warning)
+    playFeedbackSound('task_delete')
   }
 
   // 批量完成
@@ -261,6 +269,8 @@ export const useTaskStore = defineStore('task', () => {
         task.status = 2
       }
     })
+    // Apple-style feedback sound for batch completion
+    playFeedbackSound('task_complete')
   }
 
   // 批量删除

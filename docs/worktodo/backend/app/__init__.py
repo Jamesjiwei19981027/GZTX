@@ -1,1 +1,0 @@
-# WorkTodo Backend - FastAPI Application

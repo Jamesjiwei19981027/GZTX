@@ -53,11 +53,8 @@ const currentRoute = computed(() => route.name as string)
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: 'dashboard', label: '仪表盘', activeIcon: 'dashboard' },
-  { name: 'Inbox', path: '/inbox', icon: 'inbox', label: '收件箱', activeIcon: 'inbox' },
   { name: 'TaskList', path: '/tasks', icon: 'checklist', label: '我的任务', activeIcon: 'checklist' },
-  { name: 'Kanban', path: '/kanban', icon: 'view_kanban', label: '项目协作', activeIcon: 'view_kanban' },
   { name: 'Calendar', path: '/calendar', icon: 'calendar_month', label: '日历', activeIcon: 'calendar_month' },
-  { name: 'Chat', path: '/chat', icon: 'chat', label: '团队聊天', activeIcon: 'chat' },
 ]
 
 const bottomItems = [

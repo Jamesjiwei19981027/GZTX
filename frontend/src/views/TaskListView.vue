@@ -15,6 +15,8 @@ const searchQuery = ref('')
 const activeTab = ref<'all' | 0 | 1 | 2>('all')
 const activePriority = ref<'all' | 0 | 1 | 2>('all')
 const needsFollowUp = ref(false)
+const dueDateFrom = ref('')
+const dueDateTo = ref('')
 
 const tasks = computed(() => taskStore.tasks)
 const pagination = computed(() => taskStore.pagination)
@@ -52,6 +54,12 @@ function buildFilterParams(page = 1): Record<string, unknown> {
   if (needsFollowUp.value) {
     params.needs_follow_up = true
   }
+  if (dueDateFrom.value) {
+    params.due_date_from = dueDateFrom.value
+  }
+  if (dueDateTo.value) {
+    params.due_date_to = dueDateTo.value
+  }
   return params
 }
 
@@ -61,11 +69,15 @@ function applyFilters() {
 
 function handleTabChange(key: 'all' | 0 | 1 | 2) {
   activeTab.value = key
+  dueDateFrom.value = ''
+  dueDateTo.value = ''
   applyFilters()
 }
 
 function handlePriorityChange(key: 'all' | 0 | 1 | 2) {
   activePriority.value = key
+  dueDateFrom.value = ''
+  dueDateTo.value = ''
   applyFilters()
 }
 
@@ -82,10 +94,12 @@ watch(searchQuery, () => {
   }, 300)
 })
 
-// 监听路由 query 参数变化（从仪表板卡片跳转过来）
+// 监听路由 query 参数变化（从仪表板卡片或邮件链接跳转过来）
 watch(() => route.query, (query) => {
   const qStatus = query.status
   const qPriority = query.priority
+  const qDateFrom = query.due_date_from
+  const qDateTo = query.due_date_to
   if (qStatus !== undefined) {
     activeTab.value = Number(qStatus) as 0 | 1 | 2
   } else {
@@ -96,6 +110,8 @@ watch(() => route.query, (query) => {
   } else {
     activePriority.value = 'all'
   }
+  dueDateFrom.value = (typeof qDateFrom === 'string' ? qDateFrom : '') as string
+  dueDateTo.value = (typeof qDateTo === 'string' ? qDateTo : '') as string
   applyFilters()
 }, { immediate: false })
 
@@ -192,14 +208,22 @@ async function handleCompleteSubmit(data: {
 }
 
 onMounted(() => {
-  // 读取 URL query 参数初始化筛选
+  // 读取 URL query 参数初始化筛选（支持从邮件链接跳转）
   const qStatus = route.query.status
   const qPriority = route.query.priority
+  const qDateFrom = route.query.due_date_from
+  const qDateTo = route.query.due_date_to
   if (qStatus !== undefined) {
     activeTab.value = Number(qStatus) as 0 | 1 | 2
   }
   if (qPriority !== undefined) {
     activePriority.value = Number(qPriority) as 0 | 1 | 2
+  }
+  if (typeof qDateFrom === 'string') {
+    dueDateFrom.value = qDateFrom
+  }
+  if (typeof qDateTo === 'string') {
+    dueDateTo.value = qDateTo
   }
   taskStore.fetchTasks(buildFilterParams() as never)
 })
@@ -275,6 +299,19 @@ onMounted(() => {
 
       <!-- Spacer -->
       <div class="flex-1" />
+
+      <!-- Date Range Filter Indicator (from email links) -->
+      <div
+        v-if="dueDateFrom || dueDateTo"
+        class="flex items-center gap-sm bg-tertiary-container text-on-tertiary-container rounded-full px-md py-xs text-label-md"
+      >
+        <span class="material-symbols-outlined text-base">calendar_today</span>
+        <span>{{ dueDateFrom || '...' }} ~ {{ dueDateTo || '...' }}</span>
+        <button
+          class="material-symbols-outlined text-base hover:opacity-70 transition cursor-pointer"
+          @click="dueDateFrom = ''; dueDateTo = ''; applyFilters()"
+        >close</button>
+      </div>
 
       <!-- Follow-up Toggle -->
       <div class="flex items-center gap-sm">

@@ -50,6 +50,12 @@ class Task(Base):
     tags = relationship("Tag", secondary=task_tags, back_populates="tasks", lazy="selectin")
     reminders = relationship("Reminder", back_populates="task", cascade="all, delete-orphan")
     sub_tasks = relationship("Task", backref="parent", remote_side=[id], lazy="selectin")
+    recurring_instances = relationship(
+        "RecurringInstance",
+        back_populates="task",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
 
     # 优先级枚举
     PRIORITY_LOW = 0

@@ -284,8 +284,9 @@ def build_daily_digest_email(
     overdue_tasks: List[Dict[str, Any]],
     completed_count: int = 0,
     date_text: str = "",
+    app_url: str = "http://localhost",
 ) -> tuple:
-    """Build daily digest email showing today's tasks and overdue items.
+    """Build daily digest email with email-client-safe HTML (table layout, no flex/gap).
 
     Returns:
         (subject, html_body) tuple
@@ -296,104 +297,227 @@ def build_daily_digest_email(
 
     subject = f"📋 今日待办摘要 · {date_text}"
 
-    def _task_row(t: Dict[str, Any], show_overdue: bool = False) -> str:
+    # Build clickable stat URLs
+    base = app_url.rstrip("/")
+    from datetime import datetime as _dt, timedelta as _td
+    today_str = _dt.utcnow().strftime("%Y-%m-%d")
+    tomorrow_str = (_dt.utcnow() + _td(days=1)).strftime("%Y-%m-%d")
+    yesterday_str = (_dt.utcnow() - _td(days=1)).strftime("%Y-%m-%d")
+    url_today = f"{base}/tasks?status=0&due_date_from={today_str}&due_date_to={tomorrow_str}"
+    url_urgent = f"{base}/tasks?priority=2&status=0&due_date_from={today_str}&due_date_to={tomorrow_str}"
+    url_overdue = f"{base}/tasks?status=0&due_date_to={today_str}"
+    url_completed = f"{base}/tasks?status=2&due_date_from={yesterday_str}&due_date_to={today_str}"
+
+    _STATUS_MAP = {0: ("待办", "#667eea"), 1: ("进行中", "#ff9500"), 2: ("已完成", "#34c759")}
+
+    def _task_card(t: Dict[str, Any], show_overdue: bool = False) -> str:
         title = t.get("title", "未命名任务")
         priority = t.get("priority", 1)
-        _, pcolor = _priority_info(priority)
+        plabel, pcolor = _priority_info(priority)
         due = _format_due_date(t.get("due_date"))
-        extra = f'<span style="color:#c0392b;font-size:12px;margin-left:8px;">逾期</span>' if show_overdue else ""
-        time_cell = f'<span style="color:#8e8e93;font-size:13px;">{due}</span>' if due else ""
+        description = t.get("description", "") or ""
+        status = t.get("status", 0)
+        cat_name = t.get("category_name", "") or ""
+        cat_color = t.get("category_color", "") or ""
+        slabel, scolor = _STATUS_MAP.get(status, ("待办", "#667eea"))
+
+        # Description block
+        desc_row = ""
+        if description:
+            short_desc = description[:120] + ("..." if len(description) > 120 else "")
+            desc_row = f"""
+            <tr>
+              <td style="padding:8px 0 0 0;">
+                <table cellpadding="0" cellspacing="0" style="width:100%;"><tr><td style="padding:8px 12px;background-color:#f8f9fa;border-radius:6px;font-size:13px;color:#6c757d;line-height:1.5;">{short_desc}</td></tr></table>
+              </td>
+            </tr>
+            """
+
+        # Badges row: priority + category + status + overdue
+        badges = f'<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:600;background-color:{pcolor};color:#ffffff;margin-right:4px;">{plabel}</span>'
+        if cat_name:
+            chip_bg = cat_color if cat_color else "#8e8e93"
+            badges += f'<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:500;background-color:{chip_bg};color:#ffffff;margin-right:4px;">{cat_name}</span>'
+        badges += f'<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:500;background-color:{scolor};color:#ffffff;">{slabel}</span>'
+        if show_overdue:
+            remaining_text = _calc_remaining(t.get("due_date"))
+            badges += f'<span style="display:inline-block;padding:2px 10px;border-radius:4px;font-size:12px;font-weight:600;background-color:#c0392b;color:#ffffff;margin-left:4px;">⚠ 逾期{(" · " + remaining_text) if remaining_text else ""}</span>'
+
+        # Footer row: date + remaining
+        footer_left = f'📅 {due}' if due else ''
+        footer_right = ''
+        if not show_overdue:
+            rem = _calc_remaining(t.get("due_date"))
+            if rem:
+                rem_color = "#ff9500" if "小时" in rem or "分钟" in rem else "#1d1d1f"
+                footer_right = f'<span style="font-size:12px;color:{rem_color};">⏰ {rem}</span>'
+
         return f"""
-        <div style="padding:12px 0;border-bottom:1px solid #f0f0f0;">
-          <div style="font-size:15px;font-weight:500;">
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background-color:{pcolor};margin-right:6px;"></span>
-            {title}{extra}
-          </div>
-          <div style="font-size:13px;color:#8e8e93;margin-top:4px;margin-left:14px;">{time_cell}</div>
-        </div>
+        <table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:12px;">
+          <tr>
+            <td style="padding:0;">
+              <table cellpadding="0" cellspacing="0" style="width:100%;background-color:#ffffff;border:1px solid #e9ecef;border-radius:10px;border-left:4px solid {pcolor};">
+                <!-- Title row -->
+                <tr>
+                  <td style="padding:14px 16px 0 16px;">
+                    <table cellpadding="0" cellspacing="0" style="width:100%;">
+                      <tr>
+                        <td style="width:12px;vertical-align:top;padding-top:4px;">
+                          <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background-color:{pcolor};"></span>
+                        </td>
+                        <td style="padding-left:6px;">
+                          <div style="font-size:16px;font-weight:600;color:#1d1d1f;line-height:1.3;">{title}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <!-- Badges row -->
+                <tr>
+                  <td style="padding:6px 16px 0 32px;">
+                    {badges}
+                  </td>
+                </tr>
+                <!-- Description row -->
+                {desc_row}
+                <!-- Footer row -->
+                <tr>
+                  <td style="padding:10px 16px 14px 16px;">
+                    <table cellpadding="0" cellspacing="0" style="width:100%;border-top:1px solid #f0f0f0;">
+                      <tr>
+                        <td style="padding-top:8px;font-size:12px;color:#8e8e93;">{footer_left}</td>
+                        <td style="padding-top:8px;font-size:12px;color:#8e8e93;text-align:right;">{footer_right}</td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
         """
 
     # Build task sections
     overdue_section = ""
     if overdue_tasks:
-        rows = "".join(_task_row(t, show_overdue=True) for t in overdue_tasks[:20])
+        cards = "".join(_task_card(t, show_overdue=True) for t in overdue_tasks[:20])
         overdue_section = f"""
-        <div style="font-size:15px;font-weight:600;color:#c0392b;margin:20px 0 8px;padding-bottom:8px;border-bottom:2px solid #fee;">
-          🔴 已逾期 ({overdue_count})
-        </div>
-        {rows}
+        <table cellpadding="0" cellspacing="0" style="width:100%;margin-top:20px;">
+          <tr>
+            <td style="padding-bottom:10px;border-bottom:2px solid #fde;">
+              <span style="font-size:16px;font-weight:700;color:#c0392b;">🔴 已逾期 ({overdue_count})</span>
+            </td>
+          </tr>
+        </table>
+        {cards}
         """
 
     today_section = ""
     if today_tasks:
-        rows = "".join(_task_row(t) for t in today_tasks[:20])
+        cards = "".join(_task_card(t) for t in today_tasks[:20])
         today_section = f"""
-        <div style="font-size:15px;font-weight:600;color:#1d1d1f;margin:20px 0 8px;padding-bottom:8px;border-bottom:2px solid #f0f0f0;">
-          📋 今日待办 ({total})
-        </div>
-        {rows}
+        <table cellpadding="0" cellspacing="0" style="width:100%;margin-top:20px;">
+          <tr>
+            <td style="padding-bottom:10px;border-bottom:2px solid #f0f0f0;">
+              <span style="font-size:16px;font-weight:700;color:#1d1d1f;">📋 今日待办 ({total})</span>
+            </td>
+          </tr>
+        </table>
+        {cards}
         """
 
     no_tasks_html = ""
     if not today_tasks and not overdue_tasks:
         no_tasks_html = """
-        <div style="text-align:center;padding:40px 0;color:#8e8e93;">
-          <div style="font-size:48px;margin-bottom:12px;">🎉</div>
-          <div style="font-size:16px;">今天没有待办任务，享受清闲吧！</div>
-        </div>
+        <table cellpadding="0" cellspacing="0" style="width:100%;">
+          <tr>
+            <td style="text-align:center;padding:40px 0;color:#8e8e93;">
+              <div style="font-size:48px;margin-bottom:12px;">🎉</div>
+              <div style="font-size:16px;">今天没有待办任务，享受清闲吧！</div>
+            </td>
+          </tr>
+        </table>
         """
 
     html_body = f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="margin:0;padding:0;background-color:#f5f5f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;">
-<div style="background-color:#f5f5f7;padding:20px 0;">
-<div style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+<table cellpadding="0" cellspacing="0" style="width:100%;background-color:#f5f5f7;">
+  <tr>
+    <td style="padding:20px 0;" align="center">
+      <table cellpadding="0" cellspacing="0" style="width:640px;max-width:100%;background-color:#ffffff;border-radius:16px;overflow:hidden;">
 
-  <!-- Header -->
-  <div style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:24px 30px;">
-    <div style="color:rgba(255,255,255,0.8);font-size:13px;">📅 {date_text}</div>
-    <div style="color:#ffffff;font-size:20px;font-weight:600;margin-top:4px;">今日待办摘要</div>
-  </div>
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);padding:28px 30px;">
+            <div style="color:rgba(255,255,255,0.85);font-size:13px;">📅 {date_text}</div>
+            <div style="color:#ffffff;font-size:22px;font-weight:700;margin-top:4px;">今日待办摘要</div>
+          </td>
+        </tr>
 
-  <!-- Content -->
-  <div style="padding:30px;">
-    <p style="font-size:14px;color:#555;margin:0 0 20px;">Hi {user_name}，这是你今天的待办事项概览：</p>
+        <!-- Content -->
+        <tr>
+          <td style="padding:24px 28px;">
+            <p style="font-size:14px;color:#555555;margin:0 0 20px;">Hi {user_name}，这是你今天的待办事项概览：</p>
 
-    <!-- Stats -->
-    <div style="display:flex;text-align:center;margin-bottom:24px;">
-      <div style="flex:1;padding:12px;">
-        <div style="font-size:28px;font-weight:700;color:#667eea;">{total}</div>
-        <div style="font-size:12px;color:#8e8e93;margin-top:4px;">今日待办</div>
-      </div>
-      <div style="flex:1;padding:12px;">
-        <div style="font-size:28px;font-weight:700;color:#ff3b30;">{urgent}</div>
-        <div style="font-size:12px;color:#8e8e93;margin-top:4px;">紧急任务</div>
-      </div>
-      <div style="flex:1;padding:12px;">
-        <div style="font-size:28px;font-weight:700;color:#ff9500;">{overdue_count}</div>
-        <div style="font-size:12px;color:#8e8e93;margin-top:4px;">已逾期</div>
-      </div>
-      <div style="flex:1;padding:12px;">
-        <div style="font-size:28px;font-weight:700;color:#34c759;">{completed_count}</div>
-        <div style="font-size:12px;color:#8e8e93;margin-top:4px;">昨日完成</div>
-      </div>
-    </div>
+            <!-- Stats (clickable) -->
+            <table cellpadding="0" cellspacing="0" style="width:100%;margin-bottom:24px;background-color:#f8f9fa;border-radius:10px;overflow:hidden;">
+              <tr>
+                <td style="width:25%;text-align:center;padding:0;border-right:1px solid #e9ecef;">
+                  <a href="{url_today}" style="text-decoration:none;">
+                    <table cellpadding="0" cellspacing="0" style="width:100%;"><tr><td style="padding:16px;text-align:center;">
+                      <div style="font-size:28px;font-weight:700;color:#667eea;">{total}</div>
+                      <div style="font-size:12px;color:#8e8e93;margin-top:4px;">今日待办</div>
+                    </td></tr></table>
+                  </a>
+                </td>
+                <td style="width:25%;text-align:center;padding:0;border-right:1px solid #e9ecef;">
+                  <a href="{url_urgent}" style="text-decoration:none;">
+                    <table cellpadding="0" cellspacing="0" style="width:100%;"><tr><td style="padding:16px;text-align:center;">
+                      <div style="font-size:28px;font-weight:700;color:#ff3b30;">{urgent}</div>
+                      <div style="font-size:12px;color:#8e8e93;margin-top:4px;">紧急任务</div>
+                    </td></tr></table>
+                  </a>
+                </td>
+                <td style="width:25%;text-align:center;padding:0;border-right:1px solid #e9ecef;">
+                  <a href="{url_overdue}" style="text-decoration:none;">
+                    <table cellpadding="0" cellspacing="0" style="width:100%;"><tr><td style="padding:16px;text-align:center;">
+                      <div style="font-size:28px;font-weight:700;color:#ff9500;">{overdue_count}</div>
+                      <div style="font-size:12px;color:#8e8e93;margin-top:4px;">已逾期</div>
+                    </td></tr></table>
+                  </a>
+                </td>
+                <td style="width:25%;text-align:center;padding:0;">
+                  <a href="{url_completed}" style="text-decoration:none;">
+                    <table cellpadding="0" cellspacing="0" style="width:100%;"><tr><td style="padding:16px;text-align:center;">
+                      <div style="font-size:28px;font-weight:700;color:#34c759;">{completed_count}</div>
+                      <div style="font-size:12px;color:#8e8e93;margin-top:4px;">昨日完成</div>
+                    </td></tr></table>
+                  </a>
+                </td>
+              </tr>
+            </table>
 
-    {overdue_section}
-    {today_section}
-    {no_tasks_html}
-  </div>
+            {overdue_section}
+            {today_section}
+            {no_tasks_html}
+          </td>
+        </tr>
 
-  <!-- Footer -->
-  <div style="padding:16px 30px;background-color:#f8f9fa;border-top:1px solid #e9ecef;">
-    <p style="font-size:12px;color:#8e8e93;margin:0;line-height:1.8;">
-      此邮件由「工作助理」每日自动发送。
-    </p>
-  </div>
+        <!-- Footer -->
+        <tr>
+          <td style="padding:16px 30px;background-color:#f8f9fa;border-top:1px solid #e9ecef;">
+            <p style="font-size:12px;color:#8e8e93;margin:0;line-height:1.8;">
+              此邮件由「工作助理」每日自动发送。
+            </p>
+          </td>
+        </tr>
 
-</div>
-</div>
+      </table>
+    </td>
+  </tr>
+</table>
 </body>
 </html>"""
 

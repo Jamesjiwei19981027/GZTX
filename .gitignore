@@ -56,3 +56,10 @@ coverage/
 # 临时文件
 *.tmp
 *.bak
+
+# 误生成的噪音 / 工具残留
+_nul
+nul
+C*Users*
+*css_output*
+*test_task.json

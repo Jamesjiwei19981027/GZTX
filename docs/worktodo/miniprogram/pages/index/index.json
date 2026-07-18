@@ -1,8 +1,0 @@
-{
-  "usingComponents": {
-    "task-item": "/components/task-item/index"
-  },
-  "navigationBarTitleText": "工作待办",
-  "enablePullDownRefresh": true,
-  "backgroundTextStyle": "dark"
-}

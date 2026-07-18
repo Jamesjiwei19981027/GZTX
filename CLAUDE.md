@@ -4,29 +4,37 @@
 
 ## 项目文档
 
-所有开发指导文档位于 `docs/` 目录：
-- `01-需求分析.md` - 功能需求、用户场景、竞品分析
-- `02-技术架构设计.md` - 技术选型、目录结构
-- `03-数据库设计.md` - 数据模型、表结构
-- `04-API接口设计.md` - 所有API端点定义
-- `05-开发计划与里程碑.md` - 开发阶段和任务分解
-- `06-部署运维指南.md` - 部署和运维
+开发指导文档位于 `docs/`：
 
-## 当前阶段
+- `项目逻辑文档.md` — **优先阅读**：项目思路、真源目录、UI 现状
+- `01-需求分析.md` … `06-部署运维指南.md` — 设计文档
+- `superpowers/` — 邮件回复 / 跟进专题
 
-正在执行 Phase 0-3 的并行开发：
-- 后端智能体：Phase 0 (项目骨架) + Phase 1 (后端MVP)
-- 前端智能体：Phase 0 (项目骨架) + Phase 2 (前端MVP)
-- 小程序智能体：Phase 0 (项目骨架) + Phase 3 (小程序MVP)
+## 真源目录（唯一可运行代码）
+
+| 目录 | 说明 |
+|------|------|
+| `backend/` | FastAPI 后端 |
+| `frontend/` | Vue3 Web（Productivity Flow / MD3 + Tailwind） |
+| `miniprogram/` | 微信小程序 |
+| `UI/` | 设计稿参考，非运行代码 |
+
+禁止在文档目录中维护第二套可运行前后端。
 
 ## 启动命令
 
-**后端**：CD backend && uvicorn app.main:app --reload
-**前端**：CD frontend && npm run dev
-**Docker**：docker-compose -f docker-compose.yml up -d
+**后端**：`cd backend && uvicorn app.main:app --reload`  
+**前端**：`cd frontend && npm run dev`  
+**Docker**：`docker-compose -f docker-compose.yml up -d`
 
 ## 技术栈
 
-- 后端：FastAPI + SQLAlchemy + SQLite/PostgreSQL
-- 前端：Vue3 + Vite + Element Plus + TypeScript
+- 后端：FastAPI + SQLAlchemy + SQLite/PostgreSQL + APScheduler
+- 前端：Vue3 + Vite + Pinia + Tailwind + Element Plus + TypeScript
 - 小程序：微信小程序原生框架
+
+## Web 页面范围（现役）
+
+登录/注册 · 仪表盘 · 任务列表/详情 · 日历 · 设置（含 SMTP / 主题 / 推送）
+
+已移除 Mock 壳页：收件箱 / 看板 / 团队聊天（路由兼容重定向）。

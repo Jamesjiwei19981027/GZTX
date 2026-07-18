@@ -52,7 +52,7 @@ export const useAuthStore = defineStore('auth', () => {
       // 登录即完成推送订阅
       setupWebPush()
 
-      router.push('/tasks')
+      router.push('/dashboard')
       return response
     } finally {
       loading.value = false
@@ -74,7 +74,7 @@ export const useAuthStore = defineStore('auth', () => {
       // 注册即完成推送订阅
       setupWebPush()
 
-      router.push('/tasks')
+      router.push('/dashboard')
       return response
     } finally {
       loading.value = false

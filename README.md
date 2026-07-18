@@ -1,103 +1,90 @@
-# 工作待办提醒系统 (WorkTodo)
+# 工作待办提醒系统 (WorkTodo / 烂笔头 PM)
 
-> 一个支持双端同步的每日工作待办事项管理程序，包含 Web 端、桌面端和微信小程序。
-
----
-
-## 项目简介
-
-本项目是一个自托管的待办事项管理系统，旨在帮助用户高效管理每日工作任务，并通过多种方式及时提醒，确保重要事项不遗漏。
-
-### 核心特点
-
-- **双端同步**：Web 端 + 微信小程序，数据实时同步
-- **智能提醒**：支持多种提醒方式（桌面通知、微信订阅消息、邮件）
-- **重复任务**：支持按日/周/月/年设置重复任务
-- **离线可用**：PWA 技术支持离线查看和编辑
-- **数据自主**：自托管后端，数据完全由自己掌控
-- **轻量高效**：基于现代技术栈，快速响应
+自托管的待办事项管理系统：Web + 微信小程序共用同一套 FastAPI 后端。
 
 ---
 
-## 文档索引
+## 核心能力
+
+- **任务管理**：创建/编辑/软删除、优先级、分类、标签、完成评价与跟进
+- **智能提醒**：网页推送、邮件提醒（可配置 SMTP）、提醒时间与通知渠道
+- **邮件闭环**：提醒邮件 → 用户回复指令 → 后端 IMAP 解析并更新任务
+- **多端访问**：Vue3 Web + 微信小程序（REST + JWT）
+- **数据自主**：自托管，开发默认 SQLite，生产可用 PostgreSQL
+
+---
+
+## 文档
 
 | 文档 | 说明 |
 |------|------|
-| [01-需求分析.md](./docs/01-需求分析.md) | 功能需求、用户场景、竞品分析 |
-| [02-技术架构设计.md](./docs/02-技术架构设计.md) | 整体架构、技术选型、部署方案 |
-| [03-数据库设计.md](./docs/03-数据库设计.md) | 数据模型、表结构、关系设计 |
-| [04-API接口设计.md](./docs/04-API接口设计.md) | RESTful API 定义、认证授权 |
-| [05-开发计划与里程碑.md](./docs/05-开发计划与里程碑.md) | 开发阶段、任务分解、时间安排 |
-| [06-部署运维指南.md](./docs/06-部署运维指南.md) | 环境搭建、部署流程、运维监控 |
+| [docs/项目逻辑文档.md](./docs/项目逻辑文档.md) | **项目思路与目录真源**（优先阅读） |
+| [docs/01-需求分析.md](./docs/01-需求分析.md) | 功能需求与场景 |
+| [docs/02-技术架构设计.md](./docs/02-技术架构设计.md) | 架构与技术选型 |
+| [docs/03-数据库设计.md](./docs/03-数据库设计.md) | 数据模型 |
+| [docs/04-API接口设计.md](./docs/04-API接口设计.md) | API 设计（以代码为准） |
+| [docs/05-开发计划与里程碑.md](./docs/05-开发计划与里程碑.md) | 里程碑 |
+| [docs/06-部署运维指南.md](./docs/06-部署运维指南.md) | 部署运维 |
+| [docs/superpowers/](./docs/superpowers/) | 邮件回复 / 跟进专题 |
 
 ---
 
 ## 快速开始
 
 ```bash
-# 克隆项目
-git clone <repository-url>
-cd worktodo
-
-# 启动后端
+# 后端
 cd backend
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn app.main:app --reload
 
-# 启动前端
-cd ../frontend
+# 前端（另开终端）
+cd frontend
 npm install
 npm run dev
 
-# 启动小程序
-cd ../miniprogram
-# 使用微信开发者工具打开
+# 或 Docker
+docker-compose -f docker-compose.yml up -d
 ```
+
+- API 文档：http://localhost:8000/docs  
+- Web 开发：http://localhost:5173  
+- 小程序：用微信开发者工具打开 `miniprogram/`（需配置 `app.js` 中的 `baseUrl`）
 
 ---
 
-## 技术栈概览
+## 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| 后端 | Python 3.11 + FastAPI + SQLAlchemy |
+| 后端 | Python + FastAPI + SQLAlchemy + APScheduler |
 | 数据库 | SQLite（开发）/ PostgreSQL（生产） |
-| 前端 Web | Vue 3 + Vite + Pinia + Element Plus |
-| 小程序 | 微信小程序原生框架 |
-| 任务调度 | APScheduler |
-| 认证 | JWT (JSON Web Token) |
+| 前端 | Vue 3 + Vite + Pinia + Tailwind + Element Plus |
+| 小程序 | 微信原生框架 |
+| 认证 | JWT |
 
 ---
 
-## 项目结构
+## 项目结构（真源）
 
 ```
-worktodo/
-├── backend/              # FastAPI 后端
-│   ├── app/
-│   │   ├── api/          # API 路由
-│   │   ├── core/         # 核心配置
-│   │   ├── models/       # 数据库模型
-│   │   ├── schemas/      # Pydantic 数据模型
-│   │   ├── services/     # 业务逻辑
-│   │   └── utils/        # 工具函数
-│   ├── alembic/          # 数据库迁移
-│   └── tests/            # 单元测试
-├── frontend/             # Vue3 Web 前端
-│   ├── src/
-│   │   ├── api/          # API 请求封装
-│   │   ├── components/   # 公共组件
-│   │   ├── views/        # 页面视图
-│   │   ├── stores/       # Pinia 状态管理
-│   │   └── utils/        # 工具函数
-│   └── public/
-├── miniprogram/          # 微信小程序
-│   ├── pages/            # 页面
-│   ├── components/       # 组件
-│   └── utils/            # 工具函数
-├── docs/                 # 项目文档
-└── docker-compose.yml    # Docker 部署配置
+gongzuotix/
+├── backend/           # FastAPI 后端（唯一后端真源）
+├── frontend/          # Vue3 Web（唯一前端真源）
+├── miniprogram/       # 微信小程序
+├── nginx/             # 反向代理
+├── data/              # 运行时数据（gitignore）
+├── scripts/           # 备份与健康检查
+├── docs/              # 文档（不含可运行副本）
+├── UI/                # 设计稿参考（非运行代码）
+├── docker-compose.yml
+└── README.md
 ```
+
+**注意：**
+
+- 只维护根目录下的 `backend/`、`frontend/`、`miniprogram/`。
+- `UI/` 仅为设计规范与静态稿，不参与构建。
+- 历史鸡肋 MVP 快照已移除，请勿再从文档目录恢复第二套前端。
 
 ---
 

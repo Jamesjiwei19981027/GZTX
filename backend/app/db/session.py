@@ -62,7 +62,16 @@ async def init_db():
     async with engine.begin() as conn:
         from app.db.base import Base
         # 导入所有模型，确保 Base.metadata 知道它们
-        from app.models import user, category, tag, task, reminder  # noqa: F401
+        from app.models import (  # noqa: F401
+            user,
+            category,
+            tag,
+            task,
+            reminder,
+            attachment,
+            email_reply_record,
+            recurring_instance,
+        )
 
         await conn.run_sync(Base.metadata.create_all)
 

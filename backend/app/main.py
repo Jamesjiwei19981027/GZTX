@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.db.session import init_db, close_db
-from app.api.v1 import auth, tasks, categories, tags, reminders, users, notifications
+from app.api.v1 import auth, tasks, categories, tags, reminders, users, notifications, attachments, wx
 
 # Email check lock to prevent concurrent email processing
 _email_check_lock = asyncio.Lock()
@@ -177,14 +177,46 @@ async def send_daily_digest():
                         continue
 
                     # Convert ORM objects to dicts for the template
-                    today_tasks = [
-                        {"title": t.title, "priority": t.priority, "due_date": t.due_date}
-                        for t in today_tasks_orm
-                    ]
-                    overdue_tasks = [
-                        {"title": t.title, "priority": t.priority, "due_date": t.due_date}
-                        for t in overdue_tasks_orm
-                    ]
+                    today_tasks = []
+                    for t in today_tasks_orm:
+                        cat_name = ""
+                        cat_color = ""
+                        try:
+                            if t.category:
+                                cat_name = t.category.name or ""
+                                cat_color = t.category.color or ""
+                        except Exception:
+                            pass
+                        today_tasks.append({
+                            "title": t.title,
+                            "priority": t.priority,
+                            "due_date": t.due_date,
+                            "description": t.description or "",
+                            "status": t.status,
+                            "category_name": cat_name,
+                            "category_color": cat_color,
+                            "created_at": t.created_at,
+                        })
+                    overdue_tasks = []
+                    for t in overdue_tasks_orm:
+                        cat_name = ""
+                        cat_color = ""
+                        try:
+                            if t.category:
+                                cat_name = t.category.name or ""
+                                cat_color = t.category.color or ""
+                        except Exception:
+                            pass
+                        overdue_tasks.append({
+                            "title": t.title,
+                            "priority": t.priority,
+                            "due_date": t.due_date,
+                            "description": t.description or "",
+                            "status": t.status,
+                            "category_name": cat_name,
+                            "category_color": cat_color,
+                            "created_at": t.created_at,
+                        })
 
                     user_name = user.nickname or user.username
 
@@ -194,6 +226,7 @@ async def send_daily_digest():
                         overdue_tasks=overdue_tasks,
                         completed_count=completed_count,
                         date_text=date_text,
+                        app_url=app_settings.APP_URL,
                     )
 
                     text_body = (
@@ -307,6 +340,8 @@ app.include_router(tags.router, prefix="/api/v1")
 app.include_router(reminders.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
+app.include_router(attachments.router, prefix="/api/v1")
+app.include_router(wx.router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health", tags=["系统"])

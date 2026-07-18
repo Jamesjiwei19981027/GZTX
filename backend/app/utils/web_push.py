@@ -107,7 +107,7 @@ def _get_vapid_keys(user=None) -> tuple[Optional[str], Optional[str]]:
     return private_key, public_key, vapid_subject
 
 
-def send_web_push(user, title: str, body: str, url: Optional[str] = None) -> bool:
+def send_web_push(user, title: str, body: str, url: Optional[str] = None, priority: int = 2) -> bool:
     """Send Web Push notification to a user.
 
     Args:
@@ -115,6 +115,7 @@ def send_web_push(user, title: str, body: str, url: Optional[str] = None) -> boo
         title: Notification title
         body: Notification body
         url: Click URL
+        priority: Task priority (0=urgent, 1=high, 2=medium, 3=low) for sound selection
 
     Returns:
         True if sent successfully to at least one subscription
@@ -145,7 +146,8 @@ def send_web_push(user, title: str, body: str, url: Optional[str] = None) -> boo
             "body": body,
             "url": url or "/",
             "icon": "/favicon.ico",
-            "badge": "/favicon.ico"
+            "badge": "/favicon.ico",
+            "priority": priority
         })
 
         success = False

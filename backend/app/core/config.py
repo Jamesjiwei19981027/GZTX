@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     APP_NAME: str = "WorkTodo"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
+    APP_URL: str = "http://localhost"  # Base URL for email links (set to your domain in production)
 
     # 数据库配置
     DATABASE_URL: str = "sqlite+aiosqlite:///./data/worktodo.db"
