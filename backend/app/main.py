@@ -37,7 +37,7 @@ async def check_new_emails():
         try:
             from app.services.email_receiver import EmailReceiver
             from app.services.task_email_service import TaskEmailService
-            from app.db.session import SessionLocal
+            from app.db.session import SyncSessionLocal
 
             receiver = EmailReceiver()
             service = TaskEmailService()
@@ -51,7 +51,7 @@ async def check_new_emails():
                         print(f"[EmailCheck] No valid task_id in to: {email_data.get('to')}")
                         continue
 
-                    db = SessionLocal()
+                    db = SyncSessionLocal()
                     try:
                         result = service.process_email_reply(
                             task_id=task_id,
