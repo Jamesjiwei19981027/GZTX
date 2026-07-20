@@ -7,6 +7,8 @@ import TaskListPage from '@/pages/TaskListPage'
 import TaskDetailPage from '@/pages/TaskDetailPage'
 import CalendarPage from '@/pages/CalendarPage'
 import SettingsPage from '@/pages/SettingsPage'
+import ProjectListPage from '@/pages/ProjectListPage'
+import ProjectDetailPage from '@/pages/ProjectDetailPage'
 
 function Placeholder({ title }: { title: string }) {
   return <div className="p-6 font-body text-body-md text-on-surface">{title}</div>
@@ -30,8 +32,8 @@ export const router = createBrowserRouter([
       { path: 'tasks/:id', element: <TaskDetailPage /> },
       { path: 'calendar', element: <CalendarPage /> },
       { path: 'settings', element: <SettingsPage /> },
-      { path: 'projects', element: <Placeholder title="Projects" /> },
-      { path: 'projects/:id', element: <Placeholder title="ProjectDetail" /> },
+      { path: 'projects', element: <ProjectListPage /> },
+      { path: 'projects/:id', element: <ProjectDetailPage /> },
       { path: 'company/settings', element: <Placeholder title="CompanySettings" /> },
       { path: 'inbox', element: <Navigate to="/dashboard" replace /> },
       { path: 'kanban', element: <Navigate to="/tasks" replace /> },
