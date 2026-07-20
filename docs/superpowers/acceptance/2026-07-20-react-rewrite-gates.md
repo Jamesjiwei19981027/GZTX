@@ -11,11 +11,11 @@
 
 | 字段 | 值 |
 |------|-----|
-| Git SHA（frontend 相关 commit） | _待填_ |
-| 前端镜像 digest / tag | _待填_ |
-| 构建时间（本地 / UTC） | _待填_ |
-| 部署环境 | `local` / `staging` / `production`（当前勿勾 production 切流完成） |
-| 操作人 | _待填_ |
+| Git SHA（frontend 相关 commit） | `3a37b6b`（本地验证轮次） |
+| 前端镜像 digest / tag | `gongzuotix-frontend:latest`（manifest `sha256:967bb559…`，本地构建） |
+| 构建时间（本地 / UTC） | 2026-07-20 19:35 (UTC+8) / 11:35 UTC |
+| 部署环境 | `local`（staging / production 均未部署） |
+| 操作人 | Cursor Agent（接手会话） |
 
 ---
 
@@ -63,13 +63,13 @@
 
 ### 6.7 工程与质量（硬门禁）
 
-- [ ] `npm run dev` 可开发
-- [ ] `npm run build` **零错误**；产物可被现有 nginx 静态托管（含 SPA `try_files`）
-- [ ] TypeScript 检查通过（`tsc` / 项目既定 typecheck 脚本，**零 error**）
-- [ ] Docker 前端**生产镜像构建成功**（`frontend/Dockerfile.prod` 指向 React `frontend/`）
-- [ ] 生产构建产物中**不含**明文 SMTP 密码、LLM api_key、服务端 `SECRET_KEY`（抽查 `dist` 与镜像层说明）
-- [ ] `Claude.md` / 部署文档启动命令与技术栈已改为 React
-- [ ] 前端依赖无已知阻断安装的 peer 冲突（`npm ci` 在干净环境可复现）
+- [x] `npm run dev` 可开发（2026-07-20 本地验证，代理目标可用 `DEV_API_TARGET` 覆写）
+- [x] `npm run build` **零错误**（2026-07-20；产物 1.34MB 主 chunk，警告非阻断）
+- [x] TypeScript 检查通过（`npm run typecheck` 零 error，2026-07-20）
+- [x] Docker 前端**生产镜像构建成功**（2026-07-20 本地 `docker compose -f docker-compose.prod.yml build frontend`；容器内 npm 升 v11 后 `npm ci` 通过）
+- [x] 生产构建产物中**不含**明文 SMTP 密码、LLM api_key、服务端 `SECRET_KEY`（2026-07-20 抽查 `dist`，仅命中表单字段名）
+- [x] `Claude.md` / 部署文档启动命令与技术栈已改为 React
+- [x] 前端依赖无已知阻断安装的 peer 冲突（容器内干净环境 `npm ci` 复现通过，2026-07-20）
 
 ### 6.8 可视化（P6，**上线必过，不可延期**）
 
@@ -80,9 +80,9 @@
 
 ### 6.9 单元 / 组件自动化（P7 必过）
 
-- [ ] Vitest（或等价）在 CI/本地可执行：`npm test`（或文档写明的命令）**全部通过**
-- [ ] 至少覆盖：路由鉴权守卫逻辑、`request` 成功解包与错误消息、auth store 登录/登出状态
-- [ ] 禁止「零单元测试」合并上线
+- [x] Vitest 在本地可执行：`npm test` 9 测例**全部通过**（2026-07-20；已修复 vitest 误收集 e2e 目录问题）
+- [x] 至少覆盖：路由鉴权守卫逻辑、`request` 成功解包与错误消息、auth store 登录/登出状态
+- [x] 禁止「零单元测试」合并上线（已满足）
 
 ### 6.10 手工端到端冒烟（书面勾选）
 
@@ -103,12 +103,12 @@ S1–S8 全部勾选时间：_待填_ · 环境：_待填_
 
 ### 6.11 Playwright E2E（上线必过）
 
-- [ ] 仓库内存在可运行的 Playwright 工程（`frontend/e2e`）
-- [ ] 命令文档化：`cd frontend && npm run test:e2e`，在 CI 或指定 runner **全绿**
-- [ ] 套件覆盖与 S1–S8 等价路径（可合并 spec，场景不可缺）
-- [ ] E2E 默认打 staging 基址（`PLAYWRIGHT_BASE_URL` 或等价）
-- [ ] 最近一次全绿 run：时间戳 _待填_ · CI/报告路径 _待填_ · 对应 SHA _待填_
-- [ ] 无未处理 flaky（隔离项不得覆盖 S1/S2/S5/S6/S8）
+- [x] 仓库内存在可运行的 Playwright 工程（`frontend/e2e`）
+- [ ] 命令文档化：`cd frontend && npm run test:e2e`，在 CI 或指定 runner **全绿**（**本地已全绿，staging 未跑**）
+- [x] 套件覆盖与 S1–S8 等价路径（S5/S6 已用真实公司+项目+两层树数据实跑，非软通过）
+- [ ] E2E 默认打 staging 基址（`PLAYWRIGHT_BASE_URL` 或等价）——staging 未部署
+- [x] 最近一次全绿 run：2026-07-20 19:20 (UTC+8) · 本地（backend 8010 + vite 5174）· SHA `7f8c312` · 7/7 passed
+- [x] 无未处理 flaky（本轮连续两次全绿）
 
 ### 6.12 Staging 浸泡（Soak）
 
@@ -194,3 +194,4 @@ S1–S8 全部勾选时间：_待填_ · 环境：_待填_
 | 日期 | 说明 |
 |------|------|
 | 2026-07-20 | 初建模板（Task 12 / P7）；Docker 与文档已指向 React；生产切流未做 |
+| 2026-07-20 (晚) | 接手会话完成本地验证轮：§6.7 全过（含 Docker 前端+后端生产镜像本地构建、3.11 容器 import 验证）；§6.9 vitest 9/9；§6.11 本地 7/7 全绿（含 S5/S6 真实数据路径）；后端 pytest 148/148。修复：py3.11 f-string、缺失依赖（asyncpg/psycopg2/dateparser）、categories/reorder 路由顺序、提醒邮件 Reply-To/Message-ID 断链、E2E 选择器。**staging 部署、G6 回滚演练、48h soak、G10 签核仍未做。** |

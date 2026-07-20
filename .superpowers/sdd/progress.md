@@ -22,8 +22,13 @@ Task 9: complete (commits ca08221..4932f97, theme+profile, build PASS; sound def
 Task 10: complete (commits 4932f97..2b618cf, vitest 9 tests PASS)
 Task 11: complete with concerns (commits 2b618cf..00d148f, Playwright suite committed; live run needs backend+E2E creds)
 
-Task 12: complete with concerns (commits 00d148f..fd2281e approx, docker/docs/gates; docker daemon not verified; G6 drill not executed)
+Task 12: complete (docker daemon verified 2026-07-20 evening: frontend+backend prod images build locally; npm in image upgraded to v11 for lockfile validation; G6 drill still not executed)
 Task 13: BLOCKED pending human — staging deploy, PLAYWRIGHT on staging, 48h soak, G10 signoff (cannot complete in agent session without staging env)
+
+2026-07-20 evening takeover session (Cursor):
+- Committed previously-uncommitted collab backend/miniprogram/docs/deploy work (10f8b45..c4b04c8)
+- Fixes: py3.11 f-string in agent_runtime, missing deps (asyncpg/psycopg2-binary/dateparser, requirements-dev.txt), categories /reorder route ordering bug, reminder email Reply-To/Message-ID re-wired through _send_smtp, notifications flag_modified, nginx 443/acme scaffold, vitest e2e exclude, Dockerfile VITE_API_BASE name, miniprogram evidence-submit file_ids chain
+- Verified: backend pytest 148/148 (collab 84 + personal domain repaired), frontend vitest 9/9, typecheck clean, build clean, Playwright S1-S8 7/7 green locally (real company/project/tree data seeded via API), backend image imports on py3.11
 
 ## Branch HEAD
 fd2281e887214fd3b07e66aec30bf7df77142c24
