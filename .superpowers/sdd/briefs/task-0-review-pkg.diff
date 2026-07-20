@@ -1,0 +1,11 @@
+﻿# Review package Task 0
+BASE: e54aacc5b3bb30a82aa11ceb9134e5f00179f20e
+HEAD: 231b4207f5f71b6ec442b14222385c94c8147f20
+
+## git log
+
+
+## git diff --stat
+
+
+## git diff (paths only summary if huge)
