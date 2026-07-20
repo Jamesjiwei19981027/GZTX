@@ -1,0 +1,31 @@
+.page {
+  padding: 24rpx;
+}
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+.label {
+  font-size: 24rpx;
+  color: #888;
+  margin-bottom: 8rpx;
+}
+.value {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.textarea {
+  width: 100%;
+  min-height: 160rpx;
+  font-size: 28rpx;
+}
+.tips {
+  font-size: 22rpx;
+  color: #999;
+  margin: 16rpx 0 24rpx;
+}
+.submit {
+  margin-top: 24rpx;
+}

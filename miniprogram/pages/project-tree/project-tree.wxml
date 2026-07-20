@@ -1,0 +1,27 @@
+<view class="page">
+  <view class="header">
+    <view class="name">{{projectName}}</view>
+    <view class="actions">
+      <button size="mini" bindtap="goChat">智能体</button>
+      <button size="mini" type="primary" bindtap="goEvidence">交材料</button>
+    </view>
+  </view>
+
+  <view wx:if="{{loading}}" class="hint">加载中…</view>
+
+  <view
+    wx:for="{{nodes}}"
+    wx:key="id"
+    class="node {{selected.id === item.id ? 'active' : ''}}"
+    style="padding-left: {{item.depth * 24 + 16}}rpx"
+    data-id="{{item.id}}"
+    bindtap="selectNode"
+  >
+    <text class="title">{{item.title}}</text>
+    <text class="meta">{{item.status}} {{item.percent}}%</text>
+  </view>
+
+  <view wx:if="{{selected}}" class="footer">
+    已选：{{selected.title}}（正式进度，非个人待办状态）
+  </view>
+</view>

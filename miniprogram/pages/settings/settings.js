@@ -51,6 +51,10 @@ Page({
     });
   },
 
+  goProjects() {
+    wx.navigateTo({ url: '/pages/project-list/project-list' });
+  },
+
   onLogout() {
     wx.showModal({
       title: '确认退出',

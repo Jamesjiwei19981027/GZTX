@@ -37,6 +37,14 @@
   </view>
 
   <view class="settings-section">
+    <view class="section-title">协作</view>
+    <view class="setting-item" bindtap="goProjects">
+      <text class="setting-label">我的项目</text>
+      <text class="setting-value">进入 ›</text>
+    </view>
+  </view>
+
+  <view class="settings-section">
     <view class="section-title">其他</view>
     <view class="setting-item">
       <text class="setting-label">版本</text>

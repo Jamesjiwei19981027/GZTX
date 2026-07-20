@@ -1,0 +1,52 @@
+.page {
+  padding-bottom: 120rpx;
+}
+.header {
+  padding: 24rpx;
+  background: #fff;
+  border-bottom: 1px solid #eee;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.name {
+  font-size: 34rpx;
+  font-weight: 600;
+}
+.actions {
+  display: flex;
+  gap: 12rpx;
+}
+.hint {
+  text-align: center;
+  color: #999;
+  padding: 40rpx;
+}
+.node {
+  padding: 20rpx 16rpx;
+  border-bottom: 1px solid #f0f0f0;
+  background: #fff;
+}
+.node.active {
+  background: #e8f3ff;
+}
+.title {
+  font-size: 28rpx;
+  color: #222;
+  display: block;
+}
+.meta {
+  font-size: 22rpx;
+  color: #888;
+}
+.footer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20rpx 24rpx;
+  background: #fafafa;
+  font-size: 24rpx;
+  color: #666;
+  border-top: 1px solid #eee;
+}

@@ -1,0 +1,21 @@
+<view class="page">
+  <view class="card">
+    <view class="label">节点</view>
+    <view class="value">{{title || ('#' + nodeId)}}</view>
+  </view>
+
+  <view class="card">
+    <view class="label">进展说明</view>
+    <textarea class="textarea" value="{{summary}}" bindinput="onSummary" placeholder="说明本次进展…" />
+  </view>
+
+  <view class="card">
+    <view class="label">完成度 {{percent}}%</view>
+    <slider min="0" max="100" value="{{percent}}" show-value bindchange="onPercent" />
+  </view>
+
+  <view class="tips">材料文件仅小程序/Web 可上传；纯微信客服通道禁止交材料。</view>
+
+  <button bindtap="chooseAndUpload">选择图片上传（可选）</button>
+  <button type="primary" loading="{{submitting}}" bindtap="submit" class="submit">提交材料并判定</button>
+</view>
