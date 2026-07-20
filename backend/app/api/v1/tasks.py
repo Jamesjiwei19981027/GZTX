@@ -5,10 +5,12 @@ from typing import Optional
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import CurrentUser, DbSession
+from app.core.collab_errors import fail
 from app.models.task import Task
 from app.models.category import Category
 from app.models.tag import Tag, task_tags
@@ -171,14 +173,14 @@ async def get_task_stats(
     """获取任务统计"""
     query = select(Task).where(Task.user_id == user.id, Task.is_deleted == False)
 
-    # 按时间范围筛选 — 使用 naive UTC datetime 避免与 SQLite 返回的 naive datetime 比较时报错
-    from datetime import timedelta, date
+    # 按时间范围筛选 — 统一用 naive UTC，与 SQLite func.now()/server_default 一致
+    # （勿用 date.today() 本地日界：UTC 库时会把「今天」任务滤成 0）
+    from datetime import timedelta
+
     now = datetime.utcnow()
     if period == "today":
-        today = date.today()
-        query = query.where(
-            Task.created_at >= datetime.combine(today, datetime.min.time())
-        )
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        query = query.where(Task.created_at >= today_start)
     elif period == "week":
         week_ago = now - timedelta(days=7)
         query = query.where(Task.created_at >= week_ago)
@@ -372,6 +374,15 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
 
     update_data = data.model_dump(exclude_unset=True)
 
+    # 投影只读：禁止改 status
+    if (
+        getattr(task, "origin", "personal") == "project_link"
+        and getattr(task, "linked_readonly", True)
+        and "status" in update_data
+        and update_data["status"] != task.status
+    ):
+        return fail(403, 40321, "项目投影待办不可直接修改状态，请通过材料/进度流程")
+
     # 处理标签更新
     tag_ids = update_data.pop("tag_ids", None)
     if tag_ids is not None:
@@ -435,6 +446,12 @@ async def complete_task(task_id: int, data: TaskComplete, db: DbSession, user: C
 
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
+
+    if (
+        getattr(task, "origin", "personal") == "project_link"
+        and getattr(task, "linked_readonly", True)
+    ):
+        return fail(403, 40321, "项目投影待办不可直接标记完成")
 
     # 保存完成评价数据
     task.completion_rate = data.completion_rate

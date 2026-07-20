@@ -150,6 +150,12 @@ class TaskResponse(BaseModel):
     follow_up_reason: Optional[str] = None
     follow_up_remind_at: Optional[datetime] = None
     follow_up_notify_channels: Optional[str] = None
+    # 协作兼容
+    origin: str = "personal"
+    company_id: Optional[int] = None
+    project_id: Optional[int] = None
+    project_node_id: Optional[int] = None
+    linked_readonly: bool = True
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

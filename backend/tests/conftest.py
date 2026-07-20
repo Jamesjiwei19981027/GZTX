@@ -1,77 +1,78 @@
+"""个人底盘 + 全局测试夹具（async SQLite）"""
 import pytest
-from httpx import AsyncClient, ASGITransport
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+import pytest_asyncio
+from httpx import ASGITransport, AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from app.main import app
-from app.db.base import Base
 from app.core.dependencies import get_db
+from app.core.security import create_access_token, get_password_hash
+from app.db.base import Base
+from app.main import app as fastapi_app
 from app.models.user import User
-from app.core.security import get_password_hash
+
+import app.models  # noqa: F401 — register all tables
 
 
-# Test database setup - in-memory SQLite
-TEST_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-
-
-def override_get_db():
-    """Override database dependency for tests."""
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@pytest_asyncio.fixture
+async def async_engine():
+    engine = create_async_engine(
+        "sqlite+aiosqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    yield engine
+    await engine.dispose()
 
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest_asyncio.fixture
+async def db_session(async_engine):
+    session_factory = async_sessionmaker(
+        async_engine, class_=AsyncSession, expire_on_commit=False
+    )
+    async with session_factory() as session:
+        yield session
 
 
-@pytest.fixture(scope="function")
-def db_session():
-    """Create a fresh database session for each test."""
-    Base.metadata.create_all(bind=engine)
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-        Base.metadata.drop_all(bind=engine)
+@pytest_asyncio.fixture
+async def client(async_engine):
+    session_factory = async_sessionmaker(
+        async_engine, class_=AsyncSession, expire_on_commit=False
+    )
 
+    async def _override_get_db():
+        async with session_factory() as session:
+            try:
+                yield session
+                await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
 
-@pytest.fixture
-async def client():
-    """Create async test client."""
-    transport = ASGITransport(app=app)
+    fastapi_app.dependency_overrides[get_db] = _override_get_db
+    transport = ASGITransport(app=fastapi_app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+    fastapi_app.dependency_overrides.pop(get_db, None)
 
 
-@pytest.fixture
-def test_user(db_session):
-    """Create a test user."""
+@pytest_asyncio.fixture
+async def test_user(db_session: AsyncSession):
     user = User(
         username="testuser",
         email="test@example.com",
         password_hash=get_password_hash("testpassword"),
-        nickname="Test User"
+        nickname="Test User",
     )
     db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
+    await db_session.commit()
+    await db_session.refresh(user)
     return user
 
 
-@pytest.fixture
-def auth_headers(test_user):
-    """Get auth headers for test user."""
-    from app.core.security import create_access_token
+@pytest_asyncio.fixture
+async def auth_headers(test_user):
     token = create_access_token(data={"sub": test_user.id})
     return {"Authorization": f"Bearer {token}"}

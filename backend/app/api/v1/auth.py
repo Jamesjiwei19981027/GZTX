@@ -1,6 +1,8 @@
 """
 认证相关接口
 """
+import logging
+
 from fastapi import APIRouter, HTTPException, status
 
 from app.core.dependencies import DbSession
@@ -22,13 +24,16 @@ from app.schemas.user import (
 )
 from app.schemas.common import ResponseData
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["认证"])
 
 
 @router.post("/register", response_model=ResponseData, status_code=status.HTTP_201_CREATED)
 async def register(data: UserRegister, db: DbSession):
-    """用户注册"""
+    """用户注册；single_company 下自动加入 DEFAULT_COMPANY_SLUG（配额/License 校验）。"""
     from sqlalchemy import select
+
+    from app.services.register_join import RegisterJoinError, try_join_default_company
 
     # 检查用户名是否已存在
     result = await db.execute(select(User).where(User.username == data.username))
@@ -66,19 +71,60 @@ async def register(data: UserRegister, db: DbSession):
         Category(user_id=user.id, name="重要", color="#F56C6C", icon="star", sort_order=3),
     ]
     db.add_all(default_categories)
+    await db.flush()
+
+    join_info = {"joined": False, "company_id": None, "company_slug": None, "reason": ""}
+    jr = None
+    try:
+        jr = await try_join_default_company(db, user)
+        join_info = {
+            "joined": jr.joined,
+            "company_id": jr.company_id,
+            "company_slug": jr.company_slug,
+            "reason": jr.reason,
+        }
+    except RegisterJoinError as e:
+        # 配额已满：回滚用户创建，返回明确业务错误
+        await db.rollback()
+        raise HTTPException(status_code=e.http_status, detail=e.message) from e
+
+    # 欢迎邮件（失败不阻断注册；生产未配 SMTP 时 channel 返回 False 并打 error）
+    if user.email:
+        try:
+            from app.services.notify.channels import send_welcome_email
+
+            company_name = ""
+            if jr and jr.joined and jr.company_id:
+                from app.models.company import Company
+
+                co = await db.get(Company, jr.company_id)
+                company_name = (co.name if co else "") or (jr.company_slug or "")
+            await send_welcome_email(
+                user,
+                company_name=company_name,
+                company_slug=(jr.company_slug if jr else "") or "",
+                db=db,
+                company_id=(jr.company_id if jr else None),
+            )
+        except Exception:
+            logger.exception(
+                "welcome email failed user_id=%s", getattr(user, "id", None)
+            )
 
     # 生成 Token
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
 
-    return ResponseData(
-        data=TokenResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            expires_in=900,
-            user=UserBasic.model_validate(user),
-        )
+    token_data = TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        expires_in=900,
+        user=UserBasic.model_validate(user),
     )
+    # 扩展字段：公司加入结果（前端可选展示）
+    payload = token_data.model_dump()
+    payload["company_join"] = join_info
+    return ResponseData(data=payload)
 
 
 @router.post("/login", response_model=ResponseData)
@@ -163,6 +209,16 @@ async def wx_login(data: WxLogin, db: DbSession):
             Category(user_id=user.id, name="重要", color="#F56C6C", icon="star", sort_order=3),
         ]
         db.add_all(default_categories)
+        await db.flush()
+
+        # 与密码注册一致：single_company 下尝试加入默认公司
+        try:
+            from app.services.register_join import RegisterJoinError, try_join_default_company
+
+            await try_join_default_company(db, user)
+        except RegisterJoinError as e:
+            await db.rollback()
+            raise HTTPException(status_code=e.http_status, detail=e.message) from e
 
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})

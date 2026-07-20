@@ -1,0 +1,11 @@
+"""对象存储协议"""
+from typing import Protocol, runtime_checkable
+
+
+@runtime_checkable
+class ObjectStorage(Protocol):
+    provider_id: str
+
+    async def put(self, key: str, data: bytes, content_type: str) -> str: ...
+    async def get_url(self, key: str, expires_sec: int = 3600) -> str: ...
+    async def delete(self, key: str) -> None: ...

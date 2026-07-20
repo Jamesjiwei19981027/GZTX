@@ -1,0 +1,51 @@
+"""项目 · 成员 · 邀请"""
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    ForeignKey,
+    JSON,
+)
+from sqlalchemy.sql import func
+
+from app.db.base import Base
+
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
+    name = Column(String(200), nullable=False)
+    status = Column(String(32), nullable=False, default="draft")
+    pm_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    archive_policy_json = Column(JSON, nullable=True)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class ProjectMember(Base):
+    __tablename__ = "project_members"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    role = Column(String(32), nullable=False, default="member")
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+    left_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class ProjectInvitation(Base):
+    __tablename__ = "project_invitations"
+
+    id = Column(Integer, primary_key=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
+    invitee_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    invitee_email = Column(String(200), nullable=True)
+    token = Column(String(64), unique=True, nullable=False)
+    status = Column(String(32), nullable=False, default="pending")
+    expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

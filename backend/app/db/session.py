@@ -58,20 +58,20 @@ async def get_db():
 
 
 async def init_db():
-    """初始化数据库（创建所有表）"""
+    """初始化数据库。
+
+    生产（DEBUG=false 且 AUTO_CREATE_SCHEMA=false）：不 create_all，依赖 Alembic。
+    开发/测试：create_all + 幂等兼容列 ALTER。
+    """
+    auto = settings.AUTO_CREATE_SCHEMA if hasattr(settings, "AUTO_CREATE_SCHEMA") else settings.DEBUG
+    if not settings.DEBUG and not auto:
+        # Production path: schema only via `alembic upgrade head`
+        return
+
     async with engine.begin() as conn:
         from app.db.base import Base
         # 导入所有模型，确保 Base.metadata 知道它们
-        from app.models import (  # noqa: F401
-            user,
-            category,
-            tag,
-            task,
-            reminder,
-            attachment,
-            email_reply_record,
-            recurring_instance,
-        )
+        import app.models  # noqa: F401 — full personal + collab registry
 
         await conn.run_sync(Base.metadata.create_all)
 
@@ -98,6 +98,19 @@ async def init_db():
                 )
             except Exception:
                 pass  # 列已存在，忽略错误
+
+            # 协作兼容列
+            for col_sql in (
+                "ALTER TABLE tasks ADD COLUMN origin VARCHAR(32) DEFAULT 'personal'",
+                "ALTER TABLE tasks ADD COLUMN company_id INTEGER",
+                "ALTER TABLE tasks ADD COLUMN project_id INTEGER",
+                "ALTER TABLE tasks ADD COLUMN project_node_id INTEGER",
+                "ALTER TABLE tasks ADD COLUMN linked_readonly BOOLEAN DEFAULT 1",
+            ):
+                try:
+                    await conn.execute(text(col_sql))
+                except Exception:
+                    pass
 
 
 async def close_db():

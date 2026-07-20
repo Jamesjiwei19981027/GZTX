@@ -44,6 +44,13 @@ class Task(Base):
     last_reply_at = Column(DateTime(timezone=True), nullable=True)
     last_reply_command = Column(String(50), nullable=True)
 
+    # 个人/协作兼容字段（附录 C.22）
+    origin = Column(String(32), nullable=False, default="personal")  # personal | project_link
+    company_id = Column(Integer, nullable=True, index=True)
+    project_id = Column(Integer, nullable=True, index=True)
+    project_node_id = Column(Integer, nullable=True, index=True)
+    linked_readonly = Column(Boolean, default=True, nullable=False)
+
     # 关系
     user = relationship("User", back_populates="tasks")
     category = relationship("Category", back_populates="tasks")

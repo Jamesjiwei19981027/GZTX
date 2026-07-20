@@ -3,7 +3,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_db, get_current_user
 from app.core.config import settings
@@ -37,7 +37,7 @@ async def get_vapid_public_key():
 async def subscribe_push(
     subscription: dict,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Subscribe to Web Push notifications."""
     print(f"[SUBSCRIBE] User {current_user.id} subscription: {subscription}")
@@ -54,7 +54,7 @@ async def subscribe_push(
 @router.get("/subscriptions", response_model=ResponseData)
 async def get_push_subscriptions(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Get user's Web Push subscriptions."""
     subs = get_subscriptions(current_user.id)
@@ -65,7 +65,7 @@ async def get_push_subscriptions(
 async def unsubscribe_push(
     endpoint: str,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Unsubscribe from Web Push notifications."""
     from app.utils.web_push import remove_subscription
@@ -107,9 +107,9 @@ async def test_push_notification(
 @router.post("/send-test-email", response_model=ResponseData)
 async def send_test_email_notification(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
-    """Send a test email notification to the current user. Uses user-level SMTP first, falls back to global."""
+    """测试邮件：用户前端 SMTP > 公司 SMTP > 环境变量。"""
     if not current_user.email:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -117,22 +117,17 @@ async def send_test_email_notification(
         )
 
     from app.utils.email import _send_smtp
+    from app.services.smtp_settings import resolve_smtp, smtp_from_user, smtp_from_env
 
-    # Determine SMTP config: user-level first, then global
-    notify_pref = current_user.notify_pref or {}
-    channels = notify_pref.get("channels", {})
-    email_config = channels.get("email", {})
-
-    smtp_host = email_config.get("smtp_host") or settings.SMTP_HOST
-    smtp_user = email_config.get("smtp_user") or settings.SMTP_USER
-    smtp_password = email_config.get("smtp_password") or settings.SMTP_PASSWORD
-    smtp_port = int(email_config.get("smtp_port", settings.SMTP_PORT))
-    smtp_from = email_config.get("smtp_from") or settings.SMTP_FROM or smtp_user
-
-    if not all([smtp_host, smtp_user, smtp_password]):
+    # notifications 路由当前为同步 Session；用户级可直接读，公司级在 async 路径更完整
+    resolved = smtp_from_user(current_user) or smtp_from_env()
+    if not resolved or not resolved.is_complete():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": 400, "message": "SMTP 未配置，请先在设置中填写邮件服务器信息。"}
+            detail={
+                "code": 400,
+                "message": "SMTP 未配置：请在「设置 → 邮件」或「公司设置 → SMTP」中填写主机/账号/密码。",
+            },
         )
 
     user_name = current_user.nickname or current_user.username
@@ -159,18 +154,19 @@ async def send_test_email_notification(
 
     success = _send_smtp(
         to_email=current_user.email,
-        from_addr=smtp_from,
+        from_addr=resolved.from_addr,
         subject=subject,
         text_body=plain_content,
         html_body=html_content,
-        smtp_host=smtp_host,
-        smtp_port=smtp_port,
-        smtp_user=smtp_user,
-        smtp_password=smtp_password,
+        smtp_host=resolved.host,
+        smtp_port=resolved.port,
+        smtp_user=resolved.user,
+        smtp_password=resolved.password,
     )
 
     if success:
-        source = "用户配置" if email_config.get("smtp_host") else "系统配置"
+        labels = {"user": "用户配置", "company": "公司配置", "env": "系统环境变量"}
+        source = labels.get(resolved.source, resolved.source)
         return ResponseData(message=f"测试邮件已发送至 {current_user.email}（使用{source}）")
     else:
         raise HTTPException(
@@ -183,21 +179,20 @@ async def send_test_email_notification(
 async def get_email_notification_status(
     current_user: User = Depends(get_current_user),
 ):
-    """Check if email notifications are configured and available."""
+    """邮件通道状态：用户 / 环境（公司级见公司设置页）。"""
+    from app.services.smtp_settings import smtp_from_user, smtp_from_env
+
     has_email = bool(current_user.email)
-
-    # Check user-level SMTP config
-    notify_pref = current_user.notify_pref or {}
-    channels = notify_pref.get("channels", {})
-    email_config = channels.get("email", {})
-    user_smtp_configured = bool(
-        email_config.get("smtp_host")
-        and email_config.get("smtp_user")
-        and email_config.get("smtp_password")
-    )
-
-    # Check global SMTP config
-    global_smtp_configured = bool(settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_PASSWORD)
+    user_r = smtp_from_user(current_user)
+    env_r = smtp_from_env()
+    user_smtp_configured = bool(user_r and user_r.is_complete())
+    global_smtp_configured = bool(env_r and env_r.is_complete())
+    if user_smtp_configured:
+        source = "user"
+    elif global_smtp_configured:
+        source = "global"
+    else:
+        source = "none"
 
     return ResponseData(data={
         "has_email": has_email,
@@ -205,7 +200,8 @@ async def get_email_notification_status(
         "smtp_configured": user_smtp_configured or global_smtp_configured,
         "user_smtp_configured": user_smtp_configured,
         "global_smtp_configured": global_smtp_configured,
-        "smtp_source": "user" if user_smtp_configured else ("global" if global_smtp_configured else "none"),
+        "smtp_source": source,
+        "hint": "个人 SMTP 在「设置」；公司级 SMTP（欢迎信/协作通知）在「公司设置」前端可配。",
     })
 
 
@@ -233,7 +229,7 @@ async def get_smtp_config(
 async def update_smtp_config(
     data: SmtpConfigUpdate,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     """Save user's SMTP configuration (merged into notify_pref.channels.email)."""
     notify_pref = current_user.notify_pref or {}
@@ -251,7 +247,7 @@ async def update_smtp_config(
     notify_pref["channels"] = channels
     current_user.notify_pref = notify_pref
 
-    db.commit()
+    await db.commit()
 
     # Return masked config
     has_password = bool(email_config.get("smtp_password"))
@@ -263,3 +259,98 @@ async def update_smtp_config(
         "has_password": has_password,
     }
     return ResponseData(data=safe_config, message="邮件服务器配置已保存")
+
+
+class LlmConfigUpdate(BaseModel):
+    provider: Optional[str] = None
+    base_url: Optional[str] = None
+    model: Optional[str] = None
+    api_key: Optional[str] = None
+    temperature: Optional[float] = None
+    max_tokens: Optional[int] = None
+    enabled: Optional[bool] = None
+    use_for_judge: Optional[bool] = None
+    use_for_agent: Optional[bool] = None
+
+
+@router.get("/llm-config", response_model=ResponseData)
+async def get_llm_config(
+    current_user: User = Depends(get_current_user),
+):
+    """个人 LLM 配置（api_key 脱敏）。"""
+    from app.services.llm_settings import user_llm_public
+
+    return ResponseData(data=user_llm_public(current_user))
+
+
+@router.put("/llm-config", response_model=ResponseData)
+async def update_llm_config(
+    data: LlmConfigUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """保存个人 LLM；空 api_key 表示不改动。"""
+    from app.services.llm_settings import save_user_llm
+
+    body = data.model_dump(exclude_unset=True)
+    view = save_user_llm(
+        current_user,
+        provider=body.get("provider"),
+        base_url=body.get("base_url"),
+        model=body.get("model"),
+        api_key=body.get("api_key"),
+        temperature=body.get("temperature"),
+        max_tokens=body.get("max_tokens"),
+        enabled=body.get("enabled"),
+        use_for_judge=body.get("use_for_judge"),
+        use_for_agent=body.get("use_for_agent"),
+    )
+    await db.commit()
+    return ResponseData(data=view, message="个人 LLM 已保存")
+
+
+@router.post("/llm-test", response_model=ResponseData)
+async def test_user_llm(
+    current_user: User = Depends(get_current_user),
+):
+    """用个人 LLM 发 ping；未配则失败提示。"""
+    from app.services.llm_settings import chat_completion, llm_from_user
+
+    llm = llm_from_user(current_user)
+    if not llm or not llm.enabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": 400, "message": "请先在设置中启用并保存个人 LLM"},
+        )
+    if not llm.is_usable() and llm.provider != "fake":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": 400, "message": "个人 LLM 配置不完整（Base URL / Model / API Key）"},
+        )
+    result = await chat_completion(
+        llm,
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a health-check assistant. Reply with exactly: OK",
+            },
+            {"role": "user", "content": "ping"},
+        ],
+        max_tokens=32,
+        temperature=0,
+    )
+    if not result.get("ok"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"code": 400, "message": result.get("error") or "LLM 测试失败"},
+        )
+    return ResponseData(
+        data={
+            "provider": result.get("provider"),
+            "model": llm.model,
+            "base_url": llm.base_url,
+            "content": (result.get("content") or "")[:500],
+            "source": "user",
+        },
+        message="个人 LLM 连通性测试成功",
+    )

@@ -78,6 +78,28 @@ class Settings(BaseSettings):
     VAPID_PRIVATE_KEY: str = ""
     VAPID_SUBJECT: str = "mailto:admin@example.com"
 
+    # Team collab / license
+    # Production: set LICENSE_VERIFY_MODE=ed25519 and LICENSE_PUBLIC_KEY=<urlsafe-b64 public key>
+    # Dev/tests: hmac + shared secret in LICENSE_PUBLIC_KEY is fine.
+    DEPLOY_MODE: str = "single_company"  # single_company | saas
+    LICENSE_PUBLIC_KEY: str = "dev-secret-key-for-tests-only"
+    LICENSE_VERIFY_MODE: str = "hmac"  # hmac | ed25519
+    # Optional: only for operator tooling that signs licenses (never ship real prod private key in image)
+    LICENSE_PRIVATE_KEY: str = ""
+    INTEGRATION_SECRET_KEY: str = ""
+    COLLAB_OBJECT_ROOT: str = "data/objects"
+    JUDGE_BACKEND: str = "rule"  # rule | llm | auto（auto=有公司 LLM 配置则用 llm）
+    # 可选环境变量兜底（优先公司前端配置）
+    LLM_PROVIDER: str = "openai_compatible"
+    LLM_BASE_URL: str = ""
+    LLM_API_KEY: str = ""
+    LLM_MODEL: str = ""
+    DEFAULT_COMPANY_SLUG: str = "default"
+    # Schema: when True (default in DEBUG), lifespan may create_all. Production: alembic only.
+    AUTO_CREATE_SCHEMA: bool = True
+    # Dev/test only: allow FakeOIDC fake: codes when DEBUG=true
+    ALLOW_FAKE_SSO: bool = True
+
     @property
     def is_sqlite(self) -> bool:
         """是否使用 SQLite"""
@@ -87,6 +109,31 @@ class Settings(BaseSettings):
     def is_postgres(self) -> bool:
         """是否使用 PostgreSQL"""
         return "postgresql" in self.DATABASE_URL
+
+    def validate_production_secrets(self) -> None:
+        """DEBUG=false 时拒绝弱密钥与 hmac 默认 License。"""
+        if self.DEBUG:
+            return
+        weak_secrets = {
+            "change-this-to-a-strong-secret-key-in-production",
+            "dev-secret-key-for-tests-only",
+            "dev-secret-key-please-change-in-production",
+            "change-me-to-a-random-secret",
+            "",
+        }
+        if (self.SECRET_KEY or "").strip() in weak_secrets or len(self.SECRET_KEY or "") < 24:
+            raise RuntimeError(
+                "Production SECRET_KEY is weak or default; set a strong random SECRET_KEY"
+            )
+        if (self.LICENSE_PUBLIC_KEY or "").strip() in weak_secrets:
+            raise RuntimeError(
+                "Production LICENSE_PUBLIC_KEY is weak or default; set ed25519 public key"
+            )
+        mode = (self.LICENSE_VERIFY_MODE or "").lower()
+        if mode != "ed25519":
+            raise RuntimeError(
+                "Production requires LICENSE_VERIFY_MODE=ed25519 (hmac is for dev only)"
+            )
 
 
 # 全局配置实例

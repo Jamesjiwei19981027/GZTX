@@ -11,6 +11,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.db.session import init_db, close_db
 from app.api.v1 import auth, tasks, categories, tags, reminders, users, notifications, attachments, wx
+from app.api.v1 import companies as companies_api
+from app.api.v1 import projects as projects_api
+from app.api.v1 import nodes as nodes_api
+from app.api.v1 import agents as agents_api
+from app.api.v1 import bindings as bindings_api
+from app.api.v1 import org as org_api
+from app.api.v1 import sso as sso_api
+from app.api.v1 import wx_collab as wx_collab_api
+from app.api.v1 import delegations as delegations_api
+from app.api.v1 import reports as reports_api
+from app.core.collab_errors import CollabError
 
 # Email check lock to prevent concurrent email processing
 _email_check_lock = asyncio.Lock()
@@ -275,7 +286,9 @@ async def send_daily_digest():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
-    # 启动时：初始化数据库
+    # 生产密钥门禁（DEBUG=false 时硬失败）
+    settings.validate_production_secrets()
+    # 启动时：初始化数据库（生产建议 AUTO_CREATE_SCHEMA=false + alembic）
     await init_db()
 
     # 启动 APScheduler for periodic tasks
@@ -332,6 +345,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Collab 业务异常 → 统一信封
+@app.exception_handler(CollabError)
+async def collab_error_handler(request, exc: CollabError):
+    return exc.to_response()
+
+
 # 注册 API 路由
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(tasks.router, prefix="/api/v1")
@@ -342,6 +361,16 @@ app.include_router(users.router, prefix="/api/v1")
 app.include_router(notifications.router, prefix="/api/v1")
 app.include_router(attachments.router, prefix="/api/v1")
 app.include_router(wx.router, prefix="/api/v1")
+app.include_router(companies_api.router, prefix="/api/v1")
+app.include_router(projects_api.router, prefix="/api/v1")
+app.include_router(nodes_api.router, prefix="/api/v1")
+app.include_router(agents_api.router, prefix="/api/v1")
+app.include_router(bindings_api.router, prefix="/api/v1")
+app.include_router(org_api.router, prefix="/api/v1")
+app.include_router(sso_api.router, prefix="/api/v1")
+app.include_router(wx_collab_api.router, prefix="/api/v1")
+app.include_router(delegations_api.router, prefix="/api/v1")
+app.include_router(reports_api.router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health", tags=["系统"])
