@@ -4,7 +4,8 @@ FROM node:20-alpine
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --prefer-offline || npm install
+# 锁文件由 npm 11 生成，node:20 自带 npm 10 校验会误报不同步
+RUN npm install -g npm@^11 && npm ci --prefer-offline
 
 COPY . .
 

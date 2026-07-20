@@ -11,7 +11,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: process.env.DEV_API_TARGET || 'http://127.0.0.1:8000',
+        // DEV_API_TARGET：本地进程模式；VITE_PROXY_TARGET：docker-compose 内指向 backend 容器
+        target: process.env.DEV_API_TARGET || process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

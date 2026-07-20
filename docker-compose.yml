@@ -9,11 +9,13 @@ services:
       dockerfile: Dockerfile
     container_name: worktodo-backend
     ports:
-      - "8000:8000"
+      # 宿主 8010（Windows 上 8000 常被系统服务占用）→ 容器 8000
+      - "8010:8000"
     volumes:
       - ./backend/app:/app/app
       - ./backend/alembic:/app/alembic
-      - ./data:/app/data
+      # 复用本地开发 SQLite（backend/data），容器与本地进程模式数据一致
+      - ./backend/data:/app/data
     env_file:
       - path: .env
         required: false
