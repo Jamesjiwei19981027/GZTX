@@ -286,6 +286,11 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
                         loading={emailCodeSender.sending}
                         disabled={emailCodeSender.countdown > 0}
                         onClick={async () => {
+                          // 浏览器自动填充可能不触发 onChange，先把 DOM 值同步回表单
+                          const dom = document.getElementById('email') as HTMLInputElement | null
+                          if (dom?.value && !registerForm.getFieldValue('email')) {
+                            registerForm.setFieldsValue({ email: dom.value })
+                          }
                           try {
                             await registerForm.validateFields(['email'])
                           } catch {
