@@ -3,6 +3,9 @@ export interface User {
   id: number
   username: string
   email?: string
+  phone?: string
+  email_verified?: boolean
+  phone_verified?: boolean
   nickname: string
   avatar_url?: string
   notify_pref?: NotifyPref
@@ -27,7 +30,26 @@ export interface RegisterRequest {
   username: string
   password: string
   email: string
+  phone: string
+  email_code: string
+  phone_code: string
   nickname: string
+}
+
+/** 验证码发送结果（DEBUG 环境带 debug_code） */
+export interface SendCodeResult {
+  sent: boolean
+  resend_after: number
+  debug_code?: string
+}
+
+/** 双验证状态 */
+export interface VerificationStatus {
+  email: string
+  phone: string
+  email_verified: boolean
+  phone_verified: boolean
+  is_verified: boolean
 }
 
 /** 注册时 single_company 自动入会结果 */

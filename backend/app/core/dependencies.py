@@ -61,6 +61,22 @@ async def get_current_user(
     return user
 
 
+async def get_verified_user(
+    user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """要求邮箱+手机双验证完成（REGISTER_VERIFICATION_REQUIRED=false 时放行）。
+
+    未验证返回 403 + code=40320，前端据此跳转补验引导页。
+    """
+    if settings.REGISTER_VERIFICATION_REQUIRED and not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": 40320, "message": "请先完成邮箱与手机验证"},
+        )
+    return user
+
+
 # 类型别名，简化依赖注入
 CurrentUser = Annotated[User, Depends(get_current_user)]
+VerifiedUser = Annotated[User, Depends(get_verified_user)]
 DbSession = Annotated[AsyncSession, Depends(get_db)]

@@ -56,7 +56,15 @@ def test_alembic_upgrade_empty_sqlite_creates_collab_tables(tmp_path):
     for col in ("company_id", "project_id"):
         assert col in ef_cols, f"evidence_files missing {col}"
 
+    # verification columns/table (b2c3d4e5f6a7)
+    u_cols = {c["name"] for c in inspect(engine).get_columns("users")}
+    for col in ("phone", "email_verified_at", "phone_verified_at"):
+        assert col in u_cols, f"users missing {col}"
+    assert "verification_codes" in tables or "verification_codes" in set(
+        inspect(engine).get_table_names()
+    )
+
     # alembic_version stamped
     with engine.connect() as conn:
         rev = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-    assert rev == "a1b2c3d4e5f6"
+    assert rev == "b2c3d4e5f6a7"

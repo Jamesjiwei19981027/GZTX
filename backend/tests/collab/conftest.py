@@ -93,9 +93,13 @@ def make_dev_license(slug: str, **extra) -> tuple[str, str]:
 
 
 async def _make_user(db: AsyncSession, username: str) -> User:
+    from datetime import datetime as _dt
+
     u = User(
         username=username,
         email=f"{username}@example.com",
+        email_verified_at=_dt.utcnow(),
+        phone_verified_at=_dt.utcnow(),
         password_hash=get_password_hash("password123"),
         nickname=username,
         is_active=True,

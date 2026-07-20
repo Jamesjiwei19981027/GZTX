@@ -28,12 +28,59 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["认证"])
 
 
-@router.post("/register", response_model=ResponseData, status_code=status.HTTP_201_CREATED)
-async def register(data: UserRegister, db: DbSession):
-    """用户注册；single_company 下自动加入 DEFAULT_COMPANY_SLUG（配额/License 校验）。"""
+@router.post("/send-code", response_model=ResponseData)
+async def send_verification_code(data: dict, db: DbSession):
+    """注册前发送邮箱/短信验证码（匿名可调）。body: {channel: email|sms, target}"""
     from sqlalchemy import select
 
+    from app.services.verification import (
+        VerificationError,
+        normalize_target,
+        send_code,
+        validate_target,
+    )
+
+    channel = (data.get("channel") or "").strip().lower()
+    target = data.get("target") or ""
+    try:
+        target = normalize_target(channel, target)
+        validate_target(channel, target)
+    except VerificationError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    # 已注册的邮箱/手机不允许再用于注册发码
+    if channel == "email":
+        exists = (
+            await db.execute(select(User).where(User.email == target))
+        ).scalar_one_or_none()
+        if exists:
+            raise HTTPException(status_code=409, detail="邮箱已注册")
+    elif channel == "sms":
+        exists = (
+            await db.execute(select(User).where(User.phone == target))
+        ).scalar_one_or_none()
+        if exists:
+            raise HTTPException(status_code=409, detail="手机号已注册")
+
+    try:
+        result = await send_code(db, channel=channel, target=target, purpose="register")
+    except VerificationError as e:
+        raise HTTPException(status_code=429, detail=str(e)) from e
+    return ResponseData(data=result, message="验证码已发送")
+
+
+@router.post("/register", response_model=ResponseData, status_code=status.HTTP_201_CREATED)
+async def register(data: UserRegister, db: DbSession):
+    """用户注册；须邮箱+手机双验证码；single_company 下自动加入 DEFAULT_COMPANY_SLUG。"""
+    from sqlalchemy import select
+
+    from app.core.config import settings
     from app.services.register_join import RegisterJoinError, try_join_default_company
+    from app.services.verification import (
+        VerificationError,
+        consume_code,
+        normalize_target,
+    )
 
     # 检查用户名是否已存在
     result = await db.execute(select(User).where(User.username == data.username))
@@ -42,6 +89,14 @@ async def register(data: UserRegister, db: DbSession):
             status_code=status.HTTP_409_CONFLICT,
             detail="用户名已存在",
         )
+
+    phone = normalize_target("sms", data.phone or "")
+
+    if settings.REGISTER_VERIFICATION_REQUIRED:
+        if not data.email or not data.email_code:
+            raise HTTPException(status_code=422, detail="需要邮箱及邮箱验证码")
+        if not phone or not data.phone_code:
+            raise HTTPException(status_code=422, detail="需要手机号及短信验证码")
 
     # 检查邮箱是否已存在
     if data.email:
@@ -52,11 +107,41 @@ async def register(data: UserRegister, db: DbSession):
                 detail="邮箱已注册",
             )
 
+    # 检查手机号是否已存在
+    if phone:
+        result = await db.execute(select(User).where(User.phone == phone))
+        if result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="手机号已注册",
+            )
+
+    # 核销双验证码（任一失败即拒绝，用户未创建）
+    email_verified_at = None
+    phone_verified_at = None
+    if settings.REGISTER_VERIFICATION_REQUIRED:
+        from datetime import datetime
+
+        try:
+            await consume_code(
+                db, channel="email", target=str(data.email), code=data.email_code or ""
+            )
+            await consume_code(
+                db, channel="sms", target=phone, code=data.phone_code or ""
+            )
+        except VerificationError as e:
+            raise HTTPException(status_code=422, detail=str(e)) from e
+        email_verified_at = datetime.utcnow()
+        phone_verified_at = datetime.utcnow()
+
     # 创建用户
     user = User(
         username=data.username,
         password_hash=get_password_hash(data.password),
         email=data.email,
+        phone=phone or None,
+        email_verified_at=email_verified_at,
+        phone_verified_at=phone_verified_at,
         nickname=data.nickname or data.username,
     )
     db.add(user)

@@ -28,9 +28,11 @@ from app.models.notify import NotifyPolicy, NotifyJob, CollabInboxMessage
 from app.models.integration import IntegrationAccount
 from app.models.delegation import DelegationGrant
 from app.models.report import ReportPolicy, ReportRun
+from app.models.verification import VerificationCode
 
 __all__ = [
     "User",
+    "VerificationCode",
     "Category",
     "Tag",
     "task_tags",

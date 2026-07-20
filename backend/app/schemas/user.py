@@ -10,10 +10,13 @@ from pydantic import BaseModel, EmailStr, field_validator
 # ===== 请求模型 =====
 
 class UserRegister(BaseModel):
-    """用户注册请求"""
+    """用户注册请求（REGISTER_VERIFICATION_REQUIRED 时邮箱/手机及验证码必填）"""
     username: str
     password: str
     email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    email_code: Optional[str] = None
+    phone_code: Optional[str] = None
     nickname: Optional[str] = None
 
     @field_validator("username")
@@ -77,6 +80,8 @@ class UserBasic(BaseModel):
     username: str
     nickname: Optional[str] = None
     avatar_url: Optional[str] = None
+    email_verified: bool = False
+    phone_verified: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -84,6 +89,9 @@ class UserBasic(BaseModel):
 class UserDetail(UserBasic):
     """用户详细信息"""
     email: Optional[str] = None
+    phone: Optional[str] = None
+    email_verified: bool = False
+    phone_verified: bool = False
     notify_pref: Optional[dict] = None
     created_at: Optional[datetime] = None
 

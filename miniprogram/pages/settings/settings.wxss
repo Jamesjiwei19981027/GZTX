@@ -89,6 +89,31 @@
   color: #409EFF;
 }
 
+.email-verify-box {
+  padding: 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.verify-input {
+  border: 1rpx solid #e5e5e5;
+  border-radius: 8rpx;
+  padding: 12rpx 20rpx;
+  font-size: 28rpx;
+  background: #fff;
+}
+
+.verify-code-row {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+}
+
+.verify-code-input {
+  flex: 1;
+}
+
 .logout-btn {
   margin-top: 48rpx;
 }

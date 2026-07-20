@@ -100,6 +100,10 @@ class Settings(BaseSettings):
     # Dev/test only: allow FakeOIDC fake: codes when DEBUG=true
     ALLOW_FAKE_SSO: bool = True
 
+    # 注册双验证（邮箱+手机）总开关；短信服务商：fake（开发桩）| 后续 aliyun/tencent
+    REGISTER_VERIFICATION_REQUIRED: bool = True
+    SMS_PROVIDER: str = "fake"
+
     @property
     def is_sqlite(self) -> bool:
         """是否使用 SQLite"""

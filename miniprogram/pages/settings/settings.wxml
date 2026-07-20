@@ -37,6 +37,52 @@
   </view>
 
   <view class="settings-section">
+    <view class="section-title">账号验证</view>
+
+    <view class="setting-item">
+      <text class="setting-label">手机验证</text>
+      <text wx:if="{{verification.phone_verified}}" class="setting-value">已验证 {{verification.phone}}</text>
+      <button
+        wx:else
+        size="mini"
+        type="primary"
+        open-type="getPhoneNumber"
+        bindgetphonenumber="onGetPhoneNumber"
+      >微信一键绑定</button>
+    </view>
+
+    <view class="setting-item">
+      <text class="setting-label">邮箱验证</text>
+      <text wx:if="{{verification.email_verified}}" class="setting-value">已验证 {{verification.email}}</text>
+      <text wx:else class="setting-value" bindtap="toggleEmailVerify">去验证 ›</text>
+    </view>
+
+    <view wx:if="{{showEmailVerify && !verification.email_verified}}" class="email-verify-box">
+      <input
+        class="verify-input"
+        type="text"
+        placeholder="邮箱地址"
+        value="{{verifyEmail}}"
+        bindinput="onVerifyEmailInput"
+      />
+      <view class="verify-code-row">
+        <input
+          class="verify-input verify-code-input"
+          type="number"
+          maxlength="6"
+          placeholder="验证码"
+          value="{{verifyEmailCode}}"
+          bindinput="onVerifyEmailCodeInput"
+        />
+        <button size="mini" disabled="{{emailCodeCountdown > 0}}" bindtap="sendEmailCode">
+          {{emailCodeCountdown > 0 ? emailCodeCountdown + 's' : '获取验证码'}}
+        </button>
+      </view>
+      <button size="mini" type="primary" bindtap="confirmEmailCode">确认验证</button>
+    </view>
+  </view>
+
+  <view class="settings-section">
     <view class="section-title">协作</view>
     <view class="setting-item" bindtap="goProjects">
       <text class="setting-label">我的项目</text>

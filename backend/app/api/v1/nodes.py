@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 
 from app.api.deps_collab import assert_company_write, get_client_channel
 from app.core.collab_errors import CollabError, fail
-from app.core.dependencies import CurrentUser, DbSession
+from app.core.dependencies import CurrentUser, DbSession, VerifiedUser
 from app.models.evidence import AsyncJob, EvidenceFile, EvidencePackage
 from app.models.progress import ProgressRecord
 from app.models.project import Project
@@ -210,7 +210,7 @@ async def post_evidence(
     node_id: int,
     body: EvidenceSubmit,
     db: DbSession,
-    user: CurrentUser,
+    user: VerifiedUser,
     channel: str = Depends(get_client_channel),
 ):
     if channel == "wechat":

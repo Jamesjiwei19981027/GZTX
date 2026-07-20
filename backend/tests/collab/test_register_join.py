@@ -24,6 +24,7 @@ async def test_register_joins_default_company_when_unlocked(
     assert company is not None
     monkeypatch.setattr(settings, "DEPLOY_MODE", "single_company")
     monkeypatch.setattr(settings, "DEFAULT_COMPANY_SLUG", company.slug)
+    monkeypatch.setattr(settings, "REGISTER_VERIFICATION_REQUIRED", False)
 
     before_companies = (
         await db_session.execute(select(func.count()).select_from(Company))
@@ -71,6 +72,7 @@ async def test_register_over_max_users_returns_error(
     company = await db_session.get(Company, seed_ids["company_id"])
     monkeypatch.setattr(settings, "DEPLOY_MODE", "single_company")
     monkeypatch.setattr(settings, "DEFAULT_COMPANY_SLUG", company.slug)
+    monkeypatch.setattr(settings, "REGISTER_VERIFICATION_REQUIRED", False)
 
     ent = deepcopy(company.entitlement_json or DEFAULT_ENTITLEMENT)
     ent.setdefault("quotas", {})["max_users"] = 1  # already has admin+members in seed
@@ -113,6 +115,7 @@ async def test_register_without_default_company_still_works(async_client: AsyncC
     """No company with DEFAULT slug → personal-only register OK."""
     monkeypatch.setattr(settings, "DEPLOY_MODE", "single_company")
     monkeypatch.setattr(settings, "DEFAULT_COMPANY_SLUG", "no-such-slug-xyz")
+    monkeypatch.setattr(settings, "REGISTER_VERIFICATION_REQUIRED", False)
     r = await async_client.post(
         "/api/v1/auth/register",
         json={
@@ -135,6 +138,7 @@ async def test_register_locked_company_no_join(
     company = await db_session.get(Company, seed_ids["company_id"])
     monkeypatch.setattr(settings, "DEPLOY_MODE", "single_company")
     monkeypatch.setattr(settings, "DEFAULT_COMPANY_SLUG", company.slug)
+    monkeypatch.setattr(settings, "REGISTER_VERIFICATION_REQUIRED", False)
     company.status = "pending_license"
     await db_session.commit()
 

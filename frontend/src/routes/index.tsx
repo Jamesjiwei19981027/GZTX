@@ -1,7 +1,9 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RequireAuth } from './RequireAuth'
+import { RequireVerified } from './RequireVerified'
 import SidebarLayout from '@/layouts/SidebarLayout'
 import LoginPage from '@/pages/LoginPage'
+import VerifyPage from '@/pages/VerifyPage'
 import DashboardPage from '@/pages/DashboardPage'
 import TaskListPage from '@/pages/TaskListPage'
 import TaskDetailPage from '@/pages/TaskDetailPage'
@@ -15,10 +17,20 @@ export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/register', element: <LoginPage register /> },
   {
+    path: '/verify',
+    element: (
+      <RequireAuth>
+        <VerifyPage />
+      </RequireAuth>
+    ),
+  },
+  {
     path: '/',
     element: (
       <RequireAuth>
-        <SidebarLayout />
+        <RequireVerified>
+          <SidebarLayout />
+        </RequireVerified>
       </RequireAuth>
     ),
     children: [

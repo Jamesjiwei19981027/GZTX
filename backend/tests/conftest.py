@@ -78,9 +78,14 @@ async def client(async_engine):
 
 @pytest_asyncio.fixture
 async def test_user(db_session: AsyncSession):
+    from datetime import datetime
+
     user = User(
         username="testuser",
         email="test@example.com",
+        phone="13800138000",
+        email_verified_at=datetime.utcnow(),
+        phone_verified_at=datetime.utcnow(),
         password_hash=get_password_hash("testpassword"),
         nickname="Test User",
     )

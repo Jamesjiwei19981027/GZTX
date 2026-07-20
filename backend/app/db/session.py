@@ -112,6 +112,29 @@ async def init_db():
                 except Exception:
                     pass
 
+            # 注册验证兼容列（存量开发库；新增列后把老用户回填为已验证）
+            verify_cols_added = False
+            for col_sql in (
+                "ALTER TABLE users ADD COLUMN phone VARCHAR(20)",
+                "ALTER TABLE users ADD COLUMN email_verified_at DATETIME",
+                "ALTER TABLE users ADD COLUMN phone_verified_at DATETIME",
+            ):
+                try:
+                    await conn.execute(text(col_sql))
+                    verify_cols_added = True
+                except Exception:
+                    pass
+            if verify_cols_added:
+                try:
+                    await conn.execute(text(
+                        "UPDATE users SET email_verified_at = CURRENT_TIMESTAMP WHERE email_verified_at IS NULL"
+                    ))
+                    await conn.execute(text(
+                        "UPDATE users SET phone_verified_at = CURRENT_TIMESTAMP WHERE phone_verified_at IS NULL"
+                    ))
+                except Exception:
+                    pass
+
 
 async def close_db():
     """关闭数据库连接"""

@@ -15,12 +15,16 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=True)
+    phone = Column(String(20), unique=True, index=True, nullable=True)
     password_hash = Column(String(255), nullable=True)
     nickname = Column(String(50), nullable=True)
     avatar_url = Column(String(255), nullable=True)
     wx_openid = Column(String(100), unique=True, index=True, nullable=True)
     wx_unionid = Column(String(100), unique=True, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    # 双验证时间戳；存量用户在迁移时回填（视同已验证）
+    email_verified_at = Column(DateTime(timezone=True), nullable=True)
+    phone_verified_at = Column(DateTime(timezone=True), nullable=True)
     notify_pref = Column(JSON, default=dict, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -29,6 +33,19 @@ class User(Base):
     tasks = relationship("Task", back_populates="user", lazy="selectin")
     categories = relationship("Category", back_populates="user", lazy="selectin")
     tags = relationship("Tag", back_populates="user", lazy="selectin")
+
+    @property
+    def email_verified(self) -> bool:
+        return self.email_verified_at is not None
+
+    @property
+    def phone_verified(self) -> bool:
+        return self.phone_verified_at is not None
+
+    @property
+    def is_verified(self) -> bool:
+        """邮箱与手机双验证均完成"""
+        return self.email_verified and self.phone_verified
 
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}')>"

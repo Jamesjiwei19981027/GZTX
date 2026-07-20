@@ -9,7 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select, func, and_
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import CurrentUser, DbSession
+from app.core.dependencies import CurrentUser, DbSession, VerifiedUser
 from app.core.collab_errors import fail
 from app.models.task import Task
 from app.models.category import Category
@@ -291,8 +291,8 @@ async def get_task(task_id: int, db: DbSession, user: CurrentUser):
 
 
 @router.post("", response_model=ResponseData, status_code=status.HTTP_201_CREATED)
-async def create_task(data: TaskCreate, db: DbSession, user: CurrentUser):
-    """创建任务"""
+async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
+    """创建任务（需完成双验证）"""
     # 获取默认分类
     if data.category_id is None:
         result = await db.execute(
