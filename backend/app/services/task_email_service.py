@@ -41,7 +41,7 @@ class TaskEmailService:
         task_service = TaskService()
 
         # Query task
-        task = task_service.get_task(task_id)
+        task = task_service.get_task(task_id, db)
         if not task:
             return {"success": False, "command": None, "message": "任务不存在"}
 
@@ -260,7 +260,6 @@ class TaskEmailService:
     ):
         """Send confirmation email with threading support"""
         import time as time_mod
-        from email.mime.text import MIMEText
 
         # Build message body
         if command == "done":
@@ -280,18 +279,13 @@ class TaskEmailService:
 
         subject = f"邮件回复确认：{task_title}"
 
-        msg = MIMEText(msg_body, "plain", "utf-8")
-        msg["Subject"] = subject
-        msg["To"] = user_email
-        msg["From"] = settings.SMTP_FROM if hasattr(settings, "SMTP_FROM") and settings.SMTP_FROM else "noreply@" + settings.EMAIL_REPLY_DOMAIN
-
-        # Generate Message-ID for this confirmation email
         timestamp = int(time_mod.time())
-        msg["Message-ID"] = f"<confirm-{task_id}-{timestamp}@{settings.EMAIL_REPLY_DOMAIN}>"
+        message_id = f"<confirm-{task_id}-{timestamp}@{settings.EMAIL_REPLY_DOMAIN}>"
 
-        # Add threading headers if original_message_id provided
-        if original_message_id:
-            msg["In-Reply-To"] = original_message_id
-            msg["References"] = original_message_id
-
-        send_email(user_email, subject, msg_body, msg=msg)
+        send_email(
+            user_email,
+            subject,
+            msg_body,
+            message_id=message_id,
+            in_reply_to=original_message_id,
+        )

@@ -283,10 +283,12 @@ class AgentRuntime:
                     if tr.get("ok"):
                         d = tr["data"]
                         pj = d.get("progress_json") or {}
+                        # 反斜杠不能出现在 Python<3.12 的 f-string 表达式内（部署镜像为 3.11）
+                        stripped_text = re.sub(r"\[node:\d+\]\s*", "", text)
                         reply = (
                             f"（助手）节点「{d['title']}」正式进度："
                             f"{pj.get('status', '-')} {pj.get('percent', '')}%。"
-                            f"原文：{re.sub(r'\[node:\d+\]\s*', '', text)}"
+                            f"原文：{stripped_text}"
                         )
                     else:
                         reply = f"（助手）无法读取节点：{tr.get('error')}"

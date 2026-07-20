@@ -25,6 +25,7 @@ def _send_smtp(
     smtp_password: str,
     reply_to: Optional[str] = None,
     message_id: Optional[str] = None,
+    in_reply_to: Optional[str] = None,
 ) -> bool:
     """Low-level SMTP send helper. Supports both SSL (port 465) and STARTTLS (port 587)."""
     try:
@@ -36,6 +37,9 @@ def _send_smtp(
             msg["Reply-To"] = reply_to
         if message_id:
             msg["Message-ID"] = message_id
+        if in_reply_to:
+            msg["In-Reply-To"] = in_reply_to
+            msg["References"] = in_reply_to
 
         msg.attach(MIMEText(text_body, "plain", "utf-8"))
         msg.attach(MIMEText(html_body, "html", "utf-8"))
@@ -110,6 +114,8 @@ def send_email(
     subject: str,
     content: str,
     html_content: Optional[str] = None,
+    message_id: Optional[str] = None,
+    in_reply_to: Optional[str] = None,
 ) -> bool:
     """Send email via SMTP using global settings.
 
@@ -118,6 +124,8 @@ def send_email(
         subject: Email subject
         content: Plain text content
         html_content: Optional HTML content
+        message_id: Optional Message-ID header
+        in_reply_to: Optional In-Reply-To/References header (threading)
 
     Returns:
         True if sent successfully
@@ -137,6 +145,8 @@ def send_email(
         smtp_port=settings.SMTP_PORT,
         smtp_user=settings.SMTP_USER,
         smtp_password=settings.SMTP_PASSWORD,
+        message_id=message_id,
+        in_reply_to=in_reply_to,
     )
 
 
@@ -153,7 +163,7 @@ def build_reminder_email(
     """Build reminder email with Reply-To for email-reply support.
 
     Returns:
-        (subject, html_body) tuple
+        (subject, html_body, reply_to, message_id) tuple
     """
     import time as time_mod
 
@@ -164,6 +174,7 @@ def build_reminder_email(
         hashlib.sha256,
     ).hexdigest()[:16]
     reply_to_addr = f"reply-{task_id}-{sig}@{settings.EMAIL_REPLY_DOMAIN}"
+    message_id = f"<task-{task_id}-{int(time_mod.time())}@{settings.EMAIL_REPLY_DOMAIN}>"
 
     subject = f"提醒：{task_title}"
 
@@ -264,7 +275,7 @@ def build_reminder_email(
   <!-- Footer -->
   <div style="padding:16px 30px;background-color:#f8f9fa;border-top:1px solid #e9ecef;">
     <p style="font-size:12px;color:#8e8e93;margin:0;line-height:1.8;">
-      此邮件由「工作助理」自动发送，请勿直接回复（回复内容将自动处理）。
+      此邮件由「工作助理」自动发送，直接回复此邮件即可操作任务（回复内容将自动处理）。
     </p>
   </div>
 
@@ -273,7 +284,7 @@ def build_reminder_email(
 </body>
 </html>"""
 
-    return subject, html_body
+    return subject, html_body, reply_to_addr, message_id
 
 
 # ─── Daily digest email ────────────────────────────────────────────────────

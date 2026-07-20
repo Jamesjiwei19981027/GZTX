@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.dependencies import get_db, get_current_user
 from app.core.config import settings
@@ -246,6 +247,8 @@ async def update_smtp_config(
     channels["email"] = email_config
     notify_pref["channels"] = channels
     current_user.notify_pref = notify_pref
+    # 原地修改 JSON dict 不会触发 SQLAlchemy 变更检测，须显式标记
+    flag_modified(current_user, "notify_pref")
 
     await db.commit()
 

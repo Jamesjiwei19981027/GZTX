@@ -55,6 +55,21 @@ async def create_category(data: CategoryCreate, db: DbSession, user: CurrentUser
     return ResponseData(data=CategoryResponse.model_validate(category).model_dump())
 
 
+@router.put("/reorder", response_model=ResponseData)
+async def reorder_categories(data: dict, db: DbSession, user: CurrentUser):
+    """排序分类（须在 /{category_id} 之前注册，否则 'reorder' 会被当作路径参数）"""
+    category_ids = data.get("category_ids", [])
+    for idx, cat_id in enumerate(category_ids):
+        result = await db.execute(
+            select(Category).where(Category.id == cat_id, Category.user_id == user.id)
+        )
+        category = result.scalar_one_or_none()
+        if category:
+            category.sort_order = idx
+
+    return ResponseData(message="排序更新成功")
+
+
 @router.put("/{category_id}", response_model=ResponseData)
 async def update_category(
     category_id: int, data: CategoryUpdate, db: DbSession, user: CurrentUser
@@ -118,18 +133,3 @@ async def delete_category(
     await db.delete(category)
 
     return ResponseData(message="删除成功")
-
-
-@router.put("/reorder", response_model=ResponseData)
-async def reorder_categories(data: dict, db: DbSession, user: CurrentUser):
-    """排序分类"""
-    category_ids = data.get("category_ids", [])
-    for idx, cat_id in enumerate(category_ids):
-        result = await db.execute(
-            select(Category).where(Category.id == cat_id, Category.user_id == user.id)
-        )
-        category = result.scalar_one_or_none()
-        if category:
-            category.sort_order = idx
-
-    return ResponseData(message="排序成功")

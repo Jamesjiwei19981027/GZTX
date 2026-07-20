@@ -39,14 +39,11 @@ def test_command_parser_with_dateparser():
 
 def test_reminder_email_has_reply_to_and_message_id():
     """Test reminder email contains Reply-To and Message-ID"""
-    msg = build_reminder_email(
+    _, _, reply_to, message_id = build_reminder_email(
         task_id=42,
         task_title="测试任务",
         remind_message="该完成任务了"
     )
-
-    reply_to = msg.get("Reply-To")
-    message_id = msg.get("Message-ID")
 
     assert reply_to is not None
     assert "reply-42-" in reply_to

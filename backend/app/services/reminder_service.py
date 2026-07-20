@@ -177,7 +177,7 @@ class ReminderService:
 
         from app.utils.email import build_reminder_email, _send_smtp
 
-        subject, html_body = build_reminder_email(
+        subject, html_body, reply_to, message_id = build_reminder_email(
             task_id=task.id,
             task_title=task.title,
             remind_message=f"您的任务「{task.title}」需要您的关注。",
@@ -202,6 +202,8 @@ class ReminderService:
             smtp_port=smtp_port,
             smtp_user=smtp_user,
             smtp_password=smtp_password,
+            reply_to=reply_to,
+            message_id=message_id,
         )
 
     @staticmethod

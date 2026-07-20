@@ -1,7 +1,6 @@
 import pytest
 from httpx import AsyncClient
 
-from app.models.user import User
 from app.models.category import Category
 
 
@@ -17,7 +16,7 @@ async def test_create_category(client: AsyncClient, auth_headers, test_user):
             "icon": "folder"
         }
     )
-    assert response.status_code == 200
+    assert response.status_code == 201
     data = response.json()
     assert data["code"] == 200
     assert data["data"]["name"] == "新分类"
@@ -27,7 +26,6 @@ async def test_create_category(client: AsyncClient, auth_headers, test_user):
 @pytest.mark.asyncio
 async def test_get_categories(client: AsyncClient, auth_headers, test_user, db_session):
     """Test getting category list."""
-    # Create some categories
     for i, (name, color) in enumerate([("工作", "#409EFF"), ("个人", "#67C23A")]):
         cat = Category(
             user_id=test_user.id,
@@ -37,7 +35,7 @@ async def test_get_categories(client: AsyncClient, auth_headers, test_user, db_s
             is_default=i == 0
         )
         db_session.add(cat)
-    db_session.commit()
+    await db_session.commit()
 
     response = await client.get(
         "/api/v1/categories",
@@ -60,8 +58,8 @@ async def test_update_category(client: AsyncClient, auth_headers, test_user, db_
         is_default=True
     )
     db_session.add(category)
-    db_session.commit()
-    db_session.refresh(category)
+    await db_session.commit()
+    await db_session.refresh(category)
 
     response = await client.put(
         f"/api/v1/categories/{category.id}",
@@ -80,7 +78,6 @@ async def test_update_category(client: AsyncClient, auth_headers, test_user, db_
 @pytest.mark.asyncio
 async def test_delete_category(client: AsyncClient, auth_headers, test_user, db_session):
     """Test category deletion."""
-    # Create two categories (one default, one not)
     default_cat = Category(
         user_id=test_user.id,
         name="默认分类",
@@ -88,10 +85,6 @@ async def test_delete_category(client: AsyncClient, auth_headers, test_user, db_
         sort_order=0,
         is_default=True
     )
-    db_session.add(default_cat)
-    db_session.commit()
-    db_session.refresh(default_cat)
-
     other_cat = Category(
         user_id=test_user.id,
         name="可删除分类",
@@ -99,11 +92,11 @@ async def test_delete_category(client: AsyncClient, auth_headers, test_user, db_
         sort_order=1,
         is_default=False
     )
+    db_session.add(default_cat)
     db_session.add(other_cat)
-    db_session.commit()
-    db_session.refresh(other_cat)
+    await db_session.commit()
+    await db_session.refresh(other_cat)
 
-    # Delete the non-default category
     response = await client.delete(
         f"/api/v1/categories/{other_cat.id}",
         headers=auth_headers
@@ -124,8 +117,8 @@ async def test_cannot_delete_default_category(client: AsyncClient, auth_headers,
         is_default=True
     )
     db_session.add(category)
-    db_session.commit()
-    db_session.refresh(category)
+    await db_session.commit()
+    await db_session.refresh(category)
 
     response = await client.delete(
         f"/api/v1/categories/{category.id}",
@@ -133,7 +126,7 @@ async def test_cannot_delete_default_category(client: AsyncClient, auth_headers,
     )
     assert response.status_code == 422
     data = response.json()
-    assert data["detail"]["code"] == 3002
+    assert "默认分类" in data["detail"]
 
 
 @pytest.mark.asyncio
@@ -150,7 +143,9 @@ async def test_reorder_categories(client: AsyncClient, auth_headers, test_user, 
         )
         db_session.add(cat)
         cats.append(cat)
-    db_session.commit()
+    await db_session.commit()
+    for cat in cats:
+        await db_session.refresh(cat)
 
     # Reorder: [3, 1, 2]
     category_ids = [cats[2].id, cats[0].id, cats[1].id]

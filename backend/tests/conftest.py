@@ -27,6 +27,24 @@ async def async_engine():
     await engine.dispose()
 
 
+@pytest.fixture
+def sync_db_session():
+    """同步会话：供 TaskEmailService 等调度器侧同步代码的测试使用。"""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine)()
+    yield session
+    session.close()
+    engine.dispose()
+
+
 @pytest_asyncio.fixture
 async def db_session(async_engine):
     session_factory = async_sessionmaker(
