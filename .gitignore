@@ -1,65 +1,30 @@
-# Python
-__pycache__/
-*.py[cod]
-*.so
-*.egg-info/
-dist/
-build/
-.eggs/
-venv/
-.env
-.pytest_cache/
-.coverage
-htmlcov/
-*.egg
-
-# Node
-node_modules/
-dist/
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# 数据（数据库、上传文件、备份）
-*.db
-*.sqlite3
-data/
-backups/
-
-# 系统文件
-.DS_Store
-Thumbs.db
-nul
-
-# 日志
+# Logs
+logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# 小程序
-miniprogram/node_modules/
+node_modules
+dist
+dist-ssr
+*.local
 
-# QoderWork / AI 工具
-.qoder/
+# Playwright
+**/test-results/
+**/playwright-report/
+**/blob-report/
+**/playwright/.cache/
 
-# Docker 运行时
-*.pid
-*.seed
-*.pid.lock
-
-# 测试
-coverage/
-.coverage.*
-
-# 临时文件
-*.tmp
-*.bak
-
-# 误生成的噪音 / 工具残留
-_nul
-nul
-C*Users*
-*css_output*
-*test_task.json
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
