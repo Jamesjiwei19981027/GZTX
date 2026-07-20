@@ -1,4 +1,9 @@
-﻿version: '3.8'
+# 生产编排：Postgres + 后端 + 静态前端 + nginx
+# 用法: cp .env.example .env  # 填密钥后
+#       docker compose -f docker-compose.prod.yml up -d --build
+# 首次: docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+
+version: '3.8'
 
 services:
   backend:
@@ -6,19 +11,42 @@ services:
       context: ./backend
       dockerfile: Dockerfile.prod
     restart: always
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - SECRET_KEY=${SECRET_KEY}
-      - APP_NAME=Worktodo
+      - APP_NAME=WorkTodo
       - APP_VERSION=1.0.0
       - DEBUG=false
-      - WX_APP_ID=${WX_APP_ID}
-      - WX_APP_SECRET=${WX_APP_SECRET}
+      - AUTO_CREATE_SCHEMA=false
+      # 在 .env 中设置完整 DATABASE_URL，例如：
+      # DATABASE_URL=postgresql+asyncpg://worktodo:pass@db:5432/worktodo
+      - DATABASE_URL=${DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY:?set SECRET_KEY}
+      - APP_URL=${APP_URL:-https://app.example.com}
+      - DEPLOY_MODE=${DEPLOY_MODE:-single_company}
+      - DEFAULT_COMPANY_SLUG=${DEFAULT_COMPANY_SLUG:-default}
+      - LICENSE_VERIFY_MODE=${LICENSE_VERIFY_MODE:-ed25519}
+      - LICENSE_PUBLIC_KEY=${LICENSE_PUBLIC_KEY:?set LICENSE_PUBLIC_KEY}
+      - INTEGRATION_SECRET_KEY=${INTEGRATION_SECRET_KEY:-}
+      - COLLAB_OBJECT_ROOT=/app/data/objects
+      - UPLOAD_DIR=/app/data/uploads
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - WX_APP_ID=${WX_APP_ID:-}
+      - WX_APP_SECRET=${WX_APP_SECRET:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-["https://app.example.com"]}
+      - ALLOW_FAKE_SSO=false
       - API_V1_PREFIX=/api/v1
       - HOST=0.0.0.0
       - PORT=8000
+    volumes:
+      - backend_data:/app/data
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - worktodo-network
     healthcheck:
@@ -60,9 +88,9 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
-      - ./certbot/conf:/etc/letsencrypt/live
-      - ./certbot/www:/var/www/certbot
+      - ./nginx/default.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
     depends_on:
       - backend
       - frontend
@@ -71,6 +99,7 @@ services:
 
 volumes:
   postgres_data:
+  backend_data:
 
 networks:
   worktodo-network:

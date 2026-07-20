@@ -1,3 +1,7 @@
+# 开发编排：热重载前后端 + nginx 反代
+# 用法: docker compose up -d
+# 敏感项请用 .env 覆盖，勿把真实密码提交进仓库
+
 services:
   backend:
     build:
@@ -8,40 +12,48 @@ services:
       - "8000:8000"
     volumes:
       - ./backend/app:/app/app
+      - ./backend/alembic:/app/alembic
       - ./data:/app/data
+    env_file:
+      - path: .env
+        required: false
     environment:
       - APP_NAME=WorkTodo
       - APP_VERSION=1.0.0
-      - DEBUG=true
+      - DEBUG=${DEBUG:-true}
       - PYTHONUNBUFFERED=1
-      - DATABASE_URL=sqlite+aiosqlite:///./data/worktodo.db
-      - SECRET_KEY=dev-secret-key-please-change-in-production
+      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///./data/worktodo.db}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key-please-change-in-production}
       - ALGORITHM=HS256
       - ACCESS_TOKEN_EXPIRE_MINUTES=15
       - REFRESH_TOKEN_EXPIRE_DAYS=7
-      - WX_APP_ID=your-wx-app-id
-      - WX_APP_SECRET=your-wx-app-secret
-      - CORS_ORIGINS=["http://localhost:5173","http://localhost:3000","http://localhost:80"]
+      - WX_APP_ID=${WX_APP_ID:-}
+      - WX_APP_SECRET=${WX_APP_SECRET:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-["http://localhost:5173","http://localhost:3000","http://localhost:80"]}
       - UPLOAD_DIR=./data/uploads
-      - VAPID_PUBLIC_KEY=BAbjkZ9bgnX2RUv2WGEMvWTP6v3cnZFN3zpyyDzoaeCxIYejB320UxPOGDXXlpJ3PYgeKYE6g6DyUsSiyXggr0s
-      - VAPID_PRIVATE_KEY=YzbF7qZDSZ5h1HwHaS_MTGemGe9Xi7l_tHMvURWddic
-      - VAPID_SUBJECT=mailto:admin@example.com
-      # ── SMTP 邮件发送 ──
-      - SMTP_HOST=smtp.qq.com
-      - SMTP_PORT=465
-      - SMTP_USER=1248880631@qq.com
-      - SMTP_PASSWORD=nmfniypezekrifge
-      - SMTP_FROM=1248880631@qq.com
-      # ── IMAP 邮件接收 ──
-      - IMAP_HOST=imap.qq.com
-      - IMAP_PORT=993
-      - IMAP_USER=
-      - IMAP_PASSWORD=
-      - EMAIL_REPLY_DOMAIN=yourdomain.com
-      - EMAIL_REPLY_SECRET=change-me-to-a-random-secret
-      # ── 每日摘要 ──
-      - DAILY_DIGEST_HOUR=8
-      - USER_TIMEZONE_OFFSET=8
+      - APP_URL=${APP_URL:-http://localhost}
+      - DEPLOY_MODE=${DEPLOY_MODE:-single_company}
+      - DEFAULT_COMPANY_SLUG=${DEFAULT_COMPANY_SLUG:-default}
+      - LICENSE_VERIFY_MODE=${LICENSE_VERIFY_MODE:-hmac}
+      - LICENSE_PUBLIC_KEY=${LICENSE_PUBLIC_KEY:-dev-secret-key-for-tests-only}
+      - AUTO_CREATE_SCHEMA=${AUTO_CREATE_SCHEMA:-true}
+      - ALLOW_FAKE_SSO=${ALLOW_FAKE_SSO:-true}
+      - COLLAB_OBJECT_ROOT=data/objects
+      - INTEGRATION_SECRET_KEY=${INTEGRATION_SECRET_KEY:-}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-465}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - IMAP_HOST=${IMAP_HOST:-}
+      - IMAP_PORT=${IMAP_PORT:-993}
+      - IMAP_USER=${IMAP_USER:-}
+      - IMAP_PASSWORD=${IMAP_PASSWORD:-}
+      - EMAIL_REPLY_DOMAIN=${EMAIL_REPLY_DOMAIN:-}
+      - EMAIL_REPLY_SECRET=${EMAIL_REPLY_SECRET:-change-me}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
+      - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
     restart: unless-stopped
 
   frontend:
@@ -56,6 +68,7 @@ services:
       - frontend_node_modules:/app/node_modules
     environment:
       - VITE_API_BASE_URL=/api/v1
+      - VITE_PROXY_TARGET=http://backend:8000
     depends_on:
       - backend
     restart: unless-stopped
