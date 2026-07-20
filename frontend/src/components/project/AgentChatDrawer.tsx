@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { message } from 'antd'
+import { message } from '@/utils/antdMessage'
 import { agentChat } from '@/api/collab'
 import { getErrorMessage } from '@/api/request'
 import type { ChatMessage } from '@/types/collab'

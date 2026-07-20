@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Form, Input, Select, DatePicker, Button, Tag, message } from 'antd'
+import { Form, Input, Select, DatePicker, Button, Tag } from 'antd'
+import { message } from '@/utils/antdMessage'
 import dayjs, { type Dayjs } from 'dayjs'
 import type { Task, CreateTaskRequest, TaskPriority, Tag as TagType, Category } from '@/types'
 import { getTagList, createTag } from '@/api/tags'

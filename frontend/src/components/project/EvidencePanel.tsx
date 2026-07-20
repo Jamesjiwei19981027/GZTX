@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { message } from 'antd'
+import { message } from '@/utils/antdMessage'
 import {
   listNodeEvidence,
   submitEvidence,

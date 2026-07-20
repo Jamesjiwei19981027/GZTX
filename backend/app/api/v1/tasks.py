@@ -35,7 +35,8 @@ async def get_tasks(
     db: DbSession,
     user: CurrentUser,
     page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+    # 日历月视图一次拉全月任务，前端用 page_size=200
+    page_size: int = Query(20, ge=1, le=200),
     status: Optional[int] = None,
     priority: Optional[int] = None,
     category_id: Optional[int] = None,

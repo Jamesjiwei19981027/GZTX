@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Form, Input, Button, Checkbox, message } from 'antd'
+import { Form, Input, Button, Checkbox } from 'antd'
+import { message } from '@/utils/antdMessage'
 import { UserOutlined, LockOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons'
 import { useAuthStore } from '@/stores/auth'
 import { sendRegisterCode } from '@/api/auth'

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { message } from 'antd'
+import { message } from '@/utils/antdMessage'
 import { createProject, listProjects } from '@/api/collab'
 import { getErrorMessage } from '@/api/request'
 import { useCompanyContext } from '@/hooks/useCompanyContext'

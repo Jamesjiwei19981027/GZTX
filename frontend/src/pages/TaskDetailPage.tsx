@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
-import { Spin, message, Modal } from 'antd'
+import { Spin, Modal } from 'antd'
+import { message } from '@/utils/antdMessage'
 import dayjs from 'dayjs'
 import { useTaskStore } from '@/stores/task'
 import TaskForm from '@/components/tasks/TaskForm'

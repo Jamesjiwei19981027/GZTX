@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { message } from 'antd'
+import { message } from '@/utils/antdMessage'
 import { getErrorMessage } from '@/api/request'
 import type { SendCodeResult } from '@/types'
 

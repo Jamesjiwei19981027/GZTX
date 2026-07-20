@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Button, Card, Input, Tag, message } from 'antd'
+import { Button, Card, Input, Tag } from 'antd'
+import { message } from '@/utils/antdMessage'
 import { CheckCircleFilled, MailOutlined, MobileOutlined, SafetyOutlined } from '@ant-design/icons'
 import { confirmBindCode, getVerificationStatus, sendBindCode } from '@/api/auth'
 import { useSendCode } from '@/hooks/useSendCode'

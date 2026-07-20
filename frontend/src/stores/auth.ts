@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { message } from 'antd'
+import { message } from '@/utils/antdMessage'
 import {
   login as loginApi,
   register as registerApi,

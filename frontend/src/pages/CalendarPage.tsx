@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Spin, message } from 'antd'
+import { Spin } from 'antd'
+import { message } from '@/utils/antdMessage'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useTaskStore } from '@/stores/task'
 import type { Task } from '@/types'

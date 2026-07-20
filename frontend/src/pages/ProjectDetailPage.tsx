@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { message } from 'antd'
+import { message } from '@/utils/antdMessage'
 import {
   createNode,
   getNodeProgress,

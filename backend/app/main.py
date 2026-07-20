@@ -351,6 +351,27 @@ async def collab_error_handler(request, exc: CollabError):
     return exc.to_response()
 
 
+# 422 参数校验失败：记录字段级原因到服务端日志，便于排查（响应体保持 FastAPI 默认结构）
+from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import request_validation_exception_handler
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_logger(request, exc: RequestValidationError):
+    import logging
+
+    logging.getLogger("app.validation").warning(
+        "422 %s %s errors=%s",
+        request.method,
+        request.url.path,
+        [
+            {"loc": list(e.get("loc", [])), "msg": e.get("msg", "")}
+            for e in exc.errors()
+        ],
+    )
+    return await request_validation_exception_handler(request, exc)
+
+
 # 注册 API 路由
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(tasks.router, prefix="/api/v1")

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Input, Select, Switch, Spin, message } from 'antd'
+import { Input, Select, Switch, Spin } from 'antd'
+import { message } from '@/utils/antdMessage'
 import {
   getEmailStatus,
   getLlmConfig,

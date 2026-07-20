@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
-import { Dropdown, Modal, message } from 'antd'
+import { Dropdown, Modal } from 'antd'
+import { message } from '@/utils/antdMessage'
 import type { MenuProps } from 'antd'
 import dayjs from 'dayjs'
 import type { Task } from '@/types'

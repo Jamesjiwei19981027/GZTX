@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Input, Pagination, Spin, Switch, message, Modal } from 'antd'
+import { Input, Pagination, Spin, Switch, Modal } from 'antd'
+import { message } from '@/utils/antdMessage'
 import { useTaskStore } from '@/stores/task'
 import TaskItem from '@/components/tasks/TaskItem'
 import TaskCompleteDialog from '@/components/tasks/TaskCompleteDialog'

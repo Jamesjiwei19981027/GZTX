@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Input, Select, Spin, Switch, message } from 'antd'
+import { Input, Select, Spin, Switch } from 'antd'
+import { message } from '@/utils/antdMessage'
 import {
   getCompany,
   getCompanyBindings,
@@ -204,20 +205,26 @@ export default function CompanySettingsPage() {
           setOrgNodes([])
         }
 
-        try {
-          const sch = await getIntegrationSchemas(cid)
-          const nextSchemas = sch.providers || {}
-          const list = await listIntegrations(cid)
-          const nextIntegrations = list.items || []
-          setSchemas(nextSchemas)
-          setIntegrations(nextIntegrations)
-          let nextProvider = activeProvider
-          if (!nextSchemas[nextProvider]) {
-            nextProvider = Object.keys(nextSchemas)[0] || 'wecom'
-            setActiveProvider(nextProvider)
+        // 集成配置接口仅超管可读，非超管不请求（避免必然的 403）
+        if (c.my_membership?.is_super_admin) {
+          try {
+            const sch = await getIntegrationSchemas(cid)
+            const nextSchemas = sch.providers || {}
+            const list = await listIntegrations(cid)
+            const nextIntegrations = list.items || []
+            setSchemas(nextSchemas)
+            setIntegrations(nextIntegrations)
+            let nextProvider = activeProvider
+            if (!nextSchemas[nextProvider]) {
+              nextProvider = Object.keys(nextSchemas)[0] || 'wecom'
+              setActiveProvider(nextProvider)
+            }
+            resetIntegrationForms(nextProvider, nextSchemas, nextIntegrations)
+          } catch {
+            setSchemas({})
+            setIntegrations([])
           }
-          resetIntegrationForms(nextProvider, nextSchemas, nextIntegrations)
-        } catch {
+        } else {
           setSchemas({})
           setIntegrations([])
         }
@@ -510,8 +517,9 @@ export default function CompanySettingsPage() {
         </div>
 
         {busy ? (
-          <div className="py-12 flex justify-center">
-            <Spin tip="加载中…" />
+          <div className="py-12 flex flex-col items-center gap-sm">
+            <Spin />
+            <span className="text-sm text-on-surface-variant">加载中…</span>
           </div>
         ) : (
           <>
