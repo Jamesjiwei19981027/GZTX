@@ -9,7 +9,10 @@ import {
   updateLlmConfig,
   updateSmtpConfig,
 } from '@/api/notifications'
+import { updateUser } from '@/api/auth'
 import { getErrorMessage } from '@/api/request'
+import { useAuthStore } from '@/stores/auth'
+import { useTheme, type AccentColor, type ThemeMode } from '@/hooks/useTheme'
 import type { SmtpConfigUpdate, UserLlmConfigUpdate } from '@/types'
 
 type LlmPreset = {
@@ -28,7 +31,29 @@ const FALLBACK_LLM_PROVIDERS = [
   { key: 'custom', label: '自定义' },
 ]
 
+const ACCENT_COLORS: { value: AccentColor; colorClass: string; label: string }[] = [
+  { value: 'blue', colorClass: 'bg-primary', label: '蓝色' },
+  { value: 'green', colorClass: 'bg-secondary', label: '绿色' },
+  { value: 'amber', colorClass: 'bg-tertiary', label: '琥珀' },
+  { value: 'red', colorClass: 'bg-error', label: '红色' },
+]
+
+const THEME_OPTIONS: { value: ThemeMode; icon: string; label: string }[] = [
+  { value: 'light', icon: 'light_mode', label: '浅色' },
+  { value: 'dark', icon: 'dark_mode', label: '深色' },
+  { value: 'system', icon: 'brightness_auto', label: '系统' },
+]
+
 export default function SettingsPage() {
+  const fetchCurrentUser = useAuthStore((s) => s.fetchCurrentUser)
+  const user = useAuthStore((s) => s.user)
+  const { theme, accent, setTheme, setAccent } = useTheme()
+
+  // ── Profile ───────────────────────────────────────────────────────────────
+  const [nickname, setNickname] = useState('')
+  const [email, setEmail] = useState('')
+  const [profileSaving, setProfileSaving] = useState(false)
+
   // ── SMTP ──────────────────────────────────────────────────────────────────
   const [smtpHost, setSmtpHost] = useState('smtp.qq.com')
   const [smtpPort, setSmtpPort] = useState(465)
@@ -118,7 +143,29 @@ export default function SettingsPage() {
   useEffect(() => {
     void loadSmtp()
     void loadLlm()
+    void (async () => {
+      const u = user ?? (await fetchCurrentUser())
+      if (u) {
+        setNickname(u.nickname || u.username || '')
+        setEmail(u.email || '')
+      }
+    })()
+    // Initial hydrate only (archive onMounted)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid clobbering edits on user store updates
   }, [loadSmtp, loadLlm])
+
+  async function handleSaveProfile() {
+    setProfileSaving(true)
+    try {
+      await updateUser({ nickname, email })
+      message.success('个人资料已更新')
+      await fetchCurrentUser()
+    } catch (e) {
+      message.error(getErrorMessage(e, '更新失败'))
+    } finally {
+      setProfileSaving(false)
+    }
+  }
 
   function onProviderChange(value: string) {
     setLlmProvider(value)
@@ -218,11 +265,94 @@ export default function SettingsPage() {
         <header className="mb-xl">
           <h1 className="font-headline text-headline-lg text-on-surface mb-xs">设置</h1>
           <p className="font-body text-body-md text-on-surface-variant">
-            管理个人邮件服务器与个人 LLM 配置。
+            管理个人资料、外观、邮件服务器与个人 LLM 配置。
           </p>
         </header>
 
         <div className="space-y-lg">
+          {/* ── Profile ───────────────────────────────────────────────────── */}
+          <section className="bg-surface rounded-xl p-lg shadow-sm border border-surface-variant">
+            <h3 className="font-headline text-headline-sm text-on-surface mb-lg">个人资料</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+              <div className="flex flex-col gap-xs">
+                <label className="font-label text-label-md text-on-surface-variant">全名</label>
+                <Input
+                  value={nickname}
+                  onChange={(e) => setNickname(e.target.value)}
+                  placeholder="输入全名"
+                />
+              </div>
+              <div className="flex flex-col gap-xs">
+                <label className="font-label text-label-md text-on-surface-variant">邮箱地址</label>
+                <Input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="输入邮箱（用于接收通知）"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end mt-lg">
+              <button
+                type="button"
+                className="px-lg py-sm bg-primary text-on-primary rounded-lg font-label text-label-md hover:opacity-90 transition-all disabled:opacity-50"
+                disabled={profileSaving}
+                onClick={() => void handleSaveProfile()}
+              >
+                {profileSaving ? '保存中...' : '更新资料'}
+              </button>
+            </div>
+          </section>
+
+          {/* ── Appearance ────────────────────────────────────────────────── */}
+          <section className="bg-surface rounded-xl p-lg shadow-sm border border-surface-variant">
+            <h3 className="font-headline text-headline-sm text-on-surface mb-lg">外观</h3>
+            <div className="flex flex-col gap-md">
+              <div className="flex items-center justify-between flex-wrap gap-sm">
+                <span className="font-label text-label-md text-on-surface">颜色主题</span>
+                <div className="flex bg-surface-container rounded-lg p-xs">
+                  {THEME_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={[
+                        'px-md py-xs rounded-md font-label text-label-sm flex items-center gap-xs transition-colors',
+                        theme === opt.value
+                          ? 'bg-surface shadow-sm text-primary'
+                          : 'text-on-surface-variant hover:bg-surface-container-high',
+                      ].join(' ')}
+                      onClick={() => setTheme(opt.value)}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">{opt.icon}</span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-md border-t border-outline-variant">
+                <p className="font-label text-label-sm text-on-surface-variant mb-sm">主题色</p>
+                <div className="flex gap-sm">
+                  {ACCENT_COLORS.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      title={color.label}
+                      aria-label={color.label}
+                      className={[
+                        'w-8 h-8 rounded-full cursor-pointer transition-transform',
+                        color.colorClass,
+                        accent === color.value
+                          ? 'ring-2 ring-offset-2 ring-primary'
+                          : 'hover:scale-110',
+                      ].join(' ')}
+                      onClick={() => setAccent(color.value)}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+
           {/* ── Personal SMTP ─────────────────────────────────────────────── */}
           <section className="bg-surface rounded-xl p-lg shadow-sm border border-surface-variant">
             <div className="flex items-center justify-between mb-lg flex-wrap gap-sm">
