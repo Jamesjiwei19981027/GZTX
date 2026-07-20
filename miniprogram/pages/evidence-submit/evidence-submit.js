@@ -9,6 +9,7 @@ Page({
     title: '',
     summary: '',
     percent: 50,
+    fileIds: [],
     submitting: false,
   },
 
@@ -39,7 +40,7 @@ Page({
           percent: this.data.percent,
           status: this.data.percent >= 100 ? 'done' : 'in_progress',
         },
-        file_ids: [],
+        file_ids: this.data.fileIds,
       })
       .then((res) => {
         const data = res && res.data !== undefined ? res.data : res
@@ -90,8 +91,8 @@ Page({
             try {
               const body = JSON.parse(up.data || '{}')
               if (body.code === 200 && body.data && body.data.file_id) {
+                this.setData({ fileIds: this.data.fileIds.concat(body.data.file_id) })
                 wx.showToast({ title: '文件已上传 #' + body.data.file_id, icon: 'none' })
-                // 简化：仅提示；完整流程可把 file_id 写入 submit body
               } else {
                 wx.showToast({ title: body.message || '上传失败', icon: 'none' })
               }

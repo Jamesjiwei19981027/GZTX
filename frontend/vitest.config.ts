@@ -8,5 +8,7 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Playwright 套件由 npm run test:e2e 单独执行，不归 vitest 收集
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
   },
 })

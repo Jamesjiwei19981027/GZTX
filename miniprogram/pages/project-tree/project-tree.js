@@ -86,6 +86,10 @@ Page({
       url:
         '/pages/evidence-submit/evidence-submit?node_id=' +
         s.id +
+        '&company_id=' +
+        this.data.companyId +
+        '&project_id=' +
+        this.data.projectId +
         '&title=' +
         encodeURIComponent(s.title),
     })

@@ -3,10 +3,11 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --prefer-offline || npm install
+RUN npm ci --prefer-offline
 COPY . .
 # Production serves via same-origin /api reverse proxy; no absolute VITE API host required
-ENV VITE_API_BASE_URL=/api/v1
+# 变量名须与 src/api/request.ts 读取的 import.meta.env.VITE_API_BASE 一致
+ENV VITE_API_BASE=/api/v1
 RUN npm run build
 
 FROM nginx:1.27-alpine
