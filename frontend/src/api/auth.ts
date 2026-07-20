@@ -24,6 +24,16 @@ export function sendRegisterCode(channel: 'email' | 'sms', target: string) {
   return request.post<SendCodeResult>('/auth/send-code', { channel, target })
 }
 
+// 登录验证码（目标必须已注册）
+export function sendLoginCode(channel: 'email' | 'sms', target: string) {
+  return request.post<SendCodeResult>('/auth/send-code', { channel, target, purpose: 'login' })
+}
+
+// 验证码登录
+export function loginWithCode(channel: 'email' | 'sms', target: string, code: string) {
+  return request.post<AuthResponse>('/auth/login-code', { channel, target, code })
+}
+
 // 登录后双验证状态
 export function getVerificationStatus() {
   return request.get<VerificationStatus>('/users/me/verification')

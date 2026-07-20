@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { message } from '@/utils/antdMessage'
 import {
   login as loginApi,
+  loginWithCode as loginWithCodeApi,
   register as registerApi,
   getCurrentUser,
   logout as logoutApi,
@@ -65,6 +66,7 @@ type AuthState = {
   loading: boolean
   lastCompanyJoin: CompanyJoinInfo | null
   login: (username: string, password: string) => Promise<void>
+  loginWithCode: (channel: 'email' | 'sms', target: string, code: string) => Promise<void>
   register: (payload: RegisterRequest | Record<string, unknown>) => Promise<void>
   logout: () => Promise<void>
   fetchCurrentUser: () => Promise<User | null>
@@ -81,6 +83,20 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       const data: LoginRequest = { username, password }
       const response = await loginApi(data)
+      applyAuthTokens(response)
+      set({
+        token: response.access_token,
+        user: response.user,
+      })
+    } finally {
+      set({ loading: false })
+    }
+  },
+
+  async loginWithCode(channel, target, code) {
+    set({ loading: true })
+    try {
+      const response = await loginWithCodeApi(channel, target, code)
       applyAuthTokens(response)
       set({
         token: response.access_token,

@@ -4,7 +4,7 @@ import { Form, Input, Button, Checkbox } from 'antd'
 import { message } from '@/utils/antdMessage'
 import { UserOutlined, LockOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons'
 import { useAuthStore } from '@/stores/auth'
-import { sendRegisterCode } from '@/api/auth'
+import { sendLoginCode, sendRegisterCode } from '@/api/auth'
 import { useSendCode } from '@/hooks/useSendCode'
 import { getToken, getErrorMessage } from '@/api/request'
 
@@ -16,6 +16,16 @@ type LoginFormValues = {
   username: string
   password: string
   remember?: boolean
+}
+
+type CodeLoginFormValues = {
+  target: string
+  code: string
+}
+
+/** 邮箱/手机自动识别验证码通道 */
+function detectChannel(target: string): 'email' | 'sms' {
+  return /^1[3-9]\d{9}$/.test(target.trim()) ? 'sms' : 'email'
 }
 
 type RegisterFormValues = {
@@ -34,14 +44,18 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
   const isRegister = registerProp === true || location.pathname === '/register'
 
   const login = useAuthStore((s) => s.login)
+  const loginWithCode = useAuthStore((s) => s.loginWithCode)
   const register = useAuthStore((s) => s.register)
   const loading = useAuthStore((s) => s.loading)
 
   const [loginForm] = Form.useForm<LoginFormValues>()
+  const [codeLoginForm] = Form.useForm<CodeLoginFormValues>()
   const [registerForm] = Form.useForm<RegisterFormValues>()
   const [submitting, setSubmitting] = useState(false)
+  const [codeLoginMode, setCodeLoginMode] = useState(false)
 
   const emailCodeSender = useSendCode((target) => sendRegisterCode('email', target))
+  const loginCodeSender = useSendCode((target) => sendLoginCode(detectChannel(target), target))
 
   useEffect(() => {
     if (getToken()) {
@@ -65,6 +79,19 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
       message.success('登录成功')
       const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
       navigate(from && from !== '/login' ? from : '/dashboard', { replace: true })
+    } catch (err) {
+      message.error(getErrorMessage(err, '登录失败'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  async function handleCodeLogin(values: CodeLoginFormValues) {
+    setSubmitting(true)
+    try {
+      await loginWithCode(detectChannel(values.target), values.target.trim(), values.code)
+      message.success('登录成功')
+      navigate('/dashboard', { replace: true })
     } catch (err) {
       message.error(getErrorMessage(err, '登录失败'))
     } finally {
@@ -183,61 +210,143 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
                 <h3 className="text-xl font-semibold text-on-surface mb-xs">欢迎回来</h3>
                 <p className="text-sm text-on-surface-variant mb-lg">登录您的账户以继续</p>
 
-                <Form
-                  form={loginForm}
-                  layout="vertical"
-                  size="large"
-                  onFinish={(v) => void handleLogin(v)}
-                  requiredMark={false}
-                >
-                  <Form.Item
-                    label="用户名"
-                    name="username"
-                    rules={[
-                      { required: true, message: '请输入用户名' },
-                      { min: 3, max: 20, message: '用户名长度为3-20个字符' },
-                    ]}
+                {!codeLoginMode ? (
+                  <Form
+                    form={loginForm}
+                    layout="vertical"
+                    size="large"
+                    onFinish={(v) => void handleLogin(v)}
+                    requiredMark={false}
                   >
-                    <Input prefix={<UserOutlined />} placeholder="请输入用户名" autoComplete="username" />
-                  </Form.Item>
-
-                  <Form.Item
-                    label="密码"
-                    name="password"
-                    rules={[
-                      { required: true, message: '请输入密码' },
-                      { min: 6, max: 30, message: '密码长度至少6个字符' },
-                    ]}
-                  >
-                    <Input.Password
-                      prefix={<LockOutlined />}
-                      placeholder="请输入密码"
-                      autoComplete="current-password"
-                    />
-                  </Form.Item>
-
-                  <div className="flex items-center justify-between mb-lg">
-                    <Form.Item name="remember" valuePropName="checked" noStyle>
-                      <Checkbox>记住我</Checkbox>
-                    </Form.Item>
-                    <a href="#" className="text-sm text-primary hover:underline" onClick={(e) => e.preventDefault()}>
-                      忘记密码？
-                    </a>
-                  </div>
-
-                  <Form.Item>
-                    <Button
-                      type="primary"
-                      htmlType="submit"
-                      loading={busy}
-                      block
-                      className="h-12 rounded-xl"
-                      style={{ background: '#0058be' }}
+                    <Form.Item
+                      label="账号"
+                      name="username"
+                      rules={[{ required: true, message: '请输入用户名 / 邮箱 / 手机号' }]}
                     >
-                      {busy ? '登录中...' : '登录'}
-                    </Button>
-                  </Form.Item>
-                </Form>
+                      <Input
+                        prefix={<UserOutlined />}
+                        placeholder="用户名 / 邮箱 / 手机号"
+                        autoComplete="username"
+                      />
+                    </Form.Item>
+
+                    <Form.Item
+                      label="密码"
+                      name="password"
+                      rules={[
+                        { required: true, message: '请输入密码' },
+                        { min: 6, max: 30, message: '密码长度至少6个字符' },
+                      ]}
+                    >
+                      <Input.Password
+                        prefix={<LockOutlined />}
+                        placeholder="请输入密码"
+                        autoComplete="current-password"
+                      />
+                    </Form.Item>
+
+                    <div className="flex items-center justify-between mb-lg">
+                      <Form.Item name="remember" valuePropName="checked" noStyle>
+                        <Checkbox>记住我</Checkbox>
+                      </Form.Item>
+                      <a
+                        href="#"
+                        className="text-sm text-primary hover:underline"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setCodeLoginMode(true)
+                        }}
+                      >
+                        验证码登录
+                      </a>
+                    </div>
+
+                    <Form.Item>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        loading={busy}
+                        block
+                        className="h-12 rounded-xl"
+                        style={{ background: '#0058be' }}
+                      >
+                        {busy ? '登录中...' : '登录'}
+                      </Button>
+                    </Form.Item>
+                  </Form>
+                ) : (
+                  <Form
+                    form={codeLoginForm}
+                    layout="vertical"
+                    size="large"
+                    onFinish={(v) => void handleCodeLogin(v)}
+                    requiredMark={false}
+                  >
+                    <Form.Item
+                      label="邮箱 / 手机号"
+                      name="target"
+                      rules={[{ required: true, message: '请输入已注册的邮箱或手机号' }]}
+                    >
+                      <Input
+                        prefix={<MailOutlined />}
+                        placeholder="已注册的邮箱或手机号"
+                        autoComplete="username"
+                      />
+                    </Form.Item>
+
+                    <Form.Item label="验证码" required>
+                      <div className="flex gap-sm">
+                        <Form.Item
+                          name="code"
+                          noStyle
+                          rules={[{ required: true, message: '请输入验证码' }]}
+                        >
+                          <Input prefix={<SafetyOutlined />} placeholder="6 位验证码" maxLength={6} />
+                        </Form.Item>
+                        <Button
+                          loading={loginCodeSender.sending}
+                          disabled={loginCodeSender.countdown > 0}
+                          onClick={async () => {
+                            try {
+                              await codeLoginForm.validateFields(['target'])
+                            } catch {
+                              return
+                            }
+                            void loginCodeSender.send(codeLoginForm.getFieldValue('target'))
+                          }}
+                        >
+                          {loginCodeSender.countdown > 0 ? `${loginCodeSender.countdown}s` : '获取验证码'}
+                        </Button>
+                      </div>
+                    </Form.Item>
+
+                    <div className="flex items-center justify-end mb-lg">
+                      <a
+                        href="#"
+                        className="text-sm text-primary hover:underline"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          setCodeLoginMode(false)
+                        }}
+                      >
+                        密码登录
+                      </a>
+                    </div>
+
+                    <Form.Item>
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        loading={busy}
+                        block
+                        className="h-12 rounded-xl"
+                        style={{ background: '#0058be' }}
+                      >
+                        {busy ? '登录中...' : '登录'}
+                      </Button>
+                    </Form.Item>
+                  </Form>
+                )}
               </>
             ) : (
               <>

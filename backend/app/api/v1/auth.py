@@ -30,7 +30,12 @@ router = APIRouter(prefix="/auth", tags=["认证"])
 
 @router.post("/send-code", response_model=ResponseData)
 async def send_verification_code(data: dict, db: DbSession):
-    """注册前发送邮箱/短信验证码（匿名可调）。body: {channel: email|sms, target}"""
+    """注册/登录发送邮箱或短信验证码（匿名可调）。
+
+    body: {channel: email|sms, target, purpose?: register|login}
+    - register（默认）：目标必须未注册
+    - login：目标必须已注册
+    """
     from sqlalchemy import select
 
     from app.services.verification import (
@@ -41,6 +46,9 @@ async def send_verification_code(data: dict, db: DbSession):
     )
 
     channel = (data.get("channel") or "").strip().lower()
+    purpose = (data.get("purpose") or "register").strip().lower()
+    if purpose not in ("register", "login"):
+        raise HTTPException(status_code=422, detail="purpose 必须是 register 或 login")
     target = data.get("target") or ""
     try:
         target = normalize_target(channel, target)
@@ -48,22 +56,23 @@ async def send_verification_code(data: dict, db: DbSession):
     except VerificationError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
-    # 已注册的邮箱/手机不允许再用于注册发码
     if channel == "email":
         exists = (
             await db.execute(select(User).where(User.email == target))
         ).scalar_one_or_none()
-        if exists:
-            raise HTTPException(status_code=409, detail="邮箱已注册")
-    elif channel == "sms":
+    else:
         exists = (
             await db.execute(select(User).where(User.phone == target))
         ).scalar_one_or_none()
-        if exists:
-            raise HTTPException(status_code=409, detail="手机号已注册")
+
+    label = "邮箱" if channel == "email" else "手机号"
+    if purpose == "register" and exists:
+        raise HTTPException(status_code=409, detail=f"{label}已注册")
+    if purpose == "login" and not exists:
+        raise HTTPException(status_code=404, detail=f"该{label}未注册")
 
     try:
-        result = await send_code(db, channel=channel, target=target, purpose="register")
+        result = await send_code(db, channel=channel, target=target, purpose=purpose)
     except VerificationError as e:
         raise HTTPException(status_code=429, detail=str(e)) from e
     return ResponseData(data=result, message="验证码已发送")
@@ -212,29 +221,28 @@ async def register(data: UserRegister, db: DbSession):
     return ResponseData(data=payload)
 
 
-@router.post("/login", response_model=ResponseData)
-async def login(data: UserLogin, db: DbSession):
-    """用户登录"""
-    from sqlalchemy import select
+async def _find_user_by_identifier(db, identifier: str) -> User | None:
+    """按用户名 / 邮箱 / 手机号查找用户"""
+    from sqlalchemy import or_, select
 
-    result = await db.execute(select(User).where(User.username == data.username))
-    user = result.scalar_one_or_none()
+    ident = (identifier or "").strip()
+    if not ident:
+        return None
+    result = await db.execute(
+        select(User).where(
+            or_(
+                User.username == ident,
+                User.email == ident.lower(),
+                User.phone == ident,
+            )
+        ).limit(1)
+    )
+    return result.scalar_one_or_none()
 
-    if not user or not user.password_hash or not verify_password(data.password, user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误",
-        )
 
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="用户已被禁用",
-        )
-
+def _issue_tokens(user: User) -> ResponseData:
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
-
     return ResponseData(
         data=TokenResponse(
             access_token=access_token,
@@ -243,6 +251,63 @@ async def login(data: UserLogin, db: DbSession):
             user=UserBasic.model_validate(user),
         )
     )
+
+
+@router.post("/login", response_model=ResponseData)
+async def login(data: UserLogin, db: DbSession):
+    """密码登录；username 字段兼容用户名 / 邮箱 / 手机号"""
+    user = await _find_user_by_identifier(db, data.username)
+
+    if not user or not user.password_hash or not verify_password(data.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="账号或密码错误",
+        )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="用户已被禁用",
+        )
+
+    return _issue_tokens(user)
+
+
+@router.post("/login-code", response_model=ResponseData)
+async def login_with_code(data: dict, db: DbSession):
+    """验证码登录。body: {channel: email|sms, target, code}"""
+    from sqlalchemy import select
+
+    from app.services.verification import (
+        VerificationError,
+        consume_code,
+        normalize_target,
+    )
+
+    channel = (data.get("channel") or "").strip().lower()
+    if channel not in ("email", "sms"):
+        raise HTTPException(status_code=422, detail="channel 必须是 email 或 sms")
+    target = normalize_target(channel, data.get("target") or "")
+    code = (data.get("code") or "").strip()
+    if not target or not code:
+        raise HTTPException(status_code=422, detail="请填写完整的账号与验证码")
+
+    if channel == "email":
+        q = await db.execute(select(User).where(User.email == target))
+    else:
+        q = await db.execute(select(User).where(User.phone == target))
+    user = q.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="该邮箱/手机号未注册")
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="用户已被禁用")
+
+    try:
+        await consume_code(db, channel=channel, target=target, code=code, purpose="login")
+    except VerificationError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    return _issue_tokens(user)
 
 
 @router.post("/wx-login", response_model=ResponseData)
