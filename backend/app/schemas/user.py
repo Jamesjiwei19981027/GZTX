@@ -22,7 +22,8 @@ class UserRegister(BaseModel):
     @field_validator("username")
     @classmethod
     def username_alphanumeric(cls, v):
-        if not v.isalnum() and "_" not in v:
+        # 原逻辑 `not isalnum() and "_" not in v` 有误：含下划线时其余非法字符也会放行
+        if not v.replace("_", "").isalnum():
             raise ValueError("用户名只能包含字母、数字和下划线")
         if len(v) < 3 or len(v) > 50:
             raise ValueError("用户名长度需要在3-50个字符之间")

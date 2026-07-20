@@ -106,6 +106,16 @@ function extractErrorMessage(
 
   const detail = data.detail
   if (typeof detail === 'string' && detail) return detail
+  // FastAPI/pydantic 校验错误：detail 是 [{loc, msg, ...}] 数组
+  if (Array.isArray(detail) && detail.length > 0) {
+    const first = detail[0] as { msg?: string; loc?: unknown[] }
+    if (first?.msg) {
+      const field = Array.isArray(first.loc) ? String(first.loc[first.loc.length - 1]) : ''
+      // pydantic 自定义 ValueError 的 msg 带 "Value error, " 前缀，剥掉
+      const msg = first.msg.replace(/^Value error,\s*/i, '')
+      return field && field !== 'body' ? `${field}: ${msg}` : msg
+    }
+  }
   if (detail && typeof detail === 'object') {
     const d = detail as { message?: string; error?: string }
     if (d.message) return d.message

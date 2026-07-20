@@ -256,9 +256,10 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
                     rules={[
                       { required: true, message: '请输入用户名' },
                       { min: 3, max: 20, message: '用户名长度为3-20个字符' },
+                      { pattern: /^[A-Za-z0-9_]+$/, message: '用户名只能包含字母、数字和下划线' },
                     ]}
                   >
-                    <Input prefix={<UserOutlined />} placeholder="请输入用户名" autoComplete="username" />
+                    <Input prefix={<UserOutlined />} placeholder="字母、数字或下划线" autoComplete="username" />
                   </Form.Item>
 
                   <Form.Item
