@@ -51,16 +51,24 @@ const currentRoute = computed(() => route.name as string)
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: 'dashboard', label: '仪表盘', activeIcon: 'dashboard' },
   { name: 'TaskList', path: '/tasks', icon: 'checklist', label: '我的任务', activeIcon: 'checklist' },
+  { name: 'ProjectList', path: '/projects', icon: 'account_tree', label: '项目', activeIcon: 'account_tree' },
   { name: 'Calendar', path: '/calendar', icon: 'calendar_month', label: '日历', activeIcon: 'calendar_month' },
 ]
 
 const bottomItems = [
+  { name: 'CompanySettings', path: '/company/settings', icon: 'apartment', label: '公司' },
   { name: 'Settings', path: '/settings', icon: 'settings', label: '设置' },
 ]
 
 function isActive(item: { name: string; path: string }) {
   if (item.name === 'TaskList') {
     return currentRoute.value === 'TaskList' || currentRoute.value === 'TaskDetail' || currentRoute.value === 'TaskCreate'
+  }
+  if (item.name === 'ProjectList') {
+    return currentRoute.value === 'ProjectList' || currentRoute.value === 'ProjectDetail'
+  }
+  if (item.name === 'CompanySettings') {
+    return currentRoute.value === 'CompanySettings'
   }
   return currentRoute.value === item.name
 }

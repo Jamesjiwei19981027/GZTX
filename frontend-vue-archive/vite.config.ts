@@ -15,7 +15,8 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://worktodo-backend:8000',
+        // 本机 dev 默认 localhost；Docker 内可设 VITE_PROXY_TARGET=http://backend:8000
+        target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

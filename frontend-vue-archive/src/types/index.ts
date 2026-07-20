@@ -30,12 +30,22 @@ export interface RegisterRequest {
   nickname: string
 }
 
+/** 注册时 single_company 自动入会结果 */
+export interface CompanyJoinInfo {
+  joined: boolean
+  company_id?: number | null
+  company_slug?: string | null
+  reason?: string
+}
+
 export interface AuthResponse {
   access_token: string
   refresh_token: string
   token_type: string
   expires_in: number
   user: User
+  /** 仅注册接口可能返回 */
+  company_join?: CompanyJoinInfo
 }
 
 export interface RefreshResponse {
@@ -264,13 +274,50 @@ export interface SmtpConfigUpdate {
   smtp_from?: string
 }
 
+/** 个人 LLM（notify_pref.channels.llm，api_key 脱敏） */
+export interface UserLlmConfig {
+  provider: string
+  base_url: string
+  model: string
+  temperature: number
+  max_tokens: number
+  enabled: boolean
+  use_for_judge: boolean
+  use_for_agent: boolean
+  has_api_key: boolean
+  configured?: boolean
+  source?: string
+  presets?: Record<
+    string,
+    {
+      label: string
+      default_base_url?: string
+      default_model?: string
+      needs_key?: boolean
+    }
+  >
+}
+
+export interface UserLlmConfigUpdate {
+  provider?: string
+  base_url?: string
+  model?: string
+  api_key?: string
+  temperature?: number
+  max_tokens?: number
+  enabled?: boolean
+  use_for_judge?: boolean
+  use_for_agent?: boolean
+}
+
 export interface EmailStatus {
   has_email: boolean
   email_address: string
   smtp_configured: boolean
   user_smtp_configured: boolean
   global_smtp_configured: boolean
-  smtp_source: 'user' | 'global' | 'none' | string
+  smtp_source: 'user' | 'global' | 'company' | 'none' | string
+  hint?: string
 }
 
 export interface PushSubscriptionPayload {

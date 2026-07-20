@@ -4,6 +4,8 @@ import type {
   PushSubscriptionPayload,
   SmtpConfig,
   SmtpConfigUpdate,
+  UserLlmConfig,
+  UserLlmConfigUpdate,
   VapidPublicKeyResponse,
 } from '@/types'
 
@@ -47,4 +49,25 @@ export function getSmtpConfig() {
 /** 保存用户 SMTP 配置 */
 export function updateSmtpConfig(data: SmtpConfigUpdate) {
   return request.put<SmtpConfig>('/notifications/smtp-config', data)
+}
+
+/** 读取个人 LLM 配置（api_key 脱敏） */
+export function getLlmConfig() {
+  return request.get<UserLlmConfig>('/notifications/llm-config')
+}
+
+/** 保存个人 LLM；空 api_key 表示不改动 */
+export function updateLlmConfig(data: UserLlmConfigUpdate) {
+  return request.put<UserLlmConfig>('/notifications/llm-config', data)
+}
+
+/** 个人 LLM 连通性测试 */
+export function testLlmConfig() {
+  return request.post<{
+    provider?: string
+    model?: string
+    base_url?: string
+    content?: string
+    source?: string
+  } | null>('/notifications/llm-test')
 }

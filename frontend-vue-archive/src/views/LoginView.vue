@@ -90,14 +90,15 @@ async function handleSubmit() {
         email: registerForm.value.email,
         nickname: registerForm.value.username,
       })
+      // company_join 提示由 authStore 弹出；超配额 409 由 request 拦截器展示
     } else {
       await authStore.login({
         username: loginForm.value.username,
         password: loginForm.value.password,
       })
     }
-  } catch (error: any) {
-    // Error handled by store
+  } catch {
+    // 错误已由 request 拦截器 / store 展示（含名额已满）
   } finally {
     loading.value = false
   }

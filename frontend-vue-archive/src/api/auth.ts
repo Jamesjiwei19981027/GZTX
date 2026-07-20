@@ -6,7 +6,7 @@ export function login(data: LoginRequest) {
   return request.post<AuthResponse>('/auth/login', data)
 }
 
-// 注册
+// 注册（响应可能含 company_join）
 export function register(data: RegisterRequest) {
   return request.post<AuthResponse>('/auth/register', data)
 }

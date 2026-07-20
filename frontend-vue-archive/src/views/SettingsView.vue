@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElInput, ElSelect, ElOption, ElSlider, ElMessage } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
@@ -7,13 +7,16 @@ import { useSoundEffects } from '@/composables/useSoundEffects'
 import type { AccentColor } from '@/composables/useTheme'
 import {
   getEmailStatus,
+  getLlmConfig,
   getSmtpConfig,
   sendTestEmail as sendTestEmailApi,
+  testLlmConfig,
+  updateLlmConfig,
   updateSmtpConfig,
 } from '@/api/notifications'
 import { updateUser } from '@/api/auth'
 import { getErrorMessage } from '@/api/request'
-import type { SmtpConfigUpdate } from '@/types'
+import type { SmtpConfigUpdate, UserLlmConfigUpdate } from '@/types'
 
 const authStore = useAuthStore()
 const { theme, accent, setTheme, setAccent } = useTheme()
@@ -112,6 +115,130 @@ async function sendTestEmail() {
   }
 }
 
+// ─── Personal LLM ────────────────────────────────────────────────────────────
+const llmForm = reactive({
+  provider: 'fake',
+  base_url: '',
+  model: 'fake',
+  api_key: '',
+  temperature: 0.2,
+  max_tokens: 1024,
+  enabled: false,
+  use_for_judge: false,
+  use_for_agent: true,
+})
+const llmPresets = ref<
+  Record<
+    string,
+    {
+      label: string
+      default_base_url?: string
+      default_model?: string
+      needs_key?: boolean
+    }
+  >
+>({})
+const llmLoading = ref(false)
+const llmSaving = ref(false)
+const llmTesting = ref(false)
+const llmConfigured = ref(false)
+const llmHasKey = ref(false)
+
+const llmProviderOptions = computed(() => {
+  const presets = llmPresets.value
+  const keys = Object.keys(presets)
+  if (keys.length) {
+    return keys.map((key) => ({ key, label: presets[key]?.label || key }))
+  }
+  return [
+    { key: 'fake', label: 'Fake（本地桩，无需密钥）' },
+    { key: 'openai', label: 'OpenAI' },
+    { key: 'openai_compatible', label: 'OpenAI 兼容（DeepSeek / 通义 / 自建）' },
+    { key: 'azure_openai', label: 'Azure OpenAI' },
+    { key: 'ollama', label: 'Ollama（本地）' },
+    { key: 'custom', label: '自定义' },
+  ]
+})
+
+function onLlmProviderChange() {
+  const preset = llmPresets.value[llmForm.provider]
+  if (!preset) return
+  if (preset.default_base_url !== undefined) {
+    llmForm.base_url = preset.default_base_url || ''
+  }
+  if (preset.default_model !== undefined) {
+    llmForm.model = preset.default_model || ''
+  }
+}
+
+async function loadLlmConfig() {
+  llmLoading.value = true
+  try {
+    const data = await getLlmConfig()
+    if (data) {
+      llmForm.provider = data.provider || 'fake'
+      llmForm.base_url = data.base_url || ''
+      llmForm.model = data.model || 'fake'
+      llmForm.temperature = data.temperature ?? 0.2
+      llmForm.max_tokens = data.max_tokens ?? 1024
+      llmForm.enabled = !!data.enabled
+      llmForm.use_for_judge = !!data.use_for_judge
+      llmForm.use_for_agent = data.use_for_agent !== false
+      llmForm.api_key = ''
+      llmHasKey.value = !!data.has_api_key
+      llmConfigured.value = !!data.configured
+      if (data.presets) {
+        llmPresets.value = data.presets
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load LLM config:', e)
+  } finally {
+    llmLoading.value = false
+  }
+}
+
+async function saveLlmConfig() {
+  llmSaving.value = true
+  try {
+    const payload: UserLlmConfigUpdate = {
+      provider: llmForm.provider,
+      base_url: llmForm.base_url,
+      model: llmForm.model,
+      temperature: llmForm.temperature,
+      max_tokens: llmForm.max_tokens,
+      enabled: llmForm.enabled,
+      use_for_judge: llmForm.use_for_judge,
+      use_for_agent: llmForm.use_for_agent,
+    }
+    if (llmForm.api_key) {
+      payload.api_key = llmForm.api_key
+    }
+    const result = await updateLlmConfig(payload)
+    llmHasKey.value = result?.has_api_key || !!llmForm.api_key
+    llmConfigured.value = !!result?.configured
+    llmForm.api_key = ''
+    ElMessage.success('个人 LLM 配置已保存')
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '保存失败'))
+  } finally {
+    llmSaving.value = false
+  }
+}
+
+async function sendLlmTest() {
+  llmTesting.value = true
+  try {
+    const r = await testLlmConfig()
+    const snippet = r?.content ? `：${String(r.content).slice(0, 80)}` : ''
+    ElMessage.success(`连通性测试成功${snippet}`)
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, 'LLM 测试失败'))
+  } finally {
+    llmTesting.value = false
+  }
+}
+
 // ─── Accent Colors ─────────────────────────────────────────────────────────────
 const accentColors: { value: AccentColor; colorClass: string; label: string }[] = [
   { value: 'blue', colorClass: 'bg-primary', label: '蓝色' },
@@ -195,6 +322,7 @@ onMounted(async () => {
     }
   }
   await loadSmtpConfig()
+  await loadLlmConfig()
 })
 
 // ─── Methods ──────────────────────────────────────────────────────────────────
@@ -304,8 +432,10 @@ async function handleLogout() {
           <section class="bg-surface rounded-xl p-lg shadow-sm border border-surface-variant">
             <div class="flex items-center justify-between mb-lg">
               <div>
-                <h3 class="font-headline text-headline-sm text-on-surface">邮件服务器</h3>
-                <p class="font-body text-body-sm text-on-surface-variant mt-xs">配置 SMTP 服务器以发送任务提醒邮件</p>
+                <h3 class="font-headline text-headline-sm text-on-surface">个人邮件服务器</h3>
+                <p class="font-body text-body-sm text-on-surface-variant mt-xs">
+                  个人任务提醒等优先用此处 SMTP（含密码，前端可改）。公司欢迎信/协作通知请到「公司设置」配置公司 SMTP。
+                </p>
               </div>
               <span
                 v-if="smtpConfigured"
@@ -369,6 +499,121 @@ async function handleLogout() {
               >
                 <span v-if="smtpSaving" class="material-symbols-outlined text-body-sm animate-spin mr-1">progress_activity</span>
                 {{ smtpSaving ? '保存中...' : '保存配置' }}
+              </button>
+            </div>
+          </section>
+
+          <!-- ── Personal LLM ───────────────────────────────────────────────── -->
+          <section class="bg-surface rounded-xl p-lg shadow-sm border border-surface-variant">
+            <div class="flex items-center justify-between mb-lg">
+              <div>
+                <h3 class="font-headline text-headline-sm text-on-surface">个人 LLM</h3>
+                <p class="font-body text-body-sm text-on-surface-variant mt-xs">
+                  智能体对话优先用此处配置（含 API Key，前端可改）。未启用时回退公司 LLM / 环境变量。
+                  公司级模型请到「公司设置」配置。
+                </p>
+              </div>
+              <span
+                v-if="llmForm.enabled && llmConfigured"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm bg-secondary/10 text-secondary font-label"
+              >
+                <span class="material-symbols-outlined text-[14px]" style="font-variation-settings:'FILL' 1;">check_circle</span>
+                已启用
+              </span>
+              <span
+                v-else-if="llmForm.enabled"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm bg-tertiary/10 text-tertiary font-label"
+              >
+                未就绪
+              </span>
+              <span
+                v-else
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm bg-surface-container-high text-on-surface-variant font-label"
+              >
+                未启用
+              </span>
+            </div>
+
+            <div v-if="llmLoading" class="text-body-sm text-on-surface-variant mb-md">加载中…</div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+              <div class="flex flex-col gap-xs md:col-span-2">
+                <label class="font-label text-label-md text-on-surface-variant">Provider</label>
+                <ElSelect
+                  v-model="llmForm.provider"
+                  class="w-full"
+                  @change="onLlmProviderChange"
+                >
+                  <ElOption
+                    v-for="o in llmProviderOptions"
+                    :key="o.key"
+                    :label="o.label"
+                    :value="o.key"
+                  />
+                </ElSelect>
+              </div>
+              <div class="flex flex-col gap-xs md:col-span-2">
+                <label class="font-label text-label-md text-on-surface-variant">Base URL（OpenAI 兼容 /v1）</label>
+                <ElInput v-model="llmForm.base_url" placeholder="https://api.openai.com/v1" />
+              </div>
+              <div class="flex flex-col gap-xs">
+                <label class="font-label text-label-md text-on-surface-variant">Model</label>
+                <ElInput v-model="llmForm.model" placeholder="gpt-4o-mini" />
+              </div>
+              <div class="flex flex-col gap-xs">
+                <label class="font-label text-label-md text-on-surface-variant">
+                  API Key
+                  <span v-if="llmHasKey" class="text-secondary ml-1">(已设置，留空保持不变)</span>
+                </label>
+                <ElInput
+                  v-model="llmForm.api_key"
+                  type="password"
+                  show-password
+                  autocomplete="new-password"
+                  :placeholder="llmHasKey ? '已保存，留空不修改' : 'sk-…'"
+                />
+              </div>
+              <div class="flex flex-col gap-xs">
+                <label class="font-label text-label-md text-on-surface-variant">Temperature</label>
+                <ElInput v-model.number="llmForm.temperature" type="number" :min="0" :max="2" :step="0.1" />
+              </div>
+              <div class="flex flex-col gap-xs">
+                <label class="font-label text-label-md text-on-surface-variant">Max tokens</label>
+                <ElInput v-model.number="llmForm.max_tokens" type="number" :min="64" :max="32000" />
+              </div>
+            </div>
+
+            <div class="flex flex-wrap gap-lg mt-md">
+              <label class="inline-flex items-center gap-xs font-label text-label-md text-on-surface cursor-pointer">
+                <input v-model="llmForm.enabled" type="checkbox" class="rounded" />
+                启用个人 LLM
+              </label>
+              <label class="inline-flex items-center gap-xs font-label text-label-md text-on-surface cursor-pointer">
+                <input v-model="llmForm.use_for_agent" type="checkbox" class="rounded" />
+                用于智能体
+              </label>
+              <label class="inline-flex items-center gap-xs font-label text-label-md text-on-surface cursor-pointer">
+                <input v-model="llmForm.use_for_judge" type="checkbox" class="rounded" />
+                用于材料判定
+              </label>
+            </div>
+
+            <div class="flex items-center gap-sm mt-lg justify-end">
+              <button
+                class="px-md py-sm border border-outline text-on-surface rounded-lg font-label text-label-md hover:bg-surface-container-low transition-all"
+                :disabled="llmTesting || !llmForm.enabled"
+                @click="sendLlmTest"
+              >
+                <span v-if="llmTesting" class="material-symbols-outlined text-body-sm animate-spin mr-1">progress_activity</span>
+                {{ llmTesting ? '测试中...' : '连通性测试' }}
+              </button>
+              <button
+                class="px-lg py-sm bg-primary text-on-primary rounded-lg font-label text-label-md hover:opacity-90 transition-all"
+                :disabled="llmSaving"
+                @click="saveLlmConfig"
+              >
+                <span v-if="llmSaving" class="material-symbols-outlined text-body-sm animate-spin mr-1">progress_activity</span>
+                {{ llmSaving ? '保存中...' : '保存配置' }}
               </button>
             </div>
           </section>

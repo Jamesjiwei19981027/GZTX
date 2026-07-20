@@ -51,6 +51,21 @@ const routes: RouteRecordRaw[] = [
         name: 'Settings',
         component: () => import('@/views/SettingsView.vue'),
       },
+      {
+        path: 'projects',
+        name: 'ProjectList',
+        component: () => import('@/views/ProjectListView.vue'),
+      },
+      {
+        path: 'projects/:id',
+        name: 'ProjectDetail',
+        component: () => import('@/views/ProjectDetailView.vue'),
+      },
+      {
+        path: 'company/settings',
+        name: 'CompanySettings',
+        component: () => import('@/views/CompanySettingsView.vue'),
+      },
       // 旧 Mock 路由兼容跳转
       { path: 'inbox', redirect: '/dashboard' },
       { path: 'kanban', redirect: '/tasks' },
