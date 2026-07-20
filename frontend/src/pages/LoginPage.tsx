@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Form, Input, Button, Checkbox, message } from 'antd'
-import { UserOutlined, LockOutlined, MailOutlined, MobileOutlined, SafetyOutlined } from '@ant-design/icons'
+import { UserOutlined, LockOutlined, MailOutlined, SafetyOutlined } from '@ant-design/icons'
 import { useAuthStore } from '@/stores/auth'
 import { sendRegisterCode } from '@/api/auth'
 import { useSendCode } from '@/hooks/useSendCode'
@@ -21,8 +21,6 @@ type RegisterFormValues = {
   username: string
   email: string
   emailCode: string
-  phone: string
-  phoneCode: string
   password: string
   confirmPassword: string
 }
@@ -43,7 +41,6 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
   const [submitting, setSubmitting] = useState(false)
 
   const emailCodeSender = useSendCode((target) => sendRegisterCode('email', target))
-  const phoneCodeSender = useSendCode((target) => sendRegisterCode('sms', target))
 
   useEffect(() => {
     if (getToken()) {
@@ -81,13 +78,12 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
         username: values.username,
         password: values.password,
         email: values.email,
-        phone: values.phone,
         email_code: values.emailCode,
-        phone_code: values.phoneCode,
         nickname: values.username,
       })
-      // company_join tip already shown by auth store
-      navigate('/dashboard', { replace: true })
+      // 注册后进入受限态，由 RequireVerified 引导绑定手机
+      message.info('注册成功，请绑定手机号以解锁全部功能')
+      navigate('/verify', { replace: true })
     } catch (err) {
       message.error(getErrorMessage(err, '注册失败'))
     } finally {
@@ -298,43 +294,6 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
                         }}
                       >
                         {emailCodeSender.countdown > 0 ? `${emailCodeSender.countdown}s` : '获取验证码'}
-                      </Button>
-                    </div>
-                  </Form.Item>
-
-                  <Form.Item
-                    label="手机号"
-                    name="phone"
-                    rules={[
-                      { required: true, message: '请输入手机号' },
-                      { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号' },
-                    ]}
-                  >
-                    <Input prefix={<MobileOutlined />} placeholder="请输入手机号" autoComplete="tel" />
-                  </Form.Item>
-
-                  <Form.Item label="短信验证码" required>
-                    <div className="flex gap-sm">
-                      <Form.Item
-                        name="phoneCode"
-                        noStyle
-                        rules={[{ required: true, message: '请输入短信验证码' }]}
-                      >
-                        <Input prefix={<SafetyOutlined />} placeholder="6 位验证码" maxLength={6} />
-                      </Form.Item>
-                      <Button
-                        loading={phoneCodeSender.sending}
-                        disabled={phoneCodeSender.countdown > 0}
-                        onClick={async () => {
-                          try {
-                            await registerForm.validateFields(['phone'])
-                          } catch {
-                            return
-                          }
-                          void phoneCodeSender.send(registerForm.getFieldValue('phone'))
-                        }}
-                      >
-                        {phoneCodeSender.countdown > 0 ? `${phoneCodeSender.countdown}s` : '获取验证码'}
                       </Button>
                     </div>
                   </Form.Item>

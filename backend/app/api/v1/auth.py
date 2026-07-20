@@ -92,11 +92,10 @@ async def register(data: UserRegister, db: DbSession):
 
     phone = normalize_target("sms", data.phone or "")
 
+    # 注册只验邮箱（降低表单摩擦）；手机在登录后受限态引导绑定
     if settings.REGISTER_VERIFICATION_REQUIRED:
         if not data.email or not data.email_code:
             raise HTTPException(status_code=422, detail="需要邮箱及邮箱验证码")
-        if not phone or not data.phone_code:
-            raise HTTPException(status_code=422, detail="需要手机号及短信验证码")
 
     # 检查邮箱是否已存在
     if data.email:
@@ -116,7 +115,7 @@ async def register(data: UserRegister, db: DbSession):
                 detail="手机号已注册",
             )
 
-    # 核销双验证码（任一失败即拒绝，用户未创建）
+    # 核销邮箱验证码（失败即拒绝，用户未创建）；手机码为可选（提供则一并核销）
     email_verified_at = None
     phone_verified_at = None
     if settings.REGISTER_VERIFICATION_REQUIRED:
@@ -126,13 +125,14 @@ async def register(data: UserRegister, db: DbSession):
             await consume_code(
                 db, channel="email", target=str(data.email), code=data.email_code or ""
             )
-            await consume_code(
-                db, channel="sms", target=phone, code=data.phone_code or ""
-            )
+            email_verified_at = datetime.utcnow()
+            if phone and data.phone_code:
+                await consume_code(
+                    db, channel="sms", target=phone, code=data.phone_code
+                )
+                phone_verified_at = datetime.utcnow()
         except VerificationError as e:
             raise HTTPException(status_code=422, detail=str(e)) from e
-        email_verified_at = datetime.utcnow()
-        phone_verified_at = datetime.utcnow()
 
     # 创建用户
     user = User(

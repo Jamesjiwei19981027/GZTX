@@ -132,6 +132,58 @@ async def test_bind_flow_completes_verification(client: AsyncClient, db_session,
 
 
 @pytest.mark.asyncio
+async def test_email_register_then_phone_bind_unlocks(client: AsyncClient, monkeypatch):
+    """新流程全链路：邮箱码注册 → 建任务被 40320 拦 → 绑手机 → 解锁"""
+    monkeypatch.setattr(settings, "DEBUG", True)
+
+    r = await client.post(
+        "/api/v1/auth/send-code",
+        json={"channel": "email", "target": "flowuser@example.com"},
+    )
+    email_code = r.json()["data"]["debug_code"]
+    r = await client.post(
+        "/api/v1/auth/register",
+        json={
+            "username": "flowuser",
+            "password": "password123",
+            "email": "flowuser@example.com",
+            "email_code": email_code,
+        },
+    )
+    assert r.status_code in (200, 201), r.text
+    token = r.json()["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # 受限：建任务被拦
+    blocked = await client.post(
+        "/api/v1/tasks", headers=headers, json={"title": "blocked"}
+    )
+    assert blocked.status_code == 403
+    assert blocked.json()["detail"]["code"] == 40320
+
+    # 绑手机
+    r = await client.post(
+        "/api/v1/users/me/verification/send-code",
+        headers=headers,
+        json={"channel": "sms", "target": "13911110009"},
+    )
+    code = r.json()["data"]["debug_code"]
+    r = await client.post(
+        "/api/v1/users/me/verification/confirm",
+        headers=headers,
+        json={"channel": "sms", "target": "13911110009", "code": code},
+    )
+    assert r.status_code == 200
+    assert r.json()["data"]["is_verified"] is True
+
+    # 解锁
+    allowed = await client.post(
+        "/api/v1/tasks", headers=headers, json={"title": "unlocked"}
+    )
+    assert allowed.status_code == 201
+
+
+@pytest.mark.asyncio
 async def test_wx_fake_phone_bind(client: AsyncClient, db_session, monkeypatch):
     """DEBUG 下 fake:code 绑定手机号"""
     monkeypatch.setattr(settings, "DEBUG", True)

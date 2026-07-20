@@ -30,10 +30,11 @@ export interface RegisterRequest {
   username: string
   password: string
   email: string
-  phone: string
   email_code: string
-  phone_code: string
   nickname: string
+  /** 可选：注册时顺带验手机（默认登录后引导绑定） */
+  phone?: string
+  phone_code?: string
 }
 
 /** 验证码发送结果（DEBUG 环境带 debug_code） */

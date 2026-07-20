@@ -120,28 +120,35 @@ export default function VerifyPage() {
     }
   }
 
+  const emailDone = status?.email_verified ?? false
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-container-low p-lg">
       <div className="max-w-[480px] w-full flex flex-col gap-lg">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-on-surface mb-xs">完成账号验证</h2>
+          <h2 className="text-2xl font-bold text-on-surface mb-xs">绑定手机号</h2>
           <p className="text-on-surface-variant m-0">
-            为保障账号安全，需完成邮箱与手机双重验证后才能使用全部功能
+            {emailDone
+              ? '还差一步：绑定手机号后即可使用全部功能'
+              : '需完成邮箱与手机验证后才能使用全部功能'}
           </p>
         </div>
 
-        <ChannelCard
-          channel="email"
-          boundTarget={status?.email || ''}
-          verified={status?.email_verified ?? false}
-          onVerified={(st) => void handleVerified(st)}
-        />
         <ChannelCard
           channel="sms"
           boundTarget={status?.phone || ''}
           verified={status?.phone_verified ?? false}
           onVerified={(st) => void handleVerified(st)}
         />
+        {/* 邮箱通常在注册时已验证；微信登录等无邮箱账号才需要补验 */}
+        {!emailDone && (
+          <ChannelCard
+            channel="email"
+            boundTarget={status?.email || ''}
+            verified={emailDone}
+            onVerified={(st) => void handleVerified(st)}
+          />
+        )}
 
         <Button type="link" onClick={() => void logout().then(() => navigate('/login'))}>
           退出登录

@@ -10,7 +10,7 @@ from pydantic import BaseModel, EmailStr, field_validator
 # ===== 请求模型 =====
 
 class UserRegister(BaseModel):
-    """用户注册请求（REGISTER_VERIFICATION_REQUIRED 时邮箱/手机及验证码必填）"""
+    """用户注册请求（REGISTER_VERIFICATION_REQUIRED 时邮箱+邮箱验证码必填；手机登录后绑定）"""
     username: str
     password: str
     email: Optional[EmailStr] = None
