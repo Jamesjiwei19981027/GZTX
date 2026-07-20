@@ -40,20 +40,22 @@ test.describe('WorkTodo smoke (S1–S8)', () => {
     // Create via sidebar primary CTA
     await page.getByRole('button', { name: '新建任务' }).first().click()
     await expect(page).toHaveURL(/\/tasks\/new/)
-    await expect(page.getByRole('heading', { name: '新建任务' })).toBeVisible()
+    // 页头 h2 与表单卡片 h3 同名，取页头
+    await expect(page.getByRole('heading', { name: '新建任务', level: 2 })).toBeVisible()
 
     await page.getByLabel('任务标题').fill(taskTitle)
     await page.getByRole('button', { name: '创建任务' }).click()
 
-    // After create: detail route with title as heading
-    await expect(page).toHaveURL(/\/tasks\/\d+/, { timeout: 30_000 })
-    await expect(page.getByRole('heading', { name: taskTitle })).toBeVisible({ timeout: 15_000 })
-
-    // List should show the task
-    await page.getByRole('link', { name: /我的任务/ }).click()
-    await expect(page).toHaveURL(/\/tasks/)
+    // After create the app navigates back to the list (TaskDetailPage handleCreate → navigate('/tasks'))
+    await expect(page).toHaveURL(/\/tasks$/, { timeout: 30_000 })
     await expect(page.getByRole('heading', { name: '我的任务' })).toBeVisible()
     await expect(page.getByText(taskTitle)).toBeVisible({ timeout: 15_000 })
+
+    // Open detail drawer by clicking the task row
+    await page.getByText(taskTitle).first().click()
+    await expect(page.getByRole('heading', { name: taskTitle }).or(page.locator('.ant-drawer').getByText(taskTitle)).first()).toBeVisible({
+      timeout: 15_000,
+    })
   })
 
   test('S3: calendar page loads (task entry if due today)', async ({ page }) => {
@@ -61,9 +63,9 @@ test.describe('WorkTodo smoke (S1–S8)', () => {
 
     await page.getByRole('link', { name: /日历/ }).click()
     await expect(page).toHaveURL(/\/calendar/)
-    // Month chrome: 「今天」 button + weekday headers
-    await expect(page.getByRole('button', { name: '今天' })).toBeVisible()
-    await expect(page.getByText('周日').or(page.getByText('周一'))).toBeVisible()
+    // Month chrome: 「今天」 button + weekday headers（antd 两字按钮含空格）
+    await expect(page.getByRole('button', { name: /今\s*天/ })).toBeVisible()
+    await expect(page.getByText('周日', { exact: true }).first()).toBeVisible()
     // No fatal empty crash — main calendar grid present
     await expect(page.locator('.grid.grid-cols-7').first()).toBeVisible()
   })
@@ -155,8 +157,8 @@ test.describe('WorkTodo smoke (S1–S8)', () => {
     await firstCard.click()
     await expect(page).toHaveURL(/\/projects\/\d+/, { timeout: 20_000 })
 
-    // Outline tab default
-    await expect(page.getByRole('button', { name: '大纲' })).toBeVisible()
+    // Outline tab default（antd 两字按钮含空格）
+    await expect(page.getByRole('button', { name: /大\s*纲/ })).toBeVisible()
     await expect(page.getByRole('button', { name: '关系图' })).toBeVisible()
 
     // Select a tree node if present
@@ -191,7 +193,7 @@ test.describe('WorkTodo smoke (S1–S8)', () => {
     await page.getByRole('link', { name: /公司/ }).click()
     await expect(page).toHaveURL(/\/company\/settings/)
     await expect(page.getByRole('heading', { name: '公司设置' })).toBeVisible()
-    await expect(page.getByText(/策略|登录|存储|组织/)).toBeVisible()
+    await expect(page.getByText(/策略|存储|组织/).first()).toBeVisible()
   })
 
   test('S8: logout → protected URL redirects to login', async ({ page }) => {

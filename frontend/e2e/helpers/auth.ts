@@ -30,7 +30,8 @@ export async function loginAsE2EUser(page: Page): Promise<void> {
   await page.getByLabel('用户名').fill(username)
   await page.getByLabel('密码', { exact: true }).fill(password)
   // Prefer form submit over the tab toggle button also named「登录」
-  await page.locator('form').getByRole('button', { name: '登录' }).click()
+  // antd 对两字按钮自动插空格（「登 录」），用正则兼容
+  await page.locator('form').getByRole('button', { name: /登\s*录/ }).click()
 
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 30_000 })
   await expect(page.getByRole('heading', { name: '今日工作总览' })).toBeVisible({
