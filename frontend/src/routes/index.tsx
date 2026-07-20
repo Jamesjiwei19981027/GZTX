@@ -2,6 +2,9 @@ import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { RequireAuth } from './RequireAuth'
 import SidebarLayout from '@/layouts/SidebarLayout'
 import LoginPage from '@/pages/LoginPage'
+import DashboardPage from '@/pages/DashboardPage'
+import TaskListPage from '@/pages/TaskListPage'
+import TaskDetailPage from '@/pages/TaskDetailPage'
 
 function Placeholder({ title }: { title: string }) {
   return <div className="p-6 font-body text-body-md text-on-surface">{title}</div>
@@ -19,10 +22,10 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
-      { path: 'dashboard', element: <Placeholder title="Dashboard" /> },
-      { path: 'tasks', element: <Placeholder title="Tasks" /> },
-      { path: 'tasks/new', element: <Placeholder title="TaskCreate" /> },
-      { path: 'tasks/:id', element: <Placeholder title="TaskDetail" /> },
+      { path: 'dashboard', element: <DashboardPage /> },
+      { path: 'tasks', element: <TaskListPage /> },
+      { path: 'tasks/new', element: <TaskDetailPage /> },
+      { path: 'tasks/:id', element: <TaskDetailPage /> },
       { path: 'calendar', element: <Placeholder title="Calendar" /> },
       { path: 'settings', element: <Placeholder title="Settings" /> },
       { path: 'projects', element: <Placeholder title="Projects" /> },
