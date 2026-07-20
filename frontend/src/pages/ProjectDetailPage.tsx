@@ -11,9 +11,12 @@ import {
 import { getErrorMessage } from '@/api/request'
 import { getStoredCompanyId } from '@/hooks/useCompanyContext'
 import OutlineTree from '@/components/project/OutlineTree'
+import ProjectFlowView from '@/components/project/ProjectFlowView'
 import EvidencePanel from '@/components/project/EvidencePanel'
 import AgentChatDrawer from '@/components/project/AgentChatDrawer'
 import type { EvidencePackageDTO, ProgressRecordDTO, ProjectDTO, TreeNodeDTO } from '@/types/collab'
+
+type TreeViewTab = 'outline' | 'flow'
 
 function findFirstWorkItem(nodes: TreeNodeDTO[]): TreeNodeDTO | null {
   for (const n of nodes) {
@@ -39,6 +42,8 @@ export default function ProjectDetailPage() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const [newTitle, setNewTitle] = useState('')
   const [chatOpen, setChatOpen] = useState(false)
+  /** Dual view: 大纲 (default) | 关系图 — shared selected node */
+  const [treeTab, setTreeTab] = useState<TreeViewTab>('outline')
 
   const selectedRef = useRef<TreeNodeDTO | null>(null)
   selectedRef.current = selected
@@ -154,10 +159,48 @@ export default function ProjectDetailPage() {
             智能体
           </button>
         </div>
-        {loading ? (
-          <div className="text-sm text-on-surface-variant">加载中…</div>
+        <div className="mb-3 flex gap-1 rounded-lg bg-surface-container-low p-0.5">
+          <button
+            type="button"
+            className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${
+              treeTab === 'outline'
+                ? 'bg-surface text-primary font-medium shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+            onClick={() => setTreeTab('outline')}
+          >
+            大纲
+          </button>
+          <button
+            type="button"
+            className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${
+              treeTab === 'flow'
+                ? 'bg-surface text-primary font-medium shadow-sm'
+                : 'text-on-surface-variant hover:text-on-surface'
+            }`}
+            onClick={() => setTreeTab('flow')}
+          >
+            关系图
+          </button>
+        </div>
+        {treeTab === 'outline' ? (
+          loading ? (
+            <div className="text-sm text-on-surface-variant">加载中…</div>
+          ) : (
+            <OutlineTree
+              nodes={tree}
+              selectedId={selected?.id}
+              onSelect={(n) => void selectNode(n)}
+            />
+          )
         ) : (
-          <OutlineTree nodes={tree} selectedId={selected?.id} onSelect={(n) => void selectNode(n)} />
+          <ProjectFlowView
+            nodes={tree}
+            selectedId={selected?.id}
+            onSelect={(n) => void selectNode(n)}
+            loading={loading}
+            error={loadError && tree.length === 0 ? loadError : null}
+          />
         )}
         <div className="mt-4 flex gap-2">
           <input
