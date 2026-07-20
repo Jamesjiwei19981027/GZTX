@@ -9,10 +9,7 @@ import CalendarPage from '@/pages/CalendarPage'
 import SettingsPage from '@/pages/SettingsPage'
 import ProjectListPage from '@/pages/ProjectListPage'
 import ProjectDetailPage from '@/pages/ProjectDetailPage'
-
-function Placeholder({ title }: { title: string }) {
-  return <div className="p-6 font-body text-body-md text-on-surface">{title}</div>
-}
+import CompanySettingsPage from '@/pages/CompanySettingsPage'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -34,7 +31,7 @@ export const router = createBrowserRouter([
       { path: 'settings', element: <SettingsPage /> },
       { path: 'projects', element: <ProjectListPage /> },
       { path: 'projects/:id', element: <ProjectDetailPage /> },
-      { path: 'company/settings', element: <Placeholder title="CompanySettings" /> },
+      { path: 'company/settings', element: <CompanySettingsPage /> },
       { path: 'inbox', element: <Navigate to="/dashboard" replace /> },
       { path: 'kanban', element: <Navigate to="/tasks" replace /> },
       { path: 'chat', element: <Navigate to="/dashboard" replace /> },
