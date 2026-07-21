@@ -10,11 +10,25 @@ import {
   updateLlmConfig,
   updateSmtpConfig,
 } from '@/api/notifications'
+import {
+  createAgent,
+  deleteAgent,
+  listAgents,
+  updateAgent,
+} from '@/api/collab'
 import { updateUser } from '@/api/auth'
 import { getErrorMessage } from '@/api/request'
 import { useAuthStore } from '@/stores/auth'
+import { useCompanyContext } from '@/hooks/useCompanyContext'
 import { useTheme, type AccentColor, type ThemeMode } from '@/hooks/useTheme'
 import type { SmtpConfigUpdate, UserLlmConfigUpdate } from '@/types'
+import type { AgentDefinitionDTO } from '@/types/collab'
+
+const AGENT_SCENE_OPTIONS = [
+  { value: 'general', label: '通用助手' },
+  { value: 'progress_update', label: '进度更新' },
+  { value: 'pm', label: '项目经理' },
+]
 
 type LlmPreset = {
   label: string
@@ -48,6 +62,7 @@ const THEME_OPTIONS: { value: ThemeMode; icon: string; label: string }[] = [
 export default function SettingsPage() {
   const fetchCurrentUser = useAuthStore((s) => s.fetchCurrentUser)
   const user = useAuthStore((s) => s.user)
+  const { companyId, ensureCompanyContext } = useCompanyContext()
   const { theme, accent, setTheme, setAccent } = useTheme()
 
   // ── Profile ───────────────────────────────────────────────────────────────
@@ -84,6 +99,17 @@ export default function SettingsPage() {
   const [llmLoading, setLlmLoading] = useState(false)
   const [llmSaving, setLlmSaving] = useState(false)
   const [llmTesting, setLlmTesting] = useState(false)
+
+  // ── Personal agents ───────────────────────────────────────────────────────
+  const [agents, setAgents] = useState<AgentDefinitionDTO[]>([])
+  const [agentsLoading, setAgentsLoading] = useState(false)
+  const [agentSaving, setAgentSaving] = useState(false)
+  const [editingAgentId, setEditingAgentId] = useState<number | null>(null)
+  const [agentName, setAgentName] = useState('')
+  const [agentScene, setAgentScene] = useState('general')
+  const [agentPrompt, setAgentPrompt] = useState(
+    '你是 WorkTodo 协作助手。简洁中文回答。用户可用 [node:ID] 引用节点。',
+  )
 
   const llmProviderOptions = useMemo(() => {
     const keys = Object.keys(llmPresets)
@@ -141,9 +167,35 @@ export default function SettingsPage() {
     }
   }, [])
 
+  const resetAgentForm = useCallback(() => {
+    setEditingAgentId(null)
+    setAgentName('')
+    setAgentScene('general')
+    setAgentPrompt('你是 WorkTodo 协作助手。简洁中文回答。用户可用 [node:ID] 引用节点。')
+  }, [])
+
+  const loadAgents = useCallback(async () => {
+    setAgentsLoading(true)
+    try {
+      const cid = companyId || (await ensureCompanyContext())
+      if (!cid) {
+        setAgents([])
+        return
+      }
+      const data = await listAgents(cid)
+      setAgents(data?.items || [])
+    } catch (e) {
+      console.error('Failed to load agents:', e)
+      setAgents([])
+    } finally {
+      setAgentsLoading(false)
+    }
+  }, [companyId, ensureCompanyContext])
+
   useEffect(() => {
     void loadSmtp()
     void loadLlm()
+    void loadAgents()
     void (async () => {
       const u = user ?? (await fetchCurrentUser())
       if (u) {
@@ -153,7 +205,7 @@ export default function SettingsPage() {
     })()
     // Initial hydrate only (archive onMounted)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- avoid clobbering edits on user store updates
-  }, [loadSmtp, loadLlm])
+  }, [loadSmtp, loadLlm, loadAgents])
 
   async function handleSaveProfile() {
     setProfileSaving(true)
@@ -247,6 +299,72 @@ export default function SettingsPage() {
     }
   }
 
+  function startEditAgent(agent: AgentDefinitionDTO) {
+    if (agent.kind !== 'user_created') {
+      message.info('公司级智能体暂不支持在此编辑')
+      return
+    }
+    setEditingAgentId(agent.id)
+    setAgentName(agent.name)
+    setAgentScene(agent.scene || 'general')
+    setAgentPrompt(
+      agent.system_prompt ||
+        '你是 WorkTodo 协作助手。简洁中文回答。用户可用 [node:ID] 引用节点。',
+    )
+  }
+
+  async function handleSaveAgent() {
+    const name = agentName.trim()
+    if (!name) {
+      message.warning('请填写智能体名称')
+      return
+    }
+    const cid = companyId || (await ensureCompanyContext())
+    if (!cid) {
+      message.warning('请先加入或选择公司')
+      return
+    }
+    setAgentSaving(true)
+    try {
+      if (editingAgentId) {
+        await updateAgent(editingAgentId, {
+          name,
+          scene: agentScene,
+          system_prompt: agentPrompt.trim(),
+        })
+        message.success('智能体已更新')
+      } else {
+        await createAgent({
+          company_id: cid,
+          name,
+          scene: agentScene,
+          system_prompt: agentPrompt.trim(),
+        })
+        message.success('智能体已创建')
+      }
+      resetAgentForm()
+      await loadAgents()
+    } catch (e) {
+      message.error(getErrorMessage(e, '保存智能体失败'))
+    } finally {
+      setAgentSaving(false)
+    }
+  }
+
+  async function handleDeleteAgent(agentId: number) {
+    setAgentSaving(true)
+    try {
+      await deleteAgent(agentId)
+      message.success('智能体已删除')
+      if (editingAgentId === agentId) resetAgentForm()
+      await loadAgents()
+    } catch (e) {
+      message.error(getErrorMessage(e, '删除失败'))
+    } finally {
+      setAgentSaving(false)
+    }
+  }
+
   async function handleTestLlm() {
     setLlmTesting(true)
     try {
@@ -266,7 +384,7 @@ export default function SettingsPage() {
         <header className="mb-xl">
           <h1 className="font-headline text-headline-lg text-on-surface mb-xs">设置</h1>
           <p className="font-body text-body-md text-on-surface-variant">
-            管理个人资料、外观、邮件服务器与个人 LLM 配置。
+                  管理个人资料、外观、邮件、个人智能体与 LLM 配置。
           </p>
         </header>
 
@@ -441,13 +559,129 @@ export default function SettingsPage() {
             </Spin>
           </section>
 
+          {/* ── Personal Agents ───────────────────────────────────────────── */}
+          <section className="bg-surface rounded-xl p-lg shadow-sm border border-surface-variant">
+            <div className="flex items-center justify-between mb-lg flex-wrap gap-sm">
+              <div>
+                <h3 className="font-headline text-headline-sm text-on-surface">个人智能体</h3>
+                <p className="font-body text-body-sm text-on-surface-variant mt-xs">
+                  创建最多 5 个个人智能体（名称、场景、系统提示词）。对话时在侧栏选择；模型通道见下方「个人 LLM」。
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm bg-primary/10 text-primary font-label">
+                {agents.filter((a) => a.kind === 'user_created').length}/5
+              </span>
+            </div>
+
+            <Spin spinning={agentsLoading}>
+              <div className="space-y-sm mb-lg">
+                {agents.length === 0 ? (
+                  <p className="text-body-sm text-on-surface-variant">暂无智能体，可在下方创建。</p>
+                ) : (
+                  agents.map((a) => (
+                    <div
+                      key={a.id}
+                      className="flex items-center justify-between gap-sm flex-wrap rounded-lg border border-surface-variant px-md py-sm"
+                    >
+                      <div className="min-w-0">
+                        <div className="font-label text-label-md text-on-surface truncate">
+                          {a.name}
+                          <span className="ml-2 text-on-surface-variant font-normal">
+                            · {AGENT_SCENE_OPTIONS.find((o) => o.value === a.scene)?.label || a.scene}
+                          </span>
+                        </div>
+                        <p className="text-xs text-on-surface-variant truncate max-w-xl">
+                          {a.system_prompt || '默认提示词'}
+                        </p>
+                      </div>
+                      {a.kind === 'user_created' ? (
+                        <div className="flex gap-sm shrink-0">
+                          <button
+                            type="button"
+                            className="px-sm py-xs text-label-sm text-primary hover:underline"
+                            onClick={() => startEditAgent(a)}
+                          >
+                            编辑
+                          </button>
+                          <button
+                            type="button"
+                            className="px-sm py-xs text-label-sm text-error hover:underline disabled:opacity-50"
+                            disabled={agentSaving}
+                            onClick={() => void handleDeleteAgent(a.id)}
+                          >
+                            删除
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-on-surface-variant">公司级</span>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-md border-t border-surface-variant pt-lg">
+                <div className="flex flex-col gap-xs">
+                  <label className="font-label text-label-md text-on-surface-variant">
+                    {editingAgentId ? '编辑名称' : '新建名称'}
+                  </label>
+                  <Input
+                    value={agentName}
+                    onChange={(e) => setAgentName(e.target.value)}
+                    placeholder="例如：进度澄清助手"
+                    maxLength={200}
+                  />
+                </div>
+                <div className="flex flex-col gap-xs">
+                  <label className="font-label text-label-md text-on-surface-variant">场景</label>
+                  <Select
+                    className="w-full"
+                    value={agentScene}
+                    options={AGENT_SCENE_OPTIONS}
+                    onChange={setAgentScene}
+                  />
+                </div>
+                <div className="flex flex-col gap-xs md:col-span-2">
+                  <label className="font-label text-label-md text-on-surface-variant">系统提示词</label>
+                  <Input.TextArea
+                    rows={3}
+                    value={agentPrompt}
+                    onChange={(e) => setAgentPrompt(e.target.value)}
+                    placeholder="定义该智能体的角色与回答风格"
+                    maxLength={4000}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-sm mt-lg justify-end flex-wrap">
+                {editingAgentId ? (
+                  <button
+                    type="button"
+                    className="px-md py-sm border border-outline text-on-surface rounded-lg font-label text-label-md hover:bg-surface-container-low transition-all"
+                    onClick={resetAgentForm}
+                  >
+                    取消编辑
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="px-lg py-sm bg-primary text-on-primary rounded-lg font-label text-label-md hover:opacity-90 transition-all disabled:opacity-50"
+                  disabled={agentSaving}
+                  onClick={() => void handleSaveAgent()}
+                >
+                  {agentSaving ? '保存中...' : editingAgentId ? '保存智能体' : '创建智能体'}
+                </button>
+              </div>
+            </Spin>
+          </section>
+
           {/* ── Personal LLM ──────────────────────────────────────────────── */}
           <section className="bg-surface rounded-xl p-lg shadow-sm border border-surface-variant">
             <div className="flex items-center justify-between mb-lg flex-wrap gap-sm">
               <div>
-                <h3 className="font-headline text-headline-sm text-on-surface">个人 LLM</h3>
+                <h3 className="font-headline text-headline-sm text-on-surface">个人 LLM（模型通道）</h3>
                 <p className="font-body text-body-sm text-on-surface-variant mt-xs">
-                  智能体对话优先用此处配置。API Key 留空表示不修改已保存密钥。Fake 提供商可直接测连通。
+                  智能体对话优先用此处模型。开启「用于智能体」后生效。API Key 留空表示不修改已保存密钥。
                 </p>
               </div>
               {llmEnabled && llmConfigured ? (

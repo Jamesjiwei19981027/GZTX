@@ -108,3 +108,52 @@ async def test_chat_tool_slash(async_client, seed_ids):
     )
     assert r.status_code == 200
     assert "get_node" in r.json()["data"]["reply"]
+
+
+@pytest.mark.asyncio
+async def test_agent_update_and_delete(async_client, seed_ids):
+    created = await async_client.post(
+        "/api/v1/agents",
+        json={
+            "company_id": seed_ids["company_id"],
+            "name": "可配置助手",
+            "scene": "general",
+            "system_prompt": "你是进度助手，只谈进度。",
+        },
+        headers=seed_ids["member_headers"],
+    )
+    assert created.json()["code"] == 200, created.text
+    agent_id = created.json()["data"]["id"]
+    assert created.json()["data"]["system_prompt"] == "你是进度助手，只谈进度。"
+
+    patched = await async_client.patch(
+        f"/api/v1/agents/{agent_id}",
+        json={"name": "进度助手-改", "scene": "progress_update", "system_prompt": "只汇报百分比。"},
+        headers=seed_ids["member_headers"],
+    )
+    assert patched.json()["code"] == 200, patched.text
+    assert patched.json()["data"]["name"] == "进度助手-改"
+    assert patched.json()["data"]["scene"] == "progress_update"
+    assert patched.json()["data"]["system_prompt"] == "只汇报百分比。"
+
+    listed = await async_client.get(
+        "/api/v1/agents",
+        params={"company_id": seed_ids["company_id"]},
+        headers=seed_ids["member_headers"],
+    )
+    assert listed.json()["code"] == 200
+    ids = {a["id"] for a in listed.json()["data"]["items"]}
+    assert agent_id in ids
+
+    deleted = await async_client.delete(
+        f"/api/v1/agents/{agent_id}",
+        headers=seed_ids["member_headers"],
+    )
+    assert deleted.json()["code"] == 200
+    listed2 = await async_client.get(
+        "/api/v1/agents",
+        params={"company_id": seed_ids["company_id"]},
+        headers=seed_ids["member_headers"],
+    )
+    ids2 = {a["id"] for a in listed2.json()["data"]["items"]}
+    assert agent_id not in ids2

@@ -77,8 +77,9 @@ export function uploadLicense(
 }
 
 export function listProjects(companyId: number, params?: { page?: number; status?: string }) {
+  // as_admin：超管/组织负责人可见公司全部项目（后端对普通成员自动降级为“我参与的”）
   return request.get<PageData<ProjectDTO>>('/projects', {
-    params: { company_id: companyId, ...params },
+    params: { company_id: companyId, as_admin: true, ...params },
   })
 }
 
@@ -166,8 +167,24 @@ export function listAgents(companyId: number) {
   })
 }
 
-export function createAgent(body: { company_id: number; name: string; scene?: string }) {
+export function createAgent(body: {
+  company_id: number
+  name: string
+  scene?: string
+  system_prompt?: string
+}) {
   return request.post<AgentDefinitionDTO>('/agents', body)
+}
+
+export function updateAgent(
+  agentId: number,
+  body: { name?: string; scene?: string; system_prompt?: string },
+) {
+  return request.patch<AgentDefinitionDTO>(`/agents/${agentId}`, body)
+}
+
+export function deleteAgent(agentId: number) {
+  return request.delete<{ id: number; deleted: boolean }>(`/agents/${agentId}`)
 }
 
 export function agentChat(body: {

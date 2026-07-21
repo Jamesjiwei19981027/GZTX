@@ -65,17 +65,21 @@ class AgentRuntime:
         user_id: int,
         name: str,
         scene: str = "general",
+        system_prompt: str | None = None,
     ) -> AgentDefinition:
         n = await self.count_user_created(db, company_id, user_id)
         if n >= MAX_USER_CREATED:
             raise AgentQuotaExceeded("自创智能体超过 5 个")
+        cfg: dict = {"tools": SCENE_TOOLS.get(scene, SCENE_TOOLS["general"])}
+        if system_prompt and system_prompt.strip():
+            cfg["system_prompt"] = system_prompt.strip()
         agent = AgentDefinition(
             company_id=company_id,
             owner_user_id=user_id,
             kind="user_created",
             name=name,
             scene=scene,
-            config_json={"tools": SCENE_TOOLS.get(scene, SCENE_TOOLS["general"])},
+            config_json=cfg,
         )
         db.add(agent)
         await db.flush()
@@ -243,16 +247,22 @@ class AgentRuntime:
                     chat_user = await db.get(User, uid)
                 llm = await resolve_llm(db, company_id=cid, user=chat_user)
                 if llm.use_for_agent and llm.is_usable() and llm.provider != "fake":
+                    system_prompt = (
+                        "你是 WorkTodo 协作助手。简洁中文回答。"
+                        "用户可用 [node:ID] 引用节点。"
+                    )
+                    if session.agent_definition_id:
+                        agent_def = await db.get(
+                            AgentDefinition, session.agent_definition_id
+                        )
+                        if agent_def and isinstance(agent_def.config_json, dict):
+                            custom = (agent_def.config_json.get("system_prompt") or "").strip()
+                            if custom:
+                                system_prompt = custom
                     r = await chat_completion(
                         llm,
                         messages=[
-                            {
-                                "role": "system",
-                                "content": (
-                                    "你是 WorkTodo 协作助手。简洁中文回答。"
-                                    "用户可用 [node:ID] 引用节点。"
-                                ),
-                            },
+                            {"role": "system", "content": system_prompt},
                             {"role": "user", "content": text},
                         ],
                     )

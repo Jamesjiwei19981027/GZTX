@@ -37,9 +37,18 @@ class ProjectService:
             name=name,
             status="draft",
             created_by=creator_user_id,
-            pm_user_id=None,
+            pm_user_id=creator_user_id,
         )
         db.add(p)
+        await db.flush()
+        # 创建者自动成为项目成员（PM），避免项目列表为空、无法进入协作
+        db.add(
+            ProjectMember(
+                project_id=p.id,
+                user_id=creator_user_id,
+                role="pm",
+            )
+        )
         await db.flush()
         await TreeService().ensure_builtin_types(db)
         return p

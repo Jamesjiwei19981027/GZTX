@@ -91,6 +91,8 @@ export interface AgentDefinitionDTO {
   name: string
   kind: string
   scene: string
+  owner_user_id?: number | null
+  system_prompt?: string
 }
 
 export interface AgentChatResult {
