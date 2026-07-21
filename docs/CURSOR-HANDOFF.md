@@ -3,7 +3,13 @@
 > **用途**：把本文件 + 下列「必读文档」交给 Cursor（或新会话）即可接手。  
 > **仓库**：`E:\workspace\gongzuotix`（或你的 clone 路径）  
 > **整理日期**：2026-07-20  
-> **当前开发分支**：`frontend-react-rewrite`（HEAD 约 `fd2281e`，以 `git log -1` 为准）
+> **当前开发分支**：见根目录 [README.md](../README.md)「分支与维护」— 长期为 `main`（后端/部署）、`web`、`miniprogram`、`app`；历史分支 `frontend-react-rewrite` 可弃用。
+
+---
+
+## 0. 分支约定（2026-07 起）
+
+四条长期分支：**`main`**（后端与部署真源）、**`web`**、**`miniprogram`**、**`app`**（Flutter）。接口变更只合 `main`；各端 PR 主要改对应目录。详见根 [README.md](../README.md)。
 
 ---
 
@@ -27,6 +33,7 @@
 | `frontend/` | **Web 现役真源** | **React 18** + Vite + TS + Ant Design + Tailwind + Zustand + React Flow |
 | `frontend-vue-archive/` | **只读归档** | 原 Vue3 整站；对照行为与紧急回滚；**不是**现役入口 |
 | `miniprogram/` | 小程序真源 | 微信原生；协作页有部分实现 |
+| `app/` | Flutter APP 真源 | iOS + Android；见 `app/README.md` |
 | `docs/` | 设计/规格/计划 | 见 §5 |
 | `UI/` | 设计稿 | 非运行代码 |
 | `docker-compose.yml` / `docker-compose.prod.yml` | 部署 | 前后端镜像编排 |
