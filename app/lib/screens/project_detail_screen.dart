@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../widgets/common.dart';
+import '../work_tree/work_tree_canvas.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   const ProjectDetailScreen({
@@ -22,10 +23,10 @@ class ProjectDetailScreen extends StatefulWidget {
 class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   ProjectItem? _project;
   List<TreeNodeItem> _tree = [];
-  List<AgentItem> _agents = [];
   bool _loading = true;
-  int? _selectedNodeId;
+  TreeNodeItem? _selected;
   List<EvidenceItem> _evidence = [];
+  bool _showEvidencePanel = false;
 
   @override
   void initState() {
@@ -39,15 +40,10 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     try {
       final project = await state.collab.getProject(widget.projectId);
       final tree = await state.collab.projectTree(widget.projectId);
-      List<AgentItem> agents = [];
-      if (state.currentCompany != null) {
-        agents = await state.collab.listAgents(state.currentCompany!.id);
-      }
       if (!mounted) return;
       setState(() {
         _project = project;
         _tree = tree;
-        _agents = agents;
       });
     } catch (e) {
       if (mounted) showApiError(context, e, '加载项目失败');
@@ -56,9 +52,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
-  Future<void> _selectNode(TreeNodeItem node) async {
+  Future<void> _onSelection(TreeNodeItem node) async {
     setState(() {
-      _selectedNodeId = node.id;
+      _selected = node;
       _evidence = [];
     });
     try {
@@ -105,13 +101,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
-  Future<void> _submitEvidence() async {
-    if (_selectedNodeId == null) return;
+  Future<void> _submitEvidence(TreeNodeItem node) async {
     final ctrl = TextEditingController();
     final text = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('提交材料'),
+        title: Text('提交材料 · ${node.title}'),
         content: TextField(
           controller: ctrl,
           maxLines: 4,
@@ -132,13 +127,13 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     if (text == null || text.isEmpty || !mounted) return;
     final collab = context.read<AppState>().collab;
     try {
-      await collab.submitEvidence(
-        nodeId: _selectedNodeId!,
-        summary: text,
-      );
-      final items = await collab.nodeEvidence(_selectedNodeId!);
+      await collab.submitEvidence(nodeId: node.id, summary: text);
+      final items = await collab.nodeEvidence(node.id);
       if (!mounted) return;
-      setState(() => _evidence = items);
+      setState(() {
+        _evidence = items;
+        _showEvidencePanel = true;
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('材料已提交')),
       );
@@ -149,126 +144,130 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
-  List<Widget> _buildTree(List<TreeNodeItem> nodes, {int depth = 0}) {
-    final widgets = <Widget>[];
-    for (final n in nodes) {
-      final selected = n.id == _selectedNodeId;
-      widgets.add(
-        Card(
-          color: selected
-              ? Theme.of(context).colorScheme.primaryContainer
-              : null,
-          margin: EdgeInsets.only(left: depth * 12.0, top: 4, bottom: 4),
-          child: ListTile(
-            dense: true,
-            title: Text(n.title),
-            subtitle: Text([
-              if (n.nodeTypeKey != null) n.nodeTypeKey!,
-              if (n.progressStatus != null) n.progressStatus!,
-              if (n.progressPercent != null) '${n.progressPercent}%',
-            ].where((e) => e.isNotEmpty).join(' · ')),
-            trailing: IconButton(
-              icon: const Icon(Icons.add),
-              tooltip: '添加子节点',
-              onPressed: () => _addNode(parentId: n.id),
-            ),
-            onTap: () => _selectNode(n),
-          ),
-        ),
-      );
-      if (n.children.isNotEmpty) {
-        widgets.addAll(_buildTree(n.children, depth: depth + 1));
-      }
-    }
-    return widgets;
+  void _openAgent(TreeNodeItem node) {
+    Navigator.of(context).pushNamed(
+      '/agents/chat',
+      arguments: {
+        'projectId': widget.projectId,
+        'agentName': '节点：${node.title}',
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
     final title = _project?.name ?? widget.projectName ?? '项目详情';
+
     return Scaffold(
       appBar: AppBar(
         title: Text(title),
         actions: [
-          IconButton(
-            tooltip: '智能体对话',
-            onPressed: () => Navigator.of(context).pushNamed(
-              '/agents/chat',
-              arguments: {'projectId': widget.projectId},
+          if (_selected != null)
+            IconButton(
+              tooltip: '节点材料',
+              onPressed: () =>
+                  setState(() => _showEvidencePanel = !_showEvidencePanel),
+              icon: Badge(
+                isLabelVisible: _evidence.isNotEmpty,
+                label: Text('${_evidence.length}'),
+                child: const Icon(Icons.folder_open_outlined),
+              ),
             ),
-            icon: const Icon(Icons.smart_toy_outlined),
-          ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _addNode(),
-        icon: const Icon(Icons.add),
-        label: const Text('根节点'),
-      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _load,
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 100),
-                children: [
-                  if (_agents.isNotEmpty) ...[
-                    const SectionHeader('项目智能体'),
-                    Wrap(
-                      spacing: 8,
-                      children: _agents
-                          .take(6)
-                          .map(
-                            (a) => ActionChip(
-                              avatar: const Icon(Icons.smart_toy, size: 16),
-                              label: Text(a.name),
-                              onPressed: () => Navigator.of(context).pushNamed(
-                                '/agents/chat',
-                                arguments: {
-                                  'projectId': widget.projectId,
-                                  'agentId': a.id,
-                                  'agentName': a.name,
-                                },
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
+          : Column(
+              children: [
+                Expanded(
+                  child: WorkTreeCanvas(
+                    roots: _tree,
+                    projectId: widget.projectId,
+                    userId: state.user?.id,
+                    needsVerification: state.needsVerification,
+                    onCreateRoot: () => _addNode(),
+                    onAddChild: (n) => _addNode(parentId: n.id),
+                    onSubmitEvidence: _submitEvidence,
+                    onOpenAgent: _openAgent,
+                    onSelectionChanged: _onSelection,
+                  ),
+                ),
+                if (_showEvidencePanel && _selected != null)
+                  _EvidenceSheet(
+                    node: _selected!,
+                    items: _evidence,
+                    onClose: () => setState(() => _showEvidencePanel = false),
+                    onSubmit: () => _submitEvidence(_selected!),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _EvidenceSheet extends StatelessWidget {
+  const _EvidenceSheet({
+    required this.node,
+    required this.items,
+    required this.onClose,
+    required this.onSubmit,
+  });
+
+  final TreeNodeItem node;
+  final List<EvidenceItem> items;
+  final VoidCallback onClose;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      elevation: 8,
+      child: SafeArea(
+        top: false,
+        child: SizedBox(
+          height: 220,
+          child: Column(
+            children: [
+              ListTile(
+                dense: true,
+                title: Text('材料 · ${node.title}'),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton(onPressed: onSubmit, child: const Text('提交')),
+                    IconButton(onPressed: onClose, icon: const Icon(Icons.close)),
                   ],
-                  const SectionHeader('工作树'),
-                  if (_tree.isEmpty)
-                    const EmptyHint('暂无节点，点击右下角添加')
-                  else
-                    ..._buildTree(_tree),
-                  if (_selectedNodeId != null) ...[
-                    SectionHeader(
-                      '节点材料',
-                      trailing: TextButton(
-                        onPressed: _submitEvidence,
-                        child: const Text('提交'),
-                      ),
-                    ),
-                    if (_evidence.isEmpty)
-                      const EmptyHint('暂无材料')
-                    else
-                      ..._evidence.map(
-                        (e) => Card(
-                          child: ListTile(
-                            title: Text(e.summary?.isNotEmpty == true
-                                ? e.summary!
-                                : '材料 #${e.id}'),
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: items.isEmpty
+                    ? const EmptyHint('暂无材料')
+                    : ListView.builder(
+                        itemCount: items.length,
+                        itemBuilder: (ctx, i) {
+                          final e = items[i];
+                          return ListTile(
+                            dense: true,
+                            title: Text(
+                              e.summary?.isNotEmpty == true
+                                  ? e.summary!
+                                  : '材料 #${e.id}',
+                            ),
                             subtitle: Text([
                               if (e.status != null) e.status!,
                               if (e.createdAt != null) e.createdAt!,
                             ].join(' · ')),
-                          ),
-                        ),
+                          );
+                        },
                       ),
-                  ],
-                ],
               ),
-            ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

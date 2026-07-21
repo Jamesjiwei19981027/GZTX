@@ -218,6 +218,13 @@ class TreeNodeItem {
     this.nodeTypeKey,
     this.progressStatus,
     this.progressPercent,
+    this.description,
+    this.depth = 0,
+    this.sortOrder = 0,
+    this.startAt,
+    this.dueAt,
+    this.updatedAt,
+    this.assigneeIds = const [],
     this.children = const [],
   });
 
@@ -227,11 +234,38 @@ class TreeNodeItem {
   final String? nodeTypeKey;
   final String? progressStatus;
   final num? progressPercent;
+  final String? description;
+  final int depth;
+  final int sortOrder;
+  final String? startAt;
+  final String? dueAt;
+  final String? updatedAt;
+  final List<int> assigneeIds;
   final List<TreeNodeItem> children;
+
+  bool get isDone =>
+      progressStatus == 'done' || progressStatus == 'completed';
+
+  bool isAssignedTo(int? userId) =>
+      userId != null && assigneeIds.contains(userId);
+
+  DateTime? get sortTime {
+    for (final raw in [updatedAt, dueAt, startAt]) {
+      if (raw == null || raw.isEmpty) continue;
+      final t = DateTime.tryParse(raw);
+      if (t != null) return t;
+    }
+    return null;
+  }
 
   factory TreeNodeItem.fromJson(Map<String, dynamic> json) {
     final progress = json['progress_json'];
     final kids = json['children'];
+    final assignees = json['assignees'];
+    String? updated;
+    if (progress is Map) {
+      updated = progress['updated_at'] as String?;
+    }
     return TreeNodeItem(
       id: json['id'] as int,
       title: (json['title'] ?? '') as String,
@@ -239,6 +273,19 @@ class TreeNodeItem {
       nodeTypeKey: json['node_type_key'] as String?,
       progressStatus: progress is Map ? progress['status'] as String? : null,
       progressPercent: progress is Map ? progress['percent'] as num? : null,
+      description: json['description'] as String?,
+      depth: (json['depth'] as num?)?.toInt() ?? 0,
+      sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
+      startAt: json['start_at'] as String?,
+      dueAt: json['due_at'] as String?,
+      updatedAt: updated,
+      assigneeIds: assignees is List
+          ? assignees
+              .whereType<Map>()
+              .map((e) => (e['user_id'] as num?)?.toInt())
+              .whereType<int>()
+              .toList()
+          : const [],
       children: kids is List
           ? kids
               .whereType<Map>()
