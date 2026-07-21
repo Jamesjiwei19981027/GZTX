@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/models.dart';
 import '../state/app_state.dart';
+import '../widgets/common.dart';
 
 class TaskListScreen extends StatefulWidget {
   const TaskListScreen({super.key});
@@ -12,6 +12,9 @@ class TaskListScreen extends StatefulWidget {
 }
 
 class _TaskListScreenState extends State<TaskListScreen> {
+  String _query = '';
+  int _filter = 0; // 0 all open, 1 done, 2 all
+
   @override
   void initState() {
     super.initState();
@@ -20,152 +23,96 @@ class _TaskListScreenState extends State<TaskListScreen> {
     });
   }
 
-  Future<void> _createTask() async {
-    final ctrl = TextEditingController();
-    final title = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('新建任务'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            hintText: '任务标题',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('创建'),
-          ),
-        ],
-      ),
-    );
-    if (title == null || title.isEmpty || !mounted) return;
-    try {
-      await context.read<AppState>().createTask(title);
-    } catch (_) {
-      if (!mounted) return;
-      final err = context.read<AppState>().error ?? '创建失败';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(err)));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
-    final open = state.taskItems.where((t) => !t.isDone).toList();
-    final done = state.taskItems.where((t) => t.isDone).toList();
+    var items = state.taskItems;
+    if (_filter == 0) {
+      items = items.where((t) => !t.isDone).toList();
+    } else if (_filter == 1) {
+      items = items.where((t) => t.isDone).toList();
+    }
+    if (_query.trim().isNotEmpty) {
+      final q = _query.trim().toLowerCase();
+      items = items.where((t) => t.title.toLowerCase().contains(q)).toList();
+    }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(state.user?.displayName ?? '我的任务'),
+        title: const Text('任务'),
         actions: [
           IconButton(
-            tooltip: '刷新',
             onPressed: state.busy ? null : () => state.refreshTasks(),
             icon: const Icon(Icons.refresh),
-          ),
-          IconButton(
-            tooltip: '退出登录',
-            onPressed: () => state.logout(),
-            icon: const Icon(Icons.logout),
           ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _createTask,
+        onPressed: () => Navigator.of(context).pushNamed('/tasks/new'),
         child: const Icon(Icons.add),
       ),
-      body: RefreshIndicator(
-        onRefresh: state.refreshTasks,
-        child: state.busy && state.taskItems.isEmpty
-            ? ListView(
-                children: const [
-                  SizedBox(height: 120),
-                  Center(child: CircularProgressIndicator()),
-                ],
-              )
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 88),
-                children: [
-                  if (state.error != null) ...[
-                    Card(
-                      color: Theme.of(context).colorScheme.errorContainer,
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Text(state.error!),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                  _Section(title: '待办 (${open.length})'),
-                  if (open.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('暂无待办'),
-                    )
-                  else
-                    ...open.map((t) => _TaskTile(task: t)),
-                  const SizedBox(height: 12),
-                  _Section(title: '已完成 (${done.length})'),
-                  if (done.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('暂无已完成'),
-                    )
-                  else
-                    ...done.map((t) => _TaskTile(task: t)),
-                ],
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+            child: TextField(
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                hintText: '搜索任务',
+                border: OutlineInputBorder(),
+                isDense: true,
               ),
-      ),
-    );
-  }
-}
-
-class _Section extends StatelessWidget {
-  const _Section({required this.title});
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
-      child: Text(title, style: Theme.of(context).textTheme.titleMedium),
-    );
-  }
-}
-
-class _TaskTile extends StatelessWidget {
-  const _TaskTile({required this.task});
-  final TaskItem task;
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.read<AppState>();
-    return Card(
-      child: ListTile(
-        leading: Checkbox(
-          value: task.isDone,
-          onChanged: task.isDone
-              ? null
-              : (_) => state.completeTask(task.id),
-        ),
-        title: Text(
-          task.title,
-          style: TextStyle(
-            decoration: task.isDone ? TextDecoration.lineThrough : null,
+              onChanged: (v) => setState(() => _query = v),
+            ),
           ),
-        ),
-        subtitle: Text(
-          [
-            task.statusLabel ?? '状态${task.status}',
-            if (task.dueDate != null) '截止 ${task.dueDate}',
-          ].join(' · '),
-        ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: SegmentedButton<int>(
+              segments: const [
+                ButtonSegment(value: 0, label: Text('待办')),
+                ButtonSegment(value: 1, label: Text('已完成')),
+                ButtonSegment(value: 2, label: Text('全部')),
+              ],
+              selected: {_filter},
+              onSelectionChanged: (s) => setState(() => _filter = s.first),
+            ),
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: state.refreshTasks,
+              child: items.isEmpty
+                  ? ListView(
+                      children: const [
+                        SizedBox(height: 80),
+                        EmptyHint('暂无任务'),
+                      ],
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 88),
+                      itemCount: items.length,
+                      itemBuilder: (ctx, i) {
+                        final t = items[i];
+                        return TaskListTile(
+                          task: t,
+                          onTap: () =>
+                              Navigator.of(context).pushNamed('/tasks/${t.id}'),
+                          onToggle: (done) async {
+                            try {
+                              if (done) {
+                                await state.completeTask(t.id);
+                              } else {
+                                await state.uncompleteTask(t.id);
+                              }
+                            } catch (e) {
+                              if (context.mounted) showApiError(context, e);
+                            }
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ),
+        ],
       ),
     );
   }

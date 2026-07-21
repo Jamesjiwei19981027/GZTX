@@ -32,17 +32,20 @@ class ApiClient {
     return Uri.parse('$base$p').replace(queryParameters: query);
   }
 
-  Future<dynamic> get(String path, {Map<String, String>? query}) {
-    return _request('GET', path, query: query);
-  }
+  Future<dynamic> get(String path, {Map<String, String>? query}) =>
+      _request('GET', path, query: query);
 
-  Future<dynamic> post(String path, {Object? body}) {
-    return _request('POST', path, body: body);
-  }
+  Future<dynamic> post(String path, {Object? body}) =>
+      _request('POST', path, body: body);
 
-  Future<dynamic> patch(String path, {Object? body}) {
-    return _request('PATCH', path, body: body);
-  }
+  Future<dynamic> put(String path, {Object? body}) =>
+      _request('PUT', path, body: body);
+
+  Future<dynamic> patch(String path, {Object? body}) =>
+      _request('PATCH', path, body: body);
+
+  Future<dynamic> delete(String path, {Map<String, String>? query}) =>
+      _request('DELETE', path, query: query);
 
   Future<dynamic> _request(
     String method,
@@ -67,8 +70,12 @@ class ApiClient {
         res = await _http.get(uri, headers: headers);
       case 'POST':
         res = await _http.post(uri, headers: headers, body: encoded);
+      case 'PUT':
+        res = await _http.put(uri, headers: headers, body: encoded);
       case 'PATCH':
         res = await _http.patch(uri, headers: headers, body: encoded);
+      case 'DELETE':
+        res = await _http.delete(uri, headers: headers);
       default:
         throw ApiException('Unsupported method $method');
     }
@@ -130,9 +137,7 @@ class ApiClient {
             code: code is int ? code : int.tryParse('$code'),
           );
         }
-        if (payload.containsKey('data')) {
-          return payload['data'];
-        }
+        if (payload.containsKey('data')) return payload['data'];
       }
       return payload;
     }
@@ -162,4 +167,14 @@ class ApiClient {
   Future<void> clearTokens() async {
     await tokens.clear(_prefs!);
   }
+
+  Future<void> setCompanyId(int? id) async {
+    if (id == null || id <= 0) {
+      await _prefs!.remove('company_id');
+    } else {
+      await _prefs!.setInt('company_id', id);
+    }
+  }
+
+  int get companyId => _prefs?.getInt('company_id') ?? 0;
 }
