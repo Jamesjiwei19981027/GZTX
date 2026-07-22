@@ -147,7 +147,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: ListTile(
                   leading: const Icon(Icons.business),
                   title: Text(state.currentCompany!.name),
-                  subtitle: Text(state.currentCompany!.slug ?? ''),
+                  subtitle: Text(
+                    state.currentCompany!.slug == null ||
+                            state.currentCompany!.slug!.isEmpty
+                        ? '进入公司设置'
+                        : '标识：${state.currentCompany!.slug}',
+                  ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => Navigator.of(context).pushNamed('/company'),
                 ),

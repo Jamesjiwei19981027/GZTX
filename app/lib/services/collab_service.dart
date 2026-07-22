@@ -151,27 +151,114 @@ class CollabService {
     final data = await _api.get('/projects/$projectId/tree', query: {
       'format': 'nested',
     }) as JsonMap;
-    return (data['nodes'] as List<dynamic>? ?? [])
+    final roots = (data['nodes'] as List<dynamic>? ?? [])
         .whereType<Map>()
         .map((e) => TreeNodeItem.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+    return _withDepth(roots, 0);
+  }
+
+  List<TreeNodeItem> _withDepth(List<TreeNodeItem> nodes, int depth) {
+    return [
+      for (final n in nodes)
+        TreeNodeItem(
+          id: n.id,
+          title: n.title,
+          parentId: n.parentId,
+          nodeTypeKey: n.nodeTypeKey,
+          progressStatus: n.progressStatus,
+          progressPercent: n.progressPercent,
+          description: n.description,
+          depth: depth,
+          sortOrder: n.sortOrder,
+          startAt: n.startAt,
+          dueAt: n.dueAt,
+          milestoneAt: n.milestoneAt,
+          updatedAt: n.updatedAt,
+          assignees: n.assignees,
+          children: _withDepth(n.children, depth + 1),
+        ),
+    ];
   }
 
   Future<TreeNodeItem> createNode({
     required int projectId,
     required String title,
-    String nodeTypeKey = 'task',
+    String nodeTypeKey = 'person',
     int? parentId,
     String? description,
+    String? dueAt,
   }) async {
     final data = await _api.post('/projects/$projectId/nodes', body: {
-      'title': title.trim(),
+      'title': title.trim().isEmpty ? '未命名' : title.trim(),
       'node_type_key': nodeTypeKey,
       if (parentId != null) 'parent_id': parentId,
       if (description != null && description.trim().isNotEmpty)
         'description': description.trim(),
+      if (dueAt != null) 'due_at': dueAt,
     }) as JsonMap;
     return TreeNodeItem.fromJson(data);
+  }
+
+  Future<TreeNodeItem> patchNode({
+    required int nodeId,
+    String? title,
+    String? description,
+    String? nodeTypeKey,
+    String? dueAt,
+  }) async {
+    final body = <String, dynamic>{};
+    if (title != null) body['title'] = title.trim();
+    if (description != null) body['description'] = description;
+    if (nodeTypeKey != null) body['node_type_key'] = nodeTypeKey;
+    if (dueAt != null) body['due_at'] = dueAt;
+    final data = await _api.patch('/nodes/$nodeId', body: body) as JsonMap;
+    return TreeNodeItem.fromJson(data);
+  }
+
+  Future<List<NodeAssignee>> setAssignees({
+    required int nodeId,
+    required List<int> userIds,
+  }) async {
+    final data = await _api.put('/nodes/$nodeId/assignees', body: {
+      'assignees': [
+        for (var i = 0; i < userIds.length; i++)
+          {
+            'user_id': userIds[i],
+            'role_key': i == 0 ? 'primary' : 'member',
+          },
+      ],
+    }) as JsonMap;
+    final items = data['assignees'];
+    if (items is! List) return const [];
+    return items
+        .whereType<Map>()
+        .map((e) => NodeAssignee.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<List<ProjectMemberItem>> listProjectMembers(int projectId) async {
+    final data = await _api.get('/projects/$projectId/members') as JsonMap;
+    return (data['items'] as List<dynamic>? ?? [])
+        .whereType<Map>()
+        .map((e) => ProjectMemberItem.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+  }
+
+  Future<TreeNodeItem> moveNode({
+    required int nodeId,
+    int? newParentId,
+    int sortOrder = 0,
+  }) async {
+    final data = await _api.post('/nodes/$nodeId/move', body: {
+      'new_parent_id': newParentId,
+      'sort_order': sortOrder,
+    }) as JsonMap;
+    return TreeNodeItem.fromJson(data);
+  }
+
+  Future<void> deleteNode(int nodeId) async {
+    await _api.delete('/nodes/$nodeId');
   }
 
   Future<List<EvidenceItem>> nodeEvidence(int nodeId) async {

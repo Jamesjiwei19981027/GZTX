@@ -5,7 +5,8 @@ iOS / Android 客户端，共用仓库内 [`backend/`](../backend/) 的 FastAPI 
 ## 前置条件
 
 - Flutter SDK：`D:\Downloads\flutter`（已加入用户 PATH；Cursor 设置 `dart.flutterSdkPath` 指向同路径）
-- 后端已启动（推荐 Docker：`docker compose up -d`，宿主 API 为 `http://localhost:8010/api/v1`）
+- **后端 / Web 用 Docker 启动**（仓库根目录 `docker compose up -d`），宿主 API：`http://localhost:8010/api/v1`  
+  完整步骤见 [../启动指导文档.md](../启动指导文档.md)。不要用本机 venv 作为日常联调方式。
 
 ## 平台目录
 
@@ -20,7 +21,7 @@ iOS / Android 客户端，共用仓库内 [`backend/`](../backend/) 的 FastAPI 
 ```bash
 cd app
 flutter pub get
-# 确保后端已启动：docker compose up -d（宿主 8010）
+# 确保 Docker 后端已启动：仓库根目录 docker compose up -d（宿主 8010）
 flutter run -d emulator-5554
 ```
 

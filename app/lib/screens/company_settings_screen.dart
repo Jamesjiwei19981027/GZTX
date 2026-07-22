@@ -123,7 +123,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       _smtpPass.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('公司 SMTP 已保存')),
+          const SnackBar(content: Text('公司邮件配置已保存')),
         );
       }
     } catch (e) {
@@ -141,7 +141,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       await context.read<AppState>().collab.testCompanySmtp(company.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('公司 SMTP 测试成功')),
+          const SnackBar(content: Text('公司邮件测试成功')),
         );
       }
     } catch (e) {
@@ -167,7 +167,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       _llmKey.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('公司 LLM 已保存')),
+          const SnackBar(content: Text('公司大模型已保存')),
         );
       }
     } catch (e) {
@@ -185,7 +185,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
       final res = await context.read<AppState>().collab.testCompanyLlm(company.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res['content']?.toString() ?? 'LLM 测试成功')),
+          SnackBar(content: Text(res['content']?.toString() ?? '大模型测试成功')),
         );
       }
     } catch (e) {
@@ -240,10 +240,10 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                         child: ListTile(
                           title: Text((_raw?['name'] ?? company.name).toString()),
                           subtitle: Text([
-                            'slug: ${_raw?['slug'] ?? company.slug ?? '-'}',
-                            'status: ${_raw?['status'] ?? '-'}',
+                            '标识：${_raw?['slug'] ?? company.slug ?? '-'}',
+                            '状态：${_zhStatus(_raw?['status'])}',
                             if (_raw?['policy_preset'] != null)
-                              'policy: ${_raw!['policy_preset']}',
+                              '策略：${_zhPolicy(_raw!['policy_preset'])}',
                           ].join('\n')),
                           isThreeLine: true,
                         ),
@@ -253,10 +253,22 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                         Card(
                           child: Padding(
                             padding: const EdgeInsets.all(12),
-                            child: Text(
-                              'status: ${_features!['status']}\n'
-                              'unlocked: ${_features!['unlocked']}\n'
-                              'features: ${_features!['features']}',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('状态：${_zhStatus(_features!['status'])}'),
+                                Text(
+                                  '已解锁：${_zhBool(_features!['unlocked'])}',
+                                ),
+                                const SizedBox(height: 8),
+                                const Text('功能：'),
+                                const SizedBox(height: 6),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _featureChips(_features!['features']),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -268,7 +280,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                             children: [
                               ..._loginMethods.entries.map(
                                 (e) => SwitchListTile(
-                                  title: Text(e.key),
+                                  title: Text(_zhLoginMethod(e.key)),
                                   value: e.value,
                                   onChanged: (v) => setState(
                                     () => _loginMethods[e.key] = v,
@@ -289,7 +301,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                           ),
                         ),
                       ],
-                      const SectionHeader('公司 SMTP'),
+                      const SectionHeader('公司邮件（SMTP）'),
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(12),
@@ -298,7 +310,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                               TextField(
                                 controller: _smtpHost,
                                 decoration: const InputDecoration(
-                                  labelText: 'Host',
+                                  labelText: '服务器地址',
                                   border: OutlineInputBorder(),
                                 ),
                               ),
@@ -307,7 +319,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                                 controller: _smtpPort,
                                 keyboardType: TextInputType.number,
                                 decoration: const InputDecoration(
-                                  labelText: 'Port',
+                                  labelText: '端口',
                                   border: OutlineInputBorder(),
                                 ),
                               ),
@@ -315,7 +327,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                               TextField(
                                 controller: _smtpUser,
                                 decoration: const InputDecoration(
-                                  labelText: 'User',
+                                  labelText: '用户名',
                                   border: OutlineInputBorder(),
                                 ),
                               ),
@@ -323,7 +335,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                               TextField(
                                 controller: _smtpFrom,
                                 decoration: const InputDecoration(
-                                  labelText: 'From',
+                                  labelText: '发件人',
                                   border: OutlineInputBorder(),
                                 ),
                               ),
@@ -356,7 +368,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                           ),
                         ),
                       ),
-                      const SectionHeader('公司 LLM'),
+                      const SectionHeader('公司大模型'),
                       Card(
                         child: Padding(
                           padding: const EdgeInsets.all(12),
@@ -372,7 +384,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                               TextField(
                                 controller: _llmProvider,
                                 decoration: const InputDecoration(
-                                  labelText: 'Provider',
+                                  labelText: '服务商',
                                   border: OutlineInputBorder(),
                                 ),
                               ),
@@ -380,7 +392,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                               TextField(
                                 controller: _llmBase,
                                 decoration: const InputDecoration(
-                                  labelText: 'Base URL',
+                                  labelText: '接口地址',
                                   border: OutlineInputBorder(),
                                 ),
                               ),
@@ -388,7 +400,7 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                               TextField(
                                 controller: _llmModel,
                                 decoration: const InputDecoration(
-                                  labelText: 'Model',
+                                  labelText: '模型',
                                   border: OutlineInputBorder(),
                                 ),
                               ),
@@ -398,8 +410,8 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                                 obscureText: true,
                                 decoration: InputDecoration(
                                   labelText: _llm?.hasApiKey == true
-                                      ? 'API Key（留空保持）'
-                                      : 'API Key',
+                                      ? '密钥（留空则保持原值）'
+                                      : '接口密钥',
                                   border: const OutlineInputBorder(),
                                 ),
                               ),
@@ -439,9 +451,8 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
                       if (_bindings != null) ...[
                         const SectionHeader('能力绑定'),
                         Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Text('$_bindings'),
+                          child: Column(
+                            children: _bindingTiles(_bindings!),
                           ),
                         ),
                       ],
@@ -454,4 +465,172 @@ class _CompanySettingsScreenState extends State<CompanySettingsScreen> {
 
 extension on String {
   String ifEmpty(String fallback) => trim().isEmpty ? fallback : this;
+}
+
+String _zhStatus(Object? raw) {
+  switch ('$raw') {
+    case 'active':
+      return '生效中';
+    case 'inactive':
+      return '已停用';
+    case 'pending':
+      return '待启用';
+    case 'suspended':
+      return '已暂停';
+    case 'null':
+    case '':
+      return '-';
+    default:
+      return '$raw';
+  }
+}
+
+String _zhPolicy(Object? raw) {
+  switch ('$raw') {
+    case 'standard':
+      return '标准';
+    case 'strict':
+      return '严格';
+    case 'relaxed':
+      return '宽松';
+    default:
+      return '$raw';
+  }
+}
+
+String _zhBool(Object? raw) {
+  if (raw == true || '$raw' == 'true') return '是';
+  if (raw == false || '$raw' == 'false') return '否';
+  return '$raw';
+}
+
+String _zhLoginMethod(String key) {
+  switch (key) {
+    case 'password':
+      return '账号密码';
+    case 'wechat':
+      return '微信';
+    case 'wecom':
+      return '企业微信';
+    case 'dingtalk':
+      return '钉钉';
+    case 'feishu':
+      return '飞书';
+    case 'email':
+      return '邮箱';
+    case 'phone':
+      return '手机号';
+    default:
+      return key;
+  }
+}
+
+String _zhFeatureKey(String key) {
+  switch (key) {
+    case 'project_tree':
+      return '项目树';
+    case 'agents':
+      return '智能体';
+    case 'org_sync':
+      return '组织同步';
+    case 'policy_isolated':
+      return '策略隔离';
+    case 'asr':
+      return '语音识别';
+    case 'custom_storage':
+      return '自定义存储';
+    default:
+      return key;
+  }
+}
+
+List<Widget> _featureChips(Object? raw) {
+  if (raw is! Map) {
+    return [Text('$raw')];
+  }
+  final entries = raw.entries.toList();
+  if (entries.isEmpty) {
+    return [const Text('（无）')];
+  }
+  return [
+    for (final e in entries)
+      Chip(
+        label: Text(
+          '${_zhFeatureKey('${e.key}')} · ${_zhBool(e.value)}',
+          style: const TextStyle(fontSize: 12),
+        ),
+        visualDensity: VisualDensity.compact,
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+  ];
+}
+
+String _zhCapability(String key) {
+  switch (key) {
+    case 'storage':
+      return '存储';
+    case 'asr':
+      return '语音识别';
+    case 'model':
+      return '大模型';
+    default:
+      return key;
+  }
+}
+
+String _zhProvider(String? id) {
+  if (id == null || id.isEmpty) return '未配置';
+  switch (id) {
+    case 'local':
+      return '本地';
+    case 'builtin':
+      return '内置';
+    case 'fake':
+      return '模拟';
+    case 's3':
+      return '对象存储（S3）';
+    default:
+      return id;
+  }
+}
+
+String _zhNullable(Object? raw) {
+  if (raw == null) return '无';
+  return '$raw';
+}
+
+List<Widget> _bindingTiles(Map<String, dynamic> bindings) {
+  if (bindings.isEmpty) {
+    return [const ListTile(title: Text('（无绑定）'))];
+  }
+  final tiles = <Widget>[];
+  for (final e in bindings.entries) {
+    final value = e.value;
+    if (value is! Map) {
+      tiles.add(
+        ListTile(
+          title: Text(_zhCapability(e.key)),
+          subtitle: Text('$value'),
+        ),
+      );
+      continue;
+    }
+    final provider = value['provider_id']?.toString();
+    final isDefault = value['is_default'];
+    final config = value['config_json'];
+    tiles.add(
+      ListTile(
+        title: Text(_zhCapability(e.key)),
+        subtitle: Text(
+          [
+            '提供方：${_zhProvider(provider)}',
+            '默认：${_zhBool(isDefault)}',
+            '附加配置：${_zhNullable(config)}',
+          ].join('\n'),
+        ),
+        isThreeLine: true,
+      ),
+    );
+  }
+  return tiles;
 }

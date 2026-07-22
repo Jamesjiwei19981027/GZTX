@@ -186,6 +186,36 @@ class CompanyItem {
   }
 }
 
+class ProjectOwner {
+  ProjectOwner({
+    required this.userId,
+    this.username,
+    this.nickname,
+    this.avatarUrl,
+    this.isMe = false,
+  });
+
+  final int userId;
+  final String? username;
+  final String? nickname;
+  final String? avatarUrl;
+  final bool isMe;
+
+  String get displayName {
+    if (nickname != null && nickname!.trim().isNotEmpty) return nickname!.trim();
+    if (username != null && username!.trim().isNotEmpty) return username!.trim();
+    return '用户$userId';
+  }
+
+  factory ProjectOwner.fromJson(Map<String, dynamic> json) => ProjectOwner(
+        userId: (json['user_id'] as num).toInt(),
+        username: json['username'] as String?,
+        nickname: json['nickname'] as String?,
+        avatarUrl: json['avatar_url'] as String?,
+        isMe: json['is_me'] == true,
+      );
+}
+
 class ProjectItem {
   ProjectItem({
     required this.id,
@@ -193,6 +223,8 @@ class ProjectItem {
     required this.companyId,
     this.status,
     this.myRole,
+    this.pmUserId,
+    this.finalOwner,
   });
 
   final int id;
@@ -200,14 +232,88 @@ class ProjectItem {
   final int companyId;
   final String? status;
   final String? myRole;
+  final int? pmUserId;
+  final ProjectOwner? finalOwner;
 
-  factory ProjectItem.fromJson(Map<String, dynamic> json) => ProjectItem(
-        id: json['id'] as int,
-        name: (json['name'] ?? '') as String,
-        companyId: (json['company_id'] as num?)?.toInt() ?? 0,
-        status: json['status'] as String?,
-        myRole: json['my_role'] as String?,
-      );
+  factory ProjectItem.fromJson(Map<String, dynamic> json) {
+    final owner = json['final_owner'];
+    return ProjectItem(
+      id: json['id'] as int,
+      name: (json['name'] ?? '') as String,
+      companyId: (json['company_id'] as num?)?.toInt() ?? 0,
+      status: json['status'] as String?,
+      myRole: json['my_role'] as String?,
+      pmUserId: (json['final_owner_user_id'] as num?)?.toInt() ??
+          (json['pm_user_id'] as num?)?.toInt(),
+      finalOwner: owner is Map
+          ? ProjectOwner.fromJson(Map<String, dynamic>.from(owner))
+          : null,
+    );
+  }
+}
+
+class NodeAssignee {
+  NodeAssignee({
+    required this.userId,
+    required this.roleKey,
+    required this.displayName,
+    this.avatarUrl,
+  });
+
+  final int userId;
+  final String roleKey;
+  final String displayName;
+  final String? avatarUrl;
+
+  factory NodeAssignee.fromJson(Map<String, dynamic> json) {
+    final name = (json['display_name'] as String?)?.trim();
+    final nick = (json['nickname'] as String?)?.trim();
+    final user = (json['username'] as String?)?.trim();
+    return NodeAssignee(
+      userId: (json['user_id'] as num).toInt(),
+      roleKey: (json['role_key'] as String?) ?? 'primary',
+      displayName: (name != null && name.isNotEmpty)
+          ? name
+          : (nick != null && nick.isNotEmpty)
+              ? nick
+              : (user != null && user.isNotEmpty)
+                  ? user
+                  : '用户${json['user_id']}',
+      avatarUrl: json['avatar_url'] as String?,
+    );
+  }
+}
+
+class ProjectMemberItem {
+  ProjectMemberItem({
+    required this.userId,
+    required this.displayName,
+    this.avatarUrl,
+    this.role,
+  });
+
+  final int userId;
+  final String displayName;
+  final String? avatarUrl;
+  final String? role;
+
+  factory ProjectMemberItem.fromJson(Map<String, dynamic> json) {
+    final name = (json['display_name'] as String?)?.trim();
+    final nick = (json['nickname'] as String?)?.trim();
+    final user = (json['username'] as String?)?.trim();
+    return ProjectMemberItem(
+      userId: (json['user_id'] as num).toInt(),
+      displayName: (name != null && name.isNotEmpty)
+          ? name
+          : (nick != null && nick.isNotEmpty)
+              ? nick
+              : (user != null && user.isNotEmpty)
+                  ? user
+                  : '用户${json['user_id']}',
+      avatarUrl: json['avatar_url'] as String?,
+      role: json['role'] as String?,
+    );
+  }
 }
 
 class TreeNodeItem {
@@ -223,8 +329,9 @@ class TreeNodeItem {
     this.sortOrder = 0,
     this.startAt,
     this.dueAt,
+    this.milestoneAt,
     this.updatedAt,
-    this.assigneeIds = const [],
+    this.assignees = const [],
     this.children = const [],
   });
 
@@ -239,9 +346,20 @@ class TreeNodeItem {
   final int sortOrder;
   final String? startAt;
   final String? dueAt;
+  final String? milestoneAt;
   final String? updatedAt;
-  final List<int> assigneeIds;
+  final List<NodeAssignee> assignees;
   final List<TreeNodeItem> children;
+
+  List<int> get assigneeIds => assignees.map((e) => e.userId).toList();
+
+  bool get isPerson => nodeTypeKey == 'person';
+
+  NodeAssignee? get primaryAssignee {
+    if (assignees.isEmpty) return null;
+    final primary = assignees.where((a) => a.roleKey == 'primary');
+    return primary.isNotEmpty ? primary.first : assignees.first;
+  }
 
   bool get isDone =>
       progressStatus == 'done' || progressStatus == 'completed';
@@ -249,8 +367,8 @@ class TreeNodeItem {
   bool isAssignedTo(int? userId) =>
       userId != null && assigneeIds.contains(userId);
 
-  DateTime? get sortTime {
-    for (final raw in [updatedAt, dueAt, startAt]) {
+  DateTime? get eventTime {
+    for (final raw in [milestoneAt, dueAt, startAt, updatedAt]) {
       if (raw == null || raw.isEmpty) continue;
       final t = DateTime.tryParse(raw);
       if (t != null) return t;
@@ -258,14 +376,22 @@ class TreeNodeItem {
     return null;
   }
 
+  DateTime? get sortTime => eventTime;
+
   factory TreeNodeItem.fromJson(Map<String, dynamic> json) {
     final progress = json['progress_json'];
     final kids = json['children'];
-    final assignees = json['assignees'];
+    final assigneesRaw = json['assignees'];
     String? updated;
     if (progress is Map) {
       updated = progress['updated_at'] as String?;
     }
+    final assignees = assigneesRaw is List
+        ? assigneesRaw
+            .whereType<Map>()
+            .map((e) => NodeAssignee.fromJson(Map<String, dynamic>.from(e)))
+            .toList()
+        : const <NodeAssignee>[];
     return TreeNodeItem(
       id: json['id'] as int,
       title: (json['title'] ?? '') as String,
@@ -278,14 +404,9 @@ class TreeNodeItem {
       sortOrder: (json['sort_order'] as num?)?.toInt() ?? 0,
       startAt: json['start_at'] as String?,
       dueAt: json['due_at'] as String?,
+      milestoneAt: json['milestone_at'] as String?,
       updatedAt: updated,
-      assigneeIds: assignees is List
-          ? assignees
-              .whereType<Map>()
-              .map((e) => (e['user_id'] as num?)?.toInt())
-              .whereType<int>()
-              .toList()
-          : const [],
+      assignees: assignees,
       children: kids is List
           ? kids
               .whereType<Map>()

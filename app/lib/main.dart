@@ -24,10 +24,41 @@ class WorkTodoApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AppState()..bootstrap(),
       child: MaterialApp(
-        title: 'WorkTodo',
+        title: '工作题系',
         theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2563EB)),
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF4DB6A0),
+            brightness: Brightness.light,
+            surface: const Color(0xFFF7FBFA),
+          ),
+          scaffoldBackgroundColor: const Color(0xFFF4F8F6),
           useMaterial3: true,
+          cardTheme: CardThemeData(
+            elevation: 0,
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: BorderSide(
+                color: const Color(0xFF4DB6A0).withValues(alpha: 0.12),
+              ),
+            ),
+          ),
+          appBarTheme: const AppBarTheme(
+            centerTitle: false,
+            backgroundColor: Color(0xFFF4F8F6),
+            foregroundColor: Color(0xFF2A3A36),
+            elevation: 0,
+            scrolledUnderElevation: 0.5,
+          ),
+          filledButtonTheme: FilledButtonThemeData(
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFF4DB6A0),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
         ),
         home: const _RootGate(),
         onGenerateRoute: (settings) {

@@ -18,6 +18,12 @@ from app.db.base import Base
 
 def default_progress_json(template: str) -> dict:
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    if template == "person":
+        return {
+            "template": "person",
+            "updated_at": now,
+            "last_record_id": None,
+        }
     if template == "work_item":
         return {
             "template": "work_item",

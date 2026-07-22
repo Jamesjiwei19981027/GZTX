@@ -31,6 +31,7 @@ class NodePatch(BaseModel):
     milestone_at: Optional[datetime] = None
     allow_clear_text_progress: Optional[bool] = None
     sort_order: Optional[int] = None
+    node_type_key: Optional[str] = None
     # progress_json forbidden — not in model
 
 

@@ -41,6 +41,8 @@ def _project_dto(p: Project, my_role: str | None = None, member_count: int | Non
         "name": p.name,
         "status": p.status,
         "pm_user_id": p.pm_user_id,
+        # 产品口径：项目最终负责人 = PM（指定为准；主干顶宜对齐此人）
+        "final_owner_user_id": p.pm_user_id,
         "created_by": p.created_by,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "archived_at": p.archived_at.isoformat() if p.archived_at else None,
@@ -49,6 +51,31 @@ def _project_dto(p: Project, my_role: str | None = None, member_count: int | Non
     if member_count is not None:
         d["member_count"] = member_count
     return d
+
+
+async def _attach_final_owner(db, data: dict, viewer_id: int) -> dict:
+    uid = data.get("final_owner_user_id") or data.get("pm_user_id")
+    if not uid:
+        data["final_owner"] = None
+        return data
+    u = await db.get(User, uid)
+    if not u:
+        data["final_owner"] = {
+            "user_id": uid,
+            "username": None,
+            "nickname": None,
+            "avatar_url": None,
+            "is_me": False,
+        }
+        return data
+    data["final_owner"] = {
+        "user_id": u.id,
+        "username": u.username,
+        "nickname": u.nickname,
+        "avatar_url": u.avatar_url,
+        "is_me": u.id == viewer_id,
+    }
+    return data
 
 
 async def _active_membership(db, company_id: int, user_id: int) -> CompanyMembership | None:
@@ -181,7 +208,11 @@ async def get_project(project_id: int, db: DbSession, user: CurrentUser):
         )
     ).scalar() or 0
     return ResponseData(
-        data=_project_dto(p, my_role=pm.role if pm else None, member_count=cnt)
+        data=await _attach_final_owner(
+            db,
+            _project_dto(p, my_role=pm.role if pm else None, member_count=cnt),
+            user.id,
+        )
     )
 
 
@@ -321,6 +352,9 @@ async def list_project_members(project_id: int, db: DbSession, user: CurrentUser
         {
             "user_id": pm.user_id,
             "nickname": u.nickname,
+            "username": u.username,
+            "display_name": (u.nickname or u.username or f"用户{u.id}").strip(),
+            "avatar_url": u.avatar_url,
             "role": pm.role,
             "joined_at": pm.joined_at.isoformat() if pm.joined_at else None,
             "left_at": pm.left_at.isoformat() if pm.left_at else None,

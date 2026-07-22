@@ -5,6 +5,7 @@ import '../models/models.dart';
 import '../state/app_state.dart';
 import '../widgets/common.dart';
 import '../work_tree/work_tree_canvas.dart';
+import '../work_tree/work_tree_layout.dart';
 
 class ProjectDetailScreen extends StatefulWidget {
   const ProjectDetailScreen({
@@ -23,6 +24,7 @@ class ProjectDetailScreen extends StatefulWidget {
 class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
   ProjectItem? _project;
   List<TreeNodeItem> _tree = [];
+  List<ProjectMemberItem> _members = [];
   bool _loading = true;
   TreeNodeItem? _selected;
   List<EvidenceItem> _evidence = [];
@@ -40,16 +42,31 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     try {
       final project = await state.collab.getProject(widget.projectId);
       final tree = await state.collab.projectTree(widget.projectId);
+      final members =
+          await state.collab.listProjectMembers(widget.projectId);
       if (!mounted) return;
       setState(() {
         _project = project;
         _tree = tree;
+        _members = members;
+        if (_selected != null) {
+          _selected = _findNode(_tree, _selected!.id) ?? _selected;
+        }
       });
     } catch (e) {
       if (mounted) showApiError(context, e, '加载项目失败');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  TreeNodeItem? _findNode(List<TreeNodeItem> nodes, int id) {
+    for (final n in nodes) {
+      if (n.id == id) return n;
+      final hit = _findNode(n.children, id);
+      if (hit != null) return hit;
+    }
+    return null;
   }
 
   Future<void> _onSelection(TreeNodeItem node) async {
@@ -65,37 +82,130 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
-  Future<void> _addNode({int? parentId}) async {
-    final ctrl = TextEditingController();
-    final title = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(parentId == null ? '新建根节点' : '新建子节点'),
-        content: TextField(
-          controller: ctrl,
-          autofocus: true,
-          decoration: const InputDecoration(
-            labelText: '标题',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('创建'),
-          ),
-        ],
-      ),
-    );
-    if (title == null || title.isEmpty || !mounted) return;
+  Future<void> _createNode({
+    required String nodeTypeKey,
+    required String title,
+    int? parentId,
+    String? dueAt,
+  }) async {
     try {
       await context.read<AppState>().collab.createNode(
             projectId: widget.projectId,
             title: title,
+            nodeTypeKey: nodeTypeKey,
             parentId: parentId,
+            dueAt: dueAt,
           );
       await _load();
+    } catch (e) {
+      if (mounted) showApiError(context, e);
+    }
+  }
+
+  Future<void> _updateNode({
+    required int nodeId,
+    String? title,
+    String? nodeTypeKey,
+    String? dueAt,
+  }) async {
+    try {
+      await context.read<AppState>().collab.patchNode(
+            nodeId: nodeId,
+            title: title,
+            nodeTypeKey: nodeTypeKey,
+            dueAt: dueAt,
+          );
+      await _load();
+    } catch (e) {
+      if (mounted) showApiError(context, e);
+    }
+  }
+
+  Future<void> _moveNode({
+    required int nodeId,
+    int? newParentId,
+  }) async {
+    try {
+      await context.read<AppState>().collab.moveNode(
+            nodeId: nodeId,
+            newParentId: newParentId,
+          );
+      await _load();
+    } catch (e) {
+      if (mounted) showApiError(context, e);
+    }
+  }
+
+  Future<void> _setAssignees({
+    required int nodeId,
+    required List<int> userIds,
+  }) async {
+    try {
+      await context.read<AppState>().collab.setAssignees(
+            nodeId: nodeId,
+            userIds: userIds,
+          );
+      await _load();
+    } catch (e) {
+      if (mounted) showApiError(context, e);
+    }
+  }
+
+  Future<void> _ensureLeaderNode() async {
+    final owner = _project?.finalOwner;
+    final ownerId = owner?.userId ?? _project?.pmUserId;
+    if (ownerId == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('项目尚未指定最终负责人（PM）')),
+      );
+      return;
+    }
+    if (WorkTreeLayout.hasLeaderOnSpine(_tree, ownerId)) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('负责人节点已在主干上')),
+      );
+      return;
+    }
+    try {
+      final collab = context.read<AppState>().collab;
+      final title = owner?.displayName ?? '项目负责人';
+      final node = await collab.createNode(
+        projectId: widget.projectId,
+        title: title,
+        nodeTypeKey: 'person',
+        parentId: null,
+      );
+      await collab.setAssignees(nodeId: node.id, userIds: [ownerId]);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已将「$title」放到主干终点')),
+        );
+      }
+    } catch (e) {
+      if (mounted) showApiError(context, e);
+    }
+  }
+
+  Future<void> _deleteNode(TreeNodeItem node) async {
+    try {
+      await context.read<AppState>().collab.deleteNode(node.id);
+      if (!mounted) return;
+      setState(() {
+        if (_selected?.id == node.id) {
+          _selected = null;
+          _evidence = [];
+          _showEvidencePanel = false;
+        }
+      });
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('已删除「${node.title}」')),
+        );
+      }
     } catch (e) {
       if (mounted) showApiError(context, e);
     }
@@ -181,14 +291,24 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
+                if (_project?.finalOwner != null)
+                  _FinalOwnerBanner(owner: _project!.finalOwner!),
                 Expanded(
                   child: WorkTreeCanvas(
                     roots: _tree,
                     projectId: widget.projectId,
                     userId: state.user?.id,
                     needsVerification: state.needsVerification,
-                    onCreateRoot: () => _addNode(),
-                    onAddChild: (n) => _addNode(parentId: n.id),
+                    members: _members,
+                    finalOwnerUserId: _project?.finalOwner?.userId ??
+                        _project?.pmUserId,
+                    finalOwnerName: _project?.finalOwner?.displayName,
+                    onEnsureLeader: _ensureLeaderNode,
+                    onCreateNode: _createNode,
+                    onMoveNode: _moveNode,
+                    onUpdateNode: _updateNode,
+                    onSetAssignees: _setAssignees,
+                    onDeleteNode: _deleteNode,
                     onSubmitEvidence: _submitEvidence,
                     onOpenAgent: _openAgent,
                     onSelectionChanged: _onSelection,
@@ -203,6 +323,44 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                   ),
               ],
             ),
+    );
+  }
+}
+
+class _FinalOwnerBanner extends StatelessWidget {
+  const _FinalOwnerBanner({required this.owner});
+  final ProjectOwner owner;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = owner.isMe
+        ? '你是本项目最终负责人（${owner.displayName}）'
+        : '本项目最终负责人：${owner.displayName}';
+    return Material(
+      color: owner.isMe ? const Color(0xFFE8F5E9) : const Color(0xFFF3F0EA),
+      child: ListTile(
+        dense: true,
+        leading: CircleAvatar(
+          radius: 16,
+          backgroundImage:
+              owner.avatarUrl != null && owner.avatarUrl!.isNotEmpty
+                  ? NetworkImage(owner.avatarUrl!)
+                  : null,
+          child: owner.avatarUrl == null || owner.avatarUrl!.isEmpty
+              ? Text(
+                  owner.displayName.isNotEmpty ? owner.displayName[0] : '?',
+                )
+              : null,
+        ),
+        title: Text(
+          text,
+          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+        subtitle: const Text(
+          '以项目指定为准；主干终点应对齐最终负责人',
+          style: TextStyle(fontSize: 11),
+        ),
+      ),
     );
   }
 }
@@ -237,7 +395,10 @@ class _EvidenceSheet extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextButton(onPressed: onSubmit, child: const Text('提交')),
-                    IconButton(onPressed: onClose, icon: const Icon(Icons.close)),
+                    IconButton(
+                      onPressed: onClose,
+                      icon: const Icon(Icons.close),
+                    ),
                   ],
                 ),
               ),

@@ -119,7 +119,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _smtpPass.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('SMTP 已保存')),
+          const SnackBar(content: Text('邮件配置已保存')),
         );
       }
     } catch (e) {
@@ -160,7 +160,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _llmKey.clear();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('LLM 已保存')),
+          const SnackBar(content: Text('大模型配置已保存')),
         );
       }
     } catch (e) {
@@ -176,7 +176,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final res = await context.read<AppState>().notifications.testLlm();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res['content']?.toString() ?? 'LLM 测试成功')),
+          SnackBar(content: Text(res['content']?.toString() ?? '大模型测试成功')),
         );
       }
     } catch (e) {
@@ -364,7 +364,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ],
                     ),
                   ),
-                  const SectionHeader('个人 SMTP'),
+                  const SectionHeader('个人邮件（SMTP）'),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(12),
@@ -373,7 +373,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           TextField(
                             controller: _smtpHost,
                             decoration: const InputDecoration(
-                              labelText: 'Host',
+                              labelText: '服务器地址',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -382,7 +382,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             controller: _smtpPort,
                             keyboardType: TextInputType.number,
                             decoration: const InputDecoration(
-                              labelText: 'Port',
+                              labelText: '端口',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -390,7 +390,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           TextField(
                             controller: _smtpUser,
                             decoration: const InputDecoration(
-                              labelText: 'User',
+                              labelText: '用户名',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -398,7 +398,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           TextField(
                             controller: _smtpFrom,
                             decoration: const InputDecoration(
-                              labelText: 'From',
+                              labelText: '发件人',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -431,7 +431,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
-                  const SectionHeader('个人 LLM'),
+                  const SectionHeader('个人大模型'),
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(12),
@@ -446,7 +446,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           TextField(
                             controller: _llmProvider,
                             decoration: const InputDecoration(
-                              labelText: 'Provider',
+                              labelText: '服务商',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -454,7 +454,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           TextField(
                             controller: _llmBase,
                             decoration: const InputDecoration(
-                              labelText: 'Base URL',
+                              labelText: '接口地址',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -462,7 +462,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           TextField(
                             controller: _llmModel,
                             decoration: const InputDecoration(
-                              labelText: 'Model',
+                              labelText: '模型',
                               border: OutlineInputBorder(),
                             ),
                           ),
@@ -472,8 +472,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             obscureText: true,
                             decoration: InputDecoration(
                               labelText: _llm?.hasApiKey == true
-                                  ? 'API Key（留空保持）'
-                                  : 'API Key',
+                                  ? '密钥（留空则保持原值）'
+                                  : '接口密钥',
                               border: const OutlineInputBorder(),
                             ),
                           ),
@@ -528,7 +528,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               controller: _agentPrompt,
                               maxLines: 3,
                               decoration: const InputDecoration(
-                                labelText: 'System Prompt',
+                                labelText: '系统提示词',
                                 border: OutlineInputBorder(),
                               ),
                             ),

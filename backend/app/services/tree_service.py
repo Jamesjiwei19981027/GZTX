@@ -7,9 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project import Project
 from app.models.tree import NodeAssignment, NodeType, TreeNode, default_progress_json
+from app.models.user import User
 
 
 BUILTIN_TYPES = {
+    "person": ("人", "person"),
     "scope": ("范围", "scope"),
     "work_item": ("工作项", "work_item"),
     "milestone": ("里程碑", "milestone"),
@@ -182,7 +184,6 @@ class TreeService:
         q = await db.execute(select(NodeAssignment).where(NodeAssignment.node_id == node_id))
         for row in q.scalars().all():
             await db.delete(row)
-        out = []
         for a in assignees:
             asg = NodeAssignment(
                 node_id=node_id,
@@ -190,16 +191,29 @@ class TreeService:
                 role_key=a.get("role_key") or "primary",
             )
             db.add(asg)
-            out.append({"user_id": asg.user_id, "role_key": asg.role_key})
         await db.flush()
-        return out
+        return await self.list_assignees(db, node_id)
 
     async def list_assignees(self, db: AsyncSession, node_id: int) -> list[dict]:
-        q = await db.execute(select(NodeAssignment).where(NodeAssignment.node_id == node_id))
-        return [
-            {"user_id": a.user_id, "role_key": a.role_key}
-            for a in q.scalars().all()
-        ]
+        rows = (
+            await db.execute(
+                select(NodeAssignment, User)
+                .join(User, User.id == NodeAssignment.user_id)
+                .where(NodeAssignment.node_id == node_id)
+            )
+        ).all()
+        out = []
+        for a, u in rows:
+            display = (u.nickname or u.username or f"用户{u.id}").strip()
+            out.append(
+                {
+                    "user_id": a.user_id,
+                    "role_key": a.role_key,
+                    "display_name": display,
+                    "avatar_url": u.avatar_url,
+                }
+            )
+        return out
 
     async def get_type_key(self, db: AsyncSession, node: TreeNode) -> tuple[str, str]:
         nt = await db.get(NodeType, node.node_type_id)

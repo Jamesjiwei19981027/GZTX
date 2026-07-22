@@ -82,6 +82,17 @@ async def patch_node(node_id: int, body: NodePatch, db: DbSession, user: Current
     data = body.model_dump(exclude_unset=True)
     if "progress_json" in data:
         return fail(422, 42200, "禁止直接修改 progress_json")
+    type_key = data.pop("node_type_key", None)
+    if type_key is not None:
+        try:
+            nt = await tsvc.resolve_type(db, type_key)
+        except ValueError as e:
+            return fail(422, 42200, str(e))
+        node.node_type_id = nt.id
+        # 切换类型时重置进度模板，避免旧 template 残留
+        from app.models.tree import default_progress_json
+
+        node.progress_json = default_progress_json(nt.behavior_template)
     for k, v in data.items():
         setattr(node, k, v)
     await db.commit()

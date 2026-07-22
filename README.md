@@ -40,6 +40,7 @@
 
 | 文档 | 说明 |
 |------|------|
+| [启动指导文档.md](./启动指导文档.md) | **本机如何启动后端 / Web / APP 与排错**（日常自用） |
 | [docs/项目逻辑文档.md](./docs/项目逻辑文档.md) | **项目思路与目录真源**（优先阅读） |
 | [docs/CURSOR-HANDOFF.md](./docs/CURSOR-HANDOFF.md) | 接手与门禁 |
 | [docs/01-需求分析.md](./docs/01-需求分析.md) | 功能需求与场景 |
@@ -54,25 +55,19 @@
 
 ## 快速开始
 
+**日常与联调一律 Docker**（不要用本机 venv / uvicorn 当默认启动）：
+
 ```bash
-# 后端
-cd backend
-pip install -r requirements.txt
-uvicorn app.main:app --reload
-
-# Web（另开终端）
-cd frontend
-npm install
-npm run dev
-
-# 或 Docker（推荐日常开发）
+cd E:\workspace\gongzuotix   # 或你的仓库根目录
 docker compose up -d
 ```
 
-- API 文档：http://localhost:8010/docs（Docker 映射）或 http://localhost:8000/docs  
-- Web 开发：http://localhost 或 http://localhost:5173  
+- API 文档：http://localhost:8010/docs  
+- Web：http://localhost 或 http://localhost:5173  
 - 小程序：微信开发者工具打开 `miniprogram/`（配置 `app.js` 中 `baseUrl`）  
-- APP：见 [app/README.md](./app/README.md)（需 Flutter SDK，首次运行 bootstrap 脚本生成平台目录）
+- APP：见 [启动指导文档.md](./启动指导文档.md) 与 [app/README.md](./app/README.md)（Flutter 连 Docker 的 `8010`）
+
+本机 Python/npm 直跑仅作临时调试，见启动指导文档「可选」小节。
 
 ---
 
