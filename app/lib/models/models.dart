@@ -224,6 +224,7 @@ class ProjectItem {
     this.status,
     this.myRole,
     this.pmUserId,
+    this.createdBy,
     this.finalOwner,
   });
 
@@ -233,6 +234,7 @@ class ProjectItem {
   final String? status;
   final String? myRole;
   final int? pmUserId;
+  final int? createdBy;
   final ProjectOwner? finalOwner;
 
   factory ProjectItem.fromJson(Map<String, dynamic> json) {
@@ -245,6 +247,7 @@ class ProjectItem {
       myRole: json['my_role'] as String?,
       pmUserId: (json['final_owner_user_id'] as num?)?.toInt() ??
           (json['pm_user_id'] as num?)?.toInt(),
+      createdBy: (json['created_by'] as num?)?.toInt(),
       finalOwner: owner is Map
           ? ProjectOwner.fromJson(Map<String, dynamic>.from(owner))
           : null,

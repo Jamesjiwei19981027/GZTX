@@ -56,7 +56,7 @@ export default function ProjectListPage() {
         name: formName.trim(),
         company_id: companyId,
       })
-      message.success('项目已创建')
+      message.success('项目已创建，请在画布「放到终点」放置负责人')
       setShowCreate(false)
       setFormName('')
       navigate(`/projects/${p.id}`)

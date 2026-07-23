@@ -291,7 +291,7 @@ export default function SettingsPage() {
       setLlmHasKey(result?.has_api_key || !!llmApiKey.trim())
       setLlmConfigured(!!result?.configured)
       setLlmApiKey('')
-      message.success('个人 LLM 配置已保存')
+      message.success('个人大模型配置已保存')
     } catch (e) {
       message.error(getErrorMessage(e, '保存失败'))
     } finally {
@@ -384,7 +384,7 @@ export default function SettingsPage() {
         <header className="mb-xl">
           <h1 className="font-headline text-headline-lg text-on-surface mb-xs">设置</h1>
           <p className="font-body text-body-md text-on-surface-variant">
-                  管理个人资料、外观、邮件、个人智能体与 LLM 配置。
+                  管理个人资料、外观、邮件、个人智能体与大模型配置。
           </p>
         </header>
 
@@ -478,7 +478,7 @@ export default function SettingsPage() {
               <div>
                 <h3 className="font-headline text-headline-sm text-on-surface">个人邮件服务器</h3>
                 <p className="font-body text-body-sm text-on-surface-variant mt-xs">
-                  个人任务提醒等优先用此处 SMTP。密码留空表示不修改已保存的授权码。
+                  个人任务提醒等优先用此处邮件配置。密码留空表示不修改已保存的授权码。
                 </p>
               </div>
               {smtpConfigured ? (
@@ -498,7 +498,7 @@ export default function SettingsPage() {
             <Spin spinning={smtpLoading}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div className="flex flex-col gap-xs">
-                  <label className="font-label text-label-md text-on-surface-variant">SMTP 服务器</label>
+                  <label className="font-label text-label-md text-on-surface-variant">邮件服务器</label>
                   <Input value={smtpHost} onChange={(e) => setSmtpHost(e.target.value)} placeholder="smtp.qq.com" />
                 </div>
                 <div className="flex flex-col gap-xs">
@@ -532,7 +532,7 @@ export default function SettingsPage() {
                   <Input.Password
                     value={smtpPassword}
                     onChange={(e) => setSmtpPassword(e.target.value)}
-                    placeholder={smtpHasPassword ? '已保存，留空不修改' : 'SMTP 授权码 / 密码'}
+                    placeholder={smtpHasPassword ? '已保存，留空不修改' : '邮件授权码 / 密码'}
                     autoComplete="new-password"
                   />
                 </div>
@@ -565,7 +565,7 @@ export default function SettingsPage() {
               <div>
                 <h3 className="font-headline text-headline-sm text-on-surface">个人智能体</h3>
                 <p className="font-body text-body-sm text-on-surface-variant mt-xs">
-                  创建最多 5 个个人智能体（名称、场景、系统提示词）。对话时在侧栏选择；模型通道见下方「个人 LLM」。
+                  创建最多 5 个个人智能体（名称、场景、系统提示词）。对话时在侧栏选择；模型通道见下方「个人大模型」。
                 </p>
               </div>
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-label-sm bg-primary/10 text-primary font-label">
@@ -679,7 +679,7 @@ export default function SettingsPage() {
           <section className="bg-surface rounded-xl p-lg shadow-sm border border-surface-variant">
             <div className="flex items-center justify-between mb-lg flex-wrap gap-sm">
               <div>
-                <h3 className="font-headline text-headline-sm text-on-surface">个人 LLM（模型通道）</h3>
+                <h3 className="font-headline text-headline-sm text-on-surface">个人大模型（模型通道）</h3>
                 <p className="font-body text-body-sm text-on-surface-variant mt-xs">
                   智能体对话优先用此处模型。开启「用于智能体」后生效。API Key 留空表示不修改已保存密钥。
                 </p>
@@ -763,7 +763,7 @@ export default function SettingsPage() {
               <div className="flex flex-wrap gap-lg mt-md">
                 <label className="inline-flex items-center gap-sm font-label text-label-md text-on-surface cursor-pointer">
                   <Switch checked={llmEnabled} onChange={setLlmEnabled} size="small" />
-                  启用个人 LLM
+                  启用个人大模型
                 </label>
                 <label className="inline-flex items-center gap-sm font-label text-label-md text-on-surface cursor-pointer">
                   <Switch checked={llmUseForAgent} onChange={setLlmUseForAgent} size="small" />

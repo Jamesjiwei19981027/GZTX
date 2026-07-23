@@ -4,10 +4,12 @@ import type {
   AgentDefinitionDTO,
   CompanyDTO,
   EvidencePackageDTO,
+  NodeAssigneeDTO,
   OrgUnitDTO,
   PageData,
   ProgressRecordDTO,
   ProjectDTO,
+  ProjectMemberDTO,
   TreeNodeDTO,
 } from '@/types/collab'
 
@@ -105,6 +107,7 @@ export function createNode(
     node_type_key: string
     title: string
     description?: string
+    due_at?: string
     assignees?: { user_id: number; role_key: string }[]
   },
 ) {
@@ -113,6 +116,45 @@ export function createNode(
 
 export function getNode(nodeId: number) {
   return request.get<TreeNodeDTO>(`/nodes/${nodeId}`)
+}
+
+export function patchNode(
+  nodeId: number,
+  body: {
+    title?: string
+    description?: string | null
+    node_type_key?: string
+    due_at?: string | null
+  },
+) {
+  return request.patch<TreeNodeDTO>(`/nodes/${nodeId}`, body)
+}
+
+export function moveNode(
+  nodeId: number,
+  body: { new_parent_id?: number | null; sort_order?: number },
+) {
+  return request.post<TreeNodeDTO>(`/nodes/${nodeId}/move`, body)
+}
+
+export function deleteNode(nodeId: number) {
+  return request.delete<{ id: number; deleted?: boolean }>(`/nodes/${nodeId}`)
+}
+
+export function setNodeAssignees(
+  nodeId: number,
+  userIds: number[],
+) {
+  return request.put<{ assignees: NodeAssigneeDTO[] }>(`/nodes/${nodeId}/assignees`, {
+    assignees: userIds.map((user_id, i) => ({
+      user_id,
+      role_key: i === 0 ? 'primary' : 'member',
+    })),
+  })
+}
+
+export function listProjectMembers(projectId: number) {
+  return request.get<{ items: ProjectMemberDTO[] }>(`/projects/${projectId}/members`)
 }
 
 export function submitEvidence(

@@ -2,7 +2,7 @@
 
 export type CompanyStatus = 'pending_license' | 'active' | 'readonly' | 'suspended'
 export type ProjectStatus = 'draft' | 'active' | 'archived'
-export type BehaviorTemplate = 'scope' | 'work_item' | 'milestone'
+export type BehaviorTemplate = 'scope' | 'work_item' | 'milestone' | 'person'
 
 export interface ProgressJson {
   template: BehaviorTemplate
@@ -33,15 +33,44 @@ export interface CompanyDTO {
   created_at?: string | null
 }
 
+export interface ProjectOwnerDTO {
+  user_id: number
+  username?: string | null
+  nickname?: string | null
+  avatar_url?: string | null
+  is_me?: boolean
+}
+
 export interface ProjectDTO {
   id: number
   company_id: number
   name: string
   status: ProjectStatus
   pm_user_id: number | null
+  final_owner_user_id?: number | null
+  created_by?: number | null
+  final_owner?: ProjectOwnerDTO | null
   my_role?: string | null
   created_at?: string | null
   member_count?: number
+}
+
+export interface NodeAssigneeDTO {
+  user_id: number
+  role_key: string
+  nickname?: string | null
+  username?: string | null
+  display_name?: string | null
+  avatar_url?: string | null
+}
+
+export interface ProjectMemberDTO {
+  user_id: number
+  display_name?: string | null
+  nickname?: string | null
+  username?: string | null
+  avatar_url?: string | null
+  role?: string | null
 }
 
 export interface TreeNodeDTO {
@@ -54,8 +83,11 @@ export interface TreeNodeDTO {
   sort_order: number
   path: string
   depth: number
+  start_at?: string | null
+  due_at?: string | null
+  milestone_at?: string | null
   progress_json: ProgressJson
-  assignees: { user_id: number; role_key: string; nickname?: string }[]
+  assignees: NodeAssigneeDTO[]
   children?: TreeNodeDTO[]
 }
 

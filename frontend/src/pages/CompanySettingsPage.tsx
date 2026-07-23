@@ -26,6 +26,15 @@ import {
 import { getErrorMessage } from '@/api/request'
 import { useCompanyContext } from '@/hooks/useCompanyContext'
 import type { CompanyDTO, OrgUnitDTO } from '@/types/collab'
+import {
+  zhBool,
+  zhCapability,
+  zhFeatureKey,
+  zhLoginMethod,
+  zhPolicy,
+  zhProvider,
+  zhStatus,
+} from '@/utils/zhLabels'
 
 const LOGIN_METHOD_KEYS = ['password', 'wechat', 'wecom', 'dingtalk', 'feishu', 'oidc'] as const
 
@@ -528,29 +537,41 @@ export default function CompanySettingsPage() {
               <h2 className="font-semibold text-on-surface">基本信息</h2>
               <p className="text-sm text-on-surface">
                 {company?.name}
-                {company?.slug ? `（${company.slug}）` : ''}
+                {company?.slug ? `（标识：${company.slug}）` : ''}
               </p>
               <p className="text-sm text-on-surface">
                 状态：
                 <span className="font-medium">
-                  {company?.status || features?.status || '-'}
+                  {zhStatus(company?.status || features?.status)}
                 </span>
-                {' · 预设 '}
-                {company?.policy_preset || '-'}
+                {' · 策略 '}
+                {zhPolicy(company?.policy_preset)}
               </p>
               <p className="text-xs text-on-surface-variant">
-                License 解锁：{features?.unlocked ? '是' : '否'}
+                License 解锁：{zhBool(features?.unlocked)}
               </p>
+              {features?.features && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {Object.entries(features.features).map(([k, v]) => (
+                    <span
+                      key={k}
+                      className="text-xs px-2 py-1 rounded-full bg-surface-container-low text-on-surface"
+                    >
+                      {zhFeatureKey(k)} · {zhBool(v)}
+                    </span>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* 公司 SMTP */}
             <section className="p-4 rounded-2xl border border-surface-variant bg-surface space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h2 className="font-semibold text-on-surface">公司 SMTP（含密码）</h2>
+                  <h2 className="font-semibold text-on-surface">公司邮件（SMTP）</h2>
                   <p className="text-xs text-on-surface-variant mt-1">
-                    欢迎信、协作通知优先用此处配置；密码加密存储，接口永不回显明文。优先级：个人设置
-                    SMTP → 公司 SMTP → 服务器环境变量。
+                    欢迎信、协作通知优先用此处配置；密码加密存储，接口永不回显明文。优先级：个人邮件
+                    → 公司邮件 → 服务器环境变量。
                   </p>
                 </div>
                 <span
@@ -565,7 +586,7 @@ export default function CompanySettingsPage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2 text-sm">
                 <div className="flex flex-col gap-1">
-                  <label className="text-on-surface-variant text-xs">SMTP 主机</label>
+                  <label className="text-on-surface-variant text-xs">邮件服务器</label>
                   <Input
                     value={smtpHost}
                     onChange={(e) => setSmtpHost(e.target.value)}
@@ -616,7 +637,7 @@ export default function CompanySettingsPage() {
                   disabled={smtpSaving || !companyId}
                   onClick={() => void saveSmtp()}
                 >
-                  {smtpSaving ? '保存中…' : '保存公司 SMTP'}
+                  {smtpSaving ? '保存中…' : '保存公司邮件'}
                 </button>
                 <button
                   type="button"
@@ -633,7 +654,7 @@ export default function CompanySettingsPage() {
             <section className="p-4 rounded-2xl border border-surface-variant bg-surface space-y-3">
               <div className="flex items-start justify-between gap-2">
                 <div>
-                  <h2 className="font-semibold text-on-surface">公司 LLM</h2>
+                  <h2 className="font-semibold text-on-surface">公司大模型</h2>
                   <p className="text-xs text-on-surface-variant mt-1">
                     可随时切换 OpenAI / 兼容接口 / Ollama / Fake。API Key 加密存储，接口不回显。用于智能体对话与材料判定（可分别开关）。
                   </p>
@@ -698,7 +719,7 @@ export default function CompanySettingsPage() {
                   />
                 </div>
                 <div className="flex flex-col gap-1">
-                  <label className="text-on-surface-variant text-xs">Max tokens</label>
+                  <label className="text-on-surface-variant text-xs">最大生成长度</label>
                   <Input
                     type="number"
                     min={64}
@@ -729,7 +750,7 @@ export default function CompanySettingsPage() {
                   disabled={llmSaving || !companyId}
                   onClick={() => void saveLlm()}
                 >
-                  {llmSaving ? '保存中…' : '保存公司 LLM'}
+                  {llmSaving ? '保存中…' : '保存公司大模型'}
                 </button>
                 <button
                   type="button"
@@ -756,7 +777,7 @@ export default function CompanySettingsPage() {
                       checked={!!login[k]}
                       onChange={(e) => setLogin((prev) => ({ ...prev, [k]: e.target.checked }))}
                     />
-                    {k}
+                    {zhLoginMethod(k)}
                   </label>
                 ))}
               </div>
@@ -945,8 +966,9 @@ export default function CompanySettingsPage() {
                 </label>
               </div>
               <p className="text-xs text-on-surface-variant">
-                当前：存储 {bindings?.storage?.provider_id || 'local'} · ASR{' '}
-                {bindings?.asr?.provider_id || 'builtin'}
+                当前：{zhCapability('storage')} {zhProvider(bindings?.storage?.provider_id || 'local')} ·{' '}
+                {zhCapability('asr')} {zhProvider(bindings?.asr?.provider_id || 'builtin')} ·{' '}
+                {zhCapability('model')} {zhProvider(bindings?.model?.provider_id || 'fake')}
               </p>
               <button
                 type="button"

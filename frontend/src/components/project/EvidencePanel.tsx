@@ -8,6 +8,7 @@ import {
 } from '@/api/collab'
 import { getErrorMessage } from '@/api/request'
 import type { EvidencePackageDTO, ProgressRecordDTO, TreeNodeDTO } from '@/types/collab'
+import { zhNodeType } from '@/utils/zhLabels'
 
 export type EvidencePanelProps = {
   node: TreeNodeDTO
@@ -98,7 +99,7 @@ export default function EvidencePanel({
       <div>
         <h2 className="text-xl font-semibold">{node.title}</h2>
         <p className="text-sm text-on-surface-variant mt-1">
-          {node.node_type_key} · 进度 {statusLabel(node.progress_json)}
+          {zhNodeType(node.node_type_key)} · 进度 {statusLabel(node.progress_json)}
         </p>
       </div>
 

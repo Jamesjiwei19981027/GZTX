@@ -13,6 +13,7 @@ class WorkTreePrefs {
   String get _sortKey => 'wt_${projectId}_sort';
   String get _lastNodeKey => 'wt_${projectId}_last_node';
   String get _levelsKey => 'wt_${projectId}_visible_levels';
+  String get _leaderDeltaKey => 'wt_${projectId}_leaderAlongDelta';
 
   Future<WorkTreeAxis> loadAxis() async {
     final p = await SharedPreferences.getInstance();
@@ -29,6 +30,16 @@ class WorkTreePrefs {
   Future<int?> loadLastNodeId() async {
     final p = await SharedPreferences.getInstance();
     return p.getInt(_lastNodeKey);
+  }
+
+  Future<double> loadLeaderAlongDelta() async {
+    final p = await SharedPreferences.getInstance();
+    return p.getDouble(_leaderDeltaKey) ?? 0;
+  }
+
+  Future<void> saveLeaderAlongDelta(double value) async {
+    final p = await SharedPreferences.getInstance();
+    await p.setDouble(_leaderDeltaKey, value < 0 ? 0 : value);
   }
 
   Future<void> saveAxis(WorkTreeAxis axis) async {

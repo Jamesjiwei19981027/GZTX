@@ -2,23 +2,23 @@ import 'package:flutter/material.dart';
 
 const kPaletteWidth = 88.0;
 
-/// 轻快、低压迫感的工作树视觉 tokens。
+/// 对齐 WEB main.css 默认蓝主色 + 灰白表面层级。
 class WorkTreeTheme {
-  static const bg = Color(0xFFF6FAF8);
-  static const grid = Color(0xFFE2EEE8);
-  static const axis = Color(0xFFB7D4C8);
+  static const bg = Color(0xFFF8F9FA); // surface
+  static const grid = Color(0xFFE1E3E4); // surface-variant-ish
+  static const axis = Color(0xFFC2C6D6); // outline-variant
   static const card = Color(0xFFFFFFFF);
-  static const ink = Color(0xFF2A3A36);
-  static const muted = Color(0xFF6B7F78);
-  static const dropHighlight = Color(0xFF7EC8B8);
+  static const ink = Color(0xFF191C1D); // on-surface
+  static const muted = Color(0xFF424754); // on-surface-variant
+  static const dropHighlight = Color(0xFFADC6FF); // primary-fixed-dim
 
-  static const person = Color(0xFF5BA8E8);
-  static const spine = Color(0xFF4DB6A0);
-  static const spineGlow = Color(0x554DB6A0);
-  static const timeRuler = Color(0xFF8FA89E);
-  static const scope = Color(0xFFB39DDB);
-  static const workItem = Color(0xFF7EB6FF);
-  static const milestone = Color(0xFFFFC56E);
+  static const person = Color(0xFF0058BE); // primary
+  static const spine = Color(0xFF0058BE);
+  static const spineGlow = Color(0x440058BE);
+  static const timeRuler = Color(0xFF727785); // outline
+  static const scope = Color(0xFF006C49); // secondary
+  static const workItem = Color(0xFF2170E4); // primary-container
+  static const milestone = Color(0xFF924700); // tertiary
 
   static Color accentFor(String? typeKey) {
     switch (typeKey) {
@@ -41,7 +41,7 @@ class WorkTreeTheme {
 
   static List<BoxShadow> get softShadow => [
         BoxShadow(
-          color: const Color(0xFF4DB6A0).withValues(alpha: 0.08),
+          color: const Color(0xFF0058BE).withValues(alpha: 0.08),
           blurRadius: 18,
           offset: const Offset(0, 8),
         ),
@@ -94,7 +94,6 @@ const kPaletteItems = <PaletteItem>[
   ),
 ];
 
-/// 人节点边缘快捷连接可选类型。
 const kQuickConnectItems = kPaletteItems;
 
 class PaletteDragData {

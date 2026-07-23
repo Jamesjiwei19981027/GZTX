@@ -303,6 +303,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     finalOwnerUserId: _project?.finalOwner?.userId ??
                         _project?.pmUserId,
                     finalOwnerName: _project?.finalOwner?.displayName,
+                    canDragLeader: state.user?.id != null &&
+                        (state.user!.id == _project?.pmUserId ||
+                            state.user!.id == _project?.createdBy),
                     onEnsureLeader: _ensureLeaderNode,
                     onCreateNode: _createNode,
                     onMoveNode: _moveNode,

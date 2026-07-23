@@ -47,6 +47,7 @@ class WorkTreeCanvas extends StatefulWidget {
     this.finalOwnerUserId,
     this.finalOwnerName,
     this.onEnsureLeader,
+    this.canDragLeader = false,
   });
 
   final List<TreeNodeItem> roots;
@@ -65,6 +66,7 @@ class WorkTreeCanvas extends StatefulWidget {
   final int? finalOwnerUserId;
   final String? finalOwnerName;
   final Future<void> Function()? onEnsureLeader;
+  final bool canDragLeader;
 
   @override
   State<WorkTreeCanvas> createState() => WorkTreeCanvasState();
@@ -85,6 +87,7 @@ class WorkTreeCanvasState extends State<WorkTreeCanvas> {
   bool _propertiesOpen = false;
   int _visibleLevels = 3;
   Size _viewport = Size.zero;
+  double _leaderAlongDelta = 0;
 
   @override
   void initState() {
@@ -128,12 +131,14 @@ class WorkTreeCanvasState extends State<WorkTreeCanvas> {
     final sort = await _prefs.loadSort();
     final last = await _prefs.loadLastNodeId();
     final levels = await _prefs.loadVisibleLevels();
+    final leaderDelta = await _prefs.loadLeaderAlongDelta();
     if (!mounted) return;
     setState(() {
       _axis = axis;
       _sort = sort;
       _lastNodeId = last;
       _visibleLevels = levels.clamp(1, 8);
+      _leaderAlongDelta = leaderDelta;
       _ready = true;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -150,7 +155,20 @@ class WorkTreeCanvasState extends State<WorkTreeCanvas> {
         expandedNodeId: _expandedId,
         visibleLevels: _visibleLevels,
         finalOwnerUserId: widget.finalOwnerUserId,
+        leaderAlongDelta: _leaderAlongDelta,
       );
+
+  void _nudgeLeaderAlong(double delta) {
+    if (!widget.canDragLeader) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('终责位置仅项目 PM 可调')),
+      );
+      return;
+    }
+    final next = (_leaderAlongDelta + delta).clamp(0.0, 2400.0);
+    setState(() => _leaderAlongDelta = next);
+    _prefs.saveLeaderAlongDelta(next);
+  }
 
   void _clearSelection() {
     if (_selectedId == null && !_propertiesOpen) return;
@@ -577,6 +595,8 @@ class WorkTreeCanvasState extends State<WorkTreeCanvas> {
                               dropHoverId: _dropHoverId,
                               userId: widget.userId,
                               panEnabled: !_dragging,
+                              canDragLeader: widget.canDragLeader,
+                              onLeaderPan: _nudgeLeaderAlong,
                               onHoverChange: (id) =>
                                   setState(() => _dropHoverId = id),
                               onDragStarted: () =>
@@ -737,6 +757,8 @@ class _CanvasBoard extends StatelessWidget {
     required this.dropHoverId,
     required this.userId,
     required this.panEnabled,
+    required this.canDragLeader,
+    required this.onLeaderPan,
     required this.onHoverChange,
     required this.onDragStarted,
     required this.onDragEnded,
@@ -758,6 +780,8 @@ class _CanvasBoard extends StatelessWidget {
   final int? dropHoverId;
   final int? userId;
   final bool panEnabled;
+  final bool canDragLeader;
+  final ValueChanged<double> onLeaderPan;
   final ValueChanged<int?> onHoverChange;
   final VoidCallback onDragStarted;
   final VoidCallback onDragEnded;
@@ -851,6 +875,9 @@ class _CanvasBoard extends StatelessWidget {
                         dropHot: dropHoverId == p.node.id,
                         mine: p.node.isAssignedTo(userId),
                         isOrigin: p.isOrigin,
+                        canDragLeader: canDragLeader,
+                        axis: axis,
+                        onLeaderPan: onLeaderPan,
                         onDragStarted: onDragStarted,
                         onDragEnded: onDragEnded,
                         onHover: (hot) =>
@@ -979,6 +1006,9 @@ class _DraggableNodeCard extends StatelessWidget {
     required this.dropHot,
     required this.mine,
     this.isOrigin = false,
+    this.canDragLeader = false,
+    this.axis = WorkTreeAxis.horizontal,
+    this.onLeaderPan,
     required this.onDragStarted,
     required this.onDragEnded,
     required this.onHover,
@@ -995,6 +1025,9 @@ class _DraggableNodeCard extends StatelessWidget {
   final bool dropHot;
   final bool mine;
   final bool isOrigin;
+  final bool canDragLeader;
+  final WorkTreeAxis axis;
+  final ValueChanged<double>? onLeaderPan;
   final VoidCallback onDragStarted;
   final VoidCallback onDragEnded;
   final ValueChanged<bool> onHover;
@@ -1007,6 +1040,25 @@ class _DraggableNodeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final face = GestureDetector(
+      onTap: onTap,
+      onDoubleTap: onDoubleTap,
+      onPanUpdate: isOrigin && canDragLeader && onLeaderPan != null
+          ? (d) {
+              final delta =
+                  axis == WorkTreeAxis.vertical ? d.delta.dy : d.delta.dx;
+              onLeaderPan!(delta);
+            }
+          : null,
+      child: _NodeCardFace(
+        node: node,
+        selected: selected,
+        dropHot: dropHot,
+        mine: mine,
+        isOrigin: isOrigin,
+      ),
+    );
+
     return DragTarget<Object>(
       onWillAcceptWithDetails: (details) {
         final data = details.data;
@@ -1033,6 +1085,9 @@ class _DraggableNodeCard extends StatelessWidget {
         }
       },
       builder: (context, candidate, rejected) {
+        if (isOrigin) {
+          return face;
+        }
         return LongPressDraggable<NodeMoveDragData>(
           data: NodeMoveDragData(node.id),
           delay: const Duration(milliseconds: 180),

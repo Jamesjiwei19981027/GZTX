@@ -342,6 +342,7 @@ class WorkTreeLayout {
     int? finalOwnerUserId,
     DateTime? projectStart,
     DateTime? projectEnd,
+    double leaderAlongDelta = 0,
   }) {
     final flatAll = flattenPersons(
       roots,
@@ -474,7 +475,8 @@ class WorkTreeLayout {
         if (i == leaderIndex) continue;
         if (offsets[i] > maxOther) maxOther = offsets[i];
       }
-      offsets[leaderIndex] = maxOther + minStationGap * 1.65;
+      offsets[leaderIndex] =
+          maxOther + minStationGap * 1.65 + (leaderAlongDelta < 0 ? 0 : leaderAlongDelta);
     }
 
     final axisLen = offsets.isEmpty ? axisStep : offsets.reduce(math.max);

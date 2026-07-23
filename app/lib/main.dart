@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'screens/agent_chat_screen.dart';
@@ -19,40 +20,69 @@ void main() {
 class WorkTodoApp extends StatelessWidget {
   const WorkTodoApp({super.key});
 
+  static const _primary = Color(0xFF0058BE);
+
   @override
   Widget build(BuildContext context) {
+    final baseText = GoogleFonts.interTextTheme();
     return ChangeNotifierProvider(
       create: (_) => AppState()..bootstrap(),
       child: MaterialApp(
         title: '工作题系',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF4DB6A0),
+            seedColor: _primary,
             brightness: Brightness.light,
-            surface: const Color(0xFFF7FBFA),
+            primary: _primary,
+            surface: const Color(0xFFF8F9FA),
           ),
-          scaffoldBackgroundColor: const Color(0xFFF4F8F6),
+          scaffoldBackgroundColor: const Color(0xFFF8F9FA),
           useMaterial3: true,
+          textTheme: baseText.apply(
+            bodyColor: const Color(0xFF191C1D),
+            displayColor: const Color(0xFF191C1D),
+          ),
           cardTheme: CardThemeData(
             elevation: 0,
             color: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
-              side: BorderSide(
-                color: const Color(0xFF4DB6A0).withValues(alpha: 0.12),
-              ),
+              side: const BorderSide(color: Color(0xFFE1E3E4)),
             ),
           ),
-          appBarTheme: const AppBarTheme(
+          appBarTheme: AppBarTheme(
             centerTitle: false,
-            backgroundColor: Color(0xFFF4F8F6),
-            foregroundColor: Color(0xFF2A3A36),
+            backgroundColor: const Color(0xFFF8F9FA),
+            foregroundColor: const Color(0xFF191C1D),
             elevation: 0,
             scrolledUnderElevation: 0.5,
+            titleTextStyle: GoogleFonts.inter(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xFF191C1D),
+            ),
+          ),
+          navigationBarTheme: NavigationBarThemeData(
+            backgroundColor: Colors.white,
+            indicatorColor: _primary.withValues(alpha: 0.12),
+            labelTextStyle: WidgetStateProperty.resolveWith((states) {
+              final selected = states.contains(WidgetState.selected);
+              return GoogleFonts.inter(
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                color: selected ? _primary : const Color(0xFF424754),
+              );
+            }),
+            iconTheme: WidgetStateProperty.resolveWith((states) {
+              final selected = states.contains(WidgetState.selected);
+              return IconThemeData(
+                color: selected ? _primary : const Color(0xFF424754),
+              );
+            }),
           ),
           filledButtonTheme: FilledButtonThemeData(
             style: FilledButton.styleFrom(
-              backgroundColor: const Color(0xFF4DB6A0),
+              backgroundColor: _primary,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
