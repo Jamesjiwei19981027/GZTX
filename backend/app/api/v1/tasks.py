@@ -262,7 +262,10 @@ async def get_task_stats(
             pending=pending,
             in_progress=in_progress,
             overdue=overdue,
-            completion_rate=completed / total if total > 0 else 0.0,
+            # 百分数 0-100，与 Task.completion_rate（0-100 整数）同口径。
+            # 此前返回 0-1 的比率，而 Web（Math.round）与 APP（toStringAsFixed(0)）
+            # 都按百分数展示 —— 完成度低于 50% 一律显示 0%，进度环形同虚设。
+            completion_rate=round(completed / total * 100, 1) if total > 0 else 0.0,
             by_priority=by_priority,
             by_category=by_category,
         )

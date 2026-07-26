@@ -77,6 +77,10 @@ export default {
       },
       fontSize: {
         'display-lg': ['32px', { lineHeight: '40px', fontWeight: '700' }],
+        // 页面主标题。此前 scale 里没有这一档，而 CalendarPage / SettingsPage /
+        // CompanySettingsPage 三处页面标题都写着 text-headline-lg —— Tailwind
+        // 静默丢弃未定义的字号，标题因此塌回继承的 14px，比自己的区块标题还小。
+        'headline-lg': ['28px', { lineHeight: '36px', fontWeight: '700' }],
         'headline-md': ['24px', { lineHeight: '32px', fontWeight: '600' }],
         'headline-sm': ['20px', { lineHeight: '28px', fontWeight: '600' }],
         'headline-md-mobile': ['20px', { lineHeight: '28px', fontWeight: '600' }],

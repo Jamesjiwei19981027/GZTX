@@ -76,7 +76,7 @@ export default function ProjectListPage() {
     <div className="p-6 max-w-5xl mx-auto overflow-y-auto h-full">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-on-surface">项目</h1>
+          <h1 className="font-headline text-headline-lg text-on-surface">项目</h1>
           <p className="text-sm text-on-surface-variant mt-1">公司协作项目树 · 证据化进度</p>
         </div>
         <button

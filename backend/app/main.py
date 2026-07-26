@@ -2,11 +2,21 @@
 WorkTodo 后端应用入口
 """
 import asyncio
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# Windows 控制台默认是 GBK：启动横幅里的 emoji（✅📊📧）会抛 UnicodeEncodeError，
+# 而它发生在 lifespan 里 —— 进程直接启动失败，不是打印乱码那么简单。
+# 单测跑不到 lifespan，所以这条只有真正起服务才暴露。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:  # noqa: BLE001 — 流不支持重配时保持原样即可
+        pass
 
 from app.core.config import settings
 from app.db.session import init_db, close_db

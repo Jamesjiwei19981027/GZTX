@@ -181,3 +181,36 @@ async def test_status_filter_accepts_multiple_values(
     # 单值老用法保持等价
     r2 = await client.get("/api/v1/tasks?status=2", headers=auth_headers)
     assert {t["title"] for t in r2.json()["data"]["items"]} == {"已完成"}
+
+
+@pytest.mark.asyncio
+async def test_stats_completion_rate_is_percentage(
+    client: AsyncClient, db_session, test_user, auth_headers
+):
+    """completion_rate 必须是 0-100 百分数。
+
+    此前返回 completed/total 的 0-1 比率，而 Web 用 Math.round、APP 用
+    toStringAsFixed(0) 直接当百分数展示——2/7 显示成 0%，进度环永远是空的。
+    """
+    from app.models.category import Category
+    from app.models.task import Task
+
+    cat = Category(user_id=test_user.id, name="默认", color="#409EFF", is_default=True)
+    db_session.add(cat)
+    await db_session.flush()
+    for i in range(4):
+        db_session.add(
+            Task(
+                user_id=test_user.id,
+                category_id=cat.id,
+                title=f"T{i}",
+                status=2 if i < 1 else 0,
+            )
+        )
+    await db_session.commit()
+
+    r = await client.get("/api/v1/tasks/stats", headers=auth_headers)
+    assert r.status_code == 200, r.text
+    d = r.json()["data"]
+    assert d["total"] == 4 and d["completed"] == 1
+    assert d["completion_rate"] == 25.0, d["completion_rate"]

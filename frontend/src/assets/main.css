@@ -26,11 +26,14 @@
 
   /* Tertiary (Amber) */
   --color-tertiary: 146 71 0;
-  --color-tertiary-container: 183 91 0;
+  /* 浅色主题下 *-container 应当是浅色底（对照 error-container / secondary-container）。
+     这里原本填的是深橙 183 91 0 + 近白前景，是全主题唯一一个反过来的 container，
+     谁拿它当浅底用都会得到一块突兀的深色实心块。 */
+  --color-tertiary-container: 255 220 198;
   --color-tertiary-fixed: 255 220 198;
   --color-tertiary-fixed-dim: 255 183 134;
   --color-on-tertiary: 255 255 255;
-  --color-on-tertiary-container: 255 251 255;
+  --color-on-tertiary-container: 114 54 0;
   --color-on-tertiary-fixed: 49 20 0;
   --color-on-tertiary-fixed-variant: 114 54 0;
 

@@ -102,29 +102,57 @@ function taskCategoryName(task: Task): string {
   return '个人'
 }
 
+/** 指标卡语气：alert=需要处理，info=中性存量，good=正向结果 */
+type MetricTone = 'alert' | 'info' | 'good'
+
+const TONE_STYLES: Record<MetricTone, { chip: string; value: string }> = {
+  alert: { chip: 'bg-error-container text-on-error-container', value: 'text-error' },
+  info: { chip: 'bg-primary-container text-on-primary-container', value: 'text-on-surface' },
+  // 本主题的 secondary 就是绿色，"已完成"用它才对；tertiary 是琥珀金，读起来像警告
+  good: { chip: 'bg-secondary-container text-on-secondary-container', value: 'text-on-surface' },
+}
+
+/** 归零时一律降为中性灰：0 条逾期是好消息，不该用告警色喊 */
+const CALM_STYLE = {
+  chip: 'bg-surface-container-high text-on-surface-variant',
+  value: 'text-on-surface-variant',
+}
+
 type MetricCardProps = {
   label: string
   value: number
   icon: string
-  color: string
+  tone: MetricTone
   onClick: () => void
 }
 
-function MetricCard({ label, value, icon, color, onClick }: MetricCardProps) {
+function MetricCard({ label, value, icon, tone, onClick }: MetricCardProps) {
+  // 原实现是整块高饱和实色（#e74c3c/#e67e22/#3498db/#27ae60）铺满六格：
+  // 一屏一半是告警色，而且全为 0 时依然一片红橙，把"没有待办"渲染成"出事了"。
+  // 改为 surface 卡片 + 小色片强调，颜色只用来分辨语气，不用来抢注意力。
+  const s = value === 0 ? CALM_STYLE : TONE_STYLES[tone]
   return (
     <button
       type="button"
-      className={`${color} text-white rounded-xl p-5 text-left cursor-pointer hover:brightness-110 transition-all w-full`}
       onClick={onClick}
+      className="group w-full rounded-xl border border-outline-variant bg-surface p-4 text-left
+                 transition-colors hover:border-primary/40 hover:bg-surface-container-low
+                 focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="material-symbols-outlined text-2xl opacity-80">{icon}</span>
-        <span className="material-symbols-outlined text-lg opacity-50">chevron_right</span>
+      <div className="mb-3 flex items-center justify-between">
+        <span
+          className={`material-symbols-outlined flex h-9 w-9 items-center justify-center rounded-lg text-[20px] ${s.chip}`}
+        >
+          {icon}
+        </span>
+        <span className="material-symbols-outlined text-lg text-on-surface-variant opacity-0 transition-opacity group-hover:opacity-100">
+          chevron_right
+        </span>
       </div>
-      <p className="text-xs opacity-80 mb-1 m-0">{label}</p>
-      <p className="text-[28px] font-bold m-0">
+      <p className="m-0 mb-1 text-xs text-on-surface-variant">{label}</p>
+      <p className={`m-0 text-[26px] font-semibold leading-none tabular-nums ${s.value}`}>
         {value}
-        <span className="text-sm ml-1 opacity-70">项</span>
+        <span className="ml-1 text-sm font-normal text-on-surface-variant">项</span>
       </p>
     </button>
   )
@@ -211,7 +239,7 @@ export default function DashboardPage() {
       </header>
 
       <main className="p-6 max-w-[1400px] mx-auto w-full flex-grow">
-        <h2 className="text-[28px] font-bold text-on-surface mb-6 m-0">今日工作总览</h2>
+        <h2 className="font-headline text-headline-lg text-on-surface mb-6 m-0">今日工作总览</h2>
 
         {loading && !statsRaw && tasks.length === 0 ? (
           <div className="flex justify-center py-20">
@@ -225,42 +253,42 @@ export default function DashboardPage() {
                   label="已逾期任务"
                   value={stats.overdue}
                   icon="warning"
-                  color="bg-[#e74c3c]"
+                  tone="alert"
                   onClick={() => navigate('/tasks?priority=2&status=0')}
                 />
                 <MetricCard
                   label="待处理任务"
                   value={stats.pending}
                   icon="schedule"
-                  color="bg-[#e67e22]"
+                  tone="alert"
                   onClick={() => navigate('/tasks?status=0')}
                 />
                 <MetricCard
                   label="今日紧急任务"
                   value={highPriorityCount}
                   icon="priority_high"
-                  color="bg-[#e67e22]"
+                  tone="alert"
                   onClick={() => navigate('/tasks?priority=2')}
                 />
                 <MetricCard
                   label="总任务数"
                   value={stats.total}
                   icon="inventory_2"
-                  color="bg-[#3498db]"
+                  tone="info"
                   onClick={() => navigate('/tasks')}
                 />
                 <MetricCard
                   label="进行中任务"
                   value={stats.in_progress}
                   icon="pending"
-                  color="bg-[#3498db]"
+                  tone="info"
                   onClick={() => navigate('/tasks?status=1')}
                 />
                 <MetricCard
                   label="已完成任务"
                   value={stats.completed}
                   icon="check_circle"
-                  color="bg-[#27ae60]"
+                  tone="good"
                   onClick={() => navigate('/tasks?status=2')}
                 />
               </div>
