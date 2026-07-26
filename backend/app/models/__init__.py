@@ -29,10 +29,12 @@ from app.models.integration import IntegrationAccount
 from app.models.delegation import DelegationGrant
 from app.models.report import ReportPolicy, ReportRun
 from app.models.verification import VerificationCode
+from app.models.rate_limit import RateLimitCounter
 
 __all__ = [
     "User",
     "VerificationCode",
+    "RateLimitCounter",
     "Category",
     "Tag",
     "task_tags",

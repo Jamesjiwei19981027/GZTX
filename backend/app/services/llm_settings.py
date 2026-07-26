@@ -340,13 +340,15 @@ def _user_llm_channel(user) -> dict[str, Any]:
 
 def llm_from_user(user) -> ResolvedLlm | None:
     """个人前端配置：notify_pref.channels.llm。"""
+    from app.services.user_secrets import unseal
+
     cfg = _user_llm_channel(user)
     if not cfg:
         return None
     provider = (cfg.get("provider") or "fake").strip()
     base_url = (cfg.get("base_url") or "").strip()
     model = (cfg.get("model") or "").strip()
-    api_key = str(cfg.get("api_key") or "")
+    api_key = unseal(cfg.get("api_key"))
     enabled = bool(cfg.get("enabled", True))
     if not enabled:
         return ResolvedLlm(
@@ -483,7 +485,10 @@ def save_user_llm(
     u_agent = bool(pick("use_for_agent", use_for_agent, True))
 
     if api_key is not None and str(api_key) != "":
-        key = str(api_key)
+        # 个人凭证加密落库（与公司级 secret_box 对齐）；读取侧走 user_secrets.unseal
+        from app.services.user_secrets import seal
+
+        key = seal(str(api_key))
     else:
         key = str(prev.get("api_key") or "")
 

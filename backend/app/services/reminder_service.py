@@ -52,6 +52,14 @@ class ReminderService:
                 print(f"[ReminderCheck] Skipping reminder {reminder.id}: task deleted or not found")
                 continue
 
+            # 任务已完成就不该再提醒（status 2 = completed）。
+            # 标记 is_sent 是为了不让它每分钟被反复扫出来。
+            if task.status == 2 or task.completed_at is not None:
+                print(f"[ReminderCheck] Skipping reminder {reminder.id}: task already completed")
+                reminder.is_sent = True
+                db.commit()
+                continue
+
             user = db.query(User).filter(User.id == reminder.user_id).first()
             if not user:
                 print(f"[ReminderCheck] Skipping reminder {reminder.id}: user not found")
@@ -164,10 +172,12 @@ class ReminderService:
             return False
 
         # Determine SMTP config: user-level first, then global env
+        from app.services.user_secrets import unseal
+
         config = ReminderService._get_channel_config(user, "email")
         smtp_host = config.get("smtp_host") or settings.SMTP_HOST
         smtp_user = config.get("smtp_user") or settings.SMTP_USER
-        smtp_password = config.get("smtp_password") or settings.SMTP_PASSWORD
+        smtp_password = unseal(config.get("smtp_password")) or settings.SMTP_PASSWORD
         smtp_port = int(config.get("smtp_port", settings.SMTP_PORT))
         smtp_from = config.get("smtp_from") or settings.SMTP_FROM or smtp_user
 

@@ -20,7 +20,10 @@ class Settings(BaseSettings):
     # 应用配置
     APP_NAME: str = "WorkTodo"
     APP_VERSION: str = "1.0.0"
-    DEBUG: bool = True
+    # 默认 false（fail-closed）。DEBUG=true 会回显验证码明文、跳过生产密钥门禁、
+    # 打开 SSO 桩并把全部 SQL 打进日志——绝不能是"忘了配就生效"的那一档。
+    # 本地开发请显式在 .env 里写 DEBUG=true（backend/.env.example 已如此）。
+    DEBUG: bool = False
     APP_URL: str = "http://localhost"  # Base URL for email links (set to your domain in production)
 
     # 数据库配置
@@ -97,12 +100,46 @@ class Settings(BaseSettings):
     DEFAULT_COMPANY_SLUG: str = "default"
     # Schema: when True (default in DEBUG), lifespan may create_all. Production: alembic only.
     AUTO_CREATE_SCHEMA: bool = True
-    # Dev/test only: allow FakeOIDC fake: codes when DEBUG=true
-    ALLOW_FAKE_SSO: bool = True
+    # Dev/test only: allow FakeOIDC fake: codes.
+    # 必须默认 false：为 true 时任何人都能用 code=fake:x:<受害者邮箱> 换到该邮箱
+    # 对应账号的完整 access_token（完全绕过密码与验证码）。
+    # 生产门禁在 validate_production_secrets 里对 DEBUG=false + 本项为 true 直接硬失败。
+    ALLOW_FAKE_SSO: bool = False
+
+    # 是否在本进程启动 APScheduler。
+    # gunicorn -w N 时每个 worker 都会跑 lifespan，N 个进程各起一套调度器会把
+    # 提醒/每日摘要重复发 N 遍。多 worker 部署请只让一个进程为 true。
+    SCHEDULER_ENABLED: bool = True
+
+    # 人轴形态规则（主干只排人、事项只能挂人下）是否在服务端强制。
+    # 默认 true。仅当存量库里有大量非人轴形状的旧树、需要过渡期时才临时关闭。
+    ENFORCE_WORK_TREE_SHAPE: bool = True
+
+    # /docs /redoc /openapi.json 是否暴露。默认跟随 DEBUG：
+    # 生产开着等于把全部接口形状、字段名与枚举白送给攻击者。
+    EXPOSE_API_DOCS: bool | None = None
 
     # 注册双验证（邮箱+手机）总开关；短信服务商：fake（开发桩）| 后续 aliyun/tencent
     REGISTER_VERIFICATION_REQUIRED: bool = True
     SMS_PROVIDER: str = "fake"
+
+    # —— 认证限流（DB 支撑，见 services/rate_limit.py）——
+    RATE_LIMIT_ENABLED: bool = True
+    # 反代后才可采信 X-Forwarded-For；直接暴露公网时必须关掉，否则可伪造头绕过限流
+    TRUST_PROXY_HEADERS: bool = True
+    RATE_LIMIT_LOGIN_WINDOW: int = 300  # 5 分钟
+    RATE_LIMIT_LOGIN_PER_IP: int = 20
+    RATE_LIMIT_LOGIN_PER_ACCOUNT: int = 10
+    RATE_LIMIT_SEND_CODE_WINDOW: int = 3600  # 1 小时
+    RATE_LIMIT_SEND_CODE_PER_IP: int = 20
+    RATE_LIMIT_SEND_CODE_PER_TARGET: int = 5
+
+    @property
+    def expose_api_docs(self) -> bool:
+        """是否暴露 /docs /redoc /openapi.json；未显式设置时跟随 DEBUG。"""
+        if self.EXPOSE_API_DOCS is None:
+            return self.DEBUG
+        return self.EXPOSE_API_DOCS
 
     @property
     def is_sqlite(self) -> bool:
@@ -114,29 +151,66 @@ class Settings(BaseSettings):
         """是否使用 PostgreSQL"""
         return "postgresql" in self.DATABASE_URL
 
-    def validate_production_secrets(self) -> None:
-        """DEBUG=false 时拒绝弱密钥与 hmac 默认 License。"""
-        if self.DEBUG:
-            return
-        weak_secrets = {
+    @staticmethod
+    def _is_placeholder_secret(value: str) -> bool:
+        """判断是否是占位/示例密钥。
+
+        只列黑名单不够：.env.example 里的 `change-me-to-a-long-random-string`
+        长 33 字符且不在旧黑名单内，照着 `cp .env.example .env` 却忘了改的部署，
+        会带着这个公开已知的密钥正常启动，JWT 可被任意伪造。
+        改成模式匹配，任何含 change-me / example / dev- / placeholder 的值一律拒绝。
+        """
+        v = (value or "").strip().lower()
+        if not v:
+            return True
+        exact = {
             "change-this-to-a-strong-secret-key-in-production",
             "dev-secret-key-for-tests-only",
             "dev-secret-key-please-change-in-production",
             "change-me-to-a-random-secret",
-            "",
+            "change-me-to-a-long-random-string",
+            "worktodo123",
         }
-        if (self.SECRET_KEY or "").strip() in weak_secrets or len(self.SECRET_KEY or "") < 24:
+        if v in exact:
+            return True
+        patterns = (
+            "change-me", "changeme", "change-this", "your-", "yourdomain",
+            "placeholder", "example", "dev-secret", "test-secret", "secret-key",
+            "password", "insecure", "todo",
+        )
+        return any(p in v for p in patterns)
+
+    def validate_production_secrets(self) -> None:
+        """DEBUG=false 时拒绝弱密钥、示例占位符与不安全开关。
+
+        在 main.py 的 lifespan 里调用，任一项不合格直接拒绝启动（fail-closed）。
+        """
+        if self.DEBUG:
+            return
+
+        if self._is_placeholder_secret(self.SECRET_KEY) or len(self.SECRET_KEY or "") < 24:
             raise RuntimeError(
-                "Production SECRET_KEY is weak or default; set a strong random SECRET_KEY"
+                "SECRET_KEY 是默认/占位值或过短（<24 字符）。"
+                "请生成强随机密钥：python -c \"import secrets;print(secrets.token_urlsafe(48))\""
             )
-        if (self.LICENSE_PUBLIC_KEY or "").strip() in weak_secrets:
+        if self._is_placeholder_secret(self.LICENSE_PUBLIC_KEY):
             raise RuntimeError(
-                "Production LICENSE_PUBLIC_KEY is weak or default; set ed25519 public key"
+                "LICENSE_PUBLIC_KEY 是默认/占位值；生产必须设置 ed25519 公钥"
             )
         mode = (self.LICENSE_VERIFY_MODE or "").lower()
         if mode != "ed25519":
             raise RuntimeError(
-                "Production requires LICENSE_VERIFY_MODE=ed25519 (hmac is for dev only)"
+                "生产要求 LICENSE_VERIFY_MODE=ed25519（hmac 仅供开发）"
+            )
+        if self.ALLOW_FAKE_SSO:
+            raise RuntimeError(
+                "ALLOW_FAKE_SSO=true 时任何人都能用 code=fake:x:<任意邮箱> 换取该账号令牌；"
+                "生产必须设为 false"
+            )
+        # 邮件指令通道仅凭 From 地址 + 该密钥鉴权，弱默认值等于任何人都能伪造指令邮件
+        if self.IMAP_USER and self._is_placeholder_secret(self.EMAIL_REPLY_SECRET):
+            raise RuntimeError(
+                "EMAIL_REPLY_SECRET 是默认/占位值；启用邮件指令通道时必须设置强随机值"
             )
 
 

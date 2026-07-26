@@ -2,7 +2,7 @@
 用户相关接口
 """
 import re
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 
@@ -18,6 +18,7 @@ router = APIRouter(prefix="/users", tags=["用户"])
 
 class BindEmailRequest(BaseModel):
     email: EmailStr
+    code: str  # 必须先走 /users/me/verification/send-code 拿码
 
 
 @router.get("/me", response_model=ResponseData)
@@ -89,10 +90,36 @@ async def bind_wx(data: dict, db: DbSession, user: CurrentUser):
 
 @router.post("/email/bind", response_model=ResponseData)
 async def bind_user_email(data: BindEmailRequest, db: DbSession, user: CurrentUser):
-    """绑定用户邮箱用于接收邮件回复（不限邮箱类型）"""
-    # Basic email format validation (already done by EmailStr)
-    user.email = data.email
-    return ResponseData(message="邮箱绑定成功", data={"email": data.email})
+    """绑定用户邮箱用于接收邮件回复（不限邮箱类型）。
+
+    必须携带 /users/me/verification/send-code 发出的验证码：换绑邮箱会改变
+    提醒、每日摘要与邮件指令回执的投递地址，也会影响 is_verified 门禁，
+    无码换绑等于允许把系统邮件投到任意未证实地址。
+    """
+    from datetime import datetime
+
+    from app.services.verification import (
+        VerificationError,
+        consume_code,
+        normalize_target,
+    )
+
+    target = normalize_target("email", data.email)
+    other = (
+        await db.execute(select(User).where(User.email == target))
+    ).scalar_one_or_none()
+    if other and other.id != user.id:
+        raise HTTPException(status_code=409, detail="该邮箱已被其他账号绑定")
+
+    try:
+        await consume_code(db, channel="email", target=target, code=data.code, purpose="bind")
+    except VerificationError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+
+    user.email = target
+    user.email_verified_at = datetime.utcnow()
+    await db.flush()
+    return ResponseData(message="邮箱绑定成功", data={"email": target})
 
 
 class VerifySendRequest(BaseModel):
@@ -123,13 +150,17 @@ async def get_verification_status(user: CurrentUser):
 
 
 @router.post("/me/verification/send-code", response_model=ResponseData)
-async def send_bind_code(data: VerifySendRequest, db: DbSession, user: CurrentUser):
+async def send_bind_code(
+    data: VerifySendRequest, db: DbSession, user: CurrentUser, request: Request
+):
     """登录后补验/换绑：发送邮箱或短信验证码"""
+    from app.services.rate_limit import enforce_send_code
     from app.services.verification import VerificationError, normalize_target, send_code
 
     channel = data.channel.strip().lower()
     try:
         target = normalize_target(channel, data.target)
+        await enforce_send_code(db, request, target)
         # 目标已被其他账号占用则拒绝
         if channel == "email":
             other = (

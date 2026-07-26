@@ -28,15 +28,16 @@ class FakeOIDC(SsoProvider):
         )
 
     async def exchange_code(self, code: str) -> SsoIdentity:
-        # 仅接受 fake:{external_id}:{email}；生产且非 DEBUG 时拒绝桩协议
-        if not code.startswith("fake:"):
-            if not settings.DEBUG:
-                raise ValueError("sso_stub_disabled")
-            # DEBUG: 未知 code 也不自动信任为任意身份
-            raise ValueError("invalid_sso_code")
-
-        if not settings.DEBUG and not settings.ALLOW_FAKE_SSO:
+        # 这是开发桩：任何人给出 fake:{id}:{email} 就能拿到该邮箱身份，
+        # 再由 sso.py 换成完整 access_token。因此必须 DEBUG 与 ALLOW_FAKE_SSO
+        # **同时**为真才启用——旧写法是 `not DEBUG and not ALLOW_FAKE_SSO`，
+        # 而 ALLOW_FAKE_SSO 当时默认 true，等于生产默认敞开。
+        if not (settings.DEBUG and settings.ALLOW_FAKE_SSO):
             raise ValueError("sso_stub_disabled")
+
+        if not code.startswith("fake:"):
+            # 桩已启用，但未知 code 也不自动信任为任意身份
+            raise ValueError("invalid_sso_code")
 
         parts = code.split(":", 2)
         ext = parts[1] if len(parts) > 1 else "u1"

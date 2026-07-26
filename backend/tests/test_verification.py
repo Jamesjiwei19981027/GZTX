@@ -184,6 +184,89 @@ async def test_email_register_then_phone_bind_unlocks(client: AsyncClient, monke
 
 
 @pytest.mark.asyncio
+async def test_wrong_code_attempts_persist_across_rollback(
+    client: AsyncClient, db_session, test_user, monkeypatch
+):
+    """回归：试错计数必须落库。
+
+    consume_code 失败会抛 VerificationError → HTTPException，get_db 对冒泡异常
+    整体 rollback；若计数在请求会话内自增就会被回滚掉，MAX_ATTEMPTS 永不触发，
+    6 位验证码可被无限穷举。
+    """
+    from sqlalchemy import select
+
+    from app.models.verification import VerificationCode
+    from app.services.verification import MAX_ATTEMPTS
+
+    monkeypatch.setattr(settings, "DEBUG", True)
+    r = await client.post(
+        "/api/v1/auth/send-code",
+        json={"channel": "email", "target": "test@example.com", "purpose": "login"},
+    )
+    assert r.status_code == 200, r.text
+    real_code = r.json()["data"]["debug_code"]
+
+    async def _attempts() -> int:
+        rec = (
+            await db_session.execute(
+                select(VerificationCode)
+                .where(VerificationCode.target == "test@example.com")
+                .order_by(VerificationCode.id.desc())
+                .limit(1)
+            )
+        ).scalar_one()
+        await db_session.refresh(rec)
+        return rec.attempts
+
+    wrong = "000000" if real_code != "000000" else "111111"
+    for expected in range(1, MAX_ATTEMPTS + 1):
+        r = await client.post(
+            "/api/v1/auth/login-code",
+            json={"channel": "email", "target": "test@example.com", "code": wrong},
+        )
+        assert r.status_code == 422, r.text
+        assert await _attempts() == expected, f"第 {expected} 次试错未落库"
+
+    assert "次数过多" in r.json()["detail"]
+
+    # 试错用尽后该码作废：即便拿到正确码也不能再登录
+    r = await client.post(
+        "/api/v1/auth/login-code",
+        json={"channel": "email", "target": "test@example.com", "code": real_code},
+    )
+    assert r.status_code == 422, r.text
+    assert "access_token" not in r.text
+
+
+@pytest.mark.asyncio
+async def test_correct_code_still_logs_in_after_few_failures(
+    client: AsyncClient, test_user, monkeypatch
+):
+    """未用尽试错次数时，正确码仍应正常登录（防爆破不误伤正常用户）"""
+    monkeypatch.setattr(settings, "DEBUG", True)
+    r = await client.post(
+        "/api/v1/auth/send-code",
+        json={"channel": "email", "target": "test@example.com", "purpose": "login"},
+    )
+    real_code = r.json()["data"]["debug_code"]
+    wrong = "000000" if real_code != "000000" else "111111"
+
+    for _ in range(2):
+        r = await client.post(
+            "/api/v1/auth/login-code",
+            json={"channel": "email", "target": "test@example.com", "code": wrong},
+        )
+        assert r.status_code == 422
+
+    r = await client.post(
+        "/api/v1/auth/login-code",
+        json={"channel": "email", "target": "test@example.com", "code": real_code},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["data"]["access_token"]
+
+
+@pytest.mark.asyncio
 async def test_wx_fake_phone_bind(client: AsyncClient, db_session, monkeypatch):
     """DEBUG 下 fake:code 绑定手机号"""
     monkeypatch.setattr(settings, "DEBUG", True)

@@ -68,7 +68,7 @@ services:
     restart: always
     environment:
       - POSTGRES_USER=${DB_USER:-worktodo}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-worktodo123}
+      - POSTGRES_PASSWORD=${DB_PASSWORD:?set DB_PASSWORD}
       - POSTGRES_DB=${DB_NAME:-worktodo}
     volumes:
       - postgres_data:/var/lib/postgresql/data

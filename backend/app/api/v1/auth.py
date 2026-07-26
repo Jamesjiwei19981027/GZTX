@@ -3,7 +3,7 @@
 """
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Request, status
 
 from app.core.dependencies import DbSession
 from app.core.security import (
@@ -29,7 +29,7 @@ router = APIRouter(prefix="/auth", tags=["认证"])
 
 
 @router.post("/send-code", response_model=ResponseData)
-async def send_verification_code(data: dict, db: DbSession):
+async def send_verification_code(data: dict, db: DbSession, request: Request):
     """注册/登录发送邮箱或短信验证码（匿名可调）。
 
     body: {channel: email|sms, target, purpose?: register|login}
@@ -55,6 +55,10 @@ async def send_verification_code(data: dict, db: DbSession):
         validate_target(channel, target)
     except VerificationError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+
+    from app.services.rate_limit import enforce_send_code
+
+    await enforce_send_code(db, request, target)
 
     if channel == "email":
         exists = (
@@ -254,8 +258,11 @@ def _issue_tokens(user: User) -> ResponseData:
 
 
 @router.post("/login", response_model=ResponseData)
-async def login(data: UserLogin, db: DbSession):
+async def login(data: UserLogin, db: DbSession, request: Request):
     """密码登录；username 字段兼容用户名 / 邮箱 / 手机号"""
+    from app.services.rate_limit import enforce_login
+
+    await enforce_login(db, request, data.username)
     user = await _find_user_by_identifier(db, data.username)
 
     if not user or not user.password_hash or not verify_password(data.password, user.password_hash):
@@ -274,10 +281,11 @@ async def login(data: UserLogin, db: DbSession):
 
 
 @router.post("/login-code", response_model=ResponseData)
-async def login_with_code(data: dict, db: DbSession):
+async def login_with_code(data: dict, db: DbSession, request: Request):
     """验证码登录。body: {channel: email|sms, target, code}"""
     from sqlalchemy import select
 
+    from app.services.rate_limit import enforce_login
     from app.services.verification import (
         VerificationError,
         consume_code,
@@ -291,6 +299,8 @@ async def login_with_code(data: dict, db: DbSession):
     code = (data.get("code") or "").strip()
     if not target or not code:
         raise HTTPException(status_code=422, detail="请填写完整的账号与验证码")
+
+    await enforce_login(db, request, target)
 
     if channel == "email":
         q = await db.execute(select(User).where(User.email == target))

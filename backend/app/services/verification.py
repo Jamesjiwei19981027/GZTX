@@ -15,8 +15,8 @@ import re
 import secrets
 from datetime import datetime, timedelta
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import settings
 from app.models.verification import VerificationCode
@@ -141,6 +141,47 @@ async def _deliver(channel: str, target: str, code: str) -> bool:
     return False
 
 
+async def _register_failed_attempt(db: AsyncSession, code_id: int) -> int:
+    """在独立事务中原子自增试错次数，返回自增后的值。
+
+    必须走独立会话：调用方随后抛 VerificationError，路由层转成 HTTPException，
+    而 get_db 对任何冒泡异常都 `rollback()`，在请求会话内自增会被一并回滚，
+    MAX_ATTEMPTS 将永远不触发（防爆破形同虚设）。
+
+    自增用 SQL 侧 `attempts + 1` 保证并发原子；一旦用尽立即把该码置为已核销，
+    避免并发请求在计数落库前集体通过前置检查。
+    """
+    bind = db.bind
+    factory = async_sessionmaker(bind, class_=AsyncSession, expire_on_commit=False)
+    async with factory() as s:
+        await s.execute(
+            update(VerificationCode)
+            .where(VerificationCode.id == code_id)
+            .values(attempts=VerificationCode.attempts + 1)
+        )
+        attempts = int(
+            (
+                await s.execute(
+                    select(VerificationCode.attempts).where(
+                        VerificationCode.id == code_id
+                    )
+                )
+            ).scalar_one_or_none()
+            or 0
+        )
+        if attempts >= MAX_ATTEMPTS:
+            await s.execute(
+                update(VerificationCode)
+                .where(
+                    VerificationCode.id == code_id,
+                    VerificationCode.consumed_at.is_(None),
+                )
+                .values(consumed_at=datetime.utcnow())
+            )
+        await s.commit()
+    return attempts
+
+
 async def consume_code(
     db: AsyncSession,
     *,
@@ -178,8 +219,9 @@ async def consume_code(
         raise VerificationError(f"{label}验证码错误次数过多，请重新获取")
 
     if not hmac.compare_digest(rec.code_hash, _hash_code((code or "").strip())):
-        rec.attempts += 1
-        await db.flush()
+        attempts = await _register_failed_attempt(db, rec.id)
+        if attempts >= MAX_ATTEMPTS:
+            raise VerificationError(f"{label}验证码错误次数过多，请重新获取")
         raise VerificationError(f"{label}验证码错误")
 
     rec.consumed_at = now

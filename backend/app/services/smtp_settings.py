@@ -46,10 +46,12 @@ def _user_email_channel(user) -> dict[str, Any]:
 
 
 def smtp_from_user(user) -> ResolvedSmtp | None:
+    from app.services.user_secrets import unseal
+
     cfg = _user_email_channel(user)
     host = (cfg.get("smtp_host") or "").strip()
     user_name = (cfg.get("smtp_user") or "").strip()
-    password = cfg.get("smtp_password") or ""
+    password = unseal(cfg.get("smtp_password"))
     if not (host and user_name and password):
         return None
     port = int(cfg.get("smtp_port") or 465)

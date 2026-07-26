@@ -243,6 +243,12 @@ async def update_smtp_config(
     if "smtp_password" in update_data and update_data["smtp_password"] == "":
         del update_data["smtp_password"]
 
+    # 个人凭证加密落库（与公司级 secret_box 对齐）；读取侧统一走 user_secrets.unseal
+    if update_data.get("smtp_password"):
+        from app.services.user_secrets import seal
+
+        update_data["smtp_password"] = seal(update_data["smtp_password"])
+
     email_config.update(update_data)
     channels["email"] = email_config
     notify_pref["channels"] = channels
