@@ -14,10 +14,12 @@ type TaskItemProps = {
   onEdit?: (task: Task) => void
 }
 
+// 卡片顶部只为「高」保留一条彩条。原来三档各一条，配合右上角同样三档的
+// 徽章，等于把同一条信息编码了两遍 —— 满屏彩条反而让真正紧急的那几张不突出。
 const priorityBorder: Record<number, string> = {
   2: 'border-t-red-500',
-  1: 'border-t-amber-600',
-  0: 'border-t-blue-600',
+  1: 'border-t-transparent',
+  0: 'border-t-transparent',
 }
 
 const priorityBadge: Record<number, string> = {
@@ -107,7 +109,9 @@ export default function TaskItem({ task, onClick, onComplete, onEdit }: TaskItem
         'group relative flex flex-col rounded-2xl bg-white border border-gray-200 border-t-[4px] p-4 cursor-pointer',
         'transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 h-full',
         priorityBorder[task.priority] ?? priorityBorder[0],
-        isCompleted ? 'opacity-60' : '',
+        // 已完成用底色下沉表示，不再整卡降透明度：
+        // 原来整卡 opacity-60 叠上标题自己的 opacity-50，实际约 0.3，标题几乎读不出来
+        isCompleted ? 'bg-surface-container-low' : '',
         isOverdue ? 'bg-red-50/40' : '',
       ]
         .filter(Boolean)
@@ -164,7 +168,8 @@ export default function TaskItem({ task, onClick, onComplete, onEdit }: TaskItem
       <h3
         className={[
           'text-base font-semibold text-gray-900 leading-snug mb-1.5 line-clamp-2',
-          isCompleted ? 'line-through opacity-50' : '',
+          // 删除线已足够表达"已完成"，不必再压低透明度到读不清
+          isCompleted ? 'line-through text-gray-500' : '',
         ]
           .filter(Boolean)
           .join(' ')}

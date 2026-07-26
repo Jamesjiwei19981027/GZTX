@@ -228,14 +228,7 @@ export default function DashboardPage() {
         <div className="font-body text-sm text-on-surface-variant">
           {greeting}，{nickname}
         </div>
-        <button
-          type="button"
-          className="bg-primary text-on-primary rounded-xl px-4 py-2 flex items-center gap-2 text-sm font-medium hover:opacity-90"
-          onClick={() => navigate('/tasks/new')}
-        >
-          <span className="material-symbols-outlined text-xl">add</span>
-          新建任务
-        </button>
+        {/* 同上：全局 CTA 在侧边栏 / 移动端 FAB，这里不重复 */}
       </header>
 
       <main className="p-6 max-w-[1400px] mx-auto w-full flex-grow">

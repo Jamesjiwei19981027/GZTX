@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore, selectNickname } from '@/stores/auth'
+import { BRAND } from '@/constants/brand'
 
 const navItems = [
   { key: 'dashboard', path: '/dashboard', icon: 'dashboard', label: '仪表盘', match: (p: string) => p === '/dashboard' },
@@ -108,9 +109,9 @@ export default function SidebarLayout() {
           </div>
           <div>
             <h1 className="font-headline text-headline-sm font-bold text-primary tracking-tight leading-none">
-              烂笔头PM
+              {BRAND.name}
             </h1>
-            <p className="font-body text-body-sm text-on-surface-variant mt-xs">好记性不如烂笔头</p>
+            <p className="font-body text-body-sm text-on-surface-variant mt-xs">{BRAND.tagline}</p>
           </div>
         </div>
 

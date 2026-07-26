@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import { sendLoginCode, sendRegisterCode } from '@/api/auth'
 import { useSendCode } from '@/hooks/useSendCode'
 import { getToken, getErrorMessage } from '@/api/request'
+import { BRAND, copyright } from '@/constants/brand'
 
 type LoginPageProps = {
   register?: boolean
@@ -36,7 +37,9 @@ type RegisterFormValues = {
   confirmPassword: string
 }
 
-const featurePills = ['任务管理', '团队协作', '实时消息', '文件共享', '项目看板']
+// 只列真实存在的能力。原来这里写着「实时消息 / 文件共享 / 项目看板」——
+// 这三个都是已经下线的 Mock 壳页，等于在登录页宣传不存在的功能。
+const featurePills = ['任务提醒', '人轴工作树', '项目协作', '日历视图', '邮件回复']
 
 export default function LoginPage({ register: registerProp }: LoginPageProps) {
   const navigate = useNavigate()
@@ -137,8 +140,8 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
           <div className="w-20 h-20 rounded-2xl bg-on-primary/10 flex items-center justify-center mx-auto mb-lg backdrop-blur-sm">
             <span className="material-symbols-outlined text-on-primary text-5xl">bolt</span>
           </div>
-          <h1 className="text-4xl font-bold text-on-primary mb-sm tracking-tight">Flow 生产力</h1>
-          <p className="text-lg text-on-primary/80 mb-xl">保持专注，提升效率</p>
+          <h1 className="text-4xl font-bold text-on-primary mb-sm tracking-tight">{BRAND.name}</h1>
+          <p className="text-lg text-on-primary/80 mb-xl">{BRAND.tagline}</p>
 
           <div className="w-64 h-48 mx-auto mb-xl rounded-2xl bg-on-primary/5 backdrop-blur-sm border border-on-primary/10 flex items-center justify-center">
             <div className="flex items-center gap-sm">
@@ -176,7 +179,7 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
               <div className="w-14 h-14 rounded-xl bg-primary flex items-center justify-center mx-auto mb-sm">
                 <span className="material-symbols-outlined text-on-primary text-3xl">bolt</span>
               </div>
-              <h2 className="text-xl font-bold text-on-surface">Flow 生产力</h2>
+              <h2 className="text-xl font-bold text-on-surface">{BRAND.name}</h2>
             </div>
 
             {/* Tab Toggle */}
@@ -468,38 +471,13 @@ export default function LoginPage({ register: registerProp }: LoginPageProps) {
               </>
             )}
 
-            {/* Divider */}
-            <div className="relative my-lg">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-outline-variant" />
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="px-md text-on-surface-variant" style={{ backgroundColor: '#ffffff' }}>
-                  或继续使用
-                </span>
-              </div>
-            </div>
-
-            {/* Social (visual only) */}
-            <div className="flex gap-sm">
-              <button
-                type="button"
-                className="flex-1 flex items-center justify-center gap-sm h-11 border border-outline-variant rounded-xl text-sm text-on-surface hover:bg-surface-container-low transition-colors"
-              >
-                <span className="material-symbols-outlined text-xl">mail</span>
-                Google
-              </button>
-              <button
-                type="button"
-                className="flex-1 flex items-center justify-center gap-sm h-11 border border-outline-variant rounded-xl text-sm text-on-surface hover:bg-surface-container-low transition-colors"
-              >
-                <span className="material-symbols-outlined text-xl">code</span>
-                GitHub
-              </button>
-            </div>
+            {/* 这里原本有一组 Google / GitHub 按钮，源码注释写着 "Social (visual only)" ——
+                没有 onClick、后端也没接任何 OAuth provider（SSO 只有一个开发桩）。
+                纯装饰的登录入口比难看严重得多：用户点了不会有任何正常结果。
+                真接了 OAuth 再把它加回来。 */}
           </div>
 
-          <p className="text-center text-xs text-on-surface-variant mt-lg">&copy; 2024 Flow 生产力. 保留所有权利.</p>
+          <p className="text-center text-xs text-on-surface-variant mt-lg">{copyright()}</p>
         </div>
       </div>
     </div>

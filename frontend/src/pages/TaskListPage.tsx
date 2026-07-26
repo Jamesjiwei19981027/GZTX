@@ -195,7 +195,7 @@ export default function TaskListPage() {
     <div className="flex flex-col h-full bg-surface-container-low">
       {/* Top bar */}
       <div className="h-16 bg-surface border-b border-surface-variant flex items-center justify-between px-6 flex-shrink-0 gap-4">
-        <h2 className="text-xl font-semibold text-on-surface m-0 whitespace-nowrap">我的任务</h2>
+        <h2 className="font-headline text-headline-md text-on-surface m-0 whitespace-nowrap">我的任务</h2>
         <Input.Search
           allowClear
           placeholder="搜索任务..."
@@ -203,19 +203,17 @@ export default function TaskListPage() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-        <button
-          type="button"
-          className="bg-primary text-on-primary rounded-xl px-4 py-2 flex items-center gap-2 text-sm font-medium hover:opacity-90 whitespace-nowrap"
-          onClick={handleCreate}
-        >
-          <span className="material-symbols-outlined text-xl">add</span>
-          新建任务
-        </button>
+        {/* 「新建任务」由侧边栏的全局 CTA（移动端为右下 FAB）承担，
+            此处不再重复一个：同屏两个一模一样的主按钮只是噪音。
+            空态里的那个另有价值（引导首个任务），保留。 */}
       </div>
 
-      {/* Filters */}
+      {/* Filters —— 两组筛选器都含一个「全部」，不加维度标签时并排出现
+          「全部 待办 进行中 已完成 全部 低 中 高」，用户根本分不清第二个
+          「全部」是什么的全部。加上「状态 / 优先级」前缀并用分隔线断开。 */}
       <div className="px-6 py-3 flex items-center gap-3 flex-shrink-0 flex-wrap">
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-on-surface-variant">状态</span>
           {statusTabs.map((tab) => (
             <button
               key={String(tab.key)}
@@ -232,7 +230,9 @@ export default function TaskListPage() {
             </button>
           ))}
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <span className="h-5 w-px bg-outline-variant" aria-hidden />
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-on-surface-variant">优先级</span>
           {priorityTabs.map((tab) => (
             <button
               key={`p-${String(tab.key)}`}
@@ -240,7 +240,7 @@ export default function TaskListPage() {
               className={[
                 'rounded-full px-3 py-1 text-sm transition border',
                 activePriority === tab.key
-                  ? 'bg-amber-600 text-white border-amber-600'
+                  ? 'bg-primary text-on-primary border-primary'
                   : 'border-outline-variant text-on-surface-variant hover:bg-surface-container-high bg-transparent',
               ].join(' ')}
               onClick={() => setActivePriority(tab.key)}
