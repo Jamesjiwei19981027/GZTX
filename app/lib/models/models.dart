@@ -134,9 +134,18 @@ class TaskStats {
     final byPriority = json['by_priority'];
     int high = 0;
     if (byPriority is Map) {
-      high = (byPriority['high'] as num?)?.toInt() ??
-          (byPriority['2'] as num?)?.toInt() ??
-          0;
+      // 后端实际形状是 {"high": {"total": n, "completed": m}, ...}，
+      // 原来写成 `byPriority['high'] as num?` —— 拿 Map 强转 num 在 Dart 里
+      // 直接抛 TypeError（as num? 只放行 null 与 num），异常冲出 Future.wait，
+      // 导致 taskItems 从来赋不上值：APP 的任务列表和仪表盘一直是空的。
+      final h = byPriority['high'] ?? byPriority['2'];
+      if (h is Map) {
+        final t = (h['total'] as num?)?.toInt() ?? 0;
+        final d = (h['completed'] as num?)?.toInt() ?? 0;
+        high = t - d < 0 ? 0 : t - d; // 未完成的高优数量，与 Web 口径一致
+      } else if (h is num) {
+        high = h.toInt();
+      }
     } else if (byPriority is List) {
       for (final item in byPriority.whereType<Map>()) {
         if (item['priority'] == 2 || item['label'] == 'high') {

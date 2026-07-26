@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import 'config/brand.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
@@ -28,13 +30,19 @@ class WorkTodoApp extends StatelessWidget {
     return ChangeNotifierProvider(
       create: (_) => AppState()..bootstrap(),
       child: MaterialApp(
-        title: '工作题系',
+        title: Brand.fullName,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(
             seedColor: _primary,
             brightness: Brightness.light,
             primary: _primary,
             surface: const Color(0xFFF8F9FA),
+            // M3 从蓝色种子自动推出的 secondary 偏紫，会顺着 FAB、分段控件、
+            // secondaryContainer 卡片渗到界面上，和 #0058BE 蓝灰主色打架。
+            // 与 Web 对齐：secondary 用绿（表示"完成/正向"），容器用浅蓝灰。
+            secondary: const Color(0xFF006C49),
+            secondaryContainer: const Color(0xFFD7E3F7),
+            onSecondaryContainer: const Color(0xFF0A1F33),
           ),
           scaffoldBackgroundColor: const Color(0xFFF8F9FA),
           useMaterial3: true,
@@ -87,6 +95,29 @@ class WorkTodoApp extends StatelessWidget {
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
+            ),
+          ),
+          // FAB 是页面主操作，默认取 secondaryContainer（浅紫），
+          // 视觉权重也不足；统一成主色实心，与 Web 的「新建任务」一致。
+          floatingActionButtonTheme: FloatingActionButtonThemeData(
+            backgroundColor: _primary,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+          ),
+          segmentedButtonTheme: SegmentedButtonThemeData(
+            style: ButtonStyle(
+              backgroundColor: WidgetStateProperty.resolveWith((states) {
+                return states.contains(WidgetState.selected)
+                    ? _primary
+                    : Colors.white;
+              }),
+              foregroundColor: WidgetStateProperty.resolveWith((states) {
+                return states.contains(WidgetState.selected)
+                    ? Colors.white
+                    : const Color(0xFF424754);
+              }),
             ),
           ),
         ),

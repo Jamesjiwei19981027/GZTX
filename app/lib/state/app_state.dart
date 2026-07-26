@@ -189,21 +189,24 @@ class AppState extends ChangeNotifier {
     busy = true;
     error = null;
     notifyListeners();
+    // 两个请求各自成败，互不牵连：原来共用一个 Future.wait + 单 try，
+    // 统计解析一抛异常，任务列表也跟着丢，界面只显示"暂无任务"而不报错。
     try {
-      final results = await Future.wait([
-        tasks.listTasks(),
-        tasks.stats(period: 'week'),
-      ]);
-      taskItems = results[0] as List<TaskItem>;
-      taskStats = results[1] as TaskStats;
+      taskItems = await tasks.listTasks();
     } on ApiException catch (e) {
       error = e.message;
     } catch (e) {
       error = '加载任务失败：$e';
-    } finally {
-      busy = false;
-      notifyListeners();
     }
+    try {
+      taskStats = await tasks.stats(period: 'week');
+    } on ApiException catch (e) {
+      error ??= e.message;
+    } catch (e) {
+      error ??= '加载统计失败：$e';
+    }
+    busy = false;
+    notifyListeners();
   }
 
   Future<void> refreshCompanies() async {

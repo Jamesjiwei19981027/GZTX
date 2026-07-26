@@ -1,7 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../config/api_config.dart';
+import '../config/brand.dart';
 import '../state/app_state.dart';
 import '../widgets/common.dart';
 
@@ -108,12 +110,12 @@ class _LoginScreenState extends State<LoginScreen>
                 const Icon(Icons.task_alt, size: 64, color: Color(0xFF2563EB)),
                 const SizedBox(height: 12),
                 Text(
-                  'WorkTodo',
+                  Brand.name,
                   style: Theme.of(context).textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '任务 · 日历 · 项目 · 智能体',
+                  Brand.tagline,
                   style: Theme.of(context).textTheme.bodyMedium,
                 ),
                 const SizedBox(height: 16),
@@ -261,13 +263,16 @@ class _LoginScreenState extends State<LoginScreen>
                     ],
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Text(
-                    'API: ${ApiConfig.baseUrl}',
-                    style: Theme.of(context).textTheme.bodySmall,
+                // 后端地址属调试信息，不该展示给最终用户（还会暴露内网地址）。
+                // 仅 debug 构建可见，release 包里不渲染。
+                if (kDebugMode)
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Text(
+                      'API: ${ApiConfig.baseUrl}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                   ),
-                ),
               ],
             ),
           ),

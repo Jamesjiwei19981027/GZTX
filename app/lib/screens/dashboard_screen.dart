@@ -92,8 +92,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     width: (MediaQuery.sizeOf(context).width - 40) / 2,
                     child: StatChip(
                       label: '完成率',
+                      // 原来写死 Colors.indigo（紫），与 #0058BE 蓝灰主色不搭；
+                      // 走主题主色，跟 Web 保持同一套语气
                       value: '${stats.completionRate.toStringAsFixed(0)}%',
-                      color: Colors.indigo,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
                   ),
                 ],
