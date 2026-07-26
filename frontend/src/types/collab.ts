@@ -50,6 +50,8 @@ export interface ProjectDTO {
   final_owner_user_id?: number | null
   created_by?: number | null
   final_owner?: ProjectOwnerDTO | null
+  /** 终责卡片沿主干的偏移，服务端持久化（曾经只存 localStorage，不跨端） */
+  final_owner_along_delta?: number
   my_role?: string | null
   created_at?: string | null
   member_count?: number

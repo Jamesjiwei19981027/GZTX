@@ -13,7 +13,8 @@ import {
   type WorkTreeSort,
 } from './layout'
 
-const LEADER_DELTA_KEY = (projectId: number) => `wt_${projectId}_leaderAlongDelta`
+import { setFinalOwnerPosition } from '@/api/collab'
+import { message } from '@/utils/antdMessage'
 
 function accentFor(typeKey: string): string {
   switch (typeKey) {
@@ -83,10 +84,10 @@ export default function WorkTreeCanvas(props: WorkTreeCanvasProps) {
   const panRef = useRef<{ x: number; y: number; px: number; py: number } | null>(null)
   const leaderDragRef = useRef<{ startX: number; startDelta: number } | null>(null)
 
+  // 终责偏移来自服务端，跨端、跨设备一致（此前存 localStorage，PM 拖完别人看不到）
   useEffect(() => {
-    const raw = localStorage.getItem(LEADER_DELTA_KEY(project.id))
-    setLeaderDelta(raw ? Number(raw) || 0 : 0)
-  }, [project.id])
+    setLeaderDelta(project.final_owner_along_delta ?? 0)
+  }, [project.id, project.final_owner_along_delta])
 
   const layout = useMemo(
     () =>
@@ -115,40 +116,94 @@ export default function WorkTreeCanvas(props: WorkTreeCanvasProps) {
 
   function persistLeaderDelta(v: number) {
     const next = Math.max(0, v)
-    setLeaderDelta(next)
-    localStorage.setItem(LEADER_DELTA_KEY(project.id), String(next))
+    const prev = leaderDelta
+    setLeaderDelta(next) // 乐观更新：拖动手感不等网络
+    void setFinalOwnerPosition(project.id, next).catch(() => {
+      setLeaderDelta(prev) // 失败回滚，避免本地显示与服务端不一致
+    })
+  }
+
+  /** 无论落点是否合法，拖拽态都必须归零，否则高亮会卡死、下次拖拽被旧状态干扰 */
+  function resetDragState() {
+    setDraggingPalette(null)
+    setDraggingNodeId(null)
+    setDropTargetId(null)
+  }
+
+  /** 目标是否是被拖节点自己的子孙——移过去会成环，后端也会拒 */
+  function isDescendant(ancestorId: number, candidateId: number): boolean {
+    const byId = new Map(layout.placed.map((p) => [p.node.id, p.node]))
+    let cur = byId.get(candidateId)
+    const guard = new Set<number>()
+    while (cur?.parent_id != null) {
+      if (guard.has(cur.id)) return false // 数据异常时不要死循环
+      guard.add(cur.id)
+      if (cur.parent_id === ancestorId) return true
+      cur = byId.get(cur.parent_id)
+    }
+    return false
   }
 
   async function handleBlankDrop() {
-    if (draggingPalette === 'person') {
-      await onCreate({ nodeTypeKey: 'person', title: '未命名', parentId: null })
+    try {
+      if (draggingNodeId != null) {
+        // 空白处只收人：拖已有事项到空白既不合法也无处可去，给出反馈而不是静默吞掉
+        const dragged = layout.placed.find((p) => p.node.id === draggingNodeId)
+        if (dragged && !isPerson(dragged.node)) {
+          message.warning('空白处只能放「人」，事项请拖到某个人身上')
+          return
+        }
+        if (dragged) await onMove(draggingNodeId, null)
+        return
+      }
+      if (draggingPalette && draggingPalette !== 'person') {
+        message.warning('空白处只能放「人」')
+        return
+      }
+      if (draggingPalette === 'person') {
+        await onCreate({ nodeTypeKey: 'person', title: '未命名', parentId: null })
+      }
+    } finally {
+      resetDragState()
     }
-    setDraggingPalette(null)
-    setDraggingNodeId(null)
-    setDropTargetId(null)
   }
 
   async function handlePersonDrop(ontoId: number) {
-    const onto = layout.placed.find((p) => p.node.id === ontoId)
-    if (!onto) return
-    if (draggingPalette) {
-      if (!canDropPalette(draggingPalette, 'person')) return
-      const item = PALETTE.find((p) => p.nodeTypeKey === draggingPalette)
-      await onCreate({
-        nodeTypeKey: draggingPalette,
-        title: item?.defaultTitle || '未命名',
-        parentId: ontoId,
-      })
-    } else if (draggingNodeId != null && draggingNodeId !== ontoId) {
+    try {
+      const onto = layout.placed.find((p) => p.node.id === ontoId)
+      if (!onto) return
+
+      if (draggingPalette) {
+        if (!canDropPalette(draggingPalette, 'person')) {
+          message.warning('该位置不接受此类型')
+          return
+        }
+        const item = PALETTE.find((p) => p.nodeTypeKey === draggingPalette)
+        await onCreate({
+          nodeTypeKey: draggingPalette,
+          title: item?.defaultTitle || '未命名',
+          parentId: ontoId,
+        })
+        return
+      }
+
+      if (draggingNodeId == null || draggingNodeId === ontoId) return
+      // 前置拦成环：不拦的话要等后端 422 回来才知道，中途还会闪一下
+      if (isDescendant(draggingNodeId, ontoId)) {
+        message.warning('不能移动到自己的下级')
+        return
+      }
       await onMove(draggingNodeId, ontoId)
+    } finally {
+      resetDragState()
     }
-    setDraggingPalette(null)
-    setDraggingNodeId(null)
-    setDropTargetId(null)
   }
 
   return (
-    <div className="h-full flex flex-col min-h-0 bg-[rgb(248,249,250)]">
+    <div
+      data-testid="work-tree-canvas"
+      className="h-full flex flex-col min-h-0 bg-[rgb(248,249,250)]"
+    >
       {!hasLeader && ownerId != null && (
         <div className="flex items-center gap-3 px-3 py-2 border-b border-[rgb(225,227,228)] bg-white">
           <p className="flex-1 text-xs text-[rgb(25,28,29)]">
@@ -200,7 +255,9 @@ export default function WorkTreeCanvas(props: WorkTreeCanvasProps) {
         {canDragLeader ? (
           <span className="text-[rgb(66,71,84)]">可拖动终责沿轴位置</span>
         ) : (
-          <span className="text-[rgb(66,71,84)]">终责位置仅项目 PM 可调</span>
+          <span className="text-[rgb(66,71,84)]">
+            终责位置仅项目负责人或创建者可调
+          </span>
         )}
       </div>
 
@@ -210,6 +267,7 @@ export default function WorkTreeCanvas(props: WorkTreeCanvasProps) {
             <div
               key={item.nodeTypeKey}
               draggable
+              data-testid={`palette-${item.nodeTypeKey}`}
               onDragStart={() => setDraggingPalette(item.nodeTypeKey)}
               onDragEnd={() => setDraggingPalette(null)}
               className="cursor-grab rounded-xl border border-[rgb(194,198,214)] px-1 py-2 text-center text-[11px] bg-[rgb(243,244,245)]"

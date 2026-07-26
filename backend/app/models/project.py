@@ -20,6 +20,10 @@ class Project(Base):
     name = Column(String(200), nullable=False)
     status = Column(String(32), nullable=False, default="draft")
     pm_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    # 终责卡片沿主干方向的偏移量（人轴画布）。
+    # 曾经只存在客户端本地（Web localStorage / APP SharedPreferences），
+    # 导致 PM 拖完别人看不到、换设备就丢，"仅 PM 可拖"的规则也没有服务端承载。
+    final_owner_along_delta = Column(Integer, nullable=False, default=0, server_default="0")
     archive_policy_json = Column(JSON, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

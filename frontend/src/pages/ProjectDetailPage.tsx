@@ -49,6 +49,10 @@ export default function ProjectDetailPage() {
   const [treeTab, setTreeTab] = useState<TreeViewTab>('canvas')
 
   const selectedRef = useRef<TreeNodeDTO | null>(null)
+  /** loadAll 的并发守卫：只有最后一次发起的请求可以写状态 */
+  const loadSeqRef = useRef(0)
+  /** 防止「放置负责人」被连点两次造出重复根节点 */
+  const ensureLeaderRef = useRef(false)
   selectedRef.current = selected
 
   const companyId = useMemo(() => {
@@ -85,15 +89,22 @@ export default function ProjectDetailPage() {
       setTree([])
       return
     }
+    // 拖拽/编辑会连续触发 loadAll，慢的旧响应回来会覆盖新状态。
+    // 用自增序号做守卫：只有最后一次发起的请求允许写状态。
+    const seq = ++loadSeqRef.current
+    const isStale = () => seq !== loadSeqRef.current
+
     setLoading(true)
     setLoadError(null)
     try {
       const proj = await getProject(projectId)
+      if (isStale()) return
       setProject(proj)
       const [t, m] = await Promise.all([
         getProjectTree(projectId, 'nested'),
         listProjectMembers(projectId).catch(() => ({ items: [] as ProjectMemberDTO[] })),
       ])
+      if (isStale()) return
       const nodes = t.nodes || []
       setTree(nodes)
       setMembers(m.items || [])
@@ -102,13 +113,14 @@ export default function ProjectDetailPage() {
         if (still) await selectNode(still)
       }
     } catch (e) {
+      if (isStale()) return
       const msg = getErrorMessage(e, '加载项目失败')
       setLoadError(msg)
       message.error(msg)
       setProject(null)
       setTree([])
     } finally {
-      setLoading(false)
+      if (!isStale()) setLoading(false)
     }
   }, [projectId, selectNode])
 
@@ -150,22 +162,28 @@ export default function ProjectDetailPage() {
       message.info('终责已在主干上')
       return
     }
+    // 建节点 + 指派是两步非原子操作，连点会造出多个残缺的负责人节点
+    if (ensureLeaderRef.current) return
+    ensureLeaderRef.current = true
     try {
       const title =
         project.final_owner?.nickname ||
         project.final_owner?.username ||
         '项目负责人'
+      // 指派随创建一起提交：分两步时若第二步失败，会留下一个没有负责人的空节点
       const node = await createNode(projectId, {
         parent_id: null,
         node_type_key: 'person',
         title,
+        assignees: [{ user_id: ownerId, role_key: 'primary' }],
       })
-      await setNodeAssignees(node.id, [ownerId])
       message.success(`已将「${title}」放到主干终点`)
       await loadAll()
       await selectNode(node)
     } catch (e) {
       message.error(getErrorMessage(e, '放置负责人失败'))
+    } finally {
+      ensureLeaderRef.current = false
     }
   }
 

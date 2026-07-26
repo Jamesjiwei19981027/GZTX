@@ -86,13 +86,17 @@ async def patch_node(node_id: int, body: NodePatch, db: DbSession, user: Current
     if type_key is not None:
         try:
             nt = await tsvc.resolve_type(db, type_key)
+            # 属性面板的类型下拉是绕过拖拽规则的另一条路：
+            # 把主干上的 person 改成 work_item，它名下的事项就会从人轴画布上消失。
+            await tsvc.assert_type_change_allowed(db, node, type_key)
         except ValueError as e:
             return fail(422, 42200, str(e))
-        node.node_type_id = nt.id
-        # 切换类型时重置进度模板，避免旧 template 残留
-        from app.models.tree import default_progress_json
+        if nt.id != node.node_type_id:
+            node.node_type_id = nt.id
+            # 切换类型时重置进度模板，避免旧 template 残留
+            from app.models.tree import default_progress_json
 
-        node.progress_json = default_progress_json(nt.behavior_template)
+            node.progress_json = default_progress_json(nt.behavior_template)
     for k, v in data.items():
         setattr(node, k, v)
     await db.commit()
@@ -109,6 +113,7 @@ async def move_node(node_id: int, body: NodeMove, db: DbSession, user: CurrentUs
         db, user.id, node.company_id, "tree.edit_any", project_id=node.project_id
     ):
         return fail(403, 40305, "需要 PM")
+    await assert_company_write(db, node.company_id, feature="project_tree")
     try:
         node = await tsvc.move_node(db, node_id, body.new_parent_id, body.sort_order)
     except ValueError as e:
@@ -130,6 +135,7 @@ async def delete_node(node_id: int, db: DbSession, user: CurrentUser):
         db, user.id, node.company_id, "tree.edit_any", project_id=node.project_id
     ):
         return fail(403, 40305, "需要 PM")
+    await assert_company_write(db, node.company_id, feature="project_tree")
     await tsvc.soft_delete_node(db, node_id)
     await db.commit()
     return ResponseData(data={"id": node_id, "is_deleted": True})
@@ -154,9 +160,13 @@ async def put_assignees(
     )
     if not can:
         return fail(403, 40300, "无权指派")
-    items = await tsvc.set_assignees(
-        db, node_id, [a.model_dump() for a in body.assignees]
-    )
+    await assert_company_write(db, node.company_id, feature="project_tree")
+    try:
+        items = await tsvc.set_assignees(
+            db, node_id, [a.model_dump() for a in body.assignees]
+        )
+    except ValueError as e:
+        return fail(422, 42200, str(e))
     await db.commit()
     return ResponseData(data={"assignees": items})
 

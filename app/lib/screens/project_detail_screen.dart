@@ -151,6 +151,20 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
     }
   }
 
+  /// 终责偏移落到服务端（跨端一致）。失败向上抛，由画布回滚并提示。
+  Future<void> _saveLeaderAlongDelta(double alongDelta) async {
+    final collab = context.read<AppState>().collab;
+    final saved = await collab.setFinalOwnerPosition(
+      widget.projectId,
+      alongDelta,
+    );
+    if (!mounted) return;
+    final p = _project;
+    if (p != null) {
+      setState(() => _project = p.copyWith(finalOwnerAlongDelta: saved));
+    }
+  }
+
   Future<void> _ensureLeaderNode() async {
     final owner = _project?.finalOwner;
     final ownerId = owner?.userId ?? _project?.pmUserId;
@@ -306,6 +320,9 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
                     canDragLeader: state.user?.id != null &&
                         (state.user!.id == _project?.pmUserId ||
                             state.user!.id == _project?.createdBy),
+                    finalOwnerAlongDelta:
+                        _project?.finalOwnerAlongDelta ?? 0,
+                    onSaveLeaderAlongDelta: _saveLeaderAlongDelta,
                     onEnsureLeader: _ensureLeaderNode,
                     onCreateNode: _createNode,
                     onMoveNode: _moveNode,

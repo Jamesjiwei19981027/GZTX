@@ -13,7 +13,8 @@ class WorkTreePrefs {
   String get _sortKey => 'wt_${projectId}_sort';
   String get _lastNodeKey => 'wt_${projectId}_last_node';
   String get _levelsKey => 'wt_${projectId}_visible_levels';
-  String get _leaderDeltaKey => 'wt_${projectId}_leaderAlongDelta';
+  // 终责偏移不再存本机：它是项目共享属性，服务端持久化（见 projects.final_owner_along_delta）。
+  // 这里只负责个人视图习惯（轴向 / 排序 / 展开层数 / 上次聚焦节点）。
 
   Future<WorkTreeAxis> loadAxis() async {
     final p = await SharedPreferences.getInstance();
@@ -30,16 +31,6 @@ class WorkTreePrefs {
   Future<int?> loadLastNodeId() async {
     final p = await SharedPreferences.getInstance();
     return p.getInt(_lastNodeKey);
-  }
-
-  Future<double> loadLeaderAlongDelta() async {
-    final p = await SharedPreferences.getInstance();
-    return p.getDouble(_leaderDeltaKey) ?? 0;
-  }
-
-  Future<void> saveLeaderAlongDelta(double value) async {
-    final p = await SharedPreferences.getInstance();
-    await p.setDouble(_leaderDeltaKey, value < 0 ? 0 : value);
   }
 
   Future<void> saveAxis(WorkTreeAxis axis) async {

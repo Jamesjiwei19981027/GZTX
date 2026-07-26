@@ -5,6 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Query
 from sqlalchemy import func, select
 
+from app.api.deps_collab import assert_company_write
 from app.core.collab_errors import fail
 from app.core.dependencies import CurrentUser, DbSession
 from app.models.company import Company, CompanyMembership
@@ -14,6 +15,7 @@ from app.models.user import User
 from app.schemas.common import ResponseData
 from app.schemas.project import (
     AssignPmBody,
+    FinalOwnerPositionBody,
     ImportConfirmBody,
     ImportPreviewBody,
     InviteBody,
@@ -43,6 +45,8 @@ def _project_dto(p: Project, my_role: str | None = None, member_count: int | Non
         "pm_user_id": p.pm_user_id,
         # 产品口径：项目最终负责人 = PM（指定为准；主干顶宜对齐此人）
         "final_owner_user_id": p.pm_user_id,
+        # 终责卡片沿主干的偏移，服务端持久化 → 跨端、跨设备一致
+        "final_owner_along_delta": p.final_owner_along_delta or 0,
         "created_by": p.created_by,
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "archived_at": p.archived_at.isoformat() if p.archived_at else None,
@@ -216,6 +220,33 @@ async def get_project(project_id: int, db: DbSession, user: CurrentUser):
     )
 
 
+@router.put("/projects/{project_id}/final-owner-position")
+async def set_final_owner_position(
+    project_id: int, body: FinalOwnerPositionBody, db: DbSession, user: CurrentUser
+):
+    """保存终责卡片沿主干的偏移量。
+
+    产品规则：**仅项目 PM 或项目创建者可拖**。此前这条规则只在两端客户端里判断，
+    偏移量也只存在本机（localStorage / SharedPreferences），既不跨端同步，
+    也没有任何服务端承载——换个客户端直接调接口就能改别人看到的布局。
+    """
+    p = await _get_project(db, project_id)
+    if not p:
+        return fail(404, 40400, "项目不存在")
+    if user.id not in (p.pm_user_id, p.created_by):
+        return fail(403, 40305, "仅项目负责人或创建者可调整终责位置")
+    await assert_company_write(db, p.company_id, feature="project_tree")
+
+    p.final_owner_along_delta = max(0, int(body.along_delta))
+    await db.commit()
+    return ResponseData(
+        data={
+            "project_id": p.id,
+            "final_owner_along_delta": p.final_owner_along_delta,
+        }
+    )
+
+
 @router.post("/projects/{project_id}/pm")
 async def assign_pm(
     project_id: int, body: AssignPmBody, db: DbSession, user: CurrentUser
@@ -227,6 +258,7 @@ async def assign_pm(
         db, user.id, p.company_id, "project.assign_pm", project_id=p.id
     ):
         return fail(403, 40300, "无权指定 PM")
+    await assert_company_write(db, p.company_id, feature="project_tree")
     try:
         await psvc.assign_pm(db, p, body.user_id)
     except ValueError as e:
@@ -244,6 +276,7 @@ async def pull_member(
         return fail(404, 40400, "项目不存在")
     if not await acl.can(db, user.id, p.company_id, "member.pull", project_id=p.id):
         return fail(403, 40305, "需要 PM")
+    await assert_company_write(db, p.company_id, feature="project_tree")
     try:
         row = await psvc.pull_member(db, p, body.user_id)
     except PermissionError as e:
@@ -444,6 +477,7 @@ async def create_node(
     )
     if not can:
         return fail(403, 40300, "无权编辑树")
+    await assert_company_write(db, p.company_id, feature="project_tree")
     try:
         node = await tsvc.create_node(
             db,
@@ -525,21 +559,31 @@ async def import_confirm(
         return fail(404, 40400, "项目不存在")
     if not await acl.can(db, user.id, p.company_id, "tree.edit_any", project_id=p.id):
         return fail(403, 40305, "需要 PM")
+    await assert_company_write(db, p.company_id, feature="project_tree")
+
+    # 导入的任务一律建成 work_item，按人轴规则必须落在某个「人」下面；
+    # parent_node_id 为空会建出 work_item 根节点，违反「主干只排人」。
+    parent_node_id = payload.get("parent_node_id")
+    if parent_node_id is None:
+        return fail(422, 42200, "导入需要指定挂载的「人」节点")
 
     created = []
     for tid in payload.get("task_ids") or []:
         t = await db.get(Task, tid)
         if not t or t.user_id != user.id:
             continue
-        node = await tsvc.create_node(
-            db,
-            p,
-            parent_id=payload.get("parent_node_id"),
-            node_type_key="work_item",
-            title=t.title,
-            description=t.description,
-            created_by=user.id,
-        )
+        try:
+            node = await tsvc.create_node(
+                db,
+                p,
+                parent_id=parent_node_id,
+                node_type_key="work_item",
+                title=t.title,
+                description=t.description,
+                created_by=user.id,
+            )
+        except ValueError as e:
+            return fail(422, 42200, str(e))
         t.origin = "project_link"
         t.company_id = p.company_id
         t.project_id = p.id

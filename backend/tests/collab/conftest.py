@@ -153,8 +153,14 @@ async def seed_ids(db_session: AsyncSession):
     await psvc.pull_member(db_session, project, member.id)
 
     tsvc = TreeService()
+    # 人轴形态：主干只排人，事项挂在人下面（后端已强制，见 TreeService.assert_shape）
     root = await tsvc.create_node(
-        db_session, project, parent_id=None, node_type_key="scope", title="根范围"
+        db_session,
+        project,
+        parent_id=None,
+        node_type_key="person",
+        title="负责人",
+        assignees=[{"user_id": member.id, "role_key": "primary"}],
     )
     node = await tsvc.create_node(
         db_session,

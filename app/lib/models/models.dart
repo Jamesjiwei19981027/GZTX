@@ -226,6 +226,7 @@ class ProjectItem {
     this.pmUserId,
     this.createdBy,
     this.finalOwner,
+    this.finalOwnerAlongDelta = 0,
   });
 
   final int id;
@@ -236,6 +237,10 @@ class ProjectItem {
   final int? pmUserId;
   final int? createdBy;
   final ProjectOwner? finalOwner;
+
+  /// 终责卡片沿主干的偏移，服务端持久化。
+  /// 曾经只存 SharedPreferences，PM 拖完不跨端同步、换设备即丢。
+  final double finalOwnerAlongDelta;
 
   factory ProjectItem.fromJson(Map<String, dynamic> json) {
     final owner = json['final_owner'];
@@ -251,8 +256,23 @@ class ProjectItem {
       finalOwner: owner is Map
           ? ProjectOwner.fromJson(Map<String, dynamic>.from(owner))
           : null,
+      finalOwnerAlongDelta:
+          (json['final_owner_along_delta'] as num?)?.toDouble() ?? 0,
     );
   }
+
+  ProjectItem copyWith({double? finalOwnerAlongDelta}) => ProjectItem(
+        id: id,
+        name: name,
+        companyId: companyId,
+        status: status,
+        myRole: myRole,
+        pmUserId: pmUserId,
+        createdBy: createdBy,
+        finalOwner: finalOwner,
+        finalOwnerAlongDelta:
+            finalOwnerAlongDelta ?? this.finalOwnerAlongDelta,
+      );
 }
 
 class NodeAssignee {

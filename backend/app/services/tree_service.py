@@ -17,6 +17,14 @@ BUILTIN_TYPES = {
     "milestone": ("里程碑", "milestone"),
 }
 
+PERSON_TYPE_KEY = "person"
+# 事项类型：工作项 / 里程碑 / 范围，只能挂在人下面
+MATTER_TYPE_KEYS = frozenset({"work_item", "milestone", "scope"})
+
+
+class TreeShapeError(ValueError):
+    """违反人轴形态规则。message 可直接展示给用户。"""
+
 
 class TreeService:
     async def ensure_builtin_types(self, db: AsyncSession, company_id: int | None = None) -> None:
@@ -50,6 +58,77 @@ class TreeService:
             raise ValueError(f"未知节点类型: {node_type_key}")
         return nt
 
+    async def type_key_of(self, db: AsyncSession, node: TreeNode) -> str:
+        nt = await db.get(NodeType, node.node_type_id)
+        return nt.key if nt else ""
+
+    async def assert_shape(
+        self, db: AsyncSession, *, node_type_key: str, parent: TreeNode | None
+    ) -> None:
+        """强制人轴形态规则（产品已锁定）：
+
+        - 主干只排人：根节点（parent_id=None）必须是 person；
+        - 事项只能落到人身上：work_item / milestone / scope 的父节点必须是 person；
+        - 人挂人 = 下级人员，允许。
+
+        这些规则此前只在 Web 的 dropRules.ts 与 APP 画布里拦，后端 create/move/patch
+        零校验：任何成员直接调 API 就能造出 work_item 当根、person 挂在 milestone 下
+        的树，而三端共享同一份数据，人轴布局的前提被打破（不挂人下的事项在画布上
+        直接消失）。
+
+        ENFORCE_WORK_TREE_SHAPE=false 可临时关闭，仅供存量非人轴数据的过渡期使用。
+        """
+        from app.core.config import settings
+
+        if not settings.ENFORCE_WORK_TREE_SHAPE:
+            return
+
+        if parent is None:
+            if node_type_key != PERSON_TYPE_KEY:
+                raise TreeShapeError("主干只能排人：根节点必须是「人」")
+            return
+
+        parent_key = await self.type_key_of(db, parent)
+        if parent_key != PERSON_TYPE_KEY:
+            raise TreeShapeError("事项只能挂在「人」下面，不能挂到其它事项上")
+
+    async def assert_type_change_allowed(
+        self, db: AsyncSession, node: TreeNode, new_type_key: str
+    ) -> None:
+        """改类型同样要守住人轴形态。
+
+        两个方向都要看：
+        - 新类型放在当前父节点下合不合法（根必须是人 / 事项必须挂人下）；
+        - 改完之后自己的子节点还合不合法：只有人能当父，所以一个有子节点的 person
+          不能被改成事项，否则整棵子树在画布上失去挂载点。
+        """
+        from app.core.config import settings
+
+        if not settings.ENFORCE_WORK_TREE_SHAPE:
+            return
+        if new_type_key == await self.type_key_of(db, node):
+            return
+
+        parent = await db.get(TreeNode, node.parent_id) if node.parent_id else None
+        await self.assert_shape(db, node_type_key=new_type_key, parent=parent)
+
+        if new_type_key != PERSON_TYPE_KEY:
+            child = (
+                await db.execute(
+                    select(TreeNode.id)
+                    .where(
+                        TreeNode.parent_id == node.id,
+                        TreeNode.is_deleted.is_(False),
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if child is not None:
+                raise TreeShapeError(
+                    "该节点下还挂着内容，改成事项后它们将失去挂载点；"
+                    "请先移走子节点再改类型"
+                )
+
     async def create_node(
         self,
         db: AsyncSession,
@@ -75,6 +154,7 @@ class TreeService:
             if not parent or parent.project_id != project.id or parent.is_deleted:
                 raise ValueError("父节点不存在")
             depth = parent.depth + 1
+        await self.assert_shape(db, node_type_key=node_type_key, parent=parent)
 
         node = TreeNode(
             company_id=project.company_id,
@@ -102,6 +182,9 @@ class TreeService:
         await db.flush()
 
         if assignees:
+            await self.assert_assignable(
+                db, project.company_id, [int(a["user_id"]) for a in assignees]
+            )
             for a in assignees:
                 db.add(
                     NodeAssignment(
@@ -138,6 +221,10 @@ class TreeService:
             parent = None
             new_path_prefix = f"/{node.id}/"
             new_depth = 0
+
+        await self.assert_shape(
+            db, node_type_key=await self.type_key_of(db, node), parent=parent
+        )
 
         old_path = node.path
         old_depth = node.depth
@@ -178,9 +265,44 @@ class TreeService:
         await db.flush()
         return node
 
+    async def assert_assignable(
+        self, db: AsyncSession, company_id: int, user_ids: list[int]
+    ) -> None:
+        """指派对象必须是本公司在职成员。
+
+        此前完全不校验：任意 user_id 都能写进 node_assignments，而
+        list_assignees 会 join users 回读昵称和头像 —— 等于给了一个
+        按 id 遍历全系统用户身份信息的接口。
+        """
+        wanted = {int(u) for u in user_ids}
+        if not wanted:
+            return
+        from app.models.company import CompanyMembership
+
+        rows = (
+            await db.execute(
+                select(CompanyMembership.user_id).where(
+                    CompanyMembership.company_id == company_id,
+                    CompanyMembership.user_id.in_(wanted),
+                    CompanyMembership.status == "active",
+                    CompanyMembership.employment_status == "active",
+                )
+            )
+        ).scalars().all()
+        missing = wanted - set(rows)
+        if missing:
+            raise ValueError("指派对象非本公司在职成员")
+
     async def set_assignees(
         self, db: AsyncSession, node_id: int, assignees: list[dict]
     ) -> list[dict]:
+        node = await db.get(TreeNode, node_id)
+        if node is None:
+            raise ValueError("节点不存在")
+        await self.assert_assignable(
+            db, node.company_id, [int(a["user_id"]) for a in assignees]
+        )
+
         q = await db.execute(select(NodeAssignment).where(NodeAssignment.node_id == node_id))
         for row in q.scalars().all():
             await db.delete(row)

@@ -14,6 +14,11 @@ class AssignPmBody(BaseModel):
     user_id: int
 
 
+class FinalOwnerPositionBody(BaseModel):
+    """终责卡片沿主干方向的偏移量（像素，非负）"""
+    along_delta: int = Field(ge=0, le=100000)
+
+
 class PullMemberBody(BaseModel):
     user_id: int
     mode: str = "pull"

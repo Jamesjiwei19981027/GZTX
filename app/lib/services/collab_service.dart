@@ -147,6 +147,15 @@ class CollabService {
     return ProjectItem.fromJson(data);
   }
 
+  /// 保存终责卡片沿主干的偏移。仅项目 PM / created_by 有权，后端强制。
+  Future<double> setFinalOwnerPosition(int projectId, double alongDelta) async {
+    final data = await _api.put(
+      '/projects/$projectId/final-owner-position',
+      body: {'along_delta': alongDelta < 0 ? 0 : alongDelta.round()},
+    ) as JsonMap;
+    return (data['final_owner_along_delta'] as num?)?.toDouble() ?? 0;
+  }
+
   Future<List<TreeNodeItem>> projectTree(int projectId) async {
     final data = await _api.get('/projects/$projectId/tree', query: {
       'format': 'nested',

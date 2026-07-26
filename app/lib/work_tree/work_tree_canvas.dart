@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
@@ -48,6 +50,8 @@ class WorkTreeCanvas extends StatefulWidget {
     this.finalOwnerName,
     this.onEnsureLeader,
     this.canDragLeader = false,
+    this.finalOwnerAlongDelta = 0,
+    this.onSaveLeaderAlongDelta,
   });
 
   final List<TreeNodeItem> roots;
@@ -67,6 +71,12 @@ class WorkTreeCanvas extends StatefulWidget {
   final String? finalOwnerName;
   final Future<void> Function()? onEnsureLeader;
   final bool canDragLeader;
+
+  /// 终责偏移的服务端值（跨端一致）。此前只读写本机 SharedPreferences。
+  final double finalOwnerAlongDelta;
+
+  /// 持久化终责偏移到服务端；仅 PM/创建者可调，后端同样强制。
+  final Future<void> Function(double alongDelta)? onSaveLeaderAlongDelta;
 
   @override
   State<WorkTreeCanvas> createState() => WorkTreeCanvasState();
@@ -88,6 +98,7 @@ class WorkTreeCanvasState extends State<WorkTreeCanvas> {
   int _visibleLevels = 3;
   Size _viewport = Size.zero;
   double _leaderAlongDelta = 0;
+  Timer? _leaderSaveTimer;
 
   @override
   void initState() {
@@ -118,10 +129,17 @@ class WorkTreeCanvasState extends State<WorkTreeCanvas> {
         }
       });
     }
+    // 终责偏移的服务端值变了（别人拖过，或本次保存已返回）→ 跟随。
+    // 本地正拖动待落库时不覆盖，否则会把用户手上的位置抖回去。
+    if (widget.finalOwnerAlongDelta != oldWidget.finalOwnerAlongDelta &&
+        (_leaderSaveTimer == null || !_leaderSaveTimer!.isActive)) {
+      setState(() => _leaderAlongDelta = widget.finalOwnerAlongDelta);
+    }
   }
 
   @override
   void dispose() {
+    _leaderSaveTimer?.cancel();
     _transform.dispose();
     super.dispose();
   }
@@ -131,14 +149,15 @@ class WorkTreeCanvasState extends State<WorkTreeCanvas> {
     final sort = await _prefs.loadSort();
     final last = await _prefs.loadLastNodeId();
     final levels = await _prefs.loadVisibleLevels();
-    final leaderDelta = await _prefs.loadLeaderAlongDelta();
     if (!mounted) return;
     setState(() {
       _axis = axis;
       _sort = sort;
       _lastNodeId = last;
       _visibleLevels = levels.clamp(1, 8);
-      _leaderAlongDelta = leaderDelta;
+      // 终责偏移取服务端值：画布偏好（轴向/排序/层数）是个人视图习惯，可以留本机，
+      // 但终责位置是项目共享属性，必须跨端一致。
+      _leaderAlongDelta = widget.finalOwnerAlongDelta;
       _ready = true;
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -161,13 +180,28 @@ class WorkTreeCanvasState extends State<WorkTreeCanvas> {
   void _nudgeLeaderAlong(double delta) {
     if (!widget.canDragLeader) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('终责位置仅项目 PM 可调')),
+        const SnackBar(content: Text('终责位置仅项目负责人或创建者可调')),
       );
       return;
     }
     final next = (_leaderAlongDelta + delta).clamp(0.0, 2400.0);
     setState(() => _leaderAlongDelta = next);
-    _prefs.saveLeaderAlongDelta(next);
+
+    // 拖动会连续触发，落库要防抖：手感走本地 setState，服务端只收最终值
+    _leaderSaveTimer?.cancel();
+    _leaderSaveTimer = Timer(const Duration(milliseconds: 400), () {
+      final save = widget.onSaveLeaderAlongDelta;
+      if (save == null) return;
+      final target = _leaderAlongDelta;
+      final rollback = widget.finalOwnerAlongDelta;
+      save(target).catchError((_) {
+        if (!mounted) return;
+        setState(() => _leaderAlongDelta = rollback);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('终责位置保存失败')),
+        );
+      });
+    });
   }
 
   void _clearSelection() {

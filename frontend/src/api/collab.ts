@@ -93,6 +93,17 @@ export function getProject(projectId: number) {
   return request.get<ProjectDTO>(`/projects/${projectId}`)
 }
 
+/**
+ * 保存终责卡片沿主干的偏移。仅项目 PM / created_by 有权（后端强制）。
+ * 存服务端而非 localStorage：否则拖动结果不跨端、不跨设备。
+ */
+export function setFinalOwnerPosition(projectId: number, alongDelta: number) {
+  return request.put<{ project_id: number; final_owner_along_delta: number }>(
+    `/projects/${projectId}/final-owner-position`,
+    { along_delta: Math.max(0, Math.round(alongDelta)) },
+  )
+}
+
 export function getProjectTree(projectId: number, format: 'nested' | 'flat' = 'nested') {
   return request.get<{ project_id: number; nodes: TreeNodeDTO[] }>(
     `/projects/${projectId}/tree`,
