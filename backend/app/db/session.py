@@ -1,12 +1,12 @@
 """
 数据库会话管理
 """
+from sqlalchemy import create_engine, event
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
@@ -28,6 +28,29 @@ sync_engine = create_engine(
     echo=False,
     connect_args={"check_same_thread": False} if settings.is_sqlite else {},
 )
+
+if settings.is_sqlite:
+
+    def _sqlite_pragmas(dbapi_conn, _record):
+        """SQLite 每条连接都要单独开的开关。
+
+        - foreign_keys：SQLite **默认关闭**外键约束，模型里那些 ForeignKey /
+          ondelete CASCADE 声明形同虚设，删父行会留下一地孤儿；
+        - journal_mode=WAL：默认 DELETE 模式下读写互斥，一个慢查询就能把写请求全堵住；
+        - busy_timeout：并发写时不要立刻 "database is locked"，等一会儿再报。
+        """
+        cur = dbapi_conn.cursor()
+        try:
+            cur.execute("PRAGMA foreign_keys=ON")
+            cur.execute("PRAGMA journal_mode=WAL")
+            cur.execute("PRAGMA busy_timeout=5000")
+        finally:
+            cur.close()
+
+    # 异步引擎的 connect 事件要挂在底层 sync_engine 上
+    event.listen(engine.sync_engine, "connect", _sqlite_pragmas)
+    event.listen(sync_engine, "connect", _sqlite_pragmas)
+
 
 # 创建异步会话工厂
 async_session_factory = async_sessionmaker(

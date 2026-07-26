@@ -1,7 +1,7 @@
 """
 任务相关接口
 """
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -37,7 +37,10 @@ async def get_tasks(
     page: int = Query(1, ge=1),
     # 日历月视图一次拉全月任务，前端用 page_size=200
     page_size: int = Query(20, ge=1, le=200),
-    status: Optional[int] = None,
+    # 可重复：?status=0&status=1 表示"未完成"。
+    # 此前是 Optional[int]，重复传只有一个生效，小程序的待办列表因此把
+    # 进行中的任务全漏掉了。单值 ?status=0 的老用法保持等价。
+    status: Optional[List[int]] = Query(None),
     priority: Optional[int] = None,
     category_id: Optional[int] = None,
     tag_ids: Optional[str] = None,
@@ -58,8 +61,8 @@ async def get_tasks(
         query = query.where(Task.is_deleted == False)
 
     # 筛选条件
-    if status is not None:
-        query = query.where(Task.status == status)
+    if status:
+        query = query.where(Task.status.in_(status))
     if priority is not None:
         query = query.where(Task.priority == priority)
     if category_id is not None:
@@ -305,7 +308,19 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
         default_cat = result.scalar_one_or_none()
         category_id = default_cat.id if default_cat else None
     else:
-        category_id = data.category_id
+        # 校验分类归属：此前不查，任意 category_id 都能写进来，
+        # 任务详情回读分类名/颜色时就把别人的分类信息带出去了。
+        owned = (
+            await db.execute(
+                select(Category).where(
+                    Category.id == data.category_id,
+                    Category.user_id == user.id,
+                )
+            )
+        ).scalar_one_or_none()
+        if not owned:
+            raise HTTPException(status_code=404, detail="分类不存在")
+        category_id = owned.id
 
     # SQLite 不支持时区信息，转换为 naive datetime
     due_date_val = data.due_date
@@ -547,11 +562,19 @@ async def batch_complete(data: BatchAction, db: DbSession, user: CurrentUser):
     )
     tasks = result.scalars().all()
 
-    for task in tasks:
+    # 项目投影任务是只读的（linked_readonly），单条完成接口会拦，
+    # 批量接口此前直接绕过，等于给了一条改协作数据的旁路。
+    editable = [t for t in tasks if not getattr(t, "linked_readonly", False)]
+    for task in editable:
         task.status = Task.STATUS_DONE
         task.completed_at = now
 
-    return ResponseData(data={"completed_count": len(tasks)})
+    return ResponseData(
+        data={
+            "completed_count": len(editable),
+            "skipped_readonly": len(tasks) - len(editable),
+        }
+    )
 
 
 @router.delete("/batch", response_model=ResponseData)

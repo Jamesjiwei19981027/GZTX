@@ -64,6 +64,7 @@ class TagResponse(BaseModel):
 
 class ReminderCreate(BaseModel):
     """创建提醒"""
+    task_id: int  # 提醒必须挂在具体任务上，否则发送时取不到任务内容
     remind_at: datetime
     remind_type: int = 0
     notify_channels: Optional[str] = None  # 通知方式，逗号分隔: web_popup,email,sms,wechat,alarm

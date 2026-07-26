@@ -7,7 +7,9 @@ import '../services/collab_service.dart';
 import '../services/notification_service.dart';
 import '../services/task_service.dart';
 
-enum AuthStatus { unknown, signedOut, signedIn }
+/// offline：本地有凭证但这次没能连上服务端。
+/// 与 signedOut 区分开，才不会因为一次断网就把用户的登录态清掉。
+enum AuthStatus { unknown, signedOut, signedIn, offline }
 
 class AppState extends ChangeNotifier {
   AppState({ApiClient? api}) : api = api ?? ApiClient() {
@@ -46,12 +48,32 @@ class AppState extends ChangeNotifier {
       user = await auth.fetchMe();
       status = AuthStatus.signedIn;
       await Future.wait([refreshTasks(), refreshCompanies()]);
-    } catch (_) {
-      await api.clearTokens();
-      user = null;
-      status = AuthStatus.signedOut;
+    } on ApiException catch (e) {
+      // 只有认证被明确拒绝才清凭证并登出。
+      // 旧实现 catch(_) 一把抓：断网冷启动会把本地 refresh_token 永久删掉，
+      // 网络恢复后用户还得重新登录。
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        await api.clearTokens();
+        user = null;
+        status = AuthStatus.signedOut;
+      } else {
+        error = e.message;
+        status = AuthStatus.offline;
+      }
+    } catch (e) {
+      // 网络异常/超时：保留凭证，进入离线态，可重试
+      error = '网络不可用，请检查连接后重试';
+      status = AuthStatus.offline;
     }
     notifyListeners();
+  }
+
+  /// 离线态下重试引导（供 UI 的「重试」按钮调用）
+  Future<void> retryBootstrap() async {
+    error = null;
+    status = AuthStatus.unknown;
+    notifyListeners();
+    await bootstrap();
   }
 
   Future<bool> login(String username, String password) async {

@@ -1,8 +1,20 @@
+import calendar
+from datetime import datetime
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 
 from app.models.task import Task
 from app.models.reminder import Reminder
+
+
+def _replace_ymd(dt: datetime, year: int, month: int) -> datetime:
+    """把 dt 移到 year/month，日期超出该月天数时夹到月末。
+
+    直接 `dt.replace(year=..., month=...)` 在 1/31 → 2 月、2/29 → 平年
+    这类场景会抛 ValueError: day is out of range for month。
+    """
+    last_day = calendar.monthrange(year, month)[1]
+    return dt.replace(year=year, month=month, day=min(dt.day, last_day))
 
 
 class TaskService:
@@ -98,13 +110,17 @@ class TaskService:
         elif frequency == "weekly":
             next_date = current_date + timedelta(weeks=interval)
         elif frequency == "monthly":
-            # Simple month addition
             month = current_date.month + interval
             year = current_date.year + (month - 1) // 12
             month = (month - 1) % 12 + 1
-            next_date = current_date.replace(year=year, month=month)
+            # 目标月没有这一天时夹到月末：1/31 的月度循环若直接 replace(month=2)
+            # 会抛 ValueError: day is out of range for month，任务一完成就 500。
+            next_date = _replace_ymd(current_date, year, month)
         elif frequency == "yearly":
-            next_date = current_date.replace(year=current_date.year + interval)
+            # 2/29 遇到平年同样会溢出
+            next_date = _replace_ymd(
+                current_date, current_date.year + interval, current_date.month
+            )
         else:
             return None
 

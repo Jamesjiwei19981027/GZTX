@@ -34,7 +34,10 @@ class NotifyJob(Base):
     channel = Column(String(32), nullable=False)  # in_app|wechat|email|sms
     template_key = Column(String(64), nullable=False)
     payload_json = Column(JSON, nullable=False, default=dict)
-    status = Column(String(32), nullable=False, default="pending")  # pending|sent|failed
+    # pending|sent|failed|dead（dead=重试次数用尽，不再消费，避免堵住队列）
+    status = Column(String(32), nullable=False, default="pending", index=True)
+    # 已尝试投递次数，由 main.drain_notify_jobs 维护
+    attempts = Column(Integer, nullable=False, default=0, server_default="0")
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     sent_at = Column(DateTime(timezone=True), nullable=True)

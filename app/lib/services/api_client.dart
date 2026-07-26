@@ -17,7 +17,7 @@ class ApiClient {
   final TokenStore tokens;
   final http.Client _http;
   SharedPreferences? _prefs;
-  bool _refreshing = false;
+  Future<bool>? _refreshInflight;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -90,11 +90,23 @@ class ApiClient {
     return _decode(res);
   }
 
-  Future<bool> _tryRefresh() async {
-    if (_refreshing) return false;
+  /// 刷新令牌（单飞）。
+  ///
+  /// 旧实现有两个问题：
+  /// 1. `if (_refreshing) return false` —— 并发 401 时只有第一个请求去刷新，
+  ///    其余立刻拿到 false 直接报错，一批并发请求会有一半无谓失败；
+  /// 2. `catch (_) { clear tokens }` —— 不区分异常类型，断网/超时/5xx
+  ///    也会把 refresh_token 删掉，网络恢复后仍要重新登录。
+  Future<bool> _tryRefresh() {
+    return _refreshInflight ??= _doRefresh().whenComplete(() {
+      _refreshInflight = null;
+    });
+  }
+
+  Future<bool> _doRefresh() async {
     final refresh = tokens.refreshToken;
-    if (refresh == null || refresh.isEmpty) return false;
-    _refreshing = true;
+    final prefs = _prefs;
+    if (refresh == null || refresh.isEmpty || prefs == null) return false;
     try {
       final res = await _http.post(
         _uri('/auth/refresh'),
@@ -104,16 +116,26 @@ class ApiClient {
         },
         body: jsonEncode({'refresh_token': refresh}),
       );
-      final data = _decode(res) as JsonMap;
-      final access = data['access_token'] as String?;
+      // 只有服务端明确拒绝这张 refresh_token 才清凭证
+      if (res.statusCode == 401 || res.statusCode == 403) {
+        await tokens.clear(prefs);
+        return false;
+      }
+      if (res.statusCode < 200 || res.statusCode >= 300) return false;
+
+      final data = _decode(res);
+      final access = data is JsonMap ? data['access_token'] as String? : null;
       if (access == null || access.isEmpty) return false;
-      await tokens.save(_prefs!, access: access);
+      await tokens.save(prefs, access: access);
       return true;
-    } catch (_) {
-      await tokens.clear(_prefs!);
+    } on ApiException catch (e) {
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        await tokens.clear(prefs);
+      }
       return false;
-    } finally {
-      _refreshing = false;
+    } catch (_) {
+      // 网络异常：保留凭证，恢复网络后照旧可用
+      return false;
     }
   }
 

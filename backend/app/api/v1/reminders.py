@@ -47,11 +47,26 @@ async def get_reminders(
 @router.post("", response_model=ResponseData, status_code=status.HTTP_201_CREATED)
 async def create_reminder(data: ReminderCreate, db: DbSession, user: CurrentUser):
     """创建提醒"""
+    # 此前这里硬编码 task_id=0（schema 里也没有该字段）：
+    # 每条提醒都是指向不存在任务的孤儿，发送时取不到任务只能失败。
+    task = (
+        await db.execute(
+            select(Task).where(
+                Task.id == data.task_id,
+                Task.user_id == user.id,
+                Task.is_deleted.is_(False),
+            )
+        )
+    ).scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
     reminder = Reminder(
-        task_id=0,  # 需要传入 task_id
+        task_id=task.id,
         user_id=user.id,
         remind_at=data.remind_at,
         remind_type=data.remind_type,
+        notify_channels=data.notify_channels or "web_push",
     )
     db.add(reminder)
     await db.flush()

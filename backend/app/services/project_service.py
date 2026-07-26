@@ -177,10 +177,23 @@ class ProjectService:
         inv = q.scalar_one_or_none()
         if not inv or inv.status != "pending":
             raise ValueError("邀请无效")
-        if inv.expires_at and inv.expires_at < datetime.now(timezone.utc):
+        # SQLite 读回的 expires_at 是 naive，直接与 aware 的 now 比较会抛 TypeError
+        # （默认 SQLite 部署下本接口曾必然 500）；先归一化再比。
+        from app.utils.datetime import as_utc
+
+        if inv.expires_at and as_utc(inv.expires_at) < datetime.now(timezone.utc):
             raise ValueError("邀请已过期")
         if inv.invitee_user_id and inv.invitee_user_id != user_id:
             raise PermissionError("邀请不匹配")
+        if inv.invitee_email and not inv.invitee_user_id:
+            # 邮箱邀请：必须由该邮箱的所有者接受，否则拿到链接的任何人都能入项目
+            from app.models.user import User
+
+            u = await db.get(User, user_id)
+            invited = (inv.invitee_email or "").strip().lower()
+            actual = ((u.email if u else None) or "").strip().lower()
+            if not actual or actual != invited:
+                raise PermissionError("邀请不匹配")
         project = await db.get(Project, inv.project_id)
         if not project:
             raise ValueError("项目不存在")

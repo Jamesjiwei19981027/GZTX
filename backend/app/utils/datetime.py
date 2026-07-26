@@ -86,3 +86,16 @@ def format_datetime(dt: datetime) -> str:
 def now_utc() -> datetime:
     """Get current UTC datetime."""
     return datetime.now(timezone.utc)
+
+
+def as_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """把可能是 naive 的时间统一成 aware（UTC），供比较使用。
+
+    SQLite 的 DATETIME 不存时区，读回来一律是 naive；直接和
+    `datetime.now(timezone.utc)` 比较会抛
+    TypeError: can't compare offset-naive and offset-aware datetimes。
+    凡是"库里读出来的时间 vs 当前时间"的比较都应先过这个函数。
+    """
+    if dt is None:
+        return None
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt

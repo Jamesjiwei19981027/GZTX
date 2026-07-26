@@ -104,9 +104,17 @@ Page({
       ? request.put(`/tasks/${this.data.taskId}`, data, true)
       : request.post('/tasks', data, true);
 
-    api.then(() => {
-      wx.showToast({ title: this.data.isEdit ? '更新成功' : '创建成功' });
-      wx.navigateBack();
-    });
+    // 必须有 catch：否则失败时既不提示也不返回，用户只会反复点提交
+    api
+      .then(() => {
+        wx.showToast({ title: this.data.isEdit ? '更新成功' : '创建成功' });
+        wx.navigateBack();
+      })
+      .catch((err) => {
+        wx.showToast({
+          title: (err && err.message) || '保存失败',
+          icon: 'none'
+        });
+      });
   }
 });

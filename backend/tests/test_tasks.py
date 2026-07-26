@@ -148,3 +148,36 @@ async def test_get_task_stats(client: AsyncClient, auth_headers, test_user, db_s
     data = response.json()
     assert data["code"] == 200
     assert data["data"]["total"] >= 2
+
+
+@pytest.mark.asyncio
+async def test_status_filter_accepts_multiple_values(
+    client: AsyncClient, db_session, test_user, auth_headers
+):
+    """?status=0&status=1 表示"未完成"。
+
+    此前 status 是 Optional[int]，重复传只有一个生效，小程序待办列表
+    因此把"进行中"的任务全漏掉了。
+    """
+    from app.models.category import Category
+    from app.models.task import Task
+
+    cat = Category(user_id=test_user.id, name="默认", color="#409EFF", is_default=True)
+    db_session.add(cat)
+    await db_session.flush()
+    for title, st in (("待办", 0), ("进行中", 1), ("已完成", 2)):
+        db_session.add(
+            Task(user_id=test_user.id, category_id=cat.id, title=title, status=st)
+        )
+    await db_session.commit()
+
+    r = await client.get(
+        "/api/v1/tasks?status=0&status=1&page_size=50", headers=auth_headers
+    )
+    assert r.status_code == 200, r.text
+    titles = {t["title"] for t in r.json()["data"]["items"]}
+    assert titles == {"待办", "进行中"}, titles
+
+    # 单值老用法保持等价
+    r2 = await client.get("/api/v1/tasks?status=2", headers=auth_headers)
+    assert {t["title"] for t in r2.json()["data"]["items"]} == {"已完成"}

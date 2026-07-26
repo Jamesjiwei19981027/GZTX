@@ -52,7 +52,8 @@ async def check_new_emails():
 
             receiver = EmailReceiver()
             service = TaskEmailService()
-            emails = receiver.fetch_new_emails()
+            # 阻塞式 IMAP 拉取必须挪出事件循环，否则整个进程在拉信期间不响应请求
+            emails = await asyncio.to_thread(receiver.fetch_new_emails)
 
             for email_data in emails:
                 try:
@@ -62,22 +63,25 @@ async def check_new_emails():
                         print(f"[EmailCheck] No valid task_id in to: {email_data.get('to')}")
                         continue
 
-                    db = SyncSessionLocal()
-                    try:
-                        result = service.process_email_reply(
-                            task_id=task_id,
-                            sender_email=email_data.get("from", ""),
-                            raw_content=email_data.get("body", ""),
-                            db=db,
-                            original_message_id=email_data.get("message_id")
-                        )
-                        if result.get("success"):
-                            processed += 1
-                        else:
-                            failed += 1
-                            print(f"[EmailCheck] Process failed for task {task_id}: {result.get('message')}")
-                    finally:
-                        db.close()
+                    def _process(data=email_data, tid=task_id):
+                        db = SyncSessionLocal()
+                        try:
+                            return service.process_email_reply(
+                                task_id=tid,
+                                sender_email=data.get("from", ""),
+                                raw_content=data.get("body", ""),
+                                db=db,
+                                original_message_id=data.get("message_id"),
+                            )
+                        finally:
+                            db.close()
+
+                    result = await asyncio.to_thread(_process)
+                    if result.get("success"):
+                        processed += 1
+                    else:
+                        failed += 1
+                        print(f"[EmailCheck] Process failed for task {task_id}: {result.get('message')}")
 
                 except Exception as e:
                     print(f"[EmailCheck] Failed to process email: {e}")
@@ -106,15 +110,85 @@ async def check_reminders():
             from app.services.reminder_service import ReminderService
             from app.db.session import SyncSessionLocal
 
-            db = SyncSessionLocal()
-            try:
-                results = ReminderService.check_and_send_reminders(db)
-                print(f"[ReminderCheck] Processed {len(results)} reminders")
-                return {"processed": len(results)}
-            finally:
-                db.close()
+            def _run() -> int:
+                db = SyncSessionLocal()
+                try:
+                    return len(ReminderService.check_and_send_reminders(db))
+                finally:
+                    db.close()
+
+            # 同步 DB + 阻塞式 SMTP 必须挪出事件循环：
+            # 直接 await 会让整个 ASGI 进程在发信期间无法响应任何请求。
+            count = await asyncio.to_thread(_run)
+            print(f"[ReminderCheck] Processed {count} reminders")
+            return {"processed": count}
         except Exception as e:
             print(f"[ReminderCheck] Task failed: {e}")
+            return {"error": str(e)}
+
+
+_notify_drain_lock = asyncio.Lock()
+
+# 单批最多处理多少条，避免积压时一次占满事件循环
+NOTIFY_DRAIN_BATCH = 50
+# 失败重试上限；超过则置为 dead，不再无限重试堵住队列
+NOTIFY_MAX_ATTEMPTS = 5
+
+
+async def drain_notify_jobs():
+    """消费 notify_jobs 队列。
+
+    此前只有生产者没有消费者：evidence_service / progress_alert 等都往
+    notify_jobs 里 enqueue（status=pending），但全应用没有任何地方调用
+    process_one_job，导致材料采纳/驳回、进度告警等协作通知一条都发不出去，
+    队列还会无限堆积。
+    """
+    if _notify_drain_lock.locked():
+        return {"status": "skipped", "reason": "previous_running"}
+
+    async with _notify_drain_lock:
+        from sqlalchemy import select
+
+        from app.db.session import async_session_factory
+        from app.models.notify import NotifyJob
+        from app.workers.notify_worker import process_one_job
+
+        sent = failed = 0
+        try:
+            async with async_session_factory() as db:
+                rows = (
+                    await db.execute(
+                        select(NotifyJob.id)
+                        .where(NotifyJob.status == "pending")
+                        .order_by(NotifyJob.id)
+                        .limit(NOTIFY_DRAIN_BATCH)
+                    )
+                ).scalars().all()
+
+                for job_id in rows:
+                    try:
+                        job = await process_one_job(db, job_id)
+                        if job is None:
+                            continue
+                        if job.status == "sent":
+                            sent += 1
+                        elif job.status == "failed":
+                            failed += 1
+                            # 失败的重新排队等下一轮，超过上限则永久放弃
+                            attempts = (job.attempts or 0) + 1
+                            job.attempts = attempts
+                            job.status = (
+                                "dead" if attempts >= NOTIFY_MAX_ATTEMPTS else "pending"
+                            )
+                        await db.commit()
+                    except Exception as e:  # noqa: BLE001 — 单条失败不能中断整批
+                        await db.rollback()
+                        print(f"[NotifyDrain] job {job_id} failed: {e}")
+            if sent or failed:
+                print(f"[NotifyDrain] sent={sent} failed={failed}")
+            return {"sent": sent, "failed": failed}
+        except Exception as e:
+            print(f"[NotifyDrain] Task failed: {e}")
             return {"error": str(e)}
 
 
@@ -292,36 +366,50 @@ async def lifespan(app: FastAPI):
     await init_db()
 
     # 启动 APScheduler for periodic tasks
-    from apscheduler.schedulers.asyncio import AsyncIOScheduler
-    scheduler = AsyncIOScheduler()
+    #
+    # 生产是 gunicorn -w 4：每个 worker 都会跑一遍 lifespan，四个进程各起一套
+    # 调度器 → 提醒和每日摘要按 worker 数重复发送（进程内的 asyncio.Lock 只能
+    # 防同进程并发，拦不住跨进程）。SCHEDULER_ENABLED 用来只让一个进程跑调度：
+    # 多 worker 部署时给主服务设 false，另起一个单进程的 scheduler 容器设 true。
+    scheduler = None
+    if settings.SCHEDULER_ENABLED:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        scheduler = AsyncIOScheduler()
 
-    # Register email check job
-    scheduler.add_job(check_new_emails, 'interval', seconds=settings.EMAIL_CHECK_INTERVAL, id='check_new_emails')
+        # Register email check job
+        scheduler.add_job(check_new_emails, 'interval', seconds=settings.EMAIL_CHECK_INTERVAL, id='check_new_emails')
 
-    # Register reminder check job (every 60 seconds)
-    scheduler.add_job(check_reminders, 'interval', seconds=60, id='check_reminders')
+        # Register reminder check job (every 60 seconds)
+        scheduler.add_job(check_reminders, 'interval', seconds=60, id='check_reminders')
 
-    # Register daily digest job (cron: DAILY_DIGEST_HOUR local time → UTC)
-    digest_utc_hour = (settings.DAILY_DIGEST_HOUR - settings.USER_TIMEZONE_OFFSET) % 24
-    scheduler.add_job(
-        send_daily_digest, 'cron',
-        hour=digest_utc_hour, minute=0,
-        id='daily_digest'
-    )
+        # 消费协作通知队列（材料采纳/驳回、进度告警等）
+        scheduler.add_job(drain_notify_jobs, 'interval', seconds=20, id='drain_notify_jobs')
 
-    scheduler.start()
-    print(f"[Scheduler] Started APScheduler")
+        # Register daily digest job (cron: DAILY_DIGEST_HOUR local time → UTC)
+        digest_utc_hour = (settings.DAILY_DIGEST_HOUR - settings.USER_TIMEZONE_OFFSET) % 24
+        scheduler.add_job(
+            send_daily_digest, 'cron',
+            hour=digest_utc_hour, minute=0,
+            id='daily_digest'
+        )
+
+        scheduler.start()
+        print("[Scheduler] Started APScheduler")
+    else:
+        print("[Scheduler] Disabled (SCHEDULER_ENABLED=false)")
 
     print(f"✅ {settings.APP_NAME} v{settings.APP_VERSION} 启动成功")
     print(f"📊 数据库: {'SQLite' if settings.is_sqlite else 'PostgreSQL'}")
     print(f"📧 邮件检查间隔: {settings.EMAIL_CHECK_INTERVAL}秒")
     print(f"📬 每日摘要: 每天 {settings.DAILY_DIGEST_HOUR}:00 (UTC+{settings.USER_TIMEZONE_OFFSET})")
-    print(f"📖 API文档: http://localhost:8000/docs")
+    if settings.expose_api_docs:
+        print("📖 API文档: /docs")
 
     yield
 
     # 关闭时：释放数据库连接
-    scheduler.shutdown()
+    if scheduler is not None:
+        scheduler.shutdown()
     await close_db()
     print(f"👋 {settings.APP_NAME} 已关闭")
 
@@ -332,8 +420,11 @@ app = FastAPI(
     version=settings.APP_VERSION,
     description="工作待办提醒系统 API",
     lifespan=lifespan,
-    docs_url="/docs",
-    redoc_url="/redoc",
+    # 生产不暴露交互式文档与 schema：等于把全部接口形状、字段名和枚举白送给攻击者。
+    # 需要在生产临时开启时显式设置 EXPOSE_API_DOCS=true。
+    docs_url="/docs" if settings.expose_api_docs else None,
+    redoc_url="/redoc" if settings.expose_api_docs else None,
+    openapi_url="/openapi.json" if settings.expose_api_docs else None,
 )
 
 # 配置 CORS

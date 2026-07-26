@@ -163,6 +163,53 @@ class _RootGate extends StatelessWidget {
         return const LoginScreen();
       case AuthStatus.signedIn:
         return const ShellScreen();
+      case AuthStatus.offline:
+        // 本地凭证还在，只是这次没连上：给重试入口，不要把人踢回登录页
+        return const _OfflineGate();
     }
+  }
+}
+
+class _OfflineGate extends StatelessWidget {
+  const _OfflineGate();
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    return Scaffold(
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_outlined, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                state.error ?? '网络不可用',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '登录状态已保留，恢复网络后可直接重试。',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: () => context.read<AppState>().retryBootstrap(),
+                icon: const Icon(Icons.refresh),
+                label: const Text('重试'),
+              ),
+              TextButton(
+                onPressed: () => context.read<AppState>().logout(),
+                child: const Text('退出登录'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

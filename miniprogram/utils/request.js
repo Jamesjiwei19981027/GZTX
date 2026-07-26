@@ -14,7 +14,9 @@ function request(options) {
         'Authorization': app.globalData.token ? 'Bearer ' + app.globalData.token : ''
       },
       success(res) {
-        if (res.statusCode === 200) {
+        // 2xx 一律算成功：后端 POST /tasks 返回 201，只认 200 会把
+        // 「创建成功」判成失败——任务其实已经建好了，用户没收到反馈就重复点。
+        if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data)
         } else if (res.statusCode === 401) {
           // Token 过期，跳转登录
@@ -22,7 +24,15 @@ function request(options) {
           wx.redirectTo({ url: '/pages/login/login' })
           reject(new Error('未登录'))
         } else {
-          reject(new Error(res.data.message || '请求失败'))
+          // 后端错误信封有两种形状：{detail:{message}} 与 {message}
+          const body = res.data || {}
+          const detail = body.detail
+          const message =
+            (detail && (detail.message || detail.msg)) ||
+            (typeof detail === 'string' ? detail : '') ||
+            body.message ||
+            '请求失败'
+          reject(new Error(message))
         }
       },
       fail(err) {
