@@ -64,7 +64,16 @@ def test_alembic_upgrade_empty_sqlite_creates_collab_tables(tmp_path):
         inspect(engine).get_table_names()
     )
 
-    # alembic_version stamped
+    # rate limit counters (c3d4e5f6a7b8)
+    assert "rate_limit_counters" in tables
+
+    # alembic_version 停在脚本目录的 head 上（不硬编码版本号，新增迁移不必改测试）
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    expected_head = ScriptDirectory.from_config(
+        Config(str(BACKEND / "alembic.ini"))
+    ).get_current_head()
     with engine.connect() as conn:
         rev = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-    assert rev == "b2c3d4e5f6a7"
+    assert rev == expected_head

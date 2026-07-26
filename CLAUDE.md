@@ -24,24 +24,70 @@
 
 ## 启动命令
 
-**后端**：`cd backend && uvicorn app.main:app --reload`  
-**前端**：`cd frontend && npm install && npm run dev`  
-**前端构建**：`cd frontend && npm run build`  
-**前端单测 / E2E**：`cd frontend && npm test` · `cd frontend && npm run test:e2e`  
+联调与正式部署一律走 Docker Compose（见 `启动指导文档.md`）；下列裸进程命令仅用于
+单模块调试。
+
 **Docker（开发）**：`docker compose -f docker-compose.yml up -d`  
-**Docker（生产前端镜像）**：`docker compose -f docker-compose.prod.yml build frontend`
+**Docker（生产）**：`docker compose -f docker-compose.prod.yml up -d`
+
+裸进程调试：
+
+**后端**：`cd backend && uvicorn app.main:app --reload`
+> `DEBUG` 默认 **false**，此时启动会做生产密钥门禁（弱密钥/占位符一律拒绝启动）。
+> 本地调试请先 `cp backend/.env.example backend/.env`（其中 `DEBUG=true`）。
+
+**前端**：`cd frontend && npm install && npm run dev`  
+**前端构建**：`cd frontend && npm run build`
+
+## 测试与门禁
+
+| 范围 | 命令 |
+|------|------|
+| 后端 | `cd backend && pip install -r requirements-dev.txt && pytest -q` |
+| 前端单测 | `cd frontend && npm test` |
+| 前端类型 | `cd frontend && npm run typecheck` |
+| APP | `cd app && flutter analyze && flutter test` |
+| E2E | `cd frontend && npm run test:e2e`（需先起后端+前端并配 `E2E_USER`/`E2E_PASSWORD`） |
+
+CI 见 `.github/workflows/ci.yml`（backend / frontend / app 三个 job，按路径触发）；
+E2E 单独放 `.github/workflows/e2e.yml`，手动或每日定时触发。
 
 ## 技术栈
 
 - 后端：FastAPI + SQLAlchemy + SQLite/PostgreSQL + APScheduler
-- 前端：React 18 + TypeScript + Vite + React Router + Zustand + Tailwind + Ant Design + @xyflow/react
+- 前端：React 18 + TypeScript + Vite + React Router + Zustand + Tailwind + Ant Design
+- APP：Flutter（Android 为主，`app/`）
 - 小程序：微信小程序原生框架
 - 对照归档：`frontend-vue-archive/`（Vue3 + Pinia + Element Plus；tag `vue-frontend-last`）
 
 ## Web 页面范围（现役）
 
-登录/注册 · 仪表盘 · 任务列表/详情 · 日历 · 设置（含 SMTP / LLM / 主题 / 推送） · 项目列表/详情（大纲树 + React Flow） · 公司设置
+登录/注册 · 仪表盘 · 任务列表/详情 · 日历 · 设置（含 SMTP / LLM / 主题 / 推送） · 项目列表/详情（人轴画布 + 大纲树） · 公司设置
+
+> 项目详情的「关系图」（@xyflow/react）视图已下线，现为「人轴画布 / 大纲」两个页签。
 
 已移除 Mock 壳页：收件箱 / 看板 / 团队聊天（路由兼容重定向）。
 
 **生产切流说明**：React 重写门禁与 soak 见 `docs/superpowers/acceptance/2026-07-20-react-rewrite-gates.md`；**未完成 G6–G10 前不得声称生产已切 React**。
+
+## 工作树产品规则（已锁定，服务端强制）
+
+核心 POV 是**领导视角的人轴**：主干是人，工作项/里程碑/范围挂在人下面。
+
+- **主干只排 person**：根节点（`parent_id=null`）必须是「人」
+- **事项只能落到人身上**：`work_item` / `milestone` / `scope` 的父节点必须是 person
+- **人挂人 = 下级人员**
+- **终责** = 项目 PM（`pm_user_id` / `final_owner_user_id`），卡片钉在轴终点
+- **终责轴向位置**：`projects.final_owner_along_delta`，仅项目 PM / `created_by` 可改
+  （`PUT /projects/{id}/final-owner-position`）
+- 时间刻度画在主干上；横/纵轴、树序/时间序可切换
+
+实现位置：
+
+- 后端强制：`backend/app/services/tree_service.py` 的 `assert_shape` /
+  `assert_type_change_allowed`（`ENFORCE_WORK_TREE_SHAPE=false` 可为存量数据临时关闭）
+- Web：`frontend/src/components/workTree/dropRules.ts`
+- APP：`app/lib/work_tree/work_tree_canvas.dart`
+
+> 三端客户端拦截只是体验优化，**规则以后端为准**；新增写路径必须走 `TreeService`，
+> 不要绕过形态校验直接写 `TreeNode`。

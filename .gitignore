@@ -65,3 +65,12 @@ backend/venv/
 **/android/.gradle/
 **/android/local.properties
 *.iml
+
+# 本机专用的破坏性脚本（硬编码本地路径 + rd /s /q），不进仓
+scripts/uninstall-flutter.bat
+
+# 运行时数据与备份产物
+backend/data/objects/
+backend/data/uploads/
+data/
+backups/
