@@ -6,6 +6,7 @@ from sqlalchemy import (
     Text,
     DateTime,
     ForeignKey,
+    JSON,
 )
 from sqlalchemy.sql import func
 
@@ -31,6 +32,7 @@ class TeamChannelMessage(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     body = Column(Text, nullable=False)
     likes = Column(Integer, nullable=False, default=0)
+    liked_by = Column(JSON, nullable=False, default=list)
     parent_id = Column(Integer, ForeignKey("team_channel_messages.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

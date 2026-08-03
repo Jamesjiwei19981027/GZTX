@@ -6,7 +6,7 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 
 # Windows 控制台默认是 GBK：启动横幅里的 emoji（✅📊📧）会抛 UnicodeEncodeError，
@@ -20,6 +20,7 @@ for _stream in (sys.stdout, sys.stderr):
 
 from app.core.config import settings
 from app.db.session import init_db, close_db
+from app.core.dependencies import DbSession
 from app.api.v1 import auth, tasks, categories, tags, reminders, users, notifications, attachments, wx
 from app.api.v1 import companies as companies_api
 from app.api.v1 import projects as projects_api
@@ -384,27 +385,7 @@ async def lifespan(app: FastAPI):
     # 多 worker 部署时给主服务设 false，另起一个单进程的 scheduler 容器设 true。
     scheduler = None
     if settings.SCHEDULER_ENABLED:
-        from apscheduler.schedulers.asyncio import AsyncIOScheduler
-        scheduler = AsyncIOScheduler()
-
-        # Register email check job
-        scheduler.add_job(check_new_emails, 'interval', seconds=settings.EMAIL_CHECK_INTERVAL, id='check_new_emails')
-
-        # Register reminder check job (every 60 seconds)
-        scheduler.add_job(check_reminders, 'interval', seconds=60, id='check_reminders')
-
-        # 消费协作通知队列（材料采纳/驳回、进度告警等）
-        scheduler.add_job(drain_notify_jobs, 'interval', seconds=20, id='drain_notify_jobs')
-
-        # Register daily digest job (cron: DAILY_DIGEST_HOUR local time → UTC)
-        digest_utc_hour = (settings.DAILY_DIGEST_HOUR - settings.USER_TIMEZONE_OFFSET) % 24
-        scheduler.add_job(
-            send_daily_digest, 'cron',
-            hour=digest_utc_hour, minute=0,
-            id='daily_digest'
-        )
-
-        scheduler.start()
+        scheduler = create_scheduler()
         print("[Scheduler] Started APScheduler")
     else:
         print("[Scheduler] Disabled (SCHEDULER_ENABLED=false)")
@@ -423,6 +404,31 @@ async def lifespan(app: FastAPI):
         scheduler.shutdown()
     await close_db()
     print(f"👋 {settings.APP_NAME} 已关闭")
+
+
+def create_scheduler():
+    """Build the single-process scheduler used by the web lifespan or scheduler worker."""
+    from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(
+        check_new_emails,
+        "interval",
+        seconds=settings.EMAIL_CHECK_INTERVAL,
+        id="check_new_emails",
+    )
+    scheduler.add_job(check_reminders, "interval", seconds=60, id="check_reminders")
+    scheduler.add_job(drain_notify_jobs, "interval", seconds=20, id="drain_notify_jobs")
+    digest_utc_hour = (settings.DAILY_DIGEST_HOUR - settings.USER_TIMEZONE_OFFSET) % 24
+    scheduler.add_job(
+        send_daily_digest,
+        "cron",
+        hour=digest_utc_hour,
+        minute=0,
+        id="daily_digest",
+    )
+    scheduler.start()
+    return scheduler
 
 
 # 创建 FastAPI 应用
@@ -498,13 +504,40 @@ app.include_router(shell_api.router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health", tags=["系统"])
-async def health_check():
-    """健康检查"""
+async def health_check(db: DbSession):
+    """Health check with a live database and production migration guard."""
+    from sqlalchemy import text
+
+    try:
+        await db.execute(text("SELECT 1"))
+    except Exception as exc:  # noqa: BLE001 — health endpoint must expose dependency failure
+        raise HTTPException(status_code=503, detail="database unavailable") from exc
+
+    migration = "not_managed"
+    if not settings.AUTO_CREATE_SCHEMA:
+        try:
+            current = (
+                await db.execute(text("SELECT version_num FROM alembic_version LIMIT 1"))
+            ).scalar_one_or_none()
+            from alembic.config import Config
+            from alembic.script import ScriptDirectory
+
+            heads = set(ScriptDirectory.from_config(Config("alembic.ini")).get_heads())
+            if current not in heads:
+                raise HTTPException(status_code=503, detail="database migration is not at head")
+            migration = str(current)
+        except HTTPException:
+            raise
+        except Exception as exc:  # noqa: BLE001 — missing/invalid migration is unhealthy
+            raise HTTPException(status_code=503, detail="database migration is unavailable") from exc
+
     return {
         "code": 200,
         "message": "success",
         "data": {
             "status": "healthy",
+            "database": "ok",
+            "migration": migration,
             "version": settings.APP_VERSION,
             "timestamp": datetime.now().isoformat(),
         },

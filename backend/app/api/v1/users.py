@@ -2,6 +2,7 @@
 用户相关接口
 """
 import re
+from copy import deepcopy
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
@@ -31,8 +32,33 @@ async def get_me(user: CurrentUser):
 async def update_me(data: UserUpdate, db: DbSession, user: CurrentUser):
     """更新当前用户信息"""
     update_data = data.model_dump(exclude_unset=True)
+    notify_pref = update_data.pop("notify_pref", None)
     for key, value in update_data.items():
         setattr(user, key, value)
+
+    if notify_pref is not None:
+        # Keep SMTP/LLM credentials written by their dedicated endpoints. The
+        # settings page only sends toggles and quiet-hours, so a shallow replace
+        # would silently erase credentials on every preference change.
+        merged = deepcopy(user.notify_pref or {})
+        incoming_channels = notify_pref.pop("channels", None)
+        if incoming_channels is not None:
+            channels = merged.setdefault("channels", {})
+            for channel, values in incoming_channels.items():
+                current = dict(channels.get(channel) or {})
+                current.update(values or {})
+                channels[channel] = current
+        incoming_quiet_hours = notify_pref.pop("quiet_hours", None)
+        if incoming_quiet_hours is not None:
+            quiet_hours = dict(merged.get("quiet_hours") or {})
+            quiet_hours.update(incoming_quiet_hours or {})
+            merged["quiet_hours"] = quiet_hours
+        if "weekend_mute" in notify_pref:
+            merged["weekend_mute"] = notify_pref["weekend_mute"]
+        user.notify_pref = merged
+        from sqlalchemy.orm.attributes import flag_modified
+
+        flag_modified(user, "notify_pref")
 
     await db.flush()
     return ResponseData(data=UserDetail.model_validate(user).model_dump())

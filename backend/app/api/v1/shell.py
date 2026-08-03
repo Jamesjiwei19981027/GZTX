@@ -14,7 +14,7 @@ from app.core.dependencies import CurrentUser, DbSession
 from app.models.audit import AuditLog
 from app.models.company import CompanyMembership
 from app.models.evidence import EvidencePackage
-from app.models.project import Project, ProjectMember
+from app.models.project import Project
 from app.models.shell import TeamChannel, TeamChannelMessage, UserPresence
 from app.models.task import Task
 from app.models.tree import TreeNode
@@ -64,18 +64,25 @@ async def _require_company_member(db, user_id: int, company_id: int):
     )
     if mq.scalar():
         return
-    q = await db.execute(
-        select(ProjectMember.id)
-        .join(Project, Project.id == ProjectMember.project_id)
-        .where(
-            Project.company_id == company_id,
-            ProjectMember.user_id == user_id,
-            ProjectMember.left_at.is_(None),
-        )
-        .limit(1)
-    )
-    if not q.scalar():
-        raise CollabError(403, 40301, "非公司成员")
+    # A project membership is not a substitute for an active company
+    # membership.  The ACL service follows the same rule; allowing a stale
+    # project_members row here would expose company-wide channels after a
+    # member was suspended or removed from the company.
+    raise CollabError(403, 40301, "非公司成员")
+
+
+async def _require_channel_scope(
+    db, user_id: int, company_id: int, project_id: int | None
+):
+    """Check the company scope and, for project channels, project membership."""
+    await _require_company_member(db, user_id, company_id)
+    if project_id is None:
+        return
+    project = await db.get(Project, project_id)
+    if not project or project.company_id != company_id:
+        raise CollabError(404, 40400, "项目不存在")
+    if not await acl.can(db, user_id, company_id, "project.read", project_id=project_id):
+        raise CollabError(403, 40301, "非项目成员")
 
 
 async def _ensure_default_channels(db, company_id: int, project_id: int | None):
@@ -131,7 +138,7 @@ async def list_channels(
     project_id: Optional[int] = None,
 ):
     try:
-        await _require_company_member(db, user.id, company_id)
+        await _require_channel_scope(db, user.id, company_id, project_id)
     except CollabError as e:
         return fail(e.http_status, e.code, e.message)
     channels = await _ensure_default_channels(db, company_id, project_id)
@@ -156,7 +163,7 @@ async def create_channel(
     company_id: int, body: ChannelCreate, db: DbSession, user: CurrentUser
 ):
     try:
-        await _require_company_member(db, user.id, company_id)
+        await _require_channel_scope(db, user.id, company_id, body.project_id)
     except CollabError as e:
         return fail(e.http_status, e.code, e.message)
     ch = TeamChannel(
@@ -185,7 +192,7 @@ async def list_messages(
     if not ch:
         return fail(404, 40400, "频道不存在")
     try:
-        await _require_company_member(db, user.id, ch.company_id)
+        await _require_channel_scope(db, user.id, ch.company_id, ch.project_id)
     except CollabError as e:
         return fail(e.http_status, e.code, e.message)
     page = max(1, page)
@@ -212,7 +219,7 @@ async def post_message(
     if not ch:
         return fail(404, 40400, "频道不存在")
     try:
-        await _require_company_member(db, user.id, ch.company_id)
+        await _require_channel_scope(db, user.id, ch.company_id, ch.project_id)
     except CollabError as e:
         return fail(e.http_status, e.code, e.message)
     m = TeamChannelMessage(
@@ -230,17 +237,27 @@ async def post_message(
 
 @router.post("/channels/messages/{message_id}/like", response_model=ResponseData)
 async def like_message(message_id: int, db: DbSession, user: CurrentUser):
-    m = await db.get(TeamChannelMessage, message_id)
+    m = (
+        await db.execute(
+            select(TeamChannelMessage)
+            .where(TeamChannelMessage.id == message_id)
+            .with_for_update()
+        )
+    ).scalar_one_or_none()
     if not m:
         return fail(404, 40400, "消息不存在")
     ch = await db.get(TeamChannel, m.channel_id)
     if not ch:
         return fail(404, 40400, "频道不存在")
     try:
-        await _require_company_member(db, user.id, ch.company_id)
+        await _require_channel_scope(db, user.id, ch.company_id, ch.project_id)
     except CollabError as e:
         return fail(e.http_status, e.code, e.message)
-    m.likes = int(m.likes or 0) + 1
+    liked_by = list(m.liked_by or [])
+    if user.id not in liked_by:
+        liked_by.append(user.id)
+        m.liked_by = liked_by
+        m.likes = int(m.likes or 0) + 1
     await db.commit()
     return ResponseData(data={"id": m.id, "likes": m.likes})
 

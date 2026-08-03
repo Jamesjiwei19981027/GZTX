@@ -2,7 +2,10 @@ import pytest
 from httpx import AsyncClient
 
 from app.models.category import Category
+from app.models.tag import Tag
 from app.models.task import Task
+from app.models.user import User
+from app.core.security import get_password_hash
 
 
 async def _make_category(db_session, user_id: int) -> Category:
@@ -41,6 +44,86 @@ async def test_create_task(client: AsyncClient, auth_headers, test_user, db_sess
     assert data["data"]["priority"] == 2
     assert data["data"]["status"] == 0
     assert data["data"].get("origin", "personal") == "personal"
+
+
+@pytest.mark.asyncio
+async def test_create_task_rejects_unknown_origin(
+    client: AsyncClient, auth_headers, test_user, db_session
+):
+    category = await _make_category(db_session, test_user.id)
+
+    response = await client.post(
+        "/api/v1/tasks",
+        headers=auth_headers,
+        json={
+            "title": "来源校验",
+            "category_id": category.id,
+            "origin": "fake_demo",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_create_task_persists_initial_status(
+    client: AsyncClient, auth_headers, test_user, db_session
+):
+    category = await _make_category(db_session, test_user.id)
+    response = await client.post(
+        "/api/v1/tasks",
+        headers=auth_headers,
+        json={"title": "初始进行中", "category_id": category.id, "status": 1},
+    )
+    assert response.status_code in (200, 201), response.text
+    assert response.json()["data"]["status"] == 1
+
+
+@pytest.mark.asyncio
+async def test_create_task_sets_completion_time_for_done_status(
+    client: AsyncClient, auth_headers, test_user, db_session
+):
+    category = await _make_category(db_session, test_user.id)
+    response = await client.post(
+        "/api/v1/tasks",
+        headers=auth_headers,
+        json={"title": "直接完成", "category_id": category.id, "status": 2},
+    )
+
+    assert response.status_code in (200, 201), response.text
+    assert response.json()["data"]["status"] == 2
+    assert response.json()["data"]["completed_at"] is not None
+
+
+@pytest.mark.asyncio
+async def test_create_task_rejects_tag_owned_by_another_user(
+    client: AsyncClient, auth_headers, test_user, db_session
+):
+    category = await _make_category(db_session, test_user.id)
+    other = User(
+        username="other-create-tag-owner",
+        email="other-create-tag-owner@example.com",
+        password_hash=get_password_hash("password123"),
+        is_active=True,
+    )
+    db_session.add(other)
+    await db_session.flush()
+    foreign_tag = Tag(user_id=other.id, name="他人创建标签", color="#000000")
+    db_session.add(foreign_tag)
+    await db_session.commit()
+    await db_session.refresh(foreign_tag)
+
+    response = await client.post(
+        "/api/v1/tasks",
+        headers=auth_headers,
+        json={
+            "title": "创建标签归属校验",
+            "category_id": category.id,
+            "tag_ids": [foreign_tag.id],
+        },
+    )
+
+    assert response.status_code == 404, response.text
 
 
 @pytest.mark.asyncio
@@ -85,6 +168,136 @@ async def test_update_task(client: AsyncClient, auth_headers, test_user, db_sess
     data = response.json()
     assert data["data"]["title"] == "更新后的标题"
     assert data["data"]["priority"] == 2
+
+
+@pytest.mark.asyncio
+async def test_update_task_sets_and_clears_completion_time_with_status(
+    client: AsyncClient, auth_headers, test_user, db_session
+):
+    category = await _make_category(db_session, test_user.id)
+    task = Task(
+        user_id=test_user.id,
+        category_id=category.id,
+        title="状态完成时间",
+        priority=1,
+    )
+    db_session.add(task)
+    await db_session.commit()
+    await db_session.refresh(task)
+
+    done = await client.put(
+        f"/api/v1/tasks/{task.id}",
+        headers=auth_headers,
+        json={"status": 2},
+    )
+    assert done.status_code == 200, done.text
+    assert done.json()["data"]["completed_at"] is not None
+
+    reopened = await client.put(
+        f"/api/v1/tasks/{task.id}",
+        headers=auth_headers,
+        json={"status": 1},
+    )
+    assert reopened.status_code == 200, reopened.text
+    assert reopened.json()["data"]["completed_at"] is None
+
+
+@pytest.mark.asyncio
+async def test_update_task_rejects_unknown_origin(
+    client: AsyncClient, auth_headers, test_user, db_session
+):
+    category = await _make_category(db_session, test_user.id)
+    task = Task(
+        user_id=test_user.id,
+        category_id=category.id,
+        title="来源更新校验",
+        priority=1,
+    )
+    db_session.add(task)
+    await db_session.commit()
+    await db_session.refresh(task)
+
+    response = await client.put(
+        f"/api/v1/tasks/{task.id}",
+        headers=auth_headers,
+        json={"origin": "fake_demo"},
+    )
+
+    assert response.status_code == 422, response.text
+
+
+@pytest.mark.asyncio
+async def test_update_task_rejects_category_owned_by_another_user(
+    client: AsyncClient, auth_headers, test_user, db_session
+):
+    category = await _make_category(db_session, test_user.id)
+    task = Task(
+        user_id=test_user.id,
+        category_id=category.id,
+        title="分类归属校验",
+        priority=1,
+    )
+    other = User(
+        username="other-category-owner",
+        email="other-category-owner@example.com",
+        password_hash=get_password_hash("password123"),
+        is_active=True,
+    )
+    db_session.add_all([task, other])
+    await db_session.flush()
+    foreign_category = Category(
+        user_id=other.id,
+        name="他人分类",
+        color="#000000",
+        sort_order=0,
+        is_default=False,
+    )
+    db_session.add(foreign_category)
+    await db_session.commit()
+    await db_session.refresh(task)
+    await db_session.refresh(foreign_category)
+
+    response = await client.put(
+        f"/api/v1/tasks/{task.id}",
+        headers=auth_headers,
+        json={"category_id": foreign_category.id},
+    )
+
+    assert response.status_code == 404, response.text
+
+
+@pytest.mark.asyncio
+async def test_update_task_rejects_tag_owned_by_another_user(
+    client: AsyncClient, auth_headers, test_user, db_session
+):
+    category = await _make_category(db_session, test_user.id)
+    task = Task(
+        user_id=test_user.id,
+        category_id=category.id,
+        title="标签归属校验",
+        priority=1,
+    )
+    other = User(
+        username="other-tag-owner",
+        email="other-tag-owner@example.com",
+        password_hash=get_password_hash("password123"),
+        is_active=True,
+    )
+    db_session.add_all([task, other])
+    await db_session.flush()
+    foreign_tag = Tag(user_id=other.id, name="他人标签", color="#000000")
+    db_session.add(foreign_tag)
+    await db_session.commit()
+    await db_session.refresh(task)
+    await db_session.refresh(foreign_tag)
+
+    response = await client.put(
+        f"/api/v1/tasks/{task.id}",
+        headers=auth_headers,
+        json={"tag_ids": [foreign_tag.id]},
+    )
+
+    assert response.status_code == 404, response.text
 
 
 @pytest.mark.asyncio

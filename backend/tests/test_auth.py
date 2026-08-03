@@ -168,6 +168,49 @@ async def test_get_current_user(client: AsyncClient, auth_headers, test_user):
 
 
 @pytest.mark.asyncio
+async def test_update_current_user_profile_and_notification_preferences(
+    client: AsyncClient, auth_headers
+):
+    response = await client.put(
+        "/api/v1/users/me",
+        headers=auth_headers,
+        json={
+            "nickname": "Updated Name",
+            "avatar_url": "https://example.com/avatar.png",
+            "notify_pref": {
+                "channels": {"email": {"enabled": False}},
+                "quiet_hours": {"start": "22:00", "end": "08:00"},
+                "weekend_mute": True,
+            },
+        },
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()["data"]
+    assert body["nickname"] == "Updated Name"
+    assert body["avatar_url"] == "https://example.com/avatar.png"
+    assert body["notify_pref"]["channels"]["email"]["enabled"] is False
+    assert body["notify_pref"]["weekend_mute"] is True
+
+
+@pytest.mark.asyncio
+async def test_change_password_requires_current_password_and_persists(
+    client: AsyncClient, auth_headers
+):
+    response = await client.put(
+        "/api/v1/users/me/password",
+        headers=auth_headers,
+        json={"old_password": "testpassword", "new_password": "new-password-123"},
+    )
+    assert response.status_code == 200, response.text
+
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"username": "testuser", "password": "new-password-123"},
+    )
+    assert login.status_code == 200, login.text
+
+
+@pytest.mark.asyncio
 async def test_logout(client: AsyncClient, auth_headers):
     response = await client.post("/api/v1/auth/logout", headers=auth_headers)
     assert response.status_code == 200

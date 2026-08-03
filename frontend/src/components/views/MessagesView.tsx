@@ -1,10 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { MessageItem, Language, UserProfile } from '../../types';
-import { loadMessages, saveMessages } from '../../data/mockData';
+import { MessageItem, Language, UserProfile, TeamMember, Task } from '../../types';
 import {
   likeChannelMessage,
   listChannelMessages,
   listChannels,
+  listPresence,
   postChannelMessage,
 } from '../../api/shell';
 
@@ -13,6 +13,9 @@ interface MessagesViewProps {
   lang: Language;
   companyId?: number | null;
   projectId?: string;
+  members?: TeamMember[];
+  tasks?: Task[];
+  onSelectTask?: (task: Task) => void;
 }
 
 export const MessagesView: React.FC<MessagesViewProps> = ({
@@ -20,6 +23,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   lang,
   companyId,
   projectId,
+  members = [],
+  tasks = [],
+  onSelectTask,
 }) => {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [channelMap, setChannelMap] = useState<Record<string, number>>({});
@@ -28,6 +34,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [presence, setPresence] = useState<Record<string, string>>({});
 
   const channels = [
     { id: 'general' as const, labelZh: '# 全员交流大厅', labelEn: '# general', icon: 'tag' },
@@ -37,8 +44,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 
   const load = useCallback(async () => {
     if (!companyId) {
-      setMessages(loadMessages());
+      setMessages([]);
       setChannelMap({});
+      setError(lang === 'zh' ? '请先加入公司后使用团队消息' : 'Join a company to use team messages');
       return;
     }
     setLoading(true);
@@ -73,7 +81,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       );
     } catch (e) {
       setError(e instanceof Error ? e.message : '加载消息失败');
-      setMessages(loadMessages());
+      setMessages([]);
     } finally {
       setLoading(false);
     }
@@ -82,6 +90,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (!companyId) {
+      setPresence({});
+      return;
+    }
+    void listPresence(companyId)
+      .then((res) => setPresence(Object.fromEntries((res.items || []).map((item) => [String(item.user_id), item.status]))))
+      .catch(() => setPresence({}));
+  }, [companyId]);
 
   const filteredMessages = messages.filter((msg) => {
     if (!companyId && msg.channel !== activeChannel) return false;
@@ -97,19 +115,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     setInputText('');
 
     if (!companyId || !channelMap[activeChannel]) {
-      const newMsg: MessageItem = {
-        id: `msg_${Date.now()}`,
-        senderName: user.name,
-        senderAvatar: user.avatar,
-        content: text,
-        timestamp: lang === 'zh' ? '刚刚' : 'Just now',
-        channel: activeChannel,
-        likes: 0,
-        repliesCount: 0,
-      };
-      const updated = [...messages, newMsg];
-      setMessages(updated);
-      saveMessages(updated);
+      setError(lang === 'zh' ? '当前没有可用的公司频道' : 'No company channel is available');
       return;
     }
 
@@ -123,11 +129,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 
   const handleLike = async (id: string) => {
     if (!companyId) {
-      const updated = messages.map((msg) =>
-        msg.id === id ? { ...msg, likes: (msg.likes || 0) + 1 } : msg,
-      );
-      setMessages(updated);
-      saveMessages(updated);
+      setError(lang === 'zh' ? '请先加入公司后点赞' : 'Join a company before liking messages');
       return;
     }
     try {
@@ -154,8 +156,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                 ? '已连接后端频道（发帖/点赞写回）'
                 : 'Connected to backend channels'
               : lang === 'zh'
-                ? '未绑定公司，使用本地演示消息'
-                : 'Local demo messages'}
+                ? '未绑定公司，请先加入公司后使用团队消息'
+                : 'Join a company to use team messages'}
           </p>
         </div>
         {loading && (
@@ -169,8 +171,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 min-h-[600px]">
-        <div className="bg-surface-container-lowest p-5 rounded-3xl border border-outline-variant/30 shadow-xs">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
+        <div className="lg:col-span-3 bg-surface-container-lowest p-5 rounded-3xl border border-outline-variant/30 shadow-xs">
           <div className="relative mb-4">
             <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-lg">
               search
@@ -201,7 +203,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
           </div>
         </div>
 
-        <div className="lg:col-span-3 bg-surface-container-lowest rounded-3xl border border-outline-variant/30 shadow-xs flex flex-col">
+        <div className="lg:col-span-6 bg-surface-container-lowest rounded-3xl border border-outline-variant/30 shadow-xs flex flex-col">
           <div className="flex-1 overflow-y-auto p-5 space-y-4 max-h-[520px]">
             {filteredMessages.length === 0 && (
               <p className="text-sm text-on-surface-variant text-center py-12">
@@ -211,7 +213,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             {filteredMessages.map((msg) => (
               <div key={msg.id} className="flex gap-3">
                 <img
-                  src={msg.senderAvatar || 'https://via.placeholder.com/40'}
+                  src={msg.senderAvatar || undefined}
                   alt=""
                   className="w-10 h-10 rounded-full object-cover bg-surface-container"
                 />
@@ -247,6 +249,34 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             </button>
           </form>
         </div>
+        <aside className="lg:col-span-3 bg-surface-container-lowest p-5 rounded-3xl border border-outline-variant/30 shadow-xs space-y-5">
+          <div>
+            <h2 className="text-sm font-bold text-on-surface">{lang === 'zh' ? '频道成员' : 'Members'}</h2>
+            <p className="text-xs text-on-surface-variant mt-1">{members.length} {lang === 'zh' ? '位成员' : 'members'}</p>
+          </div>
+          <div className="space-y-2">
+            {members.slice(0, 8).map((member) => (
+              <div key={member.id} className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${presence[member.id] === 'online' ? 'bg-secondary' : presence[member.id] === 'busy' ? 'bg-amber-500' : 'bg-outline-variant'}`} />
+                <img src={member.avatar || undefined} alt="" className="w-7 h-7 rounded-full bg-surface-container object-cover" />
+                <span className="text-xs font-semibold truncate">{member.name}</span>
+              </div>
+            ))}
+            {!members.length && <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无成员数据' : 'No member data'}</p>}
+          </div>
+          <div className="pt-4 border-t border-outline-variant/30">
+            <h2 className="text-sm font-bold text-on-surface">{lang === 'zh' ? '项目任务' : 'Project tasks'}</h2>
+            <div className="space-y-2 mt-3">
+              {tasks.slice(0, 5).map((task) => (
+                <button key={task.id} type="button" onClick={() => onSelectTask?.(task)} className="w-full text-left p-2 rounded-lg hover:bg-surface-container text-xs">
+                  <span className="font-semibold line-clamp-2">{task.title}</span>
+                  <span className="text-on-surface-variant">{task.status}</span>
+                </button>
+              ))}
+              {!tasks.length && <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无关联任务' : 'No linked tasks'}</p>}
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   );

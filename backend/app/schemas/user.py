@@ -1,10 +1,10 @@
 """
 用户相关的 Pydantic 数据模型
 """
-from typing import Optional
+from typing import Dict, Literal, Optional
 from datetime import datetime
 
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
 
 
 # ===== 请求模型 =====
@@ -48,11 +48,34 @@ class WxLogin(BaseModel):
     code: str
 
 
+class NotifyChannelUpdate(BaseModel):
+    """UI notification toggle; credentials are managed by dedicated APIs."""
+
+    enabled: Optional[bool] = None
+    model_config = ConfigDict(extra="forbid")
+
+
+class QuietHoursUpdate(BaseModel):
+    start: Optional[str] = None
+    end: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+
+
+class NotifyPrefUpdate(BaseModel):
+    channels: Optional[
+        Dict[Literal["email", "push", "desktop", "wechat"], NotifyChannelUpdate]
+    ] = None
+    quiet_hours: Optional[QuietHoursUpdate] = None
+    weekend_mute: Optional[bool] = None
+    model_config = ConfigDict(extra="forbid")
+
+
 class UserUpdate(BaseModel):
-    """用户更新请求"""
+    """用户更新请求（通知偏好只允许 UI 字段，且由服务端合并保存）。"""
     nickname: Optional[str] = None
     avatar_url: Optional[str] = None
-    notify_pref: Optional[dict] = None
+    notify_pref: Optional[NotifyPrefUpdate] = None
+    model_config = ConfigDict(extra="forbid")
 
 
 class PasswordChange(BaseModel):

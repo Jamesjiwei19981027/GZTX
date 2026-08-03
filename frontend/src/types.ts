@@ -70,6 +70,9 @@ export interface Task {
   projectId: string;
   /** 关联人轴事项节点 ID（Task.project_node_id） */
   linkedNodeId?: string;
+  categoryId?: number;
+  tagIds?: number[];
+  attachments?: File[];
 }
 
 export interface Project {
@@ -101,6 +104,10 @@ export interface NotificationSettings {
   email: boolean;
   push: boolean;
   desktop: boolean;
+  wechat: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  weekendMute: boolean;
 }
 
 export interface TaskDefaults {

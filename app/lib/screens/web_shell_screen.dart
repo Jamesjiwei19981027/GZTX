@@ -66,6 +66,7 @@ class _WebShellScreenState extends State<WebShellScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final debugLabel = '${Brand.name} · ${ApiConfig.webBaseUrl}';
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -80,7 +81,7 @@ class _WebShellScreenState extends State<WebShellScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          '${Brand.name} · ${ApiConfig.webBaseUrl}',
+                          debugLabel,
                           style: const TextStyle(
                             color: Colors.white70,
                             fontSize: 11,

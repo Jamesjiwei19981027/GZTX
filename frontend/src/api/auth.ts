@@ -10,6 +10,7 @@ export type BackendUser = {
   email_verified?: boolean
   phone_verified?: boolean
   is_verified?: boolean
+  notify_pref?: Record<string, unknown>
 }
 
 export type AuthTokenPayload = {
@@ -36,6 +37,12 @@ export type VerificationStatus = {
   email_verified: boolean
   phone_verified: boolean
   is_verified: boolean
+}
+
+export type NotificationPreferenceUpdate = {
+  channels?: Partial<Record<'email' | 'push' | 'desktop' | 'wechat', { enabled?: boolean }>>
+  quiet_hours?: { start?: string; end?: string }
+  weekend_mute?: boolean
 }
 
 function rememberTokens(data: AuthTokenPayload) {
@@ -118,6 +125,24 @@ export async function confirmBindCode(
 
 export async function fetchMe() {
   return apiRequest<BackendUser>('/users/me')
+}
+
+export async function updateMe(body: {
+  nickname?: string
+  avatar_url?: string
+  notify_pref?: NotificationPreferenceUpdate
+}) {
+  return apiRequest<BackendUser>('/users/me', {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function changePassword(oldPassword: string, newPassword: string) {
+  return apiRequest('/users/me/password', {
+    method: 'PUT',
+    body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
+  })
 }
 
 export async function logout() {

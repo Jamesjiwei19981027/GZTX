@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Task, Priority, Status, Category, Project, TeamMember, Language } from '../../types';
+import { Task, Priority, Status, Category, Project, Language } from '../../types';
 import { getT } from '../../i18n';
-import { TEAM_MEMBERS } from '../../data/mockData';
+import type { BackendCategory, BackendTag } from '../../api/backend';
 
 interface NewTaskModalProps {
   isOpen: boolean;
@@ -14,6 +14,8 @@ interface NewTaskModalProps {
   defaultCategory?: Category;
   defaultTitle?: string;
   defaultDescription?: string;
+  categories?: BackendCategory[];
+  tags?: BackendTag[];
   lang: Language;
 }
 
@@ -28,6 +30,8 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   defaultCategory = 'Work',
   defaultTitle = '',
   defaultDescription = '',
+  categories = [],
+  tags = [],
   lang,
 }) => {
   const t = getT(lang);
@@ -37,14 +41,11 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const [priority, setPriority] = useState<Priority>(defaultPriority);
   const [status, setStatus] = useState<Status>(defaultStatus);
   const [category, setCategory] = useState<Category>(defaultCategory);
+  const [categoryId, setCategoryId] = useState<number | undefined>();
   const [dueDate, setDueDate] = useState(defaultDate || new Date().toISOString().split('T')[0]);
   const [dueTime, setDueTime] = useState('17:00');
-  const [tag, setTag] = useState('日常推进');
-  const [assigneeId, setAssigneeId] = useState<string>(TEAM_MEMBERS[0].id);
-  const [subtaskInput, setSubtaskInput] = useState('');
-  const [subtasks, setSubtasks] = useState<{ id: string; title: string; completed: boolean }[]>([
-    { id: 'st-new-1', title: lang === 'zh' ? '核对需求目标' : 'Review requirements', completed: false },
-  ]);
+  const [tag, setTag] = useState('');
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -53,26 +54,21 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       setStatus(defaultStatus);
       setPriority(defaultPriority);
       setCategory(defaultCategory);
-      if (defaultDate) setDueDate(defaultDate);
+      setCategoryId(
+        categories.find((item) => item.name === defaultCategory)?.id ?? categories[0]?.id,
+      );
+      setTag('');
+      setAttachments([]);
+      setDueDate(defaultDate || new Date().toISOString().split('T')[0]);
+      setDueTime('17:00');
     }
-  }, [isOpen, defaultTitle, defaultDescription, defaultStatus, defaultPriority, defaultCategory, defaultDate]);
+  }, [isOpen, defaultTitle, defaultDescription, defaultStatus, defaultPriority, defaultCategory, defaultDate, categories]);
 
   if (!isOpen) return null;
-
-  const handleAddSubtask = () => {
-    if (!subtaskInput.trim()) return;
-    setSubtasks([
-      ...subtasks,
-      { id: `st-${Date.now()}`, title: subtaskInput.trim(), completed: false },
-    ]);
-    setSubtaskInput('');
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-
-    const selectedAssignee = TEAM_MEMBERS.find((m) => m.id === assigneeId) || TEAM_MEMBERS[0];
 
     onCreateTask({
       title: title.trim(),
@@ -80,11 +76,12 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       priority,
       status,
       category,
+      categoryId,
       dueDate,
       dueTime,
-      assignee: selectedAssignee,
-      subtasks,
+      subtasks: [],
       tag: tag.trim() || undefined,
+      attachments,
       projectId: currentProject.id,
       progress: status === 'In Progress' ? 30 : status === 'Done' ? 100 : 0,
     });
@@ -188,15 +185,30 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                 {t.categoryLabel}
               </label>
               <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as Category)}
+                value={categories.length ? String(categoryId ?? '') : category}
+                onChange={(e) => {
+                  if (categories.length) {
+                    const id = Number(e.target.value);
+                    setCategoryId(Number.isFinite(id) ? id : undefined);
+                    const selected = categories.find((item) => item.id === id);
+                    if (selected) setCategory(selected.name as Category);
+                  } else {
+                    setCategory(e.target.value as Category);
+                  }
+                }}
                 className="w-full px-3 py-2.5 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-bold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
               >
-                <option value="Work">{t.work}</option>
-                <option value="Health">{t.health}</option>
-                <option value="Personal">{t.personal}</option>
-                <option value="Shopping">{t.shopping}</option>
-                <option value="Documentation">{t.documentation}</option>
+                {categories.length ? categories.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                )) : (
+                  <>
+                    <option value="Work">{t.work}</option>
+                    <option value="Health">{t.health}</option>
+                    <option value="Personal">{t.personal}</option>
+                    <option value="Shopping">{t.shopping}</option>
+                    <option value="Documentation">{t.documentation}</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -213,32 +225,6 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             </div>
           </div>
 
-          {/* Assignee Selection */}
-          <div>
-            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
-              {t.assignee}
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-32 overflow-y-auto p-1 bg-surface-container-lowest dark:bg-[#191c1d] rounded-xl border border-outline-variant">
-              {TEAM_MEMBERS.map((member) => {
-                const isSelected = assigneeId === member.id;
-                return (
-                  <div
-                    key={member.id}
-                    onClick={() => setAssigneeId(member.id)}
-                    className={`flex items-center gap-2 p-1.5 rounded-lg cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'bg-primary-fixed/40 text-primary font-bold'
-                        : 'hover:bg-surface-container text-on-surface'
-                    }`}
-                  >
-                    <img src={member.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
-                    <span className="text-xs truncate">{member.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
           {/* Tag input */}
           <div>
             <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
@@ -251,49 +237,42 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
               placeholder="例如: 技术调研, UI设计..."
               className="w-full px-3 py-2 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-medium text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
             />
+            {tags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {tags.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setTag(item.name)}
+                    className={`px-2 py-1 rounded-full text-[11px] border ${
+                      tag === item.name
+                        ? 'border-primary bg-primary/10 text-primary'
+                        : 'border-outline-variant text-on-surface-variant'
+                    }`}
+                  >
+                    #{item.name}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Subtasks Section */}
-          <div className="pt-2">
+          {/* Attachments are uploaded after the task receives an ID. */}
+          <div>
             <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
-              {t.subtasks} ({subtasks.length})
+              {lang === 'zh' ? '添加附件' : 'Attachments'}
             </label>
-            <div className="space-y-1.5 max-h-24 overflow-y-auto mb-2">
-              {subtasks.map((st, i) => (
-                <div key={st.id} className="flex items-center justify-between bg-surface-container-low dark:bg-[#191c1d] px-3 py-1.5 rounded-lg text-xs">
-                  <span className="truncate">{st.title}</span>
-                  <button
-                    type="button"
-                    onClick={() => setSubtasks(subtasks.filter((item) => item.id !== st.id))}
-                    className="text-error hover:opacity-80"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={subtaskInput}
-                onChange={(e) => setSubtaskInput(e.target.value)}
-                placeholder={lang === 'zh' ? '输入子任务内容...' : 'Add a subtask step...'}
-                className="flex-grow px-3 py-1.5 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-lg text-xs text-on-surface focus:outline-none focus:border-primary"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    handleAddSubtask();
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleAddSubtask}
-                className="px-3 py-1.5 bg-secondary-container text-on-secondary-container rounded-lg text-xs font-bold hover:opacity-90"
-              >
-                +
-              </button>
-            </div>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => setAttachments(Array.from(e.target.files || []))}
+              className="w-full text-xs text-on-surface-variant file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-primary"
+            />
+            {attachments.length > 0 && (
+              <p className="mt-1 text-[11px] text-on-surface-variant">
+                {attachments.length} {lang === 'zh' ? '个文件将在创建后上传' : 'file(s) will upload after creation'}
+              </p>
+            )}
           </div>
 
           {/* Footer actions */}

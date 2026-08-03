@@ -4,7 +4,9 @@ import 'package:worktodo_app/main.dart';
 
 void main() {
   testWidgets('app boots to loading or login gate', (tester) async {
-    await tester.pumpWidget(const WorkTodoApp());
+    await tester.pumpWidget(
+      const WorkTodoApp(useWebShellOverride: false),
+    );
     expect(find.byType(CircularProgressIndicator), findsWidgets);
   });
 }

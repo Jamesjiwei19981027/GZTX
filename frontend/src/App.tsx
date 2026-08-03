@@ -15,11 +15,6 @@ import {
 import {
   loadSettings,
   saveSettings,
-  resetDemoData,
-  INITIAL_USER,
-  INITIAL_ACTIVITIES,
-  loadTasks as loadMockTasks,
-  loadProjects as loadMockProjects,
 } from './data/mockData';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -39,19 +34,25 @@ import { NotificationsModal } from './components/modals/NotificationsModal';
 import { LoginGate } from './components/LoginGate';
 import { VerifyGate } from './components/VerifyGate';
 import { getToken } from './api/client';
-import { fetchMe, getVerificationStatus, logout } from './api/auth';
+import { fetchMe, getVerificationStatus, logout, updateMe } from './api/auth';
 import {
   completeTask,
   createTask,
+  createTag,
   deleteTask,
+  listCategories,
+  listTags,
   listMyCompanies,
+  listProjectMembers,
   listProjects,
   listTasks,
   uncompleteTask,
   updateTask,
+  uploadTaskAttachment,
 } from './api/backend';
 import {
   mapProject,
+  mapMember,
   mapTask,
   mapUser,
   uiPriorityToApi,
@@ -72,6 +73,12 @@ const ALL_PROJECT_ITEM: Project = {
   active: true,
 };
 
+function toApiDueDate(date?: string, time?: string): string | undefined {
+  if (!date) return undefined;
+  const trimmedTime = (time || '').trim();
+  return trimmedTime ? `${date}T${trimmedTime}:00` : date;
+}
+
 export default function App() {
   const [authed, setAuthed] = useState(() => !!getToken());
   /** null=检查中；false=需补验邮箱/手机；true=双验证通过 */
@@ -82,11 +89,19 @@ export default function App() {
   const [loadingBoot, setLoadingBoot] = useState(false);
 
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [categories, setCategories] = useState<import('./api/backend').BackendCategory[]>([]);
+  const [tags, setTags] = useState<import('./api/backend').BackendTag[]>([]);
+  const [projectMembers, setProjectMembers] = useState<import('./types').TeamMember[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [companyId, setCompanyId] = useState<number | null>(null);
   const [currentProject, setCurrentProject] = useState<Project>(ALL_PROJECT_ITEM);
-  const [activities, setActivities] = useState<Activity[]>(INITIAL_ACTIVITIES);
-  const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [user, setUser] = useState<UserProfile>({
+    name: '',
+    email: '',
+    avatar: '',
+    role: '',
+  });
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
 
   const [activeView, setActiveView] = useState<ViewMode>('dashboard');
@@ -106,6 +121,22 @@ export default function App() {
     try {
       const me = await fetchMe();
       setUser(mapUser(me));
+      const notifyPref = me.notify_pref || {};
+      const channels = (notifyPref.channels || {}) as Record<string, Record<string, unknown>>;
+      const quietHours = (notifyPref.quiet_hours || {}) as Record<string, unknown>;
+      setSettings((prev) => ({
+        ...prev,
+        notifications: {
+          ...prev.notifications,
+          email: typeof channels.email?.enabled === 'boolean' ? Boolean(channels.email.enabled) : prev.notifications.email,
+          push: typeof channels.push?.enabled === 'boolean' ? Boolean(channels.push.enabled) : prev.notifications.push,
+          desktop: typeof channels.desktop?.enabled === 'boolean' ? Boolean(channels.desktop.enabled) : prev.notifications.desktop,
+          wechat: typeof channels.wechat?.enabled === 'boolean' ? Boolean(channels.wechat.enabled) : prev.notifications.wechat,
+          quietHoursStart: typeof quietHours.start === 'string' ? quietHours.start : prev.notifications.quietHoursStart,
+          quietHoursEnd: typeof quietHours.end === 'string' ? quietHours.end : prev.notifications.quietHoursEnd,
+          weekendMute: typeof notifyPref.weekend_mute === 'boolean' ? Boolean(notifyPref.weekend_mute) : prev.notifications.weekendMute,
+        },
+      }));
       const companies = await listMyCompanies();
       const cid = companies.items?.[0]?.id ?? null;
       setCompanyId(cid);
@@ -117,6 +148,14 @@ export default function App() {
       setProjects(mappedProjects);
       const taskPage = await listTasks({ page: 1, page_size: 200 });
       setTasks((taskPage.items || []).map((t) => mapTask(t)));
+      try {
+        const [categoryItems, tagItems] = await Promise.all([listCategories(), listTags()]);
+        setCategories(categoryItems || []);
+        setTags(tagItems || []);
+      } catch {
+        setCategories([]);
+        setTags([]);
+      }
       void putPresence('online').catch(() => undefined);
       try {
         const prefs = await getUiPrefs();
@@ -138,9 +177,11 @@ export default function App() {
       }
     } catch (e) {
       setBootError(e instanceof Error ? e.message : '加载失败');
-      setTasks(loadMockTasks());
-      setProjects(loadMockProjects());
-      setUser(INITIAL_USER);
+      // A failed API request must remain visible as an error/empty state.
+      // Injecting demo records makes authenticated users believe writes worked.
+      setTasks([]);
+      setProjects([]);
+      setActivities([]);
     } finally {
       setLoadingBoot(false);
     }
@@ -210,6 +251,25 @@ export default function App() {
   }, [currentProject.id]);
 
   useEffect(() => {
+    const projectId = Number(currentProject.id);
+    if (!Number.isFinite(projectId) || projectId <= 0) {
+      setProjectMembers([]);
+      return;
+    }
+    let cancelled = false;
+    void listProjectMembers(projectId)
+      .then((res) => {
+        if (!cancelled) setProjectMembers((res.items || []).map(mapMember));
+      })
+      .catch(() => {
+        if (!cancelled) setProjectMembers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProject.id]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.altKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN')) {
         e.preventDefault();
@@ -237,6 +297,23 @@ export default function App() {
       }).catch(() => undefined);
     }
   }, [settings, authed]);
+
+  useEffect(() => {
+    if (!authed) return;
+    const n = settings.notifications;
+    void updateMe({
+      notify_pref: {
+        channels: {
+          email: { enabled: n.email },
+          push: { enabled: n.push },
+          desktop: { enabled: n.desktop },
+          wechat: { enabled: n.wechat },
+        },
+        quiet_hours: { start: n.quietHoursStart, end: n.quietHoursEnd },
+        weekend_mute: n.weekendMute,
+      },
+    }).catch(() => undefined);
+  }, [authed, settings.notifications]);
 
   const displayProjects = useMemo(
     () => [ALL_PROJECT_ITEM, ...projects],
@@ -291,16 +368,49 @@ export default function App() {
 
   const handleCreateTask = async (taskData: Omit<Task, 'id'>) => {
     try {
+      let tagIds = taskData.tagIds || [];
+      if (taskData.tag?.trim()) {
+        const existing = tags.find((item) => item.name === taskData.tag?.trim());
+        if (existing) tagIds = [existing.id];
+        else {
+          const createdTag = await createTag(taskData.tag.trim());
+          tagIds = [createdTag.id];
+          setTags((prev) => [...prev, createdTag]);
+        }
+      }
+      const projectId = Number(taskData.projectId);
+      const category = categories.find((item) => item.name === taskData.category);
       const created = await createTask({
         title: taskData.title,
         description: taskData.description,
         priority: uiPriorityToApi(taskData.priority),
-        due_date: taskData.dueDate || undefined,
+        status: uiStatusToApi(taskData.status),
+        category_id: taskData.categoryId ?? category?.id,
+        tag_ids: tagIds,
+        due_date: toApiDueDate(taskData.dueDate, taskData.dueTime),
+        company_id: companyId,
+        project_id: Number.isFinite(projectId) && projectId > 0 ? projectId : null,
+        origin: Number.isFinite(projectId) && projectId > 0 ? 'project_link' : 'personal',
       });
       const mapped = mapTask(created);
+      const attachmentFailures: string[] = [];
+      if (taskData.attachments?.length && Number.isFinite(created.id)) {
+        for (const file of taskData.attachments) {
+          try {
+            await uploadTaskAttachment(created.id, file);
+          } catch {
+            attachmentFailures.push(file.name);
+          }
+        }
+      }
       setTasks((prev) => [mapped, ...prev]);
       addActivity('created', '新任务创建:', mapped.title);
       setIsNewTaskModalOpen(false);
+      if (attachmentFailures.length > 0) {
+        alert(
+          `任务已创建，但 ${attachmentFailures.length} 个附件上传失败：${attachmentFailures.join('、')}`,
+        );
+      }
     } catch (e) {
       alert(e instanceof Error ? e.message : '创建失败');
     }
@@ -315,7 +425,16 @@ export default function App() {
         description: updatedTask.description,
         priority: uiPriorityToApi(updatedTask.priority),
         status: uiStatusToApi(updatedTask.status),
-        due_date: updatedTask.dueDate || undefined,
+        category_id: updatedTask.categoryId,
+        tag_ids: updatedTask.tagIds,
+        due_date: toApiDueDate(updatedTask.dueDate, updatedTask.dueTime),
+        project_id:
+          updatedTask.projectId && Number(updatedTask.projectId) > 0
+            ? Number(updatedTask.projectId)
+            : null,
+        project_node_id: updatedTask.linkedNodeId
+          ? Number(updatedTask.linkedNodeId)
+          : null,
       });
       setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
       addActivity('updated', '任务已更新:', updatedTask.title);
@@ -361,6 +480,17 @@ export default function App() {
       await refreshFromBackend();
     } catch (err) {
       alert(err instanceof Error ? err.message : '状态更新失败');
+    }
+  };
+
+  const handleMoveTask = async (task: Task, dueDate: string) => {
+    const id = Number(task.id);
+    if (!Number.isFinite(id)) return;
+    try {
+      const updated = await updateTask(id, { due_date: toApiDueDate(dueDate, task.dueTime) });
+      setTasks((prev) => prev.map((item) => (item.id === task.id ? mapTask(updated) : item)));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '日期更新失败');
     }
   };
 
@@ -411,7 +541,7 @@ export default function App() {
         <div className="fixed top-16 left-0 right-0 z-[60] px-4 py-2 text-sm text-center bg-amber-50 text-amber-900 border-b border-amber-200 md:pl-[280px]">
           {loadingBoot
             ? '正在从后端同步…'
-            : `后端同步提示：${bootError}（已尽量回退演示数据）`}
+            : `后端同步提示：${bootError}（请检查后端服务后重试）`}
         </div>
       )}
 
@@ -430,10 +560,7 @@ export default function App() {
           }))
         }
         onOpenSettings={() => setActiveView('settings')}
-        onResetDemo={() => {
-          resetDemoData();
-          void refreshFromBackend();
-        }}
+        onResetDemo={() => void refreshFromBackend()}
         onOpenNewTask={handleOpenNewTask}
         onOpenNotifications={() => setIsNotificationsModalOpen(true)}
         onLogout={async () => {
@@ -484,6 +611,8 @@ export default function App() {
             {activeView === 'kanban' && (
               <KanbanView
                 tasks={filteredTasks}
+                members={projectMembers}
+                lastUpdatedAt={activities[0]?.timestamp}
                 onUpdateTaskStatus={handleUpdateTaskStatus}
                 onSelectTask={setSelectedTask}
                 onOpenNewTaskWithStatus={(status) => {
@@ -502,6 +631,7 @@ export default function App() {
                   setNewTaskDefaultDate(dateStr);
                   setIsNewTaskModalOpen(true);
                 }}
+                onMoveTask={handleMoveTask}
                 lang={settings.language}
               />
             )}
@@ -544,18 +674,31 @@ export default function App() {
                 lang={settings.language}
                 companyId={companyId}
                 projectId={currentProject.id}
+                members={projectMembers}
+                tasks={filteredTasks}
+                onSelectTask={setSelectedTask}
               />
             )}
 
             {activeView === 'settings' && (
               <SettingsView
                 user={user}
-                onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
+                onUpdateUser={async (updated) => {
+                  const saved = await updateMe({
+                    nickname: updated.name,
+                    avatar_url: updated.avatar,
+                  });
+                  setUser(mapUser(saved));
+                }}
                 settings={settings}
                 onUpdateSettings={(updated) =>
                   setSettings((prev) => ({ ...prev, ...updated }))
                 }
                 onResetDemo={() => void refreshFromBackend()}
+                onLogout={async () => {
+                  await logout();
+                  setAuthed(false);
+                }}
                 lang={settings.language}
               />
             )}
@@ -584,6 +727,8 @@ export default function App() {
         defaultCategory={settings.taskDefaults.category}
         defaultTitle={newTaskDefaultTitle}
         defaultDescription={newTaskDefaultDesc}
+        categories={categories}
+        tags={tags}
         lang={settings.language}
       />
 

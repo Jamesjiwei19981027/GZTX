@@ -22,7 +22,11 @@ void main() {
 }
 
 class WorkTodoApp extends StatelessWidget {
-  const WorkTodoApp({super.key});
+  const WorkTodoApp({super.key, this.useWebShellOverride});
+
+  /// Tests can boot the native gate without constructing a platform WebView.
+  /// Production callers leave this null and use the compile-time flag.
+  final bool? useWebShellOverride;
 
   static const _primary = Color(0xFF0058BE);
 
@@ -123,7 +127,7 @@ class WorkTodoApp extends StatelessWidget {
             ),
           ),
         ),
-        home: const _RootGate(),
+        home: _RootGate(useWebShellOverride: useWebShellOverride),
         onGenerateRoute: (settings) {
           final name = settings.name ?? '';
           if (name == '/register') {
@@ -182,12 +186,14 @@ class WorkTodoApp extends StatelessWidget {
 }
 
 class _RootGate extends StatelessWidget {
-  const _RootGate();
+  const _RootGate({this.useWebShellOverride});
+
+  final bool? useWebShellOverride;
 
   @override
   Widget build(BuildContext context) {
     // 正式替换：默认加载与 Web 同源的新 UI；旧原生壳用 --dart-define=USE_WEB_SHELL=false
-    if (ApiConfig.useWebShell) {
+    if (useWebShellOverride ?? ApiConfig.useWebShell) {
       return const WebShellScreen();
     }
 

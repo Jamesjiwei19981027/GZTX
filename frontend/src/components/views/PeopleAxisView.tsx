@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react';
 import { PeopleAxisNode, AxisWorkItem, AxisEvidence, Language, TeamMember } from '../../types';
 import { getT } from '../../i18n';
-import { loadPeopleAxis, savePeopleAxis, TEAM_MEMBERS } from '../../data/mockData';
 import {
   createNode,
   getProject,
@@ -14,6 +13,7 @@ import {
 } from '../../api/backend';
 import { mapMember, mapTreeToPeopleAxis } from '../../api/mappers';
 import { putNodeLayout, runAxisAudit } from '../../api/shell';
+import { averagePeopleAxisProgress } from './peopleAxisUtils';
 
 function asBackendId(id?: string | null): number | null {
   if (!id) return null;
@@ -105,7 +105,7 @@ async function enrichMattersWithEvidence(
 
 interface PeopleAxisViewProps {
   lang: Language;
-  /** 真实项目 ID；缺省或 'all' 时回退本地 mock */
+  /** 人轴只对具体后端项目开放；不再注入本地演示树。 */
   projectId?: string;
 }
 
@@ -126,7 +126,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
   const [isAddingNode, setIsAddingNode] = useState(false);
   const isBackendProject = Boolean(projectId && projectId !== 'all' && Number(projectId) > 0);
   const backendProjectId = isBackendProject ? Number(projectId) : 0;
-  const memberOptions = projectMembers.length ? projectMembers : TEAM_MEMBERS;
+  const memberOptions = projectMembers;
   const [isAddingWorkItem, setIsAddingWorkItem] = useState<string | null>(null); // nodeId
   const [isAddingEvidence, setIsAddingEvidence] = useState<string | null>(null); // workItemId
   const [activeTab, setActiveTab] = useState<'chain' | 'philosophy' | 'ai-audit'>('chain');
@@ -287,8 +287,9 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
 
     const pid = projectId && projectId !== 'all' ? Number(projectId) : NaN;
     if (!Number.isFinite(pid) || pid <= 0) {
-      setBackendLoadError(null);
-      apply(loadPeopleAxis());
+      setProjectMembers([]);
+      apply([]);
+      setBackendLoadError(lang === 'zh' ? '请先在顶部选择具体项目后查看人轴。' : 'Select a concrete project to view the people axis.');
       return () => {
         cancelled = true;
       };
@@ -374,9 +375,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
 
   const handleSaveNodes = (updated: PeopleAxisNode[]) => {
     setNodes(updated);
-    if (!isBackendProject) {
-      savePeopleAxis(updated);
-    }
     setSyncStatus('syncing');
     setTimeout(() => setSyncStatus('synced'), 600);
   };
@@ -391,9 +389,17 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
     template: PaletteTemplate,
     target: { type: 'trunk' | 'node'; nodeId?: string; x: number; y: number }
   ) => {
+    if (!isBackendProject) {
+      showToast(lang === 'zh' ? '请先选择具体项目' : 'Select a concrete project first');
+      return;
+    }
     const isTrunk = target.type === 'trunk';
     const parentId = isTrunk ? undefined : target.nodeId;
-    const pool = memberOptions.length ? memberOptions : TEAM_MEMBERS;
+    const pool = memberOptions;
+    if (!pool.length) {
+      showToast(lang === 'zh' ? '项目暂无可分配成员' : 'No project members available');
+      return;
+    }
     const randomMember = pool[Math.floor(Math.random() * pool.length)];
     const namePrefix = template.type === 'vendor-lead'
       ? (lang === 'zh' ? '华为/外部责任人' : 'Vendor Lead')
@@ -478,7 +484,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
 
     setNodes(prev => {
       const updated = [...prev, newNode];
-      savePeopleAxis(updated);
       return updated;
     });
 
@@ -593,17 +598,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
   }, [nodes]);
 
   // Overall project progress percentage
-  const totalProjectProgress = useMemo(() => {
-    let totalProgress = 0;
-    let count = 0;
-    nodes.forEach(n => {
-      n.workItems.forEach(wi => {
-        totalProgress += wi.progress || (wi.status === 'Done' ? 100 : wi.status === 'In Progress' ? 50 : 0);
-        count++;
-      });
-    });
-    return count > 0 ? Math.round(totalProgress / count) : 85;
-  }, [nodes]);
+  const totalProjectProgress = useMemo(() => averagePeopleAxisProgress(nodes), [nodes]);
 
   const toggleExpandNode = (nodeId: string) => {
     setExpandedNodes(prev => ({
@@ -1091,6 +1086,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
   // Handlers for adding Node, WorkItem, Evidence
   const handleAddNode = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isBackendProject) {
+      showToast(lang === 'zh' ? '请先选择具体项目后再挂载责任人' : 'Select a concrete project before adding a person');
+      return;
+    }
     let personToAssign: TeamMember;
 
     if (isCustomPerson && customName.trim()) {
@@ -1103,9 +1102,11 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
       };
     } else {
       personToAssign =
-        memberOptions.find((m) => m.id === newPersonId) ||
-        memberOptions[0] ||
-        TEAM_MEMBERS[0];
+        memberOptions.find((m) => m.id === newPersonId) || memberOptions[0];
+      if (!personToAssign) {
+        showToast(lang === 'zh' ? '项目暂无可分配成员' : 'No project members available');
+        return;
+      }
     }
 
     const scopeLines = customWorkScope
@@ -1217,6 +1218,11 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
     e.preventDefault();
     if (!newWorkTitle.trim()) return;
 
+    if (!isBackendProject) {
+      showToast(lang === 'zh' ? '请先选择具体项目后再挂载事项' : 'Select a concrete project before adding work');
+      return;
+    }
+
     if (isBackendProject) {
       const parentId = asBackendId(nodeId);
       if (parentId == null) {
@@ -1271,6 +1277,11 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
   const handleAddEvidence = (nodeId: string, workItemId: string, e: React.FormEvent) => {
     e.preventDefault();
     if (!newEvTitle.trim()) return;
+
+    if (!isBackendProject) {
+      showToast(lang === 'zh' ? '请先选择具体项目后再提交证据' : 'Select a concrete project before submitting evidence');
+      return;
+    }
 
     if (isBackendProject) {
       const matterId = asBackendId(workItemId) ?? asBackendId(nodeId);
@@ -1659,8 +1670,12 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
           </button>
 
           <button
-            onClick={() => setIsAddingNode(true)}
-            className="px-4 py-2 rounded-2xl bg-primary hover:bg-primary/90 text-on-primary text-xs font-black shadow-md transition-all flex items-center gap-1.5 cursor-pointer"
+            disabled={!isBackendProject}
+            onClick={() => {
+              if (isBackendProject) setIsAddingNode(true);
+              else showToast(lang === 'zh' ? '请先在顶部选择具体项目' : 'Select a concrete project first');
+            }}
+            className="px-4 py-2 rounded-2xl bg-primary hover:bg-primary/90 text-on-primary text-xs font-black shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-base">person_add</span>
             <span>{lang === 'zh' ? '挂载新责任人' : 'Add Person'}</span>
@@ -1869,6 +1884,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
                 key={template.id}
                 onMouseDown={e => handlePaletteDragStart(template, e)}
                 onClick={() => {
+                  if (!isBackendProject) {
+                    showToast(lang === 'zh' ? '请先在顶部选择具体项目' : 'Select a concrete project first');
+                    return;
+                  }
                   setIsAddingNode(true);
                   setNewParentId(selectedNodeId || '');
                   setNewRoleTitle(template.defaultRole);

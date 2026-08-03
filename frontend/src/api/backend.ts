@@ -71,6 +71,28 @@ export type BackendMember = {
   role?: string
 }
 
+export type BackendCategory = {
+  id: number
+  name: string
+  color?: string
+  icon?: string | null
+  is_default?: boolean
+}
+
+export type BackendTag = {
+  id: number
+  name: string
+  color?: string
+}
+
+export type BackendAttachment = {
+  id: number
+  original_name: string
+  mime_type?: string
+  file_size?: number
+  download_url: string
+}
+
 export async function listTasks(params?: { page?: number; page_size?: number }) {
   const q = new URLSearchParams()
   q.set('page', String(params?.page ?? 1))
@@ -82,11 +104,47 @@ export async function createTask(body: {
   title: string
   description?: string
   priority?: number
+  status?: number
+  category_id?: number
+  tag_ids?: number[]
   due_date?: string
+  company_id?: number | null
+  project_id?: number | null
+  project_node_id?: number | null
+  origin?: 'personal' | 'project_link'
+  linked_readonly?: boolean
 }) {
   return apiRequest<BackendTask>('/tasks', {
     method: 'POST',
     body: JSON.stringify(body),
+  })
+}
+
+export async function listCategories() {
+  return apiRequest<BackendCategory[]>('/categories')
+}
+
+export async function listTags() {
+  return apiRequest<BackendTag[]>('/tags')
+}
+
+export async function createTag(name: string) {
+  return apiRequest<BackendTag>('/tags', {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function listTaskAttachments(taskId: number) {
+  return apiRequest<BackendAttachment[]>(`/tasks/${taskId}/attachments`)
+}
+
+export async function uploadTaskAttachment(taskId: number, file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest<BackendAttachment>(`/tasks/${taskId}/attachments`, {
+    method: 'POST',
+    body,
   })
 }
 
@@ -97,6 +155,8 @@ export async function updateTask(
     description: string
     priority: number
     status: number
+    category_id: number | null
+    tag_ids: number[]
     due_date: string
     project_id: number | null
     project_node_id: number | null

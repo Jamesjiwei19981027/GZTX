@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Task, Status, Priority, Language } from '../../types';
+import { Task, Status, Priority, Language, TeamMember } from '../../types';
 import { getT } from '../../i18n';
 
 interface KanbanViewProps {
   tasks: Task[];
+  members?: TeamMember[];
+  lastUpdatedAt?: string;
   onUpdateTaskStatus: (taskId: string, newStatus: Status) => void;
   onSelectTask: (task: Task) => void;
   onOpenNewTaskWithStatus: (status: Status) => void;
@@ -12,6 +14,8 @@ interface KanbanViewProps {
 
 export const KanbanView: React.FC<KanbanViewProps> = ({
   tasks,
+  members = [],
+  lastUpdatedAt,
   onUpdateTaskStatus,
   onSelectTask,
   onOpenNewTaskWithStatus,
@@ -20,6 +24,18 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   const t = getT(lang);
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverStatus, setDragOverStatus] = useState<Status | null>(null);
+  const [priorityFilter, setPriorityFilter] = useState<Priority | 'all'>('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [query, setQuery] = useState('');
+
+  const categoryOptions = Array.from(new Set(tasks.map((task) => task.category).filter(Boolean)));
+
+  const visibleTasks = tasks.filter((task) => {
+    const matchesPriority = priorityFilter === 'all' || task.priority === priorityFilter;
+    const matchesCategory = categoryFilter === 'all' || task.category === categoryFilter;
+    const matchesQuery = !query.trim() || `${task.title} ${task.description || ''} ${task.tag || ''}`.toLowerCase().includes(query.trim().toLowerCase());
+    return matchesPriority && matchesCategory && matchesQuery;
+  });
 
   const columns: { id: Status; label: string; color: string; badgeColor: string }[] = [
     {
@@ -95,7 +111,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
   return (
     <div className="max-w-[1400px] mx-auto w-full pb-20 md:pb-8 animate-in fade-in duration-300">
       {/* Kanban Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-extrabold text-on-surface dark:text-[#f0f1f2] tracking-tight">
             {t.kanban}
@@ -106,12 +122,38 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               : 'Drag cards between columns to update status, or click to inspect details.'}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex -space-x-2 mr-2">
+            {members.slice(0, 5).map((member) => (
+              <img key={member.id} src={member.avatar || undefined} alt={member.name} title={member.name} className="w-8 h-8 rounded-full border-2 border-surface object-cover bg-surface-container" />
+            ))}
+            {members.length > 5 && <span className="w-8 h-8 rounded-full border-2 border-surface bg-surface-container text-[10px] font-bold flex items-center justify-center">+{members.length - 5}</span>}
+          </div>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={lang === 'zh' ? '筛选任务' : 'Filter tasks'} className="w-36 px-3 py-2 rounded-xl border border-outline-variant bg-surface text-xs" />
+          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as Priority | 'all')} className="px-3 py-2 rounded-xl border border-outline-variant bg-surface text-xs">
+            <option value="all">{lang === 'zh' ? '全部优先级' : 'All priorities'}</option>
+            <option value="Urgent">{lang === 'zh' ? '紧急' : 'Urgent'}</option>
+            <option value="High">{lang === 'zh' ? '高' : 'High'}</option>
+            <option value="Medium">{lang === 'zh' ? '中' : 'Medium'}</option>
+            <option value="Low">{lang === 'zh' ? '低' : 'Low'}</option>
+          </select>
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="px-3 py-2 rounded-xl border border-outline-variant bg-surface text-xs">
+            <option value="all">{lang === 'zh' ? '全部分类' : 'All categories'}</option>
+            {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+        </div>
+      </div>
+      <div className="mb-5 text-xs text-on-surface-variant flex items-center gap-2">
+        <span className="w-2 h-2 rounded-full bg-secondary" />
+        <span>{lang === 'zh' ? '正常运行' : 'Operational'}</span>
+        <span>·</span>
+        <span>{lang === 'zh' ? '最后更新' : 'Last updated'} {lastUpdatedAt || (lang === 'zh' ? '暂无活动记录' : 'no activity recorded')}</span>
       </div>
 
       {/* Columns Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         {columns.map((col) => {
-          const colTasks = tasks.filter((t) => t.status === col.id);
+          const colTasks = visibleTasks.filter((t) => t.status === col.id);
           const isOver = dragOverStatus === col.id;
 
           return (

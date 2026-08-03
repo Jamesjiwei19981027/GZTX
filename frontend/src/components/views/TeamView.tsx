@@ -189,7 +189,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
           >
             <div className="flex items-center gap-3">
               <img
-                src={m.avatar || 'https://via.placeholder.com/48'}
+                src={m.avatar || undefined}
                 alt=""
                 className="w-12 h-12 rounded-full object-cover bg-surface-container"
               />

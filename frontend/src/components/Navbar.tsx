@@ -35,7 +35,6 @@ export const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const t = getT(lang);
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
-  const [showNotifDropdown, setShowNotifDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
 
@@ -156,52 +155,14 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Notifications Button */}
           <div className="relative">
             <button
-              onClick={() => {
-                if (onOpenNotifications) {
-                  onOpenNotifications();
-                } else {
-                  setShowNotifDropdown(!showNotifDropdown);
-                  setShowUserDropdown(false);
-                }
+            onClick={() => {
+                onOpenNotifications?.();
+                setShowUserDropdown(false);
               }}
               className="p-2 rounded-full hover:bg-surface-container dark:hover:bg-[#2e3132] text-on-surface-variant hover:text-primary transition-colors relative cursor-pointer"
             >
               <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-error ring-2 ring-surface animate-pulse"></span>
             </button>
-
-            {showNotifDropdown && (
-              <div className="absolute right-0 mt-2 w-80 bg-surface dark:bg-[#2e3132] rounded-xl shadow-xl border border-surface-variant dark:border-outline p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
-                <div className="flex justify-between items-center mb-3 pb-2 border-b border-surface-variant">
-                  <span className="font-bold text-sm text-on-surface dark:text-[#f0f1f2]">
-                    {lang === 'zh' ? '系统通知' : 'Notifications'}
-                  </span>
-                  <span className="text-xs text-primary cursor-pointer hover:underline">
-                    {lang === 'zh' ? '标为已读' : 'Mark all read'}
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex gap-3 text-xs">
-                    <span className="w-2 h-2 rounded-full bg-primary mt-1.5 flex-shrink-0"></span>
-                    <div>
-                      <p className="font-medium text-on-surface dark:text-[#f0f1f2]">
-                        {lang === 'zh' ? '技术调研文档需今日 17:00 前提交评审' : 'Design doc due today at 17:00'}
-                      </p>
-                      <p className="text-on-surface-variant mt-0.5">10 {lang === 'zh' ? '分钟前' : 'mins ago'}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3 text-xs">
-                    <span className="w-2 h-2 rounded-full bg-secondary mt-1.5 flex-shrink-0"></span>
-                    <div>
-                      <p className="font-medium text-on-surface dark:text-[#f0f1f2]">
-                        {lang === 'zh' ? 'Marcus Vance 完成了 API 认证层重构' : 'Marcus Vance completed API Auth refactor'}
-                      </p>
-                      <p className="text-on-surface-variant mt-0.5">1 {lang === 'zh' ? '小时前' : 'hour ago'}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Help Button */}
@@ -217,7 +178,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             <button
               onClick={() => {
                 setShowUserDropdown(!showUserDropdown);
-                setShowNotifDropdown(false);
               }}
               className="flex items-center gap-2 p-1 rounded-full hover:bg-surface-container dark:hover:bg-[#2e3132] transition-colors border border-outline-variant"
             >

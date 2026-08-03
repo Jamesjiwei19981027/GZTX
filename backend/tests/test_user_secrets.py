@@ -110,3 +110,54 @@ async def test_smtp_password_stored_encrypted(
     from app.services.smtp_settings import smtp_from_user
 
     assert smtp_from_user(test_user).password == "plaintext-should-not-land"
+
+
+@pytest.mark.asyncio
+async def test_user_notification_update_merges_without_erasing_credentials(
+    client: AsyncClient, db_session, test_user, auth_headers
+):
+    from sqlalchemy.orm.attributes import flag_modified
+
+    test_user.notify_pref = {
+        "channels": {
+            "email": {
+                "enabled": True,
+                "smtp_host": "smtp.qq.com",
+                "smtp_password": "enc:v1:keep-me",
+            }
+        },
+        "quiet_hours": {"start": "21:00", "end": "07:00"},
+    }
+    flag_modified(test_user, "notify_pref")
+    await db_session.commit()
+
+    response = await client.put(
+        "/api/v1/users/me",
+        headers=auth_headers,
+        json={
+            "notify_pref": {
+                "channels": {"email": {"enabled": False}},
+                "weekend_mute": True,
+            }
+        },
+    )
+    assert response.status_code == 200, response.text
+
+    await db_session.refresh(test_user)
+    email = test_user.notify_pref["channels"]["email"]
+    assert email["enabled"] is False
+    assert email["smtp_host"] == "smtp.qq.com"
+    assert email["smtp_password"] == "enc:v1:keep-me"
+    assert test_user.notify_pref["quiet_hours"] == {"start": "21:00", "end": "07:00"}
+
+
+@pytest.mark.asyncio
+async def test_user_notification_update_rejects_credential_fields(
+    client: AsyncClient, auth_headers
+):
+    response = await client.put(
+        "/api/v1/users/me",
+        headers=auth_headers,
+        json={"notify_pref": {"channels": {"email": {"smtp_password": "leak"}}}},
+    )
+    assert response.status_code == 422, response.text

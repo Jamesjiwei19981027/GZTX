@@ -15,6 +15,9 @@ from app.models.task import Task
 from app.models.category import Category
 from app.models.tag import Tag, task_tags
 from app.models.reminder import Reminder
+from app.models.project import Project, ProjectMember
+from app.models.company import CompanyMembership
+from app.models.tree import TreeNode
 from app.schemas.task import (
     TaskCreate,
     TaskUpdate,
@@ -28,6 +31,51 @@ from app.schemas.task import (
 from app.schemas.common import ResponseData, PaginatedData
 
 router = APIRouter(prefix="/tasks", tags=["任务"])
+
+
+async def _validate_collab_scope(
+    db: DbSession,
+    user_id: int,
+    *,
+    company_id: int | None,
+    project_id: int | None,
+    project_node_id: int | None,
+) -> int | None:
+    """Validate task collaboration identifiers and return the canonical company id."""
+    if project_id is None:
+        if project_node_id is not None:
+            raise HTTPException(status_code=422, detail="项目事项必须绑定项目")
+        if company_id is not None:
+            membership = await db.execute(
+                select(CompanyMembership.id).where(
+                    CompanyMembership.company_id == company_id,
+                    CompanyMembership.user_id == user_id,
+                    CompanyMembership.status == "active",
+                ).limit(1)
+            )
+            if membership.scalar_one_or_none() is None:
+                raise HTTPException(status_code=403, detail="非公司成员")
+        return company_id
+
+    project = await db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="项目不存在")
+    membership = await db.execute(
+        select(ProjectMember.id).where(
+            ProjectMember.project_id == project_id,
+            ProjectMember.user_id == user_id,
+            ProjectMember.left_at.is_(None),
+        ).limit(1)
+    )
+    if membership.scalar_one_or_none() is None and project.created_by != user_id:
+        raise HTTPException(status_code=403, detail="非项目成员")
+    if company_id is not None and company_id != project.company_id:
+        raise HTTPException(status_code=422, detail="公司与项目不匹配")
+    if project_node_id is not None:
+        node = await db.get(TreeNode, project_node_id)
+        if not node or node.is_deleted or node.project_id != project_id:
+            raise HTTPException(status_code=422, detail="项目事项与项目不匹配")
+    return project.company_id
 
 
 @router.get("", response_model=ResponseData)
@@ -330,15 +378,35 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
     if due_date_val and due_date_val.tzinfo is not None:
         due_date_val = due_date_val.replace(tzinfo=None)
 
+    project_id = data.project_id
+    company_id = await _validate_collab_scope(
+        db,
+        user.id,
+        company_id=data.company_id,
+        project_id=project_id,
+        project_node_id=data.project_node_id,
+    )
+    if data.origin == "project_link" and project_id is None:
+        raise HTTPException(status_code=422, detail="项目来源任务必须绑定项目")
+    if data.origin == "personal" and project_id is not None:
+        raise HTTPException(status_code=422, detail="绑定项目的任务来源必须为 project_link")
+
     task = Task(
         user_id=user.id,
         category_id=category_id,
         title=data.title,
         description=data.description,
         priority=data.priority,
+        status=data.status,
+        completed_at=datetime.utcnow() if data.status == Task.STATUS_DONE else None,
         due_date=due_date_val,
         is_recurring=data.is_recurring,
         recurrence_rule=data.recurrence_rule,
+        company_id=company_id,
+        project_id=project_id,
+        project_node_id=data.project_node_id,
+        origin=data.origin,
+        linked_readonly=data.linked_readonly,
     )
     db.add(task)
     await db.flush()
@@ -346,10 +414,12 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
     # 添加标签
     if data.tag_ids:
         result = await db.execute(select(Tag).where(Tag.id.in_(data.tag_ids), Tag.user_id == user.id))
-        tags = result.scalars().all()
+        tags = list(result.scalars().all())
+        if len({tag.id for tag in tags}) != len(set(data.tag_ids)):
+            raise HTTPException(status_code=404, detail="标签不存在")
         # 先异步加载 tags 关系，避免赋值时触发同步懒加载导致 MissingGreenlet
         await db.refresh(task, ["tags"])
-        task.tags = list(tags)
+        task.tags = tags
 
     # 添加提醒
     if data.reminders:
@@ -393,6 +463,39 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
 
     update_data = data.model_dump(exclude_unset=True)
 
+    effective_project_id = update_data.get("project_id", task.project_id)
+    effective_node_id = update_data.get("project_node_id", task.project_node_id)
+    effective_company_id = update_data.get("company_id", task.company_id)
+    if "project_id" in update_data or "project_node_id" in update_data or "company_id" in update_data:
+        effective_company_id = await _validate_collab_scope(
+            db,
+            user.id,
+            company_id=effective_company_id,
+            project_id=effective_project_id,
+            project_node_id=effective_node_id,
+        )
+        if effective_project_id is not None:
+            update_data["company_id"] = effective_company_id
+
+    effective_origin = update_data.get("origin", getattr(task, "origin", "personal"))
+    if effective_origin == "project_link" and effective_project_id is None:
+        raise HTTPException(status_code=422, detail="项目来源任务必须绑定项目")
+    if effective_origin == "personal" and effective_project_id is not None:
+        raise HTTPException(status_code=422, detail="绑定项目的任务来源必须为 project_link")
+
+    if "category_id" in update_data:
+        category_id = update_data["category_id"]
+        if category_id is None:
+            raise HTTPException(status_code=422, detail="任务分类不能为空")
+        category_exists = await db.scalar(
+            select(Category.id).where(
+                Category.id == category_id,
+                Category.user_id == user.id,
+            )
+        )
+        if category_exists is None:
+            raise HTTPException(status_code=404, detail="分类不存在")
+
     # 投影只读：禁止改 status
     if (
         getattr(task, "origin", "personal") == "project_link"
@@ -402,13 +505,23 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
     ):
         return fail(403, 40321, "项目投影待办不可直接修改状态，请通过材料/进度流程")
 
+    if "status" in update_data:
+        update_data["completed_at"] = (
+            datetime.utcnow() if update_data["status"] == Task.STATUS_DONE else None
+        )
+
     # 处理标签更新
     tag_ids = update_data.pop("tag_ids", None)
     if tag_ids is not None:
-        result = await db.execute(select(Tag).where(Tag.id.in_(tag_ids), Tag.user_id == user.id))
+        result = await db.execute(
+            select(Tag).where(Tag.id.in_(tag_ids), Tag.user_id == user.id)
+        )
+        tags = list(result.scalars().all())
+        if len({tag.id for tag in tags}) != len(set(tag_ids)):
+            raise HTTPException(status_code=404, detail="标签不存在")
         # 先异步加载 tags 关系，避免赋值时触发同步懒加载导致 MissingGreenlet
         await db.refresh(task, ["tags"])
-        task.tags = list(result.scalars().all())
+        task.tags = tags
 
     # 处理提醒更新：先删后建
     reminders_data = update_data.pop("reminders", None)

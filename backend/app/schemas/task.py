@@ -4,7 +4,7 @@
 from typing import Optional, List
 from datetime import datetime
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 # ===== 分类模型 =====
@@ -88,12 +88,26 @@ class TaskCreate(BaseModel):
     title: str
     description: Optional[str] = None
     priority: int = 1
+    status: int = 0
     category_id: Optional[int] = None
-    tag_ids: List[int] = []
+    tag_ids: List[int] = Field(default_factory=list)
     due_date: Optional[datetime] = None
-    reminders: List[ReminderCreate] = []
+    reminders: List[ReminderCreate] = Field(default_factory=list)
     is_recurring: bool = False
     recurrence_rule: Optional[dict] = None
+    # 协作任务兼容字段：创建时可直接挂到用户有权访问的项目。
+    company_id: Optional[int] = None
+    project_id: Optional[int] = None
+    project_node_id: Optional[int] = None
+    origin: str = "personal"
+    linked_readonly: bool = True
+
+    @field_validator("origin")
+    @classmethod
+    def origin_valid(cls, v):
+        if v not in ("personal", "project_link"):
+            raise ValueError("任务来源必须为 personal 或 project_link")
+        return v
 
     @field_validator("title")
     @classmethod
@@ -109,6 +123,13 @@ class TaskCreate(BaseModel):
     def priority_valid(cls, v):
         if v not in (0, 1, 2):
             raise ValueError("优先级必须为 0(低)、1(中) 或 2(高)")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def status_valid(cls, v):
+        if v not in (0, 1, 2):
+            raise ValueError("状态必须为 0(待办)、1(进行中) 或 2(已完成)")
         return v
 
 
@@ -131,6 +152,27 @@ class TaskUpdate(BaseModel):
     origin: Optional[str] = None
     company_id: Optional[int] = None
     linked_readonly: Optional[bool] = None
+
+    @field_validator("origin")
+    @classmethod
+    def origin_valid(cls, v):
+        if v is not None and v not in ("personal", "project_link"):
+            raise ValueError("任务来源必须为 personal 或 project_link")
+        return v
+
+    @field_validator("priority")
+    @classmethod
+    def priority_valid(cls, v):
+        if v is not None and v not in (0, 1, 2):
+            raise ValueError("优先级必须为 0(低)、1(中) 或 2(高)")
+        return v
+
+    @field_validator("status")
+    @classmethod
+    def status_valid(cls, v):
+        if v is not None and v not in (0, 1, 2):
+            raise ValueError("状态必须为 0(待办)、1(进行中) 或 2(已完成)")
+        return v
 
 
 class TaskResponse(BaseModel):

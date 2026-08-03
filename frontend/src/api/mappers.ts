@@ -85,6 +85,9 @@ export function mapTask(t: BackendTask, projectId = 'all'): Task {
         ? ''
         : projectId
 
+  const dueDate = t.due_date ? t.due_date.slice(0, 10) : ''
+  const dueTime = t.due_date && t.due_date.length >= 16 ? t.due_date.slice(11, 16) : undefined
+
   return {
     id: String(t.id),
     title: t.title,
@@ -92,10 +95,14 @@ export function mapTask(t: BackendTask, projectId = 'all'): Task {
     priority: PRIORITY_TO_UI[t.priority] ?? 'Medium',
     status: STATUS_TO_UI[t.status] ?? 'To Do',
     category,
-    dueDate: t.due_date ? t.due_date.slice(0, 10) : '',
+    dueDate,
+    dueTime,
     subtasks: [],
     progress: t.completion_rate ?? (t.status === 2 ? 100 : t.status === 1 ? 50 : 0),
     tag: t.tags?.[0]?.name,
+    categoryId: t.category?.id,
+    tagIds: t.tags?.map((item) => item.id),
+    attachments: [],
     completedAt: t.completed_at,
     projectId: resolvedProject,
     linkedNodeId: t.project_node_id != null ? String(t.project_node_id) : undefined,

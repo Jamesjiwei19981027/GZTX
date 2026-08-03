@@ -526,8 +526,8 @@ class WorkTreeLayout {
     }
 
     var axisStart = axis == WorkTreeAxis.vertical
-        ? Offset(padding, padding - minStationGap * 0.45)
-        : Offset(padding - minStationGap * 0.45, padding);
+        ? const Offset(padding, padding - minStationGap * 0.45)
+        : const Offset(padding - minStationGap * 0.45, padding);
     // 轴终点收束到负责人中心（或内容末端）
     var axisEnd = leaderPlaced != null
         ? (axis == WorkTreeAxis.vertical
