@@ -2,8 +2,8 @@
 
 > **用途**：把本文件 + 下列「必读文档」交给 Cursor（或新会话）即可接手。  
 > **仓库**：`E:\workspace\gongzuotix`（或你的 clone 路径）  
-> **整理日期**：2026-07-20  
-> **当前开发分支**：见根目录 [README.md](../README.md)「分支与维护」— 长期为 `main`（后端/部署）、`web`、`miniprogram`、`app`；历史分支 `frontend-react-rewrite` 可弃用。
+> **整理日期**：2026-08-04
+> **当前开发分支**：当前交付工作在 `app`；根目录 README 的分支约定仍用于后续拆分 PR，历史分支 `frontend-react-rewrite` 可弃用。
 
 ---
 
@@ -18,7 +18,8 @@
 **WorkTodo** 是一套**可自托管**的待办 + 提醒系统，并在同一产品里扩展了：
 
 - **个人待办**（任务、日历、邮件/WebPush 提醒）
-- **单公司协作**：项目管理树、证据驱动进度、智能体对话
+- **单公司协作**：项目管理树、证据驱动进度、智能体对话、团队频道/私信、协作收件箱
+- **浏览器通话与外部邮件**：WebRTC 信令只转发 offer/answer/ICE；IMAP 邮件独立存储且必须显式配置
 - **双端**：Web + 微信小程序（数据同源 API）
 
 内测形态偏 **单公司 + 密码注册/加入**（`DEPLOY_MODE=single_company` 一类配置），企微/OIDC 等可后续接。
@@ -30,7 +31,7 @@
 | 路径 | 角色 | 说明 |
 |------|------|------|
 | `backend/` | **后端真源** | FastAPI + SQLAlchemy(async) + APScheduler |
-| `frontend/` | **Web 现役真源** | **React 18** + Vite + TS + Ant Design + Tailwind + Zustand + React Flow |
+| `frontend/` | **Web 现役真源** | **React 19** + Vite + TypeScript + Tailwind；后端 API 是唯一业务数据源 |
 | `frontend-vue-archive/` | **只读归档** | 原 Vue3 整站；对照行为与紧急回滚；**不是**现役入口 |
 | `miniprogram/` | 小程序真源 | 微信原生；协作页有部分实现 |
 | `app/` | Flutter APP 真源 | iOS + Android；见 `app/README.md` |
@@ -51,18 +52,19 @@
 - FastAPI、SQLAlchemy 2 async、SQLite（开发）/ PostgreSQL（生产可选）
 - JWT 鉴权；`localStorage.access_token` 对应 Bearer
 - 业务：任务/提醒/分类标签、邮件收发与命令、Web Push
-- 协作：companies / projects / tree_nodes / evidence / progress / agents / ACL / bindings / org / notify worker
+- 协作：companies / projects / tree_nodes / evidence / progress / agents / ACL / bindings / org / notify worker / channels / direct messages / collab files
+- 通话：`/calls/config` + 认证 WebSocket 信令；媒体只在浏览器 `RTCPeerConnection` 中传输
+- 外部邮件：`external_mails` 独立存储，IMAP 凭证缺失时显式返回 503
 - LLM：`app/services/llm_settings.py` — **个人 > 公司 > 环境变量 > fake**
 - SMTP：个人（`notify_pref.channels.email`）+ 公司（IntegrationAccount 加密）
 - 测试：`backend/tests/` + `backend/tests/collab/`
 
 ### Web 前端（React，现役）
 
-- React 18、Vite 5、TypeScript、React Router、Zustand、axios、Ant Design 5、Tailwind、dayjs
-- 项目图：`@xyflow/react` + `@dagrejs/dagre`
-- 路径别名：`@/` → `src/`
-- 单测：Vitest（`npm test`）
-- E2E：Playwright（`npm run test:e2e`，需后端 + `E2E_USER` / `E2E_PASSWORD`）
+- React 19、Vite、TypeScript、Tailwind、Recharts、Lucide
+- 正式页面位于 `frontend/src/components/views/`，后端 API 是唯一业务数据源
+- 契约测试：`npm run test`；类型检查：`npm run lint`；构建：`npm run build`
+- 后端测试：`backend/.venv312/Scripts/python.exe -m pytest -q`
 
 ### 归档 Vue
 

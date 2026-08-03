@@ -26,9 +26,8 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     if (statusFilter !== 'All' && task.status !== statusFilter) return false;
     if (priorityFilter !== 'All' && task.priority !== priorityFilter) return false;
     if (onlyToday) {
-      // check if today or dates close
       const todayStr = new Date().toISOString().split('T')[0];
-      return task.dueDate.startsWith('2024-10-15') || task.dueDate === todayStr;
+      return task.dueDate === todayStr;
     }
     return true;
   });

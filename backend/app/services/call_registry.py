@@ -39,11 +39,18 @@ class CallRegistry:
         sender_user_id: int,
         payload: dict[str, Any],
     ) -> None:
+        target_user_id = payload.get("to_user_id")
+        if target_user_id is not None:
+            try:
+                target_user_id = int(target_user_id)
+            except (TypeError, ValueError):
+                target_user_id = None
         async with self._lock:
             targets = [
                 (user_id, websocket)
                 for user_id, websocket in self._rooms.get(conversation_id, {}).items()
                 if user_id != sender_user_id
+                and (target_user_id is None or user_id == target_user_id)
             ]
         event = {**payload, "from_user_id": sender_user_id}
         stale: list[int] = []
@@ -57,4 +64,3 @@ class CallRegistry:
 
 
 call_registry = CallRegistry()
-

@@ -10,6 +10,9 @@ const assertions: [string, boolean][] = [
   ['call config API exists', shell.includes('getCallConfig') && shell.includes('/calls/config')],
   ['voice/video panel exposes signaling state', messages.includes('callMode') && messages.includes('STUN')],
   ['missing ICE config is explained', messages.includes('TURN') && messages.includes('not configured')],
+  ['browser media peer connection is established', messages.includes('RTCPeerConnection') && messages.includes('createOffer') && messages.includes('createAnswer')],
+  ['offer answer and ICE are exchanged', messages.includes("type: 'offer'") && messages.includes("type: 'answer'") && messages.includes("type: 'ice'")],
+  ['remote media is mounted', messages.includes('ontrack') && messages.includes('remoteMedia')],
   ['external mail status API exists', shell.includes('getExternalMailStatus') && shell.includes('/external-mail/status')],
   ['external mail is explicit in inbox', inbox.includes('external-mail') && inbox.includes('configuration')],
 ];
@@ -17,4 +20,3 @@ const assertions: [string, boolean][] = [
 const failures = assertions.filter(([, passed]) => !passed).map(([name]) => name);
 if (failures.length) throw new Error(`calls/mail contract failed: ${failures.join(', ')}`);
 console.log(`calls/mail contract: ${assertions.length} assertions passed`);
-

@@ -11,6 +11,8 @@
 - **邮件闭环**：提醒邮件 → 用户回复指令 → 后端 IMAP 解析并更新任务
 - **多端访问**：React Web + 微信小程序 + Flutter APP（REST + JWT）
 - **协作与智能体**：项目树、证据进度、个人/协作智能体（见 `docs/`）
+- **团队沟通**：频道/私信、二进制文件、Emoji、活动气泡、固定链接和浏览器语音/视频通话信令
+- **外部邮件适配**：显式配置 IMAP 后同步到独立邮件表；未配置时只显示原因，不混入协作收件箱
 - **数据自主**：自托管，开发默认 SQLite，生产可用 PostgreSQL
 
 ---
@@ -69,6 +71,23 @@ docker compose up -d
 
 本机 Python/npm 直跑仅作临时调试，见启动指导文档「可选」小节。
 
+### 可选外部服务
+
+- 浏览器通话媒体始终留在浏览器 `RTCPeerConnection`，后端只转发 offer/answer/ICE。开发可只填 `WEBRTC_STUN_URLS`；生产建议同时配置 TURN。
+- 外部 IMAP 邮件不会自动启用。设置 `IMAP_HOST`、`IMAP_PORT`、`IMAP_USER`、`IMAP_PASSWORD` 后，在收件箱的 External mail 面板手动同步。
+- SMTP、Web Push VAPID、微信服务号和个人/公司 LLM 均在通知设置页或 `.env` 中显式配置；空配置会显示不可用原因。
+
+### 验证命令
+
+```powershell
+cd backend
+.\.venv312\Scripts\python.exe -m pytest -q
+cd ..\frontend
+npm run test
+npm run lint
+npm run build
+```
+
 ---
 
 ## 技术栈
@@ -112,4 +131,3 @@ gongzuotix/
 ## 许可证
 
 MIT License
-

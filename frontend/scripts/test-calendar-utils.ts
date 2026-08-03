@@ -5,6 +5,8 @@ import {
   shiftCalendarCursor,
 } from '../src/components/views/calendarUtils'
 import { averagePeopleAxisProgress } from '../src/components/views/peopleAxisUtils'
+import fs from 'node:fs'
+import path from 'node:path'
 
 const cursor = new Date(2026, 0, 31)
 assert.equal(formatDateLocal(shiftCalendarCursor(cursor, 'month', 1)), '2026-02-01')
@@ -19,4 +21,6 @@ assert.equal(
   ]),
   50,
 )
+const myTasksView = fs.readFileSync(path.join(process.cwd(), 'src/components/views/MyTasksView.tsx'), 'utf8')
+assert.equal(myTasksView.includes('2024-10-15'), false)
 console.log('calendar and people-axis utils: 7 assertions passed')

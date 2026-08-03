@@ -21,7 +21,7 @@ import {
   listUserActivity,
   getCallConfig,
 } from '../../api/shell';
-import type { CollabFile, DirectConversation } from '../../api/shell';
+import type { CallConfig, CollabFile, DirectConversation } from '../../api/shell';
 import { getToken } from '../../api/client';
 
 interface MessagesViewProps {
@@ -33,6 +33,21 @@ interface MessagesViewProps {
   tasks?: Task[];
   onSelectTask?: (task: Task) => void;
 }
+
+type CallSignal = {
+  type?: 'joined' | 'peer_joined' | 'peer_left' | 'offer' | 'answer' | 'ice' | 'error';
+  conversation_id?: number;
+  user_id?: number;
+  participants?: number[];
+  from_user_id?: number;
+  to_user_id?: number;
+  sdp?: RTCSessionDescriptionInit;
+  candidate?: RTCIceCandidateInit;
+  sdpMid?: string | null;
+  sdpMLineIndex?: number | null;
+  ice_servers?: RTCIceServer[];
+  message?: string;
+};
 
 export const MessagesView: React.FC<MessagesViewProps> = ({
   user,
@@ -62,10 +77,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activityItems, setActivityItems] = useState<{ id: number; type: string; title: string; created_at?: string }[]>([]);
   const [callMode, setCallMode] = useState<'idle' | 'voice' | 'video'>('idle');
-  const [callConfig, setCallConfig] = useState<{ configured: boolean; message: string } | null>(null);
+  const [callConfig, setCallConfig] = useState<CallConfig | null>(null);
   const [callParticipants, setCallParticipants] = useState<number[]>([]);
+  const [remoteConnected, setRemoteConnected] = useState(false);
   const callSocketRef = useRef<WebSocket | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
+  const peerConnectionsRef = useRef<Map<number, RTCPeerConnection>>(new Map());
+  const pendingCandidatesRef = useRef<Map<number, RTCIceCandidateInit[]>>(new Map());
+  const localMediaRef = useRef<HTMLVideoElement | null>(null);
+  const remoteMediaRef = useRef<HTMLVideoElement | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const channels = [
@@ -259,11 +280,130 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     }
   };
 
+  const sendCallSignal = (payload: Record<string, unknown>) => {
+    const socket = callSocketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(payload));
+  };
+
+  const closePeerConnection = (remoteUserId: number) => {
+    const peer = peerConnectionsRef.current.get(remoteUserId);
+    peer?.close();
+    peerConnectionsRef.current.delete(remoteUserId);
+    pendingCandidatesRef.current.delete(remoteUserId);
+    setRemoteConnected(peerConnectionsRef.current.size > 0);
+  };
+
+  const flushPendingCandidates = async (remoteUserId: number, peer: RTCPeerConnection) => {
+    const pending = pendingCandidatesRef.current.get(remoteUserId) || [];
+    if (!peer.remoteDescription || pending.length === 0) return;
+    pendingCandidatesRef.current.delete(remoteUserId);
+    for (const candidate of pending) await peer.addIceCandidate(candidate);
+  };
+
+  const ensurePeerConnection = (remoteUserId: number, initiator: boolean, iceServers?: RTCIceServer[]) => {
+    const existing = peerConnectionsRef.current.get(remoteUserId);
+    if (existing) return existing;
+    const peer = new RTCPeerConnection({ iceServers: iceServers || callConfig?.ice_servers || [] });
+    const localStream = mediaStreamRef.current;
+    localStream?.getTracks().forEach((track) => peer.addTrack(track, localStream));
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        sendCallSignal({ type: 'ice', candidate: event.candidate.toJSON(), to_user_id: remoteUserId });
+      }
+    };
+    peer.ontrack = (event) => {
+      const stream = event.streams[0];
+      if (!stream) return;
+      if (remoteMediaRef.current) remoteMediaRef.current.srcObject = stream;
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = stream;
+        void remoteAudioRef.current.play().catch(() => undefined);
+      }
+      setRemoteConnected(true);
+    };
+    peer.onconnectionstatechange = () => {
+      if (peer.connectionState === 'failed' || peer.connectionState === 'closed') closePeerConnection(remoteUserId);
+    };
+    peerConnectionsRef.current.set(remoteUserId, peer);
+    if (initiator) {
+      void (async () => {
+        const offer = await peer.createOffer();
+        await peer.setLocalDescription(offer);
+        if (peer.localDescription) {
+          sendCallSignal({ type: 'offer', sdp: peer.localDescription, to_user_id: remoteUserId });
+        }
+      })().catch(() => setError(lang === 'zh' ? '鍒涘缓閫氳瘽 offer 澶辫触' : 'Unable to create a call offer'));
+    }
+    return peer;
+  };
+
+  const handleCallSignal = async (payload: CallSignal) => {
+    if (payload.type === 'joined') {
+      setCallParticipants(payload.participants || []);
+      if (payload.ice_servers) {
+        setCallConfig((previous) => ({
+          configured: previous?.configured ?? payload.ice_servers!.length > 0,
+          ice_servers: payload.ice_servers!,
+          message: previous?.message || (payload.ice_servers!.length ? 'ICE servers ready' : 'STUN/TURN is not configured'),
+        }));
+      }
+      const localUserId = Number(payload.user_id ?? user.id);
+      for (const participantId of payload.participants || []) {
+        if (participantId !== localUserId) ensurePeerConnection(participantId, true, payload.ice_servers);
+      }
+      return;
+    }
+    if (payload.type === 'peer_joined' && payload.from_user_id) {
+      setCallParticipants((previous) => Array.from(new Set([...previous, payload.from_user_id!])));
+      return;
+    }
+    if (payload.type === 'peer_left' && payload.from_user_id) {
+      closePeerConnection(payload.from_user_id);
+      setCallParticipants((previous) => previous.filter((id) => id !== payload.from_user_id));
+      return;
+    }
+    if (payload.type === 'error') {
+      setError(payload.message || (lang === 'zh' ? '閫氳瘽淇″彿閿欒' : 'Call signaling error'));
+      return;
+    }
+    const remoteUserId = Number(payload.from_user_id);
+    if (!Number.isFinite(remoteUserId)) return;
+    if (payload.type === 'offer' && payload.sdp) {
+      const peer = ensurePeerConnection(remoteUserId, false, payload.ice_servers);
+      await peer.setRemoteDescription(payload.sdp);
+      await flushPendingCandidates(remoteUserId, peer);
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
+      if (peer.localDescription) sendCallSignal({ type: 'answer', sdp: peer.localDescription, to_user_id: remoteUserId });
+      return;
+    }
+    if (payload.type === 'answer' && payload.sdp) {
+      const peer = ensurePeerConnection(remoteUserId, false, payload.ice_servers);
+      await peer.setRemoteDescription(payload.sdp);
+      await flushPendingCandidates(remoteUserId, peer);
+      return;
+    }
+    if (payload.type === 'ice' && payload.candidate) {
+      const peer = ensurePeerConnection(remoteUserId, false, payload.ice_servers);
+      if (peer.remoteDescription) await peer.addIceCandidate(payload.candidate);
+      else pendingCandidatesRef.current.set(remoteUserId, [...(pendingCandidatesRef.current.get(remoteUserId) || []), payload.candidate]);
+    }
+  };
+
   const endCall = () => {
-    callSocketRef.current?.close();
+    const socket = callSocketRef.current;
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'leave' }));
+    socket?.close();
     callSocketRef.current = null;
+    peerConnectionsRef.current.forEach((peer) => peer.close());
+    peerConnectionsRef.current.clear();
+    pendingCandidatesRef.current.clear();
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     mediaStreamRef.current = null;
+    if (localMediaRef.current) localMediaRef.current.srcObject = null;
+    if (remoteMediaRef.current) remoteMediaRef.current.srcObject = null;
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+    setRemoteConnected(false);
     setCallParticipants([]);
     setCallMode('idle');
   };
@@ -277,7 +417,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       setError(lang === 'zh' ? '当前浏览器不支持媒体权限' : 'Media permissions are unavailable in this browser');
       return;
     }
+    if (typeof RTCPeerConnection === 'undefined') {
+      setError(lang === 'zh' ? '当前浏览器不支持 WebRTC' : 'WebRTC is unavailable in this browser');
+      return;
+    }
     try {
+      endCall();
       mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === 'video' });
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const token = getToken();
@@ -285,15 +430,24 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       callSocketRef.current = socket;
       socket.onmessage = (event) => {
         try {
-          const payload = JSON.parse(event.data) as { type?: string; participants?: number[] };
-          if (payload.type === 'joined' && payload.participants) setCallParticipants(payload.participants);
-          if (payload.type === 'peer_joined' || payload.type === 'peer_left') setCallParticipants((prev) => prev);
+          void handleCallSignal(JSON.parse(event.data) as CallSignal).catch(() => setError(lang === 'zh' ? '处理通话信令失败' : 'Unable to process call signaling'));
         } catch {
-          /* signaling payloads are intentionally opaque to the UI */
+          setError(lang === 'zh' ? '通话信令格式无效' : 'Invalid call signaling payload');
         }
+      };
+      socket.onclose = () => {
+        if (callSocketRef.current !== socket) return;
+        callSocketRef.current = null;
+        peerConnectionsRef.current.forEach((peer) => peer.close());
+        peerConnectionsRef.current.clear();
+        pendingCandidatesRef.current.clear();
+        setRemoteConnected(false);
+        setCallParticipants([]);
+        setCallMode('idle');
       };
       socket.onerror = () => setError(lang === 'zh' ? '通话信令连接失败' : 'Call signaling connection failed');
       setCallMode(mode);
+      if (localMediaRef.current) localMediaRef.current.srcObject = mediaStreamRef.current;
     } catch (err) {
       setError(err instanceof Error ? err.message : (lang === 'zh' ? '未获得麦克风/摄像头权限' : 'Microphone/camera permission was denied'));
       endCall();
@@ -363,10 +517,19 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       </div>
 
       {callMode !== 'idle' && <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 text-xs">
-        <span className="font-bold text-primary">{callMode === 'video' ? 'Video call' : 'Voice call'} · {callParticipants.length} participant(s)</span>
-        {!callConfig?.configured && <span className="text-amber-700">STUN/TURN not configured; local browser defaults may be limited.</span>}
-        {callConfig?.configured && <span className="text-on-surface-variant">ICE servers ready</span>}
-        <button type="button" onClick={endCall} className="ml-auto px-3 py-1.5 rounded-lg bg-error text-on-error font-bold">End</button>
+        <div className="flex items-center gap-2 w-full">
+          <span className="font-bold text-primary">{callMode === 'video' ? 'Video call' : 'Voice call'} · {callParticipants.length} participant(s)</span>
+          {remoteConnected && <span className="text-emerald-700">Connected</span>}
+          {!remoteConnected && <span className="text-on-surface-variant">Waiting for peer…</span>}
+          {!callConfig?.configured && <span className="text-amber-700">STUN/TURN not configured; local browser defaults may be limited.</span>}
+          {callConfig?.configured && <span className="text-on-surface-variant">ICE servers ready</span>}
+          <button type="button" onClick={endCall} className="ml-auto px-3 py-1.5 rounded-lg bg-error text-on-error font-bold">End</button>
+        </div>
+        <div className="flex gap-2 w-full">
+          <video ref={localMediaRef} autoPlay muted playsInline className={callMode === 'video' ? 'w-32 h-20 rounded-lg bg-black object-cover' : 'hidden'} aria-label="Local video preview" />
+          <video ref={remoteMediaRef} autoPlay playsInline className={callMode === 'video' ? 'flex-1 min-w-48 h-32 rounded-lg bg-black object-cover' : 'hidden'} aria-label="Remote video" />
+          <audio ref={remoteAudioRef} autoPlay className={callMode === 'voice' ? 'w-full' : 'hidden'} aria-label="Remote audio" />
+        </div>
       </div>}
 
       {error && (

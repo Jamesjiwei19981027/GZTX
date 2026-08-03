@@ -158,6 +158,12 @@ async def call_signal(conversation_id: int, websocket: WebSocket, db: DbSession)
             for key in ("sdp", "candidate", "sdpMid", "sdpMLineIndex", "to_user_id"):
                 if key in incoming:
                     envelope[key] = incoming[key]
+            if "to_user_id" in envelope:
+                try:
+                    envelope["to_user_id"] = int(envelope["to_user_id"])
+                except (TypeError, ValueError):
+                    await websocket.send_json({"type": "error", "message": "to_user_id must be an integer"})
+                    continue
             await call_registry.broadcast(conversation_id, user.id, envelope)
     except WebSocketDisconnect:
         pass

@@ -40,6 +40,12 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - SMTP_FROM=${SMTP_FROM:-}
+      - IMAP_HOST=${IMAP_HOST:-}
+      - IMAP_PORT=${IMAP_PORT:-993}
+      - IMAP_USER=${IMAP_USER:-}
+      - IMAP_PASSWORD=${IMAP_PASSWORD:-}
+      - EMAIL_REPLY_DOMAIN=${EMAIL_REPLY_DOMAIN:-}
+      - EMAIL_REPLY_SECRET=${EMAIL_REPLY_SECRET:-}
       - WX_APP_ID=${WX_APP_ID:-}
       - WX_APP_SECRET=${WX_APP_SECRET:-}
       - CORS_ORIGINS=${CORS_ORIGINS:-["https://app.example.com"]}
@@ -93,6 +99,12 @@ services:
       - SMTP_USER=${SMTP_USER:-}
       - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - SMTP_FROM=${SMTP_FROM:-}
+      - IMAP_HOST=${IMAP_HOST:-}
+      - IMAP_PORT=${IMAP_PORT:-993}
+      - IMAP_USER=${IMAP_USER:-}
+      - IMAP_PASSWORD=${IMAP_PASSWORD:-}
+      - EMAIL_REPLY_DOMAIN=${EMAIL_REPLY_DOMAIN:-}
+      - EMAIL_REPLY_SECRET=${EMAIL_REPLY_SECRET:-}
       - WX_APP_ID=${WX_APP_ID:-}
       - WX_APP_SECRET=${WX_APP_SECRET:-}
       - CORS_ORIGINS=${CORS_ORIGINS:-["https://app.example.com"]}
