@@ -432,6 +432,7 @@ export default function App() {
         source_url: taskData.sourceUrl,
         source_message_id: taskData.sourceMessageId,
         source_meta: taskData.sourceMeta,
+        assignee_user_ids: (taskData.assigneeUserIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id)),
       });
       const mapped = mapTask(created);
       const attachmentFailures: string[] = [];
@@ -476,6 +477,9 @@ export default function App() {
         project_node_id: updatedTask.linkedNodeId
           ? Number(updatedTask.linkedNodeId)
           : null,
+        assignee_user_ids: (updatedTask.assigneeUserIds || updatedTask.assignees?.map((member) => member.id) || [])
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id)),
       });
       setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
       addActivity('updated', '任务已更新:', updatedTask.title);
@@ -790,6 +794,8 @@ export default function App() {
         categories={categories}
         tags={tags}
         companyId={companyId}
+        members={projectMembers}
+        currentUserId={user.id}
         lang={settings.language}
       />
 
@@ -798,6 +804,8 @@ export default function App() {
         onClose={() => setSelectedTask(null)}
         onUpdateTask={handleUpdateTask}
         onDeleteTask={handleDeleteTask}
+        members={projectMembers}
+        currentUserId={user.id}
         lang={settings.language}
       />
 

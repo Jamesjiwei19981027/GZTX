@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Task, Priority, Status, Category, Project, Language } from '../../types';
+import { Task, Priority, Status, Category, Project, Language, TeamMember } from '../../types';
 import { getT } from '../../i18n';
 import { extractTaskFromChat } from '../../api/backend';
 import type { BackendCategory, BackendTag } from '../../api/backend';
@@ -19,6 +19,8 @@ interface NewTaskModalProps {
   categories?: BackendCategory[];
   tags?: BackendTag[];
   companyId?: number | null;
+  members?: TeamMember[];
+  currentUserId?: string;
   lang: Language;
 }
 
@@ -37,6 +39,8 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   categories = [],
   tags = [],
   companyId,
+  members = [],
+  currentUserId,
   lang,
 }) => {
   const t = getT(lang);
@@ -58,6 +62,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const [chatText, setChatText] = useState('');
   const [extracting, setExtracting] = useState(false);
   const [showSourceTools, setShowSourceTools] = useState(false);
+  const [assigneeUserIds, setAssigneeUserIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (isOpen) {
@@ -79,6 +84,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       setSourceMessageId('');
       setChatText('');
       setShowSourceTools(false);
+      setAssigneeUserIds([]);
     }
   }, [isOpen, defaultTitle, defaultDescription, defaultStatus, defaultPriority, defaultCategory, defaultDate, categories, defaultSource]);
 
@@ -134,6 +140,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       sourceMessageId: sourceMessageId.trim() || undefined,
       sourceMeta: chatText.trim() ? { extracted: true, chat_excerpt: chatText.trim().slice(0, 1000) } : undefined,
       projectId: currentProject.id,
+      assigneeUserIds,
       progress: status === 'In Progress' ? 30 : status === 'Done' ? 100 : 0,
     });
 
@@ -290,6 +297,44 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                 className="w-full px-3 py-2 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-semibold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
+          </div>
+
+          {/* Project assignees */}
+          <div className="p-3 rounded-xl border border-outline-variant bg-surface-container-low dark:bg-[#191c1d]">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold uppercase text-on-surface-variant">
+                {lang === 'zh' ? '项目负责人' : 'Project assignees'}
+              </label>
+              {assigneeUserIds.length > 0 && (
+                <button type="button" className="text-[11px] text-primary" onClick={() => setAssigneeUserIds([])}>
+                  {lang === 'zh' ? '清空' : 'Clear'}
+                </button>
+              )}
+            </div>
+            {members.length > 0 ? (
+              <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                {members.map((member) => {
+                  const checked = assigneeUserIds.includes(member.id);
+                  return (
+                    <label key={member.id} className="flex items-center gap-2 text-xs text-on-surface cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => setAssigneeUserIds((prev) => checked ? prev.filter((id) => id !== member.id) : [...prev, member.id])}
+                        className="accent-primary"
+                      />
+                      {member.avatar ? <img src={member.avatar} alt="" className="w-5 h-5 rounded-full object-cover" /> : <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] flex items-center justify-center">{member.name.slice(0, 1)}</span>}
+                      <span className="truncate">{member.name}</span>
+                      {member.id === currentUserId && <span className="text-[10px] text-on-surface-variant">{lang === 'zh' ? '我' : 'me'}</span>}
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-[11px] text-on-surface-variant">
+                {lang === 'zh' ? '个人任务将自动归属创建者；进入项目后可选择成员。' : 'Personal tasks stay with their creator; project members can be selected here.'}
+              </p>
+            )}
           </div>
 
           {/* Tag input */}

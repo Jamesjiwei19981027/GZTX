@@ -23,6 +23,17 @@ export type BackendTask = {
   source_url?: string | null
   source_message_id?: string | null
   source_meta?: Record<string, unknown> | null
+  assignees?: BackendAssignee[]
+  assignee?: BackendAssignee | null
+}
+
+export type BackendAssignee = {
+  user_id: number
+  role_key?: string
+  display_name?: string
+  nickname?: string
+  username?: string
+  avatar_url?: string | null
 }
 
 export type BackendProject = {
@@ -123,6 +134,7 @@ export async function createTask(body: {
   source_url?: string | null
   source_message_id?: string | null
   source_meta?: Record<string, unknown> | null
+  assignee_user_ids?: number[]
 }) {
   return apiRequest<BackendTask>('/tasks', {
     method: 'POST',
@@ -206,6 +218,7 @@ export async function updateTask(
     company_id: number | null
     origin: string
     linked_readonly: boolean
+    assignee_user_ids: number[]
   }>,
 ) {
   return apiRequest<BackendTask>(`/tasks/${id}`, {

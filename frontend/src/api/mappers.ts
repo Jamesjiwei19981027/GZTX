@@ -15,6 +15,7 @@ import type {
   BackendMember,
   BackendProject,
   BackendTask,
+  BackendAssignee,
   BackendTreeNode,
 } from './backend'
 
@@ -88,6 +89,8 @@ export function mapTask(t: BackendTask, projectId = 'all'): Task {
 
   const dueDate = t.due_date ? t.due_date.slice(0, 10) : ''
   const dueTime = t.due_date && t.due_date.length >= 16 ? t.due_date.slice(11, 16) : undefined
+  const assignees = (t.assignees || (t.assignee ? [t.assignee] : [])).map(mapAssignee)
+  const primary = assignees.find((member) => member.roleKey === 'primary') || assignees[0]
 
   return {
     id: String(t.id),
@@ -98,6 +101,9 @@ export function mapTask(t: BackendTask, projectId = 'all'): Task {
     category,
     dueDate,
     dueTime,
+    assignees,
+    assignee: primary,
+    assigneeUserIds: assignees.map((member) => member.id),
     subtasks: [],
     progress: t.completion_rate ?? (t.status === 2 ? 100 : t.status === 1 ? 50 : 0),
     tag: t.tags?.[0]?.name,
@@ -132,6 +138,17 @@ export function mapMember(m: BackendMember): TeamMember {
     id: String(m.user_id),
     name: m.display_name || m.nickname || m.username || `用户${m.user_id}`,
     role: m.role || '成员',
+    avatar: m.avatar_url || '',
+    email: undefined,
+  }
+}
+
+export function mapAssignee(m: BackendAssignee): TeamMember {
+  return {
+    id: String(m.user_id),
+    name: m.display_name || m.nickname || m.username || `鐢ㄦ埛${m.user_id}`,
+    role: m.role_key === 'primary' ? 'Primary' : 'Collaborator',
+    roleKey: m.role_key || 'collaborator',
     avatar: m.avatar_url || '',
     email: undefined,
   }

@@ -83,6 +83,17 @@ class ReminderResponse(BaseModel):
 
 # ===== 任务模型 =====
 
+class TaskAssigneeResponse(BaseModel):
+    """A task assignee with stable display metadata for clients."""
+
+    user_id: int
+    role_key: str
+    display_name: str
+    nickname: Optional[str] = None
+    username: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+
 class TaskCreate(BaseModel):
     """创建任务"""
     title: str
@@ -106,6 +117,7 @@ class TaskCreate(BaseModel):
     source_url: Optional[str] = None
     source_message_id: Optional[str] = None
     source_meta: Optional[dict] = None
+    assignee_user_ids: List[int] = Field(default_factory=list)
 
     @field_validator("origin")
     @classmethod
@@ -162,6 +174,7 @@ class TaskUpdate(BaseModel):
     source_url: Optional[str] = None
     source_message_id: Optional[str] = None
     source_meta: Optional[dict] = None
+    assignee_user_ids: Optional[List[int]] = None
 
     @field_validator("origin")
     @classmethod
@@ -220,6 +233,8 @@ class TaskResponse(BaseModel):
     source_url: Optional[str] = None
     source_message_id: Optional[str] = None
     source_meta: Optional[dict] = None
+    assignees: List[TaskAssigneeResponse] = Field(default_factory=list)
+    assignee: Optional[TaskAssigneeResponse] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

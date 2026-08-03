@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Task, Status, Priority, Language } from '../../types';
+import { Task, Status, Priority, Language, TeamMember } from '../../types';
 import { getT } from '../../i18n';
 
 interface TaskDetailDrawerProps {
@@ -7,6 +7,8 @@ interface TaskDetailDrawerProps {
   onClose: () => void;
   onUpdateTask: (updatedTask: Task) => void;
   onDeleteTask: (taskId: string) => void;
+  members?: TeamMember[];
+  currentUserId?: string;
   lang: Language;
 }
 
@@ -15,6 +17,8 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   onClose,
   onUpdateTask,
   onDeleteTask,
+  members = [],
+  currentUserId,
   lang,
 }) => {
   const t = getT(lang);
@@ -25,6 +29,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   const [priority, setPriority] = useState<Priority>('Medium');
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const [linkedNodeId, setLinkedNodeId] = useState('');
+  const [assigneeUserIds, setAssigneeUserIds] = useState<string[]>([]);
 
   useEffect(() => {
     if (task) {
@@ -33,6 +38,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
       setStatus(task.status);
       setPriority(task.priority);
       setLinkedNodeId(task.linkedNodeId || '');
+      setAssigneeUserIds((task.assignees || (task.assignee ? [task.assignee] : [])).map((member) => member.id));
     }
   }, [task]);
 
@@ -68,6 +74,20 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   const handlePriorityChange = (newPriority: Priority) => {
     setPriority(newPriority);
     onUpdateTask({ ...task, priority: newPriority });
+  };
+
+  const handleAssigneeChange = (userId: string, checked: boolean) => {
+    const nextIds = checked
+      ? [...assigneeUserIds, userId]
+      : assigneeUserIds.filter((id) => id !== userId);
+    setAssigneeUserIds(nextIds);
+    const selected = nextIds.map((id) => members.find((member) => member.id === id) || task.assignees?.find((member) => member.id === id)).filter(Boolean) as TeamMember[];
+    onUpdateTask({
+      ...task,
+      assigneeUserIds: nextIds,
+      assignees: selected,
+      assignee: selected[0],
+    });
   };
 
   const isDone = status === 'Done';
@@ -186,6 +206,26 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                   <span className="text-on-surface-variant italic">{lang === 'zh' ? '未指派' : 'Unassigned'}</span>
                 )}
               </div>
+
+              {members.length > 0 && (
+                <div className="rounded-xl bg-surface-container-low dark:bg-[#2e3132] p-3 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold uppercase text-on-surface-variant">{lang === 'zh' ? '项目成员' : 'Project members'}</span>
+                    <button type="button" className="text-[11px] text-primary" onClick={() => {
+                      setAssigneeUserIds([]);
+                      onUpdateTask({ ...task, assigneeUserIds: [], assignees: [], assignee: undefined });
+                    }}>{lang === 'zh' ? '清空' : 'Clear'}</button>
+                  </div>
+                  {members.map((member) => (
+                    <label key={member.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                      <input type="checkbox" checked={assigneeUserIds.includes(member.id)} onChange={(event) => handleAssigneeChange(member.id, event.target.checked)} className="accent-primary" />
+                      {member.avatar ? <img src={member.avatar} alt="" className="w-5 h-5 rounded-full object-cover" /> : <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] flex items-center justify-center">{member.name.slice(0, 1)}</span>}
+                      <span className="truncate">{member.name}</span>
+                      {member.id === currentUserId && <span className="text-[10px] text-on-surface-variant">{lang === 'zh' ? '我' : 'me'}</span>}
+                    </label>
+                  ))}
+                </div>
+              )}
 
               <div className="flex justify-between items-center text-xs">
                 <span className="text-on-surface-variant font-medium">{t.dueDate}</span>

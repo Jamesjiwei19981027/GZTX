@@ -212,6 +212,11 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                   colTasks.map((task) => {
                     const completedSub = task.subtasks.filter((st) => st.completed).length;
                     const totalSub = task.subtasks.length;
+                    const taskAssignees = task.assignees?.length
+                      ? task.assignees
+                      : task.assignee
+                        ? [task.assignee]
+                        : [];
 
                     return (
                       <div
@@ -312,13 +317,17 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                             {col.id === 'Done' && relativeCompletedAt(task.completedAt, lang) && <span className="text-[10px] text-secondary">{relativeCompletedAt(task.completedAt, lang)}</span>}
                           </div>
 
-                          {task.assignee ? (
-                            <img
-                              src={task.assignee.avatar}
-                              alt={task.assignee.name}
-                              title={task.assignee.name}
-                              className="w-6 h-6 rounded-full object-cover border border-outline-variant"
-                            />
+                          {taskAssignees.length > 0 ? (
+                            <div className="flex items-center -space-x-2" title={taskAssignees.map((member) => member.name).join(', ')}>
+                              {taskAssignees.slice(0, 3).map((member) => (
+                                member.avatar ? (
+                                  <img key={member.id} src={member.avatar} alt={member.name} className="w-6 h-6 rounded-full object-cover border-2 border-surface dark:border-[#2e3132]" />
+                                ) : (
+                                  <span key={member.id} className="w-6 h-6 rounded-full border-2 border-surface dark:border-[#2e3132] bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">{member.name.slice(0, 1)}</span>
+                                )
+                              ))}
+                              {taskAssignees.length > 3 && <span className="w-6 h-6 rounded-full border-2 border-surface dark:border-[#2e3132] bg-surface-container text-[10px] font-bold flex items-center justify-center">+{taskAssignees.length - 3}</span>}
+                            </div>
                           ) : (
                             <span className="material-symbols-outlined text-base text-on-surface-variant/60">
                               account_circle

@@ -5,6 +5,7 @@ from app.models.user import User
 from app.models.category import Category
 from app.models.tag import Tag, task_tags
 from app.models.task import Task
+from app.models.task_assignment import TaskAssignment
 from app.models.reminder import Reminder
 from app.models.attachment import Attachment
 from app.models.email_reply_record import EmailReplyRecord
@@ -48,6 +49,7 @@ __all__ = [
     "Tag",
     "task_tags",
     "Task",
+    "TaskAssignment",
     "Reminder",
     "Attachment",
     "EmailReplyRecord",

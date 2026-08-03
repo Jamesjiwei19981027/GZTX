@@ -72,6 +72,13 @@ class Task(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    assignees = relationship(
+        "TaskAssignment",
+        back_populates="task",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="TaskAssignment.id",
+    )
 
     # 优先级枚举
     PRIORITY_LOW = 0

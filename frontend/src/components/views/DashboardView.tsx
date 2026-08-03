@@ -309,13 +309,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                     </div>
                     
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      {task.assignee && (
-                        <img
-                          src={task.assignee.avatar}
-                          alt={task.assignee.name}
-                          className="w-7 h-7 rounded-full object-cover border border-outline-variant hidden sm:block"
-                        />
-                      )}
+                      {(task.assignees?.length ? task.assignees : task.assignee ? [task.assignee] : []).slice(0, 3).map((member) => (
+                        member.avatar ? <img key={member.id} src={member.avatar} alt={member.name} title={member.name} className="w-7 h-7 rounded-full object-cover border border-outline-variant hidden sm:block" /> : <span key={member.id} title={member.name} className="w-7 h-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center border border-outline-variant hidden sm:flex">{member.name.slice(0, 1)}</span>
+                      ))}
+                      {(task.assignees?.length || 0) > 3 && <span className="text-[10px] font-bold text-on-surface-variant">+{(task.assignees?.length || 0) - 3}</span>}
                       <button className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-surface dark:hover:bg-[#191c1d] rounded-full text-on-surface-variant transition-all">
                         <span className="material-symbols-outlined text-lg">chevron_right</span>
                       </button>

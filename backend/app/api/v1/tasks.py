@@ -14,11 +14,13 @@ from sqlalchemy.orm import selectinload
 from app.core.dependencies import CurrentUser, DbSession, VerifiedUser
 from app.core.collab_errors import fail
 from app.models.task import Task
+from app.models.task_assignment import TaskAssignment
 from app.models.category import Category
 from app.models.tag import Tag, task_tags
 from app.models.reminder import Reminder
 from app.models.project import Project, ProjectMember
 from app.models.company import CompanyMembership
+from app.models.user import User
 from app.models.tree import TreeNode
 from app.schemas.task import (
     TaskCreate,
@@ -79,6 +81,154 @@ async def _validate_collab_scope(
         if not node or node.is_deleted or node.project_id != project_id:
             raise HTTPException(status_code=422, detail="项目事项与项目不匹配")
     return project.company_id
+
+
+def _dedupe_user_ids(user_ids: List[int] | None) -> List[int]:
+    """Keep assignment order stable while making repeated IDs idempotent."""
+    seen: set[int] = set()
+    result: List[int] = []
+    for raw_id in user_ids or []:
+        user_id = int(raw_id)
+        if user_id not in seen:
+            seen.add(user_id)
+            result.append(user_id)
+    return result
+
+
+async def _validate_task_assignees(
+    db: DbSession,
+    *,
+    owner_user_id: int,
+    origin: str,
+    company_id: int | None,
+    project_id: int | None,
+    requested_user_ids: List[int] | None,
+) -> List[tuple[int, str]]:
+    """Validate and normalize task assignees before touching the database."""
+    user_ids = _dedupe_user_ids(requested_user_ids)
+
+    # Personal tasks are intentionally single-owner.  An empty request still
+    # means the creator, so clients cannot accidentally orphan a personal task.
+    if origin != "project_link" or project_id is None:
+        if not user_ids:
+            user_ids = [owner_user_id]
+        if user_ids != [owner_user_id]:
+            raise HTTPException(status_code=403, detail="涓汉浠诲姟涓嶅厑璁告寚娲惧叾浠栫敤鎴?")
+        return [(owner_user_id, "primary")]
+
+    if not user_ids:
+        return []
+
+    project = await db.get(Project, project_id)
+    if not project:
+        raise HTTPException(status_code=404, detail="椤圭洰涓嶅瓨鍦?")
+    effective_company_id = company_id if company_id is not None else project.company_id
+    if effective_company_id != project.company_id:
+        raise HTTPException(status_code=422, detail="鍏徃涓庨」鐩笉鍖归厤")
+
+    valid_result = await db.execute(
+        select(ProjectMember.user_id)
+        .join(
+            CompanyMembership,
+            and_(
+                CompanyMembership.user_id == ProjectMember.user_id,
+                CompanyMembership.company_id == project.company_id,
+            ),
+        )
+        .join(User, User.id == ProjectMember.user_id)
+        .where(
+            ProjectMember.project_id == project.id,
+            ProjectMember.user_id.in_(user_ids),
+            ProjectMember.left_at.is_(None),
+            CompanyMembership.status == "active",
+            CompanyMembership.employment_status == "active",
+            User.is_active.is_(True),
+        )
+    )
+    valid_ids = set(valid_result.scalars().all())
+    if valid_ids != set(user_ids):
+        raise HTTPException(status_code=403, detail="鍙兘鎸囨淳缁欐湁鏁堢殑椤圭洰鎴愬憳")
+    return [
+        (user_id, "primary" if index == 0 else "collaborator")
+        for index, user_id in enumerate(user_ids)
+    ]
+
+
+async def _replace_task_assignees(
+    db: DbSession,
+    task: Task,
+    assignments: List[tuple[int, str]],
+) -> None:
+    existing = await db.execute(
+        select(TaskAssignment).where(TaskAssignment.task_id == task.id)
+    )
+    for row in existing.scalars().all():
+        await db.delete(row)
+    await db.flush()
+    for user_id, role_key in assignments:
+        db.add(
+            TaskAssignment(
+                task_id=task.id,
+                user_id=user_id,
+                role_key=role_key,
+            )
+        )
+    await db.flush()
+
+
+def _task_assignee_dict(row: TaskAssignment) -> dict:
+    user = row.user
+    display_name = (
+        (user.nickname if user else None)
+        or (user.username if user else None)
+        or f"鐢ㄦ埛{row.user_id}"
+    )
+    return {
+        "user_id": row.user_id,
+        "role_key": row.role_key,
+        "display_name": display_name,
+        "nickname": user.nickname if user else None,
+        "username": user.username if user else None,
+        "avatar_url": user.avatar_url if user else None,
+    }
+
+
+def _serialize_task(task: Task) -> dict:
+    # The ORM relation is named ``assignees`` too, but its rows carry a
+    # nested User object rather than the flattened response contract.  Strip
+    # that relation before Pydantic validation and add the flattened form
+    # below.
+    raw = dict(getattr(task, "__dict__", {}))
+    raw.pop("_sa_instance_state", None)
+    raw.pop("assignees", None)
+    raw.pop("assignee", None)
+    task_dict = TaskResponse.model_validate(raw).model_dump()
+    rows = list(getattr(task, "assignees", None) or [])
+    assignees = [_task_assignee_dict(row) for row in rows]
+    # Migration backfills old personal tasks; this fallback also keeps an
+    # in-memory legacy row useful in development databases before migration.
+    if not assignees and getattr(task, "origin", "personal") == "personal":
+        owner = getattr(task, "user", None)
+        assignees = [
+            {
+                "user_id": task.user_id,
+                "role_key": "primary",
+                "display_name": (owner.nickname if owner else None)
+                or (owner.username if owner else None)
+                or f"鐢ㄦ埛{task.user_id}",
+                "nickname": owner.nickname if owner else None,
+                "username": owner.username if owner else None,
+                "avatar_url": owner.avatar_url if owner else None,
+            }
+        ]
+    task_dict["assignees"] = assignees
+    task_dict["assignee"] = next(
+        (item for item in assignees if item["role_key"] == "primary"),
+        assignees[0] if assignees else None,
+    )
+    task_dict["priority_label"] = task.priority_label
+    task_dict["status_label"] = task.status_label
+    return task_dict
 
 
 @router.get("", response_model=ResponseData)
@@ -154,6 +304,7 @@ async def get_tasks(
         selectinload(Task.category),
         selectinload(Task.tags),
         selectinload(Task.reminders),
+        selectinload(Task.assignees).selectinload(TaskAssignment.user),
     )
 
     result = await db.execute(query)
@@ -162,10 +313,7 @@ async def get_tasks(
     # 构建响应
     task_responses = []
     for t in tasks:
-        task_dict = TaskResponse.model_validate(t).model_dump()
-        task_dict["priority_label"] = t.priority_label
-        task_dict["status_label"] = t.status_label
-        task_responses.append(task_dict)
+        task_responses.append(_serialize_task(t))
 
     total_pages = (total + page_size - 1) // page_size
 
@@ -202,6 +350,7 @@ async def get_today_tasks(
             selectinload(Task.category),
             selectinload(Task.tags),
             selectinload(Task.reminders),
+            selectinload(Task.assignees).selectinload(TaskAssignment.user),
         )
         .order_by(Task.priority.desc(), Task.due_date.asc())
     )
@@ -211,10 +360,7 @@ async def get_today_tasks(
 
     task_responses = []
     for t in tasks:
-        task_dict = TaskResponse.model_validate(t).model_dump()
-        task_dict["priority_label"] = t.priority_label
-        task_dict["status_label"] = t.status_label
-        task_responses.append(task_dict)
+        task_responses.append(_serialize_task(t))
 
     return ResponseData(data=task_responses)
 
@@ -445,6 +591,7 @@ async def get_task(task_id: int, db: DbSession, user: CurrentUser):
             selectinload(Task.category),
             selectinload(Task.tags),
             selectinload(Task.reminders),
+            selectinload(Task.assignees).selectinload(TaskAssignment.user),
         )
     )
     result = await db.execute(query)
@@ -453,11 +600,7 @@ async def get_task(task_id: int, db: DbSession, user: CurrentUser):
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
-    task_dict = TaskResponse.model_validate(task).model_dump()
-    task_dict["priority_label"] = task.priority_label
-    task_dict["status_label"] = task.status_label
-
-    return ResponseData(data=task_dict)
+    return ResponseData(data=_serialize_task(task))
 
 
 @router.post("", response_model=ResponseData, status_code=status.HTTP_201_CREATED)
@@ -526,8 +669,18 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
     if data.origin == "personal" and project_id is not None:
         raise HTTPException(status_code=422, detail="绑定项目的任务来源必须为 project_link")
 
+    assignment_specs = await _validate_task_assignees(
+        db,
+        owner_user_id=user.id,
+        origin=data.origin,
+        company_id=company_id,
+        project_id=project_id,
+        requested_user_ids=data.assignee_user_ids,
+    )
+
     task = Task(
         user_id=user.id,
+        user=user,
         category_id=category_id,
         title=data.title,
         description=data.description,
@@ -550,6 +703,7 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
     )
     db.add(task)
     await db.flush()
+    await _replace_task_assignees(db, task, assignment_specs)
 
     # 添加标签
     if data.tag_ids:
@@ -581,13 +735,9 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
     await db.flush()
 
     # 重新加载关联数据
-    await db.refresh(task, ["category", "tags", "reminders"])
+    await db.refresh(task, ["category", "tags", "reminders", "assignees"])
 
-    task_dict = TaskResponse.model_validate(task).model_dump()
-    task_dict["priority_label"] = task.priority_label
-    task_dict["status_label"] = task.status_label
-
-    return ResponseData(data=task_dict)
+    return ResponseData(data=_serialize_task(task))
 
 
 @router.put("/{task_id}", response_model=ResponseData)
@@ -602,11 +752,18 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
         raise HTTPException(status_code=404, detail="任务不存在")
 
     update_data = data.model_dump(exclude_unset=True)
+    requested_assignee_ids = update_data.pop("assignee_user_ids", None)
+    assignees_should_change = requested_assignee_ids is not None
 
     effective_project_id = update_data.get("project_id", task.project_id)
     effective_node_id = update_data.get("project_node_id", task.project_node_id)
     effective_company_id = update_data.get("company_id", task.company_id)
-    if "project_id" in update_data or "project_node_id" in update_data or "company_id" in update_data:
+    if (
+        "project_id" in update_data
+        or "project_node_id" in update_data
+        or "company_id" in update_data
+        or "origin" in update_data
+    ):
         effective_company_id = await _validate_collab_scope(
             db,
             user.id,
@@ -622,6 +779,24 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
         raise HTTPException(status_code=422, detail="项目来源任务必须绑定项目")
     if effective_origin == "personal" and effective_project_id is not None:
         raise HTTPException(status_code=422, detail="绑定项目的任务来源必须为 project_link")
+
+    if (
+        "project_id" in update_data
+        or "project_node_id" in update_data
+        or "company_id" in update_data
+        or "origin" in update_data
+    ):
+        assignees_should_change = True
+    assignment_specs = None
+    if assignees_should_change:
+        assignment_specs = await _validate_task_assignees(
+            db,
+            owner_user_id=task.user_id,
+            origin=effective_origin,
+            company_id=effective_company_id,
+            project_id=effective_project_id,
+            requested_user_ids=requested_assignee_ids,
+        )
 
     if "category_id" in update_data:
         category_id = update_data["category_id"]
@@ -698,14 +873,12 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
         setattr(task, key, value)
 
     await db.flush()
+    if assignment_specs is not None:
+        await _replace_task_assignees(db, task, assignment_specs)
     await db.refresh(task)  # 刷新所有列属性（包括 updated_at 等 onupdate 生成的值）
-    await db.refresh(task, ["category", "tags", "reminders"])
+    await db.refresh(task, ["category", "tags", "reminders", "assignees"])
 
-    task_dict = TaskResponse.model_validate(task).model_dump()
-    task_dict["priority_label"] = task.priority_label
-    task_dict["status_label"] = task.status_label
-
-    return ResponseData(data=task_dict)
+    return ResponseData(data=_serialize_task(task))
 
 
 @router.patch("/{task_id}/complete", response_model=ResponseData)
@@ -760,13 +933,9 @@ async def complete_task(task_id: int, data: TaskComplete, db: DbSession, user: C
 
     await db.flush()
     await db.refresh(task)  # 刷新所有列属性（包括 updated_at 等 onupdate 生成的值）
-    await db.refresh(task, ["category", "tags", "reminders"])
+    await db.refresh(task, ["category", "tags", "reminders", "assignees"])
 
-    task_dict = TaskResponse.model_validate(task).model_dump()
-    task_dict["priority_label"] = task.priority_label
-    task_dict["status_label"] = task.status_label
-
-    return ResponseData(data=task_dict)
+    return ResponseData(data=_serialize_task(task))
 
 
 @router.patch("/{task_id}/uncomplete", response_model=ResponseData)

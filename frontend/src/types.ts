@@ -15,6 +15,7 @@ export interface TeamMember {
   id: string;
   name: string;
   role: string;
+  roleKey?: 'primary' | 'collaborator' | string;
   avatar: string;
   status?: 'online' | 'busy' | 'offline';
   department?: string;
@@ -63,6 +64,8 @@ export interface Task {
   dueDate: string;
   dueTime?: string;
   assignee?: TeamMember;
+  assignees?: TeamMember[];
+  assigneeUserIds?: string[];
   subtasks: Subtask[];
   progress?: number; // 0 to 100 for in progress tasks
   tag?: string;
