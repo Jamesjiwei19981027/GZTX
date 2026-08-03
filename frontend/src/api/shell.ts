@@ -1,5 +1,21 @@
 /** Remix 壳层 API：消息 / 通知 / 活动 / 报表趋势 / 偏好 / 在线状态 */
-import { apiRequest } from './client'
+import { apiRequest, getApiBase, getToken } from './client'
+
+export type CollabFile = {
+  id: number
+  company_id: number
+  owner_user_id: number
+  scope_type: 'channel' | 'conversation'
+  scope_id: number
+  message_id?: number | null
+  storage_key?: string
+  original_name: string
+  mime_type?: string
+  size_bytes: number
+  sha256?: string
+  download_url: string
+  created_at?: string | null
+}
 
 export async function listChannels(companyId: number, projectId?: number) {
   const q = projectId ? `?project_id=${projectId}` : ''
@@ -19,23 +35,23 @@ export async function listChannelMessages(channelId: number) {
       body: string
       likes: number
       message_type?: 'user' | 'system'
-      attachments?: { name?: string; url?: string; mime_type?: string; size?: number }[]
+       attachments?: { file_id?: number; name?: string; original_name?: string; url?: string; download_url?: string; mime_type?: string; size?: number; size_bytes?: number }[]
       created_at?: string
     }[]
   }>(`/channels/${channelId}/messages?page_size=100`)
 }
 
-export async function postChannelMessage(channelId: number, body: string) {
+export async function postChannelMessage(channelId: number, body: string, fileIds: number[] = []) {
   return apiRequest(`/channels/${channelId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, file_ids: fileIds }),
   })
 }
 
-export async function postChannelMessageWithAttachments(channelId: number, body: string, attachments: Record<string, unknown>[] = []) {
+export async function postChannelMessageWithAttachments(channelId: number, body: string, attachments: Record<string, unknown>[] = [], fileIds: number[] = []) {
   return apiRequest(`/channels/${channelId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ body, attachments }),
+    body: JSON.stringify({ body, attachments, file_ids: fileIds }),
   })
 }
 
@@ -220,15 +236,40 @@ export async function listDirectMessages(conversationId: number) {
   return apiRequest<{ items: { id: number; conversation_id: number; user_id: number; sender_name: string; sender_avatar?: string; body: string; message_type?: string; attachments?: Record<string, unknown>[]; created_at?: string }[] }>(`/conversations/${conversationId}/messages?page_size=100`)
 }
 
-export async function postDirectMessage(conversationId: number, body: string, attachments: Record<string, unknown>[] = []) {
+export async function postDirectMessage(conversationId: number, body: string, attachments: Record<string, unknown>[] = [], fileIds: number[] = []) {
   return apiRequest(`/conversations/${conversationId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ body, attachments }),
+    body: JSON.stringify({ body, attachments, file_ids: fileIds }),
   })
 }
 
+export async function uploadChannelFile(channelId: number, file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest<CollabFile>(`/channels/${channelId}/files`, { method: 'POST', body })
+}
+
+export async function uploadConversationFile(conversationId: number, file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest<CollabFile>(`/conversations/${conversationId}/files`, { method: 'POST', body })
+}
+
 export async function listChannelFiles(channelId: number) {
-  return apiRequest<{ items: { name?: string; url?: string; original_name?: string; mime_type?: string; message_id: number; created_at?: string }[] }>(`/channels/${channelId}/files`)
+  return apiRequest<{ items: CollabFile[] }>(`/channels/${channelId}/files`)
+}
+
+export async function listConversationFiles(conversationId: number) {
+  return apiRequest<{ items: CollabFile[] }>(`/conversations/${conversationId}/files`)
+}
+
+export async function downloadCollabFile(fileId: number) {
+  const headers = new Headers()
+  const token = getToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  const response = await fetch(`${getApiBase()}/collab/files/${fileId}/download`, { headers })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return response.blob()
 }
 
 export async function listPinnedLinks(channelId: number) {

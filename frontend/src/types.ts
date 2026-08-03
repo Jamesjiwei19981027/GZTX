@@ -32,6 +32,17 @@ export interface MessageItem {
   channel: 'general' | 'project' | 'direct';
   likes?: number;
   repliesCount?: number;
+  attachments?: MessageAttachment[];
+}
+
+export interface MessageAttachment {
+  fileId?: number;
+  originalName?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  downloadUrl?: string;
+  url?: string;
+  name?: string;
 }
 
 export interface IntegrationItem {

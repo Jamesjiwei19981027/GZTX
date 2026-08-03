@@ -1,20 +1,26 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { MessageItem, Language, UserProfile, TeamMember, Task } from '../../types';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { MessageItem, Language, UserProfile, TeamMember, Task, MessageAttachment } from '../../types';
 import {
   likeChannelMessage,
   listChannelMessages,
   listChannels,
   listPresence,
   postChannelMessage,
+  postChannelMessageWithAttachments,
   listDirectConversations,
   createDirectConversation,
   listDirectMessages,
   postDirectMessage,
+  uploadChannelFile,
+  uploadConversationFile,
+  downloadCollabFile,
   listChannelFiles,
+  listConversationFiles,
   listPinnedLinks,
   createPinnedLink,
+  listUserActivity,
 } from '../../api/shell';
-import type { DirectConversation } from '../../api/shell';
+import type { CollabFile, DirectConversation } from '../../api/shell';
 
 interface MessagesViewProps {
   user: UserProfile;
@@ -46,15 +52,34 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const [conversations, setConversations] = useState<DirectConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
   const [rightTab, setRightTab] = useState<'files' | 'tasks' | 'about'>('tasks');
-  const [files, setFiles] = useState<{ name?: string; original_name?: string; url?: string; message_id: number }[]>([]);
+  const [files, setFiles] = useState<CollabFile[]>([]);
   const [pinnedLinks, setPinnedLinks] = useState<{ id: number; title: string; url: string }[]>([]);
   const [attachmentUrl, setAttachmentUrl] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [activityItems, setActivityItems] = useState<{ id: number; type: string; title: string; created_at?: string }[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const channels = [
     { id: 'general' as const, labelZh: '# 全员交流大厅', labelEn: '# general', icon: 'tag' },
     { id: 'project' as const, labelZh: '# 项目冲刺组', labelEn: '# project', icon: 'tag' },
     { id: 'direct' as const, labelZh: '@ 私信与提及', labelEn: '@ direct', icon: 'alternate_email' },
   ];
+
+  const mapAttachments = (items?: unknown[]): MessageAttachment[] =>
+    (items || []).map((raw) => {
+      const item = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+      return {
+      fileId: typeof item.file_id === 'number' ? item.file_id : undefined,
+      originalName: String(item.original_name || item.name || 'shared file'),
+      name: String(item.name || item.original_name || 'shared file'),
+      mimeType: typeof item.mime_type === 'string' ? item.mime_type : undefined,
+      sizeBytes: typeof item.size_bytes === 'number' ? item.size_bytes : typeof item.size === 'number' ? item.size : undefined,
+      downloadUrl: typeof item.download_url === 'string' ? item.download_url : undefined,
+      url: typeof item.url === 'string' ? item.url : undefined,
+      };
+    });
 
   const load = useCallback(async () => {
     if (!companyId) {
@@ -78,7 +103,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         setActiveConversationId(conversationId);
         if (!conversationId) { setMessages([]); return; }
         const msgRes = await listDirectMessages(conversationId);
-        setMessages((msgRes.items || []).map((m) => ({ id: String(m.id), senderName: m.sender_name, senderAvatar: m.sender_avatar || user.avatar, content: m.body, timestamp: m.created_at ? m.created_at.slice(5, 16).replace('T', ' ') : 'Just now', channel: 'direct', likes: 0, repliesCount: 0 })));
+         setMessages((msgRes.items || []).map((m) => ({ id: String(m.id), senderName: m.sender_name, senderAvatar: m.sender_avatar || user.avatar, content: m.body, timestamp: m.created_at ? m.created_at.slice(5, 16).replace('T', ' ') : 'Just now', channel: 'direct', likes: 0, repliesCount: 0, attachments: mapAttachments(m.attachments) })));
         return;
       }
       const chId = map[activeChannel];
@@ -100,7 +125,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
               : 'Just now',
           channel: activeChannel,
           likes: m.likes || 0,
-          repliesCount: 0,
+           repliesCount: 0,
+           attachments: mapAttachments(m.attachments),
         })),
       );
     } catch (e) {
@@ -127,12 +153,28 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 
   useEffect(() => {
     const channelId = channelMap[activeChannel];
-    if (!channelId || activeChannel === 'direct') return;
+    if (activeChannel === 'direct') {
+      if (!activeConversationId) {
+        setFiles([]);
+        return;
+      }
+      void listConversationFiles(activeConversationId).then((res) => setFiles(res.items || [])).catch(() => setFiles([]));
+      setPinnedLinks([]);
+      return;
+    }
+    if (!channelId) return;
     void Promise.all([listChannelFiles(channelId), listPinnedLinks(channelId)]).then(([fileRes, linkRes]) => {
       setFiles(fileRes.items || []);
       setPinnedLinks(linkRes.items || []);
     }).catch(() => undefined);
-  }, [channelMap, activeChannel]);
+  }, [channelMap, activeChannel, activeConversationId]);
+
+  useEffect(() => {
+    if (rightTab !== 'about' || !companyId) return;
+    void listUserActivity(30)
+      .then((res) => setActivityItems(res.items || []))
+      .catch(() => setActivityItems([]));
+  }, [rightTab, companyId]);
 
   const filteredMessages = messages.filter((msg) => {
     if (!companyId && msg.channel !== activeChannel) return false;
@@ -143,7 +185,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && selectedFiles.length === 0 && !attachmentUrl.trim()) return;
     const text = inputText.trim();
     setInputText('');
 
@@ -152,24 +194,37 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       return;
     }
 
+    setUploadingFiles(true);
     try {
       const attachments = attachmentUrl.trim() ? [{ url: attachmentUrl.trim(), name: attachmentUrl.trim().split('/').pop() || 'link' }] : [];
       if (activeChannel === 'direct') {
-        if (!activeConversationId) {
+        let conversationId = activeConversationId;
+        if (!conversationId) {
           const other = members.find((member) => member.id !== user.id)?.id;
           if (!other) throw new Error(lang === 'zh' ? '暂无可用私信对象' : 'No direct-message recipient');
           const conversation = await createDirectConversation(companyId, { member_user_ids: [Number(other)] });
+          conversationId = conversation.id;
           setActiveConversationId(conversation.id);
-          await postDirectMessage(conversation.id, text, attachments);
+          const fileIds = await Promise.all(selectedFiles.map((file) => uploadConversationFile(conversation.id, file).then((item) => item.id)));
+          await postDirectMessage(conversation.id, text, attachments, fileIds);
         } else {
-          await postDirectMessage(activeConversationId, text, attachments);
+          const fileIds = await Promise.all(selectedFiles.map((file) => uploadConversationFile(conversationId as number, file).then((item) => item.id)));
+          await postDirectMessage(conversationId as number, text, attachments, fileIds);
         }
       } else {
-        await postChannelMessage(channelMap[activeChannel], text);
+        const channelId = channelMap[activeChannel];
+        const fileIds = await Promise.all(selectedFiles.map((file) => uploadChannelFile(channelId, file).then((item) => item.id)));
+        if (attachments.length || fileIds.length) await postChannelMessageWithAttachments(channelId, text, attachments, fileIds);
+        else await postChannelMessage(channelId, text);
       }
       setAttachmentUrl('');
+      setSelectedFiles([]);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      setShowEmojiPicker(false);
       await load();
+      setUploadingFiles(false);
     } catch (err) {
+      setUploadingFiles(false);
       setError(err instanceof Error ? err.message : '发送失败');
     }
   };
@@ -187,6 +242,41 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     } catch (err) {
       setError(err instanceof Error ? err.message : '点赞失败');
     }
+  };
+
+  const handleDownload = async (attachment: MessageAttachment | CollabFile) => {
+    try {
+      let fileId: number | undefined;
+      let filename = 'shared-file';
+      let externalUrl: string | undefined;
+      if ('originalName' in attachment) {
+        fileId = attachment.fileId;
+        filename = attachment.originalName || attachment.name || filename;
+        externalUrl = attachment.url;
+      } else {
+        const collabFile = attachment as CollabFile;
+        fileId = collabFile.id;
+        filename = collabFile.original_name;
+      }
+      if (!fileId) {
+        if (externalUrl) window.open(externalUrl, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      const blob = await downloadCollabFile(fileId);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'file download failed');
+    }
+  };
+
+  const appendEmoji = (emoji: string) => {
+    setInputText((value) => `${value}${emoji}`);
+    setShowEmojiPicker(false);
   };
 
   return (
@@ -279,8 +369,19 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                     <span className="text-sm font-bold text-on-surface">{msg.senderName}</span>
                     <span className="text-[10px] text-on-surface-variant">{msg.timestamp}</span>
                   </div>
-                  <p className="text-sm text-on-surface mt-1 whitespace-pre-wrap">{msg.content}</p>
-                  <button
+                   <p className="text-sm text-on-surface mt-1 whitespace-pre-wrap">{msg.content}</p>
+                   {msg.attachments?.length ? (
+                     <div className="mt-2 space-y-1.5">
+                       {msg.attachments.map((attachment, index) => (
+                         <button key={`${attachment.fileId || attachment.url || attachment.name}-${index}`} type="button" onClick={() => void handleDownload(attachment)} className="flex items-center gap-2 max-w-full px-2.5 py-2 rounded-lg bg-surface-container text-left hover:bg-primary/10">
+                           <span className="material-symbols-outlined text-primary text-base">description</span>
+                           <span className="text-xs font-semibold truncate">{attachment.originalName || attachment.name || 'shared file'}</span>
+                           {attachment.sizeBytes ? <span className="text-[10px] text-on-surface-variant">{Math.ceil(attachment.sizeBytes / 1024)} KB</span> : null}
+                         </button>
+                       ))}
+                     </div>
+                   ) : null}
+                   <button
                     type="button"
                     onClick={() => void handleLike(msg.id)}
                     className="mt-2 text-xs font-semibold text-on-surface-variant hover:text-primary cursor-pointer"
@@ -296,14 +397,22 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder={lang === 'zh' ? '输入消息…' : 'Type a message…'}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-surface-container border border-outline-variant/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
+               className="flex-1 px-4 py-2.5 rounded-xl bg-surface-container border border-outline-variant/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+             />
+             <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(event) => setSelectedFiles(Array.from(event.target.files || []))} />
+             <div className="relative">
+               <button type="button" onClick={() => setShowEmojiPicker((value) => !value)} className="px-2.5 py-2 rounded-xl border border-outline-variant text-on-surface-variant" title={lang === 'zh' ? '表情' : 'Emoji'}>😊</button>
+               {showEmojiPicker && <div className="absolute bottom-12 right-0 z-20 p-2 rounded-xl bg-surface border border-outline-variant shadow-lg flex gap-1">{['😀', '👍', '🎉', '✅', '🙏', '🔥'].map((emoji) => <button key={emoji} type="button" onClick={() => appendEmoji(emoji)} className="p-1.5 hover:bg-surface-container rounded">{emoji}</button>)}</div>}
+             </div>
+             <button type="button" onClick={() => fileInputRef.current?.click()} className="px-2.5 py-2 rounded-xl border border-outline-variant text-on-surface-variant" title={lang === 'zh' ? '上传文件' : 'Upload file'}><span className="material-symbols-outlined text-base">attach_file</span></button>
             <input value={attachmentUrl} onChange={(e) => setAttachmentUrl(e.target.value)} placeholder={lang === 'zh' ? '附件链接（可选）' : 'Attachment URL'} className="hidden xl:block w-36 px-2 py-2 rounded-xl bg-surface-container border border-outline-variant/40 text-[11px]" />
             <button type="button" onClick={() => setAttachmentUrl(window.prompt(lang === 'zh' ? '输入附件 URL' : 'Attachment URL') || '')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-on-surface-variant" title={lang === 'zh' ? '添加附件' : 'Attach'}><span className="material-symbols-outlined text-base">attach_file</span></button>
-            <button
-              type="submit"
-              className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold cursor-pointer"
-            >
+             {selectedFiles.length > 0 && <span className="absolute -mt-10 ml-2 max-w-[220px] truncate text-[10px] text-on-surface-variant">{selectedFiles.map((file) => file.name).join(', ')}</span>}
+             <button
+               type="submit"
+               disabled={uploadingFiles || (!inputText.trim() && selectedFiles.length === 0 && !attachmentUrl.trim())}
+               className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold cursor-pointer disabled:opacity-50"
+             >
               {lang === 'zh' ? '发送' : 'Send'}
             </button>
           </form>
@@ -325,7 +434,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
           </div>
           <div className="pt-4 border-t border-outline-variant/30">
             <div className="flex gap-1 mb-3">{(['files', 'tasks', 'about'] as const).map((tab) => <button key={tab} type="button" onClick={() => setRightTab(tab)} className={`px-2 py-1 rounded-lg text-[11px] font-bold ${rightTab === tab ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>{tab === 'files' ? (lang === 'zh' ? '文件' : 'Files') : tab === 'tasks' ? (lang === 'zh' ? '任务' : 'Tasks') : (lang === 'zh' ? '关于' : 'About')}</button>)}</div>
-            {rightTab === 'files' && <div className="space-y-2">{files.length ? files.map((file, index) => <a key={`${file.message_id}-${index}`} href={file.url || '#'} target="_blank" rel="noreferrer" className="block p-2 rounded-lg bg-surface-container text-xs text-primary truncate">{file.name || file.original_name || 'shared file'}</a>) : <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无最近分享文件' : 'No shared files yet'}</p>}{pinnedLinks.map((link) => <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="block p-2 rounded-lg bg-primary/5 text-xs text-primary truncate">📌 {link.title}</a>)}{channelMap[activeChannel] && <button type="button" onClick={() => { const title = window.prompt(lang === 'zh' ? '链接标题' : 'Link title'); const url = window.prompt(lang === 'zh' ? '链接 URL' : 'Link URL'); if (title && url) void createPinnedLink(channelMap[activeChannel], { title, url }).then((link) => setPinnedLinks((prev) => [link, ...prev])); }} className="text-[11px] font-bold text-primary">+ {lang === 'zh' ? '固定链接' : 'Pin link'}</button>}</div>}
+            {rightTab === 'files' && <div className="space-y-2">{files.length ? files.map((file, index) => <button key={`${file.message_id || file.id}-${index}`} type="button" onClick={() => void handleDownload(file)} className="w-full text-left block p-2 rounded-lg bg-surface-container text-xs text-primary truncate">{file.original_name || 'shared file'}</button>) : <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无最近分享文件' : 'No shared files yet'}</p>}{pinnedLinks.map((link) => <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="block p-2 rounded-lg bg-primary/5 text-xs text-primary truncate">📌 {link.title}</a>)}{channelMap[activeChannel] && <button type="button" onClick={() => { const title = window.prompt(lang === 'zh' ? '链接标题' : 'Link title'); const url = window.prompt(lang === 'zh' ? '链接 URL' : 'Link URL'); if (title && url) void createPinnedLink(channelMap[activeChannel], { title, url }).then((link) => setPinnedLinks((prev) => [link, ...prev])); }} className="text-[11px] font-bold text-primary">+ {lang === 'zh' ? '固定链接' : 'Pin link'}</button>}</div>}
             {rightTab === 'tasks' && <>
             <h2 className="text-sm font-bold text-on-surface">{lang === 'zh' ? '项目任务' : 'Project tasks'}</h2>
             <div className="space-y-2 mt-3">
@@ -338,7 +447,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
               {!tasks.length && <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无关联任务' : 'No linked tasks'}</p>}
             </div>
             </>}
-            {rightTab === 'about' && <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '这是 WorkTodo 协作消息。频道消息、私信和通知附件均来自后端持久化数据。' : 'WorkTodo collaboration messages are persisted by the backend.'}</p>}
+            {rightTab === 'about' && <div className="space-y-2">{activityItems.length ? activityItems.slice(0, 8).map((item) => <div key={item.id} className="relative pl-4 py-2 rounded-lg bg-surface-container text-xs"><span className="absolute left-1.5 top-3 w-1.5 h-1.5 rounded-full bg-primary" /><p className="font-semibold text-on-surface">{item.title || item.type}</p><p className="text-[10px] text-on-surface-variant mt-1">{item.created_at ? item.created_at.slice(5, 16).replace('T', ' ') : ''}</p></div>) : <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无活动记录' : 'No activity yet'}</p>}</div>}
           </div>
         </aside>
       </div>

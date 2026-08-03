@@ -2,15 +2,23 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import hashlib
+import mimetypes
+import os
+import uuid
+from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Query
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, File, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.collab_errors import CollabError, fail
 from app.core.dependencies import CurrentUser, DbSession
+from app.core.config import settings
+from app.models.collab_file import CollabFile
 from app.models.audit import AuditLog
 from app.models.category import Category
 from app.models.company import CompanyMembership
@@ -44,10 +52,17 @@ class ChannelCreate(BaseModel):
 
 
 class MessageCreate(BaseModel):
-    body: str = Field(..., min_length=1, max_length=4000)
+    body: str = Field(default="", max_length=4000)
     parent_id: Optional[int] = None
     message_type: str = "user"
     attachments: list[dict] = Field(default_factory=list)
+    file_ids: list[int] = Field(default_factory=list, max_length=20)
+
+    @model_validator(mode="after")
+    def body_or_file(self):
+        if not self.body.strip() and not self.file_ids and not self.attachments:
+            raise ValueError("message body or attachment is required")
+        return self
 
 
 class ConversationCreate(BaseModel):
@@ -77,6 +92,30 @@ class UiPrefsBody(BaseModel):
 
 class PresenceBody(BaseModel):
     status: str = "online"  # online|busy|offline
+
+
+MAX_COLLAB_FILE_SIZE = 20 * 1024 * 1024
+ALLOWED_COLLAB_EXTENSIONS = {
+    ".7z",
+    ".csv",
+    ".doc",
+    ".docx",
+    ".gif",
+    ".jpeg",
+    ".jpg",
+    ".json",
+    ".md",
+    ".pdf",
+    ".png",
+    ".ppt",
+    ".pptx",
+    ".rar",
+    ".txt",
+    ".webp",
+    ".xls",
+    ".xlsx",
+    ".zip",
+}
 
 
 async def _require_company_member(db, user_id: int, company_id: int):
@@ -139,6 +178,117 @@ async def _ensure_default_channels(db, company_id: int, project_id: int | None):
             await db.flush()
         out.append(ch)
     return out
+
+
+def _collab_file_dto(file: CollabFile) -> dict:
+    return {
+        "id": file.id,
+        "company_id": file.company_id,
+        "owner_user_id": file.owner_user_id,
+        "scope_type": file.scope_type,
+        "scope_id": file.scope_id,
+        "message_id": file.message_id,
+        "storage_key": file.storage_key,
+        "original_name": file.original_name,
+        "mime_type": file.mime_type,
+        "size_bytes": file.size_bytes,
+        "sha256": file.sha256,
+        "download_url": f"/api/v1/collab/files/{file.id}/download",
+        "created_at": file.created_at.isoformat() if file.created_at else None,
+    }
+
+
+def _collab_file_path(storage_key: str) -> Path:
+    root = Path(settings.UPLOAD_DIR).resolve()
+    path = (root / storage_key).resolve()
+    if root not in path.parents:
+        raise HTTPException(status_code=404, detail="file not found")
+    return path
+
+
+async def _store_collab_file(
+    db: DbSession,
+    *,
+    file: UploadFile,
+    company_id: int,
+    owner_user_id: int,
+    scope_type: str,
+    scope_id: int,
+) -> CollabFile:
+    filename = Path(file.filename or "").name
+    if not filename:
+        raise HTTPException(status_code=400, detail="file name is required")
+    extension = Path(filename).suffix.lower()
+    if extension not in ALLOWED_COLLAB_EXTENSIONS:
+        raise HTTPException(status_code=415, detail="unsupported collaboration file type")
+    content = await file.read(MAX_COLLAB_FILE_SIZE + 1)
+    if not content:
+        raise HTTPException(status_code=400, detail="file is empty")
+    if len(content) > MAX_COLLAB_FILE_SIZE:
+        raise HTTPException(status_code=413, detail="collaboration file exceeds 20 MiB")
+
+    safe_name = filename[:255]
+    storage_key = f"collab/{company_id}/{owner_user_id}/{uuid.uuid4().hex}{extension}"
+    path = _collab_file_path(storage_key)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(content)
+    row = CollabFile(
+        company_id=company_id,
+        owner_user_id=owner_user_id,
+        scope_type=scope_type,
+        scope_id=scope_id,
+        storage_key=storage_key,
+        original_name=safe_name,
+        mime_type=file.content_type or mimetypes.guess_type(safe_name)[0] or "application/octet-stream",
+        size_bytes=len(content),
+        sha256=hashlib.sha256(content).hexdigest(),
+    )
+    db.add(row)
+    await db.flush()
+    return row
+
+
+async def _bind_collab_files(
+    db: DbSession,
+    *,
+    file_ids: list[int],
+    owner_user_id: int,
+    scope_type: str,
+    scope_id: int,
+    message_id: int,
+) -> list[dict]:
+    ids = list(dict.fromkeys(file_ids))
+    if not ids:
+        return []
+    rows = (
+        await db.execute(
+            select(CollabFile).where(
+                CollabFile.id.in_(ids),
+                CollabFile.owner_user_id == owner_user_id,
+                CollabFile.scope_type == scope_type,
+                CollabFile.scope_id == scope_id,
+                CollabFile.message_id.is_(None),
+            )
+        )
+    ).scalars().all()
+    if {row.id for row in rows} != set(ids):
+        raise HTTPException(status_code=422, detail="invalid or already bound collaboration file")
+    by_id = {row.id: row for row in rows}
+    metadata = []
+    for file_id in ids:
+        row = by_id[file_id]
+        row.message_id = message_id
+        metadata.append(
+            {
+                "file_id": row.id,
+                "original_name": row.original_name,
+                "mime_type": row.mime_type,
+                "size_bytes": row.size_bytes,
+                "download_url": f"/api/v1/collab/files/{row.id}/download",
+            }
+        )
+    await db.flush()
+    return metadata
 
 
 def _msg_dto(m: TeamChannelMessage, u: User | None) -> dict:
@@ -207,6 +357,33 @@ async def create_channel(
     )
 
 
+@router.post("/channels/{channel_id}/files", response_model=ResponseData, status_code=201)
+async def upload_channel_file(
+    channel_id: int,
+    db: DbSession,
+    user: CurrentUser,
+    file: UploadFile = File(...),
+):
+    channel = await db.get(TeamChannel, channel_id)
+    if not channel:
+        return fail(404, 40400, "channel not found")
+    try:
+        await _require_channel_scope(db, user.id, channel.company_id, channel.project_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    row = await _store_collab_file(
+        db,
+        file=file,
+        company_id=channel.company_id,
+        owner_user_id=user.id,
+        scope_type="channel",
+        scope_id=channel.id,
+    )
+    await db.commit()
+    await db.refresh(row)
+    return ResponseData(data=_collab_file_dto(row))
+
+
 @router.get("/channels/{channel_id}/messages", response_model=ResponseData)
 async def list_messages(
     channel_id: int,
@@ -258,6 +435,16 @@ async def post_message(
         attachments_json=[dict(item) for item in body.attachments[:20] if isinstance(item, dict)],
     )
     db.add(m)
+    await db.flush()
+    file_metadata = await _bind_collab_files(
+        db,
+        file_ids=body.file_ids,
+        owner_user_id=user.id,
+        scope_type="channel",
+        scope_id=channel_id,
+        message_id=m.id,
+    )
+    m.attachments_json = [*list(m.attachments_json or []), *file_metadata]
     await db.commit()
     await db.refresh(m)
     u = await db.get(User, user.id)
@@ -428,6 +615,30 @@ async def create_direct_conversation(
     return ResponseData(data={"id": conversation.id, "member_user_ids": member_ids, "kind": conversation.kind})
 
 
+@router.post("/conversations/{conversation_id}/files", response_model=ResponseData, status_code=201)
+async def upload_conversation_file(
+    conversation_id: int,
+    db: DbSession,
+    user: CurrentUser,
+    file: UploadFile = File(...),
+):
+    try:
+        conversation = await _require_direct_member(db, user.id, conversation_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    row = await _store_collab_file(
+        db,
+        file=file,
+        company_id=conversation.company_id,
+        owner_user_id=user.id,
+        scope_type="conversation",
+        scope_id=conversation.id,
+    )
+    await db.commit()
+    await db.refresh(row)
+    return ResponseData(data=_collab_file_dto(row))
+
+
 def _direct_msg_dto(message: DirectMessage, sender: User | None) -> dict:
     return {
         "id": message.id,
@@ -483,6 +694,16 @@ async def post_direct_message(
         attachments_json=[dict(item) for item in body.attachments[:20] if isinstance(item, dict)],
     )
     db.add(message)
+    await db.flush()
+    file_metadata = await _bind_collab_files(
+        db,
+        file_ids=body.file_ids,
+        owner_user_id=user.id,
+        scope_type="conversation",
+        scope_id=conversation_id,
+        message_id=message.id,
+    )
+    message.attachments_json = [*list(message.attachments_json or []), *file_metadata]
     await db.commit()
     await db.refresh(message)
     return ResponseData(data=_direct_msg_dto(message, user))
@@ -504,12 +725,63 @@ async def list_channel_files(channel_id: int, db: DbSession, user: CurrentUser):
             .order_by(TeamChannelMessage.id.desc())
         )
     ).scalars().all()
-    files = []
+    binary_rows = (
+        await db.execute(
+            select(CollabFile)
+            .where(CollabFile.scope_type == "channel", CollabFile.scope_id == channel_id)
+            .order_by(CollabFile.id.desc())
+            .limit(100)
+        )
+    ).scalars().all()
+    files = [_collab_file_dto(row) for row in binary_rows]
+    binary_ids = {row.id for row in binary_rows}
     for message in rows:
         for item in list(message.attachments_json or []):
             if isinstance(item, dict):
+                if item.get("file_id") in binary_ids:
+                    continue
                 files.append({**item, "message_id": message.id, "created_at": message.created_at.isoformat() if message.created_at else None})
     return ResponseData(data={"items": files[:100]})
+
+
+@router.get("/conversations/{conversation_id}/files", response_model=ResponseData)
+async def list_conversation_files(conversation_id: int, db: DbSession, user: CurrentUser):
+    try:
+        await _require_direct_member(db, user.id, conversation_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    rows = (
+        await db.execute(
+            select(CollabFile)
+            .where(CollabFile.scope_type == "conversation", CollabFile.scope_id == conversation_id)
+            .order_by(CollabFile.id.desc())
+            .limit(100)
+        )
+    ).scalars().all()
+    return ResponseData(data={"items": [_collab_file_dto(row) for row in rows]})
+
+
+@router.get("/collab/files/{file_id}/download")
+async def download_collab_file(file_id: int, db: DbSession, user: CurrentUser):
+    row = await db.get(CollabFile, file_id)
+    if not row:
+        return fail(404, 40400, "file not found")
+    try:
+        if row.scope_type == "channel":
+            channel = await db.get(TeamChannel, row.scope_id)
+            if not channel or channel.company_id != row.company_id:
+                return fail(404, 40400, "channel not found")
+            await _require_channel_scope(db, user.id, channel.company_id, channel.project_id)
+        elif row.scope_type == "conversation":
+            await _require_direct_member(db, user.id, row.scope_id)
+        else:
+            return fail(404, 40400, "file scope not found")
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    path = _collab_file_path(row.storage_key)
+    if not path.exists():
+        return fail(404, 40400, "file content not found")
+    return FileResponse(path=path, filename=row.original_name, media_type=row.mime_type)
 
 
 @router.get("/channels/{channel_id}/pinned-links", response_model=ResponseData)
