@@ -1,7 +1,7 @@
 """公司/用户 ASR · Storage · Model 绑定 API"""
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
@@ -34,6 +34,11 @@ class UserAsrBody(BaseModel):
 
 class CollabReplyBody(BaseModel):
     text: str = Field(..., min_length=1, max_length=4000)
+
+
+class CollabStateBody(BaseModel):
+    read: bool | None = None
+    archived: bool | None = None
 
 
 def _summary_storage(b: StorageBinding | None) -> dict:
@@ -296,22 +301,24 @@ async def list_collab_notifications(
     user: CurrentUser,
     page: int = 1,
     page_size: int = 20,
+    state: str = Query("active", pattern="^(active|archived|all)$"),
 ):
     from sqlalchemy import func
     from app.models.notify import CollabInboxMessage
 
     page = max(1, page)
     page_size = min(100, max(1, page_size))
-    total_q = await db.execute(
-        select(func.count())
-        .select_from(CollabInboxMessage)
-        .where(CollabInboxMessage.user_id == user.id)
-    )
+    filters = [CollabInboxMessage.user_id == user.id, CollabInboxMessage.deleted_at.is_(None)]
+    if state == "active":
+        filters.append(CollabInboxMessage.archived_at.is_(None))
+    elif state == "archived":
+        filters.append(CollabInboxMessage.archived_at.is_not(None))
+    total_q = await db.execute(select(func.count()).select_from(CollabInboxMessage).where(*filters))
     total = int(total_q.scalar() or 0)
     q = await db.execute(
         select(CollabInboxMessage, User)
         .outerjoin(User, User.id == CollabInboxMessage.sender_user_id)
-        .where(CollabInboxMessage.user_id == user.id)
+        .where(*filters)
         .order_by(CollabInboxMessage.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
@@ -337,6 +344,9 @@ async def list_collab_notifications(
                 "requires_reply": bool(m.requires_reply),
                 "reply_text": m.reply_text,
                 "replied_at": m.replied_at.isoformat() if m.replied_at else None,
+                "archived": m.archived_at is not None,
+                "archived_at": m.archived_at.isoformat() if m.archived_at else None,
+                "deleted": m.deleted_at is not None,
                 "created_at": m.created_at.isoformat() if m.created_at else None,
             }
         )
@@ -359,7 +369,7 @@ async def mark_collab_notification_read(
     from app.models.notify import CollabInboxMessage
 
     m = await db.get(CollabInboxMessage, message_id)
-    if not m or m.user_id != user.id:
+    if not m or m.user_id != user.id or m.deleted_at is not None:
         from app.core.collab_errors import fail
 
         return fail(404, 40400, "通知不存在")
@@ -379,6 +389,7 @@ async def mark_all_collab_notifications_read(
         select(CollabInboxMessage).where(
             CollabInboxMessage.user_id == user.id,
             CollabInboxMessage.is_read.is_(False),
+            CollabInboxMessage.deleted_at.is_(None),
         )
     )
     rows = q.scalars().all()
@@ -386,6 +397,47 @@ async def mark_all_collab_notifications_read(
         m.is_read = True
     await db.commit()
     return ResponseData(data={"updated": len(rows)})
+
+
+@router.put("/notifications/collab/{message_id}/state", response_model=ResponseData)
+async def update_collab_notification_state(
+    message_id: int,
+    body: CollabStateBody,
+    db: DbSession,
+    user: CurrentUser,
+):
+    from app.models.notify import CollabInboxMessage
+    message = await db.get(CollabInboxMessage, message_id)
+    if not message or message.user_id != user.id or message.deleted_at is not None:
+        from app.core.collab_errors import fail
+        return fail(404, 40400, "通知不存在")
+    if body.read is not None:
+        message.is_read = body.read
+    if body.archived is not None:
+        message.archived_at = datetime.now(timezone.utc) if body.archived else None
+    await db.commit()
+    return ResponseData(data={
+        "id": message.id,
+        "read": bool(message.is_read),
+        "archived": message.archived_at is not None,
+        "archived_at": message.archived_at.isoformat() if message.archived_at else None,
+    })
+
+
+@router.delete("/notifications/collab/{message_id}", response_model=ResponseData)
+async def delete_collab_notification(
+    message_id: int,
+    db: DbSession,
+    user: CurrentUser,
+):
+    from app.models.notify import CollabInboxMessage
+    message = await db.get(CollabInboxMessage, message_id)
+    if not message or message.user_id != user.id or message.deleted_at is not None:
+        from app.core.collab_errors import fail
+        return fail(404, 40400, "通知不存在")
+    message.deleted_at = datetime.now(timezone.utc)
+    await db.commit()
+    return ResponseData(data={"id": message.id, "deleted": True})
 
 
 @router.post("/notifications/collab/{message_id}/reply", response_model=ResponseData)
@@ -398,7 +450,7 @@ async def reply_collab_notification(
     from app.models.notify import CollabInboxMessage
 
     message = await db.get(CollabInboxMessage, message_id)
-    if not message or message.user_id != user.id:
+    if not message or message.user_id != user.id or message.deleted_at is not None:
         from app.core.collab_errors import fail
 
         return fail(404, 40400, "通知不存在")

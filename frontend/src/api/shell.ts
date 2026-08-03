@@ -46,7 +46,7 @@ export async function likeChannelMessage(messageId: number) {
   )
 }
 
-export async function listCollabNotifications(page = 1) {
+export async function listCollabNotifications(page = 1, state: 'active' | 'archived' | 'all' = 'active') {
   return apiRequest<{
     items: {
       id: number
@@ -60,10 +60,13 @@ export async function listCollabNotifications(page = 1) {
       requires_reply?: boolean
       reply_text?: string | null
       replied_at?: string | null
+      archived?: boolean
+      archived_at?: string | null
+      deleted?: boolean
       created_at?: string
     }[]
     total: number
-  }>(`/notifications/collab?page=${page}&page_size=50`)
+  }>(`/notifications/collab?page=${page}&page_size=50&state=${state}`)
 }
 
 export async function markNotificationRead(id: number) {
@@ -78,6 +81,17 @@ export async function markAllNotificationsRead() {
     method: 'PUT',
     body: '{}',
   })
+}
+
+export async function updateNotificationState(id: number, body: { read?: boolean; archived?: boolean }) {
+  return apiRequest<{ id: number; read: boolean; archived: boolean; archived_at?: string | null }>(`/notifications/collab/${id}/state`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function deleteNotification(id: number) {
+  return apiRequest<{ id: number; deleted: boolean }>(`/notifications/collab/${id}`, { method: 'DELETE' })
 }
 
 export async function replyCollabNotification(id: number, text: string) {

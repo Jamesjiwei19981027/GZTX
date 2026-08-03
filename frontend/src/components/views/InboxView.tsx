@@ -5,6 +5,8 @@ import {
   listIntegrations,
   markAllNotificationsRead,
   markNotificationRead,
+  updateNotificationState,
+  deleteNotification,
   replyCollabNotification,
   triggerOrgSync,
 } from '../../api/shell';
@@ -30,6 +32,7 @@ type InboxRow = {
   recipients: number[];
   attachments: { name?: string; original_name?: string; url?: string; download_url?: string; mime_type?: string; size?: number; file_size?: number }[];
   replyText?: string | null;
+  archived: boolean;
 };
 
 const PROVIDER_META: Record<string, { name: string; icon: string; category: IntegrationItem['category']; description: string }> = {
@@ -80,6 +83,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const [inboxItems, setInboxItems] = useState<InboxRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread' | 'needs_reply'>('all');
+  const [state, setState] = useState<'active' | 'archived' | 'all'>('active');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
@@ -90,7 +94,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
     void (async () => {
       try {
         const [notif, integ] = await Promise.all([
-          listCollabNotifications(1),
+          listCollabNotifications(1, state),
           companyId
             ? listIntegrations(companyId).catch(() => ({ items: [] }))
             : Promise.resolve({ items: [] }),
@@ -114,7 +118,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
              recipients: n.recipient_user_ids || [],
              attachments: n.attachments || [],
              replyText: n.reply_text,
-          })),
+             archived: Boolean(n.archived),
+           })),
         );
         setIntegrations(
           (integ.items || []).map((it) => {
@@ -143,7 +148,43 @@ export const InboxView: React.FC<InboxViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [companyId]);
+  }, [companyId, state]);
+
+  const reloadNotifications = async () => {
+    const notif = await listCollabNotifications(1, state);
+    setInboxItems((notif.items || []).map((n) => ({
+      id: String(n.id), source: n.template_key || 'collab', icon: 'inbox',
+      sender: String(n.sender?.name || (n.payload as { actor?: string })?.actor || '系统'),
+      senderName: String(n.sender?.name || (n.payload as { actor?: string })?.actor || '系统'),
+      subject: (n.body_text || n.template_key || '通知').slice(0, 80),
+      snippet: n.body_text || JSON.stringify(n.payload || {}),
+      timestamp: n.created_at ? n.created_at.slice(5, 16).replace('T', ' ') : '—',
+      tag: n.read ? 'Read' : 'New', read: n.read,
+      needsReply: Boolean((n.payload as { needs_reply?: boolean })?.needs_reply) || String(n.template_key).includes('reply'),
+      recipients: n.recipient_user_ids || [], attachments: n.attachments || [], replyText: n.reply_text,
+      archived: Boolean(n.archived),
+    })));
+  };
+
+  const changeState = async (item: InboxRow, patch: { read?: boolean; archived?: boolean }) => {
+    try {
+      await updateNotificationState(Number(item.id), patch);
+      await reloadNotifications();
+      if (selectedId === item.id && patch.archived) setSelectedId(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : (lang === 'zh' ? '通知状态更新失败' : 'Unable to update notification'));
+    }
+  };
+
+  const handleDelete = async (item: InboxRow) => {
+    try {
+      await deleteNotification(Number(item.id));
+      await reloadNotifications();
+      if (selectedId === item.id) setSelectedId(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : (lang === 'zh' ? '删除通知失败' : 'Unable to delete notification'));
+    }
+  };
 
   const handleSyncNow = async () => {
     if (!companyId) return;
@@ -232,6 +273,11 @@ export const InboxView: React.FC<InboxViewProps> = ({
             <button type="button" onClick={() => void markAllNotificationsRead().then(() => setInboxItems((prev) => prev.map((item) => ({ ...item, read: true, tag: 'Read' }))))} className="px-3 py-1.5 rounded-lg text-xs font-bold text-primary bg-primary/10">
               {lang === 'zh' ? '全部已读' : 'Mark all read'}
             </button>
+            <select value={state} onChange={(e) => setState(e.target.value as typeof state)} className="px-2 py-1.5 rounded-lg text-xs font-bold bg-surface-container border border-outline-variant">
+              <option value="active">{lang === 'zh' ? '当前' : 'Active'}</option>
+              <option value="archived">{lang === 'zh' ? '已归档' : 'Archived'}</option>
+              <option value="all">{lang === 'zh' ? '全部状态' : 'All states'}</option>
+            </select>
           </div>
           <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={lang === 'zh' ? '搜索通知…' : 'Search notifications…'} className="md:col-span-2 px-3 py-2 rounded-xl border border-outline-variant bg-surface text-xs" />
           {filteredItems.length === 0 && (
@@ -260,6 +306,11 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 >
                   {lang === 'zh' ? '转为任务' : 'Convert to task'}
                 </button>
+                <div className="mt-2 flex gap-2">
+                  <button type="button" onClick={(event) => { event.stopPropagation(); void changeState(item, { read: !item.read }); }} className="text-[11px] font-bold text-on-surface-variant hover:text-primary">{item.read ? (lang === 'zh' ? '标未读' : 'Mark unread') : (lang === 'zh' ? '标已读' : 'Mark read')}</button>
+                  <button type="button" onClick={(event) => { event.stopPropagation(); void changeState(item, { archived: !item.archived }); }} className="text-[11px] font-bold text-on-surface-variant hover:text-primary">{item.archived ? (lang === 'zh' ? '恢复' : 'Restore') : (lang === 'zh' ? '归档' : 'Archive')}</button>
+                  <button type="button" onClick={(event) => { event.stopPropagation(); void handleDelete(item); }} className="text-[11px] font-bold text-error hover:underline">{lang === 'zh' ? '删除' : 'Delete'}</button>
+                </div>
               </div>
             </div>
           ))}
@@ -278,6 +329,11 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 <button type="button" onClick={() => handleConvertToTask(selectedItem)} className="mt-4 px-3 py-2 rounded-lg bg-primary text-on-primary text-xs font-bold">
                   {lang === 'zh' ? '转为任务' : 'Convert to task'}
                 </button>
+                <div className="mt-3 flex gap-2">
+                  <button type="button" onClick={() => void changeState(selectedItem, { read: !selectedItem.read })} className="px-3 py-1.5 rounded-lg border border-outline-variant text-xs font-bold">{selectedItem.read ? (lang === 'zh' ? '标未读' : 'Mark unread') : (lang === 'zh' ? '标已读' : 'Mark read')}</button>
+                  <button type="button" onClick={() => void changeState(selectedItem, { archived: !selectedItem.archived })} className="px-3 py-1.5 rounded-lg border border-outline-variant text-xs font-bold">{selectedItem.archived ? (lang === 'zh' ? '恢复' : 'Restore') : (lang === 'zh' ? '归档' : 'Archive')}</button>
+                  <button type="button" onClick={() => void handleDelete(selectedItem)} className="px-3 py-1.5 rounded-lg border border-error/40 text-error text-xs font-bold">{lang === 'zh' ? '删除' : 'Delete'}</button>
+                </div>
               </>
             ) : <p className="text-sm text-on-surface-variant">{lang === 'zh' ? '选择一条通知查看详情' : 'Select a notification to read it'}</p>}
           </div>

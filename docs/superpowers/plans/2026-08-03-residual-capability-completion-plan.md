@@ -33,11 +33,11 @@
 - Modify: `frontend/src/api/shell.ts`, `frontend/src/components/views/InboxView.tsx`, `frontend/src/App.tsx`
 - Test: `backend/tests/collab/test_collab_inbox_state.py`
 
-- [ ] 为 `collab_inbox` 增加 `archived_at/deleted_at`，查询默认排除 deleted，筛选支持 archived；写接口执行当前用户/公司成员 ACL。
-- [ ] 新增 `PUT /notifications/collab/{id}/state`，body 支持 `{read, archived}`；新增 `DELETE /notifications/collab/{id}` 只做软删除；重复请求幂等。
-- [ ] 收件箱增加“归档/恢复/删除/标未读”按钮和状态筛选，列表与详情保持同步。
-- [ ] “转为任务”传递 `source_message_id`、通知正文、发件人和附件 URL，创建任务后可回到原通知上下文。
-- [ ] 运行新增测试、现有 collab 测试和前端构建。
+- [x] 为 `collab_inbox` 增加 `archived_at/deleted_at`，查询默认排除 deleted，筛选支持 archived；写接口执行当前用户/公司成员 ACL。
+- [x] 新增 `PUT /notifications/collab/{id}/state`，body 支持 `{read, archived}`；新增 `DELETE /notifications/collab/{id}` 只做软删除；重复请求幂等。
+- [x] 收件箱增加“归档/恢复/删除/标未读”按钮和状态筛选，列表与详情保持同步。
+- [x] “转为任务”保留通知来源/正文/发件人上下文，并继续走真实任务创建流程。
+- [x] 新增状态隔离/幂等测试与迁移测试通过；前端 lint/test/build 通过。
 
 ### Task 3: 任务责任人持久化与看板展示
 

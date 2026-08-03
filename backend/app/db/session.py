@@ -152,6 +152,8 @@ async def init_db():
                 "ALTER TABLE collab_inbox ADD COLUMN requires_reply BOOLEAN DEFAULT 0",
                 "ALTER TABLE collab_inbox ADD COLUMN reply_text TEXT",
                 "ALTER TABLE collab_inbox ADD COLUMN replied_at DATETIME",
+                "ALTER TABLE collab_inbox ADD COLUMN archived_at DATETIME",
+                "ALTER TABLE collab_inbox ADD COLUMN deleted_at DATETIME",
             ):
                 try:
                     await conn.execute(text(col_sql))
