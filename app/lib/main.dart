@@ -4,6 +4,7 @@ import 'config/brand.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
+import 'config/api_config.dart';
 import 'screens/agent_chat_screen.dart';
 import 'screens/company_settings_screen.dart';
 import 'screens/login_screen.dart';
@@ -12,6 +13,7 @@ import 'screens/register_screen.dart';
 import 'screens/shell_screen.dart';
 import 'screens/task_detail_screen.dart';
 import 'screens/verify_screen.dart';
+import 'screens/web_shell_screen.dart';
 import 'state/app_state.dart';
 
 void main() {
@@ -184,6 +186,11 @@ class _RootGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 正式替换：默认加载与 Web 同源的新 UI；旧原生壳用 --dart-define=USE_WEB_SHELL=false
+    if (ApiConfig.useWebShell) {
+      return const WebShellScreen();
+    }
+
     final status = context.watch<AppState>().status;
     switch (status) {
       case AuthStatus.unknown:

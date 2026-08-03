@@ -416,6 +416,9 @@ async def _node_dto(db, node: TreeNode, with_children: bool = False) -> dict:
         "allow_clear_text_progress": node.allow_clear_text_progress,
         "progress_json": node.progress_json,
         "assignees": assignees,
+        "ui_offset": (node.progress_json or {}).get("ui_offset")
+        if isinstance(node.progress_json, dict)
+        else None,
     }
     return d
 

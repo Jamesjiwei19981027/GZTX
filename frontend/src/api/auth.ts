@@ -1,84 +1,140 @@
-import request from './request'
-import type {
-  LoginRequest,
-  RegisterRequest,
-  AuthResponse,
-  RefreshResponse,
-  SendCodeResult,
-  User,
-  VerificationStatus,
-} from '@/types'
+import { apiRequest, setRefreshToken, setToken } from './client'
 
-// 账号密码登录
-export function login(data: LoginRequest) {
-  return request.post<AuthResponse>('/auth/login', data)
+export type BackendUser = {
+  id: number
+  username?: string
+  nickname?: string
+  email?: string
+  phone?: string
+  avatar_url?: string
+  email_verified?: boolean
+  phone_verified?: boolean
+  is_verified?: boolean
 }
 
-// 注册（响应可能含 company_join）
-export function register(data: RegisterRequest) {
-  return request.post<AuthResponse>('/auth/register', data)
+export type AuthTokenPayload = {
+  access_token: string
+  refresh_token?: string
+  user?: BackendUser
+  company_join?: {
+    joined?: boolean
+    company_id?: number | null
+    company_slug?: string | null
+    reason?: string
+  }
 }
 
-// 注册前发送验证码（匿名）
-export function sendRegisterCode(channel: 'email' | 'sms', target: string) {
-  return request.post<SendCodeResult>('/auth/send-code', { channel, target })
+export type SendCodeResult = {
+  ok?: boolean
+  debug_code?: string
+  cooldown_seconds?: number
 }
 
-// 登录验证码（目标必须已注册）
-export function sendLoginCode(channel: 'email' | 'sms', target: string) {
-  return request.post<SendCodeResult>('/auth/send-code', { channel, target, purpose: 'login' })
+export type VerificationStatus = {
+  email?: string | null
+  phone?: string | null
+  email_verified: boolean
+  phone_verified: boolean
+  is_verified: boolean
 }
 
-// 验证码登录
-export function loginWithCode(channel: 'email' | 'sms', target: string, code: string) {
-  return request.post<AuthResponse>('/auth/login-code', { channel, target, code })
+function rememberTokens(data: AuthTokenPayload) {
+  setToken(data.access_token)
+  if (data.refresh_token) setRefreshToken(data.refresh_token)
+  return data
 }
 
-// 登录后双验证状态
-export function getVerificationStatus() {
-  return request.get<VerificationStatus>('/users/me/verification')
+export async function loginPassword(username: string, password: string) {
+  const data = await apiRequest<AuthTokenPayload>('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  })
+  return rememberTokens(data)
 }
 
-// 登录后补验/换绑：发码
-export function sendBindCode(channel: 'email' | 'sms', target: string) {
-  return request.post<SendCodeResult>('/users/me/verification/send-code', { channel, target })
+export async function loginWithCode(
+  channel: 'email' | 'sms',
+  target: string,
+  code: string,
+) {
+  const data = await apiRequest<AuthTokenPayload>('/auth/login-code', {
+    method: 'POST',
+    body: JSON.stringify({ channel, target, code }),
+  })
+  return rememberTokens(data)
 }
 
-// 登录后补验/换绑：确认
-export function confirmBindCode(channel: 'email' | 'sms', target: string, code: string) {
-  return request.post<VerificationStatus>('/users/me/verification/confirm', {
-    channel,
-    target,
-    code,
+export async function register(body: {
+  username: string
+  password: string
+  email?: string
+  phone?: string
+  email_code?: string
+  phone_code?: string
+  nickname?: string
+}) {
+  const data = await apiRequest<AuthTokenPayload>('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  return rememberTokens(data)
+}
+
+export async function sendRegisterCode(channel: 'email' | 'sms', target: string) {
+  return apiRequest<SendCodeResult>('/auth/send-code', {
+    method: 'POST',
+    body: JSON.stringify({ channel, target, purpose: 'register' }),
   })
 }
 
-// 刷新 Token
-export function refreshToken(refresh_token: string) {
-  return request.post<RefreshResponse>('/auth/refresh', { refresh_token })
+export async function sendLoginCode(channel: 'email' | 'sms', target: string) {
+  return apiRequest<SendCodeResult>('/auth/send-code', {
+    method: 'POST',
+    body: JSON.stringify({ channel, target, purpose: 'login' }),
+  })
 }
 
-// 登出
-export function logout() {
-  return request.post('/auth/logout')
+export async function getVerificationStatus() {
+  return apiRequest<VerificationStatus>('/users/me/verification')
 }
 
-// 获取当前用户信息
-export function getCurrentUser() {
-  return request.get<User>('/users/me')
+export async function sendBindCode(channel: 'email' | 'sms', target: string) {
+  return apiRequest<SendCodeResult>('/users/me/verification/send-code', {
+    method: 'POST',
+    body: JSON.stringify({ channel, target }),
+  })
 }
 
-// 更新用户信息
-export function updateUser(data: Partial<User>) {
-  return request.put<User>('/users/me', data)
+export async function confirmBindCode(
+  channel: 'email' | 'sms',
+  target: string,
+  code: string,
+) {
+  return apiRequest<VerificationStatus>('/users/me/verification/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ channel, target, code }),
+  })
 }
 
-// 修改密码
-export function changePassword(data: { old_password: string; new_password: string }) {
-  return request.put('/users/me/password', data)
+export async function fetchMe() {
+  return apiRequest<BackendUser>('/users/me')
 }
 
-// 绑定微信
-export function bindWechat(code: string) {
-  return request.post('/users/me/bind-wx', { code })
+export async function logout() {
+  try {
+    await apiRequest('/auth/logout', { method: 'POST', body: '{}' })
+  } catch {
+    /* ignore */
+  }
+  setToken(null)
+  setRefreshToken(null)
+}
+
+/** 根据输入自动识别邮箱 / 短信通道 */
+export function detectChannel(target: string): 'email' | 'sms' | null {
+  const t = target.trim()
+  if (!t) return null
+  if (t.includes('@')) return 'email'
+  if (/^\+?\d{6,20}$/.test(t.replace(/[\s-]/g, ''))) return 'sms'
+  return null
 }

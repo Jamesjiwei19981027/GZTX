@@ -1,0 +1,8 @@
+{
+  "name": "Remix Flow - Productivity \u0026 Task Management",
+  "description": "A bilingual (English/Chinese) task management and workspace productivity application featuring Kanban boards, Calendar schedules, and interactive activity tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

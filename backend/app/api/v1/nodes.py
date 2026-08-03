@@ -43,6 +43,9 @@ async def _node_dto(db, node: TreeNode) -> dict:
         "allow_clear_text_progress": node.allow_clear_text_progress,
         "progress_json": node.progress_json,
         "assignees": await tsvc.list_assignees(db, node.id),
+        "ui_offset": (node.progress_json or {}).get("ui_offset")
+        if isinstance(node.progress_json, dict)
+        else None,
     }
 
 
@@ -248,13 +251,20 @@ async def post_evidence(
     ):
         return fail(403, 40301, "非项目成员，无法提交材料")
     try:
+        structured = dict(body.structured or {})
+        if body.evidence_kind:
+            structured["evidence_kind"] = body.evidence_kind
+        links = list(body.links or [])
+        if body.external_url:
+            links.append({"url": body.external_url, "kind": body.evidence_kind or "link"})
+            structured.setdefault("external_url", body.external_url)
         pkg, job = await submit_evidence(
             db,
             node=node,
             user_id=user.id,
             summary_text=body.summary_text,
-            structured=body.structured,
-            links=body.links,
+            structured=structured or None,
+            links=links or None,
             file_ids=body.file_ids,
             supersedes_package_id=body.supersedes_package_id,
         )
@@ -277,6 +287,13 @@ async def post_evidence(
 
 
 def _pkg_dto(pkg: EvidencePackage, files: list[EvidenceFile] | None = None) -> dict:
+    structured = pkg.structured_json or {}
+    links = pkg.links_json or []
+    external_url = structured.get("external_url")
+    if not external_url and isinstance(links, list) and links:
+        first = links[0]
+        if isinstance(first, dict):
+            external_url = first.get("url")
     return {
         "id": pkg.id,
         "company_id": pkg.company_id,
@@ -285,8 +302,10 @@ def _pkg_dto(pkg: EvidencePackage, files: list[EvidenceFile] | None = None) -> d
         "submitter_user_id": pkg.submitter_user_id,
         "status": pkg.status,
         "summary_text": pkg.summary_text,
-        "structured": pkg.structured_json,
-        "links": pkg.links_json,
+        "structured": structured,
+        "links": links,
+        "evidence_kind": structured.get("evidence_kind"),
+        "external_url": external_url,
         "files": [
             {
                 "file_id": f.id,

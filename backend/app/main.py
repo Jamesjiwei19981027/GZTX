@@ -31,6 +31,7 @@ from app.api.v1 import sso as sso_api
 from app.api.v1 import wx_collab as wx_collab_api
 from app.api.v1 import delegations as delegations_api
 from app.api.v1 import reports as reports_api
+from app.api.v1 import shell as shell_api
 from app.core.collab_errors import CollabError
 
 # Email check lock to prevent concurrent email processing
@@ -493,6 +494,7 @@ app.include_router(sso_api.router, prefix="/api/v1")
 app.include_router(wx_collab_api.router, prefix="/api/v1")
 app.include_router(delegations_api.router, prefix="/api/v1")
 app.include_router(reports_api.router, prefix="/api/v1")
+app.include_router(shell_api.router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health", tags=["系统"])

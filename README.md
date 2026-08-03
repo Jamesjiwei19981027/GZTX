@@ -77,7 +77,7 @@ docker compose up -d
 |------|------|
 | 后端 | Python + FastAPI + SQLAlchemy + APScheduler |
 | 数据库 | SQLite（开发）/ PostgreSQL（生产） |
-| Web | React 18 + Vite + TypeScript + Ant Design + Tailwind |
+| Web | React 19 + Vite + Tailwind（人轴壳层，正式真源 `frontend/`） |
 | 小程序 | 微信原生框架 |
 | APP | Flutter（iOS + Android） |
 | 认证 | JWT |
@@ -89,10 +89,11 @@ docker compose up -d
 ```
 gongzuotix/
 ├── backend/              # FastAPI 后端（唯一后端真源）
-├── frontend/             # React Web
+├── frontend/             # React Web（正式 UI 真源）
+├── frontend-react-archive/ # 历史 Ant Design React（归档）
+├── frontend-vue-archive/ # 历史 Vue 前端（归档）
 ├── miniprogram/          # 微信小程序
-├── app/                  # Flutter APP（iOS / Android）
-├── frontend-vue-archive/ # 历史 Vue 前端（归档，非运行真源）
+├── app/                  # Flutter APP（默认 WebView 加载正式 Web）
 ├── nginx/                # 反向代理
 ├── docs/                 # 文档
 ├── scripts/              # 运维脚本

@@ -125,6 +125,12 @@ class TaskUpdate(BaseModel):
     is_recurring: Optional[bool] = None
     recurrence_rule: Optional[dict] = None
     sort_order: Optional[int] = None
+    # 关联人轴事项（单向 Task → TreeNode）
+    project_id: Optional[int] = None
+    project_node_id: Optional[int] = None
+    origin: Optional[str] = None
+    company_id: Optional[int] = None
+    linked_readonly: Optional[bool] = None
 
 
 class TaskResponse(BaseModel):

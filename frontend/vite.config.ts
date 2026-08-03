@@ -1,31 +1,35 @@
-import { defineConfig } from 'vite'
+import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
-import path from 'node:path'
+import path from 'path'
+import { defineConfig } from 'vite'
 
-// DEV_API_TARGET：本地进程模式；VITE_PROXY_TARGET：docker-compose 内指向 backend 容器
+// DEV_API_TARGET：本机；VITE_PROXY_TARGET：docker-compose 内指向 backend 容器
 const apiProxy = {
   '/api': {
     target:
       process.env.DEV_API_TARGET ||
       process.env.VITE_PROXY_TARGET ||
-      'http://127.0.0.1:8000',
+      'http://127.0.0.1:8010',
     changeOrigin: true,
   },
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
-    alias: { '@': path.resolve(__dirname, 'src') },
+    alias: {
+      '@': path.resolve(__dirname, '.'),
+    },
   },
   server: {
     port: 5173,
+    host: '0.0.0.0',
+    hmr: process.env.DISABLE_HMR === 'true' ? false : true,
     proxy: apiProxy,
   },
-  // `vite preview` 不读 server.proxy，必须单独声明；
-  // 否则用构建产物跑 E2E 时 /api 全部 404。
   preview: {
     port: 5173,
+    host: '0.0.0.0',
     proxy: apiProxy,
   },
 })

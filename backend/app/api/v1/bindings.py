@@ -327,3 +327,41 @@ async def list_collab_notifications(
             "page_size": page_size,
         }
     )
+
+
+@router.put("/notifications/collab/{message_id}/read", response_model=ResponseData)
+async def mark_collab_notification_read(
+    message_id: int,
+    db: DbSession,
+    user: CurrentUser,
+):
+    from app.models.notify import CollabInboxMessage
+
+    m = await db.get(CollabInboxMessage, message_id)
+    if not m or m.user_id != user.id:
+        from app.core.collab_errors import fail
+
+        return fail(404, 40400, "通知不存在")
+    m.is_read = True
+    await db.commit()
+    return ResponseData(data={"id": m.id, "read": True})
+
+
+@router.put("/notifications/collab/read-all", response_model=ResponseData)
+async def mark_all_collab_notifications_read(
+    db: DbSession,
+    user: CurrentUser,
+):
+    from app.models.notify import CollabInboxMessage
+
+    q = await db.execute(
+        select(CollabInboxMessage).where(
+            CollabInboxMessage.user_id == user.id,
+            CollabInboxMessage.is_read.is_(False),
+        )
+    )
+    rows = q.scalars().all()
+    for m in rows:
+        m.is_read = True
+    await db.commit()
+    return ResponseData(data={"updated": len(rows)})

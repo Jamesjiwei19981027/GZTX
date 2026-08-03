@@ -30,6 +30,7 @@ from app.models.delegation import DelegationGrant
 from app.models.report import ReportPolicy, ReportRun
 from app.models.verification import VerificationCode
 from app.models.rate_limit import RateLimitCounter
+from app.models.shell import TeamChannel, TeamChannelMessage, UserPresence
 
 __all__ = [
     "User",
@@ -76,4 +77,7 @@ __all__ = [
     "DelegationGrant",
     "ReportPolicy",
     "ReportRun",
+    "TeamChannel",
+    "TeamChannelMessage",
+    "UserPresence",
 ]

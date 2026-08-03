@@ -10,6 +10,9 @@ class EvidenceSubmit(BaseModel):
     links: Optional[list[dict[str, Any]]] = None
     file_ids: list[int] = Field(default_factory=list)
     supersedes_package_id: Optional[int] = None
+    # Remix UI：证据类型 + 外链（落入 structured/links，无需改表）
+    evidence_kind: Optional[str] = None  # commit|document|figma|log|delivery
+    external_url: Optional[str] = None
 
 
 class ReviewRequestBody(BaseModel):

@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: var(--color-primary-val);
+  --color-on-primary: var(--color-on-primary-val);
+  --color-primary-container: var(--color-primary-container-val);
+  --color-on-primary-container: var(--color-on-primary-container-val);
+  --color-primary-fixed: var(--color-primary-fixed-val);
+  --color-on-primary-fixed: var(--color-on-primary-fixed-val);
+  --color-primary-fixed-variant: var(--color-primary-fixed-variant-val);
+
+  --color-secondary: var(--color-secondary-val);
+  --color-on-secondary: var(--color-on-secondary-val);
+  --color-secondary-container: var(--color-secondary-container-val);
+  --color-on-secondary-container: var(--color-on-secondary-container-val);
+  --color-secondary-fixed: var(--color-secondary-fixed-val);
+  --color-on-secondary-fixed: var(--color-on-secondary-fixed-val);
+
+  --color-tertiary: var(--color-tertiary-val);
+  --color-on-tertiary: var(--color-on-tertiary-val);
+  --color-tertiary-container: var(--color-tertiary-container-val);
+  --color-on-tertiary-container: var(--color-on-tertiary-container-val);
+  --color-tertiary-fixed: var(--color-tertiary-fixed-val);
+  --color-on-tertiary-fixed: var(--color-on-tertiary-fixed-val);
+
+  --color-error: var(--color-error-val);
+  --color-on-error: var(--color-on-error-val);
+  --color-error-container: var(--color-error-container-val);
+  --color-on-error-container: var(--color-on-error-container-val);
+
+  --color-surface: var(--color-surface-val);
+  --color-on-surface: var(--color-on-surface-val);
+  --color-surface-variant: var(--color-surface-variant-val);
+  --color-on-surface-variant: var(--color-on-surface-variant-val);
+
+  --color-surface-container-lowest: var(--color-surface-container-lowest-val);
+  --color-surface-container-low: var(--color-surface-container-low-val);
+  --color-surface-container: var(--color-surface-container-val);
+  --color-surface-container-high: var(--color-surface-container-high-val);
+  --color-surface-container-highest: var(--color-surface-container-highest-val);
+
+  --color-outline: var(--color-outline-val);
+  --color-outline-variant: var(--color-outline-variant-val);
+
+  --color-inverse-surface: var(--color-inverse-surface-val);
+  --color-inverse-on-surface: var(--color-inverse-on-surface-val);
+  --color-inverse-primary: var(--color-inverse-primary-val);
+}
+
+:root {
+  /* Light Theme Palette - Elegant Executive Violet & Ocean Blues */
+  --color-primary-val: #4f378b;
+  --color-on-primary-val: #ffffff;
+  --color-primary-container-val: #eaddff;
+  --color-on-primary-container-val: #21005d;
+  --color-primary-fixed-val: #eaddff;
+  --color-on-primary-fixed-val: #21005d;
+  --color-primary-fixed-variant-val: #381e72;
+
+  --color-secondary-val: #5e5c66;
+  --color-on-secondary-val: #ffffff;
+  --color-secondary-container-val: #e4e1ec;
+  --color-on-secondary-container-val: #1b1a21;
+  --color-secondary-fixed-val: #e4e1ec;
+  --color-on-secondary-fixed-val: #1b1a21;
+
+  --color-tertiary-val: #00639b;
+  --color-on-tertiary-val: #ffffff;
+  --color-tertiary-container-val: #cee5ff;
+  --color-on-tertiary-container-val: #001d33;
+  --color-tertiary-fixed-val: #cee5ff;
+  --color-on-tertiary-fixed-val: #001d33;
+
+  --color-error-val: #ba1a1a;
+  --color-on-error-val: #ffffff;
+  --color-error-container-val: #ffdad6;
+  --color-on-error-container-val: #410002;
+
+  --color-surface-val: #fbfaff;
+  --color-on-surface-val: #1a1c1e;
+  --color-surface-variant-val: #e7e0ec;
+  --color-on-surface-variant-val: #49454f;
+
+  --color-surface-container-lowest-val: #ffffff;
+  --color-surface-container-low-val: #f5f3f7;
+  --color-surface-container-val: #efeef3;
+  --color-surface-container-high-val: #e9e8ee;
+  --color-surface-container-highest-val: #e3e2e8;
+
+  --color-outline-val: #79747e;
+  --color-outline-variant-val: #cac4d0;
+
+  --color-inverse-surface-val: #2f3033;
+  --color-inverse-on-surface-val: #f1f0f4;
+  --color-inverse-primary-val: #d0bcff;
+}
+
+.dark {
+  /* Dark Theme Palette - Deep Sleek Obsidian & Lavender Glow */
+  --color-primary-val: #d0bcff;
+  --color-on-primary-val: #381e72;
+  --color-primary-container-val: #4f378b;
+  --color-on-primary-container-val: #eaddff;
+  --color-primary-fixed-val: #eaddff;
+  --color-on-primary-fixed-val: #21005d;
+  --color-primary-fixed-variant-val: #381e72;
+
+  --color-secondary-val: #c8c5d0;
+  --color-on-secondary-val: #302e37;
+  --color-secondary-container-val: #46444e;
+  --color-on-secondary-container-val: #e4e1ec;
+  --color-secondary-fixed-val: #e4e1ec;
+  --color-on-secondary-fixed-val: #1b1a21;
+
+  --color-tertiary-val: #97cbff;
+  --color-on-tertiary-val: #003353;
+  --color-tertiary-container-val: #004a76;
+  --color-on-tertiary-container-val: #cee5ff;
+  --color-tertiary-fixed-val: #cee5ff;
+  --color-on-tertiary-fixed-val: #001d33;
+
+  --color-error-val: #ffb4ab;
+  --color-on-error-val: #690005;
+  --color-error-container-val: #93000a;
+  --color-on-error-container-val: #ffdad6;
+
+  --color-surface-val: #111314;
+  --color-on-surface-val: #e2e2e5;
+  --color-surface-variant-val: #49454f;
+  --color-on-surface-variant-val: #cac4d0;
+
+  --color-surface-container-lowest-val: #0c0e0f;
+  --color-surface-container-low-val: #191c1d;
+  --color-surface-container-val: #1d2021;
+  --color-surface-container-high-val: #282a2b;
+  --color-surface-container-highest-val: #333536;
+
+  --color-outline-val: #938f99;
+  --color-outline-variant-val: #49454f;
+
+  --color-inverse-surface-val: #e2e2e5;
+  --color-inverse-on-surface-val: #2f3033;
+  --color-inverse-primary-val: #4f378b;
+}
+
+/* Base Body Styling & Smooth Transition */
+body {
+  background-color: var(--color-surface-val);
+  color: var(--color-on-surface-val);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* Custom scrollbar styling for clean Kanban column scrolling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-outline-variant-val);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-outline-val);
+}
+
+/* Subtle animation classes */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

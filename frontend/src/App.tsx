@@ -1,31 +1,610 @@
-import { App as AntdApp, ConfigProvider, theme as antdTheme } from 'antd'
-import zhCN from 'antd/locale/zh_CN'
-import { RouterProvider } from 'react-router-dom'
-import { router } from '@/routes'
-import { useTheme } from '@/hooks/useTheme'
-import { setMessageImpl } from '@/utils/antdMessage'
+/**
+ * Remix UI 主壳：对接 GZTX 后端（任务/人轴/消息/通知/团队/收件箱/报表）。
+ */
 
-/** 把 App 上下文里的 message 实例注入桥模块，让全站 message 提示跟随主题 */
-function AntdMessageBridge() {
-  const { message } = AntdApp.useApp()
-  setMessageImpl(message)
-  return null
-}
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+  Task,
+  Project,
+  Activity,
+  UserProfile,
+  AppSettings,
+  ViewMode,
+  Status,
+} from './types';
+import {
+  loadSettings,
+  saveSettings,
+  resetDemoData,
+  INITIAL_USER,
+  INITIAL_ACTIVITIES,
+  loadTasks as loadMockTasks,
+  loadProjects as loadMockProjects,
+} from './data/mockData';
+import { Navbar } from './components/Navbar';
+import { Sidebar } from './components/Sidebar';
+import { DashboardView } from './components/views/DashboardView';
+import { MyTasksView } from './components/views/MyTasksView';
+import { KanbanView } from './components/views/KanbanView';
+import { CalendarView } from './components/views/CalendarView';
+import { SettingsView } from './components/views/SettingsView';
+import { ReportsView } from './components/views/ReportsView';
+import { TeamView } from './components/views/TeamView';
+import { InboxView } from './components/views/InboxView';
+import { MessagesView } from './components/views/MessagesView';
+import { PeopleAxisView } from './components/views/PeopleAxisView';
+import { NewTaskModal } from './components/modals/NewTaskModal';
+import { TaskDetailDrawer } from './components/modals/TaskDetailDrawer';
+import { NotificationsModal } from './components/modals/NotificationsModal';
+import { LoginGate } from './components/LoginGate';
+import { VerifyGate } from './components/VerifyGate';
+import { getToken } from './api/client';
+import { fetchMe, getVerificationStatus, logout } from './api/auth';
+import {
+  completeTask,
+  createTask,
+  deleteTask,
+  listMyCompanies,
+  listProjects,
+  listTasks,
+  uncompleteTask,
+  updateTask,
+} from './api/backend';
+import {
+  mapProject,
+  mapTask,
+  mapUser,
+  uiPriorityToApi,
+  uiStatusToApi,
+} from './api/mappers';
+import {
+  getProjectActivity,
+  getUiPrefs,
+  putPresence,
+  putUiPrefs,
+} from './api/shell';
+
+const ALL_PROJECT_ITEM: Project = {
+  id: 'all',
+  name: '全盘研发概览 (All Projects Overview)',
+  description: '跨项目总览（任务来自个人任务 API；人轴需选具体项目）',
+  color: '#0058be',
+  active: true,
+};
 
 export default function App() {
-  const { isDark } = useTheme()
+  const [authed, setAuthed] = useState(() => !!getToken());
+  /** null=检查中；false=需补验邮箱/手机；true=双验证通过 */
+  const [verified, setVerified] = useState<boolean | null>(() =>
+    getToken() ? null : true,
+  );
+  const [bootError, setBootError] = useState<string | null>(null);
+  const [loadingBoot, setLoadingBoot] = useState(false);
+
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [companyId, setCompanyId] = useState<number | null>(null);
+  const [currentProject, setCurrentProject] = useState<Project>(ALL_PROJECT_ITEM);
+  const [activities, setActivities] = useState<Activity[]>(INITIAL_ACTIVITIES);
+  const [user, setUser] = useState<UserProfile>(INITIAL_USER);
+  const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
+
+  const [activeView, setActiveView] = useState<ViewMode>('dashboard');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
+  const [newTaskDefaultStatus, setNewTaskDefaultStatus] = useState<Status | undefined>();
+  const [newTaskDefaultDate, setNewTaskDefaultDate] = useState<string | undefined>();
+  const [newTaskDefaultTitle, setNewTaskDefaultTitle] = useState<string | undefined>();
+  const [newTaskDefaultDesc, setNewTaskDefaultDesc] = useState<string | undefined>();
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
+
+  const refreshFromBackend = useCallback(async () => {
+    setLoadingBoot(true);
+    setBootError(null);
+    try {
+      const me = await fetchMe();
+      setUser(mapUser(me));
+      const companies = await listMyCompanies();
+      const cid = companies.items?.[0]?.id ?? null;
+      setCompanyId(cid);
+      let mappedProjects: Project[] = [];
+      if (cid) {
+        const projPage = await listProjects(cid);
+        mappedProjects = (projPage.items || []).map(mapProject);
+      }
+      setProjects(mappedProjects);
+      const taskPage = await listTasks({ page: 1, page_size: 200 });
+      setTasks((taskPage.items || []).map((t) => mapTask(t)));
+      void putPresence('online').catch(() => undefined);
+      try {
+        const prefs = await getUiPrefs();
+        const ui = prefs.ui || {};
+        setSettings((prev) => ({
+          ...prev,
+          language: ui.language === 'en' || ui.language === 'zh' ? ui.language : prev.language,
+          accentColor:
+            ui.accent === 'blue' ||
+            ui.accent === 'green' ||
+            ui.accent === 'amber' ||
+            ui.accent === 'red'
+              ? ui.accent
+              : prev.accentColor,
+          themeMode: ui.theme_mode === 'dark' || ui.theme_mode === 'light' ? ui.theme_mode : prev.themeMode,
+        }));
+      } catch {
+        /* keep local */
+      }
+    } catch (e) {
+      setBootError(e instanceof Error ? e.message : '加载失败');
+      setTasks(loadMockTasks());
+      setProjects(loadMockProjects());
+      setUser(INITIAL_USER);
+    } finally {
+      setLoadingBoot(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!authed) {
+      setVerified(true);
+      return;
+    }
+    let cancelled = false;
+    setVerified(null);
+    void (async () => {
+      try {
+        const st = await getVerificationStatus();
+        if (!cancelled) setVerified(Boolean(st.is_verified));
+      } catch {
+        // 旧账号或接口异常时不挡门，避免误锁死
+        if (!cancelled) setVerified(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authed]);
+
+  useEffect(() => {
+    if (authed && verified) void refreshFromBackend();
+  }, [authed, verified, refreshFromBackend]);
+
+  useEffect(() => {
+    const pid =
+      currentProject.id !== 'all' && Number(currentProject.id) > 0
+        ? Number(currentProject.id)
+        : null;
+    if (!pid) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await getProjectActivity(pid);
+        if (cancelled) return;
+        setActivities(
+          (res.items || []).map((a, i) => ({
+            id: String(a.id ?? i),
+            type:
+              String(a.type).includes('complete')
+                ? 'completed'
+                : String(a.type).includes('creat')
+                  ? 'created'
+                  : 'updated',
+            titleText: a.type || 'activity',
+            targetText: a.title || '',
+            timestamp: a.created_at
+              ? a.created_at.slice(5, 16).replace('T', ' ')
+              : '—',
+            icon: 'history',
+            colorClass: 'bg-primary-fixed text-on-primary-fixed',
+          })),
+        );
+      } catch {
+        /* keep existing */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProject.id]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN')) {
+        e.preventDefault();
+        setNewTaskDefaultTitle('');
+        setNewTaskDefaultDesc('');
+        setNewTaskDefaultStatus('To Do');
+        setNewTaskDefaultDate(undefined);
+        setIsNewTaskModalOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    saveSettings(settings);
+    const root = document.documentElement;
+    if (settings.themeMode === 'dark') root.classList.add('dark');
+    else root.classList.remove('dark');
+    if (authed) {
+      void putUiPrefs({
+        language: settings.language,
+        accent: settings.accentColor,
+        theme_mode: settings.themeMode,
+      }).catch(() => undefined);
+    }
+  }, [settings, authed]);
+
+  const displayProjects = useMemo(
+    () => [ALL_PROJECT_ITEM, ...projects],
+    [projects],
+  );
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter((t) => {
+      const matchesProject =
+        currentProject.id === 'all' ||
+        t.projectId === currentProject.id ||
+        !t.projectId;
+      const query = searchQuery.trim().toLowerCase();
+      const matchesSearch =
+        !query ||
+        t.title.toLowerCase().includes(query) ||
+        (t.description && t.description.toLowerCase().includes(query)) ||
+        (t.tag && t.tag.toLowerCase().includes(query));
+      return matchesProject && matchesSearch;
+    });
+  }, [tasks, currentProject, searchQuery]);
+
+  const addActivity = (
+    type: 'completed' | 'updated' | 'collaborator' | 'created',
+    titleText: string,
+    targetText: string,
+    timestamp: string = '刚刚',
+  ) => {
+    const iconMap = {
+      completed: 'check',
+      updated: 'edit',
+      collaborator: 'group',
+      created: 'add_circle',
+    };
+    const colorMap = {
+      completed: 'bg-secondary-container text-on-secondary-container',
+      updated: 'bg-primary-fixed text-on-primary-fixed',
+      collaborator: 'bg-tertiary-fixed text-on-tertiary-fixed',
+      created: 'bg-primary text-on-primary',
+    };
+    const newActivity: Activity = {
+      id: `act_${Date.now()}`,
+      type,
+      titleText,
+      targetText,
+      timestamp,
+      icon: iconMap[type],
+      colorClass: colorMap[type],
+    };
+    setActivities((prev) => [newActivity, ...prev.slice(0, 19)]);
+  };
+
+  const handleCreateTask = async (taskData: Omit<Task, 'id'>) => {
+    try {
+      const created = await createTask({
+        title: taskData.title,
+        description: taskData.description,
+        priority: uiPriorityToApi(taskData.priority),
+        due_date: taskData.dueDate || undefined,
+      });
+      const mapped = mapTask(created);
+      setTasks((prev) => [mapped, ...prev]);
+      addActivity('created', '新任务创建:', mapped.title);
+      setIsNewTaskModalOpen(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '创建失败');
+    }
+  };
+
+  const handleUpdateTask = async (updatedTask: Task) => {
+    const id = Number(updatedTask.id);
+    if (!Number.isFinite(id)) return;
+    try {
+      await updateTask(id, {
+        title: updatedTask.title,
+        description: updatedTask.description,
+        priority: uiPriorityToApi(updatedTask.priority),
+        status: uiStatusToApi(updatedTask.status),
+        due_date: updatedTask.dueDate || undefined,
+      });
+      setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+      addActivity('updated', '任务已更新:', updatedTask.title);
+      setSelectedTask(updatedTask);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '更新失败');
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    const id = Number(taskId);
+    try {
+      if (Number.isFinite(id)) await deleteTask(id);
+      const taskToDelete = tasks.find((t) => t.id === taskId);
+      setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      if (taskToDelete) addActivity('updated', '任务已删除:', taskToDelete.title);
+      setSelectedTask(null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : '删除失败');
+    }
+  };
+
+  const handleToggleTaskCompletion = async (taskId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const id = Number(taskId);
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task || !Number.isFinite(id)) return;
+    try {
+      if (task.status === 'Done') await uncompleteTask(id);
+      else await completeTask(id);
+      await refreshFromBackend();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '状态更新失败');
+    }
+  };
+
+  const handleUpdateTaskStatus = async (taskId: string, newStatus: Status) => {
+    const id = Number(taskId);
+    if (!Number.isFinite(id)) return;
+    try {
+      if (newStatus === 'Done') await completeTask(id);
+      else await updateTask(id, { status: uiStatusToApi(newStatus) });
+      await refreshFromBackend();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : '状态更新失败');
+    }
+  };
+
+  const handleOpenNewTask = () => {
+    setNewTaskDefaultTitle('');
+    setNewTaskDefaultDesc('');
+    setNewTaskDefaultStatus('To Do');
+    setNewTaskDefaultDate(undefined);
+    setIsNewTaskModalOpen(true);
+  };
+
+  if (!authed) {
+    return (
+      <LoginGate
+        lang={settings.language}
+        onLoggedIn={() => {
+          setAuthed(true);
+          setVerified(null);
+        }}
+      />
+    );
+  }
+
+  if (verified === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-surface text-on-surface-variant text-sm">
+        {settings.language === 'zh' ? '正在检查验证状态…' : 'Checking verification…'}
+      </div>
+    );
+  }
+
+  if (!verified) {
+    return (
+      <VerifyGate
+        lang={settings.language}
+        onVerified={() => setVerified(true)}
+        onLogout={() => {
+          setAuthed(false);
+          setVerified(true);
+        }}
+      />
+    );
+  }
 
   return (
-    <ConfigProvider
-      locale={zhCN}
-      theme={{
-        algorithm: isDark ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
-      }}
-    >
-      <AntdApp>
-        <AntdMessageBridge />
-        <RouterProvider router={router} />
-      </AntdApp>
-    </ConfigProvider>
-  )
+    <div className="min-h-screen flex flex-col bg-surface dark:bg-[#111314] text-on-surface dark:text-[#e2e2e5] font-sans transition-colors duration-200">
+      {(bootError || loadingBoot) && (
+        <div className="fixed top-16 left-0 right-0 z-[60] px-4 py-2 text-sm text-center bg-amber-50 text-amber-900 border-b border-amber-200 md:pl-[280px]">
+          {loadingBoot
+            ? '正在从后端同步…'
+            : `后端同步提示：${bootError}（已尽量回退演示数据）`}
+        </div>
+      )}
+
+      <Navbar
+        currentProject={currentProject}
+        projects={displayProjects}
+        onSelectProject={(proj) => setCurrentProject(proj)}
+        user={user}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        lang={settings.language}
+        onToggleLang={() =>
+          setSettings((prev) => ({
+            ...prev,
+            language: prev.language === 'zh' ? 'en' : 'zh',
+          }))
+        }
+        onOpenSettings={() => setActiveView('settings')}
+        onResetDemo={() => {
+          resetDemoData();
+          void refreshFromBackend();
+        }}
+        onOpenNewTask={handleOpenNewTask}
+        onOpenNotifications={() => setIsNotificationsModalOpen(true)}
+        onLogout={async () => {
+          await logout();
+          setAuthed(false);
+        }}
+      />
+
+      <div className="flex flex-1 pt-16">
+        <Sidebar
+          activeView={activeView}
+          onSelectView={setActiveView}
+          onOpenNewTask={handleOpenNewTask}
+          lang={settings.language}
+        />
+
+        <main className="flex-1 md:pl-[280px] pb-20 md:pb-8 min-w-0 transition-all duration-200">
+          <div className="max-w-7xl mx-auto">
+            {activeView === 'dashboard' && (
+              <DashboardView
+                user={user}
+                tasks={filteredTasks}
+                activities={activities}
+                onSelectTask={setSelectedTask}
+                onOpenNewTask={handleOpenNewTask}
+                onNavigateToTasks={() => setActiveView('tasks')}
+                onNavigateToPeopleAxis={() => setActiveView('people-axis')}
+                lang={settings.language}
+              />
+            )}
+
+            {activeView === 'people-axis' && (
+              <PeopleAxisView
+                lang={settings.language}
+                projectId={currentProject.id}
+              />
+            )}
+
+            {activeView === 'tasks' && (
+              <MyTasksView
+                tasks={filteredTasks}
+                onToggleTaskCompletion={handleToggleTaskCompletion}
+                onSelectTask={setSelectedTask}
+                lang={settings.language}
+              />
+            )}
+
+            {activeView === 'kanban' && (
+              <KanbanView
+                tasks={filteredTasks}
+                onUpdateTaskStatus={handleUpdateTaskStatus}
+                onSelectTask={setSelectedTask}
+                onOpenNewTaskWithStatus={(status) => {
+                  setNewTaskDefaultStatus(status);
+                  setIsNewTaskModalOpen(true);
+                }}
+                lang={settings.language}
+              />
+            )}
+
+            {activeView === 'calendar' && (
+              <CalendarView
+                tasks={filteredTasks}
+                onSelectTask={setSelectedTask}
+                onOpenNewTaskWithDate={(dateStr) => {
+                  setNewTaskDefaultDate(dateStr);
+                  setIsNewTaskModalOpen(true);
+                }}
+                lang={settings.language}
+              />
+            )}
+
+            {activeView === 'reports' && (
+              <ReportsView tasks={tasks} lang={settings.language} />
+            )}
+
+            {activeView === 'team' && (
+              <TeamView
+                companyId={companyId}
+                projectId={currentProject.id}
+                onSelectMember={(m) =>
+                  alert(
+                    settings.language === 'zh'
+                      ? `成员: ${m.name}`
+                      : `Selected: ${m.name}`,
+                  )
+                }
+                onNavigateToMessages={() => setActiveView('messages')}
+                lang={settings.language}
+              />
+            )}
+
+            {activeView === 'inbox' && (
+              <InboxView
+                companyId={companyId}
+                onOpenNewTaskWithTitle={(title, desc) => {
+                  setNewTaskDefaultTitle(title);
+                  setNewTaskDefaultDesc(desc);
+                  setIsNewTaskModalOpen(true);
+                }}
+                lang={settings.language}
+              />
+            )}
+
+            {activeView === 'messages' && (
+              <MessagesView
+                user={user}
+                lang={settings.language}
+                companyId={companyId}
+                projectId={currentProject.id}
+              />
+            )}
+
+            {activeView === 'settings' && (
+              <SettingsView
+                user={user}
+                onUpdateUser={(updated) => setUser((prev) => ({ ...prev, ...updated }))}
+                settings={settings}
+                onUpdateSettings={(updated) =>
+                  setSettings((prev) => ({ ...prev, ...updated }))
+                }
+                onResetDemo={() => void refreshFromBackend()}
+                lang={settings.language}
+              />
+            )}
+          </div>
+        </main>
+      </div>
+
+      <NewTaskModal
+        isOpen={isNewTaskModalOpen}
+        onClose={() => setIsNewTaskModalOpen(false)}
+        onCreateTask={handleCreateTask}
+        currentProject={
+          currentProject.id === 'all'
+            ? projects[0] || {
+                id: '0',
+                name: '默认',
+                description: '',
+                color: '#0058be',
+                active: true,
+              }
+            : currentProject
+        }
+        defaultStatus={newTaskDefaultStatus}
+        defaultDate={newTaskDefaultDate}
+        defaultPriority={settings.taskDefaults.priority}
+        defaultCategory={settings.taskDefaults.category}
+        defaultTitle={newTaskDefaultTitle}
+        defaultDescription={newTaskDefaultDesc}
+        lang={settings.language}
+      />
+
+      <TaskDetailDrawer
+        task={selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onUpdateTask={handleUpdateTask}
+        onDeleteTask={handleDeleteTask}
+        lang={settings.language}
+      />
+
+      <NotificationsModal
+        isOpen={isNotificationsModalOpen}
+        onClose={() => setIsNotificationsModalOpen(false)}
+        onSelectTaskId={(id) => {
+          const t = tasks.find((x) => x.id === id);
+          if (t) setSelectedTask(t);
+        }}
+        onOpenSettings={() => setActiveView('settings')}
+        lang={settings.language}
+      />
+    </div>
+  );
 }
