@@ -312,3 +312,62 @@ export async function triggerOrgSync(companyId: number) {
     body: '{}',
   })
 }
+
+export type CallConfig = {
+  configured: boolean
+  ice_servers: { urls: string | string[]; username?: string; credential?: string }[]
+  message: string
+}
+
+export async function getCallConfig(companyId: number) {
+  return apiRequest<CallConfig>(`/calls/config?company_id=${companyId}`)
+}
+
+export type ExternalMailStatus = {
+  provider: string
+  configured: boolean
+  host?: string | null
+  username?: string | null
+  reason?: string | null
+}
+
+export async function getExternalMailStatus(companyId: number) {
+  return apiRequest<ExternalMailStatus>(`/external-mail/status?company_id=${companyId}`)
+}
+
+export async function syncExternalMail(companyId: number) {
+  return apiRequest<{ provider: string; synced: number; skipped: number }>(`/external-mail/sync?company_id=${companyId}`, {
+    method: 'POST',
+    body: '{}',
+  })
+}
+
+export type ExternalMailItem = {
+  id: number
+  company_id: number
+  provider: string
+  external_id: string
+  from_address?: string | null
+  to_addresses: string[]
+  subject?: string | null
+  headers: Record<string, unknown>
+  body_text?: string
+  state: 'active' | 'archived' | 'deleted'
+  synced_at?: string | null
+  created_at?: string | null
+}
+
+export async function listExternalMail(companyId: number, state: 'active' | 'archived' | 'deleted' | 'all' = 'active') {
+  return apiRequest<{ items: ExternalMailItem[]; total: number }>(`/external-mail?company_id=${companyId}&state=${state}`)
+}
+
+export async function getExternalMail(mailId: number) {
+  return apiRequest<ExternalMailItem>(`/external-mail/${mailId}`)
+}
+
+export async function updateExternalMailState(mailId: number, state: 'active' | 'archived' | 'deleted') {
+  return apiRequest<{ id: number; state: string }>(`/external-mail/${mailId}/state`, {
+    method: 'PUT',
+    body: JSON.stringify({ state }),
+  })
+}

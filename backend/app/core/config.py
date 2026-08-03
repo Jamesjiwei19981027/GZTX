@@ -91,6 +91,10 @@ class Settings(BaseSettings):
     LICENSE_PRIVATE_KEY: str = ""
     INTEGRATION_SECRET_KEY: str = ""
     COLLAB_OBJECT_ROOT: str = "data/objects"
+    WEBRTC_STUN_URLS: str = ""
+    WEBRTC_TURN_URLS: str = ""
+    WEBRTC_TURN_USERNAME: str = ""
+    WEBRTC_TURN_CREDENTIAL: str = ""
     JUDGE_BACKEND: str = "rule"  # rule | llm | auto（auto=有公司 LLM 配置则用 llm）
     # 可选环境变量兜底（优先公司前端配置）
     LLM_PROVIDER: str = "openai_compatible"

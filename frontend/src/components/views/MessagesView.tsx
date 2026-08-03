@@ -19,8 +19,10 @@ import {
   listPinnedLinks,
   createPinnedLink,
   listUserActivity,
+  getCallConfig,
 } from '../../api/shell';
 import type { CollabFile, DirectConversation } from '../../api/shell';
+import { getToken } from '../../api/client';
 
 interface MessagesViewProps {
   user: UserProfile;
@@ -59,6 +61,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activityItems, setActivityItems] = useState<{ id: number; type: string; title: string; created_at?: string }[]>([]);
+  const [callMode, setCallMode] = useState<'idle' | 'voice' | 'video'>('idle');
+  const [callConfig, setCallConfig] = useState<{ configured: boolean; message: string } | null>(null);
+  const [callParticipants, setCallParticipants] = useState<number[]>([]);
+  const callSocketRef = useRef<WebSocket | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const channels = [
@@ -176,6 +183,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       .catch(() => setActivityItems([]));
   }, [rightTab, companyId]);
 
+  useEffect(() => {
+    if (!companyId) {
+      setCallConfig(null);
+      return;
+    }
+    void getCallConfig(companyId).then((config) => setCallConfig(config)).catch(() => setCallConfig({ configured: false, message: 'STUN/TURN not configured' }));
+  }, [companyId]);
+
   const filteredMessages = messages.filter((msg) => {
     if (!companyId && msg.channel !== activeChannel) return false;
     if (!searchQuery) return true;
@@ -244,6 +259,47 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     }
   };
 
+  const endCall = () => {
+    callSocketRef.current?.close();
+    callSocketRef.current = null;
+    mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+    mediaStreamRef.current = null;
+    setCallParticipants([]);
+    setCallMode('idle');
+  };
+
+  const startCall = async (mode: 'voice' | 'video') => {
+    if (!activeConversationId) {
+      setError(lang === 'zh' ? '请先打开一个私信会话再发起通话' : 'Open a direct conversation before calling');
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError(lang === 'zh' ? '当前浏览器不支持媒体权限' : 'Media permissions are unavailable in this browser');
+      return;
+    }
+    try {
+      mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === 'video' });
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const token = getToken();
+      const socket = new WebSocket(`${protocol}//${window.location.host}/api/v1/calls/ws/${activeConversationId}?token=${encodeURIComponent(token || '')}`);
+      callSocketRef.current = socket;
+      socket.onmessage = (event) => {
+        try {
+          const payload = JSON.parse(event.data) as { type?: string; participants?: number[] };
+          if (payload.type === 'joined' && payload.participants) setCallParticipants(payload.participants);
+          if (payload.type === 'peer_joined' || payload.type === 'peer_left') setCallParticipants((prev) => prev);
+        } catch {
+          /* signaling payloads are intentionally opaque to the UI */
+        }
+      };
+      socket.onerror = () => setError(lang === 'zh' ? '通话信令连接失败' : 'Call signaling connection failed');
+      setCallMode(mode);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : (lang === 'zh' ? '未获得麦克风/摄像头权限' : 'Microphone/camera permission was denied'));
+      endCall();
+    }
+  };
+
   const handleDownload = async (attachment: MessageAttachment | CollabFile) => {
     try {
       let fileId: number | undefined;
@@ -300,7 +356,18 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         {loading && (
           <span className="text-xs font-bold text-primary">{lang === 'zh' ? '同步中…' : 'Syncing…'}</span>
         )}
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={() => void startCall('voice')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-xs font-bold text-on-surface-variant hover:text-primary" title="Voice call"><span className="material-symbols-outlined text-base">call</span></button>
+          <button type="button" onClick={() => void startCall('video')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-xs font-bold text-on-surface-variant hover:text-primary" title="Video call"><span className="material-symbols-outlined text-base">videocam</span></button>
+        </div>
       </div>
+
+      {callMode !== 'idle' && <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 text-xs">
+        <span className="font-bold text-primary">{callMode === 'video' ? 'Video call' : 'Voice call'} · {callParticipants.length} participant(s)</span>
+        {!callConfig?.configured && <span className="text-amber-700">STUN/TURN not configured; local browser defaults may be limited.</span>}
+        {callConfig?.configured && <span className="text-on-surface-variant">ICE servers ready</span>}
+        <button type="button" onClick={endCall} className="ml-auto px-3 py-1.5 rounded-lg bg-error text-on-error font-bold">End</button>
+      </div>}
 
       {error && (
         <div className="px-4 py-2 rounded-xl bg-amber-50 text-amber-900 text-sm border border-amber-200">

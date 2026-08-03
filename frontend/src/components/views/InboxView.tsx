@@ -9,7 +9,13 @@ import {
   deleteNotification,
   replyCollabNotification,
   triggerOrgSync,
+  getExternalMailStatus,
+  syncExternalMail,
+  listExternalMail,
+  getExternalMail,
+  updateExternalMailState,
 } from '../../api/shell';
+import type { ExternalMailItem } from '../../api/shell';
 
 interface InboxViewProps {
   onOpenNewTaskWithTitle?: (title: string, desc: string, source?: { channel?: string; title?: string; url?: string }) => void;
@@ -88,6 +94,10 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState('');
   const [replying, setReplying] = useState(false);
+  const [externalStatus, setExternalStatus] = useState<{ configured: boolean; reason?: string | null } | null>(null);
+  const [externalItems, setExternalItems] = useState<ExternalMailItem[]>([]);
+  const [externalDetail, setExternalDetail] = useState<ExternalMailItem | null>(null);
+  const [syncingExternal, setSyncingExternal] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -141,6 +151,19 @@ export const InboxView: React.FC<InboxViewProps> = ({
           }),
         );
         setError(null);
+        if (companyId) {
+          const mailStatus = await getExternalMailStatus(companyId);
+          setExternalStatus(mailStatus);
+          if (mailStatus.configured) {
+            const external = await listExternalMail(companyId, 'active');
+            setExternalItems(external.items || []);
+          } else {
+            setExternalItems([]);
+          }
+        } else {
+          setExternalStatus(null);
+          setExternalItems([]);
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : '加载收件箱失败');
       }
@@ -149,6 +172,50 @@ export const InboxView: React.FC<InboxViewProps> = ({
       cancelled = true;
     };
   }, [companyId, state]);
+
+  const reloadExternalMail = async () => {
+    if (!companyId) return;
+    const mailStatus = await getExternalMailStatus(companyId);
+    setExternalStatus(mailStatus);
+    if (mailStatus.configured) {
+      const external = await listExternalMail(companyId, 'active');
+      setExternalItems(external.items || []);
+    } else {
+      setExternalItems([]);
+    }
+  };
+
+  const handleExternalSync = async () => {
+    if (!companyId || !externalStatus?.configured) return;
+    setSyncingExternal(true);
+    try {
+      await syncExternalMail(companyId);
+      await reloadExternalMail();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'External mail sync failed');
+    } finally {
+      setSyncingExternal(false);
+    }
+  };
+
+  const openExternalMail = async (item: ExternalMailItem) => {
+    try {
+      setExternalDetail(await getExternalMail(item.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to open external mail');
+    }
+  };
+
+  const changeExternalState = async (stateValue: 'archived' | 'deleted' | 'active') => {
+    if (!externalDetail) return;
+    try {
+      await updateExternalMailState(externalDetail.id, stateValue);
+      setExternalDetail(null);
+      await reloadExternalMail();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Unable to update external mail');
+    }
+  };
 
   const reloadNotifications = async () => {
     const notif = await listCollabNotifications(1, state);
@@ -258,6 +325,24 @@ export const InboxView: React.FC<InboxViewProps> = ({
           {error}
         </div>
       )}
+
+      {companyId && <section data-source="external-mail" className="rounded-2xl border border-outline-variant/40 bg-surface-container-low p-4 space-y-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-on-surface">External mail</h2>
+            <p className="text-xs text-on-surface-variant">{externalStatus?.configured ? 'IMAP synchronized mail (read-only)' : 'External mail (configuration required)'}</p>
+          </div>
+          <button type="button" disabled={!externalStatus?.configured || syncingExternal} onClick={() => void handleExternalSync()} className="ml-auto px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold disabled:opacity-50">{syncingExternal ? 'Syncing…' : 'Sync now'}</button>
+        </div>
+        {!externalStatus?.configured && <p className="text-xs text-amber-700">{externalStatus?.reason || 'IMAP configuration is required before synchronization.'}</p>}
+        {externalItems.length > 0 && <div className="flex flex-wrap gap-2">{externalItems.map((item) => <button key={item.id} type="button" onClick={() => void openExternalMail(item)} className="text-left px-3 py-2 rounded-lg bg-surface text-xs hover:bg-primary/10"><span className="font-semibold">{item.subject || '(no subject)'}</span><span className="block text-[10px] text-on-surface-variant">{item.from_address || 'unknown sender'}</span></button>)}</div>}
+        {externalDetail && <div className="rounded-xl bg-surface p-3 text-xs space-y-2">
+          <div className="flex items-center justify-between"><span className="font-bold">{externalDetail.subject || '(no subject)'}</span><button type="button" onClick={() => setExternalDetail(null)} className="text-on-surface-variant">×</button></div>
+          <p className="text-on-surface-variant">From: {externalDetail.from_address || 'unknown'}</p>
+          <p className="whitespace-pre-wrap text-on-surface">{externalDetail.body_text || ''}</p>
+          <div className="flex gap-2"><button type="button" onClick={() => void changeExternalState('archived')} className="px-2 py-1 rounded bg-surface-container">Archive</button><button type="button" onClick={() => void changeExternalState('deleted')} className="px-2 py-1 rounded bg-error-container text-error">Delete</button></div>
+        </div>}
+      </section>}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
