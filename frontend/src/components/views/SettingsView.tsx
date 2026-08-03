@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { AppSettings, UserProfile, Language, AccentColor } from '../../types';
 import { getT } from '../../i18n';
-import { changePassword } from '../../api/auth';
+import { changePassword, deleteMyAccount, getBillingSummary, getPrivacySummary } from '../../api/auth';
+import { getEmailStatus, getLlmConfig, getWechatSubscribeStatus, putWechatSubscribePreference } from '../../api/notifications';
 
 interface SettingsViewProps {
   user: UserProfile;
@@ -10,6 +11,8 @@ interface SettingsViewProps {
   onUpdateSettings: (updated: Partial<AppSettings>) => void;
   onResetDemo: () => void;
   onLogout?: () => Promise<void> | void;
+  onUploadAvatar?: (file: File) => Promise<void> | void;
+  onEnablePush?: () => Promise<void> | void;
   lang: Language;
 }
 
@@ -20,6 +23,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onUpdateSettings,
   onResetDemo,
   onLogout,
+  onUploadAvatar,
+  onEnablePush,
   lang,
 }) => {
   const t = getT(lang);
@@ -38,6 +43,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [savingPassword, setSavingPassword] = useState(false);
+  const [billing, setBilling] = useState<{ plan_code?: string; status: string; company_name?: string } | null>(null);
+  const [privacy, setPrivacy] = useState<{ retention: string; stored_data: Record<string, unknown> } | null>(null);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [wechatBound, setWechatBound] = useState(false);
+  const [wechatEnabled, setWechatEnabled] = useState(settings.notifications.wechat);
+  const [emailStatus, setEmailStatus] = useState<string>('');
+  const [llmStatus, setLlmStatus] = useState<string>('');
+
+  useEffect(() => {
+    if (activeTab !== 'security' && activeTab !== 'notifications') return;
+    void Promise.all([
+      getBillingSummary().then((value) => setBilling(value)).catch(() => undefined),
+      getPrivacySummary().then((value) => setPrivacy(value)).catch(() => undefined),
+      getWechatSubscribeStatus().then((value) => { setWechatBound(value.wx_bound); setWechatEnabled(value.subscription_enabled); }).catch(() => undefined),
+      getEmailStatus().then((value) => setEmailStatus(value.smtp_configured ? `SMTP: ${value.smtp_source}` : 'SMTP 未配置')).catch(() => undefined),
+      getLlmConfig().then((value) => setLlmStatus(value.configured ? `LLM: ${value.provider}/${value.model}` : '个人 LLM 未配置')).catch(() => undefined),
+    ]);
+  }, [activeTab]);
 
   useEffect(() => {
     setNameInput(user.name);
@@ -84,6 +108,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setPasswordError(error instanceof Error ? error.message : (lang === 'zh' ? '密码修改失败。' : 'Unable to change password.'));
     } finally {
       setSavingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm(lang === 'zh' ? '删除账号后将无法登录，确定继续吗？' : 'Delete this account permanently?')) return;
+    setDeleteBusy(true);
+    try {
+      await deleteMyAccount(deletePassword);
+      await onLogout?.();
+    } catch (error) {
+      alert(error instanceof Error ? error.message : '账号删除失败');
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -219,6 +256,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       className="mt-1 w-full px-3 py-2 bg-surface dark:bg-[#191c1d] border border-outline-variant rounded-lg text-xs text-on-surface dark:text-[#f0f1f2]"
                     />
                   </label>
+                  {onUploadAvatar && (
+                    <label className="inline-flex mt-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold cursor-pointer">
+                      {lang === 'zh' ? '上传头像文件' : 'Upload avatar'}
+                      <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void onUploadAvatar(file);
+                        event.currentTarget.value = '';
+                      }} />
+                    </label>
+                  )}
                 </div>
               </div>
 
@@ -430,11 +477,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <input
                     type="checkbox"
                     checked={settings.notifications.push}
-                    onChange={(e) =>
-                      onUpdateSettings({
-                        notifications: { ...settings.notifications, push: e.target.checked },
-                      })
-                    }
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      if (checked && onEnablePush) {
+                        void onEnablePush().then(() => onUpdateSettings({ notifications: { ...settings.notifications, push: true } })).catch((error) => {
+                          alert(error instanceof Error ? error.message : 'Web Push 授权失败');
+                        });
+                      } else {
+                        onUpdateSettings({ notifications: { ...settings.notifications, push: checked } });
+                      }
+                    }}
                     className="w-5 h-5 accent-primary rounded cursor-pointer"
                   />
                 </div>
@@ -471,10 +523,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
                   <input
                     type="checkbox"
-                    checked={settings.notifications.wechat}
-                    onChange={(e) => onUpdateSettings({ notifications: { ...settings.notifications, wechat: e.target.checked } })}
+                    checked={wechatEnabled}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setWechatEnabled(checked);
+                      void putWechatSubscribePreference(checked).then(() => onUpdateSettings({ notifications: { ...settings.notifications, wechat: checked } })).catch((error) => {
+                        setWechatEnabled(!checked);
+                        alert(error instanceof Error ? error.message : '微信订阅设置失败');
+                      });
+                    }}
                     className="w-5 h-5 accent-primary rounded cursor-pointer"
                   />
+                </div>
+                <div className="p-3 rounded-xl border border-outline-variant/60 text-xs text-on-surface-variant">
+                  <div className="flex justify-between"><span>{lang === 'zh' ? '微信绑定状态' : 'WeChat binding'}</span><span className={wechatBound ? 'text-secondary font-bold' : 'text-amber-600'}>{wechatBound ? (lang === 'zh' ? '已绑定' : 'Bound') : (lang === 'zh' ? '未绑定' : 'Not bound')}</span></div>
+                  <p className="mt-1">{lang === 'zh' ? '开启微信提醒前，请先完成微信绑定。' : 'Bind WeChat before enabling template-message alerts.'}</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-on-surface-variant">
+                  <div className="p-3 rounded-xl bg-surface-container-low">{emailStatus || 'SMTP 状态加载中…'}</div>
+                  <div className="p-3 rounded-xl bg-surface-container-low">{llmStatus || '个人 LLM 状态加载中…'}</div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -629,6 +696,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     {t.signOut}
                   </button>
                 )}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
+                  <div className="p-3 rounded-xl bg-surface-container-low text-xs">
+                    <p className="font-bold text-on-surface">{lang === 'zh' ? '账单与订阅' : 'Billing & subscription'}</p>
+                    <p className="mt-1 text-on-surface-variant">{billing ? `${billing.company_name || '个人'} · ${billing.plan_code || billing.status}` : '加载中…'}</p>
+                  </div>
+                  <div className="p-3 rounded-xl bg-surface-container-low text-xs">
+                    <p className="font-bold text-on-surface">{lang === 'zh' ? '数据与隐私' : 'Data & privacy'}</p>
+                    <p className="mt-1 text-on-surface-variant">{privacy ? `${privacy.retention} 任务 ${String(privacy.stored_data.tasks ?? 0)} 条` : '加载中…'}</p>
+                  </div>
+                </div>
+                <div className="border-t border-error/30 pt-5 mt-5">
+                  <h3 className="font-bold text-error">{lang === 'zh' ? '危险区：删除账号' : 'Danger zone: delete account'}</h3>
+                  <p className="text-xs text-on-surface-variant mt-1">{lang === 'zh' ? '账号会被停用并保留必要审计记录。输入密码后点击删除。' : 'The account is disabled while required audit history is retained.'}</p>
+                  <div className="flex gap-2 mt-3">
+                    <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} placeholder={lang === 'zh' ? '当前密码' : 'Current password'} className="flex-1 px-3 py-2 rounded-xl border border-error/30 bg-surface text-xs" />
+                    <button type="button" disabled={deleteBusy} onClick={() => void handleDeleteAccount()} className="px-3 py-2 rounded-xl bg-error text-on-error text-xs font-bold disabled:opacity-50">{deleteBusy ? '…' : (lang === 'zh' ? '删除账号' : 'Delete')}</button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

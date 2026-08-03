@@ -5,11 +5,12 @@ import {
   listIntegrations,
   markAllNotificationsRead,
   markNotificationRead,
+  replyCollabNotification,
   triggerOrgSync,
 } from '../../api/shell';
 
 interface InboxViewProps {
-  onOpenNewTaskWithTitle?: (title: string, desc: string) => void;
+  onOpenNewTaskWithTitle?: (title: string, desc: string, source?: { channel?: string; title?: string; url?: string }) => void;
   lang: Language;
   companyId?: number | null;
 }
@@ -25,6 +26,10 @@ type InboxRow = {
   tag: string;
   read: boolean;
   needsReply: boolean;
+  senderName: string;
+  recipients: number[];
+  attachments: { name?: string; original_name?: string; url?: string; download_url?: string; mime_type?: string; size?: number; file_size?: number }[];
+  replyText?: string | null;
 };
 
 const PROVIDER_META: Record<string, { name: string; icon: string; category: IntegrationItem['category']; description: string }> = {
@@ -77,6 +82,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const [filter, setFilter] = useState<'all' | 'unread' | 'needs_reply'>('all');
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [replying, setReplying] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -94,7 +101,8 @@ export const InboxView: React.FC<InboxViewProps> = ({
             id: String(n.id),
             source: n.template_key || 'collab',
             icon: 'inbox',
-            sender: String((n.payload as { actor?: string })?.actor || '系统'),
+             sender: String(n.sender?.name || (n.payload as { actor?: string })?.actor || '系统'),
+             senderName: String(n.sender?.name || (n.payload as { actor?: string })?.actor || '系统'),
             subject: (n.body_text || n.template_key || '通知').slice(0, 80),
             snippet: n.body_text || JSON.stringify(n.payload || {}),
             timestamp: n.created_at
@@ -102,7 +110,10 @@ export const InboxView: React.FC<InboxViewProps> = ({
               : '—',
             tag: n.read ? 'Read' : 'New',
             read: n.read,
-            needsReply: Boolean((n.payload as { needs_reply?: boolean })?.needs_reply) || String(n.template_key).includes('reply'),
+             needsReply: Boolean((n.payload as { needs_reply?: boolean })?.needs_reply) || String(n.template_key).includes('reply'),
+             recipients: n.recipient_user_ids || [],
+             attachments: n.attachments || [],
+             replyText: n.reply_text,
           })),
         );
         setIntegrations(
@@ -148,11 +159,13 @@ export const InboxView: React.FC<InboxViewProps> = ({
     onOpenNewTaskWithTitle?.(
       item.subject,
       `[${item.source}] ${item.snippet}`,
+      { channel: 'collab', title: item.senderName, url: undefined },
     );
   };
 
   const handleSelect = async (item: InboxRow) => {
     setSelectedId(item.id);
+    setReplyText(item.replyText || '');
     if (!item.read) {
       try {
         await markNotificationRead(Number(item.id));
@@ -160,6 +173,19 @@ export const InboxView: React.FC<InboxViewProps> = ({
       } catch (e) {
         setError(e instanceof Error ? e.message : '标记已读失败');
       }
+    }
+  };
+
+  const handleReply = async () => {
+    if (!selectedItem || !replyText.trim()) return;
+    setReplying(true);
+    try {
+      const result = await replyCollabNotification(Number(selectedItem.id), replyText.trim());
+      setInboxItems((prev) => prev.map((row) => row.id === selectedItem.id ? { ...row, replyText: result.reply_text, needsReply: false, read: true } : row));
+    } catch (error) {
+      setError(error instanceof Error ? error.message : '回复失败');
+    } finally {
+      setReplying(false);
     }
   };
 
@@ -241,10 +267,14 @@ export const InboxView: React.FC<InboxViewProps> = ({
             {selectedItem ? (
               <>
                 <div className="flex items-center justify-between gap-3">
-                  <h3 className="font-bold text-on-surface">{selectedItem.subject}</h3>
+                 <h3 className="font-bold text-on-surface">{selectedItem.subject}</h3>
                   <span className="text-xs text-on-surface-variant">{selectedItem.timestamp}</span>
                 </div>
+                <div className="text-xs text-on-surface-variant mt-2">{lang === 'zh' ? '发送者' : 'From'}: <span className="font-semibold text-on-surface">{selectedItem.senderName}</span> · {lang === 'zh' ? '收件对象' : 'To'}: {selectedItem.recipients.length ? selectedItem.recipients.join(', ') : '—'}</div>
                 <p className="text-xs text-on-surface-variant mt-3 whitespace-pre-wrap">{selectedItem.snippet}</p>
+                {selectedItem.attachments.length > 0 && <div className="mt-3 space-y-2">{selectedItem.attachments.map((file, index) => <a key={`${file.name || file.original_name}-${index}`} href={file.url || file.download_url || '#'} target="_blank" rel="noreferrer" className="flex items-center gap-2 p-2 rounded-lg bg-surface-container-low text-xs text-primary"><span className="material-symbols-outlined text-sm">attach_file</span><span className="truncate">{file.name || file.original_name || 'attachment'}</span><span className="ml-auto text-on-surface-variant">{file.mime_type || ''}</span></a>)}</div>}
+                {selectedItem.needsReply && <div className="mt-4 flex gap-2"><input value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder={lang === 'zh' ? '快捷回复…' : 'Quick reply…'} className="flex-1 px-3 py-2 rounded-lg border border-outline-variant text-xs" /><button type="button" disabled={replying || !replyText.trim()} onClick={() => void handleReply()} className="px-3 py-2 rounded-lg bg-primary text-on-primary text-xs font-bold disabled:opacity-50">{replying ? '…' : (lang === 'zh' ? '回复' : 'Reply')}</button></div>}
+                {selectedItem.replyText && <p className="mt-3 text-xs text-secondary">{lang === 'zh' ? '我的回复：' : 'My reply: '}{selectedItem.replyText}</p>}
                 <button type="button" onClick={() => handleConvertToTask(selectedItem)} className="mt-4 px-3 py-2 rounded-lg bg-primary text-on-primary text-xs font-bold">
                   {lang === 'zh' ? '转为任务' : 'Convert to task'}
                 </button>

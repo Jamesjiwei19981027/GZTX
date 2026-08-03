@@ -24,13 +24,21 @@ from app.models.audit import AuditLog, ReviewCase
 from app.models.wiki import ProjectWikiEntry
 from app.models.agent import AgentDefinition, AgentSession, AgentMessage
 from app.models.bindings import AsrBinding, StorageBinding, ModelBinding
-from app.models.notify import NotifyPolicy, NotifyJob, CollabInboxMessage
+from app.models.notify import NotifyPolicy, NotifyJob, CollabInboxMessage, PushSubscription
 from app.models.integration import IntegrationAccount
 from app.models.delegation import DelegationGrant
 from app.models.report import ReportPolicy, ReportRun
 from app.models.verification import VerificationCode
 from app.models.rate_limit import RateLimitCounter
-from app.models.shell import TeamChannel, TeamChannelMessage, UserPresence
+from app.models.shell import (
+    TeamChannel,
+    TeamChannelMessage,
+    UserPresence,
+    DirectConversation,
+    DirectConversationMember,
+    DirectMessage,
+    PinnedLink,
+)
 
 __all__ = [
     "User",
@@ -73,6 +81,7 @@ __all__ = [
     "NotifyPolicy",
     "NotifyJob",
     "CollabInboxMessage",
+    "PushSubscription",
     "IntegrationAccount",
     "DelegationGrant",
     "ReportPolicy",
@@ -80,4 +89,8 @@ __all__ = [
     "TeamChannel",
     "TeamChannelMessage",
     "UserPresence",
+    "DirectConversation",
+    "DirectConversationMember",
+    "DirectMessage",
+    "PinnedLink",
 ]

@@ -73,6 +73,11 @@ export interface Task {
   categoryId?: number;
   tagIds?: number[];
   attachments?: File[];
+  sourceChannel?: string;
+  sourceTitle?: string;
+  sourceUrl?: string;
+  sourceMessageId?: string;
+  sourceMeta?: Record<string, unknown>;
 }
 
 export interface Project {
@@ -94,6 +99,7 @@ export interface Activity {
 }
 
 export interface UserProfile {
+  id?: string;
   name: string;
   email: string;
   avatar: string;

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Task, Priority, Status, Category, Project, Language } from '../../types';
 import { getT } from '../../i18n';
+import { extractTaskFromChat } from '../../api/backend';
 import type { BackendCategory, BackendTag } from '../../api/backend';
 
 interface NewTaskModalProps {
@@ -14,8 +15,10 @@ interface NewTaskModalProps {
   defaultCategory?: Category;
   defaultTitle?: string;
   defaultDescription?: string;
+  defaultSource?: { channel?: string; title?: string; url?: string };
   categories?: BackendCategory[];
   tags?: BackendTag[];
+  companyId?: number | null;
   lang: Language;
 }
 
@@ -30,8 +33,10 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   defaultCategory = 'Work',
   defaultTitle = '',
   defaultDescription = '',
+  defaultSource,
   categories = [],
   tags = [],
+  companyId,
   lang,
 }) => {
   const t = getT(lang);
@@ -46,6 +51,13 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const [dueTime, setDueTime] = useState('17:00');
   const [tag, setTag] = useState('');
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [sourceChannel, setSourceChannel] = useState('wechat');
+  const [sourceTitle, setSourceTitle] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [sourceMessageId, setSourceMessageId] = useState('');
+  const [chatText, setChatText] = useState('');
+  const [extracting, setExtracting] = useState(false);
+  const [showSourceTools, setShowSourceTools] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -61,10 +73,44 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       setAttachments([]);
       setDueDate(defaultDate || new Date().toISOString().split('T')[0]);
       setDueTime('17:00');
+      setSourceChannel(defaultSource?.channel || 'wechat');
+      setSourceTitle(defaultSource?.title || '');
+      setSourceUrl(defaultSource?.url || '');
+      setSourceMessageId('');
+      setChatText('');
+      setShowSourceTools(false);
     }
-  }, [isOpen, defaultTitle, defaultDescription, defaultStatus, defaultPriority, defaultCategory, defaultDate, categories]);
+  }, [isOpen, defaultTitle, defaultDescription, defaultStatus, defaultPriority, defaultCategory, defaultDate, categories, defaultSource]);
 
   if (!isOpen) return null;
+
+  const handleExtract = async () => {
+    if (!chatText.trim()) return;
+    setExtracting(true);
+    try {
+      const result = await extractTaskFromChat({
+        chat_text: chatText,
+        source_channel: sourceChannel,
+        source_title: sourceTitle || undefined,
+        source_url: sourceUrl || undefined,
+        source_message_id: sourceMessageId || undefined,
+        company_id: companyId,
+        project_id: Number(currentProject.id) > 0 ? Number(currentProject.id) : null,
+      });
+      const draft = result.draft;
+      setTitle(draft.title || title);
+      setDescription(draft.description || description);
+      setPriority(draft.priority >= 2 ? 'High' : draft.priority <= 0 ? 'Low' : 'Medium');
+      setStatus(draft.status === 2 ? 'Done' : draft.status === 1 ? 'In Progress' : 'To Do');
+      if (draft.due_date) setDueDate(draft.due_date.slice(0, 10));
+      if (draft.category) {
+        const categoryItem = categories.find((item) => item.name === draft.category);
+        if (categoryItem) { setCategoryId(categoryItem.id); setCategory(categoryItem.name as Category); }
+      }
+    } finally {
+      setExtracting(false);
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,6 +128,11 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       subtasks: [],
       tag: tag.trim() || undefined,
       attachments,
+      sourceChannel,
+      sourceTitle: sourceTitle.trim() || undefined,
+      sourceUrl: sourceUrl.trim() || undefined,
+      sourceMessageId: sourceMessageId.trim() || undefined,
+      sourceMeta: chatText.trim() ? { extracted: true, chat_excerpt: chatText.trim().slice(0, 1000) } : undefined,
       projectId: currentProject.id,
       progress: status === 'In Progress' ? 30 : status === 'Done' ? 100 : 0,
     });
@@ -135,13 +186,29 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
               {t.descriptionLabel}
             </label>
-            <textarea
+          <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t.descriptionPlaceholder}
               rows={3}
               className="w-full px-4 py-2.5 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant dark:border-outline rounded-xl text-sm text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none placeholder-on-surface-variant resize-none"
-            ></textarea>
+          ></textarea>
+          <div className="mt-2">
+            <button type="button" onClick={() => setShowSourceTools((value) => !value)} className="text-xs font-bold text-primary hover:underline">
+              {lang === 'zh' ? '从聊天自动提取任务' : 'Extract from chat'}
+            </button>
+            {showSourceTools && (
+              <div className="mt-2 p-3 rounded-xl border border-primary/20 bg-primary/5 space-y-2">
+                <textarea value={chatText} onChange={(e) => setChatText(e.target.value)} rows={3} placeholder={lang === 'zh' ? '粘贴微信/聊天内容，生成可编辑草稿…' : 'Paste chat text to create an editable draft…'} className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-xs" />
+                <div className="grid grid-cols-3 gap-2">
+                  <select value={sourceChannel} onChange={(e) => setSourceChannel(e.target.value)} className="px-2 py-1.5 rounded-lg border border-outline-variant bg-surface text-xs"><option value="wechat">WeChat</option><option value="chat">Chat</option><option value="email">Email</option></select>
+                  <input value={sourceTitle} onChange={(e) => setSourceTitle(e.target.value)} placeholder={lang === 'zh' ? '会话名' : 'Conversation'} className="px-2 py-1.5 rounded-lg border border-outline-variant bg-surface text-xs" />
+                  <input value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder={lang === 'zh' ? '原文链接' : 'Original URL'} className="px-2 py-1.5 rounded-lg border border-outline-variant bg-surface text-xs" />
+                </div>
+                <button type="button" disabled={extracting || !chatText.trim()} onClick={() => void handleExtract()} className="px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold disabled:opacity-50">{extracting ? (lang === 'zh' ? '提取中…' : 'Extracting…') : (lang === 'zh' ? '生成草稿' : 'Generate draft')}</button>
+              </div>
+            )}
+          </div>
           </div>
 
           {/* Grid Row 1: Priority & Status */}

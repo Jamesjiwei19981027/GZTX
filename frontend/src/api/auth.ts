@@ -138,6 +138,27 @@ export async function updateMe(body: {
   })
 }
 
+export async function uploadAvatar(file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest<{ avatar_url: string }>('/users/me/avatar', { method: 'POST', body })
+}
+
+export async function getPrivacySummary() {
+  return apiRequest<{ stored_data: Record<string, unknown>; retention: string; export_endpoint: string; delete_endpoint: string }>('/users/me/privacy')
+}
+
+export async function getBillingSummary() {
+  return apiRequest<{ company_id?: number; company_name?: string; plan_code?: string; status: string; managed_by: string }>('/users/me/billing')
+}
+
+export async function deleteMyAccount(password: string, confirmation = 'DELETE') {
+  return apiRequest<{ deleted: boolean }>('/users/me/delete', {
+    method: 'POST',
+    body: JSON.stringify({ password, confirmation }),
+  })
+}
+
 export async function changePassword(oldPassword: string, newPassword: string) {
   return apiRequest('/users/me/password', {
     method: 'PUT',

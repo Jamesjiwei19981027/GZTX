@@ -12,10 +12,19 @@ from sqlalchemy.orm.attributes import flag_modified
 from app.core.collab_errors import CollabError, fail
 from app.core.dependencies import CurrentUser, DbSession
 from app.models.audit import AuditLog
+from app.models.category import Category
 from app.models.company import CompanyMembership
 from app.models.evidence import EvidencePackage
 from app.models.project import Project
-from app.models.shell import TeamChannel, TeamChannelMessage, UserPresence
+from app.models.shell import (
+    TeamChannel,
+    TeamChannelMessage,
+    UserPresence,
+    DirectConversation,
+    DirectConversationMember,
+    DirectMessage,
+    PinnedLink,
+)
 from app.models.task import Task
 from app.models.tree import TreeNode
 from app.models.user import User
@@ -37,6 +46,20 @@ class ChannelCreate(BaseModel):
 class MessageCreate(BaseModel):
     body: str = Field(..., min_length=1, max_length=4000)
     parent_id: Optional[int] = None
+    message_type: str = "user"
+    attachments: list[dict] = Field(default_factory=list)
+
+
+class ConversationCreate(BaseModel):
+    member_user_ids: list[int] = Field(..., min_length=1, max_length=50)
+    kind: str = "direct"
+    title: Optional[str] = Field(default=None, max_length=120)
+    project_id: Optional[int] = None
+
+
+class PinnedLinkBody(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    url: str = Field(..., min_length=4, max_length=2000)
 
 
 class LayoutBody(BaseModel):
@@ -48,6 +71,8 @@ class UiPrefsBody(BaseModel):
     language: Optional[str] = None
     accent: Optional[str] = None
     theme_mode: Optional[str] = None
+    task_default_priority: Optional[int] = None
+    task_default_category_id: Optional[int] = None
 
 
 class PresenceBody(BaseModel):
@@ -126,6 +151,8 @@ def _msg_dto(m: TeamChannelMessage, u: User | None) -> dict:
         "body": m.body,
         "likes": m.likes or 0,
         "parent_id": m.parent_id,
+        "message_type": m.message_type or "user",
+        "attachments": list(m.attachments_json or []),
         "created_at": m.created_at.isoformat() if m.created_at else None,
     }
 
@@ -227,6 +254,8 @@ async def post_message(
         user_id=user.id,
         body=body.body.strip(),
         parent_id=body.parent_id,
+        message_type=body.message_type if body.message_type in ("user", "system") else "user",
+        attachments_json=[dict(item) for item in body.attachments[:20] if isinstance(item, dict)],
     )
     db.add(m)
     await db.commit()
@@ -260,6 +289,273 @@ async def like_message(message_id: int, db: DbSession, user: CurrentUser):
         m.likes = int(m.likes or 0) + 1
     await db.commit()
     return ResponseData(data={"id": m.id, "likes": m.likes})
+
+
+async def _require_direct_member(db, user_id: int, conversation_id: int):
+    conversation = await db.get(DirectConversation, conversation_id)
+    if not conversation:
+        raise CollabError(404, 40400, "conversation not found")
+    await _require_company_member(db, user_id, conversation.company_id)
+    membership = (
+        await db.execute(
+            select(DirectConversationMember.id).where(
+                DirectConversationMember.conversation_id == conversation_id,
+                DirectConversationMember.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if membership is None:
+        raise CollabError(403, 40301, "not a conversation member")
+    return conversation
+
+
+@router.get("/companies/{company_id}/conversations", response_model=ResponseData)
+async def list_direct_conversations(company_id: int, db: DbSession, user: CurrentUser):
+    try:
+        await _require_company_member(db, user.id, company_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    rows = (
+        await db.execute(
+            select(DirectConversation)
+            .join(DirectConversationMember, DirectConversationMember.conversation_id == DirectConversation.id)
+            .where(
+                DirectConversation.company_id == company_id,
+                DirectConversationMember.user_id == user.id,
+            )
+            .order_by(DirectConversation.id.desc())
+        )
+    ).scalars().unique().all()
+    items = []
+    for conversation in rows:
+        members = (
+            await db.execute(
+                select(DirectConversationMember, User)
+                .join(User, User.id == DirectConversationMember.user_id)
+                .where(DirectConversationMember.conversation_id == conversation.id)
+            )
+        ).all()
+        last = (
+            await db.execute(
+                select(DirectMessage)
+                .where(DirectMessage.conversation_id == conversation.id)
+                .order_by(DirectMessage.id.desc())
+                .limit(1)
+            )
+        ).scalar_one_or_none()
+        items.append(
+            {
+                "id": conversation.id,
+                "company_id": conversation.company_id,
+                "project_id": conversation.project_id,
+                "kind": conversation.kind,
+                "title": conversation.title,
+                "members": [
+                    {
+                        "user_id": member.user_id,
+                        "name": user.nickname or user.username,
+                        "avatar": user.avatar_url or "",
+                    }
+                    for member, user in members
+                ],
+                "last_message": {
+                    "body": last.body,
+                    "created_at": last.created_at.isoformat() if last and last.created_at else None,
+                }
+                if last
+                else None,
+            }
+        )
+    return ResponseData(data={"items": items})
+
+
+@router.post("/companies/{company_id}/conversations", response_model=ResponseData)
+async def create_direct_conversation(
+    company_id: int, body: ConversationCreate, db: DbSession, user: CurrentUser
+):
+    try:
+        await _require_company_member(db, user.id, company_id)
+        if body.project_id is not None:
+            await _require_channel_scope(db, user.id, company_id, body.project_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    member_ids = sorted(set([user.id, *body.member_user_ids]))
+    if body.kind not in ("direct", "group"):
+        return fail(422, 42200, "kind must be direct or group")
+    active = (
+        await db.execute(
+            select(CompanyMembership.user_id).where(
+                CompanyMembership.company_id == company_id,
+                CompanyMembership.user_id.in_(member_ids),
+                CompanyMembership.status == "active",
+            )
+        )
+    ).scalars().all()
+    if set(active) != set(member_ids):
+        return fail(422, 42200, "all conversation members must be active company members")
+    if body.kind == "direct":
+        existing_rows = (
+            await db.execute(
+                select(DirectConversation).where(
+                    DirectConversation.company_id == company_id,
+                    DirectConversation.project_id == body.project_id,
+                    DirectConversation.kind == "direct",
+                )
+            )
+        ).scalars().all()
+        for existing in existing_rows:
+            existing_members = (
+                await db.execute(
+                    select(DirectConversationMember.user_id).where(
+                        DirectConversationMember.conversation_id == existing.id
+                    )
+                )
+            ).scalars().all()
+            if set(existing_members) == set(member_ids):
+                return ResponseData(data={"id": existing.id, "member_user_ids": sorted(existing_members), "kind": existing.kind})
+    conversation = DirectConversation(
+        company_id=company_id,
+        project_id=body.project_id,
+        kind=body.kind,
+        title=(body.title or "").strip() or None,
+        created_by=user.id,
+    )
+    db.add(conversation)
+    await db.flush()
+    for member_id in member_ids:
+        db.add(DirectConversationMember(conversation_id=conversation.id, user_id=member_id))
+    await db.commit()
+    return ResponseData(data={"id": conversation.id, "member_user_ids": member_ids, "kind": conversation.kind})
+
+
+def _direct_msg_dto(message: DirectMessage, sender: User | None) -> dict:
+    return {
+        "id": message.id,
+        "conversation_id": message.conversation_id,
+        "user_id": message.user_id,
+        "sender_name": (sender.nickname or sender.username) if sender else f"用户{message.user_id}",
+        "sender_avatar": sender.avatar_url if sender else "",
+        "body": message.body,
+        "message_type": message.message_type,
+        "attachments": list(message.attachments_json or []),
+        "created_at": message.created_at.isoformat() if message.created_at else None,
+    }
+
+
+@router.get("/conversations/{conversation_id}/messages", response_model=ResponseData)
+async def list_direct_messages(
+    conversation_id: int, db: DbSession, user: CurrentUser, page: int = 1, page_size: int = 50
+):
+    try:
+        await _require_direct_member(db, user.id, conversation_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    page = max(1, page)
+    page_size = min(100, max(1, page_size))
+    rows = (
+        await db.execute(
+            select(DirectMessage, User)
+            .outerjoin(User, User.id == DirectMessage.user_id)
+            .where(DirectMessage.conversation_id == conversation_id)
+            .order_by(DirectMessage.id.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+    ).all()
+    items = [_direct_msg_dto(message, sender) for message, sender in rows]
+    items.reverse()
+    return ResponseData(data={"items": items, "page": page, "page_size": page_size})
+
+
+@router.post("/conversations/{conversation_id}/messages", response_model=ResponseData)
+async def post_direct_message(
+    conversation_id: int, body: MessageCreate, db: DbSession, user: CurrentUser
+):
+    try:
+        await _require_direct_member(db, user.id, conversation_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    message = DirectMessage(
+        conversation_id=conversation_id,
+        user_id=user.id,
+        body=body.body.strip(),
+        message_type=body.message_type if body.message_type in ("user", "system") else "user",
+        attachments_json=[dict(item) for item in body.attachments[:20] if isinstance(item, dict)],
+    )
+    db.add(message)
+    await db.commit()
+    await db.refresh(message)
+    return ResponseData(data=_direct_msg_dto(message, user))
+
+
+@router.get("/channels/{channel_id}/files", response_model=ResponseData)
+async def list_channel_files(channel_id: int, db: DbSession, user: CurrentUser):
+    channel = await db.get(TeamChannel, channel_id)
+    if not channel:
+        return fail(404, 40400, "channel not found")
+    try:
+        await _require_channel_scope(db, user.id, channel.company_id, channel.project_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    rows = (
+        await db.execute(
+            select(TeamChannelMessage)
+            .where(TeamChannelMessage.channel_id == channel_id)
+            .order_by(TeamChannelMessage.id.desc())
+        )
+    ).scalars().all()
+    files = []
+    for message in rows:
+        for item in list(message.attachments_json or []):
+            if isinstance(item, dict):
+                files.append({**item, "message_id": message.id, "created_at": message.created_at.isoformat() if message.created_at else None})
+    return ResponseData(data={"items": files[:100]})
+
+
+@router.get("/channels/{channel_id}/pinned-links", response_model=ResponseData)
+async def list_pinned_links(channel_id: int, db: DbSession, user: CurrentUser):
+    channel = await db.get(TeamChannel, channel_id)
+    if not channel:
+        return fail(404, 40400, "channel not found")
+    try:
+        await _require_channel_scope(db, user.id, channel.company_id, channel.project_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    rows = (
+        await db.execute(select(PinnedLink).where(PinnedLink.channel_id == channel_id).order_by(PinnedLink.id.desc()))
+    ).scalars().all()
+    return ResponseData(data={"items": [{"id": row.id, "title": row.title, "url": row.url, "created_by": row.created_by, "created_at": row.created_at.isoformat() if row.created_at else None} for row in rows]})
+
+
+@router.post("/channels/{channel_id}/pinned-links", response_model=ResponseData)
+async def create_pinned_link(channel_id: int, body: PinnedLinkBody, db: DbSession, user: CurrentUser):
+    channel = await db.get(TeamChannel, channel_id)
+    if not channel:
+        return fail(404, 40400, "channel not found")
+    try:
+        await _require_channel_scope(db, user.id, channel.company_id, channel.project_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    link = PinnedLink(company_id=channel.company_id, project_id=channel.project_id, channel_id=channel_id, title=body.title.strip(), url=body.url.strip(), created_by=user.id)
+    db.add(link)
+    await db.commit()
+    await db.refresh(link)
+    return ResponseData(data={"id": link.id, "title": link.title, "url": link.url})
+
+
+@router.delete("/channels/{channel_id}/pinned-links/{link_id}", response_model=ResponseData)
+async def delete_pinned_link(channel_id: int, link_id: int, db: DbSession, user: CurrentUser):
+    channel = await db.get(TeamChannel, channel_id)
+    link = await db.get(PinnedLink, link_id)
+    if not channel or not link or link.channel_id != channel_id:
+        return fail(404, 40400, "pinned link not found")
+    try:
+        await _require_channel_scope(db, user.id, channel.company_id, channel.project_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    await db.delete(link)
+    await db.commit()
+    return ResponseData(data={"id": link_id, "deleted": True})
 
 
 @router.get("/projects/{project_id}/activity", response_model=ResponseData)
@@ -321,6 +617,109 @@ async def project_activity(
                 }
             )
     return ResponseData(data={"items": items})
+
+
+@router.get("/users/me/activity", response_model=ResponseData)
+async def user_activity(
+    db: DbSession,
+    user: CurrentUser,
+    limit: int = Query(50, ge=1, le=200),
+):
+    """Aggregate recent activity across every project visible to the user."""
+    from app.models.project import ProjectMember
+
+    project_ids = (
+        await db.execute(
+            select(Project.id)
+            .outerjoin(ProjectMember, ProjectMember.project_id == Project.id)
+            .where(
+                (Project.created_by == user.id)
+                | ((ProjectMember.user_id == user.id) & ProjectMember.left_at.is_(None))
+            )
+            .distinct()
+        )
+    ).scalars().all()
+    if not project_ids:
+        return ResponseData(data={"items": []})
+    rows = (
+        await db.execute(
+            select(AuditLog, Project)
+            .join(Project, Project.id == AuditLog.project_id)
+            .where(AuditLog.project_id.in_(project_ids))
+            .order_by(AuditLog.id.desc())
+            .limit(limit)
+        )
+    ).all()
+    items = []
+    for audit, project in rows:
+        detail = audit.detail_json or {}
+        items.append(
+            {
+                "id": audit.id,
+                "project_id": project.id,
+                "project_name": project.name,
+                "type": audit.action,
+                "title": detail.get("title") or audit.action,
+                "resource_type": audit.resource_type,
+                "resource_id": audit.resource_id,
+                "actor_user_id": audit.actor_user_id,
+                "created_at": audit.created_at.isoformat() if audit.created_at else None,
+                "detail": detail,
+            }
+        )
+    return ResponseData(data={"items": items})
+
+
+@router.get("/users/me/people-axis", response_model=ResponseData)
+async def aggregate_people_axis(
+    db: DbSession,
+    user: CurrentUser,
+    limit_projects: int = Query(100, ge=1, le=200),
+):
+    """Read-only cross-project people-axis overview for dashboard views."""
+    from app.models.project import ProjectMember
+
+    projects = (
+        await db.execute(
+            select(Project)
+            .outerjoin(ProjectMember, ProjectMember.project_id == Project.id)
+            .where(
+                (Project.created_by == user.id)
+                | ((ProjectMember.user_id == user.id) & ProjectMember.left_at.is_(None))
+            )
+            .distinct()
+            .order_by(Project.id)
+            .limit(limit_projects)
+        )
+    ).scalars().all()
+    output = []
+    for project in projects:
+        rows = (
+            await db.execute(
+                select(TreeNode).where(
+                    TreeNode.project_id == project.id,
+                    TreeNode.is_deleted.is_(False),
+                ).order_by(TreeNode.sort_order, TreeNode.id)
+            )
+        ).scalars().all()
+        nodes = []
+        for node in rows:
+            key, template = await tsvc.get_type_key(db, node)
+            nodes.append({
+                "id": node.id,
+                "parent_id": node.parent_id,
+                "node_type_key": key,
+                "behavior_template": template,
+                "title": node.title,
+                "description": node.description,
+                "sort_order": node.sort_order,
+                "depth": node.depth,
+                "progress_json": node.progress_json,
+                "ui_offset": (node.progress_json or {}).get("ui_offset") if isinstance(node.progress_json, dict) else None,
+                "assignees": await tsvc.list_assignees(db, node.id),
+            })
+        output.append({"project_id": project.id, "project_name": project.name, "company_id": project.company_id, "nodes": nodes})
+    return ResponseData(data={"projects": output})
 
 
 @router.post("/projects/{project_id}/axis-audit", response_model=ResponseData)
@@ -481,6 +880,17 @@ async def put_ui_prefs(body: UiPrefsBody, db: DbSession, user: CurrentUser):
     pref = dict(user.notify_pref or {})
     ui = dict(pref.get("ui") or {})
     data = body.model_dump(exclude_unset=True)
+    if data.get("task_default_priority") is not None and data["task_default_priority"] not in (0, 1, 2):
+        return fail(422, 42200, "task_default_priority must be 0, 1, or 2")
+    if data.get("task_default_category_id") is not None:
+        category_exists = await db.scalar(
+            select(func.count()).select_from(Category).where(
+                Category.id == data["task_default_category_id"],
+                Category.user_id == user.id,
+            )
+        )
+        if not category_exists:
+            return fail(404, 40400, "default category not found")
     ui.update({k: v for k, v in data.items() if v is not None})
     pref["ui"] = ui
     user.notify_pref = pref

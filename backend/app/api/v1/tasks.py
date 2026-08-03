@@ -2,6 +2,8 @@
 任务相关接口
 """
 from typing import List, Optional
+import json
+import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
@@ -27,6 +29,7 @@ from app.schemas.task import (
     PriorityStat,
     CategoryStat,
     BatchAction,
+    TaskExtractRequest,
 )
 from app.schemas.common import ResponseData, PaginatedData
 
@@ -320,6 +323,118 @@ async def get_task_stats(
     )
 
 
+def _fallback_task_draft(text: str) -> dict:
+    """Return a deterministic draft when the configured LLM is unavailable."""
+    lines = [line.strip(" -*\t") for line in text.splitlines() if line.strip()]
+    title = lines[0][:200] if lines else text[:200]
+    if len(title) > 80 and "。" in title:
+        title = title.split("。", 1)[0][:200]
+    priority = 2 if re.search(r"(紧急|马上|urgent|asap|今天必须)", text, re.I) else 1
+    due_date = None
+    match = re.search(r"(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})", text)
+    if match:
+        due_date = f"{int(match.group(1)):04d}-{int(match.group(2)):02d}-{int(match.group(3)):02d}"
+    return {
+        "title": title,
+        "description": text,
+        "priority": priority,
+        "status": 0,
+        "due_date": due_date,
+        "category": None,
+    }
+
+
+def _parse_task_draft(content: str, source_text: str) -> dict:
+    """Parse a JSON LLM response and safely fall back to deterministic data."""
+    raw = (content or "").strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.I | re.S).strip()
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return _fallback_task_draft(source_text)
+    if not isinstance(parsed, dict):
+        return _fallback_task_draft(source_text)
+    fallback = _fallback_task_draft(source_text)
+    title = str(parsed.get("title") or fallback["title"]).strip()[:200]
+    if not title:
+        title = fallback["title"]
+    priority = parsed.get("priority", fallback["priority"])
+    try:
+        priority = int(priority)
+    except (TypeError, ValueError):
+        priority = fallback["priority"]
+    priority = priority if priority in (0, 1, 2) else fallback["priority"]
+    due_date = parsed.get("due_date") or fallback["due_date"]
+    if due_date:
+        due_date = str(due_date)[:32]
+    return {
+        "title": title,
+        "description": str(parsed.get("description") or fallback["description"])[:20000],
+        "priority": priority,
+        "status": int(parsed.get("status", 0)) if str(parsed.get("status", 0)).isdigit() else 0,
+        "due_date": due_date,
+        "category": str(parsed.get("category"))[:120] if parsed.get("category") else None,
+    }
+
+
+@router.post("/extract-from-chat", response_model=ResponseData)
+async def extract_task_from_chat(
+    data: TaskExtractRequest, db: DbSession, user: VerifiedUser
+):
+    """Extract a task draft from chat text using the configured LLM.
+
+    This endpoint is intentionally draft-only: the caller must explicitly send
+    the returned fields to ``POST /tasks``.  That keeps chat capture reversible
+    and prevents an LLM from silently creating user data.
+    """
+    company_id = await _validate_collab_scope(
+        db,
+        user.id,
+        company_id=data.company_id,
+        project_id=data.project_id,
+        project_node_id=None,
+    )
+    from app.services.llm_settings import chat_completion, resolve_llm
+
+    llm = await resolve_llm(db, company_id=company_id, user=user)
+    result = await chat_completion(
+        llm,
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Extract one actionable task from the user's chat. Return only JSON "
+                    "with title, description, priority (0 low, 1 medium, 2 high), "
+                    "status (0), due_date (ISO date or null), and category."
+                ),
+            },
+            {"role": "user", "content": data.chat_text},
+        ],
+        temperature=0,
+        max_tokens=512,
+    )
+    draft = _parse_task_draft(result.get("content", ""), data.chat_text)
+    source_meta = dict(data.source_meta or {})
+    source_meta.setdefault("extracted", True)
+    source_meta["provider"] = result.get("provider") or llm.provider
+    draft.update(
+        {
+            "company_id": company_id,
+            "project_id": data.project_id,
+            "origin": "project_link" if data.project_id else "personal",
+            "source_channel": data.source_channel.strip()[:32] or "chat",
+            "source_title": data.source_title,
+            "source_url": data.source_url,
+            "source_message_id": data.source_message_id,
+            "source_meta": source_meta,
+        }
+    )
+    return ResponseData(
+        data={"draft": draft, "provider": result.get("provider") or llm.provider}
+    )
+
+
 @router.get("/{task_id}", response_model=ResponseData)
 async def get_task(task_id: int, db: DbSession, user: CurrentUser):
     """获取任务详情"""
@@ -348,15 +463,35 @@ async def get_task(task_id: int, db: DbSession, user: CurrentUser):
 @router.post("", response_model=ResponseData, status_code=status.HTTP_201_CREATED)
 async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
     """创建任务（需完成双验证）"""
+    ui_prefs = ((user.notify_pref or {}).get("ui") or {}) if isinstance(user.notify_pref, dict) else {}
+    effective_priority = data.priority
+    if "priority" not in data.model_fields_set:
+        try:
+            candidate = int(ui_prefs.get("task_default_priority"))
+            if candidate in (0, 1, 2):
+                effective_priority = candidate
+        except (TypeError, ValueError):
+            pass
     # 获取默认分类
     if data.category_id is None:
+        preferred_category_id = ui_prefs.get("task_default_category_id")
+        default_cat = None
+        if preferred_category_id is not None:
+            default_cat = (
+                await db.execute(
+                    select(Category).where(
+                        Category.id == preferred_category_id,
+                        Category.user_id == user.id,
+                    )
+                )
+            ).scalar_one_or_none()
         result = await db.execute(
             select(Category).where(
                 Category.user_id == user.id,
                 Category.is_default == True,
             )
         )
-        default_cat = result.scalar_one_or_none()
+        default_cat = default_cat or result.scalar_one_or_none()
         category_id = default_cat.id if default_cat else None
     else:
         # 校验分类归属：此前不查，任意 category_id 都能写进来，
@@ -396,7 +531,7 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
         category_id=category_id,
         title=data.title,
         description=data.description,
-        priority=data.priority,
+        priority=effective_priority,
         status=data.status,
         completed_at=datetime.utcnow() if data.status == Task.STATUS_DONE else None,
         due_date=due_date_val,
@@ -407,6 +542,11 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
         project_node_id=data.project_node_id,
         origin=data.origin,
         linked_readonly=data.linked_readonly,
+        source_channel=data.source_channel,
+        source_title=data.source_title,
+        source_url=data.source_url,
+        source_message_id=data.source_message_id,
+        source_meta=data.source_meta,
     )
     db.add(task)
     await db.flush()

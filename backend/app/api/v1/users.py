@@ -2,8 +2,12 @@
 用户相关接口
 """
 import re
+import os
+import uuid
+import mimetypes
 from copy import deepcopy
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, status, File, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr
 from sqlalchemy import select
 
@@ -20,6 +24,11 @@ router = APIRouter(prefix="/users", tags=["用户"])
 class BindEmailRequest(BaseModel):
     email: EmailStr
     code: str  # 必须先走 /users/me/verification/send-code 拿码
+
+
+class AccountDeleteRequest(BaseModel):
+    password: str = ""
+    confirmation: str
 
 
 @router.get("/me", response_model=ResponseData)
@@ -62,6 +71,120 @@ async def update_me(data: UserUpdate, db: DbSession, user: CurrentUser):
 
     await db.flush()
     return ResponseData(data=UserDetail.model_validate(user).model_dump())
+
+
+AVATAR_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+    "data",
+    "avatars",
+)
+
+
+@router.post("/me/avatar", response_model=ResponseData)
+async def upload_avatar(db: DbSession, user: CurrentUser, file: UploadFile = File(...)):
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="请选择图片")
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+        raise HTTPException(status_code=400, detail="仅支持 png/jpg/gif/webp 图片")
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="头像不能超过 5MB")
+    os.makedirs(AVATAR_DIR, exist_ok=True)
+    stored = f"{uuid.uuid4().hex}{ext}"
+    with open(os.path.join(AVATAR_DIR, stored), "wb") as handle:
+        handle.write(content)
+    pref = dict(user.notify_pref or {})
+    pref["avatar_file"] = stored
+    user.notify_pref = pref
+    user.avatar_url = f"/api/v1/users/{user.id}/avatar"
+    from sqlalchemy.orm.attributes import flag_modified
+
+    flag_modified(user, "notify_pref")
+    await db.flush()
+    return ResponseData(data={"avatar_url": user.avatar_url})
+
+
+@router.get("/{user_id}/avatar")
+async def get_avatar(user_id: int, db: DbSession):
+    user = await db.get(User, user_id)
+    filename = user.notify_pref.get("avatar_file") if user and isinstance(user.notify_pref, dict) else None
+    if not filename:
+        raise HTTPException(status_code=404, detail="头像不存在")
+    path = os.path.join(AVATAR_DIR, os.path.basename(filename))
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="头像不存在")
+    return FileResponse(path, media_type=mimetypes.guess_type(path)[0] or "image/jpeg")
+
+
+@router.get("/me/privacy", response_model=ResponseData)
+async def get_privacy_summary(db: DbSession, user: CurrentUser):
+    from sqlalchemy import func
+    from app.models.task import Task
+
+    task_count = int((await db.execute(select(func.count()).select_from(Task).where(Task.user_id == user.id))).scalar() or 0)
+    return ResponseData(data={
+        "stored_data": {"tasks": task_count, "profile": True, "notification_preferences": True},
+        "retention": "Tasks remain until you delete them or close the account.",
+        "export_endpoint": "/api/v1/users/me/export",
+        "delete_endpoint": "/api/v1/users/me/delete",
+    })
+
+
+@router.get("/me/export", response_model=ResponseData)
+async def export_my_data(db: DbSession, user: CurrentUser):
+    from app.models.task import Task
+
+    rows = (await db.execute(select(Task).where(Task.user_id == user.id, Task.is_deleted.is_(False)).order_by(Task.id))).scalars().all()
+    return ResponseData(data={
+        "user": {"id": user.id, "username": user.username, "email": user.email, "nickname": user.nickname},
+        "tasks": [{
+            "id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "priority": task.priority,
+            "status": task.status,
+            "due_date": task.due_date.isoformat() if task.due_date else None,
+            "created_at": task.created_at.isoformat() if task.created_at else None,
+        } for task in rows],
+    })
+
+
+@router.get("/me/billing", response_model=ResponseData)
+async def get_billing_summary(db: DbSession, user: CurrentUser):
+    from app.models.company import Company, CompanyMembership, ServiceActivation
+
+    membership = (await db.execute(select(CompanyMembership).where(
+        CompanyMembership.user_id == user.id,
+        CompanyMembership.status == "active",
+    ).order_by(CompanyMembership.id).limit(1))).scalar_one_or_none()
+    company = await db.get(Company, membership.company_id) if membership else None
+    activation = None
+    if company:
+        activation = (await db.execute(select(ServiceActivation).where(
+            ServiceActivation.company_id == company.id,
+        ).order_by(ServiceActivation.id.desc()).limit(1))).scalar_one_or_none()
+    return ResponseData(data={
+        "company_id": company.id if company else None,
+        "company_name": company.name if company else None,
+        "plan_code": activation.plan_code if activation else None,
+        "status": activation.status if activation else "personal",
+        "managed_by": "company_admin" if company else "self",
+    })
+
+
+@router.post("/me/delete", response_model=ResponseData)
+async def delete_my_account(data: AccountDeleteRequest, db: DbSession, user: CurrentUser):
+    if data.confirmation.strip().upper() != "DELETE":
+        raise HTTPException(status_code=422, detail="请输入 DELETE 以确认")
+    if user.password_hash and not verify_password(data.password, user.password_hash):
+        raise HTTPException(status_code=400, detail="密码错误")
+    user.is_active = False
+    user.nickname = "已删除用户"
+    user.email = None
+    user.phone = None
+    await db.flush()
+    return ResponseData(data={"deleted": True}, message="账号已删除")
 
 
 @router.put("/me/password", response_model=ResponseData)

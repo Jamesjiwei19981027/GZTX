@@ -1,4 +1,6 @@
 """公司/用户 ASR · Storage · Model 绑定 API"""
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -12,6 +14,7 @@ from app.core.collab_errors import CollabError
 from app.core.dependencies import CurrentUser, DbSession
 from app.models.bindings import AsrBinding, ModelBinding, StorageBinding
 from app.models.company import Company
+from app.models.user import User
 from app.schemas.common import ResponseData
 from app.services.asr.router import AsrRouter
 from app.services.policy_guard import PolicyGuard
@@ -27,6 +30,10 @@ class BindingBody(BaseModel):
 class UserAsrBody(BaseModel):
     provider_id: str = Field(..., min_length=1, max_length=64)
     company_id: int
+
+
+class CollabReplyBody(BaseModel):
+    text: str = Field(..., min_length=1, max_length=4000)
 
 
 def _summary_storage(b: StorageBinding | None) -> dict:
@@ -302,23 +309,37 @@ async def list_collab_notifications(
     )
     total = int(total_q.scalar() or 0)
     q = await db.execute(
-        select(CollabInboxMessage)
+        select(CollabInboxMessage, User)
+        .outerjoin(User, User.id == CollabInboxMessage.sender_user_id)
         .where(CollabInboxMessage.user_id == user.id)
         .order_by(CollabInboxMessage.id.desc())
         .offset((page - 1) * page_size)
         .limit(page_size)
     )
-    items = [
-        {
-            "id": m.id,
-            "template_key": m.template_key,
-            "payload": m.payload_json,
-            "body_text": m.body_text,
-            "read": m.is_read,
-            "created_at": m.created_at.isoformat() if m.created_at else None,
-        }
-        for m in q.scalars().all()
-    ]
+    items = []
+    for m, sender in q.all():
+        items.append(
+            {
+                "id": m.id,
+                "template_key": m.template_key,
+                "payload": m.payload_json,
+                "body_text": m.body_text,
+                "read": m.is_read,
+                "sender": {
+                    "user_id": sender.id,
+                    "name": sender.nickname or sender.username,
+                    "avatar_url": sender.avatar_url or "",
+                }
+                if sender
+                else None,
+                "recipient_user_ids": list(m.recipient_user_ids or []),
+                "attachments": list(m.attachments_json or []),
+                "requires_reply": bool(m.requires_reply),
+                "reply_text": m.reply_text,
+                "replied_at": m.replied_at.isoformat() if m.replied_at else None,
+                "created_at": m.created_at.isoformat() if m.created_at else None,
+            }
+        )
     return ResponseData(
         data={
             "items": items,
@@ -365,3 +386,30 @@ async def mark_all_collab_notifications_read(
         m.is_read = True
     await db.commit()
     return ResponseData(data={"updated": len(rows)})
+
+
+@router.post("/notifications/collab/{message_id}/reply", response_model=ResponseData)
+async def reply_collab_notification(
+    message_id: int,
+    body: CollabReplyBody,
+    db: DbSession,
+    user: CurrentUser,
+):
+    from app.models.notify import CollabInboxMessage
+
+    message = await db.get(CollabInboxMessage, message_id)
+    if not message or message.user_id != user.id:
+        from app.core.collab_errors import fail
+
+        return fail(404, 40400, "通知不存在")
+    message.reply_text = body.text.strip()
+    message.replied_at = datetime.now(timezone.utc)
+    message.is_read = True
+    await db.commit()
+    return ResponseData(
+        data={
+            "id": message.id,
+            "reply_text": message.reply_text,
+            "replied_at": message.replied_at.isoformat(),
+        }
+    )

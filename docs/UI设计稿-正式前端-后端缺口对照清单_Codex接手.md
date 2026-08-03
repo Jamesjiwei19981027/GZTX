@@ -88,12 +88,12 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 | D1-02 | 备注细节 | 同上 description | ✅ | `description` | — |
 | D1-03 | 优先级选择 | 同上 | ✅ | `priority` 0/1/2 | — |
 | D1-04 | 截止日期 | 同上 dueDate/dueTime | ✅ 日期与时间合并写入 `due_date` | `due_date` | — |
-| D1-05 | **来源条：微信会话名 +「查看原文」** | 无 | ❌ | 🆕 无「微信来源任务」模型 | 若做：任务 `origin_meta` / `source_channel` + 查看原文 API |
-| D1-06 | **备注「自动提取」徽章（从聊天抽）** | 无 | ❌ | 🆕 LLM 抽取 | 可接既有 LLM 配置后做 `POST /tasks/extract-from-chat` |
+| D1-05 | **来源条：微信会话名 +「查看原文」** | `NewTaskModal.tsx` + `TaskDetailDrawer.tsx` | ✅ | `tasks.source_channel/source_title/source_url/source_meta` | `POST /tasks` 持久化来源，来源 URL 可查看原文 |
+| D1-06 | **备注「自动提取」徽章（从聊天抽）** | `NewTaskModal.tsx` 聊天抽取草稿 | ✅ | `POST /tasks/extract-from-chat`，复用个人/公司 LLM，未配置时确定性降级 | 抽取只生成可编辑草稿，需用户确认后创建 |
 | D1-07 | 页脚「添加附件」 | `NewTaskModal.tsx` 文件选择 + 创建后上传 | ✅ | `POST /tasks/{id}/attachments` | 部分附件失败会明确提示 |
 | D1-08 | 页脚「添加标签」快捷 | 标签快捷条 + `tag_ids` | ✅ | `/tags` + create `tag_ids` | — |
 | D1-09 | （正式多出）状态/类别/负责人/子任务 | `NewTaskModal.tsx` | ✅ 状态/分类真实落库；未伪造个人指派人/子任务 | 分类/标签 API；个人任务无多指派人 | 项目成员指派仍按项目人轴口径处理 |
-| D1-10 | 创建 / 取消 | 同上 → `App.handleCreateTask` | ✅ 标题、状态、分类、标签、项目、日期时间会落库；附件创建后上传 | `POST /tasks` + attachments | 微信来源/LLM 抽取仍延期 |
+| D1-10 | 创建 / 取消 | 同上 → `App.handleCreateTask` | ✅ 标题、状态、分类、标签、项目、日期时间、来源会落库；附件创建后上传 | `POST /tasks` + attachments | — |
 
 **API 层**：`frontend/src/api/backend.ts` → `createTask` 已发送 title/description/priority/status/category/tag/project/due_date 等字段；附件走创建后的 `POST /tasks/{id}/attachments`。
 
@@ -105,8 +105,8 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 |---|------------|--------------|------|----------|------------|
 | D2-01 | **独立「通知提醒设置」整页** | 塞进 `SettingsView.tsx` 通知 Tab | 🟨 | — | 可拆独立 View 或路由 |
 | D2-02 | 邮件提醒开关 | Settings 通知勾选 | ✅ 云端合并保存（不覆盖 SMTP 凭证） | 用户 `notify_pref` / SMTP | — |
-| D2-03 | 浏览器/桌面推送开关 | Settings push/desktop | 🟨 偏好已云同步，浏览器订阅授权仍需接线 | `/notifications/subscribe` VAPID | 接 Web Push 订阅流程 |
-| D2-04 | **微信提醒（服务号）开关** | Settings 微信开关 | 🟨 偏好已云同步，服务号绑定/模板消息沿用现有后端 | wx / notify 通道 | 绑定流程仍需产品配置 |
+| D2-03 | 浏览器/桌面推送开关 | Settings push/desktop + Service Worker | ✅ 授权、订阅、取消订阅均走后端；订阅 DB 持久化 | `/notifications/subscribe` VAPID + `push_subscriptions` | 生产环境需配置 VAPID |
+| D2-04 | **微信提醒（服务号）开关** | Settings 微信开关 + 绑定状态 | ✅ `/wx/subscribe-preference` 校验绑定后保存模板消息偏好 | wx / notify 通道 | 生产环境需配置服务号模板 |
 | D2-05 | **静音时段（起止时间）** | Settings 时间控件 | ✅ | `notify_pref.quiet_hours` | — |
 | D2-06 | **周末全天免打扰** | Settings 复选框 | ✅ | `notify_pref.weekend_mute` | — |
 
@@ -122,13 +122,13 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 | D3-02 | 筛选：全部 / 未读 / 需回复 | `InboxView.tsx` | ✅ | 协作通知 `read` + payload | — |
 | D3-03 | 顶栏搜索邮件 | `InboxView.tsx` 通知搜索 | ✅ | 客户端筛选 | — |
 | D3-04 | 归档 / 删除 / 标未读 | 标已读/全部已读 | 🟨 仅协作通知读状态；无外邮归档删除 | `mark-read` / `read-all` | — |
-| D3-05 | 正文、发件人、收件组 | 无 | ❌ | 🆕 | — |
-| D3-06 | 附件 PDF 卡片 | 无 | ❌ | 🆕 / 证据文件可部分复用 | — |
-| D3-07 | 底部快捷回复 | 无 | ❌ | 🆕 | — |
+| D3-05 | 正文、发件人、收件组 | `InboxView.tsx` | ✅ | `CollabInboxMessage.sender_user_id/recipient_user_ids/body_text` | — |
+| D3-06 | 附件 PDF 卡片 | `InboxView.tsx` | ✅ | `attachments_json` 元数据卡片与下载链接 | 二进制上传继续复用 storage/附件服务 |
+| D3-07 | 底部快捷回复 | `InboxView.tsx` | ✅ | `POST /notifications/collab/{id}/reply` | — |
 | D3-08 | 「转为任务」CTA | 列表有，接 `NewTaskModal` | 🟨 | `POST /tasks` | 保留；阅读窗语境缺失 |
 | D3-09 | （正式另做）集成列表 + org-sync | `InboxView.tsx` + `api/shell.ts` | 🟨 | `GET /companies/{id}/integrations`（常需超管） | 权限文案；普通成员空列表属预期 |
 
-**结论**：设计稿是 **Gmail 式 Inbox**；本期正式前端明确采用 **Collab 通知 + 集成配置**，不伪装外部 Gmail/IMAP。外部邮件正文、归档删除和快捷回复列为后续产品范围。
+**结论**：设计稿是 **Gmail 式 Inbox**；正式前端采用 **Collab 通知 + 集成配置**，不伪装外部 Gmail/IMAP。协作通知正文、发件人、附件卡片和快捷回复已落地；外部邮件归档删除仍不在本期范围。
 
 ---
 
@@ -140,7 +140,7 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 | D4-02 | 统计四卡 | 同上 | ✅ | 同上 | — |
 | D4-03 | 周进度环 | 同上 | ✅ | 本地算 | — |
 | D4-04 | 即将到期列表 | 同上 | 🟨 相对「X 小时」文案弱 | 任务 `due_date` | 前端文案 |
-| D4-05 | 最近动态 | `App.tsx` 仅显示真实项目 activity；无数据为空 | 🟨 选中具体项目才有真实数据，全盘不注入演示动态 | `GET /projects/{id}/activity` | 全盘聚合 activity 可后续补 |
+| D4-05 | 最近动态 | `App.tsx` 项目/全盘均显示真实 activity；无数据为空 | ✅ | `GET /projects/{id}/activity` + `GET /users/me/activity` | — |
 | D4-06 | （正式多出）进人轴 Banner | `DashboardView` / 导航 | ✅ 超出设计稿 | 人轴 API | — |
 
 ---
@@ -150,16 +150,16 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 | # | 设计稿模块 | 正式前端路径 | 状态 | 后端现状 | Codex 待办 |
 |---|------------|--------------|------|----------|------------|
 | D5-01 | 个人资料 | `SettingsView.tsx` | ✅ | `PUT /users/me` | — |
-| D5-02 | 头像更换 | `SettingsView.tsx` 头像 URL | ✅ URL 持久化；尚未做文件上传 | 用户 avatar 字段 | 文件上传可后续补 |
+| D5-02 | 头像更换 | `SettingsView.tsx` URL + 文件上传 | ✅ | `POST /users/me/avatar` + `GET /users/{id}/avatar` | — |
 | D5-03 | 通知偏好 | 见 D2 | 🟨 | 见 D2 | — |
-| D5-04 | 任务默认优先级/分类 | Settings | 🟨 本地 settings | 无专用云端（可放 ui-prefs） | 可选扩 prefs |
+| D5-04 | 任务默认优先级/分类 | Settings | ✅ 云端 `ui-prefs` 同步 | `task_default_priority/task_default_category_id` | — |
 | D5-05 | 外观：浅/深 + 主题色 | Settings + `App` `putUiPrefs` | ✅ | `GET/PUT /users/me/ui-prefs` | — |
 | D5-06 | 语言 | Navbar + prefs | ✅ | ui-prefs | — |
 | D5-07 | **安全设置** | `SettingsView.tsx` 改密表单 | ✅ | `PUT /users/me/password` | — |
-| D5-08 | **账单与订阅** | 无 | ❌ | 🆕（或公司 license） | 产品决定；可隐藏入口 |
-| D5-09 | **数据与隐私** | 无 | ❌ | 🆕 | 或静态页 |
+| D5-08 | **账单与订阅** | `SettingsView.tsx` 摘要卡 | ✅ | `GET /users/me/billing`（公司 license/service activation 摘要） | — |
+| D5-09 | **数据与隐私** | `SettingsView.tsx` 摘要卡 | ✅ | `GET /users/me/privacy` + `GET /users/me/export` | — |
 | D5-10 | 设置页内退出登录 | `SettingsView.tsx` + `Navbar` | ✅ | `POST /auth/logout` | — |
-| D5-11 | 危险区删除账号 | 有演示按钮？ | 🟨 | 🆕 一般无删号 API | 确认产品 |
+| D5-11 | 危险区删除账号 | `SettingsView.tsx` 危险区 | ✅ | `POST /users/me/delete`（软删除、保留审计） | — |
 
 **登录/注册（设计稿无独立屏，产品必需，已补）**：
 
@@ -184,8 +184,8 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 | D6-05 | **顶部成员头像叠层 +N** | `KanbanView.tsx` | ✅ | `GET /projects/{id}/members` | — |
 | D6-06 | **顶部筛选按钮** | 搜索/优先级/分类筛选 | ✅ | 前端筛选 | — |
 | D6-07 | 「正常运行 · 最后更新」状态条 | `KanbanView.tsx` | ✅ 无活动时明确显示暂无记录 | activity 时间 | — |
-| D6-08 | 卡片 drag_indicator | 整卡拖，无拖柄视觉 | 🟨 | — | UI |
-| D6-09 | 已完成「完成于昨日」 | 弱 | 🟨 | `completed_at` | 前端相对时间 |
+| D6-08 | 卡片 drag_indicator | `KanbanView.tsx` 拖动手柄视觉 + 整卡拖拽 | ✅ | — | — |
+| D6-09 | 已完成「完成于昨日」 | `KanbanView.tsx` 相对完成时间 | ✅ | `completed_at` | — |
 | D6-10 | 看板列配置 / WIP | 无（刻意） | ❌ 刻意不做 | 🆕 若要做列配置表 | 保持三列即可 |
 
 ---
@@ -196,8 +196,8 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 |---|------------|--------------|------|----------|------------|
 | D7-01 | 月网格 + 日 pill | `CalendarView.tsx` | ✅ 真翻月（本地日期安全） | 任务列表即可 | — |
 | D7-02 | 月/周/日切换 | `CalendarView.tsx` | ✅ 月/周/日均渲染 | 不需要专用 API | — |
-| D7-03 | 右侧当日日程 | 有列表 | 🟨 少时段轴 | due_date | 时间轴 UI |
-| D7-04 | 效率条 / 今日展望 | 部分有 | 🟨 | 本地算 | — |
+| D7-03 | 右侧当日日程 | `CalendarView.tsx` 列表 + 时间轴 | ✅ | due_date/due_time | — |
+| D7-04 | 效率条 / 今日展望 | `CalendarView.tsx` 今日展望 + 完成效率 | ✅ | 本地真实任务计算 | — |
 | D7-05 | 任务拖到日期格 | `CalendarView.tsx` HTML DnD | ✅ | `PUT /tasks` 改 due_date | — |
 
 ---
@@ -207,17 +207,17 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 | # | 设计稿模块 | 正式前端路径 | 状态 | 后端现状 | Codex 待办 |
 |---|------------|--------------|------|----------|------------|
 | D8-01 | 发帖 / 点赞 | `MessagesView.tsx` | ✅（有公司时；无公司显示提示） | shell: channels/messages/like | — |
-| D8-02 | 频道切换 + 搜索 | 同上 | 🟨 固定 3 频道 | `GET /companies/{id}/channels` | — |
-| D8-03 | **三栏：会话 \| 对话 \| 右栏** | `MessagesView.tsx` | ✅ 右栏成员/在线状态/项目任务拼现有 API | channels + members/presence + tasks | 文件 Tab 仍待后端附件模型 |
-| D8-04 | 群组 vs 直接消息分区 + 预览行 | 弱（频道按钮） | ❌ | 🆕 真私信会话表；现 `direct` 只是频道 key | 产品拍板 |
+| D8-02 | 频道切换 + 搜索 | 同上 | ✅ 默认频道 + 后端可扩展频道 | `GET /companies/{id}/channels` | — |
+| D8-03 | **三栏：会话 \| 对话 \| 右栏** | `MessagesView.tsx` | ✅ 右栏成员/在线状态/文件/任务/关于 | channels + members/presence + messages/files | — |
+| D8-04 | 群组 vs 直接消息分区 + 预览行 | `MessagesView.tsx` direct 会话列表 | ✅ `direct_conversations` + members/messages | — |
 | D8-05 | 顶栏成员叠层 / 在线人数 | `MessagesView.tsx` 右栏成员与状态 | ✅ | members + presence | — |
 | D8-06 | **语音 / 视频通话** | 无 | ❌ | 🆕 | 通常外包 WebRTC；可砍 |
-| D8-07 | 消息内文件卡片 | 无 | ❌ | 🆕 消息附件；或复用 storage | — |
-| D8-08 | 系统活动气泡 | 无 | ❌ | 可拼 activity | 前端 |
-| D8-09 | 输入区表情 / 附件 | 无 | ❌ | 🆕 附件 | — |
-| D8-10 | 右栏 Tab：文件 / 任务 / 关于 | 无 | ❌ | 🆕 + 🔧 项目任务列表 | — |
-| D8-11 | 最近分享文件 + 下载 | 无 | ❌ | 🆕 | — |
-| D8-12 | 固定链接（Figma 等） | 无 | ❌ | 🆕 `pinned_links` | — |
+| D8-07 | 消息内文件卡片 | `MessagesView.tsx` | 🟨 支持附件元数据/链接卡片 | `attachments_json`；文件服务可继续复用 storage | 二进制上传可接对象存储 |
+| D8-08 | 系统活动气泡 | `MessagesView.tsx` About/任务上下文 | 🟨 activity 已聚合，气泡视图可后续增强 | `GET /users/me/activity` | 不伪造系统事件 |
+| D8-09 | 输入区表情 / 附件 | `MessagesView.tsx` 附件 URL 入口 | 🟨 | message attachments JSON | 表情面板与二进制上传可后续接入 |
+| D8-10 | 右栏 Tab：文件 / 任务 / 关于 | `MessagesView.tsx` | ✅ | files + tasks + about | — |
+| D8-11 | 最近分享文件 + 下载 | `MessagesView.tsx` Files Tab | 🟨 链接型文件可下载 | `GET /channels/{id}/files` | 二进制上传可接对象存储 |
+| D8-12 | 固定链接（Figma 等） | `MessagesView.tsx` | ✅ | `pinned_links` CRUD | — |
 
 **API**：`frontend/src/api/shell.ts`；后端 `backend/app/api/v1/shell.py`、`models/shell.py`。
 
@@ -228,10 +228,10 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 | 能力 | 前端路径 | 后端 | 状态 |
 |------|----------|------|------|
 | **人轴责任链**（产品核心） | `PeopleAxisView.tsx` | tree/nodes/move/evidence/layout/final-owner/axis-audit | ✅ 选中真实项目；`all` 显示选择项目提示，不注入 mock |
-| 报表 Reports | `ReportsView.tsx` | `GET /tasks/stats/trend`；KPI 本地 | 🟨 |
+| 报表 Reports | `ReportsView.tsx` | `GET /tasks/stats/trend` + `GET /tasks/stats`；无接口时仅保留明确降级 | ✅ |
 | 团队页 Team | `TeamView.tsx` | members/invitations/presence | ✅ 需选项目 |
 | 通知中心弹层 | `NotificationsModal.tsx` | `/notifications/collab*` | ✅ |
-| 任务详情抽屉 | `TaskDetailDrawer.tsx` | update/delete task | 🟨 无人轴节点关联编辑 UI |
+| 任务详情抽屉 | `TaskDetailDrawer.tsx` | update/delete task + `project_node_id` | ✅ |
 | 我的任务列表 | `MyTasksView.tsx` | `/tasks*` | ✅ |
 
 ### 人轴（额外）后端/前端残留
@@ -242,8 +242,8 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 | PA-02 | 布局偏移 | 拖拽 → `putNodeLayout` | ✅ | `PUT /nodes/{id}/layout` | — |
 | PA-03 | 终责轴向偏移 | 滑条 | ✅ | `PUT .../final-owner-position` | — |
 | PA-04 | 人轴审计 | 按钮 `runAxisAudit` | ✅ 启发式非 Gemini | `POST .../axis-audit` | 勿接前端 Gemini |
-| PA-05 | 全盘概览人轴 | `PeopleAxisView.tsx` 强制选择真实项目 | 🟨 不再注入 mock；跨项目聚合仍未做 | 🆕 跨项目树 | 后续做聚合或保持项目级 |
-| PA-06 | 任务 ↔ 节点关联编辑 | `linkedNodeId` 只读映射 | 🟨 | 🔧 `Task.project_node_id` | Drawer UI |
+| PA-05 | 全盘概览人轴 | `PeopleAxisView.tsx` 全盘只读聚合 + 项目级编辑 | ✅ | `GET /users/me/people-axis` + nodes API | 全盘聚合只读，避免跨项目误写 |
+| PA-06 | 任务 ↔ 节点关联编辑 | `TaskDetailDrawer.tsx` 编辑 `project_node_id` | ✅ | `Task.project_node_id` | 输入节点 ID 后由后端校验项目归属 |
 | PA-07 | 证据 kind/URL | 已提交 | ✅ | EvidenceSubmit 扩展字段 | — |
 
 ---
@@ -262,8 +262,8 @@ adb -s emulator-5554 shell am start -n com.worktodo.worktodo_app/.MainActivity
 | 优先级 | 项 | 后端动作 | 前端动作 |
 |--------|----|----------|----------|
 | P1 | D1 微信来源建任务 | `source_meta` / 原文链接 | NewTaskModal 来源条 |
-| P1 | D2 静音时段 / 周末免打扰 / 微信渠道 | `notify_pref` 扩展 | Settings 通知 Tab 已接；Web Push 订阅/微信绑定延期 |
-| P1 | D8 IM 三栏 + 附件 + 固定链接 | 三栏成员/presence/任务已接；附件、pinned_links、真私信延期 | MessagesView 已重做布局 |
+| P1 | D2 静音时段 / 周末免打扰 / 微信渠道 | `notify_pref` 扩展 + Web Push DB 订阅 + 微信订阅偏好 | Settings 通知 Tab 已接；生产需 VAPID/服务号配置 |
+| P1 | D8 IM 三栏 + 附件 + 固定链接 | 三栏成员/presence/任务、direct conversations、消息附件元数据、pinned_links | MessagesView 已重做布局；二进制上传/通话仍需外部服务 |
 | P1 | D6 看板成员叠层+筛选 | 复用 members | Kanban 头栏已接 |
 | P1 | D5 安全设置（改密） | 已有改密 API | Settings 入口已接 |
 
@@ -354,14 +354,14 @@ docs/UI设计稿-正式前端-后端缺口对照清单_Codex接手.md  # 本文�
 | 设计 ID | 正式前端主文件 | 总体 | 后端补什么 |
 |---------|----------------|------|------------|
 | D0 DESIGN | theme / Sidebar | ✅ | — |
-| D1 建任务 | `NewTaskModal.tsx` | ✅/🟨 | 状态/分类/标签/附件已接；微信来源与 LLM 抽取暂不做 |
-| D2 通知设置 | `SettingsView.tsx` | ✅/🟨 | 偏好云同步；Web Push 订阅与微信绑定仍待配置 |
-| D3 收件箱 | `InboxView.tsx` | 🟨 | 明确为协作收件箱；外邮 API 不在本期 |
-| D4 仪表板 | `DashboardView.tsx` | ✅/🟨 | 全盘 activity |
-| D5 设置 | `SettingsView.tsx` | ✅/🟨 | users/me、改密已接；账单/删除账号无后端故意不展示 |
+| D1 建任务 | `NewTaskModal.tsx` | ✅ | 状态/分类/标签/附件、微信来源与聊天抽取草稿均已接 |
+| D2 通知设置 | `SettingsView.tsx` | ✅/🟨 | 偏好与 Web Push/微信订阅流程已接；生产需配置外部凭证 |
+| D3 收件箱 | `InboxView.tsx` | ✅/🟨 | 协作收件箱正文/发件人/附件/回复已接；外邮 API 不在本期 |
+| D4 仪表板 | `DashboardView.tsx` | ✅ | 全盘 activity + 相对到期文案 |
+| D5 设置 | `SettingsView.tsx` | ✅ | users/me、头像、改密、账单、隐私、删除账号均有流程 |
 | D6 看板 | `KanbanView.tsx` | ✅/🟨 | 头栏 members + 筛选；无 WIP |
-| D7 日历 | `CalendarView.tsx` | ✅/🟨 | 月/周/日和拖动已接，时段轴仍简化 |
-| D8 聊天 | `MessagesView.tsx` | ✅/🟨 | 三栏/成员/presence/任务已接；附件/真私信/通话不在本期 |
+| D7 日历 | `CalendarView.tsx` | ✅ | 月/周/日、拖动、时段轴和效率统计已接 |
+| D8 聊天 | `MessagesView.tsx` | ✅/🟨 | 三栏/成员/presence/任务、direct、文件/链接已接；二进制上传/通话仍待外部服务 |
 | （+）人轴 | `PeopleAxisView.tsx` | ✅/🟨 | 全盘树；节点-任务关联 UI |
 | （+）AUTH | Login/VerifyGate | ✅ | 已接 |
 

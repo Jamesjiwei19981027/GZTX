@@ -25,6 +25,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const t = getT(lang);
 
+  const relativeDue = (value: string, time?: string) => {
+    const due = new Date(`${value}T${time || '23:59'}:00`);
+    if (Number.isNaN(due.getTime())) return value;
+    const hours = Math.round((due.getTime() - Date.now()) / 3600000);
+    if (hours < 0) return lang === 'zh' ? `已逾期 ${Math.abs(hours)} 小时` : `${Math.abs(hours)}h overdue`;
+    if (hours < 24) return lang === 'zh' ? `${hours || 1} 小时后` : `in ${hours || 1}h`;
+    const days = Math.round(hours / 24);
+    return lang === 'zh' ? `${days} 天后` : `in ${days}d`;
+  };
+
   // Dynamic calculations based on real tasks list
   const totalCount = tasks.length;
   const completedCount = tasks.filter((t) => t.status === 'Done').length;
@@ -36,6 +46,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Upcoming deadlines (To Do or In Progress sorted by date)
   const upcomingTasks = tasks
     .filter((t) => t.status !== 'Done')
+    .filter((t) => t.dueDate)
+    .sort((a, b) => `${a.dueDate}T${a.dueTime || '23:59'}`.localeCompare(`${b.dueDate}T${b.dueTime || '23:59'}`))
     .slice(0, 4);
 
   return (
@@ -288,7 +300,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="flex items-center gap-3 text-xs text-on-surface-variant mt-1">
                           <span className="flex items-center gap-1 font-medium text-error">
                             <span className="material-symbols-outlined text-xs">schedule</span>
-                            {task.dueDate} {task.dueTime ? `• ${task.dueTime}` : ''}
+                            {relativeDue(task.dueDate, task.dueTime)} · {task.dueDate} {task.dueTime ? `• ${task.dueTime}` : ''}
                           </span>
                           <span>•</span>
                           <span className="truncate">{lang === 'zh' ? '项目:' : 'Project:'} {task.category}</span>

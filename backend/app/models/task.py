@@ -51,6 +51,15 @@ class Task(Base):
     project_node_id = Column(Integer, nullable=True, index=True)
     linked_readonly = Column(Boolean, default=True, nullable=False)
 
+    # Source metadata for tasks created from WeChat/chat/email workflows.  Keep
+    # the common display fields indexed in regular columns while preserving
+    # provider-specific payloads in JSON for forward compatibility.
+    source_channel = Column(String(32), nullable=True, index=True)
+    source_title = Column(String(200), nullable=True)
+    source_url = Column(String(1000), nullable=True)
+    source_message_id = Column(String(255), nullable=True)
+    source_meta = Column(JSON, nullable=True)
+
     # 关系
     user = relationship("User", back_populates="tasks")
     category = relationship("Category", back_populates="tasks")

@@ -94,6 +94,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     ? 'min-h-[420px] md:min-h-[520px]'
     : 'min-h-[96px] md:min-h-[112px]'
   const selectedTasks = grouped.get(selectedDate) || []
+  const timelineTasks = [...selectedTasks].sort((a, b) => (a.dueTime || '23:59').localeCompare(b.dueTime || '23:59'))
   const label = cursor.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', {
     year: 'numeric',
     month: 'long',
@@ -177,6 +178,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               <button onClick={() => onOpenNewTaskWithDate(selectedDate)} className="p-1.5 bg-primary/10 text-primary rounded-lg text-xs font-bold">+</button>
             </div>
             {selectedTasks.length === 0 ? <p className="text-center py-8 text-sm text-on-surface-variant">{lang === 'zh' ? '此日没有安排' : 'No tasks scheduled'}</p> : <div className="space-y-3">{selectedTasks.map((task) => <div key={task.id} onClick={() => onSelectTask(task)} className="p-3 rounded-xl bg-surface-container-low dark:bg-[#2e3132] cursor-pointer"><p className="text-sm font-bold truncate">{task.title}</p><p className="text-xs text-on-surface-variant mt-1">{task.dueTime || (lang === 'zh' ? '全天' : 'All day')} · #{task.tag || task.category}</p></div>)}</div>}
+          </div>
+          <div className="bg-surface dark:bg-[#191c1d] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-surface-variant"><h3 className="font-bold text-base text-on-surface dark:text-[#f0f1f2]">{lang === 'zh' ? '时间轴' : 'Time axis'}</h3><span className="text-xs text-on-surface-variant">{timelineTasks.length} {lang === 'zh' ? '项' : 'items'}</span></div>
+            <div className="relative space-y-3">
+              <div className="absolute left-[43px] top-1 bottom-1 w-px bg-outline-variant/60" />
+              {timelineTasks.length === 0 ? <p className="text-center py-4 text-xs text-on-surface-variant">{lang === 'zh' ? '暂无时间段安排' : 'No timed tasks'}</p> : timelineTasks.map((task) => <button type="button" key={task.id} onClick={() => onSelectTask(task)} className="relative z-10 w-full flex items-center gap-3 text-left"><span className="w-9 text-[10px] text-on-surface-variant text-right">{task.dueTime || '—'}</span><span className={`w-2.5 h-2.5 rounded-full ${task.status === 'Done' ? 'bg-secondary' : 'bg-primary'}`} /><span className="flex-1 p-2 rounded-lg bg-surface-container-low text-xs font-semibold truncate">{task.title}</span></button>)}
+            </div>
+            <div className="mt-4 pt-3 border-t border-surface-variant text-xs text-on-surface-variant">{lang === 'zh' ? `完成 ${timelineTasks.filter((task) => task.status === 'Done').length} / ${timelineTasks.length}，效率 ${timelineTasks.length ? Math.round(timelineTasks.filter((task) => task.status === 'Done').length / timelineTasks.length * 100) : 0}%` : `${timelineTasks.filter((task) => task.status === 'Done').length}/${timelineTasks.length} complete · ${timelineTasks.length ? Math.round(timelineTasks.filter((task) => task.status === 'Done').length / timelineTasks.length * 100) : 0}% efficiency`}</div>
           </div>
         </div>
       </div>

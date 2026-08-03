@@ -101,6 +101,11 @@ class TaskCreate(BaseModel):
     project_node_id: Optional[int] = None
     origin: str = "personal"
     linked_readonly: bool = True
+    source_channel: Optional[str] = None
+    source_title: Optional[str] = None
+    source_url: Optional[str] = None
+    source_message_id: Optional[str] = None
+    source_meta: Optional[dict] = None
 
     @field_validator("origin")
     @classmethod
@@ -152,6 +157,11 @@ class TaskUpdate(BaseModel):
     origin: Optional[str] = None
     company_id: Optional[int] = None
     linked_readonly: Optional[bool] = None
+    source_channel: Optional[str] = None
+    source_title: Optional[str] = None
+    source_url: Optional[str] = None
+    source_message_id: Optional[str] = None
+    source_meta: Optional[dict] = None
 
     @field_validator("origin")
     @classmethod
@@ -205,10 +215,36 @@ class TaskResponse(BaseModel):
     project_id: Optional[int] = None
     project_node_id: Optional[int] = None
     linked_readonly: bool = True
+    source_channel: Optional[str] = None
+    source_title: Optional[str] = None
+    source_url: Optional[str] = None
+    source_message_id: Optional[str] = None
+    source_meta: Optional[dict] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
+
+
+class TaskExtractRequest(BaseModel):
+    """Extract a task draft from chat text without creating a task implicitly."""
+
+    chat_text: str = Field(..., min_length=1, max_length=20000)
+    source_channel: str = "wechat"
+    source_title: Optional[str] = None
+    source_url: Optional[str] = None
+    source_message_id: Optional[str] = None
+    source_meta: Optional[dict] = None
+    company_id: Optional[int] = None
+    project_id: Optional[int] = None
+
+    @field_validator("chat_text")
+    @classmethod
+    def chat_text_not_blank(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("chat_text cannot be blank")
+        return value
 
 
 class TaskComplete(BaseModel):

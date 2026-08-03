@@ -18,6 +18,11 @@ export type BackendTask = {
   project_id?: number | null
   project_node_id?: number | null
   origin?: string
+  source_channel?: string | null
+  source_title?: string | null
+  source_url?: string | null
+  source_message_id?: string | null
+  source_meta?: Record<string, unknown> | null
 }
 
 export type BackendProject = {
@@ -113,8 +118,46 @@ export async function createTask(body: {
   project_node_id?: number | null
   origin?: 'personal' | 'project_link'
   linked_readonly?: boolean
+  source_channel?: string | null
+  source_title?: string | null
+  source_url?: string | null
+  source_message_id?: string | null
+  source_meta?: Record<string, unknown> | null
 }) {
   return apiRequest<BackendTask>('/tasks', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export type TaskExtractDraft = {
+  title: string
+  description?: string
+  priority: number
+  status: number
+  due_date?: string | null
+  category?: string | null
+  company_id?: number | null
+  project_id?: number | null
+  origin: 'personal' | 'project_link'
+  source_channel: string
+  source_title?: string | null
+  source_url?: string | null
+  source_message_id?: string | null
+  source_meta?: Record<string, unknown>
+}
+
+export async function extractTaskFromChat(body: {
+  chat_text: string
+  source_channel?: string
+  source_title?: string
+  source_url?: string
+  source_message_id?: string
+  source_meta?: Record<string, unknown>
+  company_id?: number | null
+  project_id?: number | null
+}) {
+  return apiRequest<{ draft: TaskExtractDraft; provider: string }>('/tasks/extract-from-chat', {
     method: 'POST',
     body: JSON.stringify(body),
   })

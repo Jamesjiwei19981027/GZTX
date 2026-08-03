@@ -2,6 +2,16 @@ import React, { useState } from 'react';
 import { Task, Status, Priority, Language, TeamMember } from '../../types';
 import { getT } from '../../i18n';
 
+function relativeCompletedAt(value: string | undefined, lang: Language): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  const hours = Math.max(0, Math.round((Date.now() - date.getTime()) / 3600000));
+  if (hours < 24) return lang === 'zh' ? `${hours || 1} 小时前完成` : `completed ${hours || 1}h ago`;
+  const days = Math.round(hours / 24);
+  return lang === 'zh' ? `${days} 天前完成` : `completed ${days}d ago`;
+}
+
 interface KanbanViewProps {
   tasks: Task[];
   members?: TeamMember[];
@@ -214,6 +224,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         {/* Top Labels Row */}
                         <div className="flex justify-between items-center gap-2 mb-2">
                           <div className="flex items-center gap-1.5">
+                            <span className="material-symbols-outlined text-sm text-on-surface-variant/70" title={lang === 'zh' ? '拖动手柄' : 'Drag handle'}>drag_indicator</span>
                             {getPriorityBadge(task.priority)}
                             {task.tag && (
                               <span className="text-[10px] bg-surface-container dark:bg-[#191c1d] text-on-surface-variant px-1.5 py-0.5 rounded font-medium">
@@ -298,6 +309,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                               <span className="material-symbols-outlined text-xs">event</span>
                               {task.dueDate.split('-').slice(1).join('/')}
                             </span>
+                            {col.id === 'Done' && relativeCompletedAt(task.completedAt, lang) && <span className="text-[10px] text-secondary">{relativeCompletedAt(task.completedAt, lang)}</span>}
                           </div>
 
                           {task.assignee ? (

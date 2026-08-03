@@ -24,6 +24,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   const [status, setStatus] = useState<Status>('To Do');
   const [priority, setPriority] = useState<Priority>('Medium');
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [linkedNodeId, setLinkedNodeId] = useState('');
 
   useEffect(() => {
     if (task) {
@@ -31,6 +32,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
       setDescription(task.description || '');
       setStatus(task.status);
       setPriority(task.priority);
+      setLinkedNodeId(task.linkedNodeId || '');
     }
   }, [task]);
 
@@ -130,6 +132,12 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                 )}
               </div>
             </div>
+            {task.sourceChannel && (
+              <div className="p-3 rounded-xl border border-primary/20 bg-primary/5 text-xs">
+                <div className="flex items-center gap-2 font-bold text-primary"><span className="material-symbols-outlined text-sm">link</span>{lang === 'zh' ? '来源' : 'Source'} · {task.sourceTitle || task.sourceChannel}</div>
+                {task.sourceUrl && <a href={task.sourceUrl} target="_blank" rel="noreferrer" className="block mt-1 text-primary underline truncate">{lang === 'zh' ? '查看原文' : 'View original'}</a>}
+              </div>
+            )}
 
             {/* Status & Priority Selectors */}
             <div className="grid grid-cols-2 gap-4 p-4 bg-surface-container-low dark:bg-[#2e3132] rounded-2xl">
@@ -185,6 +193,12 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                   {task.dueDate} {task.dueTime ? `• ${task.dueTime}` : ''}
                 </span>
               </div>
+              {task.projectId && (
+                <label className="flex justify-between items-center text-xs text-on-surface-variant font-medium">
+                  <span>{lang === 'zh' ? '关联人轴节点 ID' : 'People-axis node ID'}</span>
+                  <input value={linkedNodeId} onChange={(event) => { setLinkedNodeId(event.target.value); onUpdateTask({ ...task, linkedNodeId: event.target.value || undefined }); }} placeholder="—" className="w-28 px-2 py-1 rounded-lg border border-outline-variant bg-surface text-xs text-right" inputMode="numeric" />
+                </label>
+              )}
             </div>
 
             {/* Description Notes */}

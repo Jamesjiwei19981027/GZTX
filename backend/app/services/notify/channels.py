@@ -33,6 +33,10 @@ async def send_in_app(
     user_id: int,
     template_key: str,
     payload: dict,
+    sender_user_id: int | None = None,
+    recipient_user_ids: list[int] | None = None,
+    attachments: list[dict] | None = None,
+    requires_reply: bool = False,
 ) -> bool:
     body = render_template(template_key, payload)
     db.add(
@@ -43,6 +47,10 @@ async def send_in_app(
             payload_json=payload,
             body_text=body,
             is_read=False,
+            sender_user_id=sender_user_id,
+            recipient_user_ids=list(recipient_user_ids or [user_id]),
+            attachments_json=list(attachments or []),
+            requires_reply=requires_reply,
         )
     )
     await db.flush()

@@ -48,6 +48,7 @@ const CATEGORY_FALLBACK: Category = 'Work'
 
 export function mapUser(u: BackendUser): UserProfile {
   return {
+    id: String(u.id),
     name: u.nickname || u.username || `用户${u.id}`,
     email: u.email || '',
     avatar: u.avatar_url || '',
@@ -106,6 +107,11 @@ export function mapTask(t: BackendTask, projectId = 'all'): Task {
     completedAt: t.completed_at,
     projectId: resolvedProject,
     linkedNodeId: t.project_node_id != null ? String(t.project_node_id) : undefined,
+    sourceChannel: t.source_channel || undefined,
+    sourceTitle: t.source_title || undefined,
+    sourceUrl: t.source_url || undefined,
+    sourceMessageId: t.source_message_id || undefined,
+    sourceMeta: t.source_meta || undefined,
   }
 }
 
@@ -115,6 +121,10 @@ export function uiStatusToApi(s: Status): number {
 
 export function uiPriorityToApi(p: Priority): number {
   return PRIORITY_TO_API[p]
+}
+
+export function apiPriorityToUi(priority: number): Priority {
+  return PRIORITY_TO_UI[priority] ?? 'Medium'
 }
 
 export function mapMember(m: BackendMember): TeamMember {

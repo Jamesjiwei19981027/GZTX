@@ -6,7 +6,15 @@ import {
   listChannels,
   listPresence,
   postChannelMessage,
+  listDirectConversations,
+  createDirectConversation,
+  listDirectMessages,
+  postDirectMessage,
+  listChannelFiles,
+  listPinnedLinks,
+  createPinnedLink,
 } from '../../api/shell';
+import type { DirectConversation } from '../../api/shell';
 
 interface MessagesViewProps {
   user: UserProfile;
@@ -35,6 +43,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [presence, setPresence] = useState<Record<string, string>>({});
+  const [conversations, setConversations] = useState<DirectConversation[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
+  const [rightTab, setRightTab] = useState<'files' | 'tasks' | 'about'>('tasks');
+  const [files, setFiles] = useState<{ name?: string; original_name?: string; url?: string; message_id: number }[]>([]);
+  const [pinnedLinks, setPinnedLinks] = useState<{ id: number; title: string; url: string }[]>([]);
+  const [attachmentUrl, setAttachmentUrl] = useState('');
 
   const channels = [
     { id: 'general' as const, labelZh: '# 全员交流大厅', labelEn: '# general', icon: 'tag' },
@@ -57,6 +71,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       const map: Record<string, number> = {};
       for (const c of chRes.items || []) map[c.key] = c.id;
       setChannelMap(map);
+      if (activeChannel === 'direct') {
+        const conversationRes = await listDirectConversations(companyId);
+        setConversations(conversationRes.items || []);
+        const conversationId = activeConversationId || conversationRes.items?.[0]?.id || null;
+        setActiveConversationId(conversationId);
+        if (!conversationId) { setMessages([]); return; }
+        const msgRes = await listDirectMessages(conversationId);
+        setMessages((msgRes.items || []).map((m) => ({ id: String(m.id), senderName: m.sender_name, senderAvatar: m.sender_avatar || user.avatar, content: m.body, timestamp: m.created_at ? m.created_at.slice(5, 16).replace('T', ' ') : 'Just now', channel: 'direct', likes: 0, repliesCount: 0 })));
+        return;
+      }
       const chId = map[activeChannel];
       if (!chId) {
         setMessages([]);
@@ -85,7 +109,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [companyId, projectId, activeChannel, lang, user.avatar]);
+  }, [companyId, projectId, activeChannel, activeConversationId, lang, user.avatar]);
 
   useEffect(() => {
     void load();
@@ -101,6 +125,15 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       .catch(() => setPresence({}));
   }, [companyId]);
 
+  useEffect(() => {
+    const channelId = channelMap[activeChannel];
+    if (!channelId || activeChannel === 'direct') return;
+    void Promise.all([listChannelFiles(channelId), listPinnedLinks(channelId)]).then(([fileRes, linkRes]) => {
+      setFiles(fileRes.items || []);
+      setPinnedLinks(linkRes.items || []);
+    }).catch(() => undefined);
+  }, [channelMap, activeChannel]);
+
   const filteredMessages = messages.filter((msg) => {
     if (!companyId && msg.channel !== activeChannel) return false;
     if (!searchQuery) return true;
@@ -114,13 +147,27 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     const text = inputText.trim();
     setInputText('');
 
-    if (!companyId || !channelMap[activeChannel]) {
+    if (!companyId || (activeChannel !== 'direct' && !channelMap[activeChannel])) {
       setError(lang === 'zh' ? '当前没有可用的公司频道' : 'No company channel is available');
       return;
     }
 
     try {
-      await postChannelMessage(channelMap[activeChannel], text);
+      const attachments = attachmentUrl.trim() ? [{ url: attachmentUrl.trim(), name: attachmentUrl.trim().split('/').pop() || 'link' }] : [];
+      if (activeChannel === 'direct') {
+        if (!activeConversationId) {
+          const other = members.find((member) => member.id !== user.id)?.id;
+          if (!other) throw new Error(lang === 'zh' ? '暂无可用私信对象' : 'No direct-message recipient');
+          const conversation = await createDirectConversation(companyId, { member_user_ids: [Number(other)] });
+          setActiveConversationId(conversation.id);
+          await postDirectMessage(conversation.id, text, attachments);
+        } else {
+          await postDirectMessage(activeConversationId, text, attachments);
+        }
+      } else {
+        await postChannelMessage(channelMap[activeChannel], text);
+      }
+      setAttachmentUrl('');
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : '发送失败');
@@ -200,6 +247,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                 {lang === 'zh' ? ch.labelZh : ch.labelEn}
               </button>
             ))}
+            {activeChannel === 'direct' && (
+              <div className="mt-3 pt-3 border-t border-outline-variant/30 space-y-1">
+                {conversations.map((conversation) => (
+                  <button key={conversation.id} type="button" onClick={() => setActiveConversationId(conversation.id)} className={`w-full text-left px-3 py-2 rounded-lg text-xs ${activeConversationId === conversation.id ? 'bg-primary/10 text-primary font-bold' : 'text-on-surface-variant hover:bg-surface-container'}`}>
+                    {conversation.title || conversation.members.map((member) => member.name).join(', ') || (lang === 'zh' ? '私信会话' : 'Direct conversation')}
+                  </button>
+                ))}
+                {!conversations.length && <p className="text-[11px] text-on-surface-variant px-3">{lang === 'zh' ? '暂无私信会话，发送消息时创建。' : 'No direct conversations yet.'}</p>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -241,6 +298,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
               placeholder={lang === 'zh' ? '输入消息…' : 'Type a message…'}
               className="flex-1 px-4 py-2.5 rounded-xl bg-surface-container border border-outline-variant/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
             />
+            <input value={attachmentUrl} onChange={(e) => setAttachmentUrl(e.target.value)} placeholder={lang === 'zh' ? '附件链接（可选）' : 'Attachment URL'} className="hidden xl:block w-36 px-2 py-2 rounded-xl bg-surface-container border border-outline-variant/40 text-[11px]" />
+            <button type="button" onClick={() => setAttachmentUrl(window.prompt(lang === 'zh' ? '输入附件 URL' : 'Attachment URL') || '')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-on-surface-variant" title={lang === 'zh' ? '添加附件' : 'Attach'}><span className="material-symbols-outlined text-base">attach_file</span></button>
             <button
               type="submit"
               className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold cursor-pointer"
@@ -265,6 +324,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             {!members.length && <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无成员数据' : 'No member data'}</p>}
           </div>
           <div className="pt-4 border-t border-outline-variant/30">
+            <div className="flex gap-1 mb-3">{(['files', 'tasks', 'about'] as const).map((tab) => <button key={tab} type="button" onClick={() => setRightTab(tab)} className={`px-2 py-1 rounded-lg text-[11px] font-bold ${rightTab === tab ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>{tab === 'files' ? (lang === 'zh' ? '文件' : 'Files') : tab === 'tasks' ? (lang === 'zh' ? '任务' : 'Tasks') : (lang === 'zh' ? '关于' : 'About')}</button>)}</div>
+            {rightTab === 'files' && <div className="space-y-2">{files.length ? files.map((file, index) => <a key={`${file.message_id}-${index}`} href={file.url || '#'} target="_blank" rel="noreferrer" className="block p-2 rounded-lg bg-surface-container text-xs text-primary truncate">{file.name || file.original_name || 'shared file'}</a>) : <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无最近分享文件' : 'No shared files yet'}</p>}{pinnedLinks.map((link) => <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="block p-2 rounded-lg bg-primary/5 text-xs text-primary truncate">📌 {link.title}</a>)}{channelMap[activeChannel] && <button type="button" onClick={() => { const title = window.prompt(lang === 'zh' ? '链接标题' : 'Link title'); const url = window.prompt(lang === 'zh' ? '链接 URL' : 'Link URL'); if (title && url) void createPinnedLink(channelMap[activeChannel], { title, url }).then((link) => setPinnedLinks((prev) => [link, ...prev])); }} className="text-[11px] font-bold text-primary">+ {lang === 'zh' ? '固定链接' : 'Pin link'}</button>}</div>}
+            {rightTab === 'tasks' && <>
             <h2 className="text-sm font-bold text-on-surface">{lang === 'zh' ? '项目任务' : 'Project tasks'}</h2>
             <div className="space-y-2 mt-3">
               {tasks.slice(0, 5).map((task) => (
@@ -275,6 +337,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
               ))}
               {!tasks.length && <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无关联任务' : 'No linked tasks'}</p>}
             </div>
+            </>}
+            {rightTab === 'about' && <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '这是 WorkTodo 协作消息。频道消息、私信和通知附件均来自后端持久化数据。' : 'WorkTodo collaboration messages are persisted by the backend.'}</p>}
           </div>
         </aside>
       </div>

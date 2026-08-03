@@ -129,6 +129,29 @@ async def init_db():
                 "ALTER TABLE tasks ADD COLUMN project_id INTEGER",
                 "ALTER TABLE tasks ADD COLUMN project_node_id INTEGER",
                 "ALTER TABLE tasks ADD COLUMN linked_readonly BOOLEAN DEFAULT 1",
+                "ALTER TABLE tasks ADD COLUMN source_channel VARCHAR(32)",
+                "ALTER TABLE tasks ADD COLUMN source_title VARCHAR(200)",
+                "ALTER TABLE tasks ADD COLUMN source_url VARCHAR(1000)",
+                "ALTER TABLE tasks ADD COLUMN source_message_id VARCHAR(255)",
+                "ALTER TABLE tasks ADD COLUMN source_meta JSON",
+            ):
+                try:
+                    await conn.execute(text(col_sql))
+                except Exception:
+                    pass
+
+            # New collaboration metadata is also added idempotently for an
+            # existing SQLite development database.  Fresh databases already
+            # have these columns from metadata.create_all().
+            for col_sql in (
+                "ALTER TABLE team_channel_messages ADD COLUMN message_type VARCHAR(16) DEFAULT 'user'",
+                "ALTER TABLE team_channel_messages ADD COLUMN attachments_json JSON DEFAULT '[]'",
+                "ALTER TABLE collab_inbox ADD COLUMN sender_user_id INTEGER",
+                "ALTER TABLE collab_inbox ADD COLUMN recipient_user_ids JSON DEFAULT '[]'",
+                "ALTER TABLE collab_inbox ADD COLUMN attachments_json JSON DEFAULT '[]'",
+                "ALTER TABLE collab_inbox ADD COLUMN requires_reply BOOLEAN DEFAULT 0",
+                "ALTER TABLE collab_inbox ADD COLUMN reply_text TEXT",
+                "ALTER TABLE collab_inbox ADD COLUMN replied_at DATETIME",
             ):
                 try:
                     await conn.execute(text(col_sql))

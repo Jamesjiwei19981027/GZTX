@@ -1,9 +1,10 @@
 """Notification API endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.dependencies import get_db, get_current_user
@@ -11,6 +12,7 @@ from app.core.config import settings
 from app.models.user import User
 from app.schemas.common import ResponseData
 from app.utils.web_push import save_subscription, get_subscriptions
+from app.models.notify import PushSubscription
 
 router = APIRouter(prefix="/notifications", tags=["通知"])
 
@@ -21,6 +23,18 @@ class SmtpConfigUpdate(BaseModel):
     smtp_user: Optional[str] = None
     smtp_password: Optional[str] = None
     smtp_from: Optional[str] = None
+
+
+class PushSubscriptionBody(BaseModel):
+    endpoint: str = Field(..., min_length=8, max_length=2000)
+    keys: dict[str, str] = Field(default_factory=dict)
+    expirationTime: Optional[int | float] = None
+
+
+def _subscription_dict(row: PushSubscription) -> dict:
+    value = dict(row.subscription_json or {})
+    value.setdefault("endpoint", row.endpoint)
+    return value
 
 
 @router.get("/vapid-public-key", response_model=ResponseData)
@@ -36,20 +50,25 @@ async def get_vapid_public_key():
 
 @router.post("/subscribe", response_model=ResponseData)
 async def subscribe_push(
-    subscription: dict,
+    subscription: PushSubscriptionBody,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Subscribe to Web Push notifications."""
-    print(f"[SUBSCRIBE] User {current_user.id} subscription: {subscription}")
-    success = save_subscription(current_user.id, subscription)
-    if success:
-        return ResponseData(message="订阅成功")
+    payload = subscription.model_dump(exclude_none=True)
+    endpoint = subscription.endpoint.strip()
+    existing = (
+        await db.execute(select(PushSubscription).where(PushSubscription.endpoint == endpoint))
+    ).scalar_one_or_none()
+    if existing and existing.user_id != current_user.id:
+        raise HTTPException(status_code=409, detail={"code": 409, "message": "推送订阅已被其他账号使用"})
+    if existing is None:
+        db.add(PushSubscription(user_id=current_user.id, endpoint=endpoint, subscription_json=payload))
     else:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"code": 500, "message": "订阅失败"}
-        )
+        existing.subscription_json = payload
+    await db.commit()
+    save_subscription(current_user.id, payload)
+    return ResponseData(data={"endpoint": endpoint}, message="订阅成功")
 
 
 @router.get("/subscriptions", response_model=ResponseData)
@@ -58,7 +77,12 @@ async def get_push_subscriptions(
     db: AsyncSession = Depends(get_db)
 ):
     """Get user's Web Push subscriptions."""
-    subs = get_subscriptions(current_user.id)
+    rows = (
+        await db.execute(select(PushSubscription).where(PushSubscription.user_id == current_user.id))
+    ).scalars().all()
+    subs = [_subscription_dict(row) for row in rows]
+    if not subs:
+        subs = get_subscriptions(current_user.id)
     return ResponseData(data={"subscriptions": subs})
 
 
@@ -70,6 +94,17 @@ async def unsubscribe_push(
 ):
     """Unsubscribe from Web Push notifications."""
     from app.utils.web_push import remove_subscription
+    row = (
+        await db.execute(
+            select(PushSubscription).where(
+                PushSubscription.user_id == current_user.id,
+                PushSubscription.endpoint == endpoint,
+            )
+        )
+    ).scalar_one_or_none()
+    if row:
+        await db.delete(row)
+        await db.commit()
     remove_subscription(current_user.id, endpoint)
     return ResponseData(message="取消订阅成功")
 

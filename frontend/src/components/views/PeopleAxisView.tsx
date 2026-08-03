@@ -12,7 +12,7 @@ import {
   submitEvidence,
 } from '../../api/backend';
 import { mapMember, mapTreeToPeopleAxis } from '../../api/mappers';
-import { putNodeLayout, runAxisAudit } from '../../api/shell';
+import { getPeopleAxisAggregate, putNodeLayout, runAxisAudit } from '../../api/shell';
 import { averagePeopleAxisProgress } from './peopleAxisUtils';
 
 function asBackendId(id?: string | null): number | null {
@@ -286,6 +286,34 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
     };
 
     const pid = projectId && projectId !== 'all' ? Number(projectId) : NaN;
+    if (projectId === 'all') {
+      setSyncStatus('syncing');
+      setBackendLoadError(null);
+      void getPeopleAxisAggregate().then(async (result) => {
+        if (cancelled) return;
+        const aggregate: PeopleAxisNode[] = [];
+        for (const project of result.projects || []) {
+          const raw = (project.nodes || []) as Array<Record<string, unknown> & { id: number; parent_id?: number | null; children?: unknown[] }>;
+          const byId = new Map<number, Record<string, unknown> & { id: number; parent_id?: number | null; children?: unknown[] }>();
+          raw.forEach((node) => byId.set(node.id, { ...node, children: [] }));
+          const roots: Record<string, unknown>[] = [];
+          byId.forEach((node) => {
+            const parent = node.parent_id ? byId.get(node.parent_id) : undefined;
+            if (parent) parent.children = [...(parent.children || []), node];
+            else roots.push(node);
+          });
+          aggregate.push(...mapTreeToPeopleAxis(roots as never[]));
+        }
+        const withEvidence = await enrichMattersWithEvidence(aggregate);
+        if (cancelled) return;
+        apply(withEvidence);
+        setBackendLoadError(withEvidence.length ? (lang === 'zh' ? '全盘人轴为只读聚合视图；请选择具体项目编辑节点。' : 'Cross-project axis is read-only; choose a project to edit.') : (lang === 'zh' ? '暂无可见项目人轴节点。' : 'No visible people-axis nodes.'));
+        setSyncStatus('synced');
+      }).catch((error) => {
+        if (!cancelled) { apply([]); setBackendLoadError(error instanceof Error ? error.message : '加载人轴失败'); setSyncStatus('synced'); }
+      });
+      return () => { cancelled = true; };
+    }
     if (!Number.isFinite(pid) || pid <= 0) {
       setProjectMembers([]);
       apply([]);

@@ -54,4 +54,24 @@ class CollabInboxMessage(Base):
     payload_json = Column(JSON, nullable=False, default=dict)
     body_text = Column(Text, nullable=True)
     is_read = Column(Boolean, default=False, nullable=False)
+    sender_user_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
+    recipient_user_ids = Column(JSON, nullable=False, default=list)
+    attachments_json = Column(JSON, nullable=False, default=list)
+    requires_reply = Column(Boolean, default=False, nullable=False)
+    reply_text = Column(Text, nullable=True)
+    replied_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class PushSubscription(Base):
+    """Browser push subscription persisted per user/device."""
+
+    __tablename__ = "push_subscriptions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    endpoint = Column(String(2000), nullable=False, unique=True)
+    subscription_json = Column(JSON, nullable=False, default=dict)
+    user_agent = Column(String(500), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())

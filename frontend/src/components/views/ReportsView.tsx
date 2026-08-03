@@ -14,7 +14,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { getTaskTrend } from '../../api/shell';
+import { getTaskStats, getTaskTrend } from '../../api/shell';
 
 interface ReportsViewProps {
   tasks: Task[];
@@ -24,6 +24,7 @@ interface ReportsViewProps {
 export const ReportsView: React.FC<ReportsViewProps> = ({ tasks, lang }) => {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('month');
   const [trendData, setTrendData] = useState<{ name: string; created: number; completed: number }[]>([]);
+  const [serverStats, setServerStats] = useState<{ total: number; completed: number; pending: number; in_progress: number; overdue: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,15 +68,23 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ tasks, lang }) => {
     };
   }, [timeRange, tasks]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void getTaskStats(timeRange === 'week' ? 'week' : timeRange === 'quarter' ? 'month' : 'month')
+      .then((stats) => { if (!cancelled) setServerStats(stats); })
+      .catch(() => { if (!cancelled) setServerStats(null); });
+    return () => { cancelled = true; };
+  }, [timeRange]);
+
   // KPI calculations
-  const totalTasks = tasks.length;
-  const completedTasks = tasks.filter((t) => t.status === 'Done').length;
-  const inProgressTasks = tasks.filter((t) => t.status === 'In Progress').length;
-  const todoTasks = tasks.filter((t) => t.status === 'To Do').length;
+  const totalTasks = serverStats?.total ?? tasks.length;
+  const completedTasks = serverStats?.completed ?? tasks.filter((t) => t.status === 'Done').length;
+  const inProgressTasks = serverStats?.in_progress ?? tasks.filter((t) => t.status === 'In Progress').length;
+  const todoTasks = serverStats?.pending ?? tasks.filter((t) => t.status === 'To Do').length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
   // Overdue count estimation (tasks not done with dueDate before today or short date)
-  const urgentTasks = tasks.filter((t) => t.priority === 'Urgent' && t.status !== 'Done').length;
+  const urgentTasks = serverStats ? tasks.filter((t) => t.priority === 'Urgent' && t.status !== 'Done').length : tasks.filter((t) => t.priority === 'Urgent' && t.status !== 'Done').length;
 
   // Category distribution for PieChart
   const categories = ['Work', 'Health', 'Personal', 'Shopping', 'Documentation'] as const;

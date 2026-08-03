@@ -34,7 +34,7 @@ import { NotificationsModal } from './components/modals/NotificationsModal';
 import { LoginGate } from './components/LoginGate';
 import { VerifyGate } from './components/VerifyGate';
 import { getToken } from './api/client';
-import { fetchMe, getVerificationStatus, logout, updateMe } from './api/auth';
+import { fetchMe, getVerificationStatus, logout, updateMe, uploadAvatar } from './api/auth';
 import {
   completeTask,
   createTask,
@@ -56,14 +56,17 @@ import {
   mapTask,
   mapUser,
   uiPriorityToApi,
+  apiPriorityToUi,
   uiStatusToApi,
 } from './api/mappers';
 import {
   getProjectActivity,
   getUiPrefs,
+  listUserActivity,
   putPresence,
   putUiPrefs,
 } from './api/shell';
+import { enableWebPush } from './api/notifications';
 
 const ALL_PROJECT_ITEM: Project = {
   id: 'all',
@@ -113,6 +116,7 @@ export default function App() {
   const [newTaskDefaultDate, setNewTaskDefaultDate] = useState<string | undefined>();
   const [newTaskDefaultTitle, setNewTaskDefaultTitle] = useState<string | undefined>();
   const [newTaskDefaultDesc, setNewTaskDefaultDesc] = useState<string | undefined>();
+  const [newTaskDefaultSource, setNewTaskDefaultSource] = useState<{ channel?: string; title?: string; url?: string } | undefined>();
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
 
   const refreshFromBackend = useCallback(async () => {
@@ -152,6 +156,13 @@ export default function App() {
         const [categoryItems, tagItems] = await Promise.all([listCategories(), listTags()]);
         setCategories(categoryItems || []);
         setTags(tagItems || []);
+        const defaultCategoryId = Number(((notifyPref.ui || {}) as Record<string, unknown>).task_default_category_id);
+        if (Number.isFinite(defaultCategoryId)) {
+          const defaultCategory = (categoryItems || []).find((item) => item.id === defaultCategoryId);
+          if (defaultCategory) {
+            setSettings((prev) => ({ ...prev, taskDefaults: { ...prev.taskDefaults, category: defaultCategory.name as typeof prev.taskDefaults.category } }));
+          }
+        }
       } catch {
         setCategories([]);
         setTags([]);
@@ -171,6 +182,11 @@ export default function App() {
               ? ui.accent
               : prev.accentColor,
           themeMode: ui.theme_mode === 'dark' || ui.theme_mode === 'light' ? ui.theme_mode : prev.themeMode,
+          taskDefaults: {
+            ...prev.taskDefaults,
+            priority: typeof ui.task_default_priority === 'number' ? apiPriorityToUi(ui.task_default_priority) : prev.taskDefaults.priority,
+            category: typeof ui.task_default_category === 'string' ? ui.task_default_category as typeof prev.taskDefaults.category : prev.taskDefaults.category,
+          },
         }));
       } catch {
         /* keep local */
@@ -217,7 +233,23 @@ export default function App() {
       currentProject.id !== 'all' && Number(currentProject.id) > 0
         ? Number(currentProject.id)
         : null;
-    if (!pid) return;
+    if (!pid) {
+      if (!authed) return;
+      let cancelled = false;
+      void listUserActivity(50).then((res) => {
+        if (cancelled) return;
+        setActivities((res.items || []).map((a) => ({
+          id: String(a.id),
+          type: String(a.type).includes('complete') ? 'completed' : String(a.type).includes('creat') ? 'created' : 'updated',
+          titleText: a.title || a.type,
+          targetText: a.project_name || '',
+          timestamp: a.created_at ? a.created_at.slice(5, 16).replace('T', ' ') : '—',
+          icon: 'history',
+          colorClass: 'bg-primary-fixed text-on-primary-fixed',
+        })));
+      }).catch(() => undefined);
+      return () => { cancelled = true; };
+    }
     let cancelled = false;
     void (async () => {
       try {
@@ -248,7 +280,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [currentProject.id]);
+  }, [authed, currentProject.id]);
 
   useEffect(() => {
     const projectId = Number(currentProject.id);
@@ -275,6 +307,7 @@ export default function App() {
         e.preventDefault();
         setNewTaskDefaultTitle('');
         setNewTaskDefaultDesc('');
+        setNewTaskDefaultSource(undefined);
         setNewTaskDefaultStatus('To Do');
         setNewTaskDefaultDate(undefined);
         setIsNewTaskModalOpen(true);
@@ -294,6 +327,8 @@ export default function App() {
         language: settings.language,
         accent: settings.accentColor,
         theme_mode: settings.themeMode,
+        task_default_priority: uiPriorityToApi(settings.taskDefaults.priority),
+        task_default_category_id: categories.find((item) => item.name === settings.taskDefaults.category)?.id,
       }).catch(() => undefined);
     }
   }, [settings, authed]);
@@ -391,6 +426,11 @@ export default function App() {
         company_id: companyId,
         project_id: Number.isFinite(projectId) && projectId > 0 ? projectId : null,
         origin: Number.isFinite(projectId) && projectId > 0 ? 'project_link' : 'personal',
+        source_channel: taskData.sourceChannel,
+        source_title: taskData.sourceTitle,
+        source_url: taskData.sourceUrl,
+        source_message_id: taskData.sourceMessageId,
+        source_meta: taskData.sourceMeta,
       });
       const mapped = mapTask(created);
       const attachmentFailures: string[] = [];
@@ -497,6 +537,7 @@ export default function App() {
   const handleOpenNewTask = () => {
     setNewTaskDefaultTitle('');
     setNewTaskDefaultDesc('');
+    setNewTaskDefaultSource(undefined);
     setNewTaskDefaultStatus('To Do');
     setNewTaskDefaultDate(undefined);
     setIsNewTaskModalOpen(true);
@@ -617,6 +658,7 @@ export default function App() {
                 onSelectTask={setSelectedTask}
                 onOpenNewTaskWithStatus={(status) => {
                   setNewTaskDefaultStatus(status);
+                  setNewTaskDefaultSource(undefined);
                   setIsNewTaskModalOpen(true);
                 }}
                 lang={settings.language}
@@ -629,6 +671,7 @@ export default function App() {
                 onSelectTask={setSelectedTask}
                 onOpenNewTaskWithDate={(dateStr) => {
                   setNewTaskDefaultDate(dateStr);
+                  setNewTaskDefaultSource(undefined);
                   setIsNewTaskModalOpen(true);
                 }}
                 onMoveTask={handleMoveTask}
@@ -657,11 +700,12 @@ export default function App() {
             )}
 
             {activeView === 'inbox' && (
-              <InboxView
+         <InboxView
                 companyId={companyId}
-                onOpenNewTaskWithTitle={(title, desc) => {
+                onOpenNewTaskWithTitle={(title, desc, source) => {
                   setNewTaskDefaultTitle(title);
                   setNewTaskDefaultDesc(desc);
+                  setNewTaskDefaultSource(source);
                   setIsNewTaskModalOpen(true);
                 }}
                 lang={settings.language}
@@ -683,13 +727,18 @@ export default function App() {
             {activeView === 'settings' && (
               <SettingsView
                 user={user}
-                onUpdateUser={async (updated) => {
+                 onUpdateUser={async (updated) => {
                   const saved = await updateMe({
                     nickname: updated.name,
                     avatar_url: updated.avatar,
                   });
-                  setUser(mapUser(saved));
-                }}
+                   setUser(mapUser(saved));
+                 }}
+                 onUploadAvatar={async (file) => {
+                   const saved = await uploadAvatar(file);
+                   setUser((prev) => ({ ...prev, avatar: saved.avatar_url }));
+                 }}
+                 onEnablePush={async () => { await enableWebPush(); }}
                 settings={settings}
                 onUpdateSettings={(updated) =>
                   setSettings((prev) => ({ ...prev, ...updated }))
@@ -727,8 +776,10 @@ export default function App() {
         defaultCategory={settings.taskDefaults.category}
         defaultTitle={newTaskDefaultTitle}
         defaultDescription={newTaskDefaultDesc}
+        defaultSource={newTaskDefaultSource}
         categories={categories}
         tags={tags}
+        companyId={companyId}
         lang={settings.language}
       />
 

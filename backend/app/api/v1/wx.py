@@ -2,12 +2,19 @@
 微信小程序相关接口
 """
 from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, Field
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.config import settings
 from app.core.dependencies import CurrentUser
 from app.schemas.common import ResponseData
 
 router = APIRouter(prefix="/wx", tags=["微信小程序"])
+
+
+class WxSubscribePreference(BaseModel):
+    enabled: bool
+    template_ids: list[str] = Field(default_factory=list)
 
 
 @router.get("/config", response_model=ResponseData)
@@ -70,3 +77,20 @@ async def get_subscribe_status(user: CurrentUser):
             "subscription_enabled": bool(notify_pref.get("wx_subscribe_enabled", False)),
         }
     )
+
+
+@router.put("/subscribe-preference", response_model=ResponseData)
+async def update_subscribe_preference(body: WxSubscribePreference, user: CurrentUser):
+    """Persist the user's WeChat template-message preference."""
+    if body.enabled and not user.wx_openid:
+        raise HTTPException(status_code=422, detail="请先绑定微信")
+    pref = dict(user.notify_pref or {})
+    pref["wx_subscribe_enabled"] = bool(body.enabled)
+    pref["wx_template_ids"] = [item.strip()[:128] for item in body.template_ids if item.strip()][:20]
+    user.notify_pref = pref
+    flag_modified(user, "notify_pref")
+    return ResponseData(data={
+        "wx_bound": user.wx_openid is not None,
+        "subscription_enabled": bool(body.enabled),
+        "template_ids": pref["wx_template_ids"],
+    })

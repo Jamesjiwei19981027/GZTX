@@ -18,6 +18,8 @@ export async function listChannelMessages(channelId: number) {
       sender_avatar: string
       body: string
       likes: number
+      message_type?: 'user' | 'system'
+      attachments?: { name?: string; url?: string; mime_type?: string; size?: number }[]
       created_at?: string
     }[]
   }>(`/channels/${channelId}/messages?page_size=100`)
@@ -27,6 +29,13 @@ export async function postChannelMessage(channelId: number, body: string) {
   return apiRequest(`/channels/${channelId}/messages`, {
     method: 'POST',
     body: JSON.stringify({ body }),
+  })
+}
+
+export async function postChannelMessageWithAttachments(channelId: number, body: string, attachments: Record<string, unknown>[] = []) {
+  return apiRequest(`/channels/${channelId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ body, attachments }),
   })
 }
 
@@ -45,6 +54,12 @@ export async function listCollabNotifications(page = 1) {
       payload?: Record<string, unknown>
       body_text?: string
       read: boolean
+      sender?: { user_id: number; name: string; avatar_url?: string } | null
+      recipient_user_ids?: number[]
+      attachments?: { name?: string; original_name?: string; url?: string; download_url?: string; mime_type?: string; size?: number; file_size?: number }[]
+      requires_reply?: boolean
+      reply_text?: string | null
+      replied_at?: string | null
       created_at?: string
     }[]
     total: number
@@ -62,6 +77,13 @@ export async function markAllNotificationsRead() {
   return apiRequest(`/notifications/collab/read-all`, {
     method: 'PUT',
     body: '{}',
+  })
+}
+
+export async function replyCollabNotification(id: number, text: string) {
+  return apiRequest<{ id: number; reply_text: string; replied_at: string }>(`/notifications/collab/${id}/reply`, {
+    method: 'POST',
+    body: JSON.stringify({ text }),
   })
 }
 
@@ -120,13 +142,15 @@ export async function getTaskStats(period = 'month') {
 }
 
 export async function getUiPrefs() {
-  return apiRequest<{ ui: Record<string, string> }>(`/users/me/ui-prefs`)
+  return apiRequest<{ ui: Record<string, string | number> }>(`/users/me/ui-prefs`)
 }
 
 export async function putUiPrefs(body: {
   language?: string
   accent?: string
   theme_mode?: string
+  task_default_priority?: number
+  task_default_category_id?: number
 }) {
   return apiRequest(`/users/me/ui-prefs`, {
     method: 'PUT',
@@ -145,6 +169,63 @@ export async function listPresence(companyId: number) {
   return apiRequest<{ items: { user_id: number; status: string }[] }>(
     `/companies/${companyId}/presence`,
   )
+}
+
+export async function listUserActivity(limit = 50) {
+  return apiRequest<{
+    items: { id: number; project_id?: number; project_name?: string; type: string; title: string; created_at?: string; actor_user_id?: number }[]
+  }>(`/users/me/activity?limit=${limit}`)
+}
+
+export async function getPeopleAxisAggregate() {
+  return apiRequest<{ projects: { project_id: number; project_name: string; company_id: number; nodes: Record<string, unknown>[] }[] }>('/users/me/people-axis')
+}
+
+export type DirectConversation = {
+  id: number
+  company_id: number
+  project_id?: number | null
+  kind: 'direct' | 'group'
+  title?: string | null
+  members: { user_id: number; name: string; avatar?: string }[]
+  last_message?: { body: string; created_at?: string } | null
+}
+
+export async function listDirectConversations(companyId: number) {
+  return apiRequest<{ items: DirectConversation[] }>(`/companies/${companyId}/conversations`)
+}
+
+export async function createDirectConversation(companyId: number, body: { member_user_ids: number[]; kind?: 'direct' | 'group'; title?: string; project_id?: number }) {
+  return apiRequest<{ id: number; member_user_ids: number[]; kind: string }>(`/companies/${companyId}/conversations`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function listDirectMessages(conversationId: number) {
+  return apiRequest<{ items: { id: number; conversation_id: number; user_id: number; sender_name: string; sender_avatar?: string; body: string; message_type?: string; attachments?: Record<string, unknown>[]; created_at?: string }[] }>(`/conversations/${conversationId}/messages?page_size=100`)
+}
+
+export async function postDirectMessage(conversationId: number, body: string, attachments: Record<string, unknown>[] = []) {
+  return apiRequest(`/conversations/${conversationId}/messages`, {
+    method: 'POST',
+    body: JSON.stringify({ body, attachments }),
+  })
+}
+
+export async function listChannelFiles(channelId: number) {
+  return apiRequest<{ items: { name?: string; url?: string; original_name?: string; mime_type?: string; message_id: number; created_at?: string }[] }>(`/channels/${channelId}/files`)
+}
+
+export async function listPinnedLinks(channelId: number) {
+  return apiRequest<{ items: { id: number; title: string; url: string; created_by?: number; created_at?: string }[] }>(`/channels/${channelId}/pinned-links`)
+}
+
+export async function createPinnedLink(channelId: number, body: { title: string; url: string }) {
+  return apiRequest<{ id: number; title: string; url: string }>(`/channels/${channelId}/pinned-links`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
 }
 
 export async function inviteProjectMember(
