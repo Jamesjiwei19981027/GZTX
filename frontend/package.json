@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=5173 --host=0.0.0.0",
-    "test": "tsx scripts/test-calendar-utils.ts",
+    "test": "tsx scripts/test-calendar-utils.ts && tsx scripts/test-notification-settings.ts",
     "build": "vite build",
     "preview": "vite preview --port=5173 --host=0.0.0.0",
     "lint": "tsc --noEmit"

@@ -60,7 +60,7 @@ export async function getSmtpConfig() {
 }
 
 export async function putSmtpConfig(body: { smtp_host?: string; smtp_port?: number; smtp_user?: string; smtp_password?: string; smtp_from?: string }) {
-  return apiRequest('/notifications/smtp-config', { method: 'PUT', body: JSON.stringify(body) })
+  return apiRequest<{ smtp_host: string; smtp_port: number; smtp_user: string; smtp_from: string; has_password: boolean }>('/notifications/smtp-config', { method: 'PUT', body: JSON.stringify(body) })
 }
 
 export async function getLlmConfig() {
@@ -68,5 +68,17 @@ export async function getLlmConfig() {
 }
 
 export async function putLlmConfig(body: Record<string, unknown>) {
-  return apiRequest('/notifications/llm-config', { method: 'PUT', body: JSON.stringify(body) })
+  return apiRequest<{ provider: string; base_url: string; model: string; enabled: boolean; configured: boolean; has_api_key: boolean }>('/notifications/llm-config', { method: 'PUT', body: JSON.stringify(body) })
+}
+
+export async function sendTestPush() {
+  return apiRequest('/notifications/test-push', { method: 'POST', body: '{}' })
+}
+
+export async function sendTestEmail() {
+  return apiRequest('/notifications/send-test-email', { method: 'POST', body: '{}' })
+}
+
+export async function testLlmConfig() {
+  return apiRequest('/notifications/llm-test', { method: 'POST', body: '{}' })
 }

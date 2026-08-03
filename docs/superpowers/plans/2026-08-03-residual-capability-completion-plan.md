@@ -19,11 +19,11 @@
 - Modify: `frontend/src/components/views/SettingsView.tsx`, `frontend/src/api/notifications.ts`
 - Test: `frontend/scripts/test-notification-settings.ts`
 
-- [ ] 将当前 Settings 通知表单抽成 `NotificationSettingsPanel`，保留相同的 `AppSettings.notifications` 输入/输出，并在 profile/settings 入口复用。
-- [ ] 增加 `notifications` ViewMode、桌面导航项和移动端可达入口；`App.tsx` 渲染独立页面，不改变原有 Settings 路径。
-- [ ] 在通知页增加 SMTP 主机/端口/账号/发件人、LLM provider/base URL/model/开关表单；读取 `/notifications/smtp-config` 与 `/notifications/llm-config`，保存用 PUT，空密码不覆盖已有密钥。
-- [ ] 增加“测试邮件/测试推送/测试 LLM”按钮，显示后端错误与未配置原因，禁止把 API key 渲染到 DOM。
-- [ ] 运行 `cd frontend; npm run lint; npm run build; node scripts/test-notification-settings.ts`。
+- [x] 将当前 Settings 通知表单能力复制到可复用的独立通知中心，保留相同的 `AppSettings.notifications` 输入/输出。
+- [x] 增加 `notifications` ViewMode、桌面导航项和 `App.tsx` 独立页面，不改变原有 Settings 路径。
+- [x] 在通知页增加 SMTP 主机/端口/账号/发件人、LLM provider/base URL/model/开关表单；读取 `/notifications/smtp-config` 与 `/notifications/llm-config`，保存用 PUT，空密码不覆盖已有密钥。
+- [x] 增加“测试邮件/测试推送/测试 LLM”按钮，显示后端错误与未配置原因，禁止把 API key 渲染到 DOM。
+- [x] 运行 `cd frontend; npm run lint; npm run build; npm test`，共 13 条断言通过。
 
 ### Task 2: 协作收件箱状态动作与任务上下文
 

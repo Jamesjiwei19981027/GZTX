@@ -1,7 +1,7 @@
 export type Priority = 'Urgent' | 'High' | 'Medium' | 'Low';
 export type Status = 'To Do' | 'In Progress' | 'Done';
 export type Category = 'Work' | 'Health' | 'Personal' | 'Shopping' | 'Documentation';
-export type ViewMode = 'dashboard' | 'tasks' | 'kanban' | 'calendar' | 'reports' | 'team' | 'messages' | 'inbox' | 'people-axis' | 'settings';
+export type ViewMode = 'dashboard' | 'tasks' | 'kanban' | 'calendar' | 'reports' | 'team' | 'messages' | 'inbox' | 'people-axis' | 'notifications' | 'settings';
 export type Language = 'zh' | 'en';
 export type AccentColor = 'blue' | 'green' | 'amber' | 'red';
 

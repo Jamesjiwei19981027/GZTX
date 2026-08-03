@@ -23,6 +23,7 @@ import { MyTasksView } from './components/views/MyTasksView';
 import { KanbanView } from './components/views/KanbanView';
 import { CalendarView } from './components/views/CalendarView';
 import { SettingsView } from './components/views/SettingsView';
+import { NotificationSettingsView } from './components/views/NotificationSettingsView';
 import { ReportsView } from './components/views/ReportsView';
 import { TeamView } from './components/views/TeamView';
 import { InboxView } from './components/views/InboxView';
@@ -751,6 +752,15 @@ export default function App() {
                 lang={settings.language}
               />
             )}
+
+            {activeView === 'notifications' && (
+              <NotificationSettingsView
+                settings={settings}
+                onUpdateSettings={(updated) => setSettings((prev) => ({ ...prev, ...updated }))}
+                onEnablePush={async () => { await enableWebPush(); }}
+                lang={settings.language}
+              />
+            )}
           </div>
         </main>
       </div>
@@ -798,7 +808,7 @@ export default function App() {
           const t = tasks.find((x) => x.id === id);
           if (t) setSelectedTask(t);
         }}
-        onOpenSettings={() => setActiveView('settings')}
+        onOpenSettings={() => setActiveView('notifications')}
         lang={settings.language}
       />
     </div>
