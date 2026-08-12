@@ -642,6 +642,8 @@ export default function App() {
               <PeopleAxisView
                 lang={settings.language}
                 projectId={currentProject.id}
+                projects={projects}
+                onSelectProject={(proj) => setCurrentProject(proj)}
               />
             )}
 

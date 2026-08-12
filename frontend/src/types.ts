@@ -173,6 +173,8 @@ export interface PeopleAxisNode {
   orderOnAxis: number;
   roleTitle: string; // e.g. "技术总负责人", "产品设计", "最终交付PM"
   workItems: AxisWorkItem[]; // "工作项/里程碑/范围只能挂在某个「人」下面"
+  /** 后端 primary/collaborator 责任人 user_id（与服务端 _owns_path 同口径，用于前端权限显隐） */
+  ownerUserIds?: number[];
   aiContext?: {
     riskLevel: 'low' | 'medium' | 'high';
     summary: string;

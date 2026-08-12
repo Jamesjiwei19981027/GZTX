@@ -123,7 +123,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="material-symbols-outlined text-primary text-2xl group-hover:scale-110 transition-transform">
                 inventory_2
               </span>
-              <span className="text-xs text-on-surface-variant font-medium">100%</span>
+              <span className="text-xs text-on-surface-variant font-medium">{completionPercentage}%</span>
             </div>
             <div>
               <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
@@ -356,13 +356,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* Tip Photo Banner at Bottom */}
           <div className="mt-8 pt-2">
-            <div className="rounded-xl overflow-hidden aspect-[16/9] sm:aspect-[21/9] lg:aspect-[16/9] relative group cursor-pointer shadow-md border border-outline-variant/30">
-              <img
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDT6fzj8YQD3FIU8-krsemZWLfGHMRL0WJBqi-IxCnXoRKygCmjcgbMHWq8TsWanEuZCNhJVGKd1keTSbBV8A-8KIE0ss2XOxMctrVYhrrBZxy_3c3Z3gvd-mqNmPbz_EBS-VsbpJxCZqmpL452HqUyZ_C99fwLJ_ViaGLmRu1gnCgLXkxLSycK850Mxn6zd9F1G_IHk1OQKtoe-lnvoh72jCflm8RZBY0Y1Vet3UtJThk3XSJuVWsXwyrQQfHD1f8T7w30Yvto5Kg"
-                alt="Workspace"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex items-end p-4">
+            <div className="rounded-xl overflow-hidden aspect-[16/9] sm:aspect-[21/9] lg:aspect-[16/9] relative group cursor-pointer shadow-md border border-outline-variant/30 bg-gradient-to-br from-primary via-[#2170e4] to-tertiary">
+              <span className="material-symbols-outlined absolute -right-3 -top-3 text-white/15 text-[110px] group-hover:scale-105 transition-transform duration-700 pointer-events-none select-none">
+                diversity_3
+              </span>
+              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-4">
                 <p className="text-white font-semibold text-xs md:text-sm drop-shadow">
                   {t.tipGroup}
                 </p>

@@ -32,6 +32,20 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     return true;
   });
 
+  // 默认排序：状态（进行中/待办在前，已完成垫底）→ 优先级 → 截止时间（无截止的靠后）
+  const statusRank: Record<Status, number> = { 'In Progress': 0, 'To Do': 1, Done: 2 };
+  const priorityRank: Record<Priority, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    const byStatus = statusRank[a.status] - statusRank[b.status];
+    if (byStatus !== 0) return byStatus;
+    const byPriority = priorityRank[a.priority] - priorityRank[b.priority];
+    if (byPriority !== 0) return byPriority;
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+
   // Calculate overall completion
   const totalCount = tasks.length;
   const completedCount = tasks.filter((t) => t.status === 'Done').length;
@@ -165,7 +179,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
       {/* Task List Grouped by Category */}
       <div className="space-y-8">
         {categories.map((cat) => {
-          const catTasks = filteredTasks.filter((t) => t.category === cat);
+          const catTasks = sortedTasks.filter((t) => t.category === cat);
           if (catTasks.length === 0) return null;
 
           return (

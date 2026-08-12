@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ViewMode, Language } from '../types';
 import { getT } from '../i18n';
 
@@ -16,6 +16,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   lang,
 }) => {
   const t = getT(lang);
+  const [showMoreSheet, setShowMoreSheet] = useState(false);
 
   const navItems: { id: ViewMode; label: string; icon: string }[] = [
     { id: 'dashboard', label: t.dashboard, icon: 'dashboard' },
@@ -37,6 +38,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'tasks', label: t.myTasks, icon: 'checklist' },
     { id: 'kanban', label: t.kanban, icon: 'view_kanban' },
   ];
+
+  // 底栏放不下的页面全部收进「更多」抽屉，清单跟桌面侧栏保持同源
+  const mobileMoreItems = navItems.filter(
+    (item) => !mobileNavItems.some((m) => m.id === item.id),
+  );
+  const isMoreActive = mobileMoreItems.some((item) => item.id === activeView);
 
   return (
     <>
@@ -93,8 +100,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <button
               key={item.id}
-              onClick={() => onSelectView(item.id)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1 ${
+              onClick={() => {
+                setShowMoreSheet(false);
+                onSelectView(item.id);
+              }}
+              className={`flex flex-col items-center gap-0.5 px-2 py-1 ${
                 isActive ? 'text-primary dark:text-[#adc6ff]' : 'text-on-surface-variant'
               }`}
             >
@@ -124,8 +134,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           return (
             <button
               key={item.id}
-              onClick={() => onSelectView(item.id)}
-              className={`flex flex-col items-center gap-0.5 px-3 py-1 ${
+              onClick={() => {
+                setShowMoreSheet(false);
+                onSelectView(item.id);
+              }}
+              className={`flex flex-col items-center gap-0.5 px-2 py-1 ${
                 isActive ? 'text-primary dark:text-[#adc6ff]' : 'text-on-surface-variant'
               }`}
             >
@@ -139,7 +152,83 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </button>
           );
         })}
+
+        {/* More: entry to remaining views (calendar / reports / team / ...) */}
+        <button
+          onClick={() => setShowMoreSheet(!showMoreSheet)}
+          className={`flex flex-col items-center gap-0.5 px-2 py-1 ${
+            isMoreActive || showMoreSheet
+              ? 'text-primary dark:text-[#adc6ff]'
+              : 'text-on-surface-variant'
+          }`}
+        >
+          <span
+            className="material-symbols-outlined text-xl"
+            style={{
+              fontVariationSettings: isMoreActive || showMoreSheet ? "'FILL' 1" : "'FILL' 0",
+            }}
+          >
+            more_horiz
+          </span>
+          <span className="text-[10px] font-medium">{lang === 'zh' ? '更多' : 'More'}</span>
+        </button>
       </nav>
+
+      {/* Mobile "More" Bottom Sheet */}
+      {showMoreSheet && (
+        <div className="md:hidden fixed inset-0 z-[60]" role="dialog" aria-modal="true">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-150"
+            onClick={() => setShowMoreSheet(false)}
+          ></div>
+          <div className="absolute bottom-0 left-0 w-full bg-surface dark:bg-[#191c1d] rounded-t-2xl border-t border-surface-variant dark:border-outline-variant shadow-2xl pb-[env(safe-area-inset-bottom)] animate-in slide-in-from-bottom duration-200">
+            <div className="flex justify-center pt-3 pb-1">
+              <span className="w-10 h-1 rounded-full bg-outline-variant"></span>
+            </div>
+            <div className="px-5 pt-1 pb-2 flex items-center justify-between">
+              <h3 className="text-sm font-bold text-on-surface dark:text-[#f0f1f2]">
+                {lang === 'zh' ? '更多页面' : 'More views'}
+              </h3>
+              <button
+                onClick={() => setShowMoreSheet(false)}
+                className="p-1.5 rounded-full hover:bg-surface-container dark:hover:bg-[#2e3132] text-on-surface-variant"
+                aria-label={lang === 'zh' ? '关闭' : 'Close'}
+              >
+                <span className="material-symbols-outlined text-xl">close</span>
+              </button>
+            </div>
+            <div className="grid grid-cols-4 gap-2 px-4 pb-6 pt-1">
+              {mobileMoreItems.map((item) => {
+                const isActive = activeView === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      onSelectView(item.id);
+                      setShowMoreSheet(false);
+                    }}
+                    className={`flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl transition-colors ${
+                      isActive
+                        ? 'text-primary dark:text-[#adc6ff] bg-primary-fixed/20 dark:bg-primary-container/30'
+                        : 'text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-[#2e3132]'
+                    }`}
+                  >
+                    <span
+                      className="material-symbols-outlined text-2xl"
+                      style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
+                    >
+                      {item.icon}
+                    </span>
+                    <span className="text-[11px] font-medium truncate max-w-full">
+                      {item.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -146,7 +146,7 @@ export function mapMember(m: BackendMember): TeamMember {
 export function mapAssignee(m: BackendAssignee): TeamMember {
   return {
     id: String(m.user_id),
-    name: m.display_name || m.nickname || m.username || `鐢ㄦ埛${m.user_id}`,
+    name: m.display_name || m.nickname || m.username || `用户${m.user_id}`,
     role: m.role_key === 'primary' ? 'Primary' : 'Collaborator',
     roleKey: m.role_key || 'collaborator',
     avatar: m.avatar_url || '',
@@ -215,6 +215,10 @@ export function mapTreeToPeopleAxis(
       (n.assignees || []).some((a) => a.user_id === finalOwnerUserId)
 
     const offset = n.ui_offset || n.progress_json?.ui_offset
+    // 与服务端 acl._owns_path 同口径：只有 primary/collaborator 指派才拥有该子树的编辑权
+    const ownerUserIds = (n.assignees || [])
+      .filter((a) => a.role_key === 'primary' || a.role_key === 'collaborator')
+      .map((a) => a.user_id)
     out.push({
       id: String(n.id),
       person,
@@ -223,6 +227,7 @@ export function mapTreeToPeopleAxis(
       orderOnAxis: order++,
       roleTitle: n.title,
       workItems: matters,
+      ownerUserIds,
       ...(offset ? { layoutOffset: offset } : {}),
     } as PeopleAxisNode & { layoutOffset?: { x: number; y: number } })
 

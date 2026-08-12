@@ -280,6 +280,7 @@ export async function createNode(
     node_type_key: string
     title: string
     description?: string
+    due_at?: string
     sort_order?: number
     assignees?: { user_id: number; role_key?: string }[]
   },

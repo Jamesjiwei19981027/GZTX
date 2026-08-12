@@ -56,16 +56,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         event.stopPropagation()
         onSelectTask(task)
       }}
-      className={`w-full text-left truncate rounded px-1.5 py-1 text-[10px] font-semibold transition hover:scale-[1.01] ${
+      className={`w-full text-left rounded px-1.5 py-1 text-[10px] font-semibold transition-transform hover:scale-[1.02] flex items-center gap-1 ${
         task.status === 'Done'
           ? 'bg-secondary/20 text-secondary line-through'
           : task.priority === 'Urgent' || task.priority === 'High'
-            ? 'bg-error-container text-on-error-container'
+            ? 'bg-error-container text-on-error-container font-bold'
             : 'bg-primary-fixed text-on-primary-fixed-variant'
       } ${compact ? '' : 'text-xs'}`}
       title={task.title}
     >
-      {task.title}
+      <span className="w-1 h-1 rounded-full bg-current flex-shrink-0"></span>
+      <span className="truncate">{task.title}</span>
     </button>
   )
 
@@ -110,20 +111,37 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <span>{label}</span>
           </h1>
           <div className="flex items-center bg-surface-container dark:bg-[#191c1d] rounded-xl p-1 border border-outline-variant">
-            <button onClick={() => moveCursor(-1)} className="p-1 hover:bg-surface rounded-lg text-on-surface-variant">
+            <button
+              onClick={() => moveCursor(-1)}
+              className="p-1 hover:bg-surface dark:hover:bg-[#2e3132] rounded-lg text-on-surface-variant transition-colors"
+            >
               <span className="material-symbols-outlined text-sm">chevron_left</span>
             </button>
-            <button onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), today.getDate()))} className="px-2.5 py-1 text-xs font-bold text-primary hover:bg-surface rounded-lg">
+            <button
+              onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), today.getDate()))}
+              className="px-2.5 py-1 text-xs font-bold text-primary hover:bg-surface dark:hover:bg-[#2e3132] rounded-lg transition-colors"
+            >
               {t.today}
             </button>
-            <button onClick={() => moveCursor(1)} className="p-1 hover:bg-surface rounded-lg text-on-surface-variant">
+            <button
+              onClick={() => moveCursor(1)}
+              className="p-1 hover:bg-surface dark:hover:bg-[#2e3132] rounded-lg text-on-surface-variant transition-colors"
+            >
               <span className="material-symbols-outlined text-sm">chevron_right</span>
             </button>
           </div>
         </div>
-        <div className="flex bg-surface-container dark:bg-[#191c1d] p-1 rounded-xl border border-outline-variant">
+        <div className="flex bg-surface-container dark:bg-[#191c1d] p-1 rounded-xl border border-outline-variant shadow-xs">
           {(['month', 'week', 'day'] as const).map((mode) => (
-            <button key={mode} onClick={() => setViewType(mode)} className={`px-4 py-1.5 rounded-lg text-xs font-bold ${viewType === mode ? 'bg-primary text-on-primary' : 'text-on-surface-variant'}`}>
+            <button
+              key={mode}
+              onClick={() => setViewType(mode)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
+                viewType === mode
+                  ? 'bg-primary text-on-primary shadow-sm'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
               {mode === 'month' ? t.month : mode === 'week' ? t.week : t.day}
             </button>
           ))}
@@ -134,7 +152,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="lg:col-span-8 bg-surface dark:bg-[#191c1d] rounded-2xl border border-surface-variant dark:border-outline-variant p-4 md:p-6 shadow-sm">
           <div className={`grid gap-2 mb-3 text-center ${viewType === 'day' ? 'grid-cols-1' : 'grid-cols-7'}`}>
             {(viewType === 'day' ? [cursor] : visibleDays.slice(0, 7)).map((date, index) => (
-              <div key={formatDateLocal(date)} className="text-xs font-extrabold py-2 text-on-surface-variant">
+              <div
+                key={formatDateLocal(date)}
+                className={`text-xs font-extrabold py-2 uppercase ${
+                  viewType !== 'day' && (index === 0 || index === 6) ? 'text-error' : 'text-on-surface-variant'
+                }`}
+              >
                 {viewType === 'day' ? formatDateLocal(date) : (lang === 'zh' ? ['日', '一', '二', '三', '四', '五', '六'][index] : ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][index])}
               </div>
             ))}
@@ -146,21 +169,41 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 return renderDropTarget(date, null, 'h-24 md:h-28 rounded-xl bg-surface-container-lowest/30 border border-transparent opacity-40')
               }
               const dayTasks = grouped.get(formatDateLocal(date)) || []
+              const dateStr = formatDateLocal(date)
               return renderDropTarget(
                 date,
                 <>
                   <div className="flex justify-between items-start">
-                    <span className={`text-xs md:text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${isSameDay(date, today) ? 'bg-primary text-on-primary' : isSameDay(date, cursor) ? 'bg-primary/10 text-primary' : 'text-on-surface dark:text-[#f0f1f2]'}`}>
+                    <span
+                      className={`text-xs md:text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${
+                        isSameDay(date, today)
+                          ? 'bg-primary text-on-primary shadow-sm ring-2 ring-primary/30'
+                          : isSameDay(date, cursor)
+                            ? 'bg-primary/10 text-primary font-extrabold'
+                            : 'text-on-surface dark:text-[#f0f1f2]'
+                      }`}
+                    >
                       {date.getDate()}
                     </span>
                     {dayTasks.length > 0 && <span className="text-[10px] bg-secondary-container text-on-secondary-container font-extrabold px-1.5 py-0.5 rounded-full">{dayTasks.length}</span>}
                   </div>
                   <div className="space-y-1 mt-1 overflow-hidden">
                     {dayTasks.slice(0, viewType === 'day' ? 20 : 3).map((task) => renderTask(task, viewType !== 'day'))}
-                    {dayTasks.length > 3 && viewType !== 'day' && <div className="text-[9px] text-center font-bold text-on-surface-variant">+{dayTasks.length - 3}</div>}
+                    {dayTasks.length > 3 && viewType !== 'day' && <div className="text-[9px] text-center font-bold text-on-surface-variant">+{dayTasks.length - 3} {lang === 'zh' ? '更多' : 'more'}</div>}
                   </div>
+                  {/* Quick Add icon on hover */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onOpenNewTaskWithDate(dateStr)
+                    }}
+                    className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 p-0.5 bg-primary text-on-primary rounded-full shadow transition-opacity"
+                    title={lang === 'zh' ? '在此日添加任务' : 'Add task on this day'}
+                  >
+                    <span className="material-symbols-outlined text-xs">add</span>
+                  </button>
                 </>,
-                `${dayCellClass} rounded-xl p-2 transition-all cursor-pointer flex flex-col gap-2 border ${isSameDay(date, cursor) ? 'bg-primary-fixed/20 border-primary shadow-md' : 'bg-surface-container-low dark:bg-[#2e3132] border-surface-variant hover:border-primary/50'}`,
+                `${dayCellClass} rounded-xl p-2 transition-all cursor-pointer flex flex-col gap-2 border relative group overflow-hidden ${isSameDay(date, cursor) ? 'bg-primary-fixed/20 dark:bg-primary-container/30 border-primary shadow-md' : 'bg-surface-container-low dark:bg-[#2e3132] border-surface-variant hover:border-primary/50'}`,
               )
             })}
           </div>
@@ -174,10 +217,63 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           </div>
           <div className="bg-surface dark:bg-[#191c1d] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm">
             <div className="flex justify-between items-center mb-4 pb-2 border-b border-surface-variant">
-              <h3 className="font-bold text-base text-on-surface dark:text-[#f0f1f2]">{lang === 'zh' ? '当日任务' : 'Selected day'}</h3>
-              <button onClick={() => onOpenNewTaskWithDate(selectedDate)} className="p-1.5 bg-primary/10 text-primary rounded-lg text-xs font-bold">+</button>
+              <h3 className="font-bold text-base text-on-surface dark:text-[#f0f1f2] flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">view_timeline</span>
+                <span>{lang === 'zh' ? `${selectedDate} 任务列表` : `Tasks for ${selectedDate}`}</span>
+              </h3>
+              <button
+                onClick={() => onOpenNewTaskWithDate(selectedDate)}
+                className="p-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-on-primary rounded-lg transition-colors text-xs font-bold flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-sm">add</span>
+                <span>{lang === 'zh' ? '增加' : 'Add'}</span>
+              </button>
             </div>
-            {selectedTasks.length === 0 ? <p className="text-center py-8 text-sm text-on-surface-variant">{lang === 'zh' ? '此日没有安排' : 'No tasks scheduled'}</p> : <div className="space-y-3">{selectedTasks.map((task) => <div key={task.id} onClick={() => onSelectTask(task)} className="p-3 rounded-xl bg-surface-container-low dark:bg-[#2e3132] cursor-pointer"><p className="text-sm font-bold truncate">{task.title}</p><p className="text-xs text-on-surface-variant mt-1">{task.dueTime || (lang === 'zh' ? '全天' : 'All day')} · #{task.tag || task.category}</p></div>)}</div>}
+            {selectedTasks.length === 0 ? (
+              <div className="text-center py-10 text-on-surface-variant">
+                <span className="material-symbols-outlined text-4xl mb-1 opacity-50">event_available</span>
+                <p className="text-sm font-semibold">{lang === 'zh' ? '此日没有任何安排' : 'No tasks scheduled'}</p>
+                <p className="text-xs mt-1">{lang === 'zh' ? '双击日期方格即可创建任务' : 'Double click any day to add tasks'}</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {selectedTasks.map((task) => {
+                  const isDone = task.status === 'Done'
+                  return (
+                    <div
+                      key={task.id}
+                      onClick={() => onSelectTask(task)}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                        isDone
+                          ? 'bg-surface-container-lowest border-surface-variant opacity-75'
+                          : 'bg-surface-container-low dark:bg-[#2e3132] border-transparent hover:border-primary/50 shadow-xs'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 overflow-hidden">
+                        <div
+                          className={`w-2 h-10 rounded-full flex-shrink-0 ${
+                            isDone ? 'bg-secondary' : task.priority === 'Urgent' || task.priority === 'High' ? 'bg-error' : 'bg-primary'
+                          }`}
+                        ></div>
+                        <div className="overflow-hidden">
+                          <p className={`text-sm font-bold truncate ${isDone ? 'line-through text-on-surface-variant' : 'text-on-surface dark:text-[#f0f1f2]'}`}>
+                            {task.title}
+                          </p>
+                          <div className="flex items-center gap-2 text-xs text-on-surface-variant mt-0.5">
+                            <span className="font-semibold text-primary">{task.dueTime || (lang === 'zh' ? '全天' : 'All day')}</span>
+                            <span>•</span>
+                            <span className="truncate">#{task.tag || task.category}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="material-symbols-outlined text-on-surface-variant/60 text-lg flex-shrink-0 ml-2">
+                        chevron_right
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
           <div className="bg-surface dark:bg-[#191c1d] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm">
             <div className="flex items-center justify-between mb-4 pb-2 border-b border-surface-variant"><h3 className="font-bold text-base text-on-surface dark:text-[#f0f1f2]">{lang === 'zh' ? '时间轴' : 'Time axis'}</h3><span className="text-xs text-on-surface-variant">{timelineTasks.length} {lang === 'zh' ? '项' : 'items'}</span></div>

@@ -45,6 +45,9 @@ class _WebShellScreenState extends State<WebShellScreen> {
           },
           onWebResourceError: (err) {
             if (!mounted) return;
+            // 子资源（外网字体/图片等）加载失败不应整页替换成错误屏，
+            // 只有主框架加载失败才提示重试。
+            if (err.isForMainFrame == false) return;
             setState(() {
               _loading = false;
               _error =

@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, useMemo } from 'react';
-import { PeopleAxisNode, AxisWorkItem, AxisEvidence, Language, TeamMember } from '../../types';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import type { Edge } from '@xyflow/react';
+import { PeopleAxisNode, AxisWorkItem, AxisEvidence, Language, TeamMember, Project } from '../../types';
 import { getT } from '../../i18n';
 import {
   createNode,
@@ -13,7 +14,12 @@ import {
 } from '../../api/backend';
 import { mapMember, mapTreeToPeopleAxis } from '../../api/mappers';
 import { getPeopleAxisAggregate, putNodeLayout, runAxisAudit } from '../../api/shell';
+import { fetchMe } from '../../api/auth';
 import { averagePeopleAxisProgress } from './peopleAxisUtils';
+import { PeopleAxisFlowCanvas, AxisFlowNode, PersonNodeData, SpineEdgeData } from './PeopleAxisFlowCanvas';
+import { computeAxisLayout, collectHiddenNodeIds } from './peopleAxisFlowLayout';
+
+const TERMINUS_NODE_ID = '__terminus__';
 
 function asBackendId(id?: string | null): number | null {
   if (!id) return null;
@@ -107,17 +113,12 @@ interface PeopleAxisViewProps {
   lang: Language;
   /** 人轴只对具体后端项目开放；不再注入本地演示树。 */
   projectId?: string;
+  /** 可编辑的项目列表；聚合/未选项目时用于页内快速切换（移动端顶栏无项目选择器）。 */
+  projects?: Project[];
+  onSelectProject?: (project: Project) => void;
 }
 
-interface PathData {
-  id: string;
-  d: string;
-  isMainAxis: boolean;
-  parentId: string;
-  childId: string;
-}
-
-export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId }) => {
+export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId, projects, onSelectProject }) => {
   const t = getT(lang);
   const [nodes, setNodes] = useState<PeopleAxisNode[]>([]);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -127,39 +128,28 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
   const isBackendProject = Boolean(projectId && projectId !== 'all' && Number(projectId) > 0);
   const backendProjectId = isBackendProject ? Number(projectId) : 0;
   const memberOptions = projectMembers;
+  // 权限口径与服务端 acl 一致：PM（pm_user_id 或成员角色 pm）可编辑全树；
+  // 普通成员仅能编辑自己作为 primary/collaborator 责任人的节点及其子树。
+  const [meId, setMeId] = useState<number | null>(null);
+  const [pmUserId, setPmUserId] = useState<number | null>(null);
   const [isAddingWorkItem, setIsAddingWorkItem] = useState<string | null>(null); // nodeId
   const [isAddingEvidence, setIsAddingEvidence] = useState<string | null>(null); // workItemId
-  const [activeTab, setActiveTab] = useState<'chain' | 'philosophy' | 'ai-audit'>('chain');
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced');
   const [alongDelta, setAlongDelta] = useState(0);
   const [auditLoading, setAuditLoading] = useState(false);
 
   // Flagship Visual Controls
-  const [viewMode, setViewMode] = useState<'visual-tree' | 'linear-timeline'>('visual-tree');
   const [treeOrientation, setTreeOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
-  const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
-  const [paths, setPaths] = useState<PathData[]>([]);
-  const [mainSpineData, setMainSpineData] = useState<{
-    d: string;
-    endX: number;
-    endY: number;
-    stationDots: { id: string; x: number; y: number; name: string }[];
-  } | null>(null);
-  const [hoveredPathId, setHoveredPathId] = useState<string | null>(null);
-
-  // Dragging states for cards
+  // 用户拖拽产生的偏移（叠加在布局基准位置上，落盘到后端 layout）
   const [dragOffsets, setDragOffsets] = useState<Record<string, { x: number; y: number }>>({});
   const dragOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
-  const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
-  const dragStartPosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Canvas Panning (Drag whole canvas)
-  const [canvasPan, setCanvasPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [isPanningCanvas, setIsPanningCanvas] = useState<boolean>(false);
-  const panStartRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-
-  const contentRef = useRef<HTMLDivElement>(null);
+  // Mobile bottom sheet with the description / progress / controls that the
+  // desktop layout shows above the canvas.
+  const [showMobileInfo, setShowMobileInfo] = useState(false);
+  // 移动端底部面板重置布局后通知画布重新取景（桌面工具条自带 fitView，不走此通道）
+  const [canvasResetToken, setCanvasResetToken] = useState(0);
 
   // Form states
   const [newPersonId, setNewPersonId] = useState<string>('');
@@ -168,6 +158,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
   
   const [newWorkTitle, setNewWorkTitle] = useState('');
   const [newWorkType, setNewWorkType] = useState<'task' | 'milestone' | 'scope'>('task');
+  const [newWorkDueDate, setNewWorkDueDate] = useState('');
+  const [newWorkDesc, setNewWorkDesc] = useState('');
   
   const [newEvTitle, setNewEvTitle] = useState('');
   const [newEvType, setNewEvType] = useState<'commit' | 'document' | 'figma' | 'log' | 'delivery'>('commit');
@@ -175,7 +167,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
 
   // Draw.io Interactive Re-linking & Mounting States
   const [linkingSourceNodeId, setLinkingSourceNodeId] = useState<string | null>(null);
-  const [linkingMousePos, setLinkingMousePos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [linkingHoveredTargetId, setLinkingHoveredTargetId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -240,18 +231,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
     }, 3500);
   }, []);
 
-  // Global Mouse Move and Key Listener for Draw.io Linking Mode
+  // ESC 取消连线模式（连线预览曲线由画布内部的 LinkingPreview 处理）
   useEffect(() => {
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (linkingSourceNodeId && contentRef.current) {
-        const rect = contentRef.current.getBoundingClientRect();
-        setLinkingMousePos({
-          x: (e.clientX - rect.left) / zoomLevel,
-          y: (e.clientY - rect.top) / zoomLevel
-        });
-      }
-    };
-
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && linkingSourceNodeId) {
         setLinkingSourceNodeId(null);
@@ -259,14 +240,21 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
         showToast(lang === 'zh' ? '已取消 Draw.io 连线重新挂载操作' : 'Cancelled re-linking');
       }
     };
-
-    window.addEventListener('mousemove', handleGlobalMouseMove);
     window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [linkingSourceNodeId, lang, showToast]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchMe()
+      .then((me) => {
+        if (!cancelled) setMeId(me.id);
+      })
+      .catch(() => undefined);
     return () => {
-      window.removeEventListener('mousemove', handleGlobalMouseMove);
-      window.removeEventListener('keydown', handleKeyDown);
+      cancelled = true;
     };
-  }, [linkingSourceNodeId, zoomLevel, lang, showToast]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -281,12 +269,15 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
         if (lo) offsets[n.id] = { x: lo.x, y: lo.y };
       });
       setExpandedNodes(initialExpanded);
+      // ref 需与加载的偏移同步，否则「重置布局」会漏掉本会话未拖动过的后端旧偏移
+      dragOffsetsRef.current = offsets;
       setDragOffsets(offsets);
       setSelectedNodeId(loaded[0]?.id ?? null);
     };
 
     const pid = projectId && projectId !== 'all' ? Number(projectId) : NaN;
     if (projectId === 'all') {
+      setPmUserId(null);
       setSyncStatus('syncing');
       setBackendLoadError(null);
       void getPeopleAxisAggregate().then(async (result) => {
@@ -307,7 +298,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
         const withEvidence = await enrichMattersWithEvidence(aggregate);
         if (cancelled) return;
         apply(withEvidence);
-        setBackendLoadError(withEvidence.length ? (lang === 'zh' ? '全盘人轴为只读聚合视图；请选择具体项目编辑节点。' : 'Cross-project axis is read-only; choose a project to edit.') : (lang === 'zh' ? '暂无可见项目人轴节点。' : 'No visible people-axis nodes.'));
+        setBackendLoadError(withEvidence.length ? (lang === 'zh' ? '全盘人轴为只读聚合视图；用旁边的选择器切到具体项目即可编辑。' : 'Cross-project axis is read-only; choose a project to edit.') : (lang === 'zh' ? '暂无可见项目人轴节点。' : 'No visible people-axis nodes.'));
         setSyncStatus('synced');
       }).catch((error) => {
         if (!cancelled) { apply([]); setBackendLoadError(error instanceof Error ? error.message : '加载人轴失败'); setSyncStatus('synced'); }
@@ -316,8 +307,9 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
     }
     if (!Number.isFinite(pid) || pid <= 0) {
       setProjectMembers([]);
+      setPmUserId(null);
       apply([]);
-      setBackendLoadError(lang === 'zh' ? '请先在顶部选择具体项目后查看人轴。' : 'Select a concrete project to view the people axis.');
+      setBackendLoadError(lang === 'zh' ? '当前未选定项目：请在上方横幅选择要查看的项目。' : 'Select a concrete project to view the people axis.');
       return () => {
         cancelled = true;
       };
@@ -345,6 +337,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
         const withEvidence = await enrichMattersWithEvidence(mapped);
         if (cancelled) return;
         setAlongDelta(proj.final_owner_along_delta || 0);
+        setPmUserId(proj.pm_user_id ?? null);
         apply(withEvidence);
         if (!withEvidence.length) {
           setBackendLoadError(
@@ -385,6 +378,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
         proj.final_owner_user_id ?? proj.pm_user_id,
       );
       const withEvidence = await enrichMattersWithEvidence(mapped);
+      setPmUserId(proj.pm_user_id ?? null);
       setNodes(withEvidence);
       setExpandedNodes((prev) => {
         const next = { ...prev };
@@ -412,199 +406,114 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
     return nodes.filter(n => !n.parentId).sort((a, b) => a.orderOnAxis - b.orderOnAxis);
   }, [nodes]);
 
-  // Execute Palette Drop Creation
-  const executePaletteDrop = useCallback((
+  // ===== 权限计算（与服务端 acl.can 同口径，前端只做显隐，最终以后端校验为准） =====
+  // tree.edit_any：项目 PM（pm_user_id 或 project_members.role='pm'）
+  const canEditAny = useMemo(() => {
+    if (!isBackendProject || meId == null) return false;
+    if (pmUserId != null && pmUserId === meId) return true;
+    return memberOptions.some((m) => Number(m.id) === meId && m.role === 'pm');
+  }, [isBackendProject, meId, pmUserId, memberOptions]);
+
+  // tree.edit_subtree：自己是 primary/collaborator 责任人的节点及其全部后代
+  const editableNodeIds = useMemo(() => {
+    const set = new Set<string>();
+    if (!isBackendProject || meId == null) return set;
+    const childrenMap = new Map<string, string[]>();
+    nodes.forEach((n) => {
+      if (!n.parentId) return;
+      childrenMap.set(n.parentId, [...(childrenMap.get(n.parentId) || []), n.id]);
+    });
+    const queue = nodes
+      .filter((n) => (n.ownerUserIds || []).includes(meId))
+      .map((n) => n.id);
+    while (queue.length) {
+      const id = queue.pop()!;
+      if (set.has(id)) continue;
+      set.add(id);
+      (childrenMap.get(id) || []).forEach((c) => queue.push(c));
+    }
+    return set;
+  }, [isBackendProject, meId, nodes]);
+
+  /** 至少拥有一个可挂载位置（PM 任意；成员需名下有节点） */
+  const canMountSomething = canEditAny || editableNodeIds.size > 0;
+
+  // 调色板落子：不再自动生成随机人员，而是打开预填好的挂载弹窗，由用户自定义后确认
+  const openPaletteMountModal = useCallback((
     template: PaletteTemplate,
-    target: { type: 'trunk' | 'node'; nodeId?: string; x: number; y: number }
+    target: { type: 'trunk' | 'node'; nodeId?: string }
   ) => {
     if (!isBackendProject) {
-      showToast(lang === 'zh' ? '请先选择具体项目' : 'Select a concrete project first');
+      showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择要编辑的项目' : 'Read-only aggregate: pick a project in the banner above first');
       return;
     }
-    const isTrunk = target.type === 'trunk';
-    const parentId = isTrunk ? undefined : target.nodeId;
-    const pool = memberOptions;
-    if (!pool.length) {
-      showToast(lang === 'zh' ? '项目暂无可分配成员' : 'No project members available');
+    if (target.type === 'trunk' && !canEditAny) {
+      showToast(lang === 'zh' ? '仅项目 PM 可在主干挂载责任人' : 'Only the project PM can add trunk leaders');
       return;
     }
-    const randomMember = pool[Math.floor(Math.random() * pool.length)];
-    const namePrefix = template.type === 'vendor-lead'
-      ? (lang === 'zh' ? '华为/外部责任人' : 'Vendor Lead')
-      : template.type === 'trunk-leader'
-      ? (lang === 'zh' ? '主轴部门主管' : 'Trunk Dept Leader')
-      : randomMember.name;
-    const displayName = `${namePrefix} (${Math.floor(Math.random() * 89 + 10)}号)`;
-    const scopeTitle = lang === 'zh' ? '初始化归口职责与交付范围' : 'Initial Scope & Responsibilities';
-
-    if (isBackendProject) {
-      const parentBackendId = asBackendId(parentId);
-      if (!isTrunk && parentId && parentBackendId == null) {
-        showToast(lang === 'zh' ? '目标节点尚未同步到后端' : 'Target node is not on backend');
-        return;
-      }
-      void (async () => {
-        try {
-          setSyncStatus('syncing');
-          const created = await createNode(backendProjectId, {
-            parent_id: parentBackendId,
-            node_type_key: 'person',
-            title: displayName,
-            description: `${template.defaultRole} / ${template.defaultDept}`,
-            sort_order: isTrunk ? mainTrunkNodes.length : 0,
-            assignees: asBackendId(randomMember.id)
-              ? [{ user_id: asBackendId(randomMember.id)!, role_key: 'primary' }]
-              : [],
-          });
-          await createNode(backendProjectId, {
-            parent_id: created.id,
-            node_type_key: 'scope',
-            title: scopeTitle,
-          });
-          if (parentId) setExpandedNodes((prev) => ({ ...prev, [parentId]: true }));
-          await reloadAxisFromBackend();
-          setSelectedNodeId(String(created.id));
-          showToast(
-            lang === 'zh'
-              ? `已创建人员【${displayName}】并写回后端`
-              : `Created person ${displayName}`,
-          );
-        } catch (err) {
-          showToast(err instanceof Error ? err.message : '创建失败');
-          setSyncStatus('synced');
-        }
-      })();
+    if (target.type === 'node' && !canEditAny && !editableNodeIds.has(target.nodeId || '')) {
+      showToast(lang === 'zh' ? '只能在自己负责的节点下挂载下属' : 'You can only mount under nodes you own');
       return;
     }
+    setNewParentId(target.type === 'node' && target.nodeId ? target.nodeId : '');
+    setIsCustomPerson(template.type === 'vendor-lead' || memberOptions.length === 0);
+    setCustomName('');
+    setCustomRole(template.defaultRole);
+    setCustomDept(template.defaultDept);
+    setNewRoleTitle(template.defaultRole);
+    setIsAddingNode(true);
+  }, [isBackendProject, lang, showToast, memberOptions.length, canEditAny, editableNodeIds]);
 
-    const newPerson: TeamMember = {
-      id: `person-${Date.now()}`,
-      name: displayName,
-      role: template.defaultRole,
-      department: template.defaultDept,
-      avatar: `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 1000)}?w=150&auto=format&fit=crop&q=80`
-    };
-
-    const newNode: PeopleAxisNode = {
-      id: `node-${Date.now()}`,
-      parentId,
-      person: newPerson,
-      orderOnAxis: isTrunk ? mainTrunkNodes.length + 1 : 0,
-      roleTitle: template.defaultRole,
-      workItems: [
-        {
-          id: `wi-drop-${Date.now()}-1`,
-          title: scopeTitle,
-          type: 'scope',
-          status: 'In Progress',
-          progress: 30,
-          dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
-          evidences: []
-        }
-      ],
-      aiContext: {
-        riskLevel: 'low',
-        summary: `${newPerson.name} 从左侧面板拖入并已在网络中完成定位与自动拉伸。`,
-        lastAnalysis: '主轴线路长度根据卡片布局自适应延伸。',
-        suggestedActions: ['配置详细责任指标', '关联第一批跟进证据']
-      }
-    };
-
-    setNodes(prev => {
-      const updated = [...prev, newNode];
-      return updated;
-    });
-
-    if (parentId) {
-      setExpandedNodes(prev => ({ ...prev, [parentId]: true }));
-    }
-    setSelectedNodeId(newNode.id);
-
-    const parentNode = nodes.find(n => n.id === parentId);
-    showToast(
-      isTrunk
-        ? (lang === 'zh'
-            ? `🎉 [拖拽定位成功] 已在主轴新增【${newPerson.name}】地铁站点！主轴已自动延伸拉伸！`
-            : `Added station for ${newPerson.name} on trunk!`)
-        : (lang === 'zh'
-            ? `🎉 [拖拽挂载成功] 已将【${newPerson.name}】挂载为【${parentNode?.person.name || ''}】直属下属！`
-            : `Attached ${newPerson.name} under parent!`)
-    );
-  }, [
-    lang,
-    nodes,
-    mainTrunkNodes.length,
-    showToast,
-    isBackendProject,
-    backendProjectId,
-    memberOptions,
-    reloadAxisFromBackend,
-  ]);
-
-  // Global Mouse Move and Mouse Up Listener for Palette Drag-and-Drop
+  // Global Pointer Move and Up Listener for Palette Drag-and-Drop
   useEffect(() => {
     if (!paletteDraggingItem) return;
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleMouseMove = (e: PointerEvent) => {
       setPaletteDragPos({ x: e.clientX, y: e.clientY });
 
-      if (!contentRef.current) return;
-      const contentEl = contentRef.current;
-      const contentRect = contentEl.getBoundingClientRect();
-
-      // Hit test over node cards
+      // Hit test over node cards (React Flow 节点上保留了 data-node-anchor)
       const elements = document.elementsFromPoint(e.clientX, e.clientY);
-      let targetNodeEl: HTMLElement | null = null;
-
       for (const el of elements) {
-        const anchorEl = (el as HTMLElement).closest('[data-node-anchor]') as HTMLElement;
+        const anchorEl = (el as HTMLElement).closest('[data-node-anchor]') as HTMLElement | null;
         if (anchorEl) {
-          targetNodeEl = anchorEl;
-          break;
+          const nodeId = anchorEl.getAttribute('data-node-anchor');
+          if (nodeId) {
+            setDropHoverTarget({ type: 'node', nodeId, x: 0, y: 0 });
+            return;
+          }
         }
       }
 
-      if (targetNodeEl) {
-        const nodeId = targetNodeEl.getAttribute('data-node-anchor');
-        if (nodeId) {
-          const rect = targetNodeEl.getBoundingClientRect();
-          setDropHoverTarget({
-            type: 'node',
-            nodeId,
-            x: (rect.left + rect.width / 2 - contentRect.left) / zoomLevel,
-            y: (rect.top + rect.height / 2 - contentRect.top) / zoomLevel
-          });
-          return;
-        }
-      }
-
-      // Otherwise drop target is on Trunk Line
-      const mouseCanvasX = (e.clientX - contentRect.left) / zoomLevel;
-      const mouseCanvasY = (e.clientY - contentRect.top) / zoomLevel;
-      setDropHoverTarget({
-        type: 'trunk',
-        x: mouseCanvasX,
-        y: mouseCanvasY
-      });
+      // 只有落在画布区域内才算主轴落点；仍停留在调色板上视作未拖出（走 click 逻辑）
+      const overCanvas = elements.some((el) => (el as HTMLElement).closest?.('.react-flow'));
+      setDropHoverTarget(overCanvas ? { type: 'trunk', x: 0, y: 0 } : null);
     };
 
     const handleMouseUp = () => {
       if (paletteDraggingItem && dropHoverTarget) {
-        executePaletteDrop(paletteDraggingItem, dropHoverTarget);
+        openPaletteMountModal(paletteDraggingItem, dropHoverTarget);
       }
       setPaletteDraggingItem(null);
       setDropHoverTarget(null);
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+    // 触屏上浏览器接管手势（如滚动）会发 pointercancel：只清理状态，绝不执行 drop
+    const handlePointerCancel = () => {
+      setPaletteDraggingItem(null);
+      setDropHoverTarget(null);
     };
-  }, [paletteDraggingItem, dropHoverTarget, zoomLevel, executePaletteDrop]);
 
-  const handlePaletteDragStart = (template: PaletteTemplate, e: React.MouseEvent) => {
+    window.addEventListener('pointermove', handleMouseMove);
+    window.addEventListener('pointerup', handleMouseUp);
+    window.addEventListener('pointercancel', handlePointerCancel);
+    return () => {
+      window.removeEventListener('pointermove', handleMouseMove);
+      window.removeEventListener('pointerup', handleMouseUp);
+      window.removeEventListener('pointercancel', handlePointerCancel);
+    };
+  }, [paletteDraggingItem, dropHoverTarget, openPaletteMountModal]);
+
+  const handlePaletteDragStart = (template: PaletteTemplate, e: React.PointerEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setPaletteDraggingItem(template);
@@ -635,358 +544,178 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
     }));
   };
 
-  const toggleExpandAll = (expand: boolean) => {
-    const next: Record<string, boolean> = {};
-    nodes.forEach(n => {
-      next[n.id] = expand;
-    });
-    setExpandedNodes(next);
-  };
+  /* ---------------- React Flow 画布数据装配 ---------------- */
 
-  // Card Mouse Drag Handlers
-  const handleCardMouseDown = (nodeId: string, e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button, input, select, a, textarea')) return;
-    e.preventDefault();
-    e.stopPropagation();
-    setDraggingNodeId(nodeId);
-    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
-  };
+  // 布局基准位置（地铁主轴 + 分层下属）；拖拽偏移叠加其上
+  const layout = useMemo(
+    () => computeAxisLayout(nodes, treeOrientation, expandedNodes, alongDelta),
+    [nodes, treeOrientation, expandedNodes, alongDelta],
+  );
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
 
-  // Canvas Mouse Drag (Pan Canvas) Handler
-  const handleCanvasMouseDown = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button, input, select, a, textarea, [data-node-anchor]')) return;
-    e.preventDefault();
-    setIsPanningCanvas(true);
-    panStartRef.current = { x: e.clientX - canvasPan.x, y: e.clientY - canvasPan.y };
-  };
+  const hiddenNodeIds = useMemo(
+    () => collectHiddenNodeIds(nodes, expandedNodes),
+    [nodes, expandedNodes],
+  );
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (draggingNodeId) {
-      const dx = (e.clientX - dragStartPosRef.current.x) / zoomLevel;
-      const dy = (e.clientY - dragStartPosRef.current.y) / zoomLevel;
-      setDragOffsets(prev => {
-        const current = prev[draggingNodeId] || { x: 0, y: 0 };
-        const next = {
-          ...prev,
-          [draggingNodeId]: { x: current.x + dx, y: current.y + dy }
-        };
-        dragOffsetsRef.current = next;
-        return next;
-      });
-      dragStartPosRef.current = { x: e.clientX, y: e.clientY };
-    } else if (isPanningCanvas) {
-      setCanvasPan({
-        x: e.clientX - panStartRef.current.x,
-        y: e.clientY - panStartRef.current.y
-      });
-    }
-  }, [draggingNodeId, isPanningCanvas, zoomLevel, canvasPan]);
-
-  const handleMouseUp = useCallback(() => {
-    const nid = draggingNodeId;
-    const offset = nid ? dragOffsetsRef.current[nid] : null;
-    setDraggingNodeId(null);
-    setIsPanningCanvas(false);
-    if (isBackendProject && nid && offset) {
-      const backendId = asBackendId(nid);
-      if (backendId != null) {
-        void putNodeLayout(backendId, offset).catch(() => undefined);
-      }
-    }
-  }, [draggingNodeId, isBackendProject]);
-
-  useEffect(() => {
-    if (draggingNodeId || isPanningCanvas) {
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
+  const rfNodes = useMemo<AxisFlowNode[]>(() => {
+    const list: AxisFlowNode[] = [];
+    nodes.forEach((n) => {
+      if (hiddenNodeIds.has(n.id)) return;
+      const base = layout.positions.get(n.id);
+      if (!base) return;
+      const off = dragOffsets[n.id] || { x: 0, y: 0 };
+      const data: PersonNodeData = {
+        node: n,
+        lang,
+        isOverallLeader: headLeaderNode?.id === n.id,
+        isMainAxisLeader: !n.parentId,
+        isSelected: selectedNodeId === n.id,
+        isExpanded: expandedNodes[n.id] ?? true,
+        childCount: getChildNodes(n.id).length,
+        linkingActive: linkingSourceNodeId !== null,
+        isLinkingSource: linkingSourceNodeId === n.id,
+        isLinkingTarget:
+          linkingSourceNodeId !== null &&
+          linkingHoveredTargetId === n.id &&
+          linkingSourceNodeId !== n.id,
+        canEdit: canEditAny || editableNodeIds.has(n.id),
+        canRelink: canEditAny,
+        onCardClick: (id) => {
+          if (linkingSourceNodeId) {
+            if (id !== linkingSourceNodeId) handleConnectToTarget(id);
+          } else {
+            setSelectedNodeId(id);
+          }
+        },
+        onToggleExpand: toggleExpandNode,
+        onAddWorkItem: (id) => {
+          if (isBackendProject && !canEditAny && !editableNodeIds.has(id)) {
+            showToast(lang === 'zh' ? '只能给自己负责的节点挂载事项' : 'You can only attach items under nodes you own');
+            return;
+          }
+          setIsAddingWorkItem(id);
+        },
+        onAddChild: (id) => {
+          if (!isBackendProject) {
+            showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择要编辑的项目' : 'Select a concrete project first');
+            return;
+          }
+          if (!canEditAny && !editableNodeIds.has(id)) {
+            showToast(lang === 'zh' ? '只能在自己负责的节点下挂载下属' : 'You can only mount under nodes you own');
+            return;
+          }
+          setNewParentId(id);
+          setIsAddingNode(true);
+        },
+        onToggleLinking: (id) => {
+          if (!canEditAny) {
+            showToast(lang === 'zh' ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM');
+            return;
+          }
+          if (linkingSourceNodeId === id) {
+            setLinkingSourceNodeId(null);
+            setLinkingHoveredTargetId(null);
+            showToast(lang === 'zh' ? '已取消连线操作' : 'Cancelled linking');
+          } else {
+            setLinkingSourceNodeId(id);
+            showToast(
+              lang === 'zh'
+                ? `🔗 连线模式已激活：点击目标卡片将【${n.person.name}】挂载过去`
+                : 'Linking active: click a target card',
+            );
+          }
+        },
+        onHoverTarget: setLinkingHoveredTargetId,
       };
+      list.push({
+        id: n.id,
+        type: 'person',
+        position: { x: base.x + off.x, y: base.y + off.y },
+        data,
+        // 布局偏移的持久化接口同样要求编辑权限，无权节点不可拖，避免 403
+        draggable: !linkingSourceNodeId && (canEditAny || editableNodeIds.has(n.id)),
+      });
+    });
+    if (layout.trunkOrder.length > 0) {
+      list.push({
+        id: TERMINUS_NODE_ID,
+        type: 'terminus',
+        position: layout.terminusPosition,
+        data: { lang, progress: totalProjectProgress },
+        draggable: false,
+      });
     }
-  }, [draggingNodeId, isPanningCanvas, handleMouseMove, handleMouseUp]);
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    nodes, hiddenNodeIds, layout, dragOffsets, headLeaderNode, lang,
+    selectedNodeId, expandedNodes, linkingSourceNodeId, linkingHoveredTargetId,
+    getChildNodes, totalProjectProgress, showToast, isBackendProject,
+    canEditAny, editableNodeIds,
+  ]);
+
+  const rfEdges = useMemo<Edge[]>(() => {
+    const edges: Edge[] = [];
+    const spineData: SpineEdgeData = { orientation: treeOrientation, spineCoord: layout.spineCoord };
+    layout.trunkOrder.forEach((id, i) => {
+      if (i === 0) return;
+      edges.push({ id: `spine-${i}`, source: layout.trunkOrder[i - 1], target: id, type: 'spine', data: spineData });
+    });
+    if (layout.trunkOrder.length > 0) {
+      edges.push({
+        id: 'spine-terminus',
+        source: layout.trunkOrder[layout.trunkOrder.length - 1],
+        target: TERMINUS_NODE_ID,
+        type: 'spine',
+        data: spineData,
+      });
+    }
+    nodes.forEach((n) => {
+      if (!n.parentId) return;
+      if (hiddenNodeIds.has(n.id) || hiddenNodeIds.has(n.parentId)) return;
+      edges.push({ id: `branch-${n.id}`, source: n.parentId, target: n.id, type: 'branch' });
+    });
+    return edges;
+  }, [nodes, layout, hiddenNodeIds, treeOrientation]);
+
+  // 拖拽期间位置由画布内部状态驱动（避免每帧重渲染引起闪烁）；
+  // 拖拽结束才换算成相对布局基准的偏移量，更新本地状态并落盘后端
+  const handleNodeDragStop = useCallback((id: string, position: { x: number; y: number }) => {
+    if (id === TERMINUS_NODE_ID) return;
+    const base = layoutRef.current.positions.get(id);
+    if (!base) return;
+    const off = { x: position.x - base.x, y: position.y - base.y };
+    setDragOffsets((prev) => {
+      const next = { ...prev, [id]: off };
+      dragOffsetsRef.current = next;
+      return next;
+    });
+    if (isBackendProject) {
+      const backendId = asBackendId(id);
+      if (backendId != null) void putNodeLayout(backendId, off).catch(() => undefined);
+    }
+  }, [isBackendProject]);
+
+  const handlePaneClick = () => {
+    // 连线模式下点空白不动作（防误触）；提升主干走 banner 上的显式按钮
+    if (!linkingSourceNodeId) setSelectedNodeId(null);
+  };
 
   const resetAllDragOffsets = () => {
-    setDragOffsets({});
-    setCanvasPan({ x: 0, y: 0 });
-    setZoomLevel(1);
-  };
-
-  // Calculate SVG connection paths (Dynamic Metro Spine + Adaptive Edge Connectors)
-  const calculatePaths = useCallback(() => {
-    if (!contentRef.current || viewMode !== 'visual-tree' || activeTab !== 'chain') return;
-
-    const contentEl = contentRef.current;
-    const contentRect = contentEl.getBoundingClientRect();
-    const newPaths: PathData[] = [];
-
-    const getNodeCoords = (nodeId: string) => {
-      const el = contentEl.querySelector(`[data-node-anchor="${nodeId}"]`);
-      if (!el) return null;
-      const rect = el.getBoundingClientRect();
-      return {
-        left: (rect.left - contentRect.left) / zoomLevel,
-        right: (rect.right - contentRect.left) / zoomLevel,
-        top: (rect.top - contentRect.top) / zoomLevel,
-        bottom: (rect.bottom - contentRect.top) / zoomLevel,
-        width: rect.width / zoomLevel,
-        height: rect.height / zoomLevel,
-        centerX: (rect.left + rect.width / 2 - contentRect.left) / zoomLevel,
-        centerY: (rect.top + rect.height / 2 - contentRect.top) / zoomLevel,
-      };
-    };
-
-    if (!headLeaderNode) return;
-    const headCoords = getNodeCoords(headLeaderNode.id);
-
-    if (headCoords) {
-      let spineD = '';
-      let spineEndX = 0;
-      let spineEndY = 0;
-      const stationDots: { id: string; x: number; y: number; name: string }[] = [];
-
-      if (treeOrientation === 'horizontal') {
-        // Horizontal mode (左右视图)
-        // Project Director (headLeaderNode) is on the far left.
-        // Spine starts EXACTLY at headLeaderNode's right edge center
-        const startX = headCoords.right;
-        const startY = headCoords.centerY;
-
-        // Find maxRight coordinate across ALL rendered nodes (side leaders & subordinates)
-        let maxRight = startX + 240;
-        nodes.forEach(node => {
-          const coords = getNodeCoords(node.id);
-          if (coords && coords.right > maxRight) {
-            maxRight = coords.right;
-          }
-        });
-
-        // Terminal buffer extending seamlessly past the last card
-        spineEndX = maxRight + 80;
-        spineEndY = startY;
-        spineD = `M ${startX} ${startY} L ${spineEndX} ${spineEndY}`;
-
-        // Stems from main spine (Y = startY) to each sideLeaderNode card
-        sideLeaderNodes.forEach(leader => {
-          const leaderCoords = getNodeCoords(leader.id);
-          if (leaderCoords) {
-            const isAbove = leaderCoords.centerY < startY;
-            const targetY = isAbove ? leaderCoords.bottom : leaderCoords.top;
-            const sx = leaderCoords.centerX;
-
-            // Record exact junction dot on the Metro Spine line
-            stationDots.push({
-              id: leader.id,
-              x: sx,
-              y: startY,
-              name: leader.person.name
-            });
-
-            newPaths.push({
-              id: `spine-stem-${leader.id}`,
-              d: `M ${sx} ${startY} L ${sx} ${targetY}`,
-              isMainAxis: true,
-              parentId: 'subway-line',
-              childId: leader.id,
-            });
-          }
-        });
-      } else {
-        // Vertical mode (纵轴/上下视图)
-        // Project Director (headLeaderNode) is at the very top.
-        // Spine starts EXACTLY at headLeaderNode's bottom edge center
-        const startX = headCoords.centerX;
-        const startY = headCoords.bottom;
-
-        // Find maxBottom coordinate across ALL rendered nodes
-        let maxBottom = startY + 240;
-        nodes.forEach(node => {
-          const coords = getNodeCoords(node.id);
-          if (coords && coords.bottom > maxBottom) {
-            maxBottom = coords.bottom;
-          }
-        });
-
-        // Terminal buffer
-        spineEndX = startX;
-        spineEndY = maxBottom + 80;
-        spineD = `M ${startX} ${startY} L ${spineEndX} ${spineEndY}`;
-
-        // Stems from main spine (X = startX) to each sideLeaderNode card
-        sideLeaderNodes.forEach(leader => {
-          const leaderCoords = getNodeCoords(leader.id);
-          if (leaderCoords) {
-            const isLeft = leaderCoords.centerX < startX;
-            const targetX = isLeft ? leaderCoords.right : leaderCoords.left;
-            const sy = leaderCoords.centerY;
-
-            // Record exact junction dot on the Metro Spine line
-            stationDots.push({
-              id: leader.id,
-              x: startX,
-              y: sy,
-              name: leader.person.name
-            });
-
-            newPaths.push({
-              id: `spine-stem-${leader.id}`,
-              d: `M ${startX} ${sy} L ${targetX} ${sy}`,
-              isMainAxis: true,
-              parentId: 'subway-line',
-              childId: leader.id,
-            });
-          }
-        });
-      }
-
-      const delta = Math.max(0, alongDelta || 0);
-      if (treeOrientation === 'horizontal') spineEndX += delta;
-      else spineEndY += delta;
-      // 重写终点线段（避免重复 L）
-      spineD = spineD.replace(/L [\d.-]+ [\d.-]+$/, `L ${spineEndX} ${spineEndY}`);
-      setMainSpineData({ d: spineD, endX: spineEndX, endY: spineEndY, stationDots });
-    }
-
-    // Subordinate branch connections (Adaptive non-penetrating edge connections)
-    nodes.forEach(child => {
-      if (!child.parentId || !expandedNodes[child.parentId]) return;
-      const parentCoords = getNodeCoords(child.parentId);
-      const childCoords = getNodeCoords(child.id);
-
-      if (parentCoords && childCoords) {
-        const dx = childCoords.centerX - parentCoords.centerX;
-        const dy = childCoords.centerY - parentCoords.centerY;
-
-        let px = 0;
-        let py = 0;
-        let cx = 0;
-        let cy = 0;
-        let c1x = 0;
-        let c1y = 0;
-        let c2x = 0;
-        let c2y = 0;
-
-        if (Math.abs(dx) >= Math.abs(dy)) {
-          // Horizontal dominant relationship (Child is to Left or Right of Parent)
-          if (dx > 0) {
-            // Child is to the RIGHT of Parent
-            px = parentCoords.right;
-            py = parentCoords.centerY;
-            cx = childCoords.left;
-            cy = childCoords.centerY;
-          } else {
-            // Child is to the LEFT of Parent
-            px = parentCoords.left;
-            py = parentCoords.centerY;
-            cx = childCoords.right;
-            cy = childCoords.centerY;
-          }
-          const dist = Math.max(20, Math.abs(cx - px) * 0.4);
-          const dir = dx > 0 ? 1 : -1;
-          c1x = px + dir * dist;
-          c1y = py;
-          c2x = cx - dir * dist;
-          c2y = cy;
-        } else {
-          // Vertical dominant relationship (Child is Above or Below Parent)
-          if (dy > 0) {
-            // Child is BELOW Parent
-            px = parentCoords.centerX;
-            py = parentCoords.bottom;
-            cx = childCoords.centerX;
-            cy = childCoords.top;
-          } else {
-            // Child is ABOVE Parent
-            px = parentCoords.centerX;
-            py = parentCoords.top;
-            cx = childCoords.centerX;
-            cy = childCoords.bottom;
-          }
-          const dist = Math.max(20, Math.abs(cy - py) * 0.4);
-          const dir = dy > 0 ? 1 : -1;
-          c1x = px;
-          c1y = py + dir * dist;
-          c2x = cx;
-          c2y = cy - dir * dist;
-        }
-
-        const d = `M ${px} ${py} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${cx} ${cy}`;
-
-        newPaths.push({
-          id: `branch-${child.parentId}-${child.id}`,
-          d,
-          isMainAxis: false,
-          parentId: child.parentId,
-          childId: child.id,
-        });
-      }
-    });
-
-    setPaths(newPaths);
-  }, [nodes, headLeaderNode, sideLeaderNodes, expandedNodes, treeOrientation, zoomLevel, viewMode, activeTab, dragOffsets, alongDelta]);
-
-  useLayoutEffect(() => {
-    calculatePaths();
-    const timer1 = setTimeout(calculatePaths, 60);
-    const timer2 = setTimeout(calculatePaths, 200);
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
-  }, [calculatePaths, dragOffsets]);
-
-  useEffect(() => {
-    window.addEventListener('resize', calculatePaths);
-    let observer: ResizeObserver | null = null;
-    if (contentRef.current && typeof ResizeObserver !== 'undefined') {
-      observer = new ResizeObserver(() => {
-        calculatePaths();
+    // 只清本地的话，刷新后旧偏移又会从后端 layoutOffset 加载回来；
+    // 具体项目下把偏移清零落盘，聚合只读视图保持只清本地
+    if (isBackendProject) {
+      Object.keys(dragOffsetsRef.current).forEach((id) => {
+        const off = dragOffsetsRef.current[id];
+        if (!off || (off.x === 0 && off.y === 0)) return;
+        const backendId = asBackendId(id);
+        if (backendId != null) void putNodeLayout(backendId, { x: 0, y: 0 }).catch(() => undefined);
       });
-      observer.observe(contentRef.current);
     }
-    return () => {
-      window.removeEventListener('resize', calculatePaths);
-      if (observer) observer.disconnect();
-    };
-  }, [calculatePaths]);
-
-  // Render Head Leader Subordinates in Vertical Mode (Flanking Left & Right of the Center Trunk Line)
-  const renderHeadSubordinatesVertical = (headNode: PeopleAxisNode) => {
-    const children = getChildNodes(headNode.id);
-    const isExpanded = expandedNodes[headNode.id] ?? true;
-
-    if (children.length === 0 || !isExpanded) return null;
-
-    const half = Math.ceil(children.length / 2);
-    const leftChildren = children.slice(0, half);
-    const rightChildren = children.slice(half);
-
-    return (
-      <div className="flex flex-row items-center justify-center shrink-0 mt-8 relative w-full">
-        {/* Left Subordinates Slot */}
-        <div className="flex-1 flex flex-row items-center justify-end pr-6 gap-6">
-          {leftChildren.map(child => (
-            <div key={child.id} className="flex flex-col items-center">
-              {renderPersonCard(child, false, false)}
-              {renderSubordinates(child)}
-            </div>
-          ))}
-        </div>
-
-        {/* Center Pass-through Gap for Vertical Metro Spine Line */}
-        <div className="w-16 h-12 shrink-0 flex items-center justify-center relative pointer-events-none" />
-
-        {/* Right Subordinates Slot */}
-        <div className="flex-1 flex flex-row items-center justify-start pl-6 gap-6">
-          {rightChildren.map(child => (
-            <div key={child.id} className="flex flex-col items-center">
-              {renderPersonCard(child, false, false)}
-              {renderSubordinates(child)}
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    dragOffsetsRef.current = {};
+    setDragOffsets({});
   };
 
   // Helper to check circular parent-child dependency
@@ -1000,6 +729,11 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
   const handleConnectToTarget = (targetNodeId: string) => {
     if (!linkingSourceNodeId) return;
     if (linkingSourceNodeId === targetNodeId) return;
+    // 入口按钮已按 canRelink 显隐，这里兜底（快捷键/竞态路径），口径与服务端 move 校验一致
+    if (isBackendProject && !canEditAny) {
+      showToast(lang === 'zh' ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM');
+      return;
+    }
 
     if (isDescendantNode(nodes, linkingSourceNodeId, targetNodeId)) {
       showToast(lang === 'zh' ? '⚠️ 不能挂载到自己的下属节点上（防止死循环）！' : 'Cannot attach to descendant node!');
@@ -1060,6 +794,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
 
   const handleConnectToSpine = () => {
     if (!linkingSourceNodeId) return;
+    if (isBackendProject && !canEditAny) {
+      showToast(lang === 'zh' ? '提升为主干仅项目 PM 可用' : 'Promoting to trunk requires the project PM');
+      return;
+    }
     const sourceNode = nodes.find(n => n.id === linkingSourceNodeId);
     const sourceId = asBackendId(linkingSourceNodeId);
 
@@ -1115,7 +853,11 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
   const handleAddNode = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isBackendProject) {
-      showToast(lang === 'zh' ? '请先选择具体项目后再挂载责任人' : 'Select a concrete project before adding a person');
+      showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择项目，再挂载责任人' : 'Select a concrete project before adding a person');
+      return;
+    }
+    if (!canEditAny && (!newParentId || !editableNodeIds.has(newParentId))) {
+      showToast(lang === 'zh' ? '只能挂载到自己负责的节点之下（主干需项目 PM）' : 'You can only mount under nodes you own');
       return;
     }
     let personToAssign: TeamMember;
@@ -1126,7 +868,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
         name: customName.trim(),
         role: customRole.trim() || '责任项目专家',
         department: customDept.trim() || '外部协作单位',
-        avatar: `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 1000)}?w=150&auto=format&fit=crop&q=80`
+        // 自定义人员没有真实头像，留空由卡片渲染首字母兜底
+        avatar: ''
       };
     } else {
       personToAssign =
@@ -1247,7 +990,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
     if (!newWorkTitle.trim()) return;
 
     if (!isBackendProject) {
-      showToast(lang === 'zh' ? '请先选择具体项目后再挂载事项' : 'Select a concrete project before adding work');
+      showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择项目，再挂载事项' : 'Select a concrete project before adding work');
       return;
     }
 
@@ -1264,9 +1007,13 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
             parent_id: parentId,
             node_type_key: matterTypeKey(newWorkType),
             title: newWorkTitle.trim(),
+            description: newWorkDesc.trim() || undefined,
+            due_at: newWorkDueDate ? `${newWorkDueDate}T23:59:59` : undefined,
           });
           setIsAddingWorkItem(null);
           setNewWorkTitle('');
+          setNewWorkDueDate('');
+          setNewWorkDesc('');
           await reloadAxisFromBackend();
           showToast(lang === 'zh' ? '事项已创建' : 'Work item created');
         } catch (err) {
@@ -1307,7 +1054,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
     if (!newEvTitle.trim()) return;
 
     if (!isBackendProject) {
-      showToast(lang === 'zh' ? '请先选择具体项目后再提交证据' : 'Select a concrete project before submitting evidence');
+      showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择项目，再提交证据' : 'Select a concrete project before submitting evidence');
       return;
     }
 
@@ -1378,268 +1125,82 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
     setNewEvTitle('');
   };
 
-  // Render Person Card Component
-  const renderPersonCard = (node: PeopleAxisNode, isOverallLeader: boolean, isMainAxisLeader: boolean) => {
-    const childNodes = getChildNodes(node.id);
-    const isExpanded = expandedNodes[node.id] ?? true;
-    const isSelected = selectedNodeId === node.id;
-    const offset = dragOffsets[node.id] || { x: 0, y: 0 };
-    const isBeingDragged = draggingNodeId === node.id;
-    const isLinkingSource = linkingSourceNodeId === node.id;
-    const isLinkingTarget = linkingSourceNodeId !== null && linkingHoveredTargetId === node.id && !isLinkingSource;
+  // Shared by the desktop progress banner and the mobile info sheet.
+  const handleRunAxisAudit = useCallback(() => {
+    if (!isBackendProject) return;
+    setAuditLoading(true);
+    void runAxisAudit(backendProjectId)
+      .then((res) => {
+        const byId = new Map(res.nodes.map((n) => [String(n.node_id), n]));
+        setNodes((prev) =>
+          prev.map((n) => {
+            const a = byId.get(n.id);
+            if (!a) return n;
+            return {
+              ...n,
+              aiContext: {
+                riskLevel: (a.risk_level as 'low' | 'medium' | 'high') || 'low',
+                summary: a.summary,
+                lastAnalysis: res.generated_at,
+                suggestedActions: a.suggested_actions || [],
+              },
+            };
+          }),
+        );
+        showToast(
+          lang === 'zh'
+            ? `人轴审计完成：整体风险 ${res.overall_risk}`
+            : `Axis audit done: ${res.overall_risk}`,
+        );
+      })
+      .catch((err) => showToast(err instanceof Error ? err.message : '审计失败'))
+      .finally(() => setAuditLoading(false));
+  }, [isBackendProject, backendProjectId, lang, showToast]);
 
-    return (
-      <div
-        key={node.id}
-        data-node-anchor={node.id}
-        onMouseDown={e => {
-          if (!linkingSourceNodeId) {
-            handleCardMouseDown(node.id, e);
-          }
-        }}
-        onMouseEnter={() => {
-          if (linkingSourceNodeId && !isLinkingSource) {
-            setLinkingHoveredTargetId(node.id);
-          }
-        }}
-        onMouseLeave={() => {
-          if (linkingSourceNodeId && linkingHoveredTargetId === node.id) {
-            setLinkingHoveredTargetId(null);
-          }
-        }}
-        onClick={e => {
-          e.stopPropagation();
-          if (linkingSourceNodeId) {
-            if (!isLinkingSource) {
-              handleConnectToTarget(node.id);
-            }
-          } else {
-            setSelectedNodeId(node.id);
-          }
-        }}
-        style={{
-          transform: `translate(${offset.x}px, ${offset.y}px)`,
-          transition: isBeingDragged ? 'none' : 'transform 0.15s cubic-bezier(0.2, 0, 0, 1)'
-        }}
-        className={`rounded-3xl p-5 border relative transition-all cursor-grab active:cursor-grabbing select-none shrink-0 w-[320px] sm:w-[350px] ${
-          isLinkingSource
-            ? 'bg-cyan-500/20 border-cyan-500 shadow-2xl ring-4 ring-cyan-500/80 scale-[1.02] z-30'
-            : isLinkingTarget
-            ? 'bg-emerald-500/25 border-emerald-500 shadow-2xl ring-4 ring-emerald-500 scale-[1.04] z-30 cursor-pointer animate-pulse'
-            : linkingSourceNodeId
-            ? 'bg-surface dark:bg-[#191c1d] border-outline-variant/60 hover:border-emerald-400 hover:ring-2 hover:ring-emerald-400/50 cursor-pointer opacity-90'
-            : isOverallLeader
-            ? 'bg-gradient-to-br from-amber-500/15 via-surface to-surface-container border-amber-500/60 shadow-xl ring-2 ring-amber-500/30'
-            : isMainAxisLeader
-            ? 'bg-gradient-to-br from-primary/10 via-surface to-surface-container border-primary/50 shadow-lg ring-1 ring-primary/20'
-            : isSelected
-            ? 'bg-surface dark:bg-[#1f2224] border-primary shadow-lg ring-2 ring-primary/30'
-            : 'bg-surface dark:bg-[#191c1d] border-outline-variant/40 hover:border-primary/50 shadow-md'
-        }`}
-      >
-        {/* Draw.io connection anchor badge */}
-        {linkingSourceNodeId && !isLinkingSource && (
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-emerald-500 text-black text-[10px] font-black shadow-md flex items-center gap-1 z-20">
-            <span className="material-symbols-outlined text-xs">south</span>
-            <span>{lang === 'zh' ? '点击设为直属上级' : 'Set Parent'}</span>
-          </div>
-        )}
-
-        {/* Drag handle indicator */}
-        <div className="absolute top-2 right-3 flex items-center gap-1 opacity-40 hover:opacity-100 text-on-surface-variant">
-          <span className="material-symbols-outlined text-xs">drag_pan</span>
-          <span className="text-[9px] font-bold uppercase">{lang === 'zh' ? '可拖拽' : 'Drag'}</span>
-        </div>
-
-        {/* Card Header Badge */}
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-1.5">
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-              isOverallLeader
-                ? 'bg-amber-500 text-black shadow-xs'
-                : isMainAxisLeader
-                ? 'bg-primary text-on-primary shadow-xs'
-                : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-            }`}>
-              {isOverallLeader
-                ? (lang === 'zh' ? '👑 项目总指挥 (Head Leader)' : '👑 Overall Director')
-                : isMainAxisLeader
-                ? (lang === 'zh' ? '🏢 部门/厂家主管 (Leader)' : '🏢 Vendor/Dept Leader')
-                : (lang === 'zh' ? '🌿 部门下属成员' : '🌿 Subordinate Member')}
-            </span>
-            <span className="text-[11px] font-extrabold text-on-surface-variant/80 truncate max-w-[130px]" title={node.person.department}>
-              {node.person.department || node.person.role}
-            </span>
-          </div>
-
-          {childNodes.length > 0 && (
-            <button
-              onClick={e => {
-                e.stopPropagation();
-                toggleExpandNode(node.id);
-              }}
-              className="px-2 py-0.5 rounded-lg bg-surface-container-highest hover:bg-surface-variant text-on-surface text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer"
-              title={lang === 'zh' ? '展开/折叠下属成员' : 'Toggle subordinates'}
-            >
-              <span className="material-symbols-outlined text-sm">
-                {isExpanded ? 'folder_open' : 'folder'}
-              </span>
-              <span>{childNodes.length}</span>
-            </button>
-          )}
-        </div>
-
-        {/* User Profile */}
-        <div className="flex items-center gap-3.5 mb-3">
-          <img
-            src={node.person.avatar}
-            alt={node.person.name}
-            className={`w-12 h-12 rounded-2xl object-cover shrink-0 ring-2 ${
-              isOverallLeader ? 'ring-amber-500' : isMainAxisLeader ? 'ring-primary' : 'ring-outline-variant/30'
-            }`}
-          />
-          <div className="min-w-0 flex-1">
-            <h3 className="text-base font-black text-on-surface truncate flex items-center gap-1.5">
-              <span>{node.person.name}</span>
-            </h3>
-            <p className="text-xs font-bold text-primary truncate mt-0.5">
-              {node.roleTitle}
-            </p>
-          </div>
-        </div>
-
-        {/* Work Items Summary */}
-        <div className="space-y-2 mb-3">
-          <div className="flex items-center justify-between text-xs font-bold text-on-surface-variant">
-            <span>{lang === 'zh' ? '责任归口事项' : 'Assigned Deliverables'}</span>
-            <span className="text-primary">{node.workItems.length} {lang === 'zh' ? '项' : 'items'}</span>
-          </div>
-
-          {node.workItems.slice(0, 2).map(wi => (
-            <div
-              key={wi.id}
-              className="p-2.5 rounded-xl bg-surface-container dark:bg-[#232628] border border-outline-variant/30 text-xs flex items-center justify-between gap-2"
-            >
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className={`w-2 h-2 rounded-full shrink-0 ${
-                  wi.status === 'Done' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
-                }`} />
-                <span className="font-bold text-on-surface truncate">{wi.title}</span>
-              </div>
-              <span className="text-[10px] font-extrabold text-on-surface-variant shrink-0 bg-surface px-1.5 py-0.5 rounded-md border border-outline-variant/20">
-                {wi.evidences?.length || 0} {lang === 'zh' ? '证据' : 'proofs'}
-              </span>
-            </div>
-          ))}
-
-          {node.workItems.length === 0 && (
-            <div className="p-3 rounded-xl bg-surface-container/50 border border-dashed border-outline-variant/40 text-center text-xs text-on-surface-variant font-medium">
-              {lang === 'zh' ? '暂未挂载事项，点击添加' : 'No items attached'}
-            </div>
-          )}
-        </div>
-
-        {/* Footer Actions */}
-        <div className="flex items-center justify-between gap-2 pt-2 border-t border-outline-variant/30 text-xs">
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              setIsAddingWorkItem(node.id);
-            }}
-            className="px-2 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-bold transition-all flex items-center gap-1 cursor-pointer text-[11px]"
-          >
-            <span className="material-symbols-outlined text-sm">add_task</span>
-            <span>{lang === 'zh' ? '挂载事项' : 'Task'}</span>
-          </button>
-
-          {/* Draw.io Re-linking button */}
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              if (isLinkingSource) {
-                setLinkingSourceNodeId(null);
-                setLinkingHoveredTargetId(null);
-                showToast(lang === 'zh' ? '已取消连线操作' : 'Cancelled linking');
-              } else {
-                setLinkingSourceNodeId(node.id);
-                showToast(lang === 'zh' ? `🔗 已激活 Draw.io 连线模式！请移动鼠标点击目标卡片以将【${node.person.name}】挂载过去` : 'Draw.io re-linking active');
-              }
-            }}
-            className={`px-2.5 py-1 rounded-lg font-bold text-[11px] flex items-center gap-1 transition-all cursor-pointer ${
-              isLinkingSource
-                ? 'bg-cyan-500 text-black shadow-lg animate-pulse ring-2 ring-cyan-300'
-                : 'bg-cyan-500/15 hover:bg-cyan-500/30 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
-            }`}
-            title={lang === 'zh' ? 'Draw.io 连线模式：点击后可移动鼠标至另一个卡片上自动成为后者卡片的子节点' : 'Draw.io Re-link: Change parent'}
-          >
-            <span className="material-symbols-outlined text-sm">hub</span>
-            <span>{isLinkingSource ? (lang === 'zh' ? '取消连线' : 'Cancel') : (lang === 'zh' ? 'Draw.io 连线' : 'Re-link')}</span>
-          </button>
-
-          <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md ${
-            node.aiContext?.riskLevel === 'high'
-              ? 'bg-error/20 text-error'
-              : node.aiContext?.riskLevel === 'medium'
-              ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
-              : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-          }`}>
-            AI {node.aiContext?.riskLevel?.toUpperCase() || 'LOW'}
-          </span>
-        </div>
-      </div>
-    );
-  };
-
-  // Render Subordinates Block for a Leader
-  const renderSubordinates = (leaderNode: PeopleAxisNode) => {
-    const children = getChildNodes(leaderNode.id);
-    const isExpanded = expandedNodes[leaderNode.id] ?? true;
-
-    if (children.length === 0 || !isExpanded) return null;
-
-    return (
-      <div className={`flex ${treeOrientation === 'horizontal' ? 'flex-col gap-8' : 'flex-row gap-8'} items-center justify-center`}>
-        {children.map(child => (
-          <div key={child.id} className="flex flex-col items-center">
-            {renderPersonCard(child, false, false)}
-            {/* Recursive children if any */}
-            {renderSubordinates(child)}
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // Calculate active Draw.io source node SVG coordinates
-  const sourceCoords = useMemo(() => {
-    if (!linkingSourceNodeId || !contentRef.current) return null;
-    const contentEl = contentRef.current;
-    const contentRect = contentEl.getBoundingClientRect();
-    const el = contentEl.querySelector(`[data-node-anchor="${linkingSourceNodeId}"]`);
-    if (!el) return null;
-    const rect = el.getBoundingClientRect();
-    return {
-      x: (rect.left + rect.width / 2 - contentRect.left) / zoomLevel,
-      y: (rect.top + rect.height / 2 - contentRect.top) / zoomLevel
-    };
-  }, [linkingSourceNodeId, zoomLevel, dragOffsets, canvasPan]);
+  const saveAlongDelta = useCallback(() => {
+    if (!isBackendProject) return;
+    void setFinalOwnerPosition(backendProjectId, alongDelta)
+      .then(() => showToast(lang === 'zh' ? '终责偏移已保存' : 'Terminus offset saved'))
+      .catch((err) => showToast(err instanceof Error ? err.message : '保存失败'));
+  }, [isBackendProject, backendProjectId, alongDelta, lang, showToast]);
 
   return (
-    <div className="min-h-screen bg-background text-on-surface p-4 sm:p-6 lg:p-8 space-y-8 max-w-[1700px] mx-auto relative">
+    // 移动端固定为可视区剩余高度（导航栏 4rem + 底部导航 5rem = 9rem），页面不滚动，
+    // 保证画布顶部的状态胶囊/缩放工具条永远在屏内；桌面维持原文档流布局。
+    <div className="h-[calc(100dvh-9rem)] md:h-auto md:min-h-screen flex flex-col md:block overflow-hidden md:overflow-visible bg-background text-on-surface p-0 md:p-6 lg:p-8 space-y-0 md:space-y-8 max-w-[1700px] mx-auto relative">
       {backendLoadError && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-sm px-4 py-3">
-          {backendLoadError}
+        <div className="shrink-0 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-sm px-4 py-3 mx-3 mt-3 md:mx-0 md:mt-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <span>{backendLoadError}</span>
+          {!isBackendProject && onSelectProject && (projects?.length ?? 0) > 0 && (
+            <select
+              value=""
+              onChange={(e) => {
+                const proj = projects!.find((p) => String(p.id) === e.target.value);
+                if (proj) onSelectProject(proj);
+              }}
+              className="shrink-0 px-3 py-2 rounded-xl border border-amber-400 bg-white text-amber-900 text-sm font-bold focus:outline-none focus:border-primary cursor-pointer"
+            >
+              <option value="" disabled>
+                {lang === 'zh' ? '📂 选择项目开始编辑…' : '📂 Pick a project to edit…'}
+              </option>
+              {projects!.map((p) => (
+                <option key={p.id} value={String(p.id)}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
       {projectId && projectId !== 'all' && !backendLoadError && (
-        <div className="rounded-xl border border-primary/20 bg-primary/5 text-primary text-sm px-4 py-2">
+        <div className="hidden md:block rounded-xl border border-primary/20 bg-primary/5 text-primary text-sm px-4 py-2">
           {lang === 'zh'
             ? `已从后端加载项目 #${projectId} 的人轴树（只读同步；写回见 BACKEND_GAP.md）`
             : `Loaded people-axis tree for project #${projectId} from backend`}
         </div>
       )}
-      {/* HEADER BAR */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant/30 pb-6">
+      {/* HEADER BAR (desktop only; mobile is immersive canvas-first) */}
+      <div className="hidden md:flex md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant/30 pb-6">
         <div>
           <div className="flex items-center gap-3">
             <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
@@ -1700,8 +1261,16 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
           <button
             disabled={!isBackendProject}
             onClick={() => {
-              if (isBackendProject) setIsAddingNode(true);
-              else showToast(lang === 'zh' ? '请先在顶部选择具体项目' : 'Select a concrete project first');
+              if (!isBackendProject) {
+                showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择要编辑的项目' : 'Select a concrete project first');
+                return;
+              }
+              if (!canMountSomething) {
+                showToast(lang === 'zh' ? '只读成员：无挂载权限，请联系项目 PM 指派节点' : 'Read-only member: ask the PM for an assignment');
+                return;
+              }
+              setNewParentId(canEditAny ? '' : (nodes.find((n) => editableNodeIds.has(n.id))?.id || ''));
+              setIsAddingNode(true);
             }}
             className="px-4 py-2 rounded-2xl bg-primary hover:bg-primary/90 text-on-primary text-xs font-black shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -1711,8 +1280,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
         </div>
       </div>
 
-      {/* METRO SUBWAY TRUNK PROGRESS BANNER */}
-      <div className="bg-gradient-to-r from-surface-container via-surface to-surface-container border border-outline-variant/40 rounded-3xl p-5 shadow-lg flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
+      {/* METRO SUBWAY TRUNK PROGRESS BANNER (desktop only) */}
+      <div className="hidden md:flex bg-gradient-to-r from-surface-container via-surface to-surface-container border border-outline-variant/40 rounded-3xl p-5 shadow-lg flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
         <div className="flex items-center gap-4 z-10">
           <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-primary text-3xl animate-pulse">subway</span>
@@ -1759,47 +1328,13 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
                 step={10}
                 value={alongDelta}
                 onChange={(e) => setAlongDelta(Number(e.target.value))}
-                onMouseUp={() => {
-                  void setFinalOwnerPosition(backendProjectId, alongDelta)
-                    .then(() => showToast(lang === 'zh' ? '终责偏移已保存' : 'Terminus offset saved'))
-                    .catch((err) => showToast(err instanceof Error ? err.message : '保存失败'));
-                }}
+                onPointerUp={saveAlongDelta}
                 className="w-full accent-primary cursor-pointer"
               />
               <button
                 type="button"
                 disabled={auditLoading}
-                onClick={() => {
-                  setAuditLoading(true);
-                  void runAxisAudit(backendProjectId)
-                    .then((res) => {
-                      const byId = new Map(res.nodes.map((n) => [String(n.node_id), n]));
-                      setNodes((prev) =>
-                        prev.map((n) => {
-                          const a = byId.get(n.id);
-                          if (!a) return n;
-                          return {
-                            ...n,
-                            aiContext: {
-                              riskLevel: (a.risk_level as 'low' | 'medium' | 'high') || 'low',
-                              summary: a.summary,
-                              lastAnalysis: res.generated_at,
-                              suggestedActions: a.suggested_actions || [],
-                            },
-                          };
-                        }),
-                      );
-                      showToast(
-                        lang === 'zh'
-                          ? `人轴审计完成：整体风险 ${res.overall_risk}`
-                          : `Axis audit done: ${res.overall_risk}`,
-                      );
-                    })
-                    .catch((err) =>
-                      showToast(err instanceof Error ? err.message : '审计失败'),
-                    )
-                    .finally(() => setAuditLoading(false));
-                }}
+                onClick={handleRunAxisAudit}
                 className="self-start px-3 py-1.5 rounded-xl bg-primary/10 text-primary text-xs font-extrabold cursor-pointer disabled:opacity-50"
               >
                 {auditLoading
@@ -1815,63 +1350,92 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
         </div>
       </div>
 
-      {/* CANVAS BOARD: SUBWAY ROUTE MAP & DRAGGABLE CARDS */}
-      <div
-        onMouseDown={handleCanvasMouseDown}
-        className={`relative border border-outline-variant/30 rounded-3xl bg-surface/50 dark:bg-[#121415]/60 p-6 sm:p-10 min-h-[750px] overflow-hidden shadow-inner select-none ${
-          isPanningCanvas ? 'cursor-grabbing' : 'cursor-grab'
-        }`}
-      >
-        {/* Floating Canvas Controls Toolbar */}
-        <div className="absolute top-4 right-4 z-40 bg-surface/90 dark:bg-[#1a1c1e]/90 backdrop-blur-md border border-outline-variant/40 rounded-2xl p-2 shadow-xl flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-xs font-black text-on-surface-variant px-2.5 border-r border-outline-variant/30">
-            <span className="material-symbols-outlined text-base text-primary animate-pulse">drag_pan</span>
-            <span>{lang === 'zh' ? '拖动画布空白处可移动' : 'Drag canvas to pan'}</span>
-          </div>
+      {/* CANVAS BOARD: React Flow 人轴画布
+          Mobile: fullscreen immersive canvas (Apple Freeform style) filling the
+          viewport between navbar and bottom nav; desktop keeps the framed card. */}
+      <div className="relative border-0 md:border border-outline-variant/30 rounded-none md:rounded-3xl bg-surface/50 dark:bg-[#121415]/60 flex-1 min-h-0 md:flex-none md:h-[760px] overflow-hidden shadow-inner">
+        <PeopleAxisFlowCanvas
+          lang={lang}
+          nodes={rfNodes}
+          edges={rfEdges}
+          orientation={treeOrientation}
+          linkingSourceNodeId={linkingSourceNodeId}
+          onNodeDragStop={handleNodeDragStop}
+          onPaneClick={handlePaneClick}
+          onResetLayout={resetAllDragOffsets}
+          resetToken={canvasResetToken}
+        />
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setZoomLevel(z => Math.max(0.4, Number((z - 0.15).toFixed(2))))}
-              className="w-8 h-8 rounded-xl bg-surface-container hover:bg-primary/20 hover:text-primary text-on-surface font-black text-sm flex items-center justify-center transition-all cursor-pointer"
-              title={lang === 'zh' ? '缩小' : 'Zoom Out'}
-            >
-              <span className="material-symbols-outlined text-base">zoom_out</span>
-            </button>
-            <span className="text-xs font-black text-primary px-1 min-w-[42px] text-center">
-              {Math.round(zoomLevel * 100)}%
-            </span>
-            <button
-              onClick={() => setZoomLevel(z => Math.min(2.0, Number((z + 0.15).toFixed(2))))}
-              className="w-8 h-8 rounded-xl bg-surface-container hover:bg-primary/20 hover:text-primary text-on-surface font-black text-sm flex items-center justify-center transition-all cursor-pointer"
-              title={lang === 'zh' ? '放大' : 'Zoom In'}
-            >
-              <span className="material-symbols-outlined text-base">zoom_in</span>
-            </button>
-          </div>
+        {/* MOBILE STATUS PILL (top-left, replaces the hidden desktop header) */}
+        <div className="md:hidden absolute top-3 left-3 z-40 flex items-center gap-1.5 bg-surface/90 dark:bg-[#1a1c1e]/90 backdrop-blur-md border border-outline-variant/40 rounded-full px-3 py-1.5 shadow-xl">
+          <span className={`w-2 h-2 rounded-full ${syncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`} />
+          <span className="text-[11px] font-black text-on-surface">
+            {isBackendProject
+              ? (lang === 'zh' ? `项目 #${projectId}` : `Project #${projectId}`)
+              : (lang === 'zh' ? '只读聚合视图' : 'Read-only')}
+          </span>
+          <span className="text-[11px] font-black text-primary">{totalProjectProgress}%</span>
+        </div>
 
-          <div className="h-4 w-px bg-outline-variant/30 mx-1" />
-
+        {/* MOBILE FLOATING ACTION CLUSTER (bottom-right, Apple-canvas style) */}
+        <div className="md:hidden absolute bottom-4 right-3 z-40 flex flex-col items-center gap-2.5">
           <button
-            onClick={resetAllDragOffsets}
-            className="px-3 py-1.5 rounded-xl bg-primary/10 hover:bg-primary/20 text-primary text-xs font-extrabold transition-all flex items-center gap-1 cursor-pointer"
-            title={lang === 'zh' ? '重置视角与卡片位置' : 'Reset View & Positions'}
+            onClick={() => setShowMobileInfo(true)}
+            className="w-11 h-11 rounded-full bg-surface/90 dark:bg-[#1a1c1e]/90 backdrop-blur-md border border-outline-variant/40 shadow-xl flex items-center justify-center text-on-surface-variant active:scale-95 transition-transform"
+            title={lang === 'zh' ? '画布信息与设置' : 'Canvas info & settings'}
           >
-            <span className="material-symbols-outlined text-sm">fit_screen</span>
-            <span>{lang === 'zh' ? '视角复位' : 'Reset View'}</span>
+            <span className="material-symbols-outlined text-xl">tune</span>
+          </button>
+          <button
+            onClick={() => setTreeOrientation(o => (o === 'horizontal' ? 'vertical' : 'horizontal'))}
+            className="w-11 h-11 rounded-full bg-surface/90 dark:bg-[#1a1c1e]/90 backdrop-blur-md border border-outline-variant/40 shadow-xl flex items-center justify-center text-on-surface-variant active:scale-95 transition-transform"
+            title={lang === 'zh' ? '切换主轴方向' : 'Toggle trunk orientation'}
+          >
+            <span className="material-symbols-outlined text-xl">
+              {treeOrientation === 'horizontal' ? 'swap_vert' : 'swap_horiz'}
+            </span>
+          </button>
+          <button
+            onClick={() => {
+              if (!isBackendProject) {
+                showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择要编辑的项目' : 'Select a concrete project first');
+                return;
+              }
+              if (!canMountSomething) {
+                showToast(lang === 'zh' ? '只读成员：无挂载权限，请联系项目 PM 指派节点' : 'Read-only member: ask the PM for an assignment');
+                return;
+              }
+              setNewParentId(canEditAny ? '' : (nodes.find((n) => editableNodeIds.has(n.id))?.id || ''));
+              setIsAddingNode(true);
+            }}
+            className="w-[52px] h-[52px] rounded-full bg-primary text-on-primary shadow-2xl flex items-center justify-center active:scale-95 transition-transform"
+            title={lang === 'zh' ? '挂载新责任人' : 'Add Person'}
+          >
+            <span className="material-symbols-outlined text-2xl">person_add</span>
           </button>
         </div>
 
         {/* DRAW.IO LINKING ACTIVE TOP BANNER */}
         {linkingSourceNodeId && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 bg-gradient-to-r from-cyan-600 via-teal-600 to-cyan-600 text-white px-6 py-2.5 rounded-full shadow-2xl flex items-center gap-4 animate-bounce border-2 border-white/30">
-            <div className="flex items-center gap-2 font-black text-sm">
-              <span className="material-symbols-outlined animate-spin text-lg">hub</span>
-              <span>
+          <div className="absolute top-14 md:top-4 left-1/2 -translate-x-1/2 z-40 max-w-[94%] bg-gradient-to-r from-cyan-600 via-teal-600 to-cyan-600 text-white px-4 md:px-6 py-2.5 rounded-full shadow-2xl flex items-center gap-3 md:gap-4 animate-bounce border-2 border-white/30">
+            <div className="flex items-center gap-2 font-black text-xs md:text-sm">
+              <span className="material-symbols-outlined animate-spin text-lg shrink-0">hub</span>
+              <span className="truncate">
                 {lang === 'zh'
-                  ? `Draw.io 连线模式已激活：移动鼠标并点击目标卡片建立父子归属（按 ESC 取消）`
-                  : `Draw.io Linking Active: Click target card to connect (ESC to cancel)`}
+                  ? `连线模式：点击目标卡片建立父子归属`
+                  : `Linking: tap target card to connect`}
+                <span className="hidden md:inline">
+                  {lang === 'zh' ? '（按 ESC 取消）' : ' (ESC to cancel)'}
+                </span>
               </span>
             </div>
+            <button
+              onClick={handleConnectToSpine}
+              className="px-2.5 py-0.5 rounded-full bg-white/25 hover:bg-white/45 text-xs font-black cursor-pointer transition-colors whitespace-nowrap"
+              title={lang === 'zh' ? '把该责任人直接挂到主轴上' : 'Attach directly to the trunk'}
+            >
+              🚩 {lang === 'zh' ? '提升为主干' : 'To Trunk'}
+            </button>
             <button
               onClick={() => {
                 setLinkingSourceNodeId(null);
@@ -1885,7 +1449,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
           </div>
         )}
 
-        {/* LEFT PALETTE: MOUNT NEW RESPONSIBILITY NODE */}
+        {/* LEFT PALETTE: MOUNT NEW RESPONSIBILITY NODE（只读成员整体隐藏；聚合视图保留原有只读提示行为） */}
+        {(!isBackendProject || canMountSomething) && (
         <div className="absolute top-6 left-6 z-30 hidden sm:flex flex-col gap-3 bg-surface/90 dark:bg-[#1e2022]/90 backdrop-blur-md border border-primary/40 rounded-3xl p-4 shadow-2xl max-w-[280px] transition-all hover:border-primary">
           <div className="flex items-center justify-between gap-2 border-b border-outline-variant/30 pb-2">
             <div className="flex items-center gap-2">
@@ -1910,15 +1475,12 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
             {PALETTE_TEMPLATES.map(template => (
               <div
                 key={template.id}
-                onMouseDown={e => handlePaletteDragStart(template, e)}
+                onPointerDown={e => handlePaletteDragStart(template, e)}
                 onClick={() => {
-                  if (!isBackendProject) {
-                    showToast(lang === 'zh' ? '请先在顶部选择具体项目' : 'Select a concrete project first');
-                    return;
-                  }
-                  setIsAddingNode(true);
-                  setNewParentId(selectedNodeId || '');
-                  setNewRoleTitle(template.defaultRole);
+                  openPaletteMountModal(
+                    template,
+                    selectedNodeId ? { type: 'node', nodeId: selectedNodeId } : { type: 'trunk' },
+                  );
                 }}
                 className="p-3 rounded-2xl bg-gradient-to-r from-primary/10 via-surface-container to-surface border border-outline-variant/50 hover:border-primary text-left cursor-grab active:cursor-grabbing transition-all hover:scale-[1.02] shadow-sm hover:shadow-md group flex items-center justify-between gap-2 select-none"
               >
@@ -1943,317 +1505,124 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
             ))}
           </div>
         </div>
+        )}
 
-        {/* SVG Bezier overlay & draggable content */}
-        <div
-          ref={contentRef}
-          className="relative min-w-full min-h-full py-8 px-4 flex justify-center items-center transition-transform duration-75 ease-out"
-          style={{
-            transform: `translate(${canvasPan.x}px, ${canvasPan.y}px) scale(${zoomLevel})`,
-            transformOrigin: 'center center'
-          }}
-        >
-          <svg className="absolute inset-0 w-full h-full pointer-events-none z-0">
-            {/* Draw.io Active Re-linking Dynamic Spline Curve */}
-            {linkingSourceNodeId && sourceCoords && (
-              <g className="z-30">
-                <path
-                  d={`M ${sourceCoords.x} ${sourceCoords.y} C ${sourceCoords.x + (linkingMousePos.x - sourceCoords.x) * 0.5} ${sourceCoords.y}, ${linkingMousePos.x - (linkingMousePos.x - sourceCoords.x) * 0.5} ${linkingMousePos.y}, ${linkingMousePos.x} ${linkingMousePos.y}`}
-                  fill="none"
-                  stroke="#06b6d4"
-                  strokeWidth="5"
-                  strokeDasharray="8 6"
-                  className="animate-pulse"
-                  style={{ filter: 'drop-shadow(0px 0px 10px rgba(6, 182, 212, 0.9))' }}
-                />
-                <circle
-                  cx={linkingMousePos.x}
-                  cy={linkingMousePos.y}
-                  r="8"
-                  fill="#06b6d4"
-                  stroke="#ffffff"
-                  strokeWidth="3"
-                  className="animate-ping"
-                />
-                <circle
-                  cx={linkingMousePos.x}
-                  cy={linkingMousePos.y}
-                  r="5"
-                  fill="#ffffff"
-                />
-              </g>
-            )}
-
-            {/* Palette Drop Target Indicator on SVG Overlay */}
-            {dropHoverTarget && (
-              <g className="z-40">
-                {dropHoverTarget.type === 'trunk' ? (
-                  <g>
-                    <circle
-                      cx={dropHoverTarget.x}
-                      cy={dropHoverTarget.y}
-                      r="16"
-                      fill="none"
-                      stroke="#ef4444"
-                      strokeWidth="3"
-                      strokeDasharray="4 4"
-                      className="animate-spin"
-                    />
-                    <circle
-                      cx={dropHoverTarget.x}
-                      cy={dropHoverTarget.y}
-                      r="8"
-                      fill="#ef4444"
-                      className="animate-ping"
-                    />
-                    <circle
-                      cx={dropHoverTarget.x}
-                      cy={dropHoverTarget.y}
-                      r="5"
-                      fill="#ffffff"
-                    />
-                    <text
-                      x={dropHoverTarget.x}
-                      y={dropHoverTarget.y - 24}
-                      textAnchor="middle"
-                      fill="#ef4444"
-                      fontSize="12"
-                      fontWeight="900"
-                      className="select-none font-black"
-                      style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.8))' }}
-                    >
-                      {lang === 'zh' ? '➕ 释放于主轴定位新增站点' : '➕ Drop to Mount on Trunk'}
-                    </text>
-                  </g>
-                ) : (
-                  <g>
-                    <circle
-                      cx={dropHoverTarget.x}
-                      cy={dropHoverTarget.y}
-                      r="32"
-                      fill="rgba(16, 185, 129, 0.2)"
-                      stroke="#10b981"
-                      strokeWidth="3"
-                      className="animate-pulse"
-                    />
-                    <text
-                      x={dropHoverTarget.x}
-                      y={dropHoverTarget.y - 40}
-                      textAnchor="middle"
-                      fill="#10b981"
-                      fontSize="12"
-                      fontWeight="900"
-                      className="select-none font-black"
-                      style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.8))' }}
-                    >
-                      {lang === 'zh' ? '🔗 释放挂载为直属下属' : '🔗 Drop as Subordinate'}
-                    </text>
-                  </g>
-                )}
-              </g>
-            )}
-
-            {/* Main Metro Spine Line */}
-            {mainSpineData?.d && (
-              <g>
-                {/* Metro Line Casing (Rose/Red) */}
-                <path
-                  d={mainSpineData.d}
-                  fill="none"
-                  stroke="#ef4444"
-                  strokeWidth="8"
-                  strokeLinecap="round"
-                  className="transition-all duration-300"
-                  style={{ filter: 'drop-shadow(0px 3px 8px rgba(239, 68, 68, 0.4))' }}
-                />
-                {/* Inner Subway Track Dashed Line */}
-                <path
-                  d={mainSpineData.d}
-                  fill="none"
-                  stroke="#ffffff"
-                  strokeWidth="3"
-                  strokeDasharray="8 6"
-                  strokeLinecap="round"
-                  className="transition-all duration-300"
-                />
-
-                {/* Station Junction Nodes calculated dynamically on SVG */}
-                {mainSpineData.stationDots.map(dot => (
-                  <g key={`station-dot-${dot.id}`}>
-                    <circle
-                      cx={dot.x}
-                      cy={dot.y}
-                      r="8"
-                      fill="#ef4444"
-                      stroke="#ffffff"
-                      strokeWidth="3"
-                      className="transition-all duration-300"
-                      style={{ filter: 'drop-shadow(0px 2px 5px rgba(239, 68, 68, 0.5))' }}
-                    />
-                    <circle
-                      cx={dot.x}
-                      cy={dot.y}
-                      r="3"
-                      fill="#ffffff"
-                      className="animate-pulse"
-                    />
-                  </g>
-                ))}
-
-                {/* Terminal Metro Station Stop Indicator */}
-                <g>
-                  <circle
-                    cx={mainSpineData.endX}
-                    cy={mainSpineData.endY}
-                    r="9"
-                    fill="#ef4444"
-                    stroke="#ffffff"
-                    strokeWidth="3"
-                    className="animate-pulse"
-                    style={{ filter: 'drop-shadow(0px 0px 8px rgba(239, 68, 68, 0.8))' }}
-                  />
-                  <circle
-                    cx={mainSpineData.endX}
-                    cy={mainSpineData.endY}
-                    r="4"
-                    fill="#ffffff"
-                  />
-                  <text
-                    x={treeOrientation === 'horizontal' ? mainSpineData.endX + 16 : mainSpineData.endX}
-                    y={treeOrientation === 'horizontal' ? mainSpineData.endY + 4 : mainSpineData.endY + 24}
-                    textAnchor={treeOrientation === 'horizontal' ? 'start' : 'middle'}
-                    fill="#ef4444"
-                    fontSize="11"
-                    fontWeight="900"
-                    className="select-none font-black"
-                  >
-                    {lang === 'zh' ? '🏁 终责交付 (Terminus)' : '🏁 Terminus'}
-                  </text>
-                </g>
-              </g>
-            )}
-
-            {/* Perpendicular Stems & Subordinate Branches */}
-            {paths.map(p => (
-              <path
-                key={p.id}
-                d={p.d}
-                fill="none"
-                stroke={
-                  p.isMainAxis
-                    ? '#ef4444'
-                    : '#10b981'
-                }
-                strokeWidth={p.isMainAxis ? '3.5' : '2.5'}
-                strokeDasharray={p.isMainAxis ? 'none' : '6 4'}
-                className="transition-all duration-300"
-                style={{ opacity: 0.9 }}
-              />
-            ))}
-          </svg>
-
-          {/* MAIN SUBWAY TRACK & NODES CONTAINER */}
-          {treeOrientation === 'horizontal' ? (
-            /* HORIZONTAL SPINE MODE (左右视图 / 横向主轴) */
-            <div className="flex flex-row items-center gap-16 sm:gap-24 py-16 px-12 relative z-10 min-w-max">
-              {/* COLUMN 0: Project Director Card at FAR LEFT (Main Spine Origin) */}
-              {headLeaderNode && (
-                <div className="flex flex-col items-center justify-center shrink-0 relative z-20">
-                  <div className="mb-3 px-3.5 py-1 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/40 text-xs font-black flex items-center gap-1.5 shadow-sm">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                    <span>{lang === 'zh' ? '🚩 项目总指挥 (主轴起点)' : '🚩 Overall Director (Origin)'}</span>
-                  </div>
-
-                  {renderPersonCard(headLeaderNode, true, true)}
-                  {renderSubordinates(headLeaderNode)}
-                </div>
-              )}
-
-              {/* COLUMNS 1..N: Department / Vendor Stations */}
-              {sideLeaderNodes.map((leader, idx) => {
-                const isAbove = idx % 2 === 0;
-                return (
-                  <div key={leader.id} className="flex flex-col items-center shrink-0 min-w-[340px] relative">
-                    {/* Upper Slot */}
-                    <div className="flex flex-col items-center justify-end min-h-[300px] pb-6">
-                      {isAbove && (
-                        <>
-                          {renderSubordinates(leader)}
-                          {renderPersonCard(leader, false, true)}
-                        </>
-                      )}
-                    </div>
-
-                    {/* Center Pass-through Gap for SVG Metro Spine Line */}
-                    <div className="h-12 w-full flex items-center justify-center relative pointer-events-none" />
-
-                    {/* Lower Slot */}
-                    <div className="flex flex-col items-center justify-start min-h-[300px] pt-6">
-                      {!isAbove && (
-                        <>
-                          {renderPersonCard(leader, false, true)}
-                          {renderSubordinates(leader)}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            /* VERTICAL SPINE MODE (上下视图 / 纵向主轴) */
-            <div className="flex flex-col items-center gap-16 py-16 px-12 relative z-10 min-h-max">
-              {/* ROW 0: Project Director Card at VERY TOP */}
-              {headLeaderNode && (
-                <div className="flex flex-col items-center justify-center shrink-0 relative z-20">
-                  <div className="mb-3 px-3.5 py-1 rounded-full bg-red-500/15 text-red-600 dark:text-red-400 border border-red-500/40 text-xs font-black flex items-center gap-1.5 shadow-sm">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                    <span>{lang === 'zh' ? '🚩 项目总指挥 (主轴顶端)' : '🚩 Overall Director (Top Origin)'}</span>
-                  </div>
-
-                  {renderPersonCard(headLeaderNode, true, true)}
-                  {treeOrientation === 'vertical' ? (
-                    renderHeadSubordinatesVertical(headLeaderNode)
-                  ) : (
-                    renderSubordinates(headLeaderNode)
-                  )}
-                </div>
-              )}
-
-              {/* ROWS 1..N: Department / Vendor Stations */}
-              {sideLeaderNodes.map((leader, idx) => {
-                const isLeft = idx % 2 === 0;
-                return (
-                  <div key={leader.id} className="flex flex-row items-center justify-center shrink-0 min-h-[300px] relative">
-                    {/* Left Slot */}
-                    <div className="flex flex-row items-center justify-end w-[400px] pr-6">
-                      {isLeft && (
-                        <>
-                          {renderSubordinates(leader)}
-                          {renderPersonCard(leader, false, true)}
-                        </>
-                      )}
-                    </div>
-
-                    {/* Center Pass-through Gap for SVG Metro Spine Line */}
-                    <div className="w-12 h-full flex items-center justify-center relative pointer-events-none" />
-
-                    {/* Right Slot */}
-                    <div className="flex flex-row items-center justify-start w-[400px] pl-6">
-                      {!isLeft && (
-                        <>
-                          {renderPersonCard(leader, false, true)}
-                          {renderSubordinates(leader)}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
       </div>
+
+      {/* MOBILE INFO BOTTOM SHEET: description / progress / controls */}
+      {showMobileInfo && (
+        <div className="md:hidden fixed inset-0 z-50" onClick={() => setShowMobileInfo(false)}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" />
+          <div
+            onClick={e => e.stopPropagation()}
+            className="absolute inset-x-0 bottom-0 bg-surface dark:bg-[#1a1c1e] rounded-t-3xl border-t border-outline-variant/40 shadow-2xl p-5 pb-8 space-y-5 max-h-[75dvh] overflow-y-auto"
+          >
+            <div className="w-10 h-1 rounded-full bg-outline-variant/60 mx-auto" />
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-base font-black text-on-surface flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-primary text-xl">route</span>
+                  <span>{lang === 'zh' ? '人轴责任画布' : 'People-Axis Canvas'}</span>
+                </h2>
+                <p className="text-xs text-on-surface-variant font-medium mt-1.5 leading-relaxed">
+                  {lang === 'zh'
+                    ? '主干即地铁线路：总负责人挂在主干一头，各部门/厂家领导分列两侧，下属卡片挂在领导之下。单指拖动卡片或画布，双指捏合缩放。'
+                    : 'The trunk is the metro line: director at one end, leaders on both sides. Drag with one finger, pinch to zoom.'}
+                </p>
+              </div>
+              <button
+                onClick={() => setShowMobileInfo(false)}
+                className="shrink-0 w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            {/* Progress rail */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center text-xs font-extrabold text-on-surface-variant">
+                <span>{lang === 'zh' ? '主干项目进度' : 'Trunk progress'}</span>
+                <span className="text-primary font-black">{totalProjectProgress}%</span>
+              </div>
+              <div className="w-full h-3 bg-surface-container-highest dark:bg-[#282b2d] rounded-full overflow-hidden border border-outline-variant/30 p-0.5">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 via-primary to-emerald-500 rounded-full transition-all duration-700"
+                  style={{ width: `${totalProjectProgress}%` }}
+                />
+              </div>
+            </div>
+
+            {/* Orientation & reset */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 bg-surface-container dark:bg-[#1e2022] border border-outline-variant/40 rounded-2xl p-1 flex items-center gap-1">
+                <button
+                  onClick={() => setTreeOrientation('horizontal')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                    treeOrientation === 'horizontal' ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                  }`}
+                >
+                  {lang === 'zh' ? '横向主轴' : 'Horizontal'}
+                </button>
+                <button
+                  onClick={() => setTreeOrientation('vertical')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                    treeOrientation === 'vertical' ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
+                  }`}
+                >
+                  {lang === 'zh' ? '纵向主轴' : 'Vertical'}
+                </button>
+              </div>
+              <button
+                onClick={() => {
+                  resetAllDragOffsets();
+                  setCanvasResetToken((n) => n + 1);
+                  setShowMobileInfo(false);
+                }}
+                className="px-3.5 py-2.5 rounded-2xl bg-surface-container border border-outline-variant/40 text-on-surface text-xs font-bold flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-sm">restart_alt</span>
+                <span>{lang === 'zh' ? '重置布局' : 'Reset'}</span>
+              </button>
+            </div>
+
+            {isBackendProject ? (
+              <div className="space-y-3 pt-1 border-t border-outline-variant/30">
+                <div className="space-y-1.5 pt-3">
+                  <label className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider">
+                    {lang === 'zh' ? `终责轴向偏移 ${alongDelta}px` : `Terminus offset ${alongDelta}px`}
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={800}
+                    step={10}
+                    value={alongDelta}
+                    onChange={(e) => setAlongDelta(Number(e.target.value))}
+                    onPointerUp={saveAlongDelta}
+                    className="w-full accent-primary"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={auditLoading}
+                  onClick={handleRunAxisAudit}
+                  className="w-full py-2.5 rounded-2xl bg-primary/10 text-primary text-xs font-extrabold disabled:opacity-50"
+                >
+                  {auditLoading
+                    ? (lang === 'zh' ? '审计中…' : 'Auditing…')
+                    : (lang === 'zh' ? '运行人轴 AI 审计' : 'Run axis audit')}
+                </button>
+              </div>
+            ) : (
+              <p className="text-[11px] text-on-surface-variant font-medium pt-3 border-t border-outline-variant/30">
+                {lang === 'zh'
+                  ? '当前为聚合只读视图，在顶部选择具体项目后可编辑、挂载人员并运行 AI 审计。'
+                  : 'Aggregated read-only view. Select a concrete project to edit.'}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* PALETTE FLOATING DRAG GHOST PREVIEW */}
       {paletteDraggingItem && (
@@ -2273,8 +1642,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
             </div>
             <div className="text-[10px] text-primary font-bold">
               {dropHoverTarget?.type === 'node'
-                ? (lang === 'zh' ? '🔗 挂载为下属' : 'Attach as Subordinate')
-                : (lang === 'zh' ? '🎯 在主轴定位' : 'Position on Trunk')}
+                ? (lang === 'zh' ? '🔗 松手挂载为该卡片下属' : 'Attach as Subordinate')
+                : dropHoverTarget
+                ? (lang === 'zh' ? '🎯 松手在主轴挂载（可再自定义）' : 'Position on Trunk')
+                : (lang === 'zh' ? '👉 拖到画布或目标卡片上' : 'Drag onto canvas or a card')}
             </div>
           </div>
         </div>
@@ -2385,13 +1756,21 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
                   onChange={e => setNewParentId(e.target.value)}
                   className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm font-bold text-on-surface focus:outline-none focus:border-primary"
                 >
-                  <option value="">{lang === 'zh' ? '🏢 作为主干部门/厂家主管 (Direct Main Axis Leader)' : '🏢 Trunk Leader'}</option>
-                  {nodes.map(n => (
+                  {/* 非 PM 不能建主干节点，也只能挂到自己负责的子树下（与服务端 ACL 一致） */}
+                  {canEditAny && (
+                    <option value="">{lang === 'zh' ? '🏢 作为主干部门/厂家主管 (Direct Main Axis Leader)' : '🏢 Trunk Leader'}</option>
+                  )}
+                  {(canEditAny ? nodes : nodes.filter((n) => editableNodeIds.has(n.id))).map(n => (
                     <option key={n.id} value={n.id}>
                       {n.person.name} ({n.roleTitle})
                     </option>
                   ))}
                 </select>
+                {!canEditAny && (
+                  <p className="mt-1.5 text-[11px] text-on-surface-variant">
+                    {lang === 'zh' ? '你只能在自己负责的节点下挂载下属；主干挂载需项目 PM。' : 'You can only mount under nodes you own; trunk mounting requires the PM.'}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -2474,7 +1853,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
                 <span className="material-symbols-outlined text-primary">add_task</span>
                 <span>{lang === 'zh' ? '挂载责任事项/交付目标' : 'Attach Deliverable Task'}</span>
               </h3>
-              <button onClick={() => setIsAddingWorkItem(null)} className="text-on-surface-variant hover:text-on-surface text-xl font-bold cursor-pointer">✕</button>
+              <button onClick={() => { setIsAddingWorkItem(null); setNewWorkTitle(''); setNewWorkDueDate(''); setNewWorkDesc(''); }} className="text-on-surface-variant hover:text-on-surface text-xl font-bold cursor-pointer">✕</button>
             </div>
 
             <form onSubmit={e => handleAddWorkItem(isAddingWorkItem, e)} className="space-y-4">
@@ -2507,10 +1886,35 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId 
                 </select>
               </div>
 
+              <div>
+                <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                  {lang === 'zh' ? '截止日期 (可选)' : 'Due Date (Optional)'}
+                </label>
+                <input
+                  type="date"
+                  value={newWorkDueDate}
+                  onChange={e => setNewWorkDueDate(e.target.value)}
+                  className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                  {lang === 'zh' ? '描述 / 验收口径 (可选)' : 'Description (Optional)'}
+                </label>
+                <textarea
+                  value={newWorkDesc}
+                  onChange={e => setNewWorkDesc(e.target.value)}
+                  rows={2}
+                  placeholder={lang === 'zh' ? '补充交付标准、验收证据要求等...' : 'Acceptance criteria, evidence requirements...'}
+                  className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary resize-none"
+                />
+              </div>
+
               <div className="pt-2 flex justify-end gap-3">
                 <button
                   type="button"
-                  onClick={() => setIsAddingWorkItem(null)}
+                  onClick={() => { setIsAddingWorkItem(null); setNewWorkTitle(''); setNewWorkDueDate(''); setNewWorkDesc(''); }}
                   className="px-4 py-2 rounded-xl bg-surface-container-highest text-on-surface text-sm font-bold hover:bg-surface-variant transition-all cursor-pointer"
                 >
                   {lang === 'zh' ? '取消' : 'Cancel'}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Project, UserProfile, Language } from '../types';
 import { getT } from '../i18n';
+import { getBrandName } from '../constants/brand';
 
 interface NavbarProps {
   currentProject: Project;
@@ -44,11 +45,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Left Section: Brand & Workspace */}
         <div className="flex items-center gap-3 md:gap-4">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setShowProjectDropdown(!showProjectDropdown)}>
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary font-bold text-lg shadow-sm">
-              F
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary shadow-sm">
+              <span className="material-symbols-outlined text-lg">bolt</span>
             </div>
             <span className="text-2xl font-bold text-primary dark:text-[#adc6ff] tracking-tight">
-              Flow
+              {getBrandName(lang)}
             </span>
           </div>
 
@@ -253,7 +254,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-lg text-on-surface dark:text-[#f0f1f2] flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">lightbulb</span>
-                {lang === 'zh' ? 'Flow 使用指导与快捷键' : 'Flow Shortcuts & Tips'}
+                {lang === 'zh'
+                  ? `${getBrandName(lang)} 使用指导与快捷键`
+                  : `${getBrandName(lang)} Shortcuts & Tips`}
               </h3>
               <button
                 onClick={() => setShowHelpModal(false)}

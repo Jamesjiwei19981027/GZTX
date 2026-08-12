@@ -8,6 +8,7 @@ import {
   sendRegisterCode,
 } from '../api/auth'
 import { ApiError } from '../api/client'
+import { getBrandName, getBrandTagline } from '../constants/brand'
 
 type Props = {
   onLoggedIn: () => void
@@ -188,10 +189,10 @@ export function LoginGate({ onLoggedIn, lang = 'zh' }: Props) {
             <span className="material-symbols-outlined text-4xl">bolt</span>
           </div>
           <h1 className="text-4xl font-bold tracking-tight mb-2">
-            {zh ? '烂笔头PM' : 'Flow'}
+            {getBrandName(lang)}
           </h1>
           <p className="text-white/80 text-lg">
-            {zh ? '好记性不如烂笔头' : 'Get things done'}
+            {getBrandTagline(lang)}
           </p>
         </div>
       </div>
