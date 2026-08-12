@@ -15,6 +15,8 @@ import re
 import secrets
 from datetime import datetime, timedelta
 
+from pydantic import EmailStr, TypeAdapter
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -28,6 +30,10 @@ RESEND_INTERVAL_SECONDS = 60
 MAX_ATTEMPTS = 5
 
 PHONE_RE = re.compile(r"^1[3-9]\d{9}$")
+
+# 与注册接口（UserRegister.email: EmailStr）同一套邮箱校验，
+# 保证 send-code 与 register 的接受口径一致（如均拒绝 .local 等保留域名）。
+_EMAIL_VALIDATOR: TypeAdapter[EmailStr] = TypeAdapter(EmailStr)
 
 
 class VerificationError(ValueError):
@@ -45,6 +51,10 @@ def validate_target(channel: str, target: str) -> None:
     if channel == "email":
         if "@" not in target or len(target) > 100:
             raise VerificationError("邮箱格式不正确")
+        try:
+            _EMAIL_VALIDATOR.validate_python(target)
+        except PydanticValidationError as e:
+            raise VerificationError("邮箱格式不正确") from e
     elif channel == "sms":
         if not PHONE_RE.match(target):
             raise VerificationError("手机号格式不正确（仅支持中国大陆 11 位号码）")

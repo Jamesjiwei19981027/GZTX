@@ -27,6 +27,50 @@ async def test_send_code_resend_throttle(client: AsyncClient, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_send_code_invalid_email_rejected_like_register(client: AsyncClient):
+    """回归：send-code 与 register 的邮箱校验口径必须一致。
+
+    历史 bug：send-code 只查 "@"，user@test.local 能拿到验证码，
+    但 register 的 EmailStr（email-validator）会拒绝保留域名，注册时才失败。
+    """
+    invalid_emails = [
+        "user@test.local",  # 保留/特殊用途域名
+        "user@invalid",  # 无 TLD
+        "not-an-email",  # 无 @
+        "a b@example.com",  # 含空格
+    ]
+    for email in invalid_emails:
+        r = await client.post(
+            "/api/v1/auth/send-code",
+            json={"channel": "email", "target": email},
+        )
+        assert r.status_code == 422, f"send-code 应拒绝 {email!r}: {r.text}"
+
+        r = await client.post(
+            "/api/v1/auth/register",
+            json={
+                "username": f"u_{abs(hash(email)) % 10**8}",
+                "password": "password123",
+                "email": email,
+                "email_code": "000000",
+            },
+        )
+        assert r.status_code == 422, f"register 应拒绝 {email!r}: {r.text}"
+
+
+@pytest.mark.asyncio
+async def test_send_code_valid_email_still_accepted(client: AsyncClient, monkeypatch):
+    """收紧校验后，正常邮箱的 send-code 不受影响（DEBUG 下仍回显 debug_code）"""
+    monkeypatch.setattr(settings, "DEBUG", True)
+    r = await client.post(
+        "/api/v1/auth/send-code",
+        json={"channel": "email", "target": "newuser@example.com"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["data"].get("debug_code")
+
+
+@pytest.mark.asyncio
 async def test_send_code_registered_email_rejected(client: AsyncClient, test_user):
     r = await client.post(
         "/api/v1/auth/send-code",
