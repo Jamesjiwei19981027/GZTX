@@ -53,6 +53,8 @@ services:
       - API_V1_PREFIX=/api/v1
       - HOST=0.0.0.0
       - PORT=8000
+      # 材料抽取模式：off（默认）| worker（配合 --profile extraction 启动 extractor）
+      - EXTRACTION_MODE=${EXTRACTION_MODE:-off}
     volumes:
       - backend_data:/app/data
     depends_on:
@@ -112,6 +114,30 @@ services:
       - API_V1_PREFIX=/api/v1
       - HOST=0.0.0.0
       - PORT=8000
+    volumes:
+      - backend_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - worktodo-network
+
+  # 知识抽取 worker（可选）：默认不启动。
+  # 启用：.env 里设 EXTRACTION_MODE=worker，再 docker compose -f docker-compose.prod.yml --profile extraction up -d
+  # 离线环境改用 full 镜像（权重内置），构建命令见 backend/Dockerfile.extractor 头部注释
+  extractor:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.extractor
+    restart: always
+    profiles: ["extraction"]
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=${DATABASE_URL}
+      - UPLOAD_DIR=/app/data/uploads
+      - COLLAB_OBJECT_ROOT=/app/data/objects
     volumes:
       - backend_data:/app/data
     depends_on:

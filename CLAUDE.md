@@ -55,6 +55,11 @@ E2E 单独放 `.github/workflows/e2e.yml`，手动或每日定时触发。
 ## 技术栈
 
 - 后端：FastAPI + SQLAlchemy + SQLite/PostgreSQL + APScheduler
+- RAG 知识检索已实现：材料正文抽取（`evidence_file_texts`）+ 知识切块检索
+  （`knowledge_chunks`，PG tsvector / SQLite FTS5 + jieba 分词）+ 可选抽取 worker
+  （`backend/Dockerfile.extractor`，compose profile `extraction`）。
+  `EXTRACTION_MODE` 默认 **off**（行为与未引入前一致）；设计文档见
+  `docs/superpowers/specs/2026-08-12-rag-knowledge-retrieval-design.md`
 - 前端：React 18 + TypeScript + Vite + React Router + Zustand + Tailwind + Ant Design
 - APP：Flutter（Android 为主，`app/`）
 - 小程序：微信小程序原生框架

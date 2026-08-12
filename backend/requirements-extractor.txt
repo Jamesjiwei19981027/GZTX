@@ -1,0 +1,6 @@
+# extractor 镜像追加依赖（阶段 4 Dockerfile.extractor 在主 requirements.txt 之上安装）
+# backend 主 requirements 不加：这些引擎在 backend 进程里全部 lazy import，缺失即降级。
+# LibreOffice（doc/xls/ppt 转换）走系统包安装，不在此列。
+markitdown[all]
+docling
+rapidocr-onnxruntime

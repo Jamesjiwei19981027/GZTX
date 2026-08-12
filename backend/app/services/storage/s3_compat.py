@@ -20,6 +20,12 @@ class S3CompatStorage:
         self._store[fk] = data
         return key
 
+    async def get(self, key: str) -> bytes:
+        fk = self._full_key(key)
+        if fk not in self._store:
+            raise FileNotFoundError(key)
+        return self._store[fk]
+
     async def get_url(self, key: str, expires_sec: int = 3600) -> str:
         fk = self._full_key(key)
         ep = self.endpoint or "https://s3.example.local"

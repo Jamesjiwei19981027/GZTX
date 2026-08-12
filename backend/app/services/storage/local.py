@@ -23,6 +23,12 @@ class LocalStorage:
         path.write_bytes(data)
         return key.replace("\\", "/").lstrip("/")
 
+    async def get(self, key: str) -> bytes:
+        path = self._path(key)
+        if not path.is_file():
+            raise FileNotFoundError(key)
+        return path.read_bytes()
+
     async def get_url(self, key: str, expires_sec: int = 3600) -> str:
         path = self._path(key)
         return f"file://{path.resolve()}"

@@ -29,6 +29,10 @@ class AgentSession(Base):
     user_id = Column(Integer, nullable=False, index=True)
     channel = Column(String(32), nullable=False, default="web")
     title = Column(String(200), nullable=True)
+    # 滚动摘要：超过 AGENT_SUMMARY_THRESHOLD 条未摘要消息时由 LLM 生成/更新
+    summary_text = Column(Text, nullable=True)
+    # 摘要已覆盖到的消息 id（该 id 及之前的消息不再重复进上下文）
+    summary_upto_message_id = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 

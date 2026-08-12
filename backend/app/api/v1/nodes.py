@@ -272,8 +272,24 @@ async def post_evidence(
         if str(e) == "invalid_file_ids":
             return fail(422, 42200, "file_ids 无效或不属于当前用户/项目")
         raise
-    # P0: run judge inline for deterministic tests
-    await run_evidence_judge(db, job.id)
+    # 抽取模式分流（EXTRACTION_MODE）：
+    # off    → 内联判定（现状，测试默认确定性路径）
+    # sync   → 请求内先轻量抽取（plain/markitdown 路径）再内联判定
+    # worker → 不内联，extract/judge 均由 extractor worker 处理，
+    #          job 保持 pending，客户端照旧轮询 /jobs/{job_id}
+    from app.core.config import settings
+
+    mode = (settings.EXTRACTION_MODE or "off").lower()
+    if mode == "sync":
+        from app.services.extraction.service import extract_package
+
+        try:
+            await extract_package(db, pkg.id)
+        except Exception:
+            # 抽取失败不阻断判定：判定器按无正文材料处理
+            pass
+    if mode != "worker":
+        await run_evidence_judge(db, job.id)
     await db.commit()
     await db.refresh(pkg)
     await db.refresh(job)

@@ -61,6 +61,30 @@ services:
       - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY:-}
       - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY:-}
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
+      # 材料抽取模式：off（默认，不抽取）| sync（请求内轻量抽取）| worker（extractor 容器异步抽取）
+      - EXTRACTION_MODE=${EXTRACTION_MODE:-off}
+    restart: unless-stopped
+
+  # 知识抽取 worker（可选）：默认 `docker compose up -d` 不启动。
+  # 启用：.env 里设 EXTRACTION_MODE=worker，再 `docker compose --profile extraction up -d`
+  extractor:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.extractor
+    container_name: worktodo-extractor
+    profiles: ["extraction"]
+    volumes:
+      # 与 backend 同源：共享代码热重载 + 共享 SQLite/上传文件（WAL + 短事务）
+      - ./backend/app:/app/app
+      - ./backend/data:/app/data
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///./data/worktodo.db}
+      - UPLOAD_DIR=./data/uploads
+      - COLLAB_OBJECT_ROOT=data/objects
     restart: unless-stopped
 
   frontend:

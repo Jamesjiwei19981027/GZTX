@@ -10,10 +10,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.audit import AuditLog, ReviewCase
 from app.models.company import Company
 from app.models.evidence import AsyncJob, EvidenceFile, EvidencePackage
+from app.models.knowledge import EvidenceFileText
 from app.models.progress import AdoptionRecord
 from app.models.tree import TreeNode
 from app.models.wiki import ProjectWikiEntry
 from app.services.evidence_judge import get_judge
+from app.services.knowledge.indexer import index_evidence_file
 from app.services.notify.service import NotificationService
 from app.services.progress_service import append_progress
 from app.services.storage.local import LocalStorage
@@ -127,6 +129,21 @@ async def submit_evidence(
     db.add(job)
     await db.flush()
 
+    # worker 模式且包内有文件：另建抽取任务，由 extractor worker 领取，
+    # 抽取完成后按 judge_job_id 链式执行判定（见 app/workers/extractor.py）
+    from app.core.config import settings
+
+    if (settings.EXTRACTION_MODE or "off").lower() == "worker" and files_count > 0:
+        db.add(
+            AsyncJob(
+                company_id=node.company_id,
+                job_type="evidence.extract",
+                status="pending",
+                payload_json={"package_id": pkg.id, "judge_job_id": job.id},
+            )
+        )
+        await db.flush()
+
     db.add(
         AuditLog(
             company_id=node.company_id,
@@ -163,6 +180,24 @@ async def run_evidence_judge(db: AsyncSession, job_id: int) -> AsyncJob:
             select(EvidenceFile).where(EvidenceFile.package_id == pkg.id)
         )
         files = list(fq.scalars().all())
+
+        # 装载已抽取成功的正文（EXTRACTION_MODE=off 时无记录，files_texts 为空）
+        texts_by_file: dict[int, EvidenceFileText] = {}
+        if files:
+            tq = await db.execute(
+                select(EvidenceFileText).where(
+                    EvidenceFileText.evidence_file_id.in_([f.id for f in files]),
+                    EvidenceFileText.status == "succeeded",
+                )
+            )
+            texts_by_file = {t.evidence_file_id: t for t in tq.scalars().all()}
+        files_texts = [
+            {"name": f.original_name, "text": texts_by_file[f.id].text_md}
+            for f in files
+            if f.id in texts_by_file
+            and (texts_by_file[f.id].text_md or "").strip()
+        ]
+
         prefer_llm = False
         try:
             from app.services.llm_settings import llm_from_company
@@ -173,7 +208,10 @@ async def run_evidence_judge(db: AsyncSession, job_id: int) -> AsyncJob:
             prefer_llm = False
         judge = get_judge(prefer_llm=prefer_llm)
         result = judge.judge(
-            package=pkg, node_progress=node.progress_json or {}, files_count=len(files)
+            package=pkg,
+            node_progress=node.progress_json or {},
+            files_count=len(files),
+            files_texts=files_texts or None,
         )
 
         pkg.judge_result_json = {
@@ -217,6 +255,11 @@ async def run_evidence_judge(db: AsyncSession, job_id: int) -> AsyncJob:
                     )
                 )
                 in_wiki = True
+            # 采纳后知识沉淀：已抽取成功的正文切块入检索层（未采纳不入，见设计约束）
+            for f in files:
+                t = texts_by_file.get(f.id)
+                if t and (t.text_md or "").strip():
+                    await index_evidence_file(db, f, t.text_md, node_id=pkg.node_id)
             await notify.enqueue(
                 db,
                 company_id=pkg.company_id,

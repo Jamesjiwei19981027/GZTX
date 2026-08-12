@@ -29,6 +29,8 @@ httpx>=0.27.0
 
 # 工具
 python-dotenv>=1.0.1
+# 中文分词（知识检索层 services/knowledge，纯 Python 轻量依赖）
+jieba>=0.42.1
 # 邮件指令中的自然语言日期解析（email_command_parser）
 dateparser>=1.2.0
 

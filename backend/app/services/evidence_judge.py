@@ -23,7 +23,9 @@ class RuleBasedEvidenceJudge:
         package: Any,
         node_progress: dict,
         files_count: int = 0,
+        files_texts: list | None = None,
     ) -> JudgeResult:
+        # files_texts（抽取正文）仅供 LLM 判定器使用；规则版忽略，行为保持不变
         summary = (package.summary_text or "").strip()
         structured = package.structured_json or {}
         links = package.links_json or []

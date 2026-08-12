@@ -1,13 +1,14 @@
-"""Agent Runtime（P1：FakeLLM 澄清 + 工具鉴权 + 只读工具）"""
+"""Agent Runtime（P1：FakeLLM 澄清 + 工具鉴权 + 只读工具；阶段 3：记忆 + 知识召回注入）"""
 import re
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import settings
 from app.models.agent import AgentDefinition, AgentMessage, AgentSession
 from app.models.project import Project
 from app.models.tree import TreeNode
-from app.models.wiki import ProjectWikiEntry
 from app.services.acl import AclService
+from app.services.knowledge.search import search_chunks
 
 MAX_USER_CREATED = 5
 
@@ -38,6 +39,50 @@ ALLOWED_DELEGATION_ACTIONS = frozenset(
 
 class AgentQuotaExceeded(Exception):
     pass
+
+
+def _source_label(item: dict) -> str:
+    """知识块来源展示：wiki:{id} / file:{id}，附 meta 中的标题/文件名/页码（若有）。"""
+    meta = item.get("meta") or {}
+    source_id = item.get("source_id")
+    st = item.get("source_type")
+    if st == "wiki_entry":
+        label = f"wiki:{source_id}"
+    elif st == "evidence_file":
+        label = f"file:{source_id}"
+    else:
+        label = f"{st}:{source_id}"
+    extras = []
+    title = meta.get("title") or meta.get("original_name")
+    if title:
+        extras.append(str(title))
+    page = meta.get("page") if meta.get("page") is not None else meta.get("page_no")
+    if page is not None:
+        extras.append(f"第{page}页")
+    if extras:
+        label = "{}（{}）".format(label, " · ".join(extras))
+    return label
+
+
+def _retrieval_meta(items: list[dict]) -> list[dict]:
+    """写入助手消息 meta_json["retrieval"] 的召回明细（文本截断前 100 字）。"""
+    return [
+        {
+            "chunk_id": c["chunk_id"],
+            "source": _source_label(c),
+            "score": c["score"],
+            "text": (c["chunk_text"] or "")[:100],
+        }
+        for c in items
+    ]
+
+
+def _retrieval_system_block(items: list[dict]) -> str:
+    """召回注入的 system 块：逐条标注来源，供 LLM 参考并可在回答中引用。"""
+    lines = ["以下是项目知识库中可能相关的资料（含来源），回答时可参考并注明来源："]
+    for i, c in enumerate(items, start=1):
+        lines.append(f"{i}. [{_source_label(c)}] {c['chunk_text']}")
+    return "\n".join(lines)
 
 
 class AgentRuntime:
@@ -162,22 +207,29 @@ class AgentRuntime:
                 db, user_id, company_id, "progress.read", project_id=project.id
             ):
                 return {"ok": False, "error": "forbidden"}
-            stmt = select(ProjectWikiEntry).where(
-                ProjectWikiEntry.project_id == int(project_id)
+            if not qtext:
+                return {"ok": True, "tool": tool_name, "data": {"items": []}}
+            # SQLite FTS5 查询失败时检索层会内部 rollback 再降级 LIKE：
+            # 先提交本 session 已有写入（如 chat 刚落的用户消息），防止被一并回滚。
+            await db.commit()
+            chunks = await search_chunks(
+                db, company_id=company_id, project_id=project.id, query=qtext
             )
-            if qtext:
-                stmt = stmt.where(
-                    ProjectWikiEntry.title.ilike(f"%{qtext}%")
-                    | ProjectWikiEntry.body_text.ilike(f"%{qtext}%")
-                )
-            rows = (await db.execute(stmt.limit(10))).scalars().all()
             return {
                 "ok": True,
                 "tool": tool_name,
                 "data": {
                     "items": [
-                        {"id": w.id, "title": w.title, "body_text": (w.body_text or "")[:200]}
-                        for w in rows
+                        {
+                            "chunk_id": c["chunk_id"],
+                            "chunk_text": (c["chunk_text"] or "")[:200],
+                            "source_type": c["source_type"],
+                            "source_id": c["source_id"],
+                            "source": _source_label(c),
+                            "node_id": c["node_id"],
+                            "score": c["score"],
+                        }
+                        for c in chunks
                     ]
                 },
             }
@@ -193,6 +245,82 @@ class AgentRuntime:
             return {"ok": True, "tool": tool_name, "data": {"items": []}}
         return {"ok": False, "error": f"unknown_tool:{tool_name}"}
 
+    async def _load_history(
+        self, db: AsyncSession, session: AgentSession, *, before_id: int
+    ) -> list[AgentMessage]:
+        """装载最近 AGENT_HISTORY_LIMIT 条历史（不含当前这句 user）：
+        按 id 倒序取再正序排；摘要已覆盖的消息（<= summary_upto_message_id）不再进上下文。"""
+        stmt = select(AgentMessage).where(
+            AgentMessage.session_id == session.id,
+            AgentMessage.id < before_id,
+        )
+        if session.summary_upto_message_id:
+            stmt = stmt.where(AgentMessage.id > session.summary_upto_message_id)
+        stmt = stmt.order_by(AgentMessage.id.desc()).limit(settings.AGENT_HISTORY_LIMIT)
+        rows = (await db.execute(stmt)).scalars().all()
+        return list(reversed(rows))
+
+    async def _maybe_update_summary(
+        self,
+        db: AsyncSession,
+        *,
+        session: AgentSession,
+        llm,
+        chat_completion,
+        meta: dict,
+    ) -> None:
+        """滚动摘要：summary_upto_message_id 之后的消息超过阈值时用 LLM 压缩更新。
+        任何异常静默吞掉（meta 记 summary_error），绝不阻断对话。"""
+        try:
+            upto = session.summary_upto_message_id or 0
+            n = (
+                await db.execute(
+                    select(func.count())
+                    .select_from(AgentMessage)
+                    .where(
+                        AgentMessage.session_id == session.id,
+                        AgentMessage.id > upto,
+                    )
+                )
+            ).scalar() or 0
+            if int(n) <= settings.AGENT_SUMMARY_THRESHOLD:
+                return
+            rows = (
+                await db.execute(
+                    select(AgentMessage)
+                    .where(
+                        AgentMessage.session_id == session.id,
+                        AgentMessage.id > upto,
+                    )
+                    .order_by(AgentMessage.id.asc())
+                )
+            ).scalars().all()
+            lines = [
+                f"{m.role}: {m.content}" for m in rows if m.role in ("user", "assistant")
+            ]
+            old_summary = session.summary_text or "（无）"
+            prompt = (
+                "把旧摘要与新增消息压缩为 300 字以内中文要点，"
+                "保留任务、结论、关键数字与未决事项。\n"
+                f"旧摘要：{old_summary}\n"
+                "新增消息：\n" + "\n".join(lines)
+            )
+            r = await chat_completion(
+                llm,
+                messages=[
+                    {"role": "system", "content": "你是对话摘要助手，只输出摘要正文。"},
+                    {"role": "user", "content": prompt},
+                ],
+            )
+            if r.get("ok") and r.get("content"):
+                session.summary_text = str(r["content"]).strip()
+                session.summary_upto_message_id = rows[-1].id if rows else upto
+                await db.flush()
+            else:
+                meta["summary_error"] = str(r.get("error") or "summary_failed")
+        except Exception as e:
+            meta["summary_error"] = str(e)
+
     async def chat(
         self,
         db: AsyncSession,
@@ -200,7 +328,9 @@ class AgentRuntime:
         session: AgentSession,
         user_text: str,
     ) -> AgentMessage:
-        db.add(AgentMessage(session_id=session.id, role="user", content=user_text))
+        user_msg = AgentMessage(session_id=session.id, role="user", content=user_text)
+        db.add(user_msg)
+        await db.flush()
         text = user_text.strip()
         meta: dict = {}
         uid = session.user_id
@@ -236,6 +366,26 @@ class AgentRuntime:
             meta["tool_result"] = result
             reply = f"工具 {tool_name}：{result}"
         else:
+            # 项目会话：先做知识召回（LLM 与 Fake 路径都记 meta，仅 LLM 路径注入 prompt）。
+            # 会话本来就是本人发起，这里仍防御性校验 progress.read（检索层不做 ACL）。
+            retrieval_items: list[dict] | None = None
+            if pid and uid and cid:
+                try:
+                    if await self.acl.can(
+                        db, uid, cid, "progress.read", project_id=pid
+                    ):
+                        # SQLite FTS5 失败时检索层会内部 rollback 再降级 LIKE：
+                        # 先提交刚落的用户消息（含上游 flush 的会话行），防止被一并回滚。
+                        await db.commit()
+                        retrieval_items = await search_chunks(
+                            db, company_id=cid, project_id=pid, query=text
+                        )
+                except Exception as e:
+                    retrieval_items = []
+                    meta["retrieval_error"] = str(e)
+            if retrieval_items is not None:
+                meta["retrieval"] = _retrieval_meta(retrieval_items)
+
             # 个人 LLM > 公司 LLM > env > 本地逻辑
             used_llm = False
             try:
@@ -259,13 +409,28 @@ class AgentRuntime:
                             custom = (agent_def.config_json.get("system_prompt") or "").strip()
                             if custom:
                                 system_prompt = custom
-                    r = await chat_completion(
-                        llm,
-                        messages=[
-                            {"role": "system", "content": system_prompt},
-                            {"role": "user", "content": text},
-                        ],
-                    )
+                    messages: list[dict] = [{"role": "system", "content": system_prompt}]
+                    if session.summary_text:
+                        messages.append(
+                            {
+                                "role": "system",
+                                "content": f"以下是此前对话的摘要：{session.summary_text}",
+                            }
+                        )
+                    if retrieval_items:
+                        messages.append(
+                            {
+                                "role": "system",
+                                "content": _retrieval_system_block(retrieval_items),
+                            }
+                        )
+                    # 历史消息（role user/assistant 原样，system 跳过；当前这句 user 不重复）
+                    history = await self._load_history(db, session, before_id=user_msg.id)
+                    for m in history:
+                        if m.role in ("user", "assistant"):
+                            messages.append({"role": m.role, "content": m.content})
+                    messages.append({"role": "user", "content": text})
+                    r = await chat_completion(llm, messages=messages)
                     if r.get("ok") and r.get("content"):
                         reply = str(r["content"]).strip()
                         meta["llm"] = {
@@ -273,6 +438,14 @@ class AgentRuntime:
                             "source": llm.source,
                         }
                         used_llm = True
+                        # 对话完成后（LLM 路径）滚动摘要，失败静默不阻断
+                        await self._maybe_update_summary(
+                            db,
+                            session=session,
+                            llm=llm,
+                            chat_completion=chat_completion,
+                            meta=meta,
+                        )
             except Exception as e:
                 meta["llm_error"] = str(e)
 

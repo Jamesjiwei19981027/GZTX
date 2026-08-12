@@ -25,6 +25,7 @@ from app.models.evidence import EvidencePackage, EvidenceFile, AsyncJob
 from app.models.progress import ProgressRecord, AdoptionRecord
 from app.models.audit import AuditLog, ReviewCase
 from app.models.wiki import ProjectWikiEntry
+from app.models.knowledge import EvidenceFileText, KnowledgeChunk
 from app.models.agent import AgentDefinition, AgentSession, AgentMessage
 from app.models.bindings import AsrBinding, StorageBinding, ModelBinding
 from app.models.notify import NotifyPolicy, NotifyJob, CollabInboxMessage, PushSubscription
@@ -78,6 +79,8 @@ __all__ = [
     "AuditLog",
     "ReviewCase",
     "ProjectWikiEntry",
+    "EvidenceFileText",
+    "KnowledgeChunk",
     "AgentDefinition",
     "AgentSession",
     "AgentMessage",

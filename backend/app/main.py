@@ -25,6 +25,7 @@ from app.api.v1 import auth, tasks, categories, tags, reminders, users, notifica
 from app.api.v1 import companies as companies_api
 from app.api.v1 import projects as projects_api
 from app.api.v1 import nodes as nodes_api
+from app.api.v1 import knowledge as knowledge_api
 from app.api.v1 import agents as agents_api
 from app.api.v1 import bindings as bindings_api
 from app.api.v1 import org as org_api
@@ -495,6 +496,7 @@ app.include_router(wx.router, prefix="/api/v1")
 app.include_router(companies_api.router, prefix="/api/v1")
 app.include_router(projects_api.router, prefix="/api/v1")
 app.include_router(nodes_api.router, prefix="/api/v1")
+app.include_router(knowledge_api.router, prefix="/api/v1")
 app.include_router(agents_api.router, prefix="/api/v1")
 app.include_router(bindings_api.router, prefix="/api/v1")
 app.include_router(org_api.router, prefix="/api/v1")

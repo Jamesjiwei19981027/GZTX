@@ -127,6 +127,28 @@ class Settings(BaseSettings):
     REGISTER_VERIFICATION_REQUIRED: bool = True
     SMS_PROVIDER: str = "fake"
 
+    # —— 知识检索 / RAG（见 services/knowledge/，设计文档 docs/superpowers/specs/
+    # 2026-08-12-rag-knowledge-retrieval-design.md）——
+    # 材料抽取模式：off=不抽取（现状）| sync=请求内轻量抽取 | worker=extractor 容器异步抽取
+    EXTRACTION_MODE: str = "off"
+    # 单文件抽取正文上限字符数，超出截断并记 meta
+    EXTRACTION_MAX_CHARS: int = 200000
+    # 知识块目标大小（字符）与相邻块重叠（字符）
+    KNOWLEDGE_CHUNK_SIZE: int = 500
+    KNOWLEDGE_CHUNK_OVERLAP: int = 80
+    # 检索默认返回条数
+    RETRIEVAL_TOP_K: int = 5
+    # 智能体对话装载的历史消息条数上限
+    AGENT_HISTORY_LIMIT: int = 20
+    # 未摘要消息超过此阈值时触发滚动摘要
+    AGENT_SUMMARY_THRESHOLD: int = 30
+    # 向量召回开关；关闭时 embedding_json 留空且零外呼（默认关闭）
+    EMBEDDING_ENABLED: bool = False
+    # OpenAI 兼容 embedding 配置；base_url/api_key 未配时回落公司 LLM 配置
+    EMBEDDING_MODEL: str = ""
+    EMBEDDING_BASE_URL: str = ""
+    EMBEDDING_API_KEY: str = ""
+
     # —— 认证限流（DB 支撑，见 services/rate_limit.py）——
     RATE_LIMIT_ENABLED: bool = True
     # 反代后才可采信 X-Forwarded-For；直接暴露公网时必须关掉，否则可伪造头绕过限流

@@ -1,0 +1,66 @@
+# 知识抽取 worker 镜像（materials extraction，设计见
+# docs/superpowers/specs/2026-08-12-rag-knowledge-retrieval-design.md）
+#
+# 同一 Dockerfile 出两个 tag，代码零分叉：
+#   slim（不含模型权重，docling 首次使用时自动下载，适合联网环境）：
+#     docker build -f backend/Dockerfile.extractor -t worktodo-extractor:slim ./backend
+#   full（构建期内置 docling/RapidOCR 权重，离线 License 客户可用）：
+#     docker build -f backend/Dockerfile.extractor --build-arg WITH_MODELS=1 -t worktodo-extractor:full ./backend
+#
+# 网络不佳时可走 HuggingFace 镜像源：
+#   构建期（full 下载权重）: --build-arg HF_ENDPOINT=https://hf-mirror.com
+#   运行期（slim 首启下载）: 容器环境变量 HF_ENDPOINT=https://hf-mirror.com
+
+ARG WITH_MODELS=0
+
+FROM python:3.11-slim AS base
+
+WORKDIR /app
+
+# LibreOffice：doc/xls/ppt 老格式转换（--no-install-recommends 控制体积）
+# fonts-noto-cjk：LibreOffice 转换中文文档需要 CJK 字体
+# libgl1 / libglib2.0-0：docling / rapidocr（opencv）运行所需系统库
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libreoffice \
+    fonts-noto-cjk \
+    libgl1 \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# torch 仅作 docling 的 CPU 推理后端：先从 PyTorch CPU 源安装，
+# 避免 PyPI 默认源连带整套 nvidia CUDA 依赖（镜像可省约 7GB）
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# backend 主依赖 + 抽取引擎依赖（markitdown / docling / rapidocr）
+COPY requirements.txt requirements-extractor.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-extractor.txt
+
+# 源码打进镜像（生产直接可用）；开发编排会用 volume 挂载 ./backend/app 覆盖
+COPY app ./app
+
+RUN mkdir -p /app/data/uploads
+
+ENV PYTHONUNBUFFERED=1
+
+CMD ["python", "-m", "app.workers.extractor"]
+
+# ---- slim：不带权重。docling 首次转换 PDF/图片时自动下载模型到
+# ~/.cache/docling/models（可用 HF_ENDPOINT 环境变量走镜像源）----
+FROM base AS models-0
+
+# ---- full：构建期预下载权重到镜像内，运行时零联网 ----
+FROM base AS models-1
+
+ARG HF_ENDPOINT=https://huggingface.co
+
+# docling 运行时按该环境变量定位权重目录（settings.artifacts_path）
+ENV DOCLING_ARTIFACTS_PATH=/opt/docling-models
+
+# 默认模型集 = layout / tableformer / picture_classifier / code_formula / rapidocr，
+# 覆盖 extract_docling 的 PDF 版面分析 + 中文 OCR 全链路；
+# 再实例化一次 RapidOCR 预热校验（rapidocr-onnxruntime 权重随 wheel 内置）。
+RUN HF_ENDPOINT=${HF_ENDPOINT} docling-tools models download -o "$DOCLING_ARTIFACTS_PATH" \
+    && python -c "from rapidocr_onnxruntime import RapidOCR; RapidOCR()"
+
+# ---- 按 WITH_MODELS 选择最终 stage（0=slim，1=full）----
+FROM models-${WITH_MODELS}
