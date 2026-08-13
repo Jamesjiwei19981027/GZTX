@@ -103,12 +103,26 @@ S1–S8 全部勾选时间：_待填_ · 环境：_待填_
 
 ### 6.11 Playwright E2E（上线必过）
 
-- [x] 仓库内存在可运行的 Playwright 工程（`frontend/e2e`）
+> **2026-08-13 重建**：旧套件在一次前端重写中丢失（`frontend/e2e` 目录、playwright
+> 配置、`test:e2e` 脚本一并消失）。本日针对**现役单壳 SPA**（无路由，`App.tsx`
+> `activeView` 切换视图，未登录渲染 `LoginGate`）重建全套冒烟，选择器以真实组件
+> 文案（中文默认语言）+ 少量 `data-testid`（`user-menu-button` / `task-row` /
+> `task-toggle`，仅加属性未改业务逻辑）为准。
+
+- [x] 仓库内存在可运行的 Playwright 工程（`frontend/e2e/smoke.spec.ts` + `frontend/playwright.config.ts`）
 - [x] 命令文档化：`cd frontend && npm run test:e2e`；**已进 PR 门禁**（`.github/workflows/e2e.yml`：backend/frontend 路径变更的 PR 必跑，另有每日定时与手动触发）
-- [x] 套件覆盖与 S1–S8 等价路径（S5/S6 已用真实公司+项目+两层树数据实跑，非软通过）
+- [x] 套件覆盖 S1–S8 的现役等价路径：
+  - S1 登录：LoginGate 密码登录 → 进入仪表盘（侧栏可见、LoginGate 消失）
+  - S2 建任务：Navbar「新建任务」→ 唯一标题 →「我的任务」可见 → 点开详情抽屉
+  - S3 日历：API 建今日任务 → 切「日历视图」→ 任务可见
+  - S4 设置：改「全名」→「更新资料」→「修改已保存！」且新昵称回显（测试尾部经 API 复原昵称）
+  - S5 全局搜索：Ctrl+K → 输入唯一标题命中 → Enter 打开详情抽屉
+  - S6 完成任务：列表勾选 → 标题划线（局部更新，无整页刷新）+ API 复核 status=2
+  - S7 401 续期：篡改 `access_token` 后触发「重新同步数据」→ 无感恢复（未回登录页、token 已被 /auth/refresh 换新、无错误横幅）
+  - S8 登出：用户菜单「退出登录」→ 回 LoginGate；刷新后仍未登录
 - [ ] E2E 默认打 staging 基址（`PLAYWRIGHT_BASE_URL` 或等价）——staging 未部署
-- [x] 最近一次全绿 run：2026-07-20 19:20 (UTC+8) · 本地（backend 8010 + vite 5174）· SHA `7f8c312` · 7/7 passed
-- [x] 无未处理 flaky（本轮连续两次全绿）
+- [x] 最近一次全绿 run：2026-08-13 19:3x (UTC+8) · 本地（backend uvicorn 8020 + sqlite e2e_local + vite preview 5174，`DEV_API_TARGET` 指 8020）· `main` @ `262f50b`（工作区含本次重建改动）· **8/8 passed**（两遍：15.9s / 14.9s）
+- [x] 无未处理 flaky（连续两遍全绿；重建期间发现并已在测试侧规避的竞态：NewTaskModal 重置 effect 依赖 categories，boot 未完成时填表单会被清空——`bootLoggedIn` 现等 `/categories` 返回后才继续）
 
 ### 6.12 Staging 浸泡（Soak）
 
@@ -210,3 +224,4 @@ Playwright E2E 已进 PR 门禁（见 §6.11）。**剩余全部为环境与流�
 | 2026-07-20 | 初建模板（Task 12 / P7）；Docker 与文档已指向 React；生产切流未做 |
 | 2026-07-20 (晚) | 接手会话完成本地验证轮：§6.7 全过（含 Docker 前端+后端生产镜像本地构建、3.11 容器 import 验证）；§6.9 vitest 9/9；§6.11 本地 7/7 全绿（含 S5/S6 真实数据路径）；后端 pytest 148/148。修复：py3.11 f-string、缺失依赖（asyncpg/psycopg2/dateparser）、categories/reorder 路由顺序、提醒邮件 Reply-To/Message-ID 断链、E2E 选择器。**staging 部署、G6 回滚演练、48h soak、G10 签核仍未做。** |
 | 2026-08-13 | E2E 进 PR 门禁（e2e.yml 加 pull_request 路径触发 + concurrency）；修 ci.yml 前端 job `npm run typecheck` → `npm run lint`（脚本名漂移）；新增「G6–G10 收口现状」小节，明确剩余为环境/流程动作（staging、冒烟、soak、回滚演练、签核），代码侧无缺口。 |
+| 2026-08-13 (晚) | **重建 §6.11 E2E 套件**（前端重写后丢失）：新增 `frontend/playwright.config.ts` + `frontend/e2e/smoke.spec.ts`（S1–S8 现役单壳 UI 等价路径，@playwright/test 入 devDependencies，`test:e2e` 脚本恢复）；`frontend/src` 仅加 3 处 `data-testid`；修 e2e.yml preview 步骤补 `DEV_API_TARGET=http://127.0.0.1:8000`（原先 vite 代理默认打 8010，CI 后端在 8000，E2E 的 API 必然打空）。本地两遍 8/8 全绿（见 §6.11）。`npm run lint` / `npm test` 均保持全绿。**staging 状态无变化。** |

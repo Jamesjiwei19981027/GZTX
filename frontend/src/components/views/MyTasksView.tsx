@@ -199,6 +199,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                   return (
                     <div
                       key={task.id}
+                      data-testid="task-row"
                       onClick={() => onSelectTask(task)}
                       className={`group flex items-center justify-between p-4 bg-surface dark:bg-[#191c1d] border rounded-2xl transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5 ${
                         isDone
@@ -210,6 +211,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                       <div className="flex items-center gap-4 min-w-0">
                         {/* Custom Interactive Checkbox */}
                         <div
+                          data-testid="task-toggle"
                           onClick={(e) => {
                             e.stopPropagation();
                             onToggleTaskCompletion(task.id, e);

@@ -74,6 +74,10 @@ jobs:
 
       - name: Build & preview frontend
         working-directory: frontend
+        env:
+          # vite preview 的 /api 代理默认打 8010（本机 Docker 后端），
+          # CI 里后端起在 8000，必须显式指过去（见 frontend/vite.config.ts）
+          DEV_API_TARGET: http://127.0.0.1:8000
         run: |
           npm run build
           npx vite preview --port 5173 --host 127.0.0.1 &

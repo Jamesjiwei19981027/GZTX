@@ -191,6 +191,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* User Avatar */}
           <div className="relative">
             <button
+              data-testid="user-menu-button"
               onClick={() => {
                 setShowUserDropdown(!showUserDropdown);
               }}
