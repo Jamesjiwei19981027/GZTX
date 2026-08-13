@@ -36,6 +36,8 @@ from app.api.v1 import reports as reports_api
 from app.api.v1 import shell as shell_api
 from app.api.v1 import calls as calls_api
 from app.api.v1 import external_mail as external_mail_api
+from app.api.v1 import notify as notify_api
+from app.api.v1 import events as events_api
 from app.core.collab_errors import CollabError
 
 # Email check lock to prevent concurrent email processing
@@ -139,6 +141,34 @@ async def check_reminders():
             return {"processed": count}
         except Exception as e:
             print(f"[ReminderCheck] Task failed: {e}")
+            return {"error": str(e)}
+
+
+_trash_purge_lock = asyncio.Lock()
+
+
+async def purge_trashed_tasks():
+    """每日清理：物理删除软删超过 30 天的任务（回收站保留期）。
+
+    与其他 job 一样只在 SCHEDULER_ENABLED 的进程里跑，生产 4 worker 由
+    独立 scheduler 容器执行，不会重复清理。
+    """
+    if _trash_purge_lock.locked():
+        return {"status": "skipped", "reason": "previous_running"}
+
+    async with _trash_purge_lock:
+        from app.db.session import async_session_factory
+        from app.services.trash_service import purge_soft_deleted_tasks
+
+        try:
+            async with async_session_factory() as db:
+                purged = await purge_soft_deleted_tasks(db)
+                await db.commit()
+            if purged:
+                print(f"[TrashPurge] Purged {purged} tasks")
+            return {"purged": purged}
+        except Exception as e:
+            print(f"[TrashPurge] Task failed: {e}")
             return {"error": str(e)}
 
 
@@ -436,6 +466,14 @@ def create_scheduler():
         minute=0,
         id="daily_digest",
     )
+    # 回收站保留期清理：每日一次，物理删除软删超 30 天的任务
+    scheduler.add_job(
+        purge_trashed_tasks,
+        "cron",
+        hour=(3 - settings.USER_TIMEZONE_OFFSET) % 24,  # 用户本地时间 03:30 低峰
+        minute=30,
+        id="purge_trashed_tasks",
+    )
     scheduler.start()
     return scheduler
 
@@ -513,6 +551,8 @@ app.include_router(reports_api.router, prefix="/api/v1")
 app.include_router(shell_api.router, prefix="/api/v1")
 app.include_router(calls_api.router, prefix="/api/v1")
 app.include_router(external_mail_api.router, prefix="/api/v1")
+app.include_router(notify_api.router, prefix="/api/v1")
+app.include_router(events_api.router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health", tags=["系统"])
@@ -525,23 +565,41 @@ async def health_check(db: DbSession):
     except Exception as exc:  # noqa: BLE001 — health endpoint must expose dependency failure
         raise HTTPException(status_code=503, detail="database unavailable") from exc
 
-    migration = "not_managed"
+    # migration 口径：只要 alembic_version 表存在就报实际版本号（受管状态），
+    # 与 AUTO_CREATE_SCHEMA 解耦——此前 AUTO_CREATE_SCHEMA=true 恒报 not_managed，
+    # 误导运维以为库没被 Alembic 纳管（启动期 adopt/restamp 明明已对齐）。
+    # 严格校验（必须在迁移头、否则 503）仍只在 AUTO_CREATE_SCHEMA=false 的生产路径生效。
+    def _read_alembic_version(sync_session):
+        from sqlalchemy import inspect as sa_inspect
+
+        bind = sync_session.get_bind()
+        if not sa_inspect(bind).has_table("alembic_version"):
+            return None
+        return sync_session.execute(
+            text("SELECT version_num FROM alembic_version LIMIT 1")
+        ).scalar_one_or_none()
+
+    try:
+        current = await db.run_sync(_read_alembic_version)
+    except Exception as exc:  # noqa: BLE001 — schema probe failure is unhealthy
+        if settings.AUTO_CREATE_SCHEMA:
+            current = None
+        else:
+            raise HTTPException(status_code=503, detail="database migration is unavailable") from exc
+
+    migration = str(current) if current else "not_managed"
     if not settings.AUTO_CREATE_SCHEMA:
+        if current is None:
+            raise HTTPException(status_code=503, detail="database migration is unavailable")
         try:
-            current = (
-                await db.execute(text("SELECT version_num FROM alembic_version LIMIT 1"))
-            ).scalar_one_or_none()
             from alembic.config import Config
             from alembic.script import ScriptDirectory
 
             heads = set(ScriptDirectory.from_config(Config("alembic.ini")).get_heads())
-            if current not in heads:
-                raise HTTPException(status_code=503, detail="database migration is not at head")
-            migration = str(current)
-        except HTTPException:
-            raise
         except Exception as exc:  # noqa: BLE001 — missing/invalid migration is unhealthy
             raise HTTPException(status_code=503, detail="database migration is unavailable") from exc
+        if current not in heads:
+            raise HTTPException(status_code=503, detail="database migration is not at head")
 
     return {
         "code": 200,

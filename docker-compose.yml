@@ -22,7 +22,8 @@ services:
         required: false
     environment:
       - APP_NAME=WorkTodo
-      - APP_VERSION=1.0.0
+      # 构建/部署时注入版本（如 git describe），设置页与 /health 据此显示
+      - APP_VERSION=${APP_VERSION:-dev}
       - DEBUG=${DEBUG:-true}
       - PYTHONUNBUFFERED=1
       - DATABASE_URL=${DATABASE_URL:-sqlite+aiosqlite:///./data/worktodo.db}
