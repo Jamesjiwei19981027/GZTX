@@ -4,7 +4,7 @@
 from typing import List, Optional
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.responses import JSONResponse
@@ -31,6 +31,7 @@ from app.schemas.task import (
     PriorityStat,
     CategoryStat,
     BatchAction,
+    BatchReschedule,
     TaskExtractRequest,
 )
 from app.schemas.common import ResponseData, PaginatedData
@@ -703,6 +704,68 @@ async def extract_task_from_chat(
     )
 
 
+@router.get("/trash", response_model=ResponseData)
+async def get_trash(
+    db: DbSession,
+    user: CurrentUser,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+):
+    """回收站：当前用户软删任务，按删除时间倒序（30 天后由调度任务物理清理）。"""
+    base = select(Task).where(Task.user_id == user.id, Task.is_deleted == True)
+
+    total = (
+        await db.execute(select(func.count()).select_from(base.subquery()))
+    ).scalar() or 0
+
+    query = (
+        base.order_by(Task.deleted_at.desc().nulls_last(), Task.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .options(
+            selectinload(Task.category),
+            selectinload(Task.tags),
+            selectinload(Task.reminders),
+            selectinload(Task.assignees).selectinload(TaskAssignment.user),
+        )
+    )
+    tasks = (await db.execute(query)).scalars().all()
+
+    return ResponseData(
+        data=PaginatedData(
+            items=[_serialize_task(t) for t in tasks],
+            total=total,
+            page=page,
+            page_size=page_size,
+            total_pages=(total + page_size - 1) // page_size,
+        )
+    )
+
+
+@router.post("/{task_id}/restore", response_model=ResponseData)
+async def restore_task(task_id: int, db: DbSession, user: CurrentUser):
+    """从回收站恢复任务（仅本人的软删任务）。"""
+    result = await db.execute(
+        select(Task).where(
+            Task.id == task_id,
+            Task.user_id == user.id,
+            Task.is_deleted == True,
+        )
+    )
+    task = result.scalar_one_or_none()
+    if not task:
+        raise HTTPException(status_code=404, detail="任务不存在或不在回收站")
+
+    task.is_deleted = False
+    task.deleted_at = None
+
+    await db.flush()
+    await db.refresh(task)
+    await db.refresh(task, ["category", "tags", "reminders", "assignees"])
+
+    return ResponseData(data=_serialize_task(task))
+
+
 @router.get("/{task_id}", response_model=ResponseData)
 async def get_task(task_id: int, db: DbSession, user: CurrentUser):
     """获取任务详情"""
@@ -1003,6 +1066,96 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
     return ResponseData(data=_serialize_task(task))
 
 
+def _next_recurrence_due(due: Optional[datetime], rule) -> Optional[datetime]:
+    """按 recurrence_rule 计算下一次截止时间（daily|weekly|monthly|weekdays|yearly）。
+
+    与同步 TaskService._calculate_next_occurrence 同语义，另支持 weekdays
+    （跳过周六日的工作日循环）；月/年溢出用 _replace_ymd 夹到月末。
+    """
+    from app.services.task_service import _replace_ymd
+
+    if not due or not rule:
+        return None
+    if isinstance(rule, str):
+        frequency, interval = rule, 1
+    elif isinstance(rule, dict):
+        frequency = rule.get("frequency", "daily")
+        try:
+            interval = max(1, int(rule.get("interval", 1) or 1))
+        except (TypeError, ValueError):
+            interval = 1
+    else:
+        return None
+
+    if frequency == "daily":
+        return due + timedelta(days=interval)
+    if frequency == "weekly":
+        return due + timedelta(weeks=interval)
+    if frequency == "weekdays":
+        nxt = due
+        for _ in range(interval):
+            nxt += timedelta(days=1)
+            while nxt.weekday() >= 5:
+                nxt += timedelta(days=1)
+        return nxt
+    if frequency == "monthly":
+        month = due.month + interval
+        year = due.year + (month - 1) // 12
+        month = (month - 1) % 12 + 1
+        return _replace_ymd(due, year, month)
+    if frequency == "yearly":
+        return _replace_ymd(due, due.year + interval, due.month)
+    return None
+
+
+async def _spawn_next_recurring_instance(
+    db: DbSession, task: Task, owner
+) -> Optional[dict]:
+    """模板任务完成后生成下一次实例；同模板同截止时间已存在则复用（幂等）。"""
+    next_due = _next_recurrence_due(task.due_date, task.recurrence_rule)
+    if not next_due:
+        return None
+
+    existing = (
+        await db.execute(
+            select(Task)
+            .where(
+                Task.parent_task_id == task.id,
+                Task.due_date == next_due,
+                Task.is_deleted == False,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+
+    if existing is not None:
+        instance = existing
+    else:
+        instance = Task(
+            user_id=task.user_id,
+            user=owner,
+            category_id=task.category_id,
+            title=task.title,
+            description=task.description,
+            priority=task.priority,
+            status=Task.STATUS_TODO,
+            due_date=next_due,
+            is_recurring=False,
+            parent_task_id=task.id,
+        )
+        db.add(instance)
+        await db.flush()
+        # 复制标签（tags 关系需先异步加载，避免 MissingGreenlet）
+        await db.refresh(task, ["tags"])
+        if task.tags:
+            await db.refresh(instance, ["tags"])
+            instance.tags = list(task.tags)
+            await db.flush()
+
+    await db.refresh(instance, ["category", "tags", "reminders", "assignees"])
+    return _serialize_task(instance)
+
+
 @router.patch("/{task_id}/complete", response_model=ResponseData)
 async def complete_task(task_id: int, data: TaskComplete, db: DbSession, user: CurrentUser):
     """标记任务完成（含完成评价）"""
@@ -1048,16 +1201,25 @@ async def complete_task(task_id: int, data: TaskComplete, db: DbSession, user: C
             db.add(reminder)
 
         # 不修改 task.status，保持原状态（待办/进行中）
+        next_instance = None
     else:
         # 不需要跟进：正常标记完成
         task.status = Task.STATUS_DONE
         task.completed_at = datetime.utcnow()
 
+        # 重复任务模板：完成即生成下一次实例（实例自身不再繁殖）
+        next_instance = None
+        if task.is_recurring and task.parent_task_id is None:
+            next_instance = await _spawn_next_recurring_instance(db, task, user)
+
     await db.flush()
     await db.refresh(task)  # 刷新所有列属性（包括 updated_at 等 onupdate 生成的值）
     await db.refresh(task, ["category", "tags", "reminders", "assignees"])
 
-    return ResponseData(data=_serialize_task(task))
+    payload = _serialize_task(task)
+    # 前端靠 next_instance 做本地插入（无则 null）
+    payload["next_instance"] = next_instance
+    return ResponseData(data=payload)
 
 
 @router.patch("/{task_id}/uncomplete", response_model=ResponseData)
@@ -1123,6 +1285,43 @@ async def batch_complete(data: BatchAction, db: DbSession, user: CurrentUser):
     return ResponseData(
         data={
             "completed_count": len(editable),
+            "skipped_readonly": len(tasks) - len(editable),
+        }
+    )
+
+
+@router.patch("/batch/reschedule", response_model=ResponseData)
+async def batch_reschedule(data: BatchReschedule, db: DbSession, user: CurrentUser):
+    """批量顺延：只替换截止日期的日期部分，保留原时分秒；无截止时间的按当天 00:00 设置。
+
+    项目投影任务（origin=project_link 且 linked_readonly）只读，跳过并计数返回。
+    """
+    result = await db.execute(
+        select(Task).where(
+            Task.id.in_(data.task_ids),
+            Task.user_id == user.id,
+            Task.is_deleted == False,
+        )
+    )
+    tasks = result.scalars().all()
+
+    editable = [
+        t
+        for t in tasks
+        if not (
+            getattr(t, "origin", "personal") == "project_link"
+            and getattr(t, "linked_readonly", True)
+        )
+    ]
+    for task in editable:
+        if task.due_date is not None:
+            task.due_date = datetime.combine(data.due_date, task.due_date.time())
+        else:
+            task.due_date = datetime.combine(data.due_date, datetime.min.time())
+
+    return ResponseData(
+        data={
+            "updated_count": len(editable),
             "skipped_readonly": len(tasks) - len(editable),
         }
     )

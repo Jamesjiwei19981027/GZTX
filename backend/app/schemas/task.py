@@ -1,8 +1,8 @@
 """
 任务相关的 Pydantic 数据模型
 """
-from typing import Optional, List
-from datetime import datetime
+from typing import Optional, List, Union
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -105,7 +105,9 @@ class TaskCreate(BaseModel):
     due_date: Optional[datetime] = None
     reminders: List[ReminderCreate] = Field(default_factory=list)
     is_recurring: bool = False
-    recurrence_rule: Optional[dict] = None
+    # Web 端发字符串（"daily"|"weekdays"|"weekly"|"monthly"），
+    # 历史/高级形态是 dict（{"frequency","interval"}），两者都接受
+    recurrence_rule: Optional[Union[str, dict]] = None
     # 协作任务兼容字段：创建时可直接挂到用户有权访问的项目。
     company_id: Optional[int] = None
     project_id: Optional[int] = None
@@ -161,7 +163,7 @@ class TaskUpdate(BaseModel):
     due_date: Optional[datetime] = None
     reminders: Optional[List[ReminderCreate]] = None
     is_recurring: Optional[bool] = None
-    recurrence_rule: Optional[dict] = None
+    recurrence_rule: Optional[Union[str, dict]] = None
     sort_order: Optional[int] = None
     # 关联人轴事项（单向 Task → TreeNode）
     project_id: Optional[int] = None
@@ -210,11 +212,13 @@ class TaskResponse(BaseModel):
     due_date: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     is_recurring: bool = False
-    recurrence_rule: Optional[dict] = None
+    recurrence_rule: Optional[Union[str, dict]] = None
+    parent_task_id: Optional[int] = None
     category: Optional[CategoryResponse] = None
     tags: List[TagResponse] = []
     reminders: List[ReminderResponse] = []
     is_deleted: bool = False
+    deleted_at: Optional[datetime] = None
     # 完成评价相关字段
     completion_rate: int = 100
     completion_comment: Optional[str] = None
@@ -301,3 +305,9 @@ class TaskStatsResponse(BaseModel):
 class BatchAction(BaseModel):
     """批量操作"""
     task_ids: List[int]
+
+
+class BatchReschedule(BaseModel):
+    """批量顺延：把 task_ids 的截止日期改到 due_date（仅替换日期，保留原时刻）"""
+    task_ids: List[int]
+    due_date: date
