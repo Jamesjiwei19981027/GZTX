@@ -20,15 +20,6 @@ import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/views/DashboardView';
 import { MyTasksView } from './components/views/MyTasksView';
-import { KanbanView } from './components/views/KanbanView';
-import { CalendarView } from './components/views/CalendarView';
-import { SettingsView } from './components/views/SettingsView';
-import { NotificationSettingsView } from './components/views/NotificationSettingsView';
-import { ReportsView } from './components/views/ReportsView';
-import { TeamView } from './components/views/TeamView';
-import { InboxView } from './components/views/InboxView';
-import { MessagesView } from './components/views/MessagesView';
-import { PeopleAxisView } from './components/views/PeopleAxisView';
 import { NewTaskModal } from './components/modals/NewTaskModal';
 import { QuickAddModal } from './components/modals/QuickAddModal';
 import { GlobalSearchModal } from './components/modals/GlobalSearchModal';
@@ -70,6 +61,44 @@ import {
   putUiPrefs,
 } from './api/shell';
 import { enableWebPush } from './api/notifications';
+
+// 重视图按需分包：人轴（@xyflow/react）、报表（recharts）等只在切到对应视图时才加载
+const KanbanView = React.lazy(() =>
+  import('./components/views/KanbanView').then((m) => ({ default: m.KanbanView })),
+);
+const CalendarView = React.lazy(() =>
+  import('./components/views/CalendarView').then((m) => ({ default: m.CalendarView })),
+);
+const SettingsView = React.lazy(() =>
+  import('./components/views/SettingsView').then((m) => ({ default: m.SettingsView })),
+);
+const NotificationSettingsView = React.lazy(() =>
+  import('./components/views/NotificationSettingsView').then((m) => ({
+    default: m.NotificationSettingsView,
+  })),
+);
+const ReportsView = React.lazy(() =>
+  import('./components/views/ReportsView').then((m) => ({ default: m.ReportsView })),
+);
+const TeamView = React.lazy(() =>
+  import('./components/views/TeamView').then((m) => ({ default: m.TeamView })),
+);
+const InboxView = React.lazy(() =>
+  import('./components/views/InboxView').then((m) => ({ default: m.InboxView })),
+);
+const MessagesView = React.lazy(() =>
+  import('./components/views/MessagesView').then((m) => ({ default: m.MessagesView })),
+);
+const PeopleAxisView = React.lazy(() =>
+  import('./components/views/PeopleAxisView').then((m) => ({ default: m.PeopleAxisView })),
+);
+
+const ViewLoadingFallback: React.FC = () => (
+  <div className="flex items-center justify-center py-24 bg-surface text-on-surface-variant text-sm gap-2">
+    <span className="inline-block h-5 w-5 rounded-full border-2 border-outline-variant border-t-primary animate-spin" />
+    加载中…
+  </div>
+);
 
 const ALL_PROJECT_ITEM: Project = {
   id: 'all',
@@ -513,15 +542,25 @@ export default function App() {
     }
   };
 
+  /** 用后端返回的任务做单条本地替换（列表 + 详情抽屉同步），避免全量重拉 */
+  const applyTaskFromBackend = (updated: import('./api/backend').BackendTask): Task => {
+    const mapped = mapTask(updated);
+    setTasks((prev) => prev.map((t) => (t.id === mapped.id ? mapped : t)));
+    setSelectedTask((prev) => (prev && prev.id === mapped.id ? mapped : prev));
+    return mapped;
+  };
+
   const handleToggleTaskCompletion = async (taskId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const id = Number(taskId);
     const task = tasks.find((t) => t.id === taskId);
     if (!task || !Number.isFinite(id)) return;
     try {
-      if (task.status === 'Done') await uncompleteTask(id);
-      else await completeTask(id);
-      await refreshFromBackend();
+      const wasDone = task.status === 'Done';
+      const updated = wasDone ? await uncompleteTask(id) : await completeTask(id);
+      const mapped = applyTaskFromBackend(updated);
+      if (wasDone) addActivity('updated', '任务已恢复待办:', mapped.title);
+      else addActivity('completed', '任务已完成:', mapped.title);
     } catch (err) {
       alert(err instanceof Error ? err.message : '状态更新失败');
     }
@@ -531,9 +570,13 @@ export default function App() {
     const id = Number(taskId);
     if (!Number.isFinite(id)) return;
     try {
-      if (newStatus === 'Done') await completeTask(id);
-      else await updateTask(id, { status: uiStatusToApi(newStatus) });
-      await refreshFromBackend();
+      const updated =
+        newStatus === 'Done'
+          ? await completeTask(id)
+          : await updateTask(id, { status: uiStatusToApi(newStatus) });
+      const mapped = applyTaskFromBackend(updated);
+      if (newStatus === 'Done') addActivity('completed', '任务已完成:', mapped.title);
+      else addActivity('updated', '任务状态更新:', mapped.title);
     } catch (err) {
       alert(err instanceof Error ? err.message : '状态更新失败');
     }
@@ -637,6 +680,7 @@ export default function App() {
 
         <main className="flex-1 md:pl-[280px] pb-20 md:pb-8 min-w-0 transition-all duration-200">
           <div className="max-w-7xl mx-auto">
+            <React.Suspense fallback={<ViewLoadingFallback />}>
             {activeView === 'dashboard' && (
               <DashboardView
                 user={user}
@@ -779,6 +823,7 @@ export default function App() {
                 lang={settings.language}
               />
             )}
+            </React.Suspense>
           </div>
         </main>
       </div>
