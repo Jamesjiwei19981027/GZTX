@@ -1,9 +1,12 @@
+import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timezone, timedelta
 from sqlalchemy.orm import Session
 import json
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 from app.models.reminder import Reminder
 from app.models.task import Task
 from app.models.user import User
@@ -41,7 +44,7 @@ class ReminderService:
         ).all()
 
         if pending_reminders:
-            print(f"[ReminderCheck] Found {len(pending_reminders)} pending reminders (UTC now: {now})")
+            logger.info("[ReminderCheck] Found %s pending reminders (UTC now: %s)", len(pending_reminders), now)
 
         sent_results = []
 
@@ -49,23 +52,26 @@ class ReminderService:
             # Get user and task info
             task = db.query(Task).filter(Task.id == reminder.task_id).first()
             if not task or task.is_deleted:
-                print(f"[ReminderCheck] Skipping reminder {reminder.id}: task deleted or not found")
+                logger.info("[ReminderCheck] Skipping reminder %s: task deleted or not found", reminder.id)
                 continue
 
             # 任务已完成就不该再提醒（status 2 = completed）。
             # 标记 is_sent 是为了不让它每分钟被反复扫出来。
             if task.status == 2 or task.completed_at is not None:
-                print(f"[ReminderCheck] Skipping reminder {reminder.id}: task already completed")
+                logger.info("[ReminderCheck] Skipping reminder %s: task already completed", reminder.id)
                 reminder.is_sent = True
                 db.commit()
                 continue
 
             user = db.query(User).filter(User.id == reminder.user_id).first()
             if not user:
-                print(f"[ReminderCheck] Skipping reminder {reminder.id}: user not found")
+                logger.info("[ReminderCheck] Skipping reminder %s: user not found", reminder.id)
                 continue
 
-            print(f"[ReminderCheck] Processing reminder {reminder.id} for task '{task.title}' (user {user.id}), channels: {reminder.notify_channels}")
+            logger.info(
+                "[ReminderCheck] Processing reminder %s for task '%s' (user %s), channels: %s",
+                reminder.id, task.title, user.id, reminder.notify_channels,
+            )
 
             # 根据提醒方式发送通知
             channels = reminder.notify_channels.split(",") if reminder.notify_channels else ["web_push"]
@@ -87,18 +93,18 @@ class ReminderService:
                 )
                 if success:
                     sent_channels.append(channel)
-                    print(f"[ReminderCheck] ✓ Channel '{channel}' succeeded for reminder {reminder.id}")
+                    logger.info("[ReminderCheck] Channel '%s' succeeded for reminder %s", channel, reminder.id)
                 else:
-                    print(f"[ReminderCheck] ✗ Channel '{channel}' failed for reminder {reminder.id}")
+                    logger.warning("[ReminderCheck] Channel '%s' failed for reminder %s", channel, reminder.id)
 
             # C4: 如果所有渠道都失败，尝试 fallback 到 email
             if not sent_channels and "email" not in channels:
                 fallback_success = ReminderService._send_email(user, task)
                 if fallback_success:
                     sent_channels.append("email(fallback)")
-                    print(f"[ReminderCheck] ✓ Email fallback succeeded for reminder {reminder.id}")
+                    logger.info("[ReminderCheck] Email fallback succeeded for reminder %s", reminder.id)
                 else:
-                    print(f"[ReminderCheck] ✗ All channels failed for reminder {reminder.id}, email fallback also failed")
+                    logger.error("[ReminderCheck] All channels failed for reminder %s, email fallback also failed", reminder.id)
 
             # Mark reminder as sent regardless of channel success
             reminder.is_sent = True
@@ -115,7 +121,7 @@ class ReminderService:
 
         if sent_results:
             db.commit()
-            print(f"[ReminderCheck] Committed {len(sent_results)} reminder results")
+            logger.info("[ReminderCheck] Committed %s reminder results", len(sent_results))
 
         return sent_results
 
@@ -161,8 +167,8 @@ class ReminderService:
                 return ReminderService._send_app_push(user, title, content)
             else:
                 return ReminderService._send_web_push(user, title, content, task)
-        except Exception as e:
-            print(f"Failed to send reminder via {channel}: {e}")
+        except Exception:
+            logger.exception("Failed to send reminder via %s", channel)
             return False
 
     @staticmethod
@@ -182,7 +188,7 @@ class ReminderService:
         smtp_from = config.get("smtp_from") or settings.SMTP_FROM or smtp_user
 
         if not all([smtp_host, smtp_user, smtp_password]):
-            print("[EMAIL] Not configured (neither user config nor env)")
+            logger.warning("[EMAIL] Not configured (neither user config nor env)")
             return False
 
         from app.utils.email import build_reminder_email, _send_smtp
@@ -225,12 +231,12 @@ class ReminderService:
         if not access_key_id:
             from app.core.config import settings as app_settings
             if not app_settings.ALIYUN_ACCESS_KEY_ID:
-                print("[SMS] Not configured")
+                logger.warning("[SMS] Not configured")
                 return False
 
         from app.utils.sms import send_sms_mock
         # Use mock for now; real implementation needs user.phone field
-        print(f"[SMS] Would send to user {user.id}: {title}")
+        logger.info("[SMS] Would send to user %s: %s", user.id, title)
         return False
 
     @staticmethod
@@ -261,7 +267,7 @@ class ReminderService:
         config = ReminderService._get_channel_config(user, "wechat")
         template_id = config.get("template_id", "")
         if not template_id:
-            print("[WECHAT] No template_id configured")
+            logger.warning("[WECHAT] No template_id configured")
             return False
         from app.utils.wechat import send_subscribe_message, build_reminder_template_data
         template_data = build_reminder_template_data(title, "")

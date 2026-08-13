@@ -1,11 +1,14 @@
 """JPush (极光推送) utility."""
 
 import json
+import logging
 from typing import Optional, List
 
 import requests
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class JPushClient:
@@ -40,7 +43,7 @@ class JPushClient:
             True if sent successfully
         """
         if not self.app_key or not self.master_secret:
-            print("[JPUSH] Not configured, skipping")
+            logger.warning("[JPUSH] Not configured, skipping")
             return False
 
         payload = {
@@ -76,13 +79,13 @@ class JPushClient:
             )
             result = resp.json()
             if result.get("sendno"):
-                print(f"[JPUSH] Sent to alias {alias}")
+                logger.info("[JPUSH] Sent to alias %s", alias)
                 return True
             else:
-                print(f"[JPUSH] Failed: {result}")
+                logger.error("[JPUSH] Failed: %s", result)
                 return False
-        except Exception as e:
-            print(f"[JPUSH] Error: {e}")
+        except Exception:
+            logger.exception("[JPUSH] Error")
             return False
 
     def send_to_all(self, title: str, content: str, extras: Optional[dict] = None) -> bool:
@@ -106,8 +109,8 @@ class JPushClient:
                 timeout=10
             )
             return resp.status_code == 200
-        except Exception as e:
-            print(f"[JPUSH] Error: {e}")
+        except Exception:
+            logger.exception("[JPUSH] Error")
             return False
 
 

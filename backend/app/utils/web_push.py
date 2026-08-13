@@ -1,10 +1,13 @@
 """Web Push notification utility."""
 
 import json
+import logging
 import os
 from typing import Optional
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # File-based persistent store for user subscriptions
 _SUBSCRIPTIONS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "push_subscriptions.json")
@@ -20,9 +23,12 @@ def _load_subscriptions():
                 raw = json.load(f)
                 # JSON keys are strings, convert back to int
                 _subscriptions = {int(k): v for k, v in raw.items()}
-            print(f"[WEB_PUSH] Loaded {sum(len(v) for v in _subscriptions.values())} subscriptions from disk")
-    except Exception as e:
-        print(f"[WEB_PUSH] Failed to load subscriptions: {e}")
+            logger.info(
+                "[WEB_PUSH] Loaded %s subscriptions from disk",
+                sum(len(v) for v in _subscriptions.values()),
+            )
+    except Exception:
+        logger.exception("[WEB_PUSH] Failed to load subscriptions")
         _subscriptions = {}
 
 
@@ -32,8 +38,8 @@ def _save_subscriptions():
         os.makedirs(os.path.dirname(_SUBSCRIPTIONS_FILE), exist_ok=True)
         with open(_SUBSCRIPTIONS_FILE, "w", encoding="utf-8") as f:
             json.dump({str(k): v for k, v in _subscriptions.items()}, f, ensure_ascii=False)
-    except Exception as e:
-        print(f"[WEB_PUSH] Failed to save subscriptions: {e}")
+    except Exception:
+        logger.exception("[WEB_PUSH] Failed to save subscriptions")
 
 
 # Load on module import (app startup)
@@ -56,7 +62,7 @@ def save_subscription(user_id: int, subscription: dict) -> bool:
     # Replace all subscriptions — keep only the most recent one
     _subscriptions[user_id] = [subscription]
     _save_subscriptions()
-    print(f"[WEB_PUSH] Subscription saved for user {user_id} (persisted to disk)")
+    logger.info("[WEB_PUSH] Subscription saved for user %s (persisted to disk)", user_id)
     return True
 
 
@@ -123,13 +129,13 @@ def send_web_push(user, title: str, body: str, url: Optional[str] = None, priori
     private_key, _, vapid_subject = _get_vapid_keys(user)
 
     if not private_key:
-        print("[WEB_PUSH] VAPID private key not configured, skipping")
+        logger.warning("[WEB_PUSH] VAPID private key not configured, skipping")
         return False
 
     user_id = user.id if hasattr(user, 'id') else user
     subscriptions = get_subscriptions(user_id)
     if not subscriptions:
-        print(f"[WEB_PUSH] No subscriptions for user {user_id}")
+        logger.info("[WEB_PUSH] No subscriptions for user %s", user_id)
         return False
 
     try:
@@ -153,12 +159,18 @@ def send_web_push(user, title: str, body: str, url: Optional[str] = None, priori
         success = False
         for sub in subscriptions:
             try:
-                # Debug: print subscription details
                 ep = sub.get('endpoint', 'N/A')
                 keys = sub.get('keys', {})
-                print(f"[WEB_PUSH] Endpoint: {ep[:100]}")
-                print(f"[WEB_PUSH] p256dh len: {len(keys.get('p256dh',''))}, auth len: {len(keys.get('auth',''))}")
-                print(f"[WEB_PUSH] Full sub keys: {json.dumps({k: v[:20]+'...' if isinstance(v,str) and len(v)>20 else v for k,v in sub.items()})}")
+                logger.debug("[WEB_PUSH] Endpoint: %s", ep[:100])
+                logger.debug(
+                    "[WEB_PUSH] p256dh len: %s, auth len: %s",
+                    len(keys.get('p256dh', '')),
+                    len(keys.get('auth', '')),
+                )
+                logger.debug(
+                    "[WEB_PUSH] Full sub keys: %s",
+                    json.dumps({k: v[:20] + '...' if isinstance(v, str) and len(v) > 20 else v for k, v in sub.items()}),
+                )
 
                 resp = webpush(
                     subscription_info=sub,
@@ -172,26 +184,24 @@ def send_web_push(user, title: str, body: str, url: Optional[str] = None, priori
                 )
                 success = True
                 status = resp.status_code if hasattr(resp, 'status_code') else 'ok'
-                print(f"[WEB_PUSH] Sent OK to user {user_id}, status: {status}")
+                logger.info("[WEB_PUSH] Sent OK to user %s, status: %s", user_id, status)
             except WebPushException as e:
-                print(f"[WEB_PUSH] Failed: {e}")
+                logger.error("[WEB_PUSH] Failed: %s", e)
                 if e.response is not None:
-                    print(f"[WEB_PUSH] Status: {e.response.status_code}")
-                    print(f"[WEB_PUSH] Resp headers: {dict(e.response.headers)}")
+                    logger.error("[WEB_PUSH] Status: %s", e.response.status_code)
+                    logger.error("[WEB_PUSH] Resp headers: %s", dict(e.response.headers))
                     body = e.response.text[:500] if e.response.text else 'empty'
-                    print(f"[WEB_PUSH] Resp body: {body}")
+                    logger.error("[WEB_PUSH] Resp body: %s", body)
                 if e.response and e.response.status_code in (400, 404, 410):
                     remove_subscription(user_id, sub.get("endpoint", ""))
 
         return success
 
     except ImportError:
-        print("[WEB_PUSH] pywebpush not installed, run: pip install pywebpush")
+        logger.error("[WEB_PUSH] pywebpush not installed, run: pip install pywebpush")
         return False
-    except Exception as e:
-        import traceback
-        print(f"[WEB_PUSH] Error: {type(e).__name__}: {e}")
-        traceback.print_exc()
+    except Exception:
+        logger.exception("[WEB_PUSH] Error")
         return False
 
 
@@ -207,5 +217,5 @@ def generate_vapid_keys() -> tuple[str, str]:
         vapid.generate_keys()
         return vapid.public_key, vapid.private_key
     except ImportError:
-        print("Install py_vapid: pip install py-vapid")
+        logger.error("Install py_vapid: pip install py-vapid")
         raise

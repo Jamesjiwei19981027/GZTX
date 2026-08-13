@@ -1,5 +1,6 @@
 """Email sending utility with SSL/STARTTLS support."""
 
+import logging
 import smtplib
 import hmac
 import hashlib
@@ -11,6 +12,8 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def _send_smtp(
@@ -55,11 +58,11 @@ def _send_smtp(
         server.sendmail(from_addr, [to_email], msg.as_string())
         server.quit()
 
-        print(f"[EMAIL] Sent to {to_email}: {subject}")
+        logger.info("[EMAIL] Sent to %s: %s", to_email, subject)
         return True
 
-    except Exception as e:
-        print(f"[EMAIL] Failed to send: {e}")
+    except Exception:
+        logger.exception("[EMAIL] Failed to send to %s", to_email)
         return False
 
 
@@ -131,7 +134,7 @@ def send_email(
         True if sent successfully
     """
     if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
-        print("[EMAIL] SMTP not configured, skipping email send")
+        logger.warning("[EMAIL] SMTP not configured, skipping email send")
         return False
 
     from_addr = settings.SMTP_FROM or settings.SMTP_USER

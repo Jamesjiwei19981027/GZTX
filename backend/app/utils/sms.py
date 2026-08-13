@@ -1,11 +1,14 @@
 """SMS sending utility (Aliyun)."""
 
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def send_sms_aliyun(
@@ -26,7 +29,7 @@ def send_sms_aliyun(
         True if sent successfully
     """
     if not settings.ALIYUN_ACCESS_KEY_ID or not settings.ALIYUN_ACCESS_KEY_SECRET:
-        print("[SMS] Aliyun SMS not configured, skipping")
+        logger.warning("[SMS] Aliyun SMS not configured, skipping")
         return False
 
     try:
@@ -52,21 +55,21 @@ def send_sms_aliyun(
 
         resp = client.send_sms(send_req)
         if resp.body.code == "OK":
-            print(f"[SMS] Sent to {phone_number}")
+            logger.info("[SMS] Sent to %s", phone_number)
             return True
         else:
-            print(f"[SMS] Failed: {resp.body.message}")
+            logger.error("[SMS] Failed: %s", resp.body.message)
             return False
 
     except ImportError:
-        print("[SMS] Aliyun SDK not installed, run: pip install alibabacloud_dysmsapi20170525")
+        logger.error("[SMS] Aliyun SDK not installed, run: pip install alibabacloud_dysmsapi20170525")
         return False
-    except Exception as e:
-        print(f"[SMS] Error: {e}")
+    except Exception:
+        logger.exception("[SMS] Error")
         return False
 
 
 def send_sms_mock(phone_number: str, content: str) -> bool:
     """Mock SMS sender for testing."""
-    print(f"[SMS MOCK] To: {phone_number}, Content: {content}")
+    logger.info("[SMS MOCK] To: %s, Content: %s", phone_number, content)
     return True

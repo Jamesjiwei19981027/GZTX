@@ -1,11 +1,14 @@
 """WeChat notification utility (Mini Program / Official Account)."""
 
 import json
+import logging
 from typing import Optional
 
 import requests
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 def get_access_token() -> Optional[str]:
@@ -24,8 +27,8 @@ def get_access_token() -> Optional[str]:
         resp = requests.get(url, params=params, timeout=10)
         data = resp.json()
         return data.get("access_token")
-    except Exception as e:
-        print(f"[WECHAT] Failed to get access token: {e}")
+    except Exception:
+        logger.exception("[WECHAT] Failed to get access token")
         return None
 
 
@@ -64,13 +67,13 @@ def send_subscribe_message(
         resp = requests.post(url, json=payload, timeout=10)
         result = resp.json()
         if result.get("errcode") == 0:
-            print(f"[WECHAT] Subscribe message sent to {openid}")
+            logger.info("[WECHAT] Subscribe message sent to %s", openid)
             return True
         else:
-            print(f"[WECHAT] Failed: {result}")
+            logger.error("[WECHAT] Failed: %s", result)
             return False
-    except Exception as e:
-        print(f"[WECHAT] Error: {e}")
+    except Exception:
+        logger.exception("[WECHAT] Error")
         return False
 
 
@@ -109,13 +112,13 @@ def send_template_message(
         resp = requests.post(api_url, json=payload, timeout=10)
         result = resp.json()
         if result.get("errcode") == 0:
-            print(f"[WECHAT] Template message sent to {openid}")
+            logger.info("[WECHAT] Template message sent to %s", openid)
             return True
         else:
-            print(f"[WECHAT] Failed: {result}")
+            logger.error("[WECHAT] Failed: %s", result)
             return False
-    except Exception as e:
-        print(f"[WECHAT] Error: {e}")
+    except Exception:
+        logger.exception("[WECHAT] Error")
         return False
 
 

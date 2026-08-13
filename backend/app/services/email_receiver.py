@@ -4,12 +4,15 @@ import email
 import hmac
 import hashlib
 import base64
+import logging
 import re
 import quopri
 from email.parser import Parser
 from email.header import decode_header
 from typing import List, Dict, Optional
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class EmailReceiver:
@@ -53,8 +56,8 @@ class EmailReceiver:
                 conn.store(msg_id, "+FLAGS", "\\Seen")
 
             conn.logout()
-        except Exception as e:
-            print(f"[EmailReceiver] Failed to fetch emails: {e}")
+        except Exception:
+            logger.exception("[EmailReceiver] Failed to fetch emails")
 
         return emails
 
@@ -83,8 +86,8 @@ class EmailReceiver:
                 "body": filtered_body,
                 "raw": raw_email.decode("utf-8", errors="replace")[:2000]
             }
-        except Exception as e:
-            print(f"[EmailReceiver] Failed to fetch email {msg_id}: {e}")
+        except Exception:
+            logger.exception("[EmailReceiver] Failed to fetch email %s", msg_id)
             return None
 
     def _extract_body(self, msg) -> str:
@@ -122,7 +125,7 @@ class EmailReceiver:
                 decoded = payload
             return decoded.decode(charset, errors="replace")
         except Exception as e:
-            print(f"[EmailReceiver] decode error ({encoding}/{charset}): {e}")
+            logger.error("[EmailReceiver] decode error (%s/%s): %s", encoding, charset, e)
             return payload.decode("utf-8", errors="replace")
 
     def filter_email_body(self, body: str) -> str:
@@ -174,12 +177,12 @@ class EmailReceiver:
             ).hexdigest()[:16]
 
             if not hmac.compare_digest(provided_sig, expected_sig):
-                print(f"[EmailReceiver] HMAC signature mismatch for task_id={task_id}")
+                logger.warning("[EmailReceiver] HMAC signature mismatch for task_id=%s", task_id)
                 return None
 
             return task_id
         except (ValueError, IndexError) as e:
-            print(f"[EmailReceiver] extract_task_id error: {e}")
+            logger.error("[EmailReceiver] extract_task_id error: %s", e)
             return None
 
     def generate_reply_address(self, task_id: int) -> str:
