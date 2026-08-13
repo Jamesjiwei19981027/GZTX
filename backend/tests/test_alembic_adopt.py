@@ -44,6 +44,66 @@ async def test_adopt_stamps_head_on_debug_legacy_db(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_adopt_restamps_stale_version_on_debug(monkeypatch):
+    """DEBUG=true 且 alembic_version 落后于头（create_all 已推进 schema）→ 重新 stamp"""
+    monkeypatch.setattr(settings, "DEBUG", True)
+    engine = _memory_engine()
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(
+                text(
+                    "CREATE TABLE alembic_version ("
+                    "version_num VARCHAR(32) NOT NULL, "
+                    "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+                )
+            )
+            await conn.execute(
+                text("INSERT INTO alembic_version (version_num) VALUES ('stale_head')")
+            )
+
+        assert await adopt_alembic_if_needed(engine) == "restamped"
+
+        async with engine.connect() as conn:
+            version = (
+                await conn.execute(text("SELECT version_num FROM alembic_version"))
+            ).scalar_one()
+        assert version == get_alembic_head()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_adopt_stale_version_untouched_in_production(monkeypatch):
+    """DEBUG=false 且版本落后：只给指引，不改 alembic_version"""
+    monkeypatch.setattr(settings, "DEBUG", False)
+    engine = _memory_engine()
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(
+                text(
+                    "CREATE TABLE alembic_version ("
+                    "version_num VARCHAR(32) NOT NULL, "
+                    "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+                )
+            )
+            await conn.execute(
+                text("INSERT INTO alembic_version (version_num) VALUES ('stale_head')")
+            )
+
+        assert await adopt_alembic_if_needed(engine) == "version_behind_production"
+
+        async with engine.connect() as conn:
+            version = (
+                await conn.execute(text("SELECT version_num FROM alembic_version"))
+            ).scalar_one()
+        assert version == "stale_head"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
 async def test_adopt_skips_empty_database(monkeypatch):
     """全新空库：不 stamp（交给 create_all 或 CI 的 alembic upgrade head）"""
     monkeypatch.setattr(settings, "DEBUG", True)
