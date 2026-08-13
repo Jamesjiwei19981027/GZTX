@@ -1,4 +1,19 @@
-import { apiRequest } from './client'
+import { apiRequest, getApiBase, getToken } from './client'
+
+/** 下载当前用户任务的 iCalendar 文件（.ics，可导入系统日历） */
+export async function downloadTasksIcs(): Promise<void> {
+  const res = await fetch(`${getApiBase()}/tasks/export.ics`, {
+    headers: { Authorization: `Bearer ${getToken() || ''}` },
+  })
+  if (!res.ok) throw new Error(`导出失败（HTTP ${res.status}）`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = 'worktodo.ics'
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 /** 后端任务：status 0待办 1进行中 2完成；priority 0低 1中 2高 */
 export type BackendTask = {

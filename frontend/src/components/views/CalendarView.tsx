@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { Language, Task } from '../../types'
 import { getT } from '../../i18n'
+import { downloadTasksIcs } from '../../api/backend'
 import {
   formatDateLocal,
   isSameDay,
@@ -131,6 +132,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             </button>
           </div>
         </div>
+        <div className="flex items-center gap-2">
+        <button
+          onClick={() => {
+            void downloadTasksIcs().catch((e) =>
+              alert(e instanceof Error ? e.message : lang === 'zh' ? '导出失败' : 'Export failed'),
+            )
+          }}
+          title={lang === 'zh' ? '导出 .ics（导入系统日历）' : 'Export .ics'}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant bg-surface-container dark:bg-[#191c1d] text-xs font-bold text-on-surface-variant hover:text-on-surface transition-colors"
+        >
+          <span className="material-symbols-outlined text-sm">download</span>
+          <span className="hidden md:inline">{lang === 'zh' ? '导出日历' : 'Export'}</span>
+        </button>
         <div className="flex bg-surface-container dark:bg-[#191c1d] p-1 rounded-xl border border-outline-variant shadow-xs">
           {(['month', 'week', 'day'] as const).map((mode) => (
             <button
@@ -145,6 +159,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               {mode === 'month' ? t.month : mode === 'week' ? t.week : t.day}
             </button>
           ))}
+        </div>
         </div>
       </div>
 
