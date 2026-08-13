@@ -67,7 +67,8 @@ jobs:
         run: npm ci
 
       - name: Typecheck
-        run: npm run typecheck
+        # package.json 里类型检查脚本是 lint（tsc --noEmit），没有 typecheck
+        run: npm run lint
 
       - name: Unit tests
         run: npm test

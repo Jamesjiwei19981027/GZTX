@@ -1,14 +1,24 @@
-name: E2E (manual)
+name: E2E
 
-# Playwright 冒烟需要真实起后端 + 前端并有一个可登录账号，跑一次几分钟，
-# 因此不挂在每次 push 上，改为手动触发 / 每日定时。
+# Playwright 冒烟需要真实起后端 + 前端并有一个可登录账号，跑一次几分钟。
+# PR 门禁：前后端代码变更的 PR 必须过 E2E（路径过滤，纯文档/小程序/APP 变更不触发）；
+# 另保留手动触发 / 每日定时兜底。
 # 发布前必须在目标 SHA 上跑一次并留存报告——门禁文档里记录的"全绿"只对
 # 当时那个 SHA 有效，不能拿旧结论给新提交背书。
 
 on:
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'frontend/**'
+      - '.github/workflows/e2e.yml'
   workflow_dispatch:
   schedule:
     - cron: '0 18 * * *' # 每日 02:00 (UTC+8)
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
