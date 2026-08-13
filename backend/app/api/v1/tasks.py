@@ -328,6 +328,74 @@ async def get_tasks(
     )
 
 
+def _ics_escape(text: str) -> str:
+    """RFC 5545 文本转义：反斜杠、分号、逗号、换行"""
+    return (
+        text.replace("\\", "\\\\")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+        .replace("\r\n", "\\n")
+        .replace("\n", "\\n")
+    )
+
+
+@router.get("/export.ics")
+async def export_tasks_ics(
+    db: DbSession,
+    user: CurrentUser,
+    include_completed: bool = False,
+):
+    """导出当前用户有截止时间的任务为 iCalendar（.ics），可导入系统日历。
+
+    截止时间为当天 00:00:00 的任务按全天事件导出，其余按具体时刻导出。
+    """
+    from fastapi.responses import Response
+
+    query = select(Task).where(
+        Task.user_id == user.id,
+        Task.is_deleted == False,
+        Task.due_date.isnot(None),
+    )
+    if not include_completed:
+        query = query.where(Task.status != 2)
+    query = query.order_by(Task.due_date.asc()).limit(1000)
+    tasks = (await db.execute(query)).scalars().all()
+
+    now_utc = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    lines = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//WorkTodo//Task Export//CN",
+        "CALSCALE:GREGORIAN",
+        "METHOD:PUBLISH",
+        "X-WR-CALNAME:WorkTodo",
+    ]
+    for t in tasks:
+        due = t.due_date
+        lines.append("BEGIN:VEVENT")
+        lines.append(f"UID:task-{t.id}@worktodo")
+        lines.append(f"DTSTAMP:{now_utc}")
+        if due.hour == 0 and due.minute == 0 and due.second == 0:
+            lines.append(f"DTSTART;VALUE=DATE:{due.strftime('%Y%m%d')}")
+        else:
+            dt = due if due.tzinfo else due.replace(tzinfo=timezone.utc)
+            lines.append(
+                f"DTSTART:{dt.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}"
+            )
+        lines.append(f"SUMMARY:{_ics_escape(t.title or '')}")
+        if t.description:
+            lines.append(f"DESCRIPTION:{_ics_escape(t.description)}")
+        lines.append(f"STATUS:{'COMPLETED' if t.status == 2 else 'CONFIRMED'}")
+        lines.append("END:VEVENT")
+    lines.append("END:VCALENDAR")
+
+    return Response(
+        content="\r\n".join(lines) + "\r\n",
+        media_type="text/calendar; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="worktodo.ics"'},
+    )
+
+
 @router.get("/today", response_model=ResponseData)
 async def get_today_tasks(
     db: DbSession,
