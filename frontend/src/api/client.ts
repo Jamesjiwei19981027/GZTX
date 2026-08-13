@@ -20,6 +20,10 @@ export function setToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY)
 }
 
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_KEY)
+}
+
 export function setRefreshToken(token: string | null) {
   if (token) localStorage.setItem(REFRESH_KEY, token)
   else localStorage.removeItem(REFRESH_KEY)
@@ -54,6 +58,36 @@ function extractErrorMessage(body: ApiBody<unknown> | null, status: number): str
   return `HTTP ${status}`
 }
 
+// 单飞刷新：并发多个 401 只发一次 /auth/refresh，其余请求等同一个 Promise
+let refreshPromise: Promise<boolean> | null = null
+
+async function tryRefreshToken(): Promise<boolean> {
+  const refresh = getRefreshToken()
+  if (!refresh) return false
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const res = await fetch(`${getApiBase()}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refresh_token: refresh }),
+        })
+        if (!res.ok) return false
+        const body = (await res.json()) as ApiBody<{ access_token?: string }>
+        const accessToken = body?.data?.access_token
+        if (!accessToken) return false
+        setToken(accessToken)
+        return true
+      } catch {
+        return false
+      } finally {
+        refreshPromise = null
+      }
+    })()
+  }
+  return refreshPromise
+}
+
 export async function apiRequest<T>(
   path: string,
   init: RequestInit = {},
@@ -69,7 +103,18 @@ export async function apiRequest<T>(
   const token = getToken()
   if (token) headers.set('Authorization', `Bearer ${token}`)
 
-  const res = await fetch(`${getApiBase()}${path}`, { ...init, headers })
+  let res = await fetch(`${getApiBase()}${path}`, { ...init, headers })
+
+  // access_token 过期（15 分钟）时用 refresh_token 无感续期并重试一次。
+  // /auth/ 下的接口（登录/注册/刷新本身）不参与，避免死循环。
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    const refreshed = await tryRefreshToken()
+    if (refreshed) {
+      headers.set('Authorization', `Bearer ${getToken()}`)
+      res = await fetch(`${getApiBase()}${path}`, { ...init, headers })
+    }
+  }
+
   let body: ApiBody<T> | null = null
   try {
     body = (await res.json()) as ApiBody<T>
@@ -79,6 +124,7 @@ export async function apiRequest<T>(
 
   if (res.status === 401) {
     setToken(null)
+    setRefreshToken(null)
     throw new ApiError(401, extractErrorMessage(body, 401) || '未登录或登录已过期')
   }
   // ResponseData 成功：HTTP 2xx 且 code===200（注册可能是 201）
