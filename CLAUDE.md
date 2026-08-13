@@ -62,7 +62,7 @@
 |------|------|
 | 后端 | `cd backend && pip install -r requirements-dev.txt && pytest -q` |
 | 前端单测 | `cd frontend && npm test` |
-| 前端类型 | `cd frontend && npm run typecheck` |
+| 前端类型 | `cd frontend && npm run lint`（即 `tsc --noEmit`） |
 | APP | `cd app && flutter analyze && flutter test` |
 | E2E | `cd frontend && npm run test:e2e`（需先起后端+前端并配 `E2E_USER`/`E2E_PASSWORD`） |
 
