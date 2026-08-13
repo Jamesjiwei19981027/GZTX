@@ -3,7 +3,51 @@
  */
 const app = getApp()
 
-function request(options) {
+// 单飞刷新：并发多个 401 只发一次 /auth/refresh
+let refreshPromise = null
+
+function tryRefreshToken() {
+  const refreshToken = wx.getStorageSync('refresh_token')
+  if (!refreshToken) return Promise.resolve(false)
+  if (!refreshPromise) {
+    refreshPromise = new Promise((resolve) => {
+      wx.request({
+        url: app.globalData.baseUrl + '/auth/refresh',
+        method: 'POST',
+        data: { refresh_token: refreshToken },
+        header: { 'Content-Type': 'application/json' },
+        success(res) {
+          const accessToken =
+            res.statusCode >= 200 && res.statusCode < 300 &&
+            res.data && res.data.data && res.data.data.access_token
+          if (accessToken) {
+            app.globalData.token = accessToken
+            wx.setStorageSync('access_token', accessToken)
+            resolve(true)
+          } else {
+            resolve(false)
+          }
+        },
+        fail() {
+          resolve(false)
+        },
+        complete() {
+          refreshPromise = null
+        }
+      })
+    })
+  }
+  return refreshPromise
+}
+
+function clearAuthAndRedirect() {
+  wx.removeStorageSync('access_token')
+  wx.removeStorageSync('refresh_token')
+  app.globalData.token = ''
+  wx.redirectTo({ url: '/pages/login/login' })
+}
+
+function request(options, isRetry) {
   return new Promise((resolve, reject) => {
     wx.request({
       url: app.globalData.baseUrl + options.url,
@@ -19,12 +63,22 @@ function request(options) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data)
         } else if (res.statusCode === 401) {
-          // 401 与 Web 端口径一致：清 token、回登录页（后端 access_token 15 分钟过期）
-          wx.removeStorageSync('access_token')
-          wx.removeStorageSync('refresh_token')
-          app.globalData.token = ''
-          wx.redirectTo({ url: '/pages/login/login' })
-          reject(new Error('未登录'))
+          // access_token 15 分钟过期：先用 refresh_token 无感续期并重试一次；
+          // 刷新失败（或重试仍 401）才清 token、回登录页，与 Web 端口径一致。
+          const isAuthPath = (options.url || '').indexOf('/auth/') === 0
+          if (isRetry || isAuthPath) {
+            clearAuthAndRedirect()
+            reject(new Error('未登录'))
+            return
+          }
+          tryRefreshToken().then((ok) => {
+            if (ok) {
+              request(options, true).then(resolve, reject)
+            } else {
+              clearAuthAndRedirect()
+              reject(new Error('未登录'))
+            }
+          })
         } else {
           // 后端错误信封有两种形状：{detail:{message}} 与 {message}
           const body = res.data || {}
