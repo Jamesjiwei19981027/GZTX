@@ -96,6 +96,11 @@ class RefreshToken(BaseModel):
     refresh_token: str
 
 
+class LogoutRequest(BaseModel):
+    """登出请求（可选携带 refresh_token 以撤销服务端会话）"""
+    refresh_token: Optional[str] = None
+
+
 # ===== 响应模型 =====
 
 class UserBasic(BaseModel):

@@ -34,6 +34,7 @@ from app.models.delegation import DelegationGrant
 from app.models.report import ReportPolicy, ReportRun
 from app.models.verification import VerificationCode
 from app.models.rate_limit import RateLimitCounter
+from app.models.revoked_token import RevokedRefreshToken
 from app.models.shell import (
     TeamChannel,
     TeamChannelMessage,
@@ -48,6 +49,7 @@ __all__ = [
     "User",
     "VerificationCode",
     "RateLimitCounter",
+    "RevokedRefreshToken",
     "Category",
     "Tag",
     "task_tags",

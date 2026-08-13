@@ -1,6 +1,7 @@
 """
 安全模块 - JWT Token 生成与验证、密码哈希
 """
+import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -52,6 +53,8 @@ def create_refresh_token(data: dict) -> str:
     to_encode.update({
         "exp": expire,
         "type": "refresh",
+        # 唯一标识：支持轮换时按 jti 撤销旧 token（见 /auth/refresh）
+        "jti": uuid.uuid4().hex,
     })
     return pyjwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
 

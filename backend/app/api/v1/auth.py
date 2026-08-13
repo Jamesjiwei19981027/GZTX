@@ -19,6 +19,7 @@ from app.schemas.user import (
     UserLogin,
     WxLogin,
     RefreshToken,
+    LogoutRequest,
     TokenResponse,
     UserBasic,
 )
@@ -393,9 +394,59 @@ async def wx_login(data: WxLogin, db: DbSession):
     )
 
 
+# 轮换宽限期（秒）：旧 jti 撤销后的这段时间内允许重放，
+# 避免多端并发刷新 / 响应丢失时把用户误踢下线。
+REFRESH_GRACE_SECONDS = 60
+
+
+def _as_utc(dt):
+    """SQLite 存回来的 DateTime 是 naive（按 UTC 写入），PG 是 aware；统一成 aware UTC 再比较。"""
+    from datetime import timezone
+
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _refresh_token_expiry(payload: dict):
+    """从 JWT exp 取撤销记录的保留期限；异常兜底为配置的 refresh 有效期。"""
+    from datetime import datetime, timedelta, timezone
+
+    from app.core.config import settings
+
+    exp = payload.get("exp")
+    if exp:
+        return datetime.fromtimestamp(exp, tz=timezone.utc)
+    return datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+
+
+async def _purge_expired_revocations(db, now) -> None:
+    """顺手清理已过期的撤销记录（token 本身过期后记录就没意义了）。"""
+    from sqlalchemy import delete
+
+    from app.models.revoked_token import RevokedRefreshToken
+
+    await db.execute(
+        delete(RevokedRefreshToken).where(RevokedRefreshToken.expires_at < now)
+    )
+
+
 @router.post("/refresh", response_model=ResponseData)
-async def refresh_token(data: RefreshToken):
-    """刷新 Token"""
+async def refresh_token(data: RefreshToken, db: DbSession):
+    """刷新 Token（轮换）：撤销旧 refresh token，同时签发新 access + refresh。
+
+    - 带 jti 的 token：已被 logout 撤销 → 401；已被轮换撤销且超过 60 秒宽限期 → 401；
+      宽限期内重放 → 放行并再发一套新令牌（多端/并发竞态保护）。
+    - 无 jti 的存量 token（老客户端）：过渡期直接放行，但新发的 token 一律带 jti。
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+    from sqlalchemy.exc import IntegrityError
+
+    from app.core.config import settings
+    from app.models.revoked_token import RevokedRefreshToken
+
     payload = decode_token(data.refresh_token)
 
     if payload is None or payload.get("type") != "refresh":
@@ -411,17 +462,93 @@ async def refresh_token(data: RefreshToken):
             detail="Token无效",
         )
 
+    now = datetime.now(timezone.utc)
+    await _purge_expired_revocations(db, now)
+
+    jti = payload.get("jti")
+    if jti:
+        row = (
+            await db.execute(
+                select(RevokedRefreshToken).where(RevokedRefreshToken.jti == jti)
+            )
+        ).scalar_one_or_none()
+        if row is not None:
+            in_grace = (
+                row.reason == "rotated"
+                and (now - _as_utc(row.revoked_at)).total_seconds() <= REFRESH_GRACE_SECONDS
+            )
+            if not in_grace:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token已失效，请重新登录",
+                )
+        else:
+            db.add(
+                RevokedRefreshToken(
+                    jti=jti,
+                    user_id=int(user_id),
+                    reason="rotated",
+                    revoked_at=now,
+                    expires_at=_refresh_token_expiry(payload),
+                )
+            )
+            try:
+                await db.flush()
+            except IntegrityError:
+                # 并发请求刚撤销了同一 jti：等同宽限期内重放，放行
+                await db.rollback()
+
     access_token = create_access_token(data={"sub": user_id})
+    new_refresh_token = create_refresh_token(data={"sub": user_id})
 
     return ResponseData(
         data={
             "access_token": access_token,
-            "expires_in": 900,
+            "refresh_token": new_refresh_token,
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         }
     )
 
 
 @router.post("/logout", response_model=ResponseData)
-async def logout():
-    """登出（客户端删除 Token 即可）"""
+async def logout(db: DbSession, data: LogoutRequest | None = None):
+    """登出。可选携带 {refresh_token}：撤销其 jti（立即失效，无宽限期）；
+    不携带则保持客户端删除 Token 的旧语义。"""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.models.revoked_token import RevokedRefreshToken
+
+    token = (data.refresh_token if data else None) or ""
+    if token:
+        payload = decode_token(token)
+        if (
+            payload is not None
+            and payload.get("type") == "refresh"
+            and payload.get("jti")
+            and payload.get("sub") is not None
+        ):
+            now = datetime.now(timezone.utc)
+            jti = payload["jti"]
+            row = (
+                await db.execute(
+                    select(RevokedRefreshToken).where(RevokedRefreshToken.jti == jti)
+                )
+            ).scalar_one_or_none()
+            if row is not None:
+                # 已因轮换被撤销：升级为 logout，取消宽限期
+                row.reason = "logout"
+                row.revoked_at = now
+            else:
+                db.add(
+                    RevokedRefreshToken(
+                        jti=jti,
+                        user_id=int(payload["sub"]),
+                        reason="logout",
+                        revoked_at=now,
+                        expires_at=_refresh_token_expiry(payload),
+                    )
+                )
+            await db.flush()
     return ResponseData(message="登出成功")
