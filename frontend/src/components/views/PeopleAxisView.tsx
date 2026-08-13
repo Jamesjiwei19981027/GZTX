@@ -18,6 +18,7 @@ import { fetchMe } from '../../api/auth';
 import { averagePeopleAxisProgress } from './peopleAxisUtils';
 import { PeopleAxisFlowCanvas, AxisFlowNode, PersonNodeData, SpineEdgeData } from './PeopleAxisFlowCanvas';
 import { computeAxisLayout, collectHiddenNodeIds } from './peopleAxisFlowLayout';
+import { DelegationModal } from '../modals/DelegationModal';
 
 const TERMINUS_NODE_ID = '__terminus__';
 
@@ -132,6 +133,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   // 普通成员仅能编辑自己作为 primary/collaborator 责任人的节点及其子树。
   const [meId, setMeId] = useState<number | null>(null);
   const [pmUserId, setPmUserId] = useState<number | null>(null);
+  const [projectCompanyId, setProjectCompanyId] = useState<number | null>(null);
+  const [isDelegationOpen, setIsDelegationOpen] = useState(false);
   // 服务端权限快照：覆盖客户端推断不出的委托授权 / 非成员超管；
   // 请求失败或未返回时保持 null，下方 memo 回退客户端推断（不阻塞渲染）
   const [serverPerms, setServerPerms] = useState<MyProjectPermissions | null>(null);
@@ -356,6 +359,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         if (cancelled) return;
         setAlongDelta(proj.final_owner_along_delta || 0);
         setPmUserId(proj.pm_user_id ?? null);
+        setProjectCompanyId(proj.company_id ?? null);
         apply(withEvidence);
         if (!withEvidence.length) {
           setBackendLoadError(
@@ -397,6 +401,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       );
       const withEvidence = await enrichMattersWithEvidence(mapped);
       setPmUserId(proj.pm_user_id ?? null);
+      setProjectCompanyId(proj.company_id ?? null);
       setNodes(withEvidence);
       setExpandedNodes((prev) => {
         const next = { ...prev };
@@ -1310,8 +1315,33 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
             <span className="material-symbols-outlined text-base">person_add</span>
             <span>{lang === 'zh' ? '挂载新责任人' : 'Add Person'}</span>
           </button>
+
+          {/* 委托授权：仅 PM / 超管可创建（与后端 _can_grant 口径一致，委托授权用户不可再转授） */}
+          {isBackendProject &&
+            projectCompanyId != null &&
+            (serverPerms ? serverPerms.is_pm || serverPerms.is_superadmin : meId != null && pmUserId === meId) && (
+              <button
+                onClick={() => setIsDelegationOpen(true)}
+                className="px-3.5 py-2 rounded-2xl bg-surface-container border border-outline-variant/40 hover:border-primary/40 text-on-surface text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+                title={lang === 'zh' ? '创建/管理委托授权' : 'Manage delegations'}
+              >
+                <span className="material-symbols-outlined text-sm">key</span>
+                <span>{lang === 'zh' ? '委托授权' : 'Delegate'}</span>
+              </button>
+            )}
         </div>
       </div>
+
+      {isBackendProject && projectCompanyId != null && (
+        <DelegationModal
+          isOpen={isDelegationOpen}
+          onClose={() => setIsDelegationOpen(false)}
+          lang={lang}
+          companyId={projectCompanyId}
+          projectId={backendProjectId}
+          members={memberOptions}
+        />
+      )}
 
       {/* METRO SUBWAY TRUNK PROGRESS BANNER (desktop only) */}
       <div className="hidden md:flex bg-gradient-to-r from-surface-container via-surface to-surface-container border border-outline-variant/40 rounded-3xl p-5 shadow-lg flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
