@@ -149,12 +149,23 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           onClick={() => {
             void getCalendarFeedUrl()
               .then(async (url) => {
-                await navigator.clipboard.writeText(url)
-                alert(
-                  lang === 'zh'
-                    ? '订阅地址已复制。在系统日历「按 URL 订阅」粘贴即可持续同步任务。'
-                    : 'Subscription URL copied. Paste it into your calendar app ("subscribe by URL").',
-                )
+                // navigator.clipboard 仅安全上下文（HTTPS / localhost）可用；
+                // 局域网 http 访问时降级为弹窗展示，让用户手动复制
+                if (navigator.clipboard?.writeText) {
+                  await navigator.clipboard.writeText(url)
+                  alert(
+                    lang === 'zh'
+                      ? '订阅地址已复制。在系统日历「按 URL 订阅」粘贴即可持续同步任务。'
+                      : 'Subscription URL copied. Paste it into your calendar app ("subscribe by URL").',
+                  )
+                } else {
+                  window.prompt(
+                    lang === 'zh'
+                      ? '请手动复制订阅地址（在系统日历「按 URL 订阅」粘贴）：'
+                      : 'Copy this subscription URL (paste into "subscribe by URL"):',
+                    url,
+                  )
+                }
               })
               .catch((e) =>
                 alert(e instanceof Error ? e.message : lang === 'zh' ? '获取订阅地址失败' : 'Failed'),
