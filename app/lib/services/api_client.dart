@@ -126,7 +126,14 @@ class ApiClient {
       final data = _decode(res);
       final access = data is JsonMap ? data['access_token'] as String? : null;
       if (access == null || access.isEmpty) return false;
-      await tokens.save(prefs, access: access);
+      // 轮换式刷新：服务端每次刷新都会撤销旧 refresh_token 并下发新的，
+      // 不存新 token 的话 60 秒宽限期一过，下次刷新必 401 被踢回登录
+      final rotated = data is JsonMap ? data['refresh_token'] as String? : null;
+      await tokens.save(
+        prefs,
+        access: access,
+        refresh: (rotated != null && rotated.isNotEmpty) ? rotated : null,
+      );
       return true;
     } on ApiException catch (e) {
       if (e.statusCode == 401 || e.statusCode == 403) {

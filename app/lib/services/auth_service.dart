@@ -113,7 +113,18 @@ class AuthService {
     return data;
   }
 
-  Future<void> logout() => _api.clearTokens();
+  Future<void> logout() async {
+    // 先通知服务端撤销 refresh_token（旧后端忽略该字段；失败不阻断本地登出）
+    final refresh = _api.tokens.refreshToken;
+    if (refresh != null && refresh.isNotEmpty) {
+      try {
+        await _api.post('/auth/logout', body: {'refresh_token': refresh});
+      } catch (_) {
+        // 网络异常等：本地照常清凭证
+      }
+    }
+    await _api.clearTokens();
+  }
 
   Future<AppUser> _persistAuth(JsonMap data) async {
     final access = data['access_token'] as String;
