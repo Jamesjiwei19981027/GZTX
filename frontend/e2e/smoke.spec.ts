@@ -182,6 +182,15 @@ test('S6 完成任务：勾选后状态局部更新为已完成', async ({ page,
   expect(res.ok()).toBeTruthy()
   const body = await res.json()
   expect(body.data.status).toBe(2)
+
+  // 取消完成：局部替换后标题等字段不能丢（回归：uncomplete 曾只返回部分载荷）
+  await row.getByTestId('task-toggle').click()
+  await expect(row.getByText(title)).toBeVisible()
+  await expect(row.getByText(title)).not.toHaveClass(/line-through/)
+  const res2 = await request.get(`/api/v1/tasks/${created.id}`, {
+    headers: { Authorization: `Bearer ${tokens.access_token}` },
+  })
+  expect((await res2.json()).data.status).toBe(0)
 })
 
 test('S7 401 续期：access_token 失效后 API 操作无感恢复', async ({ page, request }) => {

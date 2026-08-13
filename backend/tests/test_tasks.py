@@ -325,6 +325,42 @@ async def test_complete_task(client: AsyncClient, auth_headers, test_user, db_se
 
 
 @pytest.mark.asyncio
+async def test_uncomplete_task_returns_full_task(
+    client: AsyncClient, auth_headers, test_user, db_session
+):
+    """uncomplete 必须返回完整序列化任务：前端拿返回体做单条本地替换，
+    部分载荷会把 title / due_date 等字段抹掉（回归保护）"""
+    from datetime import datetime
+
+    category = await _make_category(db_session, test_user.id)
+    task = Task(
+        user_id=test_user.id,
+        category_id=category.id,
+        title="已完成待恢复",
+        description="恢复后字段不能丢",
+        priority=2,
+        status=Task.STATUS_DONE,
+        completed_at=datetime.utcnow(),
+    )
+    db_session.add(task)
+    await db_session.commit()
+    await db_session.refresh(task)
+
+    response = await client.patch(
+        f"/api/v1/tasks/{task.id}/uncomplete",
+        headers=auth_headers,
+        json={},
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["status"] == 0
+    assert data["completed_at"] is None
+    assert data["title"] == "已完成待恢复"
+    assert data["description"] == "恢复后字段不能丢"
+    assert data["category"]["id"] == category.id
+
+
+@pytest.mark.asyncio
 async def test_delete_task(client: AsyncClient, auth_headers, test_user, db_session):
     category = await _make_category(db_session, test_user.id)
     task = Task(

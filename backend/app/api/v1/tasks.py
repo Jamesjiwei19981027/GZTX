@@ -1074,9 +1074,13 @@ async def uncomplete_task(task_id: int, db: DbSession, user: CurrentUser):
     task.status = Task.STATUS_TODO
     task.completed_at = None
 
-    return ResponseData(
-        data={"id": task.id, "status": task.status, "completed_at": None}
-    )
+    # 与 complete / update 一致返回完整任务：前端做单条本地替换，
+    # 部分载荷会把 title / due_date 等字段抹掉
+    await db.flush()
+    await db.refresh(task)
+    await db.refresh(task, ["category", "tags", "reminders", "assignees"])
+
+    return ResponseData(data=_serialize_task(task))
 
 
 @router.delete("/{task_id}", response_model=ResponseData)
