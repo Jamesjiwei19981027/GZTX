@@ -148,6 +148,33 @@ Page({
       });
   },
 
+  /** API origin（scheme://host[:port]）：订阅 url 自带 /api/v1 前缀，只能拼 origin，不能拼完整 baseUrl */
+  resolveApiOrigin() {
+    const match = /^(https?:\/\/[^/]+)/.exec(app.globalData.baseUrl || '');
+    return match ? match[1] : '';
+  },
+
+  copyCalendarFeed() {
+    request.get('/tasks/calendar-feed-url')
+      .then((res) => {
+        const url = (res.data && res.data.url) || '';
+        if (!url) {
+          wx.showToast({ title: '未获取到订阅地址', icon: 'none' });
+          return;
+        }
+        const full = /^https?:\/\//.test(url) ? url : this.resolveApiOrigin() + url;
+        wx.setClipboardData({
+          data: full,
+          success: () => {
+            wx.showToast({ title: '已复制，在系统日历按 URL 订阅', icon: 'none' });
+          }
+        });
+      })
+      .catch((err) => {
+        wx.showToast({ title: (err && err.message) || '获取订阅地址失败', icon: 'none' });
+      });
+  },
+
   /** Web 端地址：优先取 globalData.webUrl，否则用 baseUrl 的域名部分 */
   resolveWebUrl() {
     if (app.globalData.webUrl) return app.globalData.webUrl;

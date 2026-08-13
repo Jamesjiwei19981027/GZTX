@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../config/api_config.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 import '../widgets/common.dart';
@@ -225,6 +227,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> _copyCalendarFeed() async {
+    final api = context.read<AppState>().api;
+    setState(() => _busy = true);
+    try {
+      final data = await api.get('/tasks/calendar-feed-url');
+      final raw = data is Map ? '${data['url'] ?? ''}' : '';
+      if (raw.isEmpty) {
+        throw ApiException('未获取到订阅地址');
+      }
+      // 后端返回带 /api/v1 前缀的相对路径，这里只取 baseUrl 的
+      // origin（scheme://host:port）拼接，避免 /api/v1 出现两次。
+      final full = raw.startsWith('http')
+          ? raw
+          : Uri.parse(ApiConfig.baseUrl).origin + raw;
+      await Clipboard.setData(ClipboardData(text: full));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('订阅地址已复制，在系统日历按 URL 订阅')),
+        );
+      }
+    } catch (e) {
+      if (mounted) showApiError(context, e);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _changePassword() async {
     final oldCtrl = TextEditingController();
     final newCtrl = TextEditingController();
@@ -360,6 +389,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           title: const Text('公司设置'),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () => Navigator.of(context).pushNamed('/company'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SectionHeader('日历与提醒'),
+                  Card(
+                    child: Column(
+                      children: [
+                        ListTile(
+                          leading: const Icon(Icons.calendar_month),
+                          title: const Text('日历订阅'),
+                          subtitle: const Text('复制订阅地址，在系统日历按 URL 订阅'),
+                          trailing: const Icon(Icons.copy),
+                          onTap: _copyCalendarFeed,
+                        ),
+                        const ListTile(
+                          leading: Icon(Icons.mark_email_read_outlined),
+                          title: Text('邮件快捷完成'),
+                          subtitle:
+                              Text('收到提醒邮件后直接回复 done 或完成，即可完成对应任务'),
                         ),
                       ],
                     ),

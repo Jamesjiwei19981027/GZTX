@@ -23,6 +23,16 @@
   </view>
 
   <view class="settings-section">
+    <view class="section-title">日历与提醒</view>
+    <view class="setting-item">
+      <text class="setting-label">日历订阅</text>
+      <text class="setting-value" bindtap="copyCalendarFeed">复制订阅地址 ›</text>
+    </view>
+    <view class="collab-tip">复制后在系统日历「按 URL 订阅」粘贴，任务日程将持续同步。</view>
+    <view class="collab-tip">收到提醒邮件后直接回复 done 或完成，即可完成对应任务。</view>
+  </view>
+
+  <view class="settings-section">
     <view class="section-title">账号验证</view>
 
     <view class="setting-item">
