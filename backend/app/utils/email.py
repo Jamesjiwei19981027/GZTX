@@ -268,7 +268,8 @@ def build_reminder_email(
 
     <!-- Reply instructions -->
     <div style="background-color:#f0f4ff;border-radius:8px;padding:12px 16px;margin:16px 0;font-size:13px;color:#4a5568;">
-      💡 直接回复此邮件可操作任务（支持：<b>完成</b> / <b>取消</b> / <b>回复 xxx</b> / <b>提醒 时间</b>）
+      ✅ 回复 <b>done</b>（或 <b>完成</b>）即可完成该任务，无需打开应用。<br>
+      💡 也支持：<b>取消</b> / <b>回复 xxx</b>（记备注）/ <b>提醒 时间</b>
     </div>
   </div>
 

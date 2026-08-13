@@ -199,7 +199,7 @@ class ReminderService:
         text_body = (
             f"任务提醒：{task.title}\n"
             f"截止时间：{task.due_date}\n"
-            f"直接回复此邮件可操作任务（完成/取消/回复/提醒）"
+            f"回复 done（或“完成”）即可完成该任务；也支持 取消/回复 xxx/提醒 时间"
         )
 
         return _send_smtp(
