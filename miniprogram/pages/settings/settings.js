@@ -175,6 +175,11 @@ Page({
       content: '确定要退出登录吗？',
       success: (res) => {
         if (res.confirm) {
+          // 先通知服务端撤销 refresh_token（失败不阻断本地登出）
+          const refreshToken = wx.getStorageSync('refresh_token');
+          if (refreshToken) {
+            request.post('/auth/logout', { refresh_token: refreshToken }).catch(() => {});
+          }
           // 存储键与 app.js / request.js 保持一致（access_token / refresh_token）
           wx.removeStorageSync('access_token');
           wx.removeStorageSync('refresh_token');

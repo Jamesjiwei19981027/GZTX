@@ -1,4 +1,4 @@
-import { apiRequest, setRefreshToken, setToken } from './client'
+import { apiRequest, getRefreshToken, setRefreshToken, setToken } from './client'
 
 export type BackendUser = {
   id: number
@@ -168,7 +168,12 @@ export async function changePassword(oldPassword: string, newPassword: string) {
 
 export async function logout() {
   try {
-    await apiRequest('/auth/logout', { method: 'POST', body: '{}' })
+    // 携带 refresh_token 让服务端撤销其 jti（旧后端忽略该字段，向后兼容）
+    const refresh = getRefreshToken()
+    await apiRequest('/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify(refresh ? { refresh_token: refresh } : {}),
+    })
   } catch {
     /* ignore */
   }

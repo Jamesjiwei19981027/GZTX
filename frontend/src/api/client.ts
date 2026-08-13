@@ -73,10 +73,15 @@ async function tryRefreshToken(): Promise<boolean> {
           body: JSON.stringify({ refresh_token: refresh }),
         })
         if (!res.ok) return false
-        const body = (await res.json()) as ApiBody<{ access_token?: string }>
+        const body = (await res.json()) as ApiBody<{
+          access_token?: string
+          refresh_token?: string
+        }>
         const accessToken = body?.data?.access_token
         if (!accessToken) return false
         setToken(accessToken)
+        // 轮换式刷新：后端若下发新 refresh_token 则同步存储（字段不存在时行为不变）
+        if (body?.data?.refresh_token) setRefreshToken(body.data.refresh_token)
         return true
       } catch {
         return false

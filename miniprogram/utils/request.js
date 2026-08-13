@@ -23,6 +23,9 @@ function tryRefreshToken() {
           if (accessToken) {
             app.globalData.token = accessToken
             wx.setStorageSync('access_token', accessToken)
+            // 轮换式刷新：后端若下发新 refresh_token 则同步存储（字段不存在时行为不变）
+            var newRefreshToken = res.data.data.refresh_token
+            if (newRefreshToken) wx.setStorageSync('refresh_token', newRefreshToken)
             resolve(true)
           } else {
             resolve(false)
