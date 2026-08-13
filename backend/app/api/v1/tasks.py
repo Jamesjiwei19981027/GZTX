@@ -339,20 +339,13 @@ def _ics_escape(text: str) -> str:
     )
 
 
-@router.get("/export.ics")
-async def export_tasks_ics(
-    db: DbSession,
-    user: CurrentUser,
-    include_completed: bool = False,
-):
-    """导出当前用户有截止时间的任务为 iCalendar（.ics），可导入系统日历。
+async def _build_user_ics(db, user_id: int, include_completed: bool = False) -> str:
+    """生成某用户的 iCalendar 内容（一次性导出与订阅地址共用）。
 
     截止时间为当天 00:00:00 的任务按全天事件导出，其余按具体时刻导出。
     """
-    from fastapi.responses import Response
-
     query = select(Task).where(
-        Task.user_id == user.id,
+        Task.user_id == user_id,
         Task.is_deleted == False,
         Task.due_date.isnot(None),
     )
@@ -388,11 +381,72 @@ async def export_tasks_ics(
         lines.append(f"STATUS:{'COMPLETED' if t.status == 2 else 'CONFIRMED'}")
         lines.append("END:VEVENT")
     lines.append("END:VCALENDAR")
+    return "\r\n".join(lines) + "\r\n"
 
+
+@router.get("/export.ics")
+async def export_tasks_ics(
+    db: DbSession,
+    user: CurrentUser,
+    include_completed: bool = False,
+):
+    """导出当前用户有截止时间的任务为 iCalendar（.ics），可导入系统日历。"""
+    from fastapi.responses import Response
+
+    content = await _build_user_ics(db, user.id, include_completed)
     return Response(
-        content="\r\n".join(lines) + "\r\n",
+        content=content,
         media_type="text/calendar; charset=utf-8",
         headers={"Content-Disposition": 'attachment; filename="worktodo.ics"'},
+    )
+
+
+def calendar_feed_sig(user_id: int) -> str:
+    """订阅地址签名：HMAC(SECRET_KEY, "calendar-feed:{user_id}") 截断 16 位。
+
+    与 utils/email.py 的 Reply-To 签名同一思路：URL 中只暴露截断签名，
+    不含 SECRET_KEY 本身；系统日历客户端无法带 Bearer 头，靠该签名鉴权。
+    """
+    import hashlib
+    import hmac
+
+    from app.core.config import settings
+
+    return hmac.new(
+        settings.SECRET_KEY.encode(),
+        f"calendar-feed:{user_id}".encode(),
+        hashlib.sha256,
+    ).hexdigest()[:16]
+
+
+@router.get("/calendar-feed-url", response_model=ResponseData)
+async def get_calendar_feed_url(user: CurrentUser):
+    """返回当前用户的 ICS 订阅相对路径（前端自行拼接域名）。"""
+    sig = calendar_feed_sig(user.id)
+    return ResponseData(
+        data={"url": f"/api/v1/tasks/calendar/{user.id}.ics?sig={sig}"}
+    )
+
+
+@router.get("/calendar/{user_id}.ics")
+async def calendar_feed_ics(
+    user_id: int,
+    db: DbSession,
+    sig: str = "",
+    include_completed: bool = False,
+):
+    """免 Header 的 ICS 订阅地址，供系统日历持续同步；签名不匹配返回 403。"""
+    import hmac
+
+    from fastapi.responses import Response
+
+    if not sig or not hmac.compare_digest(sig, calendar_feed_sig(user_id)):
+        raise HTTPException(status_code=403, detail="签名无效")
+
+    content = await _build_user_ics(db, user_id, include_completed)
+    return Response(
+        content=content,
+        media_type="text/calendar; charset=utf-8",
     )
 
 
