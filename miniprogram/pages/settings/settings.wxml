@@ -18,21 +18,7 @@
 
     <view class="setting-item">
       <text class="setting-label">微信订阅消息</text>
-      <switch checked="{{notifyPrefs.wxSubscribeEnabled}}" bindchange="onWxSubscribeToggle" />
-    </view>
-
-    <view class="setting-item">
-      <text class="setting-label">每日摘要时间</text>
-      <picker mode="time" value="{{notifyPrefs.dailyDigestTime}}" bindchange="onDailyDigestChange">
-        <text class="picker-value">{{notifyPrefs.dailyDigestTime}}</text>
-      </picker>
-    </view>
-
-    <view class="setting-item">
-      <text class="setting-label">默认提前提醒</text>
-      <picker mode="selector" range="{{[5, 10, 15, 30, 60]}}" bindchange="onRemindBeforeChange">
-        <text class="picker-value">{{notifyPrefs.defaultRemindBefore}} 分钟</text>
-      </picker>
+      <switch checked="{{notifyPrefs.wechatEnabled}}" bindchange="onWxSubscribeToggle" />
     </view>
   </view>
 
@@ -83,11 +69,13 @@
   </view>
 
   <view class="settings-section">
-    <view class="section-title">协作</view>
-    <view class="setting-item" bindtap="goProjects">
-      <text class="setting-label">我的项目</text>
-      <text class="setting-value">进入 ›</text>
+    <view class="section-title">项目协作</view>
+    <view class="collab-tip">项目树、人轴画布等协作功能请使用 Web 端或 APP，小程序专注任务与日历。</view>
+    <view class="setting-item">
+      <text class="setting-label">Web 端地址</text>
+      <text class="setting-value">{{webUrl || '未配置'}}</text>
     </view>
+    <button class="copy-web-btn" size="mini" bindtap="copyWebUrl">复制 Web 地址</button>
   </view>
 
   <view class="settings-section">

@@ -1,5 +1,5 @@
 // pages/index/index.js
-const { get } = require('../../utils/request')
+const { get, patch } = require('../../utils/request')
 
 Page({
   data: {
@@ -24,8 +24,8 @@ Page({
   async onTaskComplete(e) {
     const { id } = e.currentTarget.dataset
     try {
-      const { post } = require('../../utils/request')
-      await post('/tasks/' + id + '/complete')
+      // 后端是 PATCH /tasks/{id}/complete，body 字段全有默认值，传空对象即可
+      await patch('/tasks/' + id + '/complete', {})
       this.fetchTasks()
       wx.showToast({ title: '已完成', icon: 'success' })
     } catch {

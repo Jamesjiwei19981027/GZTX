@@ -89,6 +89,20 @@
   color: #409EFF;
 }
 
+.collab-tip {
+  font-size: 26rpx;
+  color: #999;
+  line-height: 1.6;
+  margin-bottom: 16rpx;
+}
+
+.copy-web-btn {
+  margin-top: 16rpx;
+  color: #409EFF;
+  border: 1rpx solid #409EFF;
+  background: #fff;
+}
+
 .email-verify-box {
   padding: 24rpx;
   display: flex;

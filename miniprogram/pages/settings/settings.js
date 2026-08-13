@@ -1,14 +1,14 @@
 const request = require('../../utils/request');
+const app = getApp();
 
 Page({
   data: {
     userInfo: null,
     notifyPrefs: {
       emailEnabled: true,
-      wxSubscribeEnabled: true,
-      dailyDigestTime: '08:00',
-      defaultRemindBefore: 15
+      wechatEnabled: true
     },
+    webUrl: '',
     verification: { email: '', phone: '', email_verified: false, phone_verified: false },
     showEmailVerify: false,
     verifyEmail: '',
@@ -17,6 +17,7 @@ Page({
   },
 
   onLoad() {
+    this.setData({ webUrl: this.resolveWebUrl() });
     this.fetchUserInfo();
     this.fetchVerification();
   },
@@ -26,44 +27,46 @@ Page({
   },
 
   fetchUserInfo() {
-    request.get('/users/me', true)
-      .then(data => {
+    request.get('/users/me')
+      .then((res) => {
+        // 响应信封 {code, message, data}
+        const data = res.data;
+        // notify_pref 的现行契约：channels.{email,wechat}.enabled（与 Web 端一致）
+        const channels = (data.notify_pref && data.notify_pref.channels) || {};
         this.setData({
           userInfo: data,
-          notifyPrefs: data.notify_pref || this.data.notifyPrefs
+          notifyPrefs: {
+            emailEnabled: channels.email ? channels.email.enabled !== false : true,
+            wechatEnabled: channels.wechat ? channels.wechat.enabled !== false : true
+          }
         });
-      });
+      })
+      .catch(() => {});
   },
 
   onEmailToggle(e) {
-    this.updateNotifyPref('email_enabled', e.detail.value);
+    this.updateChannelPref('email', 'emailEnabled', e.detail.value);
   },
 
   onWxSubscribeToggle(e) {
-    this.updateNotifyPref('wx_subscribe_enabled', e.detail.value);
+    this.updateChannelPref('wechat', 'wechatEnabled', e.detail.value);
   },
 
-  onDailyDigestChange(e) {
-    this.updateNotifyPref('daily_digest_time', e.detail.value);
-  },
-
-  onRemindBeforeChange(e) {
-    this.updateNotifyPref('default_remind_before', parseInt(e.detail.value));
-  },
-
-  updateNotifyPref(key, value) {
-    const notifyPrefs = { ...this.data.notifyPrefs, [key]: value };
+  updateChannelPref(channel, localKey, enabled) {
+    // 后端 PUT /users/me 只合并 notify_pref 的 channels / quiet_hours / weekend_mute
     request.put('/users/me', {
-      notify_pref: notifyPrefs
-    }, true).then(() => {
-      this.setData({ notifyPrefs });
+      notify_pref: { channels: { [channel]: { enabled } } }
+    }).then(() => {
+      this.setData({ [`notifyPrefs.${localKey}`]: enabled });
       wx.showToast({ title: '设置已保存' });
+    }).catch((err) => {
+      wx.showToast({ title: (err && err.message) || '保存失败', icon: 'none' });
     });
   },
 
   fetchVerification() {
     request.get('/users/me/verification').then((res) => {
-      const data = res && res.data !== undefined ? res.data : res;
+      const data = res.data;
       if (data) {
         this.setData({
           verification: data,
@@ -108,7 +111,7 @@ Page({
     }
     request.post('/users/me/verification/send-code', { channel: 'email', target: email })
       .then((res) => {
-        const data = res && res.data !== undefined ? res.data : res;
+        const data = res.data;
         wx.showToast({ title: '验证码已发送', icon: 'none' });
         if (data && data.debug_code) {
           // 开发联调提示
@@ -145,8 +148,25 @@ Page({
       });
   },
 
-  goProjects() {
-    wx.navigateTo({ url: '/pages/project-list/project-list' });
+  /** Web 端地址：优先取 globalData.webUrl，否则用 baseUrl 的域名部分 */
+  resolveWebUrl() {
+    if (app.globalData.webUrl) return app.globalData.webUrl;
+    const match = /^(https?:\/\/[^/]+)/.exec(app.globalData.baseUrl || '');
+    return match ? match[1] : '';
+  },
+
+  copyWebUrl() {
+    const url = this.resolveWebUrl();
+    if (!url) {
+      wx.showToast({ title: '未配置 Web 地址', icon: 'none' });
+      return;
+    }
+    wx.setClipboardData({
+      data: url,
+      success: () => {
+        wx.showToast({ title: '已复制，请在浏览器打开', icon: 'none' });
+      }
+    });
   },
 
   onLogout() {
@@ -155,9 +175,12 @@ Page({
       content: '确定要退出登录吗？',
       success: (res) => {
         if (res.confirm) {
-          wx.removeStorageSync('token');
+          // 存储键与 app.js / request.js 保持一致（access_token / refresh_token）
+          wx.removeStorageSync('access_token');
           wx.removeStorageSync('refresh_token');
-          wx.reLaunch({ url: '/pages/index/index' });
+          app.globalData.token = '';
+          app.globalData.userInfo = null;
+          wx.reLaunch({ url: '/pages/login/login' });
         }
       }
     });

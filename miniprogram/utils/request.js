@@ -19,8 +19,10 @@ function request(options) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data)
         } else if (res.statusCode === 401) {
-          // Token 过期，跳转登录
+          // 401 与 Web 端口径一致：清 token、回登录页（后端 access_token 15 分钟过期）
           wx.removeStorageSync('access_token')
+          wx.removeStorageSync('refresh_token')
+          app.globalData.token = ''
           wx.redirectTo({ url: '/pages/login/login' })
           reject(new Error('未登录'))
         } else {
@@ -56,8 +58,13 @@ function put(url, data) {
   return request({ url, method: 'PUT', data })
 }
 
+// 后端「完成任务」等接口是 PATCH（见 backend/app/api/v1/tasks.py）
+function patch(url, data) {
+  return request({ url, method: 'PATCH', data })
+}
+
 function del(url, data) {
   return request({ url, method: 'DELETE', data })
 }
 
-module.exports = { request, get, post, put, del }
+module.exports = { request, get, post, put, patch, del }

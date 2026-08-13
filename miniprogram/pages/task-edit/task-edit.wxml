@@ -28,7 +28,7 @@
     <view class="form-label">分类</view>
     <picker mode="selector" range="{{categories}}" range-key="name" bindchange="onCategoryChange">
       <view class="picker-value">
-        {{categoryId ? categories[categories.findIndex(c => c.id === categoryId)].name : '请选择分类'}}
+        {{categoryName || '请选择分类'}}
       </view>
     </picker>
   </view>

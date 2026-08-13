@@ -51,12 +51,17 @@ Page({
   fetchMonthTasks() {
     const { currentYear, currentMonth } = this.data;
     const startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-    const endDate = new Date(currentYear, currentMonth, 0).toISOString().split('T')[0];
+    // 不能用 toISOString：UTC+8 下月末会被算成前一天；
+    // due_date_to 是 <= 比较，取到当天 23:59:59 才不漏月末任务
+    const lastDay = new Date(currentYear, currentMonth, 0).getDate();
+    const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59`;
 
     this.setData({ loading: true });
-    request.get(`/tasks?due_date_from=${startDate}&due_date_to=${endDate}`, true)
-      .then(data => {
-        const tasks = data.items || data || [];
+    // page_size 默认 20，月视图一次拉全月（后端上限 200）
+    request.get(`/tasks?due_date_from=${startDate}&due_date_to=${endDate}&page_size=200`)
+      .then((res) => {
+        // 响应信封 {code, message, data}，分页列表在 data.items
+        const tasks = (res.data && res.data.items) || [];
         const tasksByDate = {};
 
         tasks.forEach(task => {
@@ -90,6 +95,11 @@ Page({
 
     const tasks = this.data.tasksByDate[date] || [];
     this.setData({ selectedDate: date, selectedTasks: tasks });
+  },
+
+  onTaskTap(e) {
+    const { id } = e.currentTarget.dataset;
+    wx.navigateTo({ url: '/pages/task-detail/task-detail?id=' + id });
   },
 
   onPreMonth() {

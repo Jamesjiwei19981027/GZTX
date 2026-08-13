@@ -5,16 +5,12 @@
     "pages/task-detail/task-detail",
     "pages/task-edit/task-edit",
     "pages/calendar/calendar",
-    "pages/settings/settings",
-    "pages/project-list/project-list",
-    "pages/project-tree/project-tree",
-    "pages/agent-chat/agent-chat",
-    "pages/evidence-submit/evidence-submit"
+    "pages/settings/settings"
   ],
   "window": {
     "backgroundTextStyle": "light",
     "navigationBarBackgroundColor": "#409EFF",
-    "navigationBarTitleText": "WorkTodo",
+    "navigationBarTitleText": "烂笔头PM",
     "navigationBarTextStyle": "white"
   },
   "tabBar": {
