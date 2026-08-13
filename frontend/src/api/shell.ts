@@ -207,6 +207,24 @@ export async function listUserActivity(limit = 50) {
   }>(`/users/me/activity?limit=${limit}`)
 }
 
+export type MyProjectPermissions = {
+  role: 'pm' | 'superadmin' | 'member' | 'outsider'
+  is_pm: boolean
+  is_superadmin: boolean
+  /** PM/超管/有效委托授权（委托是项目粒度，命中即全树可编辑） */
+  can_edit_all: boolean
+  /** primary/collaborator 指派锚点节点 id；子树传递由前端沿树展开 */
+  owned_node_ids: number[]
+  via_delegation: boolean
+  /** move/delete 只认 tree.edit_any（不可委托） */
+  can_move: boolean
+  can_delete: boolean
+}
+
+export async function getMyPermissions(projectId: number) {
+  return apiRequest<MyProjectPermissions>(`/projects/${projectId}/my-permissions`)
+}
+
 export async function getPeopleAxisAggregate() {
   return apiRequest<{ projects: { project_id: number; project_name: string; company_id: number; nodes: Record<string, unknown>[] }[] }>('/users/me/people-axis')
 }

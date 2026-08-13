@@ -13,7 +13,7 @@ import {
   submitEvidence,
 } from '../../api/backend';
 import { mapMember, mapTreeToPeopleAxis } from '../../api/mappers';
-import { getPeopleAxisAggregate, putNodeLayout, runAxisAudit } from '../../api/shell';
+import { getMyPermissions, getPeopleAxisAggregate, putNodeLayout, runAxisAudit, MyProjectPermissions } from '../../api/shell';
 import { fetchMe } from '../../api/auth';
 import { averagePeopleAxisProgress } from './peopleAxisUtils';
 import { PeopleAxisFlowCanvas, AxisFlowNode, PersonNodeData, SpineEdgeData } from './PeopleAxisFlowCanvas';
@@ -132,6 +132,9 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   // 普通成员仅能编辑自己作为 primary/collaborator 责任人的节点及其子树。
   const [meId, setMeId] = useState<number | null>(null);
   const [pmUserId, setPmUserId] = useState<number | null>(null);
+  // 服务端权限快照：覆盖客户端推断不出的委托授权 / 非成员超管；
+  // 请求失败或未返回时保持 null，下方 memo 回退客户端推断（不阻塞渲染）
+  const [serverPerms, setServerPerms] = useState<MyProjectPermissions | null>(null);
   const [isAddingWorkItem, setIsAddingWorkItem] = useState<string | null>(null); // nodeId
   const [isAddingEvidence, setIsAddingEvidence] = useState<string | null>(null); // workItemId
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced');
@@ -255,6 +258,21 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       cancelled = true;
     };
   }, []);
+
+  // 项目切换时拉一次服务端权限；独立于树加载，失败静默回退客户端推断
+  useEffect(() => {
+    setServerPerms(null);
+    if (!isBackendProject) return;
+    let cancelled = false;
+    void getMyPermissions(backendProjectId)
+      .then((perms) => {
+        if (!cancelled) setServerPerms(perms);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isBackendProject, backendProjectId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -406,25 +424,40 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     return nodes.filter(n => !n.parentId).sort((a, b) => a.orderOnAxis - b.orderOnAxis);
   }, [nodes]);
 
-  // ===== 权限计算（与服务端 acl.can 同口径，前端只做显隐，最终以后端校验为准） =====
-  // tree.edit_any：项目 PM（pm_user_id 或 project_members.role='pm'）
+  // ===== 权限计算（服务端判定优先，回退客户端推断；前端只做显隐，最终以后端校验为准） =====
+  // 全树编辑：服务端 can_edit_all 覆盖 PM/超管/委托授权三条路；
+  // 回退口径 = 项目 PM（pm_user_id 或 project_members.role='pm'）
   const canEditAny = useMemo(() => {
-    if (!isBackendProject || meId == null) return false;
+    if (!isBackendProject) return false;
+    if (serverPerms) return serverPerms.can_edit_all;
+    if (meId == null) return false;
     if (pmUserId != null && pmUserId === meId) return true;
     return memberOptions.some((m) => Number(m.id) === meId && m.role === 'pm');
-  }, [isBackendProject, meId, pmUserId, memberOptions]);
+  }, [isBackendProject, serverPerms, meId, pmUserId, memberOptions]);
 
-  // tree.edit_subtree：自己是 primary/collaborator 责任人的节点及其全部后代
+  // 连线（move）/删除只认 tree.edit_any，委托授权拿不到；无服务端结果时回退 canEditAny
+  const canMoveNodes = serverPerms ? serverPerms.can_move : canEditAny;
+
+  // tree.edit_subtree：自己是 primary/collaborator 责任人的节点及其全部后代。
+  // 锚点优先取服务端 owned_node_ids，向下传递仍由前端沿树展开（与 _owns_path 同口径）
   const editableNodeIds = useMemo(() => {
     const set = new Set<string>();
-    if (!isBackendProject || meId == null) return set;
+    if (!isBackendProject) return set;
+    const ownedFromServer = serverPerms
+      ? new Set(serverPerms.owned_node_ids.map(String))
+      : null;
+    if (!ownedFromServer && meId == null) return set;
     const childrenMap = new Map<string, string[]>();
     nodes.forEach((n) => {
       if (!n.parentId) return;
       childrenMap.set(n.parentId, [...(childrenMap.get(n.parentId) || []), n.id]);
     });
     const queue = nodes
-      .filter((n) => (n.ownerUserIds || []).includes(meId))
+      .filter((n) =>
+        ownedFromServer
+          ? ownedFromServer.has(n.id)
+          : (n.ownerUserIds || []).includes(meId!),
+      )
       .map((n) => n.id);
     while (queue.length) {
       const id = queue.pop()!;
@@ -433,7 +466,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       (childrenMap.get(id) || []).forEach((c) => queue.push(c));
     }
     return set;
-  }, [isBackendProject, meId, nodes]);
+  }, [isBackendProject, serverPerms, meId, nodes]);
 
   /** 至少拥有一个可挂载位置（PM 任意；成员需名下有节点） */
   const canMountSomething = canEditAny || editableNodeIds.size > 0;
@@ -581,7 +614,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           linkingHoveredTargetId === n.id &&
           linkingSourceNodeId !== n.id,
         canEdit: canEditAny || editableNodeIds.has(n.id),
-        canRelink: canEditAny,
+        canRelink: canMoveNodes,
         onCardClick: (id) => {
           if (linkingSourceNodeId) {
             if (id !== linkingSourceNodeId) handleConnectToTarget(id);
@@ -610,7 +643,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           setIsAddingNode(true);
         },
         onToggleLinking: (id) => {
-          if (!canEditAny) {
+          if (!canMoveNodes) {
             showToast(lang === 'zh' ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM');
             return;
           }
@@ -653,7 +686,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     nodes, hiddenNodeIds, layout, dragOffsets, headLeaderNode, lang,
     selectedNodeId, expandedNodes, linkingSourceNodeId, linkingHoveredTargetId,
     getChildNodes, totalProjectProgress, showToast, isBackendProject,
-    canEditAny, editableNodeIds,
+    canEditAny, canMoveNodes, editableNodeIds,
   ]);
 
   const rfEdges = useMemo<Edge[]>(() => {
@@ -730,7 +763,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     if (!linkingSourceNodeId) return;
     if (linkingSourceNodeId === targetNodeId) return;
     // 入口按钮已按 canRelink 显隐，这里兜底（快捷键/竞态路径），口径与服务端 move 校验一致
-    if (isBackendProject && !canEditAny) {
+    if (isBackendProject && !canMoveNodes) {
       showToast(lang === 'zh' ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM');
       return;
     }
@@ -794,7 +827,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
   const handleConnectToSpine = () => {
     if (!linkingSourceNodeId) return;
-    if (isBackendProject && !canEditAny) {
+    if (isBackendProject && !canMoveNodes) {
       showToast(lang === 'zh' ? '提升为主干仅项目 PM 可用' : 'Promoting to trunk requires the project PM');
       return;
     }

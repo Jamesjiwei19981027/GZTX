@@ -268,7 +268,12 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data }) => {
         )}
 
         {!canEdit && !canRelink && (
-          <span className="text-[10px] font-bold text-on-surface-variant/70 flex items-center gap-1">
+          <span
+            className="text-[10px] font-bold text-on-surface-variant/70 flex items-center gap-1 cursor-help"
+            title={lang === 'zh'
+              ? '只读：编辑需项目 PM 授权——可请 PM 把该节点指派给你负责，或由 PM 创建委托授权'
+              : 'Read-only: editing requires PM authorization — ask the PM for a node assignment or a delegation grant'}
+          >
             <span className="material-symbols-outlined text-sm">visibility</span>
             {lang === 'zh' ? '只读' : 'Read-only'}
           </span>

@@ -10,7 +10,7 @@ from app.core.collab_errors import fail
 from app.core.dependencies import CurrentUser, DbSession
 from app.models.company import Company, CompanyMembership
 from app.models.project import Project, ProjectMember
-from app.models.tree import TreeNode
+from app.models.tree import NodeAssignment, TreeNode
 from app.models.user import User
 from app.schemas.common import ResponseData
 from app.schemas.project import (
@@ -217,6 +217,92 @@ async def get_project(project_id: int, db: DbSession, user: CurrentUser):
             _project_dto(p, my_role=pm.role if pm else None, member_count=cnt),
             user.id,
         )
+    )
+
+
+@router.get("/projects/{project_id}/my-permissions")
+async def get_my_permissions(project_id: int, db: DbSession, user: CurrentUser):
+    """当前用户在该项目内的权限快照（只读）。
+
+    供前端做按钮显隐：客户端此前只能靠 pm_user_id / 成员角色 / 指派推断，
+    看不见「委托授权」和「非成员超管」两条路径。最终强制方仍是 ACL/TreeService，
+    本接口只是把服务端口径原样暴露出来。
+
+    字段口径：
+    - can_edit_all：不带 node_id 调 acl.can("tree.edit_subtree")——PM/超管/有效委托
+      三条路都会命中，且沿用 acl 的归档项目、在职状态等写门禁。委托授权是
+      项目/公司粒度（DelegationGrant 无节点列），命中即等价于全树可编辑，
+      所以委托映射到 can_edit_all 而非 owned_node_ids。
+    - owned_node_ids：primary/collaborator 指派的锚点节点 id，向下子树传递由
+      前端沿树展开（与 acl._owns_path 的祖先前缀匹配同口径）。
+    - can_move / can_delete：move/delete 接口只认 tree.edit_any（委托白名单里
+      没有它），故委托用户拿不到这两项。
+    """
+    p = await _get_project(db, project_id)
+    if not p:
+        return fail(404, 40400, "项目不存在")
+    if not await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id):
+        return fail(403, 40301, "非项目成员")
+
+    m = await _active_membership(db, p.company_id, user.id)
+    is_superadmin = bool(m and m.is_super_admin)
+    pm_row = (
+        await db.execute(
+            select(ProjectMember).where(
+                ProjectMember.project_id == p.id,
+                ProjectMember.user_id == user.id,
+                ProjectMember.left_at.is_(None),
+            )
+        )
+    ).scalar_one_or_none()
+    is_member = pm_row is not None
+    is_pm = bool(pm_row and pm_row.role == "pm") or (
+        p.pm_user_id is not None and p.pm_user_id == user.id
+    )
+
+    can_edit_all = await acl.can(
+        db, user.id, p.company_id, "tree.edit_subtree", project_id=p.id
+    )
+    # 非 PM 非超管拿到 tree.edit_subtree（无 node_id）只可能走委托这一条路
+    via_delegation = bool(can_edit_all and not is_pm and not is_superadmin)
+    can_move_delete = await acl.can(
+        db, user.id, p.company_id, "tree.edit_any", project_id=p.id
+    )
+
+    owned_node_ids = (
+        await db.execute(
+            select(NodeAssignment.node_id)
+            .join(TreeNode, TreeNode.id == NodeAssignment.node_id)
+            .where(
+                NodeAssignment.user_id == user.id,
+                NodeAssignment.role_key.in_(("primary", "collaborator")),
+                TreeNode.project_id == p.id,
+                TreeNode.is_deleted.is_(False),
+            )
+            .distinct()
+        )
+    ).scalars().all()
+
+    role = (
+        "pm"
+        if is_pm
+        else "superadmin"
+        if is_superadmin
+        else "member"
+        if is_member
+        else "outsider"
+    )
+    return ResponseData(
+        data={
+            "role": role,
+            "is_pm": is_pm,
+            "is_superadmin": is_superadmin,
+            "can_edit_all": can_edit_all,
+            "owned_node_ids": sorted(owned_node_ids),
+            "via_delegation": via_delegation,
+            "can_move": can_move_delete,
+            "can_delete": can_move_delete,
+        }
     )
 
 
