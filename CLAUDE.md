@@ -15,7 +15,7 @@
 | 目录 | 说明 |
 |------|------|
 | `backend/` | FastAPI 后端 |
-| `frontend/` | React 18 Web（Vite + Ant Design + Tailwind；现役真源） |
+| `frontend/` | React 19 Web（Vite + Tailwind；现役真源） |
 | `frontend-vue-archive/` | 归档 Vue3（回滚对照，非现役） |
 | `miniprogram/` | 微信小程序 |
 | `UI/` | 设计稿参考，非运行代码 |
@@ -77,18 +77,16 @@ E2E 单独放 `.github/workflows/e2e.yml`，手动或每日定时触发。
   （`backend/Dockerfile.extractor`，compose profile `extraction`）。
   `EXTRACTION_MODE` 默认 **off**（行为与未引入前一致）；设计文档见
   `docs/superpowers/specs/2026-08-12-rag-knowledge-retrieval-design.md`
-- 前端：React 18 + TypeScript + Vite + React Router + Zustand + Tailwind + Ant Design
+- 前端：React 19 + TypeScript + Vite + Tailwind + Recharts（单壳视图切换，无 React Router / Zustand / Ant Design）
 - APP：Flutter（Android 为主，`app/`）
 - 小程序：微信小程序原生框架
 - 对照归档：`frontend-vue-archive/`（Vue3 + Pinia + Element Plus；tag `vue-frontend-last`）
 
 ## Web 页面范围（现役）
 
-登录/注册 · 仪表盘 · 任务列表/详情 · 日历 · 设置（含 SMTP / LLM / 主题 / 推送） · 项目列表/详情（人轴画布 + 大纲树） · 公司设置
+单壳 SPA（`App.tsx` 内 `activeView` 切换视图，无路由）：登录/注册（LoginGate + VerifyGate） · 仪表盘 · 人轴责任链（人轴画布，含项目选择） · 我的任务 · 看板 · 日历（含 ICS 导出） · 报表 · 团队 · 消息 · 收件箱 · 通知中心 · 设置。全局快捷键：Alt+N 快速添加、Ctrl/Cmd+K 全局搜索。
 
-> 项目详情的「关系图」（@xyflow/react）视图已下线，现为「人轴画布 / 大纲」两个页签。
-
-已移除 Mock 壳页：收件箱 / 看板 / 团队聊天（路由兼容重定向）。
+> 看板 / 消息 / 收件箱是**真实后端 API 驱动**的页面（曾有「Mock 壳页已移除」的旧口径，已作废，以代码为准）。
 
 **生产切流说明**：React 重写门禁与 soak 见 `docs/superpowers/acceptance/2026-07-20-react-rewrite-gates.md`；**未完成 G6–G10 前不得声称生产已切 React**。
 

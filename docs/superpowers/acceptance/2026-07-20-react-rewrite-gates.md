@@ -104,7 +104,7 @@ S1–S8 全部勾选时间：_待填_ · 环境：_待填_
 ### 6.11 Playwright E2E（上线必过）
 
 - [x] 仓库内存在可运行的 Playwright 工程（`frontend/e2e`）
-- [ ] 命令文档化：`cd frontend && npm run test:e2e`，在 CI 或指定 runner **全绿**（**本地已全绿，staging 未跑**）
+- [x] 命令文档化：`cd frontend && npm run test:e2e`；**已进 PR 门禁**（`.github/workflows/e2e.yml`：backend/frontend 路径变更的 PR 必跑，另有每日定时与手动触发）
 - [x] 套件覆盖与 S1–S8 等价路径（S5/S6 已用真实公司+项目+两层树数据实跑，非软通过）
 - [ ] E2E 默认打 staging 基址（`PLAYWRIGHT_BASE_URL` 或等价）——staging 未部署
 - [x] 最近一次全绿 run：2026-07-20 19:20 (UTC+8) · 本地（backend 8010 + vite 5174）· SHA `7f8c312` · 7/7 passed
@@ -148,6 +148,20 @@ S1–S8 全部勾选时间：_待填_ · 环境：_待填_
 | G8 | Playwright | §6.11 对 **soak 同一 SHA/digest** 全绿 | [ ] |
 | G9 | Staging soak | §6.12 连续 ≥48h 成功 | [ ] |
 | G10 | 人工签核 | 负责人确认 G1–G9 后书面同意生产切流 | [ ] |
+
+#### G6–G10 收口现状（2026-08-13）
+
+自动化侧已收口：CI（backend pytest / frontend lint+test+build / flutter）挂 push+PR，
+Playwright E2E 已进 PR 门禁（见 §6.11）。**剩余全部为环境与流程动作**，无代码缺口：
+
+1. 部署 staging（React 生产构建，`docker-compose.prod.yml`）——G7/G8/G9 的前置
+2. 在 staging 执行 §6.10 手工冒烟并勾选（G7）
+3. 对 soak 同一 SHA 跑 Playwright 全绿并记录（G8）
+4. 连续 ≥48h soak 并填 §6.12（G9）
+5. G6 回滚演练（Vue 归档镜像切换往返）并填演练记录
+6. 负责人签核（G10）
+
+在上述完成前，**不得声称生产已切 React**（与 CLAUDE.md 口径一致）。
 
 **签核**
 
@@ -195,3 +209,4 @@ S1–S8 全部勾选时间：_待填_ · 环境：_待填_
 |------|------|
 | 2026-07-20 | 初建模板（Task 12 / P7）；Docker 与文档已指向 React；生产切流未做 |
 | 2026-07-20 (晚) | 接手会话完成本地验证轮：§6.7 全过（含 Docker 前端+后端生产镜像本地构建、3.11 容器 import 验证）；§6.9 vitest 9/9；§6.11 本地 7/7 全绿（含 S5/S6 真实数据路径）；后端 pytest 148/148。修复：py3.11 f-string、缺失依赖（asyncpg/psycopg2/dateparser）、categories/reorder 路由顺序、提醒邮件 Reply-To/Message-ID 断链、E2E 选择器。**staging 部署、G6 回滚演练、48h soak、G10 签核仍未做。** |
+| 2026-08-13 | E2E 进 PR 门禁（e2e.yml 加 pull_request 路径触发 + concurrency）；修 ci.yml 前端 job `npm run typecheck` → `npm run lint`（脚本名漂移）；新增「G6–G10 收口现状」小节，明确剩余为环境/流程动作（staging、冒烟、soak、回滚演练、签核），代码侧无缺口。 |
