@@ -31,6 +31,7 @@ import { MessagesView } from './components/views/MessagesView';
 import { PeopleAxisView } from './components/views/PeopleAxisView';
 import { NewTaskModal } from './components/modals/NewTaskModal';
 import { QuickAddModal } from './components/modals/QuickAddModal';
+import { GlobalSearchModal } from './components/modals/GlobalSearchModal';
 import { TaskDetailDrawer } from './components/modals/TaskDetailDrawer';
 import { NotificationsModal } from './components/modals/NotificationsModal';
 import { LoginGate } from './components/LoginGate';
@@ -121,6 +122,7 @@ export default function App() {
   const [newTaskDefaultSource, setNewTaskDefaultSource] = useState<{ channel?: string; title?: string; url?: string } | undefined>();
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
 
   const refreshFromBackend = useCallback(async () => {
     setLoadingBoot(true);
@@ -306,6 +308,12 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd+K：全局搜索（输入框聚焦时也响应，命令面板惯例）
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        setIsGlobalSearchOpen(true);
+        return;
+      }
       if (!(e.altKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN'))) return;
       // 正在输入（表单控件 / 富文本）时不抢快捷键，避免打断用户
       const target = e.target as HTMLElement | null;
@@ -803,6 +811,19 @@ export default function App() {
         members={projectMembers}
         currentUserId={user.id}
         lang={settings.language}
+      />
+
+      <GlobalSearchModal
+        isOpen={isGlobalSearchOpen}
+        onClose={() => setIsGlobalSearchOpen(false)}
+        tasks={tasks}
+        projects={projects}
+        lang={settings.language}
+        onSelectTask={(task) => setSelectedTask(task)}
+        onSelectProject={(proj) => {
+          setCurrentProject(proj);
+          setActiveView('people-axis');
+        }}
       />
 
       <QuickAddModal
