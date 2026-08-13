@@ -28,7 +28,14 @@ from app.models.wiki import ProjectWikiEntry
 from app.models.knowledge import EvidenceFileText, KnowledgeChunk
 from app.models.agent import AgentDefinition, AgentSession, AgentMessage
 from app.models.bindings import AsrBinding, StorageBinding, ModelBinding
-from app.models.notify import NotifyPolicy, NotifyJob, CollabInboxMessage, PushSubscription
+from app.models.notify import (
+    NotifyPolicy,
+    NotifyJob,
+    CollabInboxMessage,
+    NotificationRecord,
+    PushSubscription,
+)
+from app.models.usage_event import UsageEvent
 from app.models.integration import IntegrationAccount
 from app.models.delegation import DelegationGrant
 from app.models.report import ReportPolicy, ReportRun
@@ -92,7 +99,9 @@ __all__ = [
     "NotifyPolicy",
     "NotifyJob",
     "CollabInboxMessage",
+    "NotificationRecord",
     "PushSubscription",
+    "UsageEvent",
     "IntegrationAccount",
     "DelegationGrant",
     "ReportPolicy",

@@ -65,6 +65,24 @@ class CollabInboxMessage(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
 
+class NotificationRecord(Base):
+    """通知发送记录：提醒/测试发送每次尝试各记一条，成功失败都留痕。
+
+    task_id 故意不建外键：任务被回收站物理清理后记录仍保留（审计口径），
+    读取侧按 id 反查标题，查不到就返回 None。
+    """
+
+    __tablename__ = "notification_records"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    channel = Column(String(32), nullable=False)  # email|webpush|web_push|sms|wx|app...
+    status = Column(String(16), nullable=False)  # sent | failed
+    error = Column(Text, nullable=True)
+    task_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
 class PushSubscription(Base):
     """Browser push subscription persisted per user/device."""
 

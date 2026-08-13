@@ -85,11 +85,19 @@ class ReminderService:
 
             for channel in channels:
                 channel = channel.strip()
-                success = ReminderService._send_by_channel(
+                success, error = ReminderService._send_by_channel(
                     channel=channel,
                     user=user,
                     task=task,
                     reminder=reminder
+                )
+                ReminderService.record_send(
+                    db,
+                    user_id=user.id,
+                    channel=channel,
+                    ok=success,
+                    error=error,
+                    task_id=task.id,
                 )
                 if success:
                     sent_channels.append(channel)
@@ -100,6 +108,14 @@ class ReminderService:
             # C4: 如果所有渠道都失败，尝试 fallback 到 email
             if not sent_channels and "email" not in channels:
                 fallback_success = ReminderService._send_email(user, task)
+                ReminderService.record_send(
+                    db,
+                    user_id=user.id,
+                    channel="email",
+                    ok=fallback_success,
+                    error=None if fallback_success else "兜底邮件发送失败（邮箱缺失或 SMTP 未配置/投递被拒）",
+                    task_id=task.id,
+                )
                 if fallback_success:
                     sent_channels.append("email(fallback)")
                     logger.info("[ReminderCheck] Email fallback succeeded for reminder %s", reminder.id)
@@ -126,6 +142,29 @@ class ReminderService:
         return sent_results
 
     @staticmethod
+    def record_send(
+        db: Session,
+        *,
+        user_id: int,
+        channel: str,
+        ok: bool,
+        error: Optional[str] = None,
+        task_id: Optional[int] = None,
+    ) -> None:
+        """写一条通知发送记录（成功失败都记；随外层事务一起提交）。"""
+        from app.models.notify import NotificationRecord
+
+        db.add(
+            NotificationRecord(
+                user_id=user_id,
+                channel=(channel or "unknown")[:32],
+                status="sent" if ok else "failed",
+                error=None if ok else (error or "发送失败，详见服务端日志"),
+                task_id=task_id,
+            )
+        )
+
+    @staticmethod
     def _get_channel_config(user: User, channel_name: str) -> dict:
         """Get channel config from user's notify_pref, fallback to env settings."""
         notify_pref = user.notify_pref or {}
@@ -133,11 +172,23 @@ class ReminderService:
         config = channels.get(channel_name, {})
         return config if isinstance(config, dict) else {}
 
+    # 各渠道 bool=False 时的失败原因（细节在服务端日志）
+    _CHANNEL_FAIL_REASON = {
+        "email": "邮件发送失败：邮箱缺失或 SMTP 未配置/投递被拒",
+        "sms": "短信通道未配置",
+        "web_push": "浏览器推送失败：无订阅或 VAPID 未配置",
+        "desktop": "桌面通知失败：无订阅或 VAPID 未配置",
+        "wx": "微信通知失败：未绑定或模板未配置",
+        "app": "APP 推送失败：推送服务未配置",
+    }
+
     @staticmethod
-    def _send_by_channel(channel: str, user: User, task: Task, reminder: Reminder) -> bool:
+    def _send_by_channel(
+        channel: str, user: User, task: Task, reminder: Reminder
+    ) -> tuple[bool, Optional[str]]:
         """Send notification by specific channel.
 
-        Returns True if sent successfully.
+        Returns (success, failure_reason)；成功时原因为 None。
         """
         title = f"任务提醒: {task.title}"
         content = f"您的任务 '{task.title}' 即将到期，请注意处理。"
@@ -154,22 +205,27 @@ class ReminderService:
 
         try:
             if channel == "email":
-                return ReminderService._send_email(user, task)
+                ok = ReminderService._send_email(user, task)
             elif channel == "sms":
-                return ReminderService._send_sms(user, title, content)
+                ok = ReminderService._send_sms(user, title, content)
             elif channel == "web_push":
-                return ReminderService._send_web_push(user, title, content, task)
+                ok = ReminderService._send_web_push(user, title, content, task)
             elif channel == "desktop":
-                return ReminderService._send_desktop_notification(user, title, content, task)
+                ok = ReminderService._send_desktop_notification(user, title, content, task)
             elif channel == "wx":
-                return ReminderService._send_wechat(user, title, content)
+                ok = ReminderService._send_wechat(user, title, content)
             elif channel == "app":
-                return ReminderService._send_app_push(user, title, content)
+                ok = ReminderService._send_app_push(user, title, content)
             else:
-                return ReminderService._send_web_push(user, title, content, task)
-        except Exception:
+                ok = ReminderService._send_web_push(user, title, content, task)
+            if ok:
+                return True, None
+            return False, ReminderService._CHANNEL_FAIL_REASON.get(
+                channel, "发送失败，详见服务端日志"
+            )
+        except Exception as e:
             logger.exception("Failed to send reminder via %s", channel)
-            return False
+            return False, f"{type(e).__name__}: {e}"
 
     @staticmethod
     def _send_email(user: User, task: Task) -> bool:
