@@ -380,6 +380,12 @@ async def lifespan(app: FastAPI):
     # 启动时：初始化数据库（生产建议 AUTO_CREATE_SCHEMA=false + alembic）
     await init_db()
 
+    # Alembic 纳管：存量库「有业务表但无 alembic_version」时，
+    # DEBUG=true 自动 stamp head；生产只打日志指引，绝不自动动库。
+    from app.db.alembic_adopt import adopt_alembic_if_needed
+
+    await adopt_alembic_if_needed()
+
     # 启动 APScheduler for periodic tasks
     #
     # 生产是 gunicorn -w 4：每个 worker 都会跑一遍 lifespan，四个进程各起一套
