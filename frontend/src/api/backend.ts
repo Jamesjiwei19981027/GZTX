@@ -1,5 +1,11 @@
 import { apiRequest, getApiBase, getToken } from './client'
 
+/** 获取当前用户的 ICS 订阅地址（免登录签名 URL，供系统日历持续同步） */
+export async function getCalendarFeedUrl(): Promise<string> {
+  const data = await apiRequest<{ url: string }>('/tasks/calendar-feed-url')
+  return `${window.location.origin}${data.url}`
+}
+
 /** 下载当前用户任务的 iCalendar 文件（.ics，可导入系统日历） */
 export async function downloadTasksIcs(): Promise<void> {
   const res = await fetch(`${getApiBase()}/tasks/export.ics`, {
@@ -124,10 +130,11 @@ export type BackendAttachment = {
   download_url: string
 }
 
-export async function listTasks(params?: { page?: number; page_size?: number }) {
+export async function listTasks(params?: { page?: number; page_size?: number; search?: string }) {
   const q = new URLSearchParams()
   q.set('page', String(params?.page ?? 1))
   q.set('page_size', String(params?.page_size ?? 100))
+  if (params?.search) q.set('search', params.search)
   return apiRequest<{ items: BackendTask[]; total: number }>(`/tasks?${q}`)
 }
 

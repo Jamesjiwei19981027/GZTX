@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { Language, Task } from '../../types'
 import { getT } from '../../i18n'
-import { downloadTasksIcs } from '../../api/backend'
+import { downloadTasksIcs, getCalendarFeedUrl } from '../../api/backend'
 import {
   formatDateLocal,
   isSameDay,
@@ -144,6 +144,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         >
           <span className="material-symbols-outlined text-sm">download</span>
           <span className="hidden md:inline">{lang === 'zh' ? '导出日历' : 'Export'}</span>
+        </button>
+        <button
+          onClick={() => {
+            void getCalendarFeedUrl()
+              .then(async (url) => {
+                await navigator.clipboard.writeText(url)
+                alert(
+                  lang === 'zh'
+                    ? '订阅地址已复制。在系统日历「按 URL 订阅」粘贴即可持续同步任务。'
+                    : 'Subscription URL copied. Paste it into your calendar app ("subscribe by URL").',
+                )
+              })
+              .catch((e) =>
+                alert(e instanceof Error ? e.message : lang === 'zh' ? '获取订阅地址失败' : 'Failed'),
+              )
+          }}
+          title={lang === 'zh' ? '复制 ICS 订阅地址（系统日历持续同步）' : 'Copy ICS subscription URL'}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant bg-surface-container dark:bg-[#191c1d] text-xs font-bold text-on-surface-variant hover:text-on-surface transition-colors"
+        >
+          <span className="material-symbols-outlined text-sm">link</span>
+          <span className="hidden md:inline">{lang === 'zh' ? '订阅' : 'Subscribe'}</span>
         </button>
         <div className="flex bg-surface-container dark:bg-[#191c1d] p-1 rounded-xl border border-outline-variant shadow-xs">
           {(['month', 'week', 'day'] as const).map((mode) => (

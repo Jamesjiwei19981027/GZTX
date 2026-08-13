@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Task, Project, Language } from '../../types';
 import { searchKnowledge, KnowledgeChunk } from '../../api/knowledge';
+import { listTasks } from '../../api/backend';
+import { mapTask } from '../../api/mappers';
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -17,7 +19,7 @@ type ResultItem =
   | { type: 'project'; project: Project }
   | { type: 'knowledge'; chunk: KnowledgeChunk; project: Project };
 
-const MAX_TASKS = 8;
+const MAX_TASKS = 12;
 const MAX_PROJECTS = 5;
 const MAX_KNOWLEDGE = 6;
 /** 知识检索最多并发查前 N 个项目（「全部项目」时） */
@@ -39,6 +41,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
     { chunk: KnowledgeChunk; project: Project }[]
   >([]);
   const [searchingKnowledge, setSearchingKnowledge] = useState(false);
+  const [serverTasks, setServerTasks] = useState<Task[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,23 +49,54 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
       setQuery('');
       setActiveIndex(0);
       setKnowledgeItems([]);
+      setServerTasks([]);
       setTimeout(() => inputRef.current?.focus(), 0);
     }
   }, [isOpen]);
 
   const q = query.trim().toLowerCase();
 
+  // 任务服务端检索：防抖 300ms；失败静默（只展示本地结果）；cancelled 防止旧请求覆盖新结果
+  useEffect(() => {
+    if (!isOpen || !q) {
+      setServerTasks([]);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const page = await listTasks({ search: query.trim(), page: 1, page_size: 20 });
+        if (cancelled) return;
+        setServerTasks((page.items || []).map((t) => mapTask(t)));
+      } catch {
+        if (!cancelled) setServerTasks([]);
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [isOpen, q, query]);
+
+  // 本地过滤优先展示在前，服务端结果按任务 id 去重后补在后面，总数限 MAX_TASKS
   const taskResults = useMemo(() => {
     if (!q) return [];
-    return tasks
-      .filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          (t.description && t.description.toLowerCase().includes(q)) ||
-          (t.tag && t.tag.toLowerCase().includes(q)),
-      )
-      .slice(0, MAX_TASKS);
-  }, [tasks, q]);
+    const local = tasks.filter(
+      (t) =>
+        t.title.toLowerCase().includes(q) ||
+        (t.description && t.description.toLowerCase().includes(q)) ||
+        (t.tag && t.tag.toLowerCase().includes(q)),
+    );
+    const seen = new Set(local.map((t) => t.id));
+    const merged = [...local];
+    for (const t of serverTasks) {
+      if (!seen.has(t.id)) {
+        seen.add(t.id);
+        merged.push(t);
+      }
+    }
+    return merged.slice(0, MAX_TASKS);
+  }, [tasks, serverTasks, q]);
 
   const projectResults = useMemo(() => {
     if (!q) return [];
