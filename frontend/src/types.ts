@@ -1,7 +1,7 @@
 export type Priority = 'Urgent' | 'High' | 'Medium' | 'Low';
 export type Status = 'To Do' | 'In Progress' | 'Done';
 export type Category = 'Work' | 'Health' | 'Personal' | 'Shopping' | 'Documentation';
-export type ViewMode = 'dashboard' | 'tasks' | 'kanban' | 'calendar' | 'reports' | 'team' | 'messages' | 'inbox' | 'people-axis' | 'notifications' | 'settings';
+export type ViewMode = 'dashboard' | 'tasks' | 'kanban' | 'calendar' | 'reports' | 'team' | 'messages' | 'inbox' | 'people-axis' | 'notifications' | 'settings' | 'trash';
 export type Language = 'zh' | 'en';
 export type AccentColor = 'blue' | 'green' | 'amber' | 'red';
 
@@ -92,6 +92,10 @@ export interface Task {
   sourceUrl?: string;
   sourceMessageId?: string;
   sourceMeta?: Record<string, unknown>;
+  /** 重复任务：模板任务 is_recurring=true；实例带 parentTaskId */
+  isRecurring?: boolean;
+  recurrenceRule?: 'daily' | 'weekdays' | 'weekly' | 'monthly' | string;
+  parentTaskId?: string;
 }
 
 export interface Project {

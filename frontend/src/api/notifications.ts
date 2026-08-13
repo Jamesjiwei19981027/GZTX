@@ -82,3 +82,24 @@ export async function sendTestEmail() {
 export async function testLlmConfig() {
   return apiRequest('/notifications/llm-test', { method: 'POST', body: '{}' })
 }
+
+/** 通知渠道立即测试发送（email / webpush），返回成败与失败原因 */
+export async function sendNotifyTest(channel: 'email' | 'webpush') {
+  return apiRequest<{ ok: boolean; error?: string }>('/notify/test-send', {
+    method: 'POST',
+    body: JSON.stringify({ channel }),
+  })
+}
+
+export type NotifyRecord = {
+  channel: string
+  status: string
+  error?: string | null
+  task_title?: string | null
+  created_at: string
+}
+
+/** 当前用户最近的通知发送记录（失败行带原因） */
+export async function listNotifyRecords(limit = 50) {
+  return apiRequest<{ items: NotifyRecord[] }>(`/notify/records?limit=${limit}`)
+}

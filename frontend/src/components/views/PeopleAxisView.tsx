@@ -361,13 +361,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         setPmUserId(proj.pm_user_id ?? null);
         setProjectCompanyId(proj.company_id ?? null);
         apply(withEvidence);
-        if (!withEvidence.length) {
-          setBackendLoadError(
-            lang === 'zh'
-              ? '该项目暂无人轴节点。请用左侧调色板或「加人」创建人员。'
-              : 'No person nodes yet. Add people from the palette.',
-          );
-        }
+        // 空项目不再挂 amber 提示条，改由画布内的首触引导空状态承接
       } catch (e) {
         apply([]);
         setBackendLoadError(
@@ -475,6 +469,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
   /** 至少拥有一个可挂载位置（PM 任意；成员需名下有节点） */
   const canMountSomething = canEditAny || editableNodeIds.size > 0;
+
+  /** 首触引导：具体项目已加载完但一个节点都没有 */
+  const showEmptyOnboarding =
+    isBackendProject && nodes.length === 0 && syncStatus === 'synced' && !backendLoadError;
 
   // 调色板落子：不再自动生成随机人员，而是打开预填好的挂载弹窗，由用户自定义后确认
   const openPaletteMountModal = useCallback((
@@ -1509,6 +1507,71 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
             >
               ✕ {lang === 'zh' ? '退出' : 'Exit'}
             </button>
+          </div>
+        )}
+
+        {/* FIRST-TOUCH ONBOARDING: 空项目引导（主干是人 / 事项挂人下 / 人挂人是下级） */}
+        {showEmptyOnboarding && (
+          <div
+            data-testid="axis-empty-onboarding"
+            className="absolute inset-0 z-20 flex items-center justify-center p-6 pointer-events-none"
+          >
+            <div className="pointer-events-auto max-w-md w-full bg-surface/95 dark:bg-[#1e2022]/95 backdrop-blur-md border border-outline-variant/50 rounded-3xl shadow-2xl p-6 space-y-4 text-center">
+              <h3 className="text-lg font-black text-on-surface">
+                {lang === 'zh' ? '从「人」开始搭建责任链' : 'Start the chain with people'}
+              </h3>
+              <p className="text-xs text-on-surface-variant leading-relaxed">
+                {lang === 'zh'
+                  ? '人轴的主干是人：工作项、里程碑、范围都挂在某个人下面；把人挂到人上就是 TA 的下级；项目 PM 作为终责钉在轴的终点。'
+                  : 'The trunk is made of people: work items hang under a person, a person under a person is a subordinate, and the PM anchors the end of the axis.'}
+              </p>
+              {/* 静态示意：人 → 人（下级）+ 事项，终点为终责 */}
+              <div className="flex items-center justify-center gap-2 py-2 select-none">
+                <div className="flex flex-col items-center gap-1">
+                  <div className="px-3 py-2 rounded-xl border-2 border-primary/60 bg-primary/10 text-primary text-[11px] font-black">
+                    {lang === 'zh' ? '负责人 A' : 'Person A'}
+                  </div>
+                  <div className="w-px h-3 bg-outline-variant" />
+                  <div className="px-2 py-1 rounded-lg border border-outline-variant text-[10px] text-on-surface-variant">
+                    {lang === 'zh' ? '工作项 / 里程碑' : 'Work / milestone'}
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-outline">arrow_forward</span>
+                <div className="flex flex-col items-center gap-1">
+                  <div className="px-3 py-2 rounded-xl border-2 border-primary/60 bg-primary/10 text-primary text-[11px] font-black">
+                    {lang === 'zh' ? '负责人 B' : 'Person B'}
+                  </div>
+                  <div className="w-px h-3 bg-outline-variant" />
+                  <div className="px-2 py-1 rounded-lg border border-outline-variant text-[10px] text-on-surface-variant">
+                    {lang === 'zh' ? '下级人员' : 'Subordinate'}
+                  </div>
+                </div>
+                <span className="material-symbols-outlined text-outline">arrow_forward</span>
+                <div className="px-3 py-2 rounded-xl border-2 border-amber-500/70 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-black">
+                  {lang === 'zh' ? '终责 PM' : 'Terminal PM'}
+                </div>
+              </div>
+              <button
+                data-testid="axis-add-first-person"
+                onClick={() => {
+                  if (!canMountSomething) {
+                    showToast(lang === 'zh' ? '只读成员：无挂载权限，请联系项目 PM 指派节点' : 'Read-only member: ask the PM for an assignment');
+                    return;
+                  }
+                  setNewParentId('');
+                  setIsAddingNode(true);
+                }}
+                className="w-full py-3 rounded-2xl bg-primary text-on-primary text-sm font-black shadow-md hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
+              >
+                <span className="material-symbols-outlined text-lg">person_add</span>
+                <span>{lang === 'zh' ? '添加第一个人' : 'Add the first person'}</span>
+              </button>
+              <p className="text-[10px] text-on-surface-variant">
+                {lang === 'zh'
+                  ? '也可以从左侧「责任人挂载面板」把模板卡片拖到画布上。'
+                  : 'You can also drag a template card from the palette onto the canvas.'}
+              </p>
+            </div>
           </div>
         )}
 

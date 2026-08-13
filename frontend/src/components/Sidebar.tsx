@@ -30,6 +30,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'inbox', label: t.inbox, icon: 'all_inbox' },
     { id: 'notifications', label: lang === 'zh' ? '通知中心' : 'Notifications', icon: 'notifications_active' },
     { id: 'settings', label: t.settings, icon: 'settings' },
+    { id: 'trash', label: lang === 'zh' ? '回收站' : 'Trash', icon: 'delete' },
   ];
 
   const mobileNavItems: { id: ViewMode; label: string; icon: string }[] = [

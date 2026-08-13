@@ -34,14 +34,24 @@ function todayLocal(): string {
   return `${d.getFullYear()}-${mm}-${dd}`
 }
 
+/** 本地时区的 YYYY-MM-DD，偏移 N 天（S10 用昨天 / 明天） */
+function localDateWithOffset(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
+
 async function apiCreateTask(
   request: APIRequestContext,
   token: string,
   title: string,
+  dueDate: string = todayLocal(),
 ): Promise<{ id: number }> {
   const res = await request.post('/api/v1/tasks', {
     headers: { Authorization: `Bearer ${token}` },
-    data: { title, priority: 1, status: 0, due_date: todayLocal() },
+    data: { title, priority: 1, status: 0, due_date: dueDate },
   })
   expect(res.ok(), `建任务接口 HTTP ${res.status()}`).toBeTruthy()
   const body = await res.json()
@@ -227,4 +237,55 @@ test('S8 登出：回到 LoginGate，刷新后仍是未登录态', async ({ page
   await page.reload()
   await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
   await expect(sidebar(page)).toHaveCount(0)
+})
+
+test('S9 回收站：删除任务 → 回收站可见 → 恢复 → 列表回来', async ({ page, request }) => {
+  const tokens = await apiLogin(request)
+  const title = `E2E回收S9-${Date.now()}`
+  await apiCreateTask(request, tokens.access_token, title)
+  await bootLoggedIn(page, request, tokens)
+
+  // 在任务详情抽屉里软删（无阻塞确认，删除后弹撤销 toast）
+  await openView(page, '我的任务')
+  const row = page.getByTestId('task-row').filter({ hasText: title })
+  await expect(row).toBeVisible()
+  await row.click()
+  await expect(page.getByText('任务详情 ID:')).toBeVisible()
+  await page.getByTestId('task-delete').click()
+  await expect(row).toHaveCount(0)
+
+  // 回收站可见该任务，点「恢复」后从回收站移除
+  await openView(page, '回收站')
+  const trashRow = page.getByTestId('trash-row').filter({ hasText: title })
+  await expect(trashRow).toBeVisible()
+  await trashRow.getByTestId('trash-restore').click()
+  await expect(trashRow).toHaveCount(0)
+
+  // 回到我的任务：任务已恢复
+  await openView(page, '我的任务')
+  await expect(page.getByTestId('task-row').filter({ hasText: title })).toBeVisible()
+})
+
+test('S10 逾期顺延：昨天到期任务 → 逾期组「全部顺延→明天」→ 日期变明天', async ({ page, request }) => {
+  const tokens = await apiLogin(request)
+  const title = `E2E逾期S10-${Date.now()}`
+  await apiCreateTask(request, tokens.access_token, title, localDateWithOffset(-1))
+  await bootLoggedIn(page, request, tokens)
+
+  await openView(page, '我的任务')
+  const overdueGroup = page.getByTestId('overdue-group')
+  await expect(
+    overdueGroup.getByTestId('task-row').filter({ hasText: title }),
+  ).toBeVisible()
+
+  await page.getByTestId('overdue-reschedule-trigger').click()
+  await page.getByTestId('overdue-reschedule-tomorrow').click()
+
+  // 顺延成功后任务移出逾期组，行内日期变为明天
+  const row = page.getByTestId('task-row').filter({ hasText: title })
+  await expect(row).toBeVisible()
+  await expect(row).toContainText(localDateWithOffset(1))
+  await expect(
+    overdueGroup.getByTestId('task-row').filter({ hasText: title }),
+  ).toHaveCount(0)
 })

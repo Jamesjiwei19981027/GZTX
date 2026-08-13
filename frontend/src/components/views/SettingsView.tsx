@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { AppSettings, UserProfile, Language, AccentColor } from '../../types';
 import { getT } from '../../i18n';
 import { changePassword, deleteMyAccount, getBillingSummary, getPrivacySummary } from '../../api/auth';
-import { getEmailStatus, getLlmConfig, getWechatSubscribeStatus, putWechatSubscribePreference } from '../../api/notifications';
+import { getEmailStatus, getLlmConfig, getWechatSubscribeStatus, putWechatSubscribePreference, sendNotifyTest, listNotifyRecords, NotifyRecord } from '../../api/notifications';
+import { getHealth } from '../../api/backend';
+import { useToast } from '../toast/ToastProvider';
 
 interface SettingsViewProps {
   user: UserProfile;
@@ -28,6 +30,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   lang,
 }) => {
   const t = getT(lang);
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'notifications' | 'defaults' | 'security'>('profile');
 
   const [nameInput, setNameInput] = useState(user.name);
@@ -51,6 +54,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [wechatEnabled, setWechatEnabled] = useState(settings.notifications.wechat);
   const [emailStatus, setEmailStatus] = useState<string>('');
   const [llmStatus, setLlmStatus] = useState<string>('');
+  const [testSending, setTestSending] = useState<'email' | 'webpush' | null>(null);
+  const [showNotifyRecords, setShowNotifyRecords] = useState(false);
+  const [notifyRecords, setNotifyRecords] = useState<NotifyRecord[] | null>(null);
+  const [notifyRecordsError, setNotifyRecordsError] = useState<string | null>(null);
+  const [appVersion, setAppVersion] = useState<string>('');
 
   useEffect(() => {
     if (activeTab !== 'security' && activeTab !== 'notifications') return;
@@ -69,6 +77,46 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setRoleInput(user.role);
     setAvatarInput(user.avatar);
   }, [user.name, user.email, user.role, user.avatar]);
+
+  // 版本号（/health 免鉴权）：自托管用户升级后可在设置页确认版本
+  useEffect(() => {
+    void getHealth()
+      .then((res) => setAppVersion(res.version || ''))
+      .catch(() => setAppVersion(''));
+  }, []);
+
+  // 通知发送记录：展开折叠面板时拉取一次
+  useEffect(() => {
+    if (!showNotifyRecords) return;
+    setNotifyRecordsError(null);
+    void listNotifyRecords(50)
+      .then((res) => setNotifyRecords(res.items || []))
+      .catch((e) => setNotifyRecordsError(e instanceof Error ? e.message : '加载发送记录失败'));
+  }, [showNotifyRecords]);
+
+  const handleTestSend = async (channel: 'email' | 'webpush') => {
+    setTestSending(channel);
+    try {
+      const res = await sendNotifyTest(channel);
+      if (res.ok) {
+        toast.success(
+          lang === 'zh'
+            ? `测试${channel === 'email' ? '邮件' : '推送'}已发送，请检查是否收到`
+            : `Test ${channel} sent — check your inbox/device`,
+        );
+      } else {
+        toast.error(
+          lang === 'zh'
+            ? `测试发送失败：${res.error || '未知原因'}`
+            : `Test send failed: ${res.error || 'unknown'}`,
+        );
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : (lang === 'zh' ? '测试发送失败' : 'Test send failed'));
+    } finally {
+      setTestSending(null);
+    }
+  };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,7 +166,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       await deleteMyAccount(deletePassword);
       await onLogout?.();
     } catch (error) {
-      alert(error instanceof Error ? error.message : '账号删除失败');
+      toast.error(error instanceof Error ? error.message : '账号删除失败');
     } finally {
       setDeleteBusy(false);
     }
@@ -453,16 +501,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <p className="text-xs text-on-surface-variant mt-0.5">{t.emailNotifSub}</p>
                     </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.notifications.email}
-                    onChange={(e) =>
-                      onUpdateSettings({
-                        notifications: { ...settings.notifications, email: e.target.checked },
-                      })
-                    }
-                    className="w-5 h-5 accent-primary rounded cursor-pointer"
-                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      data-testid="notify-test-email"
+                      disabled={testSending !== null}
+                      onClick={() => void handleTestSend('email')}
+                      className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors disabled:opacity-50"
+                    >
+                      {testSending === 'email' ? (lang === 'zh' ? '发送中…' : 'Sending…') : (lang === 'zh' ? '发送测试' : 'Send test')}
+                    </button>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifications.email}
+                      onChange={(e) =>
+                        onUpdateSettings({
+                          notifications: { ...settings.notifications, email: e.target.checked },
+                        })
+                      }
+                      className="w-5 h-5 accent-primary rounded cursor-pointer"
+                    />
+                  </div>
                 </div>
 
                 {/* Push */}
@@ -474,21 +533,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <p className="text-xs text-on-surface-variant mt-0.5">{t.pushNotifSub}</p>
                     </div>
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={settings.notifications.push}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      if (checked && onEnablePush) {
-                        void onEnablePush().then(() => onUpdateSettings({ notifications: { ...settings.notifications, push: true } })).catch((error) => {
-                          alert(error instanceof Error ? error.message : 'Web Push 授权失败');
-                        });
-                      } else {
-                        onUpdateSettings({ notifications: { ...settings.notifications, push: checked } });
-                      }
-                    }}
-                    className="w-5 h-5 accent-primary rounded cursor-pointer"
-                  />
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      data-testid="notify-test-webpush"
+                      disabled={testSending !== null}
+                      onClick={() => void handleTestSend('webpush')}
+                      className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors disabled:opacity-50"
+                    >
+                      {testSending === 'webpush' ? (lang === 'zh' ? '发送中…' : 'Sending…') : (lang === 'zh' ? '发送测试' : 'Send test')}
+                    </button>
+                    <input
+                      type="checkbox"
+                      checked={settings.notifications.push}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        if (checked && onEnablePush) {
+                          void onEnablePush().then(() => onUpdateSettings({ notifications: { ...settings.notifications, push: true } })).catch((error) => {
+                            toast.error(error instanceof Error ? error.message : 'Web Push 授权失败');
+                          });
+                        } else {
+                          onUpdateSettings({ notifications: { ...settings.notifications, push: checked } });
+                        }
+                      }}
+                      className="w-5 h-5 accent-primary rounded cursor-pointer"
+                    />
+                  </div>
                 </div>
 
                 {/* Desktop */}
@@ -529,7 +599,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       setWechatEnabled(checked);
                       void putWechatSubscribePreference(checked).then(() => onUpdateSettings({ notifications: { ...settings.notifications, wechat: checked } })).catch((error) => {
                         setWechatEnabled(!checked);
-                        alert(error instanceof Error ? error.message : '微信订阅设置失败');
+                        toast.error(error instanceof Error ? error.message : '微信订阅设置失败');
                       });
                     }}
                     className="w-5 h-5 accent-primary rounded cursor-pointer"
@@ -542,6 +612,68 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-on-surface-variant">
                   <div className="p-3 rounded-xl bg-surface-container-low">{emailStatus || 'SMTP 状态加载中…'}</div>
                   <div className="p-3 rounded-xl bg-surface-container-low">{llmStatus || '个人 LLM 状态加载中…'}</div>
+                </div>
+
+                {/* 通知发送记录（折叠）：失败行标红并展示原因 */}
+                <div className="rounded-2xl border border-outline-variant/60 overflow-hidden">
+                  <button
+                    type="button"
+                    data-testid="notify-records-toggle"
+                    onClick={() => setShowNotifyRecords((v) => !v)}
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="material-symbols-outlined text-lg text-primary">history</span>
+                      {lang === 'zh' ? '通知发送记录' : 'Delivery log'}
+                    </span>
+                    <span
+                      className="material-symbols-outlined text-lg text-on-surface-variant transition-transform"
+                      style={{ transform: showNotifyRecords ? 'rotate(180deg)' : 'none' }}
+                    >
+                      expand_more
+                    </span>
+                  </button>
+                  {showNotifyRecords && (
+                    <div className="border-t border-outline-variant/60 max-h-72 overflow-y-auto">
+                      {notifyRecordsError ? (
+                        <p className="px-4 py-3 text-xs text-error">{notifyRecordsError}</p>
+                      ) : notifyRecords === null ? (
+                        <p className="px-4 py-3 text-xs text-on-surface-variant">
+                          {lang === 'zh' ? '加载中…' : 'Loading…'}
+                        </p>
+                      ) : notifyRecords.length === 0 ? (
+                        <p className="px-4 py-3 text-xs text-on-surface-variant">
+                          {lang === 'zh' ? '暂无发送记录。' : 'No delivery records yet.'}
+                        </p>
+                      ) : (
+                        <ul className="divide-y divide-outline-variant/40">
+                          {notifyRecords.map((record, i) => {
+                            const failed = record.status !== 'sent' && record.status !== 'success' && record.status !== 'ok';
+                            return (
+                              <li key={i} className="px-4 py-2.5 flex items-start justify-between gap-3 text-xs">
+                                <div className="min-w-0">
+                                  <p className={`font-semibold truncate ${failed ? 'text-error' : 'text-on-surface dark:text-[#f0f1f2]'}`}>
+                                    [{record.channel}] {record.task_title || (lang === 'zh' ? '（系统通知）' : '(system)')}
+                                  </p>
+                                  {failed && record.error && (
+                                    <p className="text-error mt-0.5 break-words">{record.error}</p>
+                                  )}
+                                </div>
+                                <div className="shrink-0 text-right">
+                                  <span className={`font-bold ${failed ? 'text-error' : 'text-secondary'}`}>
+                                    {failed ? (lang === 'zh' ? '失败' : 'Failed') : (lang === 'zh' ? '已发送' : 'Sent')}
+                                  </span>
+                                  <p className="text-on-surface-variant mt-0.5">
+                                    {record.created_at ? record.created_at.slice(0, 16).replace('T', ' ') : '—'}
+                                  </p>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -719,6 +851,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* 版本号（来自 /health 的 APP_VERSION，构建注入）：自托管升级确认用 */}
+      <p className="mt-8 text-center text-[11px] text-on-surface-variant" data-testid="app-version">
+        WorkTodo {appVersion ? `v${appVersion.replace(/^v/, '')}` : (lang === 'zh' ? '版本未知' : 'version unknown')}
+      </p>
     </div>
   );
 };

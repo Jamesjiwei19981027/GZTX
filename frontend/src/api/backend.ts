@@ -46,6 +46,11 @@ export type BackendTask = {
   source_meta?: Record<string, unknown> | null
   assignees?: BackendAssignee[]
   assignee?: BackendAssignee | null
+  is_recurring?: boolean
+  recurrence_rule?: string | null
+  parent_task_id?: number | null
+  is_deleted?: boolean
+  deleted_at?: string | null
 }
 
 export type BackendAssignee = {
@@ -157,6 +162,8 @@ export async function createTask(body: {
   source_message_id?: string | null
   source_meta?: Record<string, unknown> | null
   assignee_user_ids?: number[]
+  is_recurring?: boolean
+  recurrence_rule?: string | null
 }) {
   return apiRequest<BackendTask>('/tasks', {
     method: 'POST',
@@ -249,11 +256,15 @@ export async function updateTask(
   })
 }
 
+/** 完成任务；重复任务（is_recurring 且非实例）完成后后端会在响应里带 next_instance */
 export async function completeTask(id: number) {
-  return apiRequest<BackendTask>(`/tasks/${id}/complete`, {
-    method: 'PATCH',
-    body: JSON.stringify({}),
-  })
+  return apiRequest<BackendTask & { next_instance?: BackendTask | null }>(
+    `/tasks/${id}/complete`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({}),
+    },
+  )
 }
 
 export async function uncompleteTask(id: number) {
@@ -265,6 +276,55 @@ export async function uncompleteTask(id: number) {
 
 export async function deleteTask(id: number) {
   return apiRequest(`/tasks/${id}`, { method: 'DELETE' })
+}
+
+/** 回收站：软删任务分页列表（30 天后由后端定时清除） */
+export async function listTrashTasks(params?: { page?: number; page_size?: number }) {
+  const q = new URLSearchParams()
+  q.set('page', String(params?.page ?? 1))
+  q.set('page_size', String(params?.page_size ?? 50))
+  return apiRequest<{ items: BackendTask[]; total: number }>(`/tasks/trash?${q}`)
+}
+
+/** 恢复软删任务，返回完整序列化任务 */
+export async function restoreTask(id: number) {
+  return apiRequest<BackendTask>(`/tasks/${id}/restore`, {
+    method: 'POST',
+    body: '{}',
+  })
+}
+
+/** 批量顺延：仅替换日期部分，保留原时刻 */
+export async function batchRescheduleTasks(taskIds: number[], dueDate: string) {
+  return apiRequest<{ updated_count: number }>('/tasks/batch/reschedule', {
+    method: 'PATCH',
+    body: JSON.stringify({ task_ids: taskIds, due_date: dueDate }),
+  })
+}
+
+export async function batchCompleteTasks(taskIds: number[]) {
+  return apiRequest<{ updated_count?: number }>('/tasks/batch/complete', {
+    method: 'PATCH',
+    body: JSON.stringify({ task_ids: taskIds }),
+  })
+}
+
+export async function batchDeleteTasks(taskIds: number[]) {
+  return apiRequest<{ deleted_count?: number }>('/tasks/batch', {
+    method: 'DELETE',
+    body: JSON.stringify({ task_ids: taskIds }),
+  })
+}
+
+/** 健康检查（免鉴权）；设置页读取 version 展示 */
+export async function getHealth() {
+  return apiRequest<{
+    status: string
+    database?: string
+    migration?: string
+    version?: string
+    timestamp?: string
+  }>('/health')
 }
 
 export async function listMyCompanies() {

@@ -109,13 +109,13 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
             </div>
             <div className="flex items-center gap-2">
               <button
+                data-testid="task-delete"
                 onClick={() => {
-                  if (window.confirm(lang === 'zh' ? '确定要永久删除此项任务吗？' : 'Delete this task?')) {
-                    onDeleteTask(task.id);
-                  }
+                  // 软删可恢复：直接执行，由 App 弹「撤销」toast（回收站 30 天内可恢复）
+                  onDeleteTask(task.id);
                 }}
                 className="p-1.5 hover:bg-error-container/20 text-error rounded-lg transition-colors"
-                title={lang === 'zh' ? '删除任务' : 'Delete task'}
+                title={lang === 'zh' ? '删除任务（可在回收站恢复）' : 'Delete task (restorable from Trash)'}
               >
                 <span className="material-symbols-outlined text-lg">delete</span>
               </button>

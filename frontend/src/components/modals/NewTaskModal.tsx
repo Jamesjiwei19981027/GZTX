@@ -63,30 +63,42 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   const [extracting, setExtracting] = useState(false);
   const [showSourceTools, setShowSourceTools] = useState(false);
   const [assigneeUserIds, setAssigneeUserIds] = useState<string[]>([]);
+  const [recurrence, setRecurrence] = useState<'' | 'daily' | 'weekdays' | 'weekly' | 'monthly'>('');
 
+  // 重置表单只绑定 isOpen 变化：boot 期间 categories 后到时不得清空用户已输入的内容
+  // （竞态修复：旧实现依赖 categories，分类加载完成会把打开状态下的表单整体重置）
   useEffect(() => {
-    if (isOpen) {
-      setTitle(defaultTitle || '');
-      setDescription(defaultDescription || '');
-      setStatus(defaultStatus);
-      setPriority(defaultPriority);
-      setCategory(defaultCategory);
-      setCategoryId(
-        categories.find((item) => item.name === defaultCategory)?.id ?? categories[0]?.id,
-      );
-      setTag('');
-      setAttachments([]);
-      setDueDate(defaultDate || new Date().toISOString().split('T')[0]);
-      setDueTime('17:00');
-      setSourceChannel(defaultSource?.channel || 'wechat');
-      setSourceTitle(defaultSource?.title || '');
-      setSourceUrl(defaultSource?.url || '');
-      setSourceMessageId('');
-      setChatText('');
-      setShowSourceTools(false);
-      setAssigneeUserIds([]);
-    }
-  }, [isOpen, defaultTitle, defaultDescription, defaultStatus, defaultPriority, defaultCategory, defaultDate, categories, defaultSource]);
+    if (!isOpen) return;
+    setTitle(defaultTitle || '');
+    setDescription(defaultDescription || '');
+    setStatus(defaultStatus);
+    setPriority(defaultPriority);
+    setCategory(defaultCategory);
+    setCategoryId(
+      categories.find((item) => item.name === defaultCategory)?.id ?? categories[0]?.id,
+    );
+    setTag('');
+    setAttachments([]);
+    setDueDate(defaultDate || new Date().toISOString().split('T')[0]);
+    setDueTime('17:00');
+    setSourceChannel(defaultSource?.channel || 'wechat');
+    setSourceTitle(defaultSource?.title || '');
+    setSourceUrl(defaultSource?.url || '');
+    setSourceMessageId('');
+    setChatText('');
+    setShowSourceTools(false);
+    setAssigneeUserIds([]);
+    setRecurrence('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // categories 后到（boot 未完成时打开弹窗）：只补默认分类 id，不动其他字段
+  useEffect(() => {
+    if (!isOpen || categories.length === 0) return;
+    setCategoryId(
+      (prev) => prev ?? (categories.find((item) => item.name === defaultCategory)?.id ?? categories[0]?.id),
+    );
+  }, [isOpen, categories, defaultCategory]);
 
   if (!isOpen) return null;
 
@@ -142,6 +154,8 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
       projectId: currentProject.id,
       assigneeUserIds,
       progress: status === 'In Progress' ? 30 : status === 'Done' ? 100 : 0,
+      isRecurring: recurrence !== '',
+      recurrenceRule: recurrence || undefined,
     });
 
     // Reset and close
@@ -297,6 +311,35 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                 className="w-full px-3 py-2 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-semibold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
               />
             </div>
+          </div>
+
+          {/* Recurrence */}
+          <div>
+            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+              <span className="inline-flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm align-middle">repeat</span>
+                {lang === 'zh' ? '重复' : 'Repeat'}
+              </span>
+            </label>
+            <select
+              data-testid="new-task-recurrence"
+              value={recurrence}
+              onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
+              className="w-full px-3 py-2.5 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-bold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+            >
+              <option value="">{lang === 'zh' ? '不重复' : 'Does not repeat'}</option>
+              <option value="daily">{lang === 'zh' ? '每天' : 'Daily'}</option>
+              <option value="weekdays">{lang === 'zh' ? '工作日（周一至周五）' : 'Weekdays (Mon–Fri)'}</option>
+              <option value="weekly">{lang === 'zh' ? '每周' : 'Weekly'}</option>
+              <option value="monthly">{lang === 'zh' ? '每月' : 'Monthly'}</option>
+            </select>
+            {recurrence !== '' && (
+              <p className="mt-1 text-[11px] text-on-surface-variant">
+                {lang === 'zh'
+                  ? '完成本次后会自动生成下一次任务。'
+                  : 'Completing this task will schedule the next occurrence.'}
+              </p>
+            )}
           </div>
 
           {/* Project assignees */}

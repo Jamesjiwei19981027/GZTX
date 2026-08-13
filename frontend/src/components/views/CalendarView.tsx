@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react'
 import { Language, Task } from '../../types'
 import { getT } from '../../i18n'
 import { downloadTasksIcs, getCalendarFeedUrl } from '../../api/backend'
+import { useToast } from '../toast/ToastProvider'
 import {
   formatDateLocal,
   isSameDay,
@@ -29,6 +30,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   lang,
 }) => {
   const t = getT(lang)
+  const toast = useToast()
   const [viewType, setViewType] = useState<'month' | 'week' | 'day'>('month')
   const [cursor, setCursor] = useState(() => new Date(today.getFullYear(), today.getMonth(), today.getDate()))
 
@@ -136,7 +138,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         <button
           onClick={() => {
             void downloadTasksIcs().catch((e) =>
-              alert(e instanceof Error ? e.message : lang === 'zh' ? '导出失败' : 'Export failed'),
+              toast.error(e instanceof Error ? e.message : lang === 'zh' ? '导出失败' : 'Export failed'),
             )
           }}
           title={lang === 'zh' ? '导出 .ics（导入系统日历）' : 'Export .ics'}
@@ -153,7 +155,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 // 局域网 http 访问时降级为弹窗展示，让用户手动复制
                 if (navigator.clipboard?.writeText) {
                   await navigator.clipboard.writeText(url)
-                  alert(
+                  toast.success(
                     lang === 'zh'
                       ? '订阅地址已复制。在系统日历「按 URL 订阅」粘贴即可持续同步任务。'
                       : 'Subscription URL copied. Paste it into your calendar app ("subscribe by URL").',
@@ -168,7 +170,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 }
               })
               .catch((e) =>
-                alert(e instanceof Error ? e.message : lang === 'zh' ? '获取订阅地址失败' : 'Failed'),
+                toast.error(e instanceof Error ? e.message : lang === 'zh' ? '获取订阅地址失败' : 'Failed'),
               )
           }}
           title={lang === 'zh' ? '复制 ICS 订阅地址（系统日历持续同步）' : 'Copy ICS subscription URL'}

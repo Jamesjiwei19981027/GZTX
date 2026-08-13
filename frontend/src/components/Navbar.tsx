@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Project, UserProfile, Language } from '../types';
 import { getT } from '../i18n';
 import { getBrandName } from '../constants/brand';
+import { useToast } from './toast/ToastProvider';
 
 interface NavbarProps {
   currentProject: Project;
@@ -37,6 +38,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLogout,
 }) => {
   const t = getT(lang);
+  const toast = useToast();
   const [showProjectDropdown, setShowProjectDropdown] = useState(false);
   const [showUserDropdown, setShowUserDropdown] = useState(false);
   const [showHelpModal, setShowHelpModal] = useState(false);
@@ -248,7 +250,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                     onClick={() => {
                       setShowUserDropdown(false);
                       if (onLogout) onLogout();
-                      else alert(lang === 'zh' ? '已安全退出登录演示' : 'Signed out of demo session');
+                      else toast.info(lang === 'zh' ? '已安全退出登录演示' : 'Signed out of demo session');
                     }}
                     className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-error-container/20 text-sm text-error transition-colors font-medium"
                   >

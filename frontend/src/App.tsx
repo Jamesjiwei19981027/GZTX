@@ -30,6 +30,9 @@ import { VerifyGate } from './components/VerifyGate';
 import { getToken } from './api/client';
 import { fetchMe, getVerificationStatus, logout, updateMe, uploadAvatar } from './api/auth';
 import {
+  batchCompleteTasks,
+  batchDeleteTasks,
+  batchRescheduleTasks,
   completeTask,
   createTask,
   createTag,
@@ -40,6 +43,7 @@ import {
   listProjectMembers,
   listProjects,
   listTasks,
+  restoreTask,
   uncompleteTask,
   updateTask,
   uploadTaskAttachment,
@@ -61,6 +65,9 @@ import {
   putUiPrefs,
 } from './api/shell';
 import { enableWebPush } from './api/notifications';
+import { track } from './api/telemetry';
+import { useToast } from './components/toast/ToastProvider';
+import { ShortcutHelpModal } from './components/modals/ShortcutHelpModal';
 
 // 重视图按需分包：人轴（@xyflow/react）、报表（recharts）等只在切到对应视图时才加载
 const KanbanView = React.lazy(() =>
@@ -92,6 +99,9 @@ const MessagesView = React.lazy(() =>
 const PeopleAxisView = React.lazy(() =>
   import('./components/views/PeopleAxisView').then((m) => ({ default: m.PeopleAxisView })),
 );
+const TrashView = React.lazy(() =>
+  import('./components/views/TrashView').then((m) => ({ default: m.TrashView })),
+);
 
 const ViewLoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center py-24 bg-surface text-on-surface-variant text-sm gap-2">
@@ -115,6 +125,7 @@ function toApiDueDate(date?: string, time?: string): string | undefined {
 }
 
 export default function App() {
+  const toast = useToast();
   const [authed, setAuthed] = useState(() => !!getToken());
   /** null=检查中；false=需补验邮箱/手机；true=双验证通过 */
   const [verified, setVerified] = useState<boolean | null>(() =>
@@ -152,6 +163,13 @@ export default function App() {
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+  const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
+
+  /** 视图切换统一入口：附带轻遥测（view.{viewName}） */
+  const switchView = useCallback((view: ViewMode) => {
+    setActiveView(view);
+    track(`view.${view}`);
+  }, []);
 
   const refreshFromBackend = useCallback(async () => {
     setLoadingBoot(true);
@@ -343,13 +361,16 @@ export default function App() {
         setIsGlobalSearchOpen(true);
         return;
       }
-      if (!(e.altKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN'))) return;
+      const isAltN = e.altKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN');
+      const isHelpKey = e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey;
+      if (!isAltN && !isHelpKey) return;
       // 正在输入（表单控件 / 富文本）时不抢快捷键，避免打断用户
       const target = e.target as HTMLElement | null;
       const tag = target?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) return;
       e.preventDefault();
-      setIsQuickAddOpen(true);
+      if (isHelpKey) setIsShortcutHelpOpen(true);
+      else setIsQuickAddOpen(true);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -471,6 +492,8 @@ export default function App() {
         source_message_id: taskData.sourceMessageId,
         source_meta: taskData.sourceMeta,
         assignee_user_ids: (taskData.assigneeUserIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id)),
+        is_recurring: taskData.isRecurring || undefined,
+        recurrence_rule: taskData.isRecurring ? taskData.recurrenceRule : undefined,
       });
       const mapped = mapTask(created);
       const attachmentFailures: string[] = [];
@@ -487,13 +510,13 @@ export default function App() {
       addActivity('created', '新任务创建:', mapped.title);
       setIsNewTaskModalOpen(false);
       if (attachmentFailures.length > 0) {
-        alert(
+        toast.error(
           `任务已创建，但 ${attachmentFailures.length} 个附件上传失败：${attachmentFailures.join('、')}`,
         );
       }
       return true;
     } catch (e) {
-      alert(e instanceof Error ? e.message : '创建失败');
+      toast.error(e instanceof Error ? e.message : '创建失败');
       return false;
     }
   };
@@ -525,20 +548,39 @@ export default function App() {
       addActivity('updated', '任务已更新:', updatedTask.title);
       setSelectedTask(updatedTask);
     } catch (e) {
-      alert(e instanceof Error ? e.message : '更新失败');
+      toast.error(e instanceof Error ? e.message : '更新失败');
+    }
+  };
+
+  /** 恢复单个软删任务并塞回本地列表（撤销删除 / 回收站恢复共用） */
+  const restoreTaskToList = async (backendId: number) => {
+    try {
+      const restored = await restoreTask(backendId);
+      const mapped = mapTask(restored);
+      setTasks((prev) => [mapped, ...prev.filter((t) => t.id !== mapped.id)]);
+      toast.success(`已恢复「${mapped.title}」`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '恢复失败，可到回收站手动恢复');
     }
   };
 
   const handleDeleteTask = async (taskId: string) => {
     const id = Number(taskId);
+    const taskToDelete = tasks.find((t) => t.id === taskId);
     try {
       if (Number.isFinite(id)) await deleteTask(id);
-      const taskToDelete = tasks.find((t) => t.id === taskId);
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
       if (taskToDelete) addActivity('updated', '任务已删除:', taskToDelete.title);
       setSelectedTask(null);
+      // 软删可恢复：先执行 + 撤销 toast（也可稍后去回收站恢复）
+      if (Number.isFinite(id)) {
+        toast.action(
+          `已删除「${taskToDelete?.title || taskId}」，可撤销或到回收站恢复`,
+          { label: '撤销', onAction: () => restoreTaskToList(id) },
+        );
+      }
     } catch (e) {
-      alert(e instanceof Error ? e.message : '删除失败');
+      toast.error(e instanceof Error ? e.message : '删除失败');
     }
   };
 
@@ -548,6 +590,14 @@ export default function App() {
     setTasks((prev) => prev.map((t) => (t.id === mapped.id ? mapped : t)));
     setSelectedTask((prev) => (prev && prev.id === mapped.id ? mapped : prev));
     return mapped;
+  };
+
+  /** 重复任务完成后端会返回下一次实例：插入本地列表并提示 */
+  const handleNextInstance = (nextInstance?: import('./api/backend').BackendTask | null) => {
+    if (!nextInstance) return;
+    const mapped = mapTask(nextInstance);
+    setTasks((prev) => [mapped, ...prev.filter((t) => t.id !== mapped.id)]);
+    toast.success(`已生成下一次：${mapped.dueDate || '未排期'}`);
   };
 
   const handleToggleTaskCompletion = async (taskId: string, e: React.MouseEvent) => {
@@ -560,9 +610,13 @@ export default function App() {
       const updated = wasDone ? await uncompleteTask(id) : await completeTask(id);
       const mapped = applyTaskFromBackend(updated);
       if (wasDone) addActivity('updated', '任务已恢复待办:', mapped.title);
-      else addActivity('completed', '任务已完成:', mapped.title);
+      else {
+        addActivity('completed', '任务已完成:', mapped.title);
+        track('task.complete');
+        handleNextInstance((updated as { next_instance?: import('./api/backend').BackendTask | null }).next_instance);
+      }
     } catch (err) {
-      alert(err instanceof Error ? err.message : '状态更新失败');
+      toast.error(err instanceof Error ? err.message : '状态更新失败');
     }
   };
 
@@ -575,10 +629,13 @@ export default function App() {
           ? await completeTask(id)
           : await updateTask(id, { status: uiStatusToApi(newStatus) });
       const mapped = applyTaskFromBackend(updated);
-      if (newStatus === 'Done') addActivity('completed', '任务已完成:', mapped.title);
-      else addActivity('updated', '任务状态更新:', mapped.title);
+      if (newStatus === 'Done') {
+        addActivity('completed', '任务已完成:', mapped.title);
+        track('task.complete');
+        handleNextInstance((updated as { next_instance?: import('./api/backend').BackendTask | null }).next_instance);
+      } else addActivity('updated', '任务状态更新:', mapped.title);
     } catch (err) {
-      alert(err instanceof Error ? err.message : '状态更新失败');
+      toast.error(err instanceof Error ? err.message : '状态更新失败');
     }
   };
 
@@ -589,7 +646,55 @@ export default function App() {
       const updated = await updateTask(id, { due_date: toApiDueDate(dueDate, task.dueTime) });
       setTasks((prev) => prev.map((item) => (item.id === task.id ? mapTask(updated) : item)));
     } catch (err) {
-      alert(err instanceof Error ? err.message : '日期更新失败');
+      toast.error(err instanceof Error ? err.message : '日期更新失败');
+    }
+  };
+
+  /** 批量顺延：成功后本地更新这些任务的 dueDate（保留原时刻） */
+  const handleBatchReschedule = async (taskIds: string[], dueDate: string) => {
+    const ids = taskIds.map((v) => Number(v)).filter((v) => Number.isFinite(v));
+    if (!ids.length) return;
+    try {
+      const res = await batchRescheduleTasks(ids, dueDate);
+      const idSet = new Set(taskIds);
+      setTasks((prev) => prev.map((t) => (idSet.has(t.id) ? { ...t, dueDate } : t)));
+      toast.success(`已顺延 ${res.updated_count ?? ids.length} 个任务至 ${dueDate}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '批量顺延失败');
+    }
+  };
+
+  const handleBatchComplete = async (taskIds: string[]) => {
+    const ids = taskIds.map((v) => Number(v)).filter((v) => Number.isFinite(v));
+    if (!ids.length) return;
+    try {
+      await batchCompleteTasks(ids);
+      const idSet = new Set(taskIds);
+      setTasks((prev) =>
+        prev.map((t) => (idSet.has(t.id) ? { ...t, status: 'Done' as Status, progress: 100 } : t)),
+      );
+      track('task.complete', { batch: ids.length });
+      toast.success(`已完成 ${ids.length} 个任务`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '批量完成失败');
+    }
+  };
+
+  const handleBatchDelete = async (taskIds: string[]) => {
+    const ids = taskIds.map((v) => Number(v)).filter((v) => Number.isFinite(v));
+    if (!ids.length) return;
+    try {
+      await batchDeleteTasks(ids);
+      const idSet = new Set(taskIds);
+      setTasks((prev) => prev.filter((t) => !idSet.has(t.id)));
+      toast.action(`已删除 ${ids.length} 个任务，可撤销或到回收站恢复`, {
+        label: '撤销',
+        onAction: async () => {
+          for (const id of ids) await restoreTaskToList(id);
+        },
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '批量删除失败');
     }
   };
 
@@ -659,7 +764,7 @@ export default function App() {
             language: prev.language === 'zh' ? 'en' : 'zh',
           }))
         }
-        onOpenSettings={() => setActiveView('settings')}
+        onOpenSettings={() => switchView('settings')}
         onResetDemo={() => void refreshFromBackend()}
         onOpenNewTask={handleOpenNewTask}
         onOpenQuickAdd={() => setIsQuickAddOpen(true)}
@@ -673,7 +778,7 @@ export default function App() {
       <div className="flex flex-1 pt-16">
         <Sidebar
           activeView={activeView}
-          onSelectView={setActiveView}
+          onSelectView={switchView}
           onOpenNewTask={handleOpenNewTask}
           lang={settings.language}
         />
@@ -688,8 +793,8 @@ export default function App() {
                 activities={activities}
                 onSelectTask={setSelectedTask}
                 onOpenNewTask={handleOpenNewTask}
-                onNavigateToTasks={() => setActiveView('tasks')}
-                onNavigateToPeopleAxis={() => setActiveView('people-axis')}
+                onNavigateToTasks={() => switchView('tasks')}
+                onNavigateToPeopleAxis={() => switchView('people-axis')}
                 lang={settings.language}
               />
             )}
@@ -708,7 +813,20 @@ export default function App() {
                 tasks={filteredTasks}
                 onToggleTaskCompletion={handleToggleTaskCompletion}
                 onSelectTask={setSelectedTask}
+                onBatchComplete={handleBatchComplete}
+                onBatchReschedule={handleBatchReschedule}
+                onBatchDelete={handleBatchDelete}
                 lang={settings.language}
+              />
+            )}
+
+            {activeView === 'trash' && (
+              <TrashView
+                lang={settings.language}
+                onRestored={(restored) => {
+                  const mapped = mapTask(restored);
+                  setTasks((prev) => [mapped, ...prev.filter((t) => t.id !== mapped.id)]);
+                }}
               />
             )}
 
@@ -751,13 +869,13 @@ export default function App() {
                 companyId={companyId}
                 projectId={currentProject.id}
                 onSelectMember={(m) =>
-                  alert(
+                  toast.info(
                     settings.language === 'zh'
                       ? `成员: ${m.name}`
                       : `Selected: ${m.name}`,
                   )
                 }
-                onNavigateToMessages={() => setActiveView('messages')}
+                onNavigateToMessages={() => switchView('messages')}
                 lang={settings.language}
               />
             )}
@@ -867,7 +985,7 @@ export default function App() {
         onSelectTask={(task) => setSelectedTask(task)}
         onSelectProject={(proj) => {
           setCurrentProject(proj);
-          setActiveView('people-axis');
+          switchView('people-axis');
         }}
       />
 
@@ -897,7 +1015,13 @@ export default function App() {
           const t = tasks.find((x) => x.id === id);
           if (t) setSelectedTask(t);
         }}
-        onOpenSettings={() => setActiveView('notifications')}
+        onOpenSettings={() => switchView('notifications')}
+        lang={settings.language}
+      />
+
+      <ShortcutHelpModal
+        isOpen={isShortcutHelpOpen}
+        onClose={() => setIsShortcutHelpOpen(false)}
         lang={settings.language}
       />
     </div>

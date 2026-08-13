@@ -118,6 +118,9 @@ export function mapTask(t: BackendTask, projectId = 'all'): Task {
     sourceUrl: t.source_url || undefined,
     sourceMessageId: t.source_message_id || undefined,
     sourceMeta: t.source_meta || undefined,
+    isRecurring: t.is_recurring || undefined,
+    recurrenceRule: t.recurrence_rule || undefined,
+    parentTaskId: t.parent_task_id != null ? String(t.parent_task_id) : undefined,
   }
 }
 

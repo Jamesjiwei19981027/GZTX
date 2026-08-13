@@ -50,6 +50,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     .sort((a, b) => `${a.dueDate}T${a.dueTime || '23:59'}`.localeCompare(`${b.dueDate}T${b.dueTime || '23:59'}`))
     .slice(0, 4);
 
+  // 今日聚焦：今天到期 + 逾期；今天全部完成时给正反馈
+  const todayLocal = (() => {
+    const d = new Date();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${mm}-${dd}`;
+  })();
+  const todayTasks = tasks.filter((t) => t.dueDate === todayLocal);
+  const todayOpenCount = todayTasks.filter((t) => t.status !== 'Done').length;
+  const overdueCount = tasks.filter(
+    (t) => t.status !== 'Done' && t.dueDate && t.dueDate < todayLocal,
+  ).length;
+  const todayAllDone = todayTasks.length > 0 && todayOpenCount === 0;
+
   return (
     <div className="max-w-[1200px] mx-auto w-full pb-20 md:pb-8 animate-in fade-in duration-300">
       {/* Welcome Message Header */}
@@ -72,6 +86,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="material-symbols-outlined text-lg">add</span>
             <span>{t.newTask}</span>
           </button>
+        </div>
+      </section>
+
+      {/* 今日聚焦：今天到期 + 逾期数量，点击跳我的任务 */}
+      <section
+        data-testid="today-focus"
+        onClick={onNavigateToTasks}
+        className={`mb-6 p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+          todayAllDone
+            ? 'bg-secondary-container/40 border-secondary/30'
+            : overdueCount > 0
+              ? 'bg-error-container/30 border-error/30'
+              : 'bg-surface dark:bg-[#191c1d] border-surface-variant dark:border-outline-variant'
+        }`}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span
+            className={`material-symbols-outlined text-3xl shrink-0 ${
+              todayAllDone ? 'text-secondary' : overdueCount > 0 ? 'text-error' : 'text-primary'
+            }`}
+            style={todayAllDone ? { fontVariationSettings: "'FILL' 1" } : undefined}
+          >
+            {todayAllDone ? 'check_circle' : 'calendar_today'}
+          </span>
+          <div className="min-w-0">
+            <h3 className="font-bold text-base text-on-surface dark:text-[#f0f1f2]">
+              {lang === 'zh' ? '今日聚焦' : "Today's Focus"}
+            </h3>
+            <p className="text-sm text-on-surface-variant mt-0.5">
+              {todayAllDone
+                ? lang === 'zh'
+                  ? `今天的 ${todayTasks.length} 件事全部完成，干得漂亮！`
+                  : `All ${todayTasks.length} tasks for today are done. Nice work!`
+                : lang === 'zh'
+                  ? `今天还有 ${todayOpenCount} 件事到期${overdueCount > 0 ? `，另有 ${overdueCount} 件已逾期待处理` : ''}。`
+                  : `${todayOpenCount} due today${overdueCount > 0 ? `, ${overdueCount} overdue` : ''}.`}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 shrink-0">
+          <div className="text-center">
+            <p className="text-2xl font-extrabold text-on-surface dark:text-[#f0f1f2]">{todayOpenCount}</p>
+            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">
+              {lang === 'zh' ? '今天到期' : 'Due today'}
+            </p>
+          </div>
+          <div className="text-center">
+            <p className={`text-2xl font-extrabold ${overdueCount > 0 ? 'text-error' : 'text-on-surface dark:text-[#f0f1f2]'}`}>
+              {overdueCount}
+            </p>
+            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">
+              {lang === 'zh' ? '已逾期' : 'Overdue'}
+            </p>
+          </div>
+          <span className="material-symbols-outlined text-on-surface-variant">arrow_forward</span>
         </div>
       </section>
 
