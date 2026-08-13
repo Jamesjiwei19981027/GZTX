@@ -106,6 +106,12 @@ export const i18n = {
     addSubtask: '添加子任务',
     assignee: '负责人员',
     switchLang: 'EN/中',
+    quickAdd: '快速添加',
+    quickAddPlaceholder: '试试「明天下午3点 提交周报」，回车即创建',
+    quickAddDetected: '识别时间',
+    quickAddDismiss: '取消本次时间解析',
+    quickAddSubmit: '添加',
+    quickAddHint: '回车创建 · Esc 关闭 · Alt+N 随处唤起',
   },
   en: {
     appTitle: 'Flow Productivity',
@@ -212,6 +218,12 @@ export const i18n = {
     addSubtask: 'Add Subtask',
     assignee: 'Assignee',
     switchLang: 'EN/中',
+    quickAdd: 'Quick Add',
+    quickAddPlaceholder: 'Try "明天下午3点 Submit weekly report", Enter to create',
+    quickAddDetected: 'Detected time',
+    quickAddDismiss: 'Dismiss parsed time',
+    quickAddSubmit: 'Add',
+    quickAddHint: 'Enter to create · Esc to close · Alt+N anywhere',
   },
 };
 

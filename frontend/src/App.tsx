@@ -30,6 +30,7 @@ import { InboxView } from './components/views/InboxView';
 import { MessagesView } from './components/views/MessagesView';
 import { PeopleAxisView } from './components/views/PeopleAxisView';
 import { NewTaskModal } from './components/modals/NewTaskModal';
+import { QuickAddModal } from './components/modals/QuickAddModal';
 import { TaskDetailDrawer } from './components/modals/TaskDetailDrawer';
 import { NotificationsModal } from './components/modals/NotificationsModal';
 import { LoginGate } from './components/LoginGate';
@@ -119,6 +120,7 @@ export default function App() {
   const [newTaskDefaultDesc, setNewTaskDefaultDesc] = useState<string | undefined>();
   const [newTaskDefaultSource, setNewTaskDefaultSource] = useState<{ channel?: string; title?: string; url?: string } | undefined>();
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
+  const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
 
   const refreshFromBackend = useCallback(async () => {
     setLoadingBoot(true);
@@ -304,15 +306,13 @@ export default function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN')) {
-        e.preventDefault();
-        setNewTaskDefaultTitle('');
-        setNewTaskDefaultDesc('');
-        setNewTaskDefaultSource(undefined);
-        setNewTaskDefaultStatus('To Do');
-        setNewTaskDefaultDate(undefined);
-        setIsNewTaskModalOpen(true);
-      }
+      if (!(e.altKey && (e.key === 'n' || e.key === 'N' || e.code === 'KeyN'))) return;
+      // 正在输入（表单控件 / 富文本）时不抢快捷键，避免打断用户
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || target?.isContentEditable) return;
+      e.preventDefault();
+      setIsQuickAddOpen(true);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -402,7 +402,8 @@ export default function App() {
     setActivities((prev) => [newActivity, ...prev.slice(0, 19)]);
   };
 
-  const handleCreateTask = async (taskData: Omit<Task, 'id'>) => {
+  /** 返回是否创建成功，供 QuickAddModal 决定是否清空并关闭（NewTaskModal 忽略返回值） */
+  const handleCreateTask = async (taskData: Omit<Task, 'id'>): Promise<boolean> => {
     try {
       let tagIds = taskData.tagIds || [];
       if (taskData.tag?.trim()) {
@@ -453,8 +454,10 @@ export default function App() {
           `任务已创建，但 ${attachmentFailures.length} 个附件上传失败：${attachmentFailures.join('、')}`,
         );
       }
+      return true;
     } catch (e) {
       alert(e instanceof Error ? e.message : '创建失败');
+      return false;
     }
   };
 
@@ -608,6 +611,7 @@ export default function App() {
         onOpenSettings={() => setActiveView('settings')}
         onResetDemo={() => void refreshFromBackend()}
         onOpenNewTask={handleOpenNewTask}
+        onOpenQuickAdd={() => setIsQuickAddOpen(true)}
         onOpenNotifications={() => setIsNotificationsModalOpen(true)}
         onLogout={async () => {
           await logout();
@@ -798,6 +802,15 @@ export default function App() {
         companyId={companyId}
         members={projectMembers}
         currentUserId={user.id}
+        lang={settings.language}
+      />
+
+      <QuickAddModal
+        isOpen={isQuickAddOpen}
+        onClose={() => setIsQuickAddOpen(false)}
+        onCreateTask={handleCreateTask}
+        projectId={currentProject.id === 'all' ? projects[0]?.id || '0' : currentProject.id}
+        defaultCategory={settings.taskDefaults.category}
         lang={settings.language}
       />
 

@@ -15,6 +15,7 @@ interface NavbarProps {
   onOpenSettings: () => void;
   onResetDemo: () => void;
   onOpenNewTask?: () => void;
+  onOpenQuickAdd?: () => void;
   onOpenNotifications?: () => void;
   onLogout?: () => void;
 }
@@ -31,6 +32,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenSettings,
   onResetDemo,
   onOpenNewTask,
+  onOpenQuickAdd,
   onOpenNotifications,
   onLogout,
 }) => {
@@ -131,15 +133,27 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Section: Actions & Avatar */}
         <div className="flex items-center gap-2 md:gap-3">
-          {/* Quick Create Task Button */}
+          {/* Quick Add Button (single-line NL input, Alt+N) */}
+          {onOpenQuickAdd && (
+            <button
+              onClick={onOpenQuickAdd}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs shadow-xs hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+              title={lang === 'zh' ? '快速添加 (Alt+N)' : 'Quick Add (Alt+N)'}
+            >
+              <span className="material-symbols-outlined text-base">add</span>
+              <span>{t.quickAdd}</span>
+            </button>
+          )}
+
+          {/* Full Create Task Button */}
           {onOpenNewTask && (
             <button
               onClick={onOpenNewTask}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs shadow-xs hover:opacity-90 active:scale-95 transition-all cursor-pointer"
-              title={lang === 'zh' ? '快速创建任务 (Alt+N)' : 'Quick Create Task (Alt+N)'}
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-outline-variant text-primary dark:text-[#adc6ff] font-bold text-xs shadow-xs hover:bg-surface-container dark:hover:bg-[#2e3132] active:scale-95 transition-all cursor-pointer"
+              title={lang === 'zh' ? '完整创建任务' : 'Create Task (full form)'}
             >
               <span className="material-symbols-outlined text-base">add_task</span>
-              <span>{lang === 'zh' ? '快速新建' : 'Quick Task'}</span>
+              <span>{lang === 'zh' ? '新建任务' : 'New Task'}</span>
             </button>
           )}
 
@@ -267,7 +281,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <div className="space-y-3 text-sm text-on-surface-variant">
               <div className="p-3 bg-surface-container-low dark:bg-[#191c1d] rounded-xl flex justify-between items-center">
-                <span>{lang === 'zh' ? '快速新建任务' : 'Quick Create Task'}</span>
+                <span>{t.quickAdd}</span>
                 <kbd className="px-2 py-1 bg-surface border border-outline-variant rounded text-xs font-mono">
                   Alt + N
                 </kbd>
