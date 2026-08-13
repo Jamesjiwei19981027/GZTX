@@ -15,9 +15,6 @@ miniprogram/
 │   ├── task-edit/       # 新建/编辑任务
 │   ├── calendar/        # 日历视图（tabBar）
 │   └── settings/        # 设置（tabBar，含项目协作引导）
-├── components/
-│   ├── task-item/       # 任务项组件
-│   └── category-picker/ # 分类选择器组件
 ├── utils/
 │   ├── request.js       # HTTP 请求封装（信封解包 / 401 处理）
 │   └── date.js          # 日期工具函数
@@ -33,7 +30,8 @@ miniprogram/
 
 1. 下载并安装 [微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)
 2. 打开微信开发者工具，点击「导入项目」，选择本目录（`miniprogram/`）
-3. 填写 AppID（可使用测试号，或申请自己的 AppID）
+3. 填写 AppID（可使用测试号，或申请自己的 AppID；`project.config.json` 里默认是
+   游客模式 `touristappid`，可直接预览但无法真机调试/发布，正式使用请替换）
 4. 点击「确认导入」，编译运行即可在模拟器中预览
 
 ## 配置后端 API
@@ -62,7 +60,7 @@ globalData: {
 - 优先级管理（高/中/低）、分类和标签
 - 日历月视图（按截止日期聚合）
 - 通知偏好（邮件 / 微信订阅消息）与账号双验证（手机 / 邮箱）
-- 下拉刷新；401 自动清理凭证并回登录页
+- 下拉刷新；401 先用 refresh_token 无感续期并重试，刷新失败才清凭证回登录页
 
 ## 开发说明
 
