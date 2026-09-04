@@ -30,8 +30,10 @@ miniprogram/
 
 1. 下载并安装 [微信开发者工具](https://developers.weixin.qq.com/miniprogram/dev/devtools/download.html)
 2. 打开微信开发者工具，点击「导入项目」，选择本目录（`miniprogram/`）
-3. 填写 AppID（可使用测试号，或申请自己的 AppID；`project.config.json` 里默认是
-   游客模式 `touristappid`，可直接预览但无法真机调试/发布，正式使用请替换）
+3. 填写 AppID。仓库默认是游客模式 `touristappid`（`project.config.json` 的 `appid`），
+   可预览但不能真机调试 / 发布。正式发布把该字段换成公众平台上的小程序 AppID，
+   并把 `app.js` 的 `baseUrl` / `webUrl` 换成已备案的 HTTPS 域名，同时替换
+   `assets/icons/` 下的 Tab 图标为品牌素材。
 4. 点击「确认导入」，编译运行即可在模拟器中预览
 
 ## 配置后端 API

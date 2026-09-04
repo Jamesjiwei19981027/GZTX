@@ -53,10 +53,40 @@ function isOverdue(value) {
   return date.getTime() < Date.now()
 }
 
+/**
+ * 本地日期键 YYYY-MM-DD（日历分桶用）。
+ *
+ * 不能用 `due_date.split('T')[0]`：出参是 UTC，UTC+8 下「本地 5/28 07:00 截止」
+ * 的串是 `2026-05-27T23:00:00Z`，切出来会挂到前一天。
+ */
+function toLocalDateKey(value) {
+  const date = toDate(value)
+  if (!date) return ''
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+/** 本地某天 00:00:00 对应的 UTC ISO，用作 due_date_from */
+function localDayStartToApi(year, month, day) {
+  return new Date(year, month - 1, day, 0, 0, 0, 0).toISOString()
+}
+
+/** 本地某天 23:59:59.999 对应的 UTC ISO，用作 due_date_to */
+function localDayEndToApi(year, month, day) {
+  return new Date(year, month - 1, day, 23, 59, 59, 999).toISOString()
+}
+
 function formatTime(value) {
   const date = toDate(value)
   if (!date) return ''
   return pad(date.getHours()) + ':' + pad(date.getMinutes())
 }
 
-module.exports = { formatDate, formatTime, getRelativeTime, isOverdue }
+module.exports = {
+  formatDate,
+  formatTime,
+  getRelativeTime,
+  isOverdue,
+  toLocalDateKey,
+  localDayStartToApi,
+  localDayEndToApi,
+}
