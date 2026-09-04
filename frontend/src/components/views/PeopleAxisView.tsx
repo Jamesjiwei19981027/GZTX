@@ -412,6 +412,105 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     }
   }, [isBackendProject, backendProjectId, showToast]);
 
+  const [seedingSample, setSeedingSample] = useState(false);
+
+  /**
+   * 首登一键示例人轴：3 人（含 1 名下级）+ 2 事项 + 终责。
+   *
+   * 写的是真实节点（走 TreeService 的形态校验），不是本地假数据——用户看完可以直接改，
+   * 也可以逐个删掉，不会留下无法编辑的演示残留。
+   */
+  const seedSampleAxis = useCallback(async () => {
+    if (!isBackendProject || seedingSample) return;
+    setSeedingSample(true);
+    setSyncStatus('syncing');
+    try {
+      const zh = lang === 'zh';
+      const primaryMember = memberOptions[0];
+      const dueIn = (days: number) =>
+        new Date(Date.now() + days * 86400000).toISOString();
+
+      // 主干第一人：能对上项目成员就挂真人，否则只留标题（占位人）
+      const lead = await createNode(backendProjectId, {
+        parent_id: null,
+        node_type_key: 'person',
+        title: primaryMember?.name || (zh ? '负责人 A' : 'Person A'),
+        description: zh ? '示例：模块负责人' : 'Sample: module lead',
+        sort_order: 0,
+        assignees: primaryMember ? [{ user_id: Number(primaryMember.id), role_key: 'primary' }] : [],
+      });
+
+      // 事项只能落在人身上（服务端强制），所以两个事项都挂在 lead 下
+      await createNode(backendProjectId, {
+        parent_id: lead.id,
+        node_type_key: 'work_item',
+        title: zh ? '示例：完成需求评审' : 'Sample: finish requirement review',
+        due_at: dueIn(7),
+        sort_order: 0,
+      });
+      await createNode(backendProjectId, {
+        parent_id: lead.id,
+        node_type_key: 'milestone',
+        title: zh ? '示例：一期验收' : 'Sample: phase-1 acceptance',
+        due_at: dueIn(21),
+        sort_order: 1,
+      });
+
+      // 人挂人 = 下级人员
+      await createNode(backendProjectId, {
+        parent_id: lead.id,
+        node_type_key: 'person',
+        title: memberOptions[1]?.name || (zh ? '下级 B' : 'Subordinate B'),
+        description: zh ? '示例：下级执行人' : 'Sample: subordinate',
+        sort_order: 2,
+        assignees: memberOptions[1]
+          ? [{ user_id: Number(memberOptions[1].id), role_key: 'primary' }]
+          : [],
+      });
+
+      // 终责：优先挂项目 PM 本人，钉在轴终点
+      const terminalMember =
+        memberOptions.find((m) => Number(m.id) === pmUserId) || memberOptions[2];
+      await createNode(backendProjectId, {
+        parent_id: null,
+        node_type_key: 'person',
+        title: terminalMember?.name || (zh ? '终责 PM' : 'Terminal PM'),
+        description: zh ? '示例：项目终责' : 'Sample: final owner',
+        sort_order: 1,
+        assignees: terminalMember
+          ? [{ user_id: Number(terminalMember.id), role_key: 'primary' }]
+          : [],
+      });
+
+      await reloadAxisFromBackend();
+      showToast(
+        zh
+          ? '已生成示例人轴：3 人 + 2 事项 + 终责，可直接改或删'
+          : 'Sample axis created: 3 people, 2 items, terminal owner. Edit or delete freely.',
+      );
+    } catch (e) {
+      showToast(
+        e instanceof Error
+          ? e.message
+          : lang === 'zh'
+            ? '生成示例失败'
+            : 'Failed to create the sample axis',
+      );
+      setSyncStatus('synced');
+    } finally {
+      setSeedingSample(false);
+    }
+  }, [
+    isBackendProject,
+    seedingSample,
+    lang,
+    memberOptions,
+    backendProjectId,
+    pmUserId,
+    reloadAxisFromBackend,
+    showToast,
+  ]);
+
   const handleSaveNodes = (updated: PeopleAxisNode[]) => {
     setNodes(updated);
     setSyncStatus('syncing');
@@ -1566,6 +1665,25 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                 <span className="material-symbols-outlined text-lg">person_add</span>
                 <span>{lang === 'zh' ? '添加第一个人' : 'Add the first person'}</span>
               </button>
+              {canMountSomething && (
+                <button
+                  data-testid="axis-seed-sample"
+                  disabled={seedingSample}
+                  onClick={() => void seedSampleAxis()}
+                  className="w-full py-3 rounded-2xl border-2 border-primary/40 text-primary text-sm font-black hover:bg-primary/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-lg">auto_awesome</span>
+                  <span>
+                    {seedingSample
+                      ? lang === 'zh'
+                        ? '正在生成示例…'
+                        : 'Creating sample…'
+                      : lang === 'zh'
+                        ? '一键生成示例人轴'
+                        : 'Generate a sample axis'}
+                  </span>
+                </button>
+              )}
               <p className="text-[10px] text-on-surface-variant">
                 {lang === 'zh'
                   ? '也可以从左侧「责任人挂载面板」把模板卡片拖到画布上。'

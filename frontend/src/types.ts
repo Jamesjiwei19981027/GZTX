@@ -1,4 +1,4 @@
-export type Priority = 'Urgent' | 'High' | 'Medium' | 'Low';
+export type Priority = 'High' | 'Medium' | 'Low';
 export type Status = 'To Do' | 'In Progress' | 'Done';
 export type Category = 'Work' | 'Health' | 'Personal' | 'Shopping' | 'Documentation';
 export type ViewMode = 'dashboard' | 'tasks' | 'kanban' | 'calendar' | 'reports' | 'team' | 'messages' | 'inbox' | 'people-axis' | 'notifications' | 'settings' | 'trash';

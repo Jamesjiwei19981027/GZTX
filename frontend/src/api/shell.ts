@@ -1,4 +1,4 @@
-/** Remix 壳层 API：消息 / 通知 / 活动 / 报表趋势 / 偏好 / 在线状态 */
+/** 消息 / 通知 / 活动 / 报表趋势 / 偏好 / 在线状态 */
 import { apiRequest, getApiBase, getToken } from './client'
 
 export type CollabFile = {
@@ -305,7 +305,12 @@ export async function inviteProjectMember(
   projectId: number,
   body: { email?: string; user_id?: number },
 ) {
-  return apiRequest(`/projects/${projectId}/invitations`, {
+  return apiRequest<{
+    id: number
+    token: string
+    status: string
+    expires_at?: string | null
+  }>(`/projects/${projectId}/invitations`, {
     method: 'POST',
     body: JSON.stringify(body),
   })

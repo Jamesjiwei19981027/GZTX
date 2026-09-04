@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Task, Priority, Category, Language } from '../../types';
 import { getT } from '../../i18n';
 import { parseNlDate } from '../../utils/nlDate';
+import { parseQuickAddSyntax } from '../../utils/quickAddSyntax';
 
 interface QuickAddModalProps {
   isOpen: boolean;
@@ -28,6 +29,8 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   const t = getT(lang);
   const [text, setText] = useState('');
   const [priority, setPriority] = useState<Priority>('Medium');
+  /** 手动点过优先级按钮后，不再被 `p0/p1/p2` 语法覆盖 */
+  const [priorityTouched, setPriorityTouched] = useState(false);
   // 记录被用户点 X 取消的短语；输入变化产生新短语后预览会重新出现
   const [dismissedFor, setDismissedFor] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -36,6 +39,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
     if (isOpen) {
       setText('');
       setPriority('Medium');
+      setPriorityTouched(false);
       setDismissedFor(null);
       setSubmitting(false);
     }
@@ -52,6 +56,13 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
   const parsed = useMemo(() => parseNlDate(text), [text]);
   const parseActive = !!parsed.date && !!parsed.matched && dismissedFor !== parsed.matched;
+  // 先摘掉时间短语再解析 #标签 / p0，避免记号被日期解析吃掉
+  const syntax = useMemo(
+    () => parseQuickAddSyntax(parseActive && parsed.cleanedText ? parsed.cleanedText : text),
+    [parseActive, parsed.cleanedText, text],
+  );
+  // 用户手动点过优先级按钮就以手动值为准
+  const effectivePriority = priorityTouched ? priority : syntax.priority ?? priority;
 
   if (!isOpen) return null;
 
@@ -66,13 +77,14 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
     const raw = text.trim();
     if (!raw || submitting) return;
     const due = parseActive ? parsed.date : null;
-    const title = parseActive && parsed.cleanedText ? parsed.cleanedText : raw;
+    // 标题优先取「去时间短语 + 去语法记号」后的结果；全被吃空则退回原始输入
+    const title = syntax.title || (parseActive && parsed.cleanedText ? parsed.cleanedText : raw);
     setSubmitting(true);
     try {
       const ok = await onCreateTask({
         title,
         description: '',
-        priority,
+        priority: effectivePriority,
         status: 'To Do',
         category: defaultCategory,
         dueDate: due ? toDateStr(due) : '',
@@ -80,9 +92,11 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         subtasks: [],
         projectId,
         progress: 0,
+        ...(syntax.tag ? { tag: syntax.tag } : {}),
       });
       if (ok) {
         setText('');
+        setPriorityTouched(false);
         setDismissedFor(null);
         onClose();
       }
@@ -149,9 +163,35 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                   <span className="material-symbols-outlined text-sm">close</span>
                 </button>
               </span>
-              {parsed.cleanedText && (
+              {syntax.title && (
                 <span className="text-xs text-on-surface-variant truncate">
-                  {lang === 'zh' ? '标题' : 'Title'}: {parsed.cleanedText}
+                  {lang === 'zh' ? '标题' : 'Title'}: {syntax.title}
+                </span>
+              )}
+            </div>
+          )}
+
+          {/* 语法糖预览：#标签 与 p0/p1/p2 */}
+          {(syntax.tags.length > 0 || syntax.priority) && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {syntax.tags.map((name) => (
+                <span
+                  key={name}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container dark:bg-[#191c1d] text-on-surface-variant text-xs font-semibold"
+                >
+                  <span className="material-symbols-outlined text-sm">sell</span>
+                  {name}
+                </span>
+              ))}
+              {syntax.priority && !priorityTouched && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container dark:bg-[#191c1d] text-on-surface-variant text-xs font-semibold">
+                  <span className="material-symbols-outlined text-sm">flag</span>
+                  {syntax.matched.find((token) => token.startsWith('p'))} →{' '}
+                  {syntax.priority === 'High'
+                    ? t.priorityHigh
+                    : syntax.priority === 'Low'
+                      ? t.priorityLow
+                      : t.priorityMedium}
                 </span>
               )}
             </div>
@@ -167,9 +207,12 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                 <button
                   key={opt.value}
                   type="button"
-                  onClick={() => setPriority(opt.value)}
+                  onClick={() => {
+                    setPriority(opt.value);
+                    setPriorityTouched(true);
+                  }}
                   className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
-                    priority === opt.value
+                    effectivePriority === opt.value
                       ? 'bg-primary text-on-primary border-primary'
                       : 'bg-surface dark:bg-[#191c1d] text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}

@@ -39,7 +39,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const totalCount = tasks.length;
   const completedCount = tasks.filter((t) => t.status === 'Done').length;
   const inProgressCount = tasks.filter((t) => t.status === 'In Progress').length;
-  const urgentCount = tasks.filter((t) => t.priority === 'Urgent' || t.priority === 'High').length;
+  const urgentCount = tasks.filter((t) => t.priority === 'High').length;
   
   const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
@@ -360,9 +360,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <h4 className="font-semibold text-sm md:text-base text-on-surface dark:text-[#f0f1f2] truncate group-hover:text-primary transition-colors">
                             {task.title}
                           </h4>
-                          {task.priority === 'Urgent' || task.priority === 'High' ? (
+                          {task.priority === 'High' ? (
                             <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-error-container text-on-error-container">
-                              {task.priority === 'Urgent' ? (lang === 'zh' ? '紧急' : 'Urgent') : (lang === 'zh' ? '高' : 'High')}
+                              {lang === 'zh' ? '高' : 'High'}
                             </span>
                           ) : null}
                         </div>

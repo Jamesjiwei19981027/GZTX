@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react'
 import { Language, Task } from '../../types'
 import { getT } from '../../i18n'
-import { downloadTasksIcs, getCalendarFeedUrl } from '../../api/backend'
+import { downloadTasksIcs, getCalendarFeedUrl, resetCalendarFeedUrl } from '../../api/backend'
 import { useToast } from '../toast/ToastProvider'
 import {
   formatDateLocal,
@@ -62,7 +62,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       className={`w-full text-left rounded px-1.5 py-1 text-[10px] font-semibold transition-transform hover:scale-[1.02] flex items-center gap-1 ${
         task.status === 'Done'
           ? 'bg-secondary/20 text-secondary line-through'
-          : task.priority === 'Urgent' || task.priority === 'High'
+          : task.priority === 'High'
             ? 'bg-error-container text-on-error-container font-bold'
             : 'bg-primary-fixed text-on-primary-fixed-variant'
       } ${compact ? '' : 'text-xs'}`}
@@ -178,6 +178,40 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         >
           <span className="material-symbols-outlined text-sm">link</span>
           <span className="hidden md:inline">{lang === 'zh' ? '订阅' : 'Subscribe'}</span>
+        </button>
+        <button
+          onClick={() => {
+            const confirmed = window.confirm(
+              lang === 'zh'
+                ? '重置后旧的订阅地址立即失效，已添加的系统日历需要重新订阅。确定重置？'
+                : 'Resetting invalidates the old URL. Calendars already subscribed will stop updating. Continue?',
+            )
+            if (!confirmed) return
+            void resetCalendarFeedUrl()
+              .then(async (url) => {
+                if (navigator.clipboard?.writeText) {
+                  await navigator.clipboard.writeText(url)
+                  toast.success(
+                    lang === 'zh'
+                      ? '订阅地址已重置并复制。请在系统日历中重新添加。'
+                      : 'Subscription URL reset and copied. Re-add it in your calendar app.',
+                  )
+                } else {
+                  window.prompt(
+                    lang === 'zh' ? '新的订阅地址（旧地址已失效）：' : 'New subscription URL (old one is invalid):',
+                    url,
+                  )
+                }
+              })
+              .catch((e) =>
+                toast.error(e instanceof Error ? e.message : lang === 'zh' ? '重置失败' : 'Reset failed'),
+              )
+          }}
+          title={lang === 'zh' ? '重置 ICS 订阅地址（旧地址立即失效）' : 'Reset ICS subscription URL'}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant bg-surface-container dark:bg-[#191c1d] text-xs font-bold text-on-surface-variant hover:text-on-surface transition-colors"
+        >
+          <span className="material-symbols-outlined text-sm">restart_alt</span>
+          <span className="hidden md:inline">{lang === 'zh' ? '重置订阅' : 'Reset'}</span>
         </button>
         <div className="flex bg-surface-container dark:bg-[#191c1d] p-1 rounded-xl border border-outline-variant shadow-xs">
           {(['month', 'week', 'day'] as const).map((mode) => (
@@ -301,7 +335,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       <div className="flex items-center gap-3 overflow-hidden">
                         <div
                           className={`w-2 h-10 rounded-full flex-shrink-0 ${
-                            isDone ? 'bg-secondary' : task.priority === 'Urgent' || task.priority === 'High' ? 'bg-error' : 'bg-primary'
+                            isDone ? 'bg-secondary' : task.priority === 'High' ? 'bg-error' : 'bg-primary'
                           }`}
                         ></div>
                         <div className="overflow-hidden">

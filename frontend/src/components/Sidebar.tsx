@@ -9,7 +9,8 @@ interface SidebarProps {
   lang: Language;
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({
+// memo：侧边栏一直挂着，但只依赖 activeView / lang；任务列表每次变化都重渲染它没意义
+const SidebarImpl: React.FC<SidebarProps> = ({
   activeView,
   onSelectView,
   onOpenNewTask,
@@ -17,21 +18,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const t = getT(lang);
   const [showMoreSheet, setShowMoreSheet] = useState(false);
+  const [showMoreGroup, setShowMoreGroup] = useState(false);
 
-  const navItems: { id: ViewMode; label: string; icon: string }[] = [
+  /** 主项收口到 8 个：每天都会点的页面才留在一级导航 */
+  const primaryNavItems: { id: ViewMode; label: string; icon: string }[] = [
     { id: 'dashboard', label: t.dashboard, icon: 'dashboard' },
     { id: 'people-axis', label: t.peopleAxis || (lang === 'zh' ? '人轴责任链' : 'People-Axis Tree'), icon: 'hub' },
     { id: 'tasks', label: t.myTasks, icon: 'checklist' },
     { id: 'kanban', label: t.kanban, icon: 'view_kanban' },
     { id: 'calendar', label: t.calendar, icon: 'calendar_month' },
-    { id: 'reports', label: t.reports, icon: 'analytics' },
-    { id: 'team', label: t.team, icon: 'groups' },
     { id: 'messages', label: t.messages, icon: 'forum' },
     { id: 'inbox', label: t.inbox, icon: 'all_inbox' },
-    { id: 'notifications', label: lang === 'zh' ? '通知中心' : 'Notifications', icon: 'notifications_active' },
     { id: 'settings', label: t.settings, icon: 'settings' },
+  ];
+
+  /** 次级入口：报表/团队/回收站 + 通知渠道（通知中心并入设置口径，此处仅留跳转） */
+  const secondaryNavItems: { id: ViewMode; label: string; icon: string }[] = [
+    { id: 'reports', label: t.reports, icon: 'analytics' },
+    { id: 'team', label: t.team, icon: 'groups' },
+    { id: 'notifications', label: lang === 'zh' ? '通知渠道' : 'Notify channels', icon: 'notifications_active' },
     { id: 'trash', label: lang === 'zh' ? '回收站' : 'Trash', icon: 'delete' },
   ];
+
+  const navItems = [...primaryNavItems, ...secondaryNavItems];
 
   const mobileNavItems: { id: ViewMode; label: string; icon: string }[] = [
     { id: 'dashboard', label: t.dashboard, icon: 'dashboard' },
@@ -45,6 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     (item) => !mobileNavItems.some((m) => m.id === item.id),
   );
   const isMoreActive = mobileMoreItems.some((item) => item.id === activeView);
+  const isSecondaryActive = secondaryNavItems.some((item) => item.id === activeView);
 
   return (
     <>
@@ -57,8 +67,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <p className="text-xs text-on-surface-variant mt-0.5">{t.appSubtitle}</p>
         </div>
 
-        <nav className="flex flex-col gap-1 flex-grow">
-          {navItems.map((item) => {
+        <nav className="flex flex-col gap-1 flex-grow overflow-y-auto">
+          {primaryNavItems.map((item) => {
             const isActive = activeView === item.id;
             return (
               <button
@@ -80,6 +90,46 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             );
           })}
+
+          <button
+            onClick={() => setShowMoreGroup((prev) => !prev)}
+            aria-expanded={showMoreGroup || isSecondaryActive}
+            className={`flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200 font-semibold text-sm ${
+              isSecondaryActive
+                ? 'text-primary dark:text-[#adc6ff]'
+                : 'text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-[#2e3132] hover:text-on-surface'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[22px]">more_horiz</span>
+            <span className="truncate">{lang === 'zh' ? '更多' : 'More'}</span>
+            <span className="material-symbols-outlined text-[18px] ml-auto">
+              {showMoreGroup || isSecondaryActive ? 'expand_less' : 'expand_more'}
+            </span>
+          </button>
+
+          {(showMoreGroup || isSecondaryActive) &&
+            secondaryNavItems.map((item) => {
+              const isActive = activeView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onSelectView(item.id)}
+                  className={`flex items-center gap-3 pl-8 pr-4 py-2 rounded-xl transition-all duration-200 font-medium text-sm ${
+                    isActive
+                      ? 'text-primary dark:text-[#adc6ff] border-r-4 border-primary bg-primary-fixed/20 dark:bg-primary-container/30'
+                      : 'text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-[#2e3132] hover:text-on-surface'
+                  }`}
+                >
+                  <span
+                    className="material-symbols-outlined text-[20px]"
+                    style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
+                  >
+                    {item.icon}
+                  </span>
+                  <span className="truncate">{item.label}</span>
+                </button>
+              );
+            })}
         </nav>
 
         {/* New Task Button */}
@@ -233,3 +283,5 @@ export const Sidebar: React.FC<SidebarProps> = ({
     </>
   );
 };
+
+export const Sidebar = React.memo(SidebarImpl);

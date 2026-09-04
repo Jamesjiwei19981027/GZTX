@@ -50,14 +50,14 @@
 }
 
 :root {
-  /* Light Theme Palette - Elegant Executive Violet & Ocean Blues */
-  --color-primary-val: #4f378b;
+  /* Light Theme Palette - 品牌蓝（#0058BE）为默认主色 */
+  --color-primary-val: #0058be;
   --color-on-primary-val: #ffffff;
-  --color-primary-container-val: #eaddff;
-  --color-on-primary-container-val: #21005d;
-  --color-primary-fixed-val: #eaddff;
-  --color-on-primary-fixed-val: #21005d;
-  --color-primary-fixed-variant-val: #381e72;
+  --color-primary-container-val: #d7e2ff;
+  --color-on-primary-container-val: #001a41;
+  --color-primary-fixed-val: #d7e2ff;
+  --color-on-primary-fixed-val: #001a41;
+  --color-primary-fixed-variant-val: #00419c;
 
   --color-secondary-val: #5e5c66;
   --color-on-secondary-val: #ffffff;
@@ -94,18 +94,18 @@
 
   --color-inverse-surface-val: #2f3033;
   --color-inverse-on-surface-val: #f1f0f4;
-  --color-inverse-primary-val: #d0bcff;
+  --color-inverse-primary-val: #abc7ff;
 }
 
 .dark {
-  /* Dark Theme Palette - Deep Sleek Obsidian & Lavender Glow */
-  --color-primary-val: #d0bcff;
-  --color-on-primary-val: #381e72;
-  --color-primary-container-val: #4f378b;
-  --color-on-primary-container-val: #eaddff;
-  --color-primary-fixed-val: #eaddff;
-  --color-on-primary-fixed-val: #21005d;
-  --color-primary-fixed-variant-val: #381e72;
+  /* Dark Theme Palette - 品牌蓝暗色 */
+  --color-primary-val: #abc7ff;
+  --color-on-primary-val: #002f66;
+  --color-primary-container-val: #00458f;
+  --color-on-primary-container-val: #d7e2ff;
+  --color-primary-fixed-val: #d7e2ff;
+  --color-on-primary-fixed-val: #001a41;
+  --color-primary-fixed-variant-val: #00419c;
 
   --color-secondary-val: #c8c5d0;
   --color-on-secondary-val: #302e37;
@@ -142,7 +142,66 @@
 
   --color-inverse-surface-val: #e2e2e5;
   --color-inverse-on-surface-val: #2f3033;
-  --color-inverse-primary-val: #4f378b;
+  --color-inverse-primary-val: #0058be;
+}
+
+/* ===== 主题色（设置页 accent，通过 <html data-accent="..."> 生效）=====
+   blue 为默认品牌蓝（:root 即是），以下仅列出其余三档。 */
+[data-accent='green'] {
+  --color-primary-val: #006c49;
+  --color-on-primary-val: #ffffff;
+  --color-primary-container-val: #8ef7c3;
+  --color-on-primary-container-val: #002114;
+  --color-primary-fixed-val: #8ef7c3;
+  --color-on-primary-fixed-val: #002114;
+  --color-primary-fixed-variant-val: #005236;
+  --color-inverse-primary-val: #71dba8;
+}
+
+.dark[data-accent='green'] {
+  --color-primary-val: #71dba8;
+  --color-on-primary-val: #003824;
+  --color-primary-container-val: #005236;
+  --color-on-primary-container-val: #8ef7c3;
+  --color-inverse-primary-val: #006c49;
+}
+
+[data-accent='amber'] {
+  --color-primary-val: #7a5900;
+  --color-on-primary-val: #ffffff;
+  --color-primary-container-val: #ffdea6;
+  --color-on-primary-container-val: #261a00;
+  --color-primary-fixed-val: #ffdea6;
+  --color-on-primary-fixed-val: #261a00;
+  --color-primary-fixed-variant-val: #5c4200;
+  --color-inverse-primary-val: #f4bd48;
+}
+
+.dark[data-accent='amber'] {
+  --color-primary-val: #f4bd48;
+  --color-on-primary-val: #402d00;
+  --color-primary-container-val: #5c4200;
+  --color-on-primary-container-val: #ffdea6;
+  --color-inverse-primary-val: #7a5900;
+}
+
+[data-accent='red'] {
+  --color-primary-val: #b3261e;
+  --color-on-primary-val: #ffffff;
+  --color-primary-container-val: #f9dedc;
+  --color-on-primary-container-val: #410e0b;
+  --color-primary-fixed-val: #f9dedc;
+  --color-on-primary-fixed-val: #410e0b;
+  --color-primary-fixed-variant-val: #8c1d18;
+  --color-inverse-primary-val: #ffb4ab;
+}
+
+.dark[data-accent='red'] {
+  --color-primary-val: #ffb4ab;
+  --color-on-primary-val: #690005;
+  --color-primary-container-val: #93000a;
+  --color-on-primary-container-val: #ffdad6;
+  --color-inverse-primary-val: #b3261e;
 }
 
 /* Base Body Styling & Smooth Transition */
@@ -176,4 +235,12 @@ body {
 
 .animate-in {
   animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 长列表行：视口外跳过布局/绘制。contain-intrinsic-size 给出占位高度，
+   保证滚动条长度和 Ctrl+F 不会因为跳过渲染而抖。任务数上千时这一条能把
+   滚动掉帧压下去；不支持该属性的浏览器直接忽略，行为不变。 */
+.list-row-cv {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 76px;
 }

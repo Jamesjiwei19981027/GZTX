@@ -32,6 +32,16 @@ interface MessagesViewProps {
   members?: TeamMember[];
   tasks?: Task[];
   onSelectTask?: (task: Task) => void;
+  onCreateCompany?: () => void;
+}
+
+/** created_at 是 UTC，按本地时区渲染成 MM-DD HH:mm */
+function formatMessageTime(iso: string | undefined, lang: Language): string {
+  if (!iso) return lang === 'zh' ? '刚刚' : 'Just now';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso.slice(5, 16).replace('T', ' ');
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 type CallSignal = {
@@ -57,6 +67,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   members = [],
   tasks = [],
   onSelectTask,
+  onCreateCompany,
 }) => {
   const [messages, setMessages] = useState<MessageItem[]>([]);
   const [channelMap, setChannelMap] = useState<Record<string, number>>({});
@@ -88,6 +99,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const remoteMediaRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /** 单调递增的 load 序号，用来丢弃过期请求的结果 */
+  const loadSeqRef = useRef(0);
 
   const channels = [
     { id: 'general' as const, labelZh: '# 全员交流大厅', labelEn: '# general', icon: 'tag' },
@@ -113,25 +126,44 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     if (!companyId) {
       setMessages([]);
       setChannelMap({});
-      setError(lang === 'zh' ? '请先加入公司后使用团队消息' : 'Join a company to use team messages');
+      setError(lang === 'zh' ? '请先创建或加入公司后使用团队消息' : 'Create or join a company to use team messages');
       return;
     }
+    // 请求竞态：切频道/切会话会连发多次 load，慢的那次回来会把新频道的消息覆盖成旧数据。
+    // 只有最后一次发起的请求允许落 state。
+    const requestId = loadSeqRef.current + 1;
+    loadSeqRef.current = requestId;
+    const isStale = () => loadSeqRef.current !== requestId;
+
     setLoading(true);
     setError(null);
     try {
       const pid = projectId && projectId !== 'all' ? Number(projectId) : undefined;
       const chRes = await listChannels(companyId, Number.isFinite(pid) ? pid : undefined);
+      if (isStale()) return;
       const map: Record<string, number> = {};
       for (const c of chRes.items || []) map[c.key] = c.id;
       setChannelMap(map);
       if (activeChannel === 'direct') {
         const conversationRes = await listDirectConversations(companyId);
+        if (isStale()) return;
         setConversations(conversationRes.items || []);
         const conversationId = activeConversationId || conversationRes.items?.[0]?.id || null;
         setActiveConversationId(conversationId);
         if (!conversationId) { setMessages([]); return; }
         const msgRes = await listDirectMessages(conversationId);
-         setMessages((msgRes.items || []).map((m) => ({ id: String(m.id), senderName: m.sender_name, senderAvatar: m.sender_avatar || user.avatar, content: m.body, timestamp: m.created_at ? m.created_at.slice(5, 16).replace('T', ' ') : 'Just now', channel: 'direct', likes: 0, repliesCount: 0, attachments: mapAttachments(m.attachments) })));
+        if (isStale()) return;
+        setMessages((msgRes.items || []).map((m) => ({
+          id: String(m.id),
+          senderName: m.sender_name,
+          senderAvatar: m.sender_avatar || user.avatar,
+          content: m.body,
+          timestamp: formatMessageTime(m.created_at, lang),
+          channel: 'direct',
+          likes: 0,
+          repliesCount: 0,
+          attachments: mapAttachments(m.attachments),
+        })));
         return;
       }
       const chId = map[activeChannel];
@@ -140,17 +172,14 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         return;
       }
       const msgRes = await listChannelMessages(chId);
+      if (isStale()) return;
       setMessages(
         (msgRes.items || []).map((m) => ({
           id: String(m.id),
           senderName: m.sender_name,
           senderAvatar: m.sender_avatar || user.avatar,
           content: m.body,
-          timestamp: m.created_at
-            ? m.created_at.slice(5, 16).replace('T', ' ')
-            : lang === 'zh'
-              ? '刚刚'
-              : 'Just now',
+          timestamp: formatMessageTime(m.created_at, lang),
           channel: activeChannel,
           likes: m.likes || 0,
            repliesCount: 0,
@@ -158,10 +187,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         })),
       );
     } catch (e) {
+      if (isStale()) return;
       setError(e instanceof Error ? e.message : '加载消息失败');
       setMessages([]);
     } finally {
-      setLoading(false);
+      if (!isStale()) setLoading(false);
     }
   }, [companyId, projectId, activeChannel, activeConversationId, lang, user.avatar]);
 
@@ -174,9 +204,29 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       setPresence({});
       return;
     }
-    void listPresence(companyId)
-      .then((res) => setPresence(Object.fromEntries((res.items || []).map((item) => [String(item.user_id), item.status]))))
-      .catch(() => setPresence({}));
+    let cancelled = false;
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      void listPresence(companyId)
+        .then((res) => {
+          if (cancelled) return;
+          setPresence(Object.fromEntries((res.items || []).map((item) => [String(item.user_id), item.status])));
+        })
+        .catch(() => {
+          if (!cancelled) setPresence({});
+        });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 30_000);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') refresh();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
   }, [companyId]);
 
   useEffect(() => {
@@ -426,8 +476,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === 'video' });
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const token = getToken();
-      const socket = new WebSocket(`${protocol}//${window.location.host}/api/v1/calls/ws/${activeConversationId}?token=${encodeURIComponent(token || '')}`);
+      const socket = new WebSocket(`${protocol}//${window.location.host}/api/v1/calls/ws/${activeConversationId}`);
       callSocketRef.current = socket;
+      // 令牌走首帧而非 query：URL 会进反代日志与 Referer
+      socket.onopen = () => socket.send(JSON.stringify({ type: 'auth', token: token || '' }));
       socket.onmessage = (event) => {
         try {
           void handleCallSignal(JSON.parse(event.data) as CallSignal).catch(() => setError(lang === 'zh' ? '处理通话信令失败' : 'Unable to process call signaling'));
@@ -503,14 +555,20 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                 ? '已连接后端频道（发帖/点赞写回）'
                 : 'Connected to backend channels'
               : lang === 'zh'
-                ? '未绑定公司，请先加入公司后使用团队消息'
-                : 'Join a company to use team messages'}
+                ? '未绑定公司，请先创建或加入公司后使用团队消息'
+                : 'Join or create a company to use team messages'}
           </p>
         </div>
-        {loading && (
-          <span className="text-xs font-bold text-primary">{lang === 'zh' ? '同步中…' : 'Syncing…'}</span>
-        )}
         <div className="flex items-center gap-2">
+          {onCreateCompany && !companyId && (
+            <button
+              type="button"
+              onClick={onCreateCompany}
+              className="px-4 py-2.5 rounded-2xl bg-primary text-on-primary text-sm font-semibold cursor-pointer"
+            >
+              {lang === 'zh' ? '创建公司' : 'Create company'}
+            </button>
+          )}
           <button type="button" onClick={() => void startCall('voice')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-xs font-bold text-on-surface-variant hover:text-primary" title="Voice call"><span className="material-symbols-outlined text-base">call</span></button>
           <button type="button" onClick={() => void startCall('video')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-xs font-bold text-on-surface-variant hover:text-primary" title="Video call"><span className="material-symbols-outlined text-base">videocam</span></button>
         </div>

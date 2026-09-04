@@ -10,6 +10,7 @@ import type {
   AxisWorkItem,
   AxisEvidence,
 } from '../types'
+import { fromApiDueDate, toLocalDateString } from '../utils/datetime'
 import type { BackendUser } from './auth'
 import type {
   BackendMember,
@@ -35,14 +36,12 @@ const PRIORITY_TO_UI: Record<number, Priority> = {
   0: 'Low',
   1: 'Medium',
   2: 'High',
-  // backend has no Urgent; map high as High
 }
 
 const PRIORITY_TO_API: Record<Priority, number> = {
   Low: 0,
   Medium: 1,
   High: 2,
-  Urgent: 2,
 }
 
 const CATEGORY_FALLBACK: Category = 'Work'
@@ -87,8 +86,8 @@ export function mapTask(t: BackendTask, projectId = 'all'): Task {
         ? ''
         : projectId
 
-  const dueDate = t.due_date ? t.due_date.slice(0, 10) : ''
-  const dueTime = t.due_date && t.due_date.length >= 16 ? t.due_date.slice(11, 16) : undefined
+  // 后端出参是 UTC（带 Z），这里换算成本地日期/时刻再渲染
+  const { date: dueDate, time: dueTime } = fromApiDueDate(t.due_date)
   const assignees = (t.assignees || (t.assignee ? [t.assignee] : [])).map(mapAssignee)
   const primary = assignees.find((member) => member.roleKey === 'primary') || assignees[0]
 
@@ -104,7 +103,11 @@ export function mapTask(t: BackendTask, projectId = 'all'): Task {
     assignees,
     assignee: primary,
     assigneeUserIds: assignees.map((member) => member.id),
-    subtasks: [],
+    subtasks: (t.checklist || []).map((item) => ({
+      id: item.id,
+      title: item.title,
+      completed: Boolean(item.completed),
+    })),
     progress: t.completion_rate ?? (t.status === 2 ? 100 : t.status === 1 ? 50 : 0),
     tag: t.tags?.[0]?.name,
     categoryId: t.category?.id,
@@ -129,7 +132,7 @@ export function uiStatusToApi(s: Status): number {
 }
 
 export function uiPriorityToApi(p: Priority): number {
-  return PRIORITY_TO_API[p]
+  return PRIORITY_TO_API[p] ?? 1
 }
 
 export function apiPriorityToUi(priority: number): Priority {
@@ -179,7 +182,7 @@ function mapMatter(n: BackendTreeNode): AxisWorkItem {
     type,
     status,
     progress: Number(pct) || 0,
-    dueDate: (n.due_at || n.milestone_at || '').slice(0, 10),
+    dueDate: toLocalDateString(n.due_at || n.milestone_at || ''),
     evidences,
   }
 }

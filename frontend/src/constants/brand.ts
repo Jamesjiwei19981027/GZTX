@@ -13,9 +13,9 @@ export const BRAND = {
     fullName: '烂笔头PM · 工作待办提醒系统',
   },
   en: {
-    name: 'Flow',
+    name: 'WorkTodo',
     tagline: 'Get things done',
-    fullName: 'Flow · WorkTodo',
+    fullName: 'WorkTodo · Task & Accountability',
   },
 } as const;
 
