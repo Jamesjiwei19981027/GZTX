@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
+import '../utils/datetime.dart';
 
 void showApiError(BuildContext context, Object e, [String fallback = '操作失败']) {
   final msg = e is ApiException ? e.message : '$fallback：$e';
@@ -14,8 +15,11 @@ Future<void> maybeOpenVerify(BuildContext context, Object e) async {
   await Navigator.of(context).pushNamed('/verify');
 }
 
+/// due_date 是 UTC，按本地时区取日期；不可解析时退回原串前 10 位。
 String formatDue(String? due) {
   if (due == null || due.isEmpty) return '';
+  final key = apiDateToLocalKey(due);
+  if (key.isNotEmpty) return key;
   return due.length >= 10 ? due.substring(0, 10) : due;
 }
 

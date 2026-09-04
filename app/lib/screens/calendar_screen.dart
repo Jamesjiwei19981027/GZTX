@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../state/app_state.dart';
+import '../utils/datetime.dart';
 import '../widgets/common.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -25,20 +26,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
     });
   }
 
+  // due_date 是 UTC，必须换算成本地日期再分桶：直接比字符串前缀会让
+  // UTC+8 的凌晨任务挂到前一天。
   List<TaskItem> _tasksOn(DateTime day, List<TaskItem> all) {
-    final key = DateFormat('yyyy-MM-dd').format(day);
-    return all.where((t) {
-      if (t.dueDate == null || t.dueDate!.isEmpty) return false;
-      return t.dueDate!.startsWith(key);
-    }).toList();
+    final key = localDateKey(day);
+    return all.where((t) => apiDateToLocalKey(t.dueDate) == key).toList();
   }
 
   Set<String> _daysWithTasks(List<TaskItem> all) {
     final set = <String>{};
     for (final t in all) {
-      if (t.dueDate != null && t.dueDate!.length >= 10) {
-        set.add(t.dueDate!.substring(0, 10));
-      }
+      final key = apiDateToLocalKey(t.dueDate);
+      if (key.isNotEmpty) set.add(key);
     }
     return set;
   }
