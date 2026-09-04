@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>烂笔头PM · 人轴责任链</title>
+    <meta
+      name="description"
+      content="烂笔头PM（WorkTodo）是自托管的工作待办与人轴责任链系统：任务、提醒、协作，Web / 微信小程序 / APP 三端同步。"
+    />
+    <style>
+      :root {
+        --blue: #0058be;
+        --ink: #111827;
+        --muted: #4b5563;
+        --line: #e5e7eb;
+        --bg: #f8fafc;
+        --card: #ffffff;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
+      body {
+        font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+        color: var(--ink);
+        background: var(--bg);
+        line-height: 1.6;
+      }
+      header {
+        background: var(--blue);
+        color: #fff;
+        padding: 56px 24px 48px;
+      }
+      .wrap { max-width: 880px; margin: 0 auto; }
+      h1 { font-size: 2rem; margin: 0 0 8px; letter-spacing: -0.02em; }
+      .tag { opacity: 0.9; margin: 0 0 24px; }
+      .cta {
+        display: inline-block;
+        background: #fff;
+        color: var(--blue);
+        font-weight: 700;
+        text-decoration: none;
+        padding: 10px 18px;
+        border-radius: 10px;
+      }
+      main { padding: 32px 24px 64px; }
+      section {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 24px;
+        margin-bottom: 16px;
+      }
+      h2 { margin: 0 0 12px; font-size: 1.15rem; }
+      ul { margin: 0; padding-left: 1.2em; }
+      li { margin: 6px 0; color: var(--muted); }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      .pill {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 14px 16px;
+        background: #fff;
+      }
+      .pill strong { display: block; color: var(--ink); }
+      .pill span { color: var(--muted); font-size: 0.92rem; }
+      footer {
+        text-align: center;
+        color: var(--muted);
+        font-size: 0.85rem;
+        padding: 0 24px 40px;
+      }
+      a { color: var(--blue); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <h1>烂笔头PM</h1>
+        <p class="tag">好记性不如烂笔头 · WorkTodo · 自托管工作待办与人轴责任链</p>
+        <a class="cta" href="/">进入系统</a>
+      </div>
+    </header>
+    <main class="wrap">
+      <section>
+        <h2>这是什么</h2>
+        <p>
+          给领导视角用的待办系统：主干是人，事项和里程碑挂在人下面，终责钉在项目 PM。
+          Web、微信小程序、Flutter APP 共用同一套 FastAPI 后端，数据在自己的服务器上。
+        </p>
+      </section>
+      <section>
+        <h2>能做什么</h2>
+        <div class="grid">
+          <div class="pill"><strong>人轴责任链</strong><span>人为主干，事项挂载，终责收口</span></div>
+          <div class="pill"><strong>任务与看板</strong><span>优先级、分类、标签、子任务清单</span></div>
+          <div class="pill"><strong>提醒闭环</strong><span>网页 / 邮件 / 微信；邮件回复即可完成</span></div>
+          <div class="pill"><strong>协作</strong><span>公司、项目、指派、消息、收件箱</span></div>
+        </div>
+      </section>
+      <section>
+        <h2>怎么开始</h2>
+        <ul>
+          <li>自托管：仓库根目录 <code>docker compose up -d</code>，浏览器打开本机 80 端口。</li>
+          <li>个人使用只需验证邮箱；邀请同事进项目才要求手机号。</li>
+          <li>详细步骤见仓库 README 的「用户指南」和「部署指南」。</li>
+        </ul>
+      </section>
+    </main>
+    <footer>
+      中文品牌名「烂笔头PM」，英文 WorkTodo。软件按 MIT 许可开源；商业部署的公司许可证口径见 README。
+    </footer>
+  </body>
+</html>

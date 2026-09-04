@@ -56,6 +56,8 @@ services:
       - PORT=8000
       # 材料抽取模式：off（默认）| worker（配合 --profile extraction 启动 extractor）
       - EXTRACTION_MODE=${EXTRACTION_MODE:-off}
+      # 生产走 nginx 反代；后端默认 TRUST_PROXY_HEADERS=false，这里显式打开
+      - TRUST_PROXY_HEADERS=${TRUST_PROXY_HEADERS:-true}
     volumes:
       - backend_data:/app/data
     depends_on:
@@ -115,6 +117,7 @@ services:
       - API_V1_PREFIX=/api/v1
       - HOST=0.0.0.0
       - PORT=8000
+      - TRUST_PROXY_HEADERS=${TRUST_PROXY_HEADERS:-true}
     volumes:
       - backend_data:/app/data
     depends_on:
@@ -181,6 +184,7 @@ services:
       - "443:443"
     volumes:
       - ./nginx/default.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./landing:/usr/share/nginx/html/landing:ro
       - ./certbot/conf:/etc/letsencrypt:ro
       - ./certbot/www:/var/www/certbot:ro
     depends_on:
