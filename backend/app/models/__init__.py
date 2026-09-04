@@ -9,7 +9,7 @@ from app.models.task_assignment import TaskAssignment
 from app.models.collab_file import CollabFile
 from app.models.external_mail import ExternalMail
 from app.models.reminder import Reminder
-from app.models.attachment import Attachment
+from app.models.attachment import Attachment, AttachmentDownloadTicket
 from app.models.email_reply_record import EmailReplyRecord
 from app.models.recurring_instance import RecurringInstance
 from app.models.company import (
@@ -66,6 +66,7 @@ __all__ = [
     "ExternalMail",
     "Reminder",
     "Attachment",
+    "AttachmentDownloadTicket",
     "EmailReplyRecord",
     "RecurringInstance",
     "Company",

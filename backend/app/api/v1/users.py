@@ -179,10 +179,29 @@ async def delete_my_account(data: AccountDeleteRequest, db: DbSession, user: Cur
         raise HTTPException(status_code=422, detail="请输入 DELETE 以确认")
     if user.password_hash and not verify_password(data.password, user.password_hash):
         raise HTTPException(status_code=400, detail="密码错误")
+
+    from datetime import datetime, timezone
+
+    from app.models.notify import PushSubscription
+
     user.is_active = False
     user.nickname = "已删除用户"
     user.email = None
     user.phone = None
+    # 清微信标识：否则该 openid 仍绑在这条禁用账号上，本人重新注册后无法再绑，
+    # 且 /wx/login 会继续命中这条已删除记录。
+    user.wx_openid = None
+    user.wx_unionid = None
+    # 撤销全部已签发会话（access + refresh 一起），并作废 ICS 订阅地址
+    user.sessions_revoked_at = datetime.now(timezone.utc)
+    user.calendar_feed_token = None
+    # 推送订阅留着会继续往已删除账号的浏览器推
+    for row in (
+        await db.execute(
+            select(PushSubscription).where(PushSubscription.user_id == user.id)
+        )
+    ).scalars().all():
+        await db.delete(row)
     await db.flush()
     return ResponseData(data={"deleted": True}, message="账号已删除")
 

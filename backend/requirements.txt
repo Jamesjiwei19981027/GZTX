@@ -26,6 +26,10 @@ apscheduler>=3.10.4
 
 # HTTP 客户端（微信API调用）
 httpx>=0.27.0
+# utils/wechat.py 与 utils/jpush.py 直接 import requests。
+# pywebpush 会顺带装上它，但那是传递依赖——一旦 pywebpush 换实现，
+# 微信模板消息与 APP 推送会在运行时 ImportError。
+requests>=2.32.0
 
 # 工具
 python-dotenv>=1.0.1

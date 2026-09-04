@@ -171,3 +171,53 @@ async def enforce_send_code(
             limit=settings.RATE_LIMIT_SEND_CODE_PER_TARGET,
             window_seconds=settings.RATE_LIMIT_SEND_CODE_WINDOW,
         )
+
+
+async def enforce_refresh(db: AsyncSession, request: Request | None) -> None:
+    await enforce(
+        db,
+        scope="refresh:ip",
+        identifier=client_ip(request),
+        limit=settings.RATE_LIMIT_REFRESH_PER_IP,
+        window_seconds=settings.RATE_LIMIT_REFRESH_WINDOW,
+    )
+
+
+async def enforce_wx_login(db: AsyncSession, request: Request | None) -> None:
+    await enforce(
+        db,
+        scope="wx-login:ip",
+        identifier=client_ip(request),
+        limit=settings.RATE_LIMIT_WX_LOGIN_PER_IP,
+        window_seconds=settings.RATE_LIMIT_WX_LOGIN_WINDOW,
+    )
+
+
+async def enforce_upload(db: AsyncSession, user_id: int) -> None:
+    await enforce(
+        db,
+        scope="upload:user",
+        identifier=str(user_id),
+        limit=settings.RATE_LIMIT_UPLOAD_PER_USER,
+        window_seconds=settings.RATE_LIMIT_UPLOAD_WINDOW,
+    )
+
+
+async def enforce_calendar_feed(db: AsyncSession, request: Request | None) -> None:
+    await enforce(
+        db,
+        scope="calendar-feed:ip",
+        identifier=client_ip(request),
+        limit=settings.RATE_LIMIT_FEED_PER_IP,
+        window_seconds=settings.RATE_LIMIT_FEED_WINDOW,
+    )
+
+
+async def enforce_test_send(db: AsyncSession, user_id: int) -> None:
+    await enforce(
+        db,
+        scope="notify-test-send:user",
+        identifier=str(user_id),
+        limit=settings.RATE_LIMIT_TEST_SEND_PER_USER,
+        window_seconds=settings.RATE_LIMIT_TEST_SEND_WINDOW,
+    )

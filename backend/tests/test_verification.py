@@ -80,8 +80,37 @@ async def test_send_code_registered_email_rejected(client: AsyncClient, test_use
 
 
 @pytest.mark.asyncio
+async def test_email_verified_user_can_create_personal_task(client: AsyncClient, db_session):
+    """个人待办只要求邮箱验证，手机号门槛仅适用于协作写入。"""
+    from datetime import datetime, timezone
+
+    from app.core.security import create_access_token, get_password_hash
+    from app.models.category import Category
+    from app.models.user import User
+
+    u = User(
+        username="emailverified1",
+        email="emailverified1@example.com",
+        email_verified_at=datetime.now(timezone.utc),
+        password_hash=get_password_hash("password123"),
+        nickname="Email verified",
+    )
+    db_session.add(u)
+    await db_session.flush()
+    db_session.add(Category(user_id=u.id, name="默认", color="#409EFF", is_default=True, sort_order=0))
+    await db_session.commit()
+    await db_session.refresh(u)
+    headers = {"Authorization": f"Bearer {create_access_token(data={'sub': u.id})}"}
+
+    response = await client.post(
+        "/api/v1/tasks", headers=headers, json={"title": "personal task"}
+    )
+    assert response.status_code == 201, response.text
+
+
+@pytest.mark.asyncio
 async def test_unverified_user_blocked_from_task_create(client: AsyncClient, db_session):
-    """未验证账号被关键写接口拒绝（40320）"""
+    """未完成邮箱验证的账号仍被个人任务写接口拒绝（40320）。"""
     from app.core.security import create_access_token, get_password_hash
     from app.models.user import User
 
@@ -176,8 +205,8 @@ async def test_bind_flow_completes_verification(client: AsyncClient, db_session,
 
 
 @pytest.mark.asyncio
-async def test_email_register_then_phone_bind_unlocks(client: AsyncClient, monkeypatch):
-    """新流程全链路：邮箱码注册 → 建任务被 40320 拦 → 绑手机 → 解锁"""
+async def test_email_register_allows_personal_task_before_phone_bind(client: AsyncClient, monkeypatch):
+    """邮箱码注册后即可创建个人待办；手机号验证留给协作功能。"""
     monkeypatch.setattr(settings, "DEBUG", True)
 
     r = await client.post(
@@ -198,14 +227,13 @@ async def test_email_register_then_phone_bind_unlocks(client: AsyncClient, monke
     token = r.json()["data"]["access_token"]
     headers = {"Authorization": f"Bearer {token}"}
 
-    # 受限：建任务被拦
-    blocked = await client.post(
-        "/api/v1/tasks", headers=headers, json={"title": "blocked"}
+    # 邮箱已验证：个人任务不再被手机号门槛拦截
+    allowed = await client.post(
+        "/api/v1/tasks", headers=headers, json={"title": "personal task"}
     )
-    assert blocked.status_code == 403
-    assert blocked.json()["detail"]["code"] == 40320
+    assert allowed.status_code == 201
 
-    # 绑手机
+    # 绑手机依然会完整更新协作资格状态
     r = await client.post(
         "/api/v1/users/me/verification/send-code",
         headers=headers,
@@ -220,9 +248,9 @@ async def test_email_register_then_phone_bind_unlocks(client: AsyncClient, monke
     assert r.status_code == 200
     assert r.json()["data"]["is_verified"] is True
 
-    # 解锁
+    # 手机验证完成后依然可正常创建个人任务
     allowed = await client.post(
-        "/api/v1/tasks", headers=headers, json={"title": "unlocked"}
+        "/api/v1/tasks", headers=headers, json={"title": "after phone bind"}
     )
     assert allowed.status_code == 201
 

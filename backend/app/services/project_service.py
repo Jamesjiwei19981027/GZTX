@@ -197,7 +197,44 @@ class ProjectService:
         project = await db.get(Project, inv.project_id)
         if not project:
             raise ValueError("项目不存在")
-        member = await self.pull_member(db, project, user_id)
+        # 接受一封有效的项目邀请就是加入该公司的授权依据。首次受邀者此前
+        # 不会有 CompanyMembership，若仍要求先由管理员手工加入公司，会让
+        # 「邀请链接 → 加入项目」的标准协作链断在半路。已有但已停用/离职的
+        # 成员不自动复活，仍由管理员按离职流程恢复，避免邀请绕过收权。
+        membership_q = await db.execute(
+            select(CompanyMembership).where(
+                CompanyMembership.company_id == project.company_id,
+                CompanyMembership.user_id == user_id,
+            )
+        )
+        membership = membership_q.scalar_one_or_none()
+        if membership is None:
+            db.add(
+                CompanyMembership(
+                    company_id=project.company_id,
+                    user_id=user_id,
+                    status="active",
+                    employment_status="active",
+                    is_super_admin=False,
+                    is_org_leader=False,
+                )
+            )
+            await db.flush()
+        elif membership.status != "active" or membership.employment_status != "active":
+            raise PermissionError("membership_inactive")
+
+        # 有效的待处理邀请即使对应用户已经是项目成员，也应完成当前邀请的状态收口，
+        # 返回现有成员记录；但已接受的邀请仍保持一次性，入口处会拒绝重复使用。
+        existing_q = await db.execute(
+            select(ProjectMember).where(
+                ProjectMember.project_id == project.id,
+                ProjectMember.user_id == user_id,
+                ProjectMember.left_at.is_(None),
+            )
+        )
+        member = existing_q.scalar_one_or_none()
+        if member is None:
+            member = await self.pull_member(db, project, user_id)
         inv.status = "accepted"
         await db.flush()
         return member

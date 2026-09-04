@@ -322,11 +322,15 @@ async def login_with_code(data: dict, db: DbSession, request: Request):
 
 
 @router.post("/wx-login", response_model=ResponseData)
-async def wx_login(data: WxLogin, db: DbSession):
+async def wx_login(data: WxLogin, db: DbSession, request: Request):
     """微信登录"""
     from sqlalchemy import select
     from app.core.config import settings
     import httpx
+
+    from app.services.rate_limit import enforce_wx_login
+
+    await enforce_wx_login(db, request)
 
     # 调用微信接口获取 openid
     async with httpx.AsyncClient() as client:
@@ -432,7 +436,7 @@ async def _purge_expired_revocations(db, now) -> None:
 
 
 @router.post("/refresh", response_model=ResponseData)
-async def refresh_token(data: RefreshToken, db: DbSession):
+async def refresh_token(data: RefreshToken, db: DbSession, request: Request):
     """刷新 Token（轮换）：撤销旧 refresh token，同时签发新 access + refresh。
 
     - 带 jti 的 token：已被 logout 撤销 → 401；已被轮换撤销且超过 60 秒宽限期 → 401；
@@ -446,6 +450,9 @@ async def refresh_token(data: RefreshToken, db: DbSession):
 
     from app.core.config import settings
     from app.models.revoked_token import RevokedRefreshToken
+    from app.services.rate_limit import enforce_refresh
+
+    await enforce_refresh(db, request)
 
     payload = decode_token(data.refresh_token)
 
@@ -464,6 +471,22 @@ async def refresh_token(data: RefreshToken, db: DbSession):
 
     now = datetime.now(timezone.utc)
     await _purge_expired_revocations(db, now)
+
+    # 删号 / 强制下线：整批 refresh token 按签发时间失效，不依赖逐个 jti 撤销
+    from app.core.security import token_revoked_for_user
+    from app.models.user import User as UserModel
+
+    holder = await db.get(UserModel, int(user_id))
+    if holder is None or not holder.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token已失效，请重新登录",
+        )
+    if token_revoked_for_user(payload, holder.sessions_revoked_at):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token已失效，请重新登录",
+        )
 
     jti = payload.get("jti")
     if jti:

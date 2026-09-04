@@ -148,10 +148,7 @@ async def test_test_send_email_success_records_sent(
 async def test_test_send_webpush_without_subscription_fails_and_records(
     client: AsyncClient, auth_headers, test_user, db_session, monkeypatch
 ):
-    from app.utils import web_push as web_push_utils
-
-    monkeypatch.setattr(web_push_utils, "get_subscriptions", lambda user_id: [])
-
+    # 订阅真源是 push_subscriptions 表；该用户没有订阅行，无需再打桩内存字典
     r = await client.post(
         "/api/v1/notify/test-send", headers=auth_headers, json={"channel": "webpush"}
     )

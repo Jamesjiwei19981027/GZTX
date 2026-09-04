@@ -88,6 +88,28 @@ def now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def to_naive_utc(value: Optional[datetime]) -> Optional[datetime]:
+    """把任意时区的时间归一成 naive UTC，供入库使用。
+
+    库里（SQLite DATETIME / PG timestamp without tz）统一存 naive UTC。
+    历史实现是直接 `replace(tzinfo=None)`，那会把 `+08:00` 的墙上时间当成
+    UTC 存下去，整体偏 8 小时；这里改成先转 UTC 再去掉时区。
+    """
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value
+    return value.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def to_utc_iso(value: Optional[datetime]) -> Optional[str]:
+    """出参统一带 UTC 时区标记（`...Z`），客户端按本地时区渲染。"""
+    if value is None:
+        return None
+    aware = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return aware.isoformat().replace("+00:00", "Z")
+
+
 def as_utc(dt: Optional[datetime]) -> Optional[datetime]:
     """把可能是 naive 的时间统一成 aware（UTC），供比较使用。
 

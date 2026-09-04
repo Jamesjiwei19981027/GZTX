@@ -7,6 +7,7 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     JSON,
 )
 from sqlalchemy.sql import func
@@ -27,6 +28,12 @@ class NotifyPolicy(Base):
 
 class NotifyJob(Base):
     __tablename__ = "notify_jobs"
+    __table_args__ = (
+        # 消费者取队首：where status='pending' order by id
+        Index("ix_notify_jobs_status_id", "status", "id"),
+        # 超时回收：where status='processing' and claimed_at < cutoff
+        Index("ix_notify_jobs_claimed", "status", "claimed_at"),
+    )
 
     id = Column(Integer, primary_key=True)
     company_id = Column(Integer, nullable=False, index=True)
@@ -34,13 +41,16 @@ class NotifyJob(Base):
     channel = Column(String(32), nullable=False)  # in_app|wechat|email|sms
     template_key = Column(String(64), nullable=False)
     payload_json = Column(JSON, nullable=False, default=dict)
-    # pending|sent|failed|dead（dead=重试次数用尽，不再消费，避免堵住队列）
+    # pending|processing|sent|failed|dead
+    # processing = 已被某个消费者原子认领（dead=重试次数用尽，不再消费，避免堵住队列）
     status = Column(String(32), nullable=False, default="pending", index=True)
     # 已尝试投递次数，由 main.drain_notify_jobs 维护
     attempts = Column(Integer, nullable=False, default=0, server_default="0")
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     sent_at = Column(DateTime(timezone=True), nullable=True)
+    # 认领时间：进程崩溃留下的 processing 超时后可被重新认领
+    claimed_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class CollabInboxMessage(Base):

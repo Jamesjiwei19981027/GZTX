@@ -6,12 +6,13 @@ import json
 import re
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.orm import selectinload
 
-from app.core.dependencies import CurrentUser, DbSession, VerifiedUser
+from app.core.dependencies import CurrentUser, DbSession, EmailVerifiedUser
+from app.core.config import settings
 from app.core.collab_errors import fail
 from app.models.task import Task
 from app.models.task_assignment import TaskAssignment
@@ -35,6 +36,7 @@ from app.schemas.task import (
     TaskExtractRequest,
 )
 from app.schemas.common import ResponseData, PaginatedData
+from app.utils.datetime import to_naive_utc
 
 router = APIRouter(prefix="/tasks", tags=["任务"])
 
@@ -82,6 +84,20 @@ async def _validate_collab_scope(
         if not node or node.is_deleted or node.project_id != project_id:
             raise HTTPException(status_code=422, detail="项目事项与项目不匹配")
     return project.company_id
+
+
+def task_visibility_filter(user_id: int):
+    """读路径可见性：本人拥有 OR 被指派（TaskAssignment）。
+
+    写路径（更新/完成/删除/回收站）仍然 owner-only；协作任务的状态流转
+    走项目材料/进度流程，不在这里放开。
+    """
+    return or_(
+        Task.user_id == user_id,
+        Task.id.in_(
+            select(TaskAssignment.task_id).where(TaskAssignment.user_id == user_id)
+        ),
+    )
 
 
 def _dedupe_user_ids(user_ids: List[int] | None) -> List[int]:
@@ -255,9 +271,9 @@ async def get_tasks(
     sort_by: str = "created_at",
     sort_order: str = "desc",
 ):
-    """获取任务列表"""
+    """获取任务列表（本人 + 被指派给我的任务）"""
     # 基础查询
-    query = select(Task).where(Task.user_id == user.id)
+    query = select(Task).where(task_visibility_filter(user.id))
 
     if not include_deleted:
         query = query.where(Task.is_deleted == False)
@@ -278,9 +294,9 @@ async def get_tasks(
 
     # 日期范围筛选
     if due_date_from:
-        query = query.where(Task.due_date >= datetime.fromisoformat(due_date_from))
+        query = query.where(Task.due_date >= to_naive_utc(datetime.fromisoformat(due_date_from)))
     if due_date_to:
-        query = query.where(Task.due_date <= datetime.fromisoformat(due_date_to))
+        query = query.where(Task.due_date <= to_naive_utc(datetime.fromisoformat(due_date_to)))
 
     # 标签筛选
     if tag_ids:
@@ -402,49 +418,67 @@ async def export_tasks_ics(
     )
 
 
-def calendar_feed_sig(user_id: int) -> str:
-    """订阅地址签名：HMAC(SECRET_KEY, "calendar-feed:{user_id}") 截断 16 位。
+async def ensure_calendar_feed_token(db: DbSession, user) -> str:
+    """取当前用户的 ICS 订阅令牌，没有就生成一个。
 
-    与 utils/email.py 的 Reply-To 签名同一思路：URL 中只暴露截断签名，
-    不含 SECRET_KEY 本身；系统日历客户端无法带 Bearer 头，靠该签名鉴权。
+    旧实现是 HMAC(SECRET_KEY, user_id) 截断 16 位：既短（8 字节熵），又**无法撤销**
+    ——泄露后除了换全站 SECRET_KEY（把所有人的会话一起踢掉）没有别的办法。
+    改为 per-user 落库的 32 字节随机令牌，可单独重置。
     """
-    import hashlib
-    import hmac
+    import secrets
 
-    from app.core.config import settings
-
-    return hmac.new(
-        settings.SECRET_KEY.encode(),
-        f"calendar-feed:{user_id}".encode(),
-        hashlib.sha256,
-    ).hexdigest()[:16]
+    if not user.calendar_feed_token:
+        user.calendar_feed_token = secrets.token_urlsafe(32)
+        await db.flush()
+    return user.calendar_feed_token
 
 
 @router.get("/calendar-feed-url", response_model=ResponseData)
-async def get_calendar_feed_url(user: CurrentUser):
+async def get_calendar_feed_url(db: DbSession, user: CurrentUser):
     """返回当前用户的 ICS 订阅相对路径（前端自行拼接域名）。"""
-    sig = calendar_feed_sig(user.id)
+    token = await ensure_calendar_feed_token(db, user)
+    return ResponseData(data={"url": f"/api/v1/tasks/calendar/{token}.ics"})
+
+
+@router.post("/calendar-feed-url/reset", response_model=ResponseData)
+async def reset_calendar_feed_url(db: DbSession, user: CurrentUser):
+    """重置订阅令牌：旧地址立即失效（已添加的日历订阅会失败，需要重新添加）。"""
+    import secrets
+
+    user.calendar_feed_token = secrets.token_urlsafe(32)
+    await db.flush()
     return ResponseData(
-        data={"url": f"/api/v1/tasks/calendar/{user.id}.ics?sig={sig}"}
+        data={"url": f"/api/v1/tasks/calendar/{user.calendar_feed_token}.ics"},
+        message="订阅地址已重置，旧地址立即失效",
     )
 
 
-@router.get("/calendar/{user_id}.ics")
+@router.get("/calendar/{token}.ics")
 async def calendar_feed_ics(
-    user_id: int,
+    token: str,
     db: DbSession,
-    sig: str = "",
+    request: Request,
     include_completed: bool = False,
 ):
-    """免 Header 的 ICS 订阅地址，供系统日历持续同步；签名不匹配返回 403。"""
-    import hmac
-
+    """免 Header 的 ICS 订阅地址，供系统日历持续同步；令牌无效返回 403。"""
     from fastapi.responses import Response
 
-    if not sig or not hmac.compare_digest(sig, calendar_feed_sig(user_id)):
-        raise HTTPException(status_code=403, detail="签名无效")
+    from app.models.user import User as UserModel
+    from app.services.rate_limit import enforce_calendar_feed
 
-    content = await _build_user_ics(db, user_id, include_completed)
+    await enforce_calendar_feed(db, request)
+
+    holder = None
+    if token:
+        holder = (
+            await db.execute(
+                select(UserModel).where(UserModel.calendar_feed_token == token)
+            )
+        ).scalar_one_or_none()
+    if holder is None or not holder.is_active:
+        raise HTTPException(status_code=403, detail="订阅令牌无效")
+
+    content = await _build_user_ics(db, holder.id, include_completed)
     return Response(
         content=content,
         media_type="text/calendar; charset=utf-8",
@@ -464,7 +498,7 @@ async def get_today_tasks(
     query = (
         select(Task)
         .where(
-            Task.user_id == user.id,
+            task_visibility_filter(user.id),
             Task.is_deleted == False,
             Task.due_date >= datetime.combine(today, datetime.min.time()),
             Task.due_date < datetime.combine(tomorrow, datetime.min.time()),
@@ -649,7 +683,7 @@ def _parse_task_draft(content: str, source_text: str) -> dict:
 
 @router.post("/extract-from-chat", response_model=ResponseData)
 async def extract_task_from_chat(
-    data: TaskExtractRequest, db: DbSession, user: VerifiedUser
+    data: TaskExtractRequest, db: DbSession, user: EmailVerifiedUser
 ):
     """Extract a task draft from chat text using the configured LLM.
 
@@ -768,10 +802,10 @@ async def restore_task(task_id: int, db: DbSession, user: CurrentUser):
 
 @router.get("/{task_id}", response_model=ResponseData)
 async def get_task(task_id: int, db: DbSession, user: CurrentUser):
-    """获取任务详情"""
+    """获取任务详情（本人或被指派人可见）"""
     query = (
         select(Task)
-        .where(Task.id == task_id, Task.user_id == user.id)
+        .where(Task.id == task_id, task_visibility_filter(user.id))
         .options(
             selectinload(Task.category),
             selectinload(Task.tags),
@@ -789,8 +823,8 @@ async def get_task(task_id: int, db: DbSession, user: CurrentUser):
 
 
 @router.post("", response_model=ResponseData, status_code=status.HTTP_201_CREATED)
-async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
-    """创建任务（需完成双验证）"""
+async def create_task(data: TaskCreate, db: DbSession, user: EmailVerifiedUser):
+    """创建任务（需完成邮箱验证；协作任务需手机号）"""
     ui_prefs = ((user.notify_pref or {}).get("ui") or {}) if isinstance(user.notify_pref, dict) else {}
     effective_priority = data.priority
     if "priority" not in data.model_fields_set:
@@ -836,12 +870,19 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
             raise HTTPException(status_code=404, detail="分类不存在")
         category_id = owned.id
 
-    # SQLite 不支持时区信息，转换为 naive datetime
-    due_date_val = data.due_date
-    if due_date_val and due_date_val.tzinfo is not None:
-        due_date_val = due_date_val.replace(tzinfo=None)
+    # 库里统一存 naive UTC（schema 的 UTCDateTime 已归一，这里兜底）
+    due_date_val = to_naive_utc(data.due_date)
 
     project_id = data.project_id
+    if (
+        settings.REGISTER_VERIFICATION_REQUIRED
+        and (data.company_id is not None or project_id is not None or data.project_node_id is not None)
+        and not user.phone_verified
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": 40320, "message": "协作任务需要完成手机验证"},
+        )
     company_id = await _validate_collab_scope(
         db,
         user.id,
@@ -875,6 +916,11 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
         due_date=due_date_val,
         is_recurring=data.is_recurring,
         recurrence_rule=data.recurrence_rule,
+        checklist=(
+            [item.model_dump() for item in data.checklist]
+            if data.checklist is not None
+            else None
+        ),
         company_id=company_id,
         project_id=project_id,
         project_node_id=data.project_node_id,
@@ -903,10 +949,8 @@ async def create_task(data: TaskCreate, db: DbSession, user: VerifiedUser):
     # 添加提醒
     if data.reminders:
         for r in data.reminders:
-            # SQLite 不支持时区信息，转换为 naive datetime 避免 MissingGreenlet 错误
-            remind_at = r.remind_at
-            if remind_at and remind_at.tzinfo is not None:
-                remind_at = remind_at.replace(tzinfo=None)
+            # 库里统一存 naive UTC
+            remind_at = to_naive_utc(r.remind_at)
 
             reminder = Reminder(
                 task_id=task.id,
@@ -1040,9 +1084,9 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
             remind_type = r.get("remind_type", 0) if isinstance(r, dict) else r.remind_type
             notify_channels = r.get("notify_channels") if isinstance(r, dict) else r.notify_channels
 
-            # SQLite 不支持时区信息，转换为 naive datetime
-            if remind_at and hasattr(remind_at, 'tzinfo') and remind_at.tzinfo is not None:
-                remind_at = remind_at.replace(tzinfo=None)
+            # 库里统一存 naive UTC
+            if isinstance(remind_at, datetime):
+                remind_at = to_naive_utc(remind_at)
 
             reminder = Reminder(
                 task_id=task.id,
@@ -1182,10 +1226,8 @@ async def complete_task(task_id: int, data: TaskComplete, db: DbSession, user: C
         # 需要跟进：不标记为已完成，保留在未完成列表
         task.follow_up_reason = data.follow_up_reason
 
-        # 处理时区：SQLite 不支持时区信息
-        follow_up_remind_at = data.follow_up_remind_at
-        if follow_up_remind_at and follow_up_remind_at.tzinfo is not None:
-            follow_up_remind_at = follow_up_remind_at.replace(tzinfo=None)
+        # 库里统一存 naive UTC
+        follow_up_remind_at = to_naive_utc(data.follow_up_remind_at)
         task.follow_up_remind_at = follow_up_remind_at
         task.follow_up_notify_channels = data.follow_up_notify_channels
 

@@ -22,11 +22,13 @@ def test_reminder_email_has_reply_to():
     _, _, reply_to, _ = _build()
     assert reply_to is not None
 
+    from app.utils.email import REPLY_SIG_LENGTH
+
     sig = hmac.new(
         settings.EMAIL_REPLY_SECRET.encode(),
         b"42",
         hashlib.sha256
-    ).hexdigest()[:16]
+    ).hexdigest()[:REPLY_SIG_LENGTH]
     expected = f"reply-42-{sig}@{settings.EMAIL_REPLY_DOMAIN}"
     assert reply_to == expected
 

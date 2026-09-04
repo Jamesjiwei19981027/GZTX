@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 
 from app.api.deps_collab import assert_company_write
 from app.core.collab_errors import fail
-from app.core.dependencies import CurrentUser, DbSession
+from app.core.dependencies import CurrentUser, DbSession, CollaborationUser
 from app.models.company import Company, CompanyMembership
 from app.models.project import Project, ProjectMember
 from app.models.tree import NodeAssignment, TreeNode
@@ -98,7 +98,7 @@ async def _get_project(db, project_id: int) -> Project | None:
 
 
 @router.post("/projects")
-async def create_project(body: ProjectCreate, db: DbSession, user: CurrentUser):
+async def create_project(body: ProjectCreate, db: DbSession, user: CollaborationUser):
     company = await db.get(Company, body.company_id)
     if not company:
         return fail(404, 40400, "公司不存在")
@@ -410,10 +410,12 @@ async def create_invitation(
 
 
 @router.post("/projects/invitations/{token}/accept")
-async def accept_invitation(token: str, db: DbSession, user: CurrentUser):
+async def accept_invitation(token: str, db: DbSession, user: CollaborationUser):
     try:
         member = await psvc.accept_invitation(db, token, user.id)
-    except PermissionError:
+    except PermissionError as e:
+        if str(e) == "membership_inactive":
+            return fail(403, 40314, "当前公司成员状态无效，请联系管理员恢复")
         return fail(403, 40300, "邀请不匹配当前用户")
     except ValueError as e:
         return fail(422, 42200, str(e))
@@ -509,6 +511,68 @@ async def _node_dto(db, node: TreeNode, with_children: bool = False) -> dict:
     return d
 
 
+async def _node_dtos_batched(db, nodes: list[TreeNode]) -> list[dict]:
+    """批量序列化人轴节点，避免每个节点各查一次类型和 assignees（2N+1）。"""
+    if not nodes:
+        return []
+
+    from app.models.tree import NodeAssignment, NodeType
+
+    type_ids = {node.node_type_id for node in nodes}
+    type_rows = (
+        await db.execute(select(NodeType).where(NodeType.id.in_(type_ids)))
+    ).scalars().all()
+    types_by_id = {row.id: row for row in type_rows}
+
+    node_ids = [node.id for node in nodes]
+    assignment_rows = (
+        await db.execute(
+            select(NodeAssignment, User)
+            .join(User, User.id == NodeAssignment.user_id)
+            .where(NodeAssignment.node_id.in_(node_ids))
+            .order_by(NodeAssignment.id)
+        )
+    ).all()
+    assignees_by_node: dict[int, list[dict]] = {node_id: [] for node_id in node_ids}
+    for assignment, assignee in assignment_rows:
+        assignees_by_node[assignment.node_id].append(
+            {
+                "user_id": assignment.user_id,
+                "role_key": assignment.role_key,
+                "display_name": (assignee.nickname or assignee.username or f"用户{assignee.id}").strip(),
+                "avatar_url": assignee.avatar_url,
+            }
+        )
+
+    dtos = []
+    for node in nodes:
+        node_type = types_by_id.get(node.node_type_id)
+        key = node_type.key if node_type else "work_item"
+        tmpl = node_type.behavior_template if node_type else "work_item"
+        progress = node.progress_json or {}
+        dtos.append(
+            {
+                "id": node.id,
+                "parent_id": node.parent_id,
+                "node_type_key": key,
+                "behavior_template": tmpl,
+                "title": node.title,
+                "description": node.description,
+                "sort_order": node.sort_order,
+                "path": node.path,
+                "depth": node.depth,
+                "start_at": node.start_at.isoformat() if node.start_at else None,
+                "due_at": node.due_at.isoformat() if node.due_at else None,
+                "milestone_at": node.milestone_at.isoformat() if node.milestone_at else None,
+                "allow_clear_text_progress": node.allow_clear_text_progress,
+                "progress_json": node.progress_json,
+                "assignees": assignees_by_node[node.id],
+                "ui_offset": progress.get("ui_offset") if isinstance(progress, dict) else None,
+            }
+        )
+    return dtos
+
+
 @router.get("/projects/{project_id}/tree")
 async def get_tree(
     project_id: int,
@@ -528,7 +592,7 @@ async def get_tree(
             .order_by(TreeNode.sort_order, TreeNode.id)
         )
     ).scalars().all()
-    dtos = [await _node_dto(db, n) for n in rows]
+    dtos = await _node_dtos_batched(db, list(rows))
     if format == "flat":
         return ResponseData(data={"project_id": p.id, "nodes": dtos})
 

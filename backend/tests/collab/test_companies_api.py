@@ -36,11 +36,16 @@ async def test_create_company_and_license(async_client, db_session, monkeypatch)
     from app.core.security import create_access_token, get_password_hash
     from app.models.user import User
 
+    from datetime import datetime as _dt
+
+    # 协作写路径要求邮箱+手机双验证（阶段 5 的验证门禁分级）
     u = User(
         username="cadmin",
         email="cadmin@ex.com",
         password_hash=get_password_hash("x"),
         nickname="cadmin",
+        email_verified_at=_dt.utcnow(),
+        phone_verified_at=_dt.utcnow(),
     )
     db_session.add(u)
     await db_session.commit()
@@ -81,11 +86,15 @@ async def test_feature_gate_blocks_without_unlock(async_client, db_session):
     from app.models.user import User
     from app.services.company_bootstrap import bootstrap_single_company
 
+    from datetime import datetime as _dt
+
     u = User(
         username="penduser",
         email="pend@ex.com",
         password_hash=get_password_hash("x"),
         nickname="p",
+        email_verified_at=_dt.utcnow(),
+        phone_verified_at=_dt.utcnow(),
     )
     db_session.add(u)
     await db_session.flush()

@@ -15,6 +15,11 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Reply-To 签名长度（hex 字符数）。存量在途邮件仍是 16，收信侧兼容校验，
+# 见 services/email_receiver.py 的 extract_task_id。
+REPLY_SIG_LENGTH = 32
+LEGACY_REPLY_SIG_LENGTH = 16
+
 
 def _send_smtp(
     to_email: str,
@@ -170,12 +175,14 @@ def build_reminder_email(
     """
     import time as time_mod
 
-    # Generate Reply-To address with HMAC signature for email reply processing
+    # Generate Reply-To address with HMAC signature for email reply processing.
+    # 32 hex chars (128 bit)：这个签名是邮件指令通道的唯一凭据（除 From 地址外），
+    # 截断到 16 hex 只有 64 bit，对可离线穷举的场景余量太薄。
     sig = hmac.new(
         settings.EMAIL_REPLY_SECRET.encode(),
         str(task_id).encode(),
         hashlib.sha256,
-    ).hexdigest()[:16]
+    ).hexdigest()[:REPLY_SIG_LENGTH]
     reply_to_addr = f"reply-{task_id}-{sig}@{settings.EMAIL_REPLY_DOMAIN}"
     message_id = f"<task-{task_id}-{int(time_mod.time())}@{settings.EMAIL_REPLY_DOMAIN}>"
 

@@ -11,7 +11,6 @@ from app.core.dependencies import get_db, get_current_user
 from app.core.config import settings
 from app.models.user import User
 from app.schemas.common import ResponseData
-from app.utils.web_push import save_subscription, get_subscriptions
 from app.models.notify import PushSubscription
 
 router = APIRouter(prefix="/notifications", tags=["通知"])
@@ -67,7 +66,6 @@ async def subscribe_push(
     else:
         existing.subscription_json = payload
     await db.commit()
-    save_subscription(current_user.id, payload)
     return ResponseData(data={"endpoint": endpoint}, message="订阅成功")
 
 
@@ -80,10 +78,7 @@ async def get_push_subscriptions(
     rows = (
         await db.execute(select(PushSubscription).where(PushSubscription.user_id == current_user.id))
     ).scalars().all()
-    subs = [_subscription_dict(row) for row in rows]
-    if not subs:
-        subs = get_subscriptions(current_user.id)
-    return ResponseData(data={"subscriptions": subs})
+    return ResponseData(data={"subscriptions": [_subscription_dict(row) for row in rows]})
 
 
 @router.delete("/unsubscribe", response_model=ResponseData)
@@ -93,7 +88,6 @@ async def unsubscribe_push(
     db: AsyncSession = Depends(get_db)
 ):
     """Unsubscribe from Web Push notifications."""
-    from app.utils.web_push import remove_subscription
     row = (
         await db.execute(
             select(PushSubscription).where(
@@ -105,30 +99,40 @@ async def unsubscribe_push(
     if row:
         await db.delete(row)
         await db.commit()
-    remove_subscription(current_user.id, endpoint)
     return ResponseData(message="取消订阅成功")
 
 
 @router.post("/test-push", response_model=ResponseData)
 async def test_push_notification(
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
     """Send a test Web Push notification to the current user."""
-    from app.utils.web_push import send_web_push, get_subscriptions
+    import asyncio
 
-    subscriptions = get_subscriptions(current_user.id)
-    if not subscriptions:
+    from app.utils.web_push import send_web_push
+
+    subscribed = (
+        await db.execute(
+            select(PushSubscription.id).where(
+                PushSubscription.user_id == current_user.id
+            ).limit(1)
+        )
+    ).scalar_one_or_none()
+    if subscribed is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": 400, "message": "尚未订阅推送，请先在浏览器中允许通知权限。"}
         )
 
-    result = send_web_push(
-        user=current_user,
-        title="🔔 烂笔头PM - 通知测试",
-        body="网页弹窗提醒功能已正常工作！您将在任务提醒时收到此类通知。",
-        url="/tasks",
-        priority=1
+    # send_web_push 是阻塞的（同步 DB + HTTPS 外呼），不能直接在事件循环里跑
+    result = await asyncio.to_thread(
+        send_web_push,
+        current_user,
+        "🔔 烂笔头PM - 通知测试",
+        "网页弹窗提醒功能已正常工作！您将在任务提醒时收到此类通知。",
+        "/tasks",
+        1,
     )
 
     if result:

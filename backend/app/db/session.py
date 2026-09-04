@@ -134,6 +134,7 @@ async def init_db():
                 "ALTER TABLE tasks ADD COLUMN source_url VARCHAR(1000)",
                 "ALTER TABLE tasks ADD COLUMN source_message_id VARCHAR(255)",
                 "ALTER TABLE tasks ADD COLUMN source_meta JSON",
+                "ALTER TABLE tasks ADD COLUMN checklist JSON",
             ):
                 try:
                     await conn.execute(text(col_sql))
@@ -154,9 +155,37 @@ async def init_db():
                 "ALTER TABLE collab_inbox ADD COLUMN replied_at DATETIME",
                 "ALTER TABLE collab_inbox ADD COLUMN archived_at DATETIME",
                 "ALTER TABLE collab_inbox ADD COLUMN deleted_at DATETIME",
+                # 投递可靠性：提醒重试计数 + notify_jobs 原子认领
+                "ALTER TABLE reminders ADD COLUMN attempts INTEGER DEFAULT 0",
+                "ALTER TABLE reminders ADD COLUMN last_error VARCHAR(500)",
+                "ALTER TABLE notify_jobs ADD COLUMN claimed_at DATETIME",
             ):
                 try:
                     await conn.execute(text(col_sql))
+                except Exception:
+                    pass
+
+            # 性能索引 / 唯一约束：create_all 对已存在的表会整表跳过（连索引一起
+            # 跳），所以存量开发库要单独补一遍。生产走 Alembic。
+            try:
+                await conn.execute(text(
+                    "DELETE FROM node_assignments WHERE id NOT IN "
+                    "(SELECT MIN(id) FROM node_assignments GROUP BY node_id, user_id, role_key)"
+                ))
+            except Exception:
+                pass
+            for index_sql in (
+                "CREATE INDEX IF NOT EXISTS ix_tasks_user_live_created ON tasks (user_id, is_deleted, created_at)",
+                "CREATE INDEX IF NOT EXISTS ix_tasks_user_live_due ON tasks (user_id, is_deleted, due_date)",
+                "CREATE INDEX IF NOT EXISTS ix_tasks_deleted_at ON tasks (is_deleted, deleted_at)",
+                "CREATE INDEX IF NOT EXISTS ix_reminders_due_scan ON reminders (is_sent, remind_at)",
+                "CREATE INDEX IF NOT EXISTS ix_tree_nodes_project_live ON tree_nodes (project_id, is_deleted, sort_order)",
+                "CREATE INDEX IF NOT EXISTS ix_notify_jobs_status_id ON notify_jobs (status, id)",
+                "CREATE INDEX IF NOT EXISTS ix_notify_jobs_claimed ON notify_jobs (status, claimed_at)",
+                "CREATE UNIQUE INDEX IF NOT EXISTS uq_node_assignee_role ON node_assignments (node_id, user_id, role_key)",
+            ):
+                try:
+                    await conn.execute(text(index_sql))
                 except Exception:
                     pass
 
@@ -166,6 +195,8 @@ async def init_db():
                 "ALTER TABLE users ADD COLUMN phone VARCHAR(20)",
                 "ALTER TABLE users ADD COLUMN email_verified_at DATETIME",
                 "ALTER TABLE users ADD COLUMN phone_verified_at DATETIME",
+                "ALTER TABLE users ADD COLUMN sessions_revoked_at DATETIME",
+                "ALTER TABLE users ADD COLUMN calendar_feed_token VARCHAR(64)",
             ):
                 try:
                     await conn.execute(text(col_sql))

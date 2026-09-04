@@ -23,7 +23,8 @@ class Category(Base):
 
     # 关系
     user = relationship("User", back_populates="categories")
-    tasks = relationship("Task", back_populates="category", lazy="selectin")
+    # 列分类时不需要把分类下的任务全拉出来（删除分类的级联仍会按需加载）
+    tasks = relationship("Task", back_populates="category")
 
     def __repr__(self):
         return f"<Category(id={self.id}, name='{self.name}')>"

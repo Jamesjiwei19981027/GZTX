@@ -11,6 +11,7 @@ from email.parser import Parser
 from email.header import decode_header
 from typing import List, Dict, Optional
 from app.core.config import settings
+from app.utils.email import LEGACY_REPLY_SIG_LENGTH, REPLY_SIG_LENGTH
 
 logger = logging.getLogger(__name__)
 
@@ -153,7 +154,8 @@ class EmailReceiver:
         """
         Extract task_id from reply address and verify HMAC signature.
         Address format: reply-{task_id}-{signature}@{EMAIL_REPLY_DOMAIN}
-        Signature: hmac.new(SECRET, str(task_id), sha256).hexdigest()[:16]
+        Signature: hmac.new(SECRET, str(task_id), sha256).hexdigest()[:32]
+        （过渡期仍接受旧的 16 hex 截断签名）
         """
         if not to_addr:
             return None
@@ -169,14 +171,20 @@ class EmailReceiver:
             task_id = int(parts[1])
             provided_sig = parts[2]
 
-            # HMAC signature verification
-            expected_sig = hmac.new(
+            # HMAC signature verification.
+            # 新签名 32 hex；存量在途邮件仍带 16 hex 截断签名，过渡期一并接受。
+            full_sig = hmac.new(
                 self.reply_secret.encode(),
                 str(task_id).encode(),
                 hashlib.sha256
-            ).hexdigest()[:16]
+            ).hexdigest()
 
-            if not hmac.compare_digest(provided_sig, expected_sig):
+            expected = full_sig[:REPLY_SIG_LENGTH]
+            legacy = full_sig[:LEGACY_REPLY_SIG_LENGTH]
+            if not (
+                hmac.compare_digest(provided_sig, expected)
+                or hmac.compare_digest(provided_sig, legacy)
+            ):
                 logger.warning("[EmailReceiver] HMAC signature mismatch for task_id=%s", task_id)
                 return None
 
@@ -191,7 +199,7 @@ class EmailReceiver:
             self.reply_secret.encode(),
             str(task_id).encode(),
             hashlib.sha256
-        ).hexdigest()[:16]
+        ).hexdigest()[:REPLY_SIG_LENGTH]
         return f"reply-{task_id}-{sig}@{self.reply_domain}"
 
     def _decode_header_value(self, value: str) -> str:

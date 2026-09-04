@@ -151,14 +151,32 @@ class Settings(BaseSettings):
 
     # —— 认证限流（DB 支撑，见 services/rate_limit.py）——
     RATE_LIMIT_ENABLED: bool = True
-    # 反代后才可采信 X-Forwarded-For；直接暴露公网时必须关掉，否则可伪造头绕过限流
-    TRUST_PROXY_HEADERS: bool = True
+    # 采信 X-Forwarded-For 做限流。默认 **false**（fail-closed）：
+    # 采信该头时任何人都能靠伪造它把每次请求算到不同 IP 上，等于关掉 IP 维度限流。
+    # 只有确认后端仅经受信反代（nginx 用 $proxy_add_x_forwarded_for 重写）时才打开；
+    # compose 里显式设 true。
+    TRUST_PROXY_HEADERS: bool = False
     RATE_LIMIT_LOGIN_WINDOW: int = 300  # 5 分钟
     RATE_LIMIT_LOGIN_PER_IP: int = 20
     RATE_LIMIT_LOGIN_PER_ACCOUNT: int = 10
     RATE_LIMIT_SEND_CODE_WINDOW: int = 3600  # 1 小时
     RATE_LIMIT_SEND_CODE_PER_IP: int = 20
     RATE_LIMIT_SEND_CODE_PER_TARGET: int = 5
+    # refresh：正常客户端 15 分钟才换一次，给足余量仍能挡住拿到一枚 token 后的批量试探
+    RATE_LIMIT_REFRESH_WINDOW: int = 300
+    RATE_LIMIT_REFRESH_PER_IP: int = 60
+    # 微信 code2session 外呼有配额，且 code 可穷举尝试
+    RATE_LIMIT_WX_LOGIN_WINDOW: int = 300
+    RATE_LIMIT_WX_LOGIN_PER_IP: int = 30
+    # 上传：按用户限，防单账号刷满磁盘
+    RATE_LIMIT_UPLOAD_WINDOW: int = 3600
+    RATE_LIMIT_UPLOAD_PER_USER: int = 200
+    # ICS 订阅：匿名端点，按 IP 限；日历客户端通常 15 分钟才拉一次
+    RATE_LIMIT_FEED_WINDOW: int = 300
+    RATE_LIMIT_FEED_PER_IP: int = 60
+    # 测试发送：真实发邮件/推送，按用户限，防当成免费发信通道
+    RATE_LIMIT_TEST_SEND_WINDOW: int = 3600
+    RATE_LIMIT_TEST_SEND_PER_USER: int = 20
 
     @property
     def expose_api_docs(self) -> bool:

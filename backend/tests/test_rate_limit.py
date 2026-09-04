@@ -107,3 +107,16 @@ async def test_xff_only_trusted_when_configured(client: AsyncClient, test_user, 
         headers={"X-Forwarded-For": "10.0.0.99"},
     )
     assert r.status_code == 429, "伪造 XFF 不应绕过限流"
+
+
+@pytest.mark.asyncio
+async def test_refresh_rate_limited_by_ip(client: AsyncClient, monkeypatch):
+    """refresh 匿名端点按 IP 限流；用无效 token 计次，避免轮换干扰。"""
+    monkeypatch.setattr(settings, "RATE_LIMIT_REFRESH_PER_IP", 2)
+
+    for _ in range(2):
+        r = await client.post("/api/v1/auth/refresh", json={"refresh_token": "not-a-jwt"})
+        assert r.status_code == 401, r.text
+
+    r = await client.post("/api/v1/auth/refresh", json={"refresh_token": "not-a-jwt"})
+    assert r.status_code == 429, r.text

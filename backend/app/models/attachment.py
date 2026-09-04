@@ -23,3 +23,27 @@ class Attachment(Base):
 
     def __repr__(self):
         return f"<Attachment(id={self.id}, name='{self.original_name[:30]}')>"
+
+
+class AttachmentDownloadTicket(Base):
+    """附件下载一次性票据。
+
+    浏览器 `<a download>` / `<img src>` 无法带 Authorization 头，旧实现允许
+    `?token=<access_token>`，等于把可访问全部接口的凭据写进 URL——会进浏览器历史、
+    Referer 与反代日志。改为：先用正常鉴权换一张短时一次性票据，只能下这一个附件。
+    """
+
+    __tablename__ = "attachment_download_tickets"
+
+    id = Column(Integer, primary_key=True)
+    # 只存 sha256，落库泄露也换不出可用票据
+    token_hash = Column(String(64), nullable=False, unique=True)
+    attachment_id = Column(
+        Integer, ForeignKey("attachments.id", ondelete="CASCADE"), nullable=False
+    )
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    expires_at = Column(DateTime, nullable=False, index=True)
+    used_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
