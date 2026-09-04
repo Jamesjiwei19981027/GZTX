@@ -10,7 +10,8 @@ from app.services.notify import channels as ch
 
 async def process_one_job(db: AsyncSession, job_id: int) -> NotifyJob | None:
     job = await db.get(NotifyJob, job_id)
-    if not job or job.status != "pending":
+    # processing = 调用方（drain）已原子认领；pending 保留给直接调用的场景
+    if not job or job.status not in ("pending", "processing"):
         return job
 
     user = await db.get(User, job.user_id)
@@ -43,6 +44,7 @@ async def process_one_job(db: AsyncSession, job_id: int) -> NotifyJob | None:
         job.status = "sent"
         job.sent_at = datetime.now(timezone.utc)
         job.error_message = None
+        job.claimed_at = None
     else:
         job.status = "failed"
         job.error_message = err or "send failed"

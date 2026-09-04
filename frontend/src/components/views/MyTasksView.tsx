@@ -155,7 +155,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
 
   // 默认排序：状态（进行中/待办在前，已完成垫底）→ 优先级 → 截止时间（无截止的靠后）
   const statusRank: Record<Status, number> = { 'In Progress': 0, 'To Do': 1, Done: 2 };
-  const priorityRank: Record<Priority, number> = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
+  const priorityRank: Record<Priority, number> = { High: 0, Medium: 1, Low: 2 };
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     const byStatus = statusRank[a.status] - statusRank[b.status];
     if (byStatus !== 0) return byStatus;
@@ -280,12 +280,6 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
 
   const getPriorityBadge = (priority: Priority) => {
     switch (priority) {
-      case 'Urgent':
-        return (
-          <span className="bg-error text-on-error font-bold text-[11px] px-2 py-0.5 rounded-full shadow-xs">
-            {t.priorityUrgent}
-          </span>
-        );
       case 'High':
         return (
           <span className="bg-error-container text-on-error-container font-semibold text-[11px] px-2 py-0.5 rounded-full">
@@ -317,7 +311,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
         data-testid="task-row"
         data-task-id={task.id}
         onClick={() => onSelectTask(task)}
-        className={`group flex items-center justify-between p-4 bg-surface dark:bg-[#191c1d] border rounded-2xl transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5 ${
+        className={`list-row-cv group flex items-center justify-between p-4 bg-surface dark:bg-[#191c1d] border rounded-2xl transition-all duration-200 cursor-pointer shadow-xs hover:shadow-md hover:-translate-y-0.5 ${
           isDone
             ? 'border-surface-variant dark:border-outline-variant opacity-75 bg-surface-container-lowest/50'
             : 'border-surface-variant dark:border-outline-variant hover:border-primary/50'
@@ -459,7 +453,6 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             className="px-3 py-2 bg-surface dark:bg-[#191c1d] border border-outline-variant dark:border-outline rounded-xl text-xs font-semibold text-on-surface dark:text-[#f0f1f2] focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
           >
             <option value="All">{t.priorityAll}</option>
-            <option value="Urgent">{t.priorityUrgent}</option>
             <option value="High">{t.priorityHigh}</option>
             <option value="Medium">{t.priorityMedium}</option>
             <option value="Low">{t.priorityLow}</option>

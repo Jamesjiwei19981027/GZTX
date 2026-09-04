@@ -17,16 +17,21 @@ def test_extract_task_id_with_hmac():
     import hmac
     import hashlib
     from app.core.config import settings
+    from app.utils.email import LEGACY_REPLY_SIG_LENGTH, REPLY_SIG_LENGTH
     task_id = 42
-    sig = hmac.new(
+    full = hmac.new(
         settings.EMAIL_REPLY_SECRET.encode(),
         str(task_id).encode(),
         hashlib.sha256
-    ).hexdigest()[:16]
-    to_addr = f"reply-{task_id}-{sig}@{settings.EMAIL_REPLY_DOMAIN}"
+    ).hexdigest()
+    to_addr = f"reply-{task_id}-{full[:REPLY_SIG_LENGTH]}@{settings.EMAIL_REPLY_DOMAIN}"
 
     result = receiver.extract_task_id(to_addr)
     assert result == 42
+
+    # 存量在途邮件带的 16 hex 旧签名过渡期仍接受
+    legacy = f"reply-{task_id}-{full[:LEGACY_REPLY_SIG_LENGTH]}@{settings.EMAIL_REPLY_DOMAIN}"
+    assert receiver.extract_task_id(legacy) == 42
 
 
 def test_extract_task_id_invalid_signature():
@@ -106,9 +111,12 @@ def test_generate_reply_address():
     # Verify the HMAC is correct by extracting and comparing
     local_part = addr.split("@")[0]
     sig = local_part.split("-")[2]
+    from app.utils.email import REPLY_SIG_LENGTH
+
     expected_sig = hmac.new(
         settings.EMAIL_REPLY_SECRET.encode(),
         str(task_id).encode(),
         hashlib.sha256
-    ).hexdigest()[:16]
+    ).hexdigest()[:REPLY_SIG_LENGTH]
     assert sig == expected_sig
+    assert len(sig) == REPLY_SIG_LENGTH

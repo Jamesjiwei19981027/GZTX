@@ -130,6 +130,74 @@ async def test_email_invitation_requires_matching_email(db_session, seed_ids, in
 
 
 @pytest.mark.asyncio
+async def test_accept_invitation_auto_joins_company_and_project(db_session, seed_ids):
+    """首次被邀请者无需先被管理员手工加入公司。"""
+    from app.models.company import CompanyMembership
+
+    svc = ProjectService()
+    project = await db_session.get(Project, seed_ids["project_id"])
+    outsider_id = seed_ids["outsider_user_id"]
+    assert (
+        await db_session.execute(
+            select(CompanyMembership).where(
+                CompanyMembership.company_id == project.company_id,
+                CompanyMembership.user_id == outsider_id,
+            )
+        )
+    ).scalar_one_or_none() is None
+
+    invitation = await svc.create_invitation(
+        db_session, project=project, invitee_user_id=outsider_id
+    )
+    await db_session.commit()
+
+    member = await svc.accept_invitation(db_session, invitation.token, outsider_id)
+    await db_session.commit()
+
+    assert member.project_id == project.id
+    assert member.user_id == outsider_id
+    membership = (
+        await db_session.execute(
+            select(CompanyMembership).where(
+                CompanyMembership.company_id == project.company_id,
+                CompanyMembership.user_id == outsider_id,
+            )
+        )
+    ).scalar_one()
+    assert membership.status == "active"
+    assert membership.employment_status == "active"
+    assert membership.is_super_admin is False
+    assert membership.is_org_leader is False
+
+
+@pytest.mark.asyncio
+async def test_inactive_membership_cannot_be_revived_by_invitation(db_session, seed_ids):
+    """停用/离职成员不能通过邀请链接自动复活。"""
+    from app.models.company import CompanyMembership
+
+    svc = ProjectService()
+    project = await db_session.get(Project, seed_ids["project_id"])
+    outsider_id = seed_ids["outsider_user_id"]
+    db_session.add(
+        CompanyMembership(
+            company_id=project.company_id,
+            user_id=outsider_id,
+            status="inactive",
+            employment_status="terminated",
+            is_super_admin=False,
+            is_org_leader=False,
+        )
+    )
+    await db_session.commit()
+    invitation = await svc.create_invitation(
+        db_session, project=project, invitee_user_id=outsider_id
+    )
+    await db_session.commit()
+    with pytest.raises(PermissionError, match="membership_inactive"):
+        await svc.accept_invitation(db_session, invitation.token, outsider_id)
+
+
+@pytest.mark.asyncio
 async def test_used_invitation_cannot_be_reused(db_session, seed_ids, invitee_id):
     svc = ProjectService()
     project = await db_session.get(Project, seed_ids["project_id"])

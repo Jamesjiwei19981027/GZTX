@@ -6,7 +6,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.api.deps_collab import assert_company_write
 from app.core.collab_errors import CollabError, fail
-from app.core.dependencies import CurrentUser, DbSession, VerifiedUser
+from app.core.dependencies import CurrentUser, DbSession, CollaborationUser
 from app.models.agent import AgentDefinition, AgentSession
 from app.models.company import Company, CompanyMembership
 from app.schemas.common import ResponseData
@@ -192,7 +192,7 @@ async def delete_agent(agent_id: int, db: DbSession, user: CurrentUser):
 
 
 @router.post("/chat")
-async def agent_chat(body: ChatBody, db: DbSession, user: VerifiedUser):
+async def agent_chat(body: ChatBody, db: DbSession, user: CollaborationUser):
     if not await _member(db, body.company_id, user.id):
         return fail(403, 40302, "非本公司成员")
     if not await _unlocked_feature(db, body.company_id, "agents"):

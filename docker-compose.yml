@@ -64,6 +64,8 @@ services:
       - VAPID_SUBJECT=${VAPID_SUBJECT:-mailto:admin@example.com}
       # 材料抽取模式：off（默认，不抽取）| sync（请求内轻量抽取）| worker（extractor 容器异步抽取）
       - EXTRACTION_MODE=${EXTRACTION_MODE:-off}
+      # 开发编排走 nginx 反代，采信 X-Forwarded-For 做限流
+      - TRUST_PROXY_HEADERS=${TRUST_PROXY_HEADERS:-true}
     restart: unless-stopped
 
   # 知识抽取 worker（可选）：默认 `docker compose up -d` 不启动。
@@ -112,6 +114,7 @@ services:
       - "80:80"
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./landing:/usr/share/nginx/html/landing:ro
     depends_on:
       - backend
       - frontend

@@ -50,15 +50,18 @@ Page({
 
   fetchMonthTasks() {
     const { currentYear, currentMonth } = this.data;
-    const startDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
-    // 不能用 toISOString：UTC+8 下月末会被算成前一天；
-    // due_date_to 是 <= 比较，取到当天 23:59:59 才不漏月末任务
+    // 区间按「本地月首日 00:00 ~ 本地月末日 23:59:59.999」换算成 UTC 再发；
+    // 发本地裸串会被后端当 UTC 解读，UTC+8 下会漏掉月首凌晨的任务。
     const lastDay = new Date(currentYear, currentMonth, 0).getDate();
-    const endDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}T23:59:59`;
+    const startDate = dateUtils.localDayStartToApi(currentYear, currentMonth, 1);
+    const endDate = dateUtils.localDayEndToApi(currentYear, currentMonth, lastDay);
 
     this.setData({ loading: true });
     // page_size 默认 20，月视图一次拉全月（后端上限 200）
-    request.get(`/tasks?due_date_from=${startDate}&due_date_to=${endDate}&page_size=200`)
+    request.get(
+      `/tasks?due_date_from=${encodeURIComponent(startDate)}` +
+        `&due_date_to=${encodeURIComponent(endDate)}&page_size=200`
+    )
       .then((res) => {
         // 响应信封 {code, message, data}，分页列表在 data.items
         const tasks = (res.data && res.data.items) || [];
@@ -66,7 +69,7 @@ Page({
 
         tasks.forEach(task => {
           if (task.due_date) {
-            const dateKey = task.due_date.split('T')[0];
+            const dateKey = dateUtils.toLocalDateKey(task.due_date);
             if (!tasksByDate[dateKey]) {
               tasksByDate[dateKey] = [];
             }

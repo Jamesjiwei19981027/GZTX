@@ -3,10 +3,13 @@ import { TeamMember, Language } from '../../types';
 import { listProjectMembers } from '../../api/backend';
 import { mapMember } from '../../api/mappers';
 import { inviteProjectMember, listPresence } from '../../api/shell';
+import { inviteAcceptUrl } from '../../utils/invite';
 
 interface TeamViewProps {
   onSelectMember?: (member: TeamMember) => void;
   onNavigateToMessages?: () => void;
+  onCreateCompany?: () => void;
+  onCreateProject?: () => void;
   lang: Language;
   companyId?: number | null;
   projectId?: string;
@@ -15,6 +18,8 @@ interface TeamViewProps {
 export const TeamView: React.FC<TeamViewProps> = ({
   onNavigateToMessages,
   onSelectMember,
+  onCreateCompany,
+  onCreateProject,
   lang,
   companyId,
   projectId,
@@ -23,6 +28,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const backendPid =
@@ -31,11 +37,19 @@ export const TeamView: React.FC<TeamViewProps> = ({
   useEffect(() => {
     if (!backendPid) {
       setMembers([]);
-      setError(
-        lang === 'zh'
-          ? '请先在顶部选择具体项目以加载成员'
-          : 'Select a project to load members',
-      );
+      if (!companyId) {
+        setError(
+          lang === 'zh'
+            ? '还没有公司。先创建公司工作区，再邀请同事。'
+            : 'No company yet. Create a workspace before inviting teammates.',
+        );
+      } else {
+        setError(
+          lang === 'zh'
+            ? '请先选择或创建一个具体项目，再加载成员。'
+            : 'Select or create a project to load members.',
+        );
+      }
       return;
     }
     let cancelled = false;
@@ -88,10 +102,11 @@ export const TeamView: React.FC<TeamViewProps> = ({
     e.preventDefault();
     if (!inviteEmail.trim() || !backendPid) return;
     try {
-      await inviteProjectMember(backendPid, { email: inviteEmail.trim() });
+      const invited = await inviteProjectMember(backendPid, { email: inviteEmail.trim() });
+      const link = inviteAcceptUrl(invited.token);
+      setInviteLink(link);
       setInviteEmail('');
-      setIsInviteOpen(false);
-      setError(lang === 'zh' ? '邀请已发送' : 'Invitation sent');
+      setError(lang === 'zh' ? '邀请已创建，可复制链接发给对方' : 'Invite created. Copy the link and send it.');
     } catch (err) {
       setError(err instanceof Error ? err.message : '邀请失败');
     }
@@ -142,6 +157,24 @@ export const TeamView: React.FC<TeamViewProps> = ({
           </p>
         </div>
         <div className="flex gap-2">
+          {onCreateCompany && !companyId && (
+            <button
+              type="button"
+              onClick={onCreateCompany}
+              className="px-4 py-2.5 rounded-2xl border border-outline-variant/50 text-sm font-semibold cursor-pointer"
+            >
+              {lang === 'zh' ? '创建公司' : 'Create company'}
+            </button>
+          )}
+          {onCreateProject && (
+            <button
+              type="button"
+              onClick={onCreateProject}
+              className="px-4 py-2.5 rounded-2xl border border-outline-variant/50 text-sm font-semibold cursor-pointer"
+            >
+              {lang === 'zh' ? '创建项目' : 'Create project'}
+            </button>
+          )}
           {onNavigateToMessages && (
             <button
               type="button"
@@ -220,6 +253,19 @@ export const TeamView: React.FC<TeamViewProps> = ({
               placeholder="email@example.com"
               className="w-full p-3 rounded-xl bg-surface-container border border-outline-variant/40 text-sm"
             />
+            {inviteLink && (
+              <div className="rounded-xl bg-surface-container p-3 text-xs break-all">
+                <div className="font-semibold mb-1">{lang === 'zh' ? '邀请链接' : 'Invite link'}</div>
+                <p>{inviteLink}</p>
+                <button
+                  type="button"
+                  className="mt-2 text-primary font-semibold"
+                  onClick={() => void navigator.clipboard?.writeText(inviteLink)}
+                >
+                  {lang === 'zh' ? '复制链接' : 'Copy link'}
+                </button>
+              </div>
+            )}
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setIsInviteOpen(false)} className="px-4 py-2 text-sm cursor-pointer">
                 {lang === 'zh' ? '取消' : 'Cancel'}

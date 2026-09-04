@@ -185,7 +185,6 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                   onChange={(e) => handlePriorityChange(e.target.value as Priority)}
                   className="w-full px-3 py-1.5 bg-surface dark:bg-[#191c1d] border border-outline-variant rounded-lg text-xs font-bold text-on-surface dark:text-[#f0f1f2] focus:ring-1 focus:ring-primary focus:outline-none"
                 >
-                  <option value="Urgent">{t.priorityUrgent}</option>
                   <option value="High">{t.priorityHigh}</option>
                   <option value="Medium">{t.priorityMedium}</option>
                   <option value="Low">{t.priorityLow}</option>

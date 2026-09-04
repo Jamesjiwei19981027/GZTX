@@ -1,90 +1,70 @@
-"""Web Push notification utility."""
+"""Web Push notification utility.
+
+订阅的唯一真源是 `push_subscriptions` 表。历史实现同时写
+`data/push_subscriptions.json` 并**从该文件读取发送目标**，于是：
+多 worker 各持一份进程内缓存互相看不到、订阅接口写库成功但文件写失败就静默丢、
+容器重建后文件没挂卷则全员静音。这里统一改为读写 DB。
+"""
 
 import json
 import logging
-import os
 from typing import Optional
 
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# File-based persistent store for user subscriptions
-_SUBSCRIPTIONS_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "push_subscriptions.json")
-_subscriptions: dict[int, list[dict]] = {}
 
-
-def _load_subscriptions():
-    """Load subscriptions from disk."""
-    global _subscriptions
-    try:
-        if os.path.exists(_SUBSCRIPTIONS_FILE):
-            with open(_SUBSCRIPTIONS_FILE, "r", encoding="utf-8") as f:
-                raw = json.load(f)
-                # JSON keys are strings, convert back to int
-                _subscriptions = {int(k): v for k, v in raw.items()}
-            logger.info(
-                "[WEB_PUSH] Loaded %s subscriptions from disk",
-                sum(len(v) for v in _subscriptions.values()),
-            )
-    except Exception:
-        logger.exception("[WEB_PUSH] Failed to load subscriptions")
-        _subscriptions = {}
-
-
-def _save_subscriptions():
-    """Persist subscriptions to disk."""
-    try:
-        os.makedirs(os.path.dirname(_SUBSCRIPTIONS_FILE), exist_ok=True)
-        with open(_SUBSCRIPTIONS_FILE, "w", encoding="utf-8") as f:
-            json.dump({str(k): v for k, v in _subscriptions.items()}, f, ensure_ascii=False)
-    except Exception:
-        logger.exception("[WEB_PUSH] Failed to save subscriptions")
-
-
-# Load on module import (app startup)
-_load_subscriptions()
-
-
-def save_subscription(user_id: int, subscription: dict) -> bool:
-    """Save user's Web Push subscription.
-
-    Replaces ALL existing subscriptions for this user with the new one.
-    Each user should only have one active subscription at a time.
-
-    Args:
-        user_id: User ID
-        subscription: Push subscription object from browser
-
-    Returns:
-        True if saved successfully
-    """
-    # Replace all subscriptions — keep only the most recent one
-    _subscriptions[user_id] = [subscription]
-    _save_subscriptions()
-    logger.info("[WEB_PUSH] Subscription saved for user %s (persisted to disk)", user_id)
-    return True
-
-
-def remove_subscription(user_id: int, endpoint: str) -> bool:
-    """Remove a subscription by endpoint."""
-    if user_id not in _subscriptions:
-        return False
-
-    _subscriptions[user_id] = [
-        sub for sub in _subscriptions[user_id]
-        if sub.get("endpoint") != endpoint
-    ]
-    # Clean up empty entries
-    if not _subscriptions[user_id]:
-        del _subscriptions[user_id]
-    _save_subscriptions()
-    return True
+def _subscription_payload(row) -> dict:
+    value = dict(row.subscription_json or {})
+    value.setdefault("endpoint", row.endpoint)
+    return value
 
 
 def get_subscriptions(user_id: int) -> list[dict]:
-    """Get all subscriptions for a user."""
-    return _subscriptions.get(user_id, [])
+    """Get all subscriptions for a user (DB is the single source of truth).
+
+    同步实现：调用方是 APScheduler 里的同步提醒链路，以及 asyncio.to_thread
+    包出去的发送路径。
+    """
+    from app.db.session import SyncSessionLocal
+    from app.models.notify import PushSubscription
+
+    try:
+        with SyncSessionLocal() as session:
+            rows = (
+                session.query(PushSubscription)
+                .filter(PushSubscription.user_id == user_id)
+                .all()
+            )
+            return [_subscription_payload(row) for row in rows]
+    except Exception:
+        logger.exception("[WEB_PUSH] Failed to load subscriptions for user %s", user_id)
+        return []
+
+
+def remove_subscription(user_id: int, endpoint: str) -> bool:
+    """Remove a subscription by endpoint (e.g. after a 410 Gone from the push service)."""
+    from app.db.session import SyncSessionLocal
+    from app.models.notify import PushSubscription
+
+    if not endpoint:
+        return False
+    try:
+        with SyncSessionLocal() as session:
+            deleted = (
+                session.query(PushSubscription)
+                .filter(
+                    PushSubscription.user_id == user_id,
+                    PushSubscription.endpoint == endpoint,
+                )
+                .delete(synchronize_session=False)
+            )
+            session.commit()
+            return bool(deleted)
+    except Exception:
+        logger.exception("[WEB_PUSH] Failed to remove subscription for user %s", user_id)
+        return False
 
 
 def _get_vapid_keys(user=None) -> tuple[Optional[str], Optional[str]]:

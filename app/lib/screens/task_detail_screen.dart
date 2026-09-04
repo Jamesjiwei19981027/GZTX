@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../models/models.dart';
 import '../state/app_state.dart';
+import '../utils/datetime.dart';
 import '../widgets/common.dart';
 
 class TaskDetailScreen extends StatefulWidget {
@@ -42,9 +43,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       _title.text = task.title;
       _desc.text = task.description ?? '';
       _priority = task.priority;
-      if (task.dueDate != null && task.dueDate!.isNotEmpty) {
-        _due = DateTime.tryParse(task.dueDate!);
-      }
+      // 出参是 UTC，转本地再交给日期选择器，否则选中日会偏一天
+      _due = parseApiDateTime(task.dueDate);
     } catch (e) {
       if (mounted) showApiError(context, e, '加载任务失败');
     } finally {
@@ -70,12 +70,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     if (picked != null) setState(() => _due = picked);
   }
 
+  /// 提交用 UTC ISO。此前发的是本地墙上时间的裸串（`...T23:59:59`，无时区），
+  /// 后端按 UTC 解读，UTC+8 下会整体偏 8 小时。
   String? _dueIso() {
-    if (_due == null) return null;
-    final d = _due!;
-    return '${d.year.toString().padLeft(4, '0')}-'
-        '${d.month.toString().padLeft(2, '0')}-'
-        '${d.day.toString().padLeft(2, '0')}T23:59:59';
+    final d = _due;
+    if (d == null) return null;
+    return localDayEndToApi(d);
   }
 
   Future<void> _save() async {

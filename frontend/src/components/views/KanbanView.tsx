@@ -70,12 +70,6 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
 
   const getPriorityBadge = (priority: Priority) => {
     switch (priority) {
-      case 'Urgent':
-        return (
-          <span className="bg-error text-on-error font-bold text-[10px] px-2 py-0.5 rounded shadow-xs">
-            {lang === 'zh' ? '急' : 'Urgent'}
-          </span>
-        );
       case 'High':
         return (
           <span className="bg-error-container text-on-error-container font-bold text-[10px] px-2 py-0.5 rounded">
@@ -142,7 +136,6 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={lang === 'zh' ? '筛选任务' : 'Filter tasks'} className="w-36 px-3 py-2 rounded-xl border border-outline-variant bg-surface text-xs" />
           <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as Priority | 'all')} className="px-3 py-2 rounded-xl border border-outline-variant bg-surface text-xs">
             <option value="all">{lang === 'zh' ? '全部优先级' : 'All priorities'}</option>
-            <option value="Urgent">{lang === 'zh' ? '紧急' : 'Urgent'}</option>
             <option value="High">{lang === 'zh' ? '高' : 'High'}</option>
             <option value="Medium">{lang === 'zh' ? '中' : 'Medium'}</option>
             <option value="Low">{lang === 'zh' ? '低' : 'Low'}</option>

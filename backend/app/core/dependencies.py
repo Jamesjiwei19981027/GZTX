@@ -8,7 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.security import decode_token
+from app.core.security import decode_token, token_revoked_for_user
 from app.db.session import get_db
 from app.models.user import User
 
@@ -58,25 +58,51 @@ async def get_current_user(
             detail="用户已被禁用",
         )
 
+    # 删号 / 强制下线后，已签发但未过期的 access token 必须立刻失效
+    if token_revoked_for_user(payload, user.sessions_revoked_at):
+        raise credentials_exception
+
     return user
 
 
-async def get_verified_user(
+async def get_email_verified_user(
     user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    """要求邮箱+手机双验证完成（REGISTER_VERIFICATION_REQUIRED=false 时放行）。
+    """要求完成邮箱验证；个人任务不再要求手机号验证。
 
-    未验证返回 403 + code=40320，前端据此跳转补验引导页。
+    手机验证只用于公司/项目等协作写操作，由 ``get_collaboration_user``
+    统一承载，避免把个人待办的基础路径也锁在手机号门槛之后。
     """
+    if settings.REGISTER_VERIFICATION_REQUIRED and not user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": 40320, "message": "请先完成邮箱验证"},
+        )
+    return user
+
+
+async def get_collaboration_user(
+    user: Annotated[User, Depends(get_current_user)],
+) -> User:
+    """要求邮箱和手机验证，用于创建或变更协作资源。"""
     if settings.REGISTER_VERIFICATION_REQUIRED and not user.is_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail={"code": 40320, "message": "请先完成邮箱与手机验证"},
+            detail={"code": 40320, "message": "协作功能需要完成邮箱与手机验证"},
         )
+    return user
+
+
+# 兼容旧调用点：逐步迁移到语义明确的 EmailVerifiedUser / CollaborationUser。
+async def get_verified_user(
+    user: Annotated[User, Depends(get_collaboration_user)],
+) -> User:
     return user
 
 
 # 类型别名，简化依赖注入
 CurrentUser = Annotated[User, Depends(get_current_user)]
-VerifiedUser = Annotated[User, Depends(get_verified_user)]
+EmailVerifiedUser = Annotated[User, Depends(get_email_verified_user)]
+CollaborationUser = Annotated[User, Depends(get_collaboration_user)]
+VerifiedUser = CollaborationUser
 DbSession = Annotated[AsyncSession, Depends(get_db)]

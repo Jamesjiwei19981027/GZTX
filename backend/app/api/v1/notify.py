@@ -101,10 +101,19 @@ async def _test_send_email(db, user) -> tuple[bool, Optional[str]]:
     return False, "邮件发送失败：请检查 SMTP 服务器地址、端口、账号密码是否正确"
 
 
-async def _test_send_webpush(user) -> tuple[bool, Optional[str]]:
-    from app.utils.web_push import get_subscriptions, send_web_push
+async def _test_send_webpush(db, user) -> tuple[bool, Optional[str]]:
+    from app.models.notify import PushSubscription
+    from app.utils.web_push import send_web_push
 
-    if not get_subscriptions(user.id):
+    # 订阅存在性走异步会话查库（DB 是订阅的唯一真源）
+    subscribed = (
+        await db.execute(
+            select(PushSubscription.id)
+            .where(PushSubscription.user_id == user.id)
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if subscribed is None:
         return False, "尚未订阅浏览器推送，请先在浏览器中允许通知权限"
 
     ok = await asyncio.to_thread(
@@ -123,10 +132,13 @@ async def _test_send_webpush(user) -> tuple[bool, Optional[str]]:
 @router.post("/test-send", response_model=ResponseData)
 async def test_send(data: TestSendBody, db: DbSession, user: CurrentUser):
     """立即向当前用户发一条测试通知，同步返回成败与原因，并写入发送记录。"""
+    from app.services.rate_limit import enforce_test_send
+
+    await enforce_test_send(db, user.id)
     if data.channel == "email":
         ok, error = await _test_send_email(db, user)
     else:
-        ok, error = await _test_send_webpush(user)
+        ok, error = await _test_send_webpush(db, user)
 
     db.add(
         NotificationRecord(

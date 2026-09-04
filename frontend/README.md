@@ -1,6 +1,6 @@
 # WorkTodo Web（正式前端）
 
-本目录为 **Docker / Nginx 正式 Web 真源**（原 Stitch Remix UI，已从 `remix-flow---productivity-&-task-management/` 迁入）。
+本目录为 **Docker / Nginx 正式 Web 真源**（React 19 + Vite + Tailwind）。
 
 旧 React 站归档在 `frontend-react-archive/`，仅供对照，不再被 `docker-compose.yml` 引用。
 

@@ -123,3 +123,34 @@ async def test_call_websocket_route_checks_conversation_membership(db_session, s
     await call_signal(conversation.id, denied, db_session)
     assert denied.accepted is False
     assert denied.closed_code == 4403
+
+
+@pytest.mark.asyncio
+async def test_call_websocket_rejects_missing_auth_frame(db_session, seed_ids):
+    """浏览器路径不再接受 ?token=，缺首帧鉴权直接关连接。"""
+    conversation = DirectConversation(
+        company_id=seed_ids["company_id"],
+        project_id=seed_ids["project_id"],
+        kind="direct",
+        created_by=seed_ids["member_user_id"],
+    )
+    db_session.add(conversation)
+    await db_session.flush()
+    db_session.add(
+        DirectConversationMember(
+            conversation_id=conversation.id, user_id=seed_ids["member_user_id"]
+        )
+    )
+    await db_session.commit()
+
+    class QueryTokenSocket(RouteSocket):
+        def __init__(self):
+            super().__init__("ignored")
+            self.headers = {}
+            self.query_params = {
+                "token": create_access_token(data={"sub": seed_ids["member_user_id"]})
+            }
+
+    socket = QueryTokenSocket()
+    await call_signal(conversation.id, socket, db_session)
+    assert socket.closed_code == 4401

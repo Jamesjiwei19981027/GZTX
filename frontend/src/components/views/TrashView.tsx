@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Language } from '../../types';
 import { listTrashTasks, restoreTask } from '../../api/backend';
 import type { BackendTask } from '../../api/backend';
+import { toLocalDateString } from '../../utils/datetime';
 import { useToast } from '../toast/ToastProvider';
 
 interface TrashViewProps {
@@ -12,9 +13,13 @@ interface TrashViewProps {
 
 const PAGE_SIZE = 20;
 
+/** 后端出参是 UTC（带 Z），按本地时区渲染 */
 function formatDateTime(value?: string | null): string {
   if (!value) return '—';
-  return value.slice(0, 16).replace('T', ' ');
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value.slice(0, 16).replace('T', ' ');
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 export const TrashView: React.FC<TrashViewProps> = ({ lang, onRestored }) => {
@@ -113,7 +118,7 @@ export const TrashView: React.FC<TrashViewProps> = ({ lang, onRestored }) => {
             <div
               key={task.id}
               data-testid="trash-row"
-              className="flex items-center justify-between gap-4 p-4 bg-surface dark:bg-[#191c1d] border border-surface-variant dark:border-outline-variant rounded-2xl shadow-xs"
+              className="list-row-cv flex items-center justify-between gap-4 p-4 bg-surface dark:bg-[#191c1d] border border-surface-variant dark:border-outline-variant rounded-2xl shadow-xs"
             >
               <div className="min-w-0">
                 <p className="font-semibold text-base text-on-surface dark:text-[#f0f1f2] truncate">
@@ -126,7 +131,7 @@ export const TrashView: React.FC<TrashViewProps> = ({ lang, onRestored }) => {
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="material-symbols-outlined text-xs">event</span>
-                    {lang === 'zh' ? '原截止' : 'Was due'} {task.due_date ? task.due_date.slice(0, 10) : '—'}
+                    {lang === 'zh' ? '原截止' : 'Was due'} {toLocalDateString(task.due_date) || '—'}
                   </span>
                 </div>
               </div>

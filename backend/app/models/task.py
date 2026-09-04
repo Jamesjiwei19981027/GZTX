@@ -1,7 +1,17 @@
 """
 任务模型
 """
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, JSON
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Text,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    JSON,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -12,6 +22,14 @@ from app.models.tag import task_tags
 class Task(Base):
     """任务表"""
     __tablename__ = "tasks"
+    __table_args__ = (
+        # 任务列表默认口径：本人 + 未删除，按 created_at 倒序分页
+        Index("ix_tasks_user_live_created", "user_id", "is_deleted", "created_at"),
+        # 日历/我的任务按截止时间取区间
+        Index("ix_tasks_user_live_due", "user_id", "is_deleted", "due_date"),
+        # 回收站清理 job：where is_deleted and deleted_at < cutoff
+        Index("ix_tasks_deleted_at", "is_deleted", "deleted_at"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
@@ -25,6 +43,8 @@ class Task(Base):
     is_recurring = Column(Boolean, default=False, nullable=False)
     recurrence_rule = Column(JSON, nullable=True)
     parent_task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
+    # 轻量子任务清单 [{id,title,completed}]；独立于 parent_task_id（后者是重复实例语义）
+    checklist = Column(JSON, nullable=True)
     sort_order = Column(Integer, default=0, nullable=False)
     is_deleted = Column(Boolean, default=False, nullable=False, index=True)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -66,11 +86,12 @@ class Task(Base):
     tags = relationship("Tag", secondary=task_tags, back_populates="tasks", lazy="selectin")
     reminders = relationship("Reminder", back_populates="task", cascade="all, delete-orphan")
     sub_tasks = relationship("Task", backref="parent", remote_side=[id], lazy="selectin")
+    # 出参里没有 recurring_instances，不必每次列任务都多一条 selectin 查询；
+    # 删除任务时的级联会在 await db.delete(task) 内部按需加载。
     recurring_instances = relationship(
         "RecurringInstance",
         back_populates="task",
         cascade="all, delete-orphan",
-        lazy="selectin",
     )
     assignees = relationship(
         "TaskAssignment",

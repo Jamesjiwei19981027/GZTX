@@ -12,6 +12,8 @@ type Props = {
   lang?: 'zh' | 'en'
   onVerified: () => void
   onLogout: () => void
+  /** email：个人待办只需邮箱；phone：协作功能需补验手机 */
+  required?: 'email' | 'phone'
 }
 
 function useCountdown() {
@@ -145,26 +147,32 @@ function ChannelBind({
   )
 }
 
-export function VerifyGate({ lang = 'zh', onVerified, onLogout }: Props) {
+export function VerifyGate({ lang = 'zh', onVerified, onLogout, required = 'email' }: Props) {
   const zh = lang === 'zh'
   const [status, setStatus] = useState<VerificationStatus | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
+
+  const isSatisfied = (st: VerificationStatus | null) => {
+    if (!st) return false
+    if (required === 'phone') return Boolean(st.phone_verified && st.email_verified)
+    return Boolean(st.email_verified)
+  }
 
   useEffect(() => {
     void (async () => {
       try {
         const st = await getVerificationStatus()
         setStatus(st)
-        if (st.is_verified) onVerified()
+        if (isSatisfied(st)) onVerified()
       } catch (e) {
         setLoadError(e instanceof ApiError ? e.message : zh ? '加载失败' : 'Load failed')
       }
     })()
-  }, [onVerified, zh])
+  }, [onVerified, zh, required])
 
   async function handleDone(st: VerificationStatus) {
     setStatus(st)
-    if (st.is_verified) onVerified()
+    if (isSatisfied(st)) onVerified()
   }
 
   async function handleLogout() {
@@ -177,12 +185,22 @@ export function VerifyGate({ lang = 'zh', onVerified, onLogout }: Props) {
       <div className="w-full max-w-lg rounded-3xl border border-outline-variant/40 bg-white dark:bg-[#191c1d] p-7 shadow-xl space-y-5">
         <div>
           <h1 className="text-xl font-bold text-on-surface">
-            {zh ? '完成双验证' : 'Complete verification'}
+            {required === 'phone'
+              ? zh
+                ? '协作功能需要补验手机'
+                : 'Phone verification required for collaboration'
+              : zh
+                ? '完成邮箱验证'
+                : 'Verify your email'}
           </h1>
           <p className="text-sm text-on-surface-variant mt-1">
-            {zh
-              ? '创建任务与协作功能需要邮箱 + 手机均已验证'
-              : 'Email and phone must both be verified'}
+            {required === 'phone'
+              ? zh
+                ? '个人待办只需邮箱；创建公司、项目或接受协作邀请需要手机号验证。'
+                : 'Personal tasks only need email. Company, project, and invite actions also need a verified phone.'
+              : zh
+                ? '个人待办只需验证邮箱。手机号可稍后在协作时再补。'
+                : 'Personal tasks only need a verified email. Phone can wait until you collaborate.'}
           </p>
         </div>
 
@@ -197,13 +215,15 @@ export function VerifyGate({ lang = 'zh', onVerified, onLogout }: Props) {
               lang={lang}
               onDone={handleDone}
             />
-            <ChannelBind
-              channel="sms"
-              initialTarget={status.phone}
-              verified={status.phone_verified}
-              lang={lang}
-              onDone={handleDone}
-            />
+            {(required === 'phone' || status.phone_verified) && (
+              <ChannelBind
+                channel="sms"
+                initialTarget={status.phone}
+                verified={status.phone_verified}
+                lang={lang}
+                onDone={handleDone}
+              />
+            )}
           </div>
         )}
 

@@ -28,7 +28,8 @@ class Tag(Base):
 
     # 关系
     user = relationship("User", back_populates="tags")
-    tasks = relationship("Task", secondary=task_tags, back_populates="tags", lazy="selectin")
+    # 反向的 tag.tasks 没人读；开 selectin 会让「取任务的标签」再回头拉一遍任务
+    tasks = relationship("Task", secondary=task_tags, back_populates="tags")
 
     def __repr__(self):
         return f"<Tag(id={self.id}, name='{self.name}')>"

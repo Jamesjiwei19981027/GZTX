@@ -6,6 +6,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.common import UTCDateTime
+
 
 # ===== 分类模型 =====
 
@@ -65,7 +67,7 @@ class TagResponse(BaseModel):
 class ReminderCreate(BaseModel):
     """创建提醒"""
     task_id: int  # 提醒必须挂在具体任务上，否则发送时取不到任务内容
-    remind_at: datetime
+    remind_at: UTCDateTime
     remind_type: int = 0
     notify_channels: Optional[str] = None  # 通知方式，逗号分隔: web_popup,email,sms,wechat,alarm
 
@@ -73,7 +75,7 @@ class ReminderCreate(BaseModel):
 class ReminderResponse(BaseModel):
     """提醒响应"""
     id: int
-    remind_at: datetime
+    remind_at: UTCDateTime
     remind_type: int
     notify_channels: Optional[str] = None
     is_sent: bool
@@ -82,6 +84,24 @@ class ReminderResponse(BaseModel):
 
 
 # ===== 任务模型 =====
+
+class ChecklistItem(BaseModel):
+    """任务内的轻量子任务（checklist 项，整体存 tasks.checklist JSON）"""
+    id: str = Field(..., max_length=64)
+    title: str = Field(..., max_length=200)
+    completed: bool = False
+
+
+def _validate_checklist(v):
+    if v is None:
+        return v
+    if len(v) > 100:
+        raise ValueError("子任务最多 100 项")
+    for item in v:
+        if not item.title.strip():
+            raise ValueError("子任务标题不能为空")
+    return v
+
 
 class TaskAssigneeResponse(BaseModel):
     """A task assignee with stable display metadata for clients."""
@@ -102,7 +122,7 @@ class TaskCreate(BaseModel):
     status: int = 0
     category_id: Optional[int] = None
     tag_ids: List[int] = Field(default_factory=list)
-    due_date: Optional[datetime] = None
+    due_date: Optional[UTCDateTime] = None
     reminders: List[ReminderCreate] = Field(default_factory=list)
     is_recurring: bool = False
     # Web 端发字符串（"daily"|"weekdays"|"weekly"|"monthly"），
@@ -120,6 +140,12 @@ class TaskCreate(BaseModel):
     source_message_id: Optional[str] = None
     source_meta: Optional[dict] = None
     assignee_user_ids: List[int] = Field(default_factory=list)
+    checklist: Optional[List[ChecklistItem]] = None
+
+    @field_validator("checklist")
+    @classmethod
+    def checklist_valid(cls, v):
+        return _validate_checklist(v)
 
     @field_validator("origin")
     @classmethod
@@ -160,7 +186,7 @@ class TaskUpdate(BaseModel):
     status: Optional[int] = None
     category_id: Optional[int] = None
     tag_ids: Optional[List[int]] = None
-    due_date: Optional[datetime] = None
+    due_date: Optional[UTCDateTime] = None
     reminders: Optional[List[ReminderCreate]] = None
     is_recurring: Optional[bool] = None
     recurrence_rule: Optional[Union[str, dict]] = None
@@ -177,6 +203,12 @@ class TaskUpdate(BaseModel):
     source_message_id: Optional[str] = None
     source_meta: Optional[dict] = None
     assignee_user_ids: Optional[List[int]] = None
+    checklist: Optional[List[ChecklistItem]] = None
+
+    @field_validator("checklist")
+    @classmethod
+    def checklist_valid(cls, v):
+        return _validate_checklist(v)
 
     @field_validator("origin")
     @classmethod
@@ -209,22 +241,23 @@ class TaskResponse(BaseModel):
     priority_label: str = "中"
     status: int
     status_label: str = "待办"
-    due_date: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    due_date: Optional[UTCDateTime] = None
+    completed_at: Optional[UTCDateTime] = None
     is_recurring: bool = False
     recurrence_rule: Optional[Union[str, dict]] = None
     parent_task_id: Optional[int] = None
+    checklist: Optional[List[ChecklistItem]] = None
     category: Optional[CategoryResponse] = None
     tags: List[TagResponse] = []
     reminders: List[ReminderResponse] = []
     is_deleted: bool = False
-    deleted_at: Optional[datetime] = None
+    deleted_at: Optional[UTCDateTime] = None
     # 完成评价相关字段
     completion_rate: int = 100
     completion_comment: Optional[str] = None
     needs_follow_up: bool = False
     follow_up_reason: Optional[str] = None
-    follow_up_remind_at: Optional[datetime] = None
+    follow_up_remind_at: Optional[UTCDateTime] = None
     follow_up_notify_channels: Optional[str] = None
     # 协作兼容
     origin: str = "personal"
@@ -239,8 +272,8 @@ class TaskResponse(BaseModel):
     source_meta: Optional[dict] = None
     assignees: List[TaskAssigneeResponse] = Field(default_factory=list)
     assignee: Optional[TaskAssigneeResponse] = None
-    created_at: Optional[datetime] = None
-    updated_at: Optional[datetime] = None
+    created_at: Optional[UTCDateTime] = None
+    updated_at: Optional[UTCDateTime] = None
 
     model_config = {"from_attributes": True}
 
@@ -272,7 +305,7 @@ class TaskComplete(BaseModel):
     completion_comment: Optional[str] = None
     needs_follow_up: bool = False
     follow_up_reason: Optional[str] = None
-    follow_up_remind_at: Optional[datetime] = None
+    follow_up_remind_at: Optional[UTCDateTime] = None
     follow_up_notify_channels: Optional[str] = None
 
 

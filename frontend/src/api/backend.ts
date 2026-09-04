@@ -6,6 +6,14 @@ export async function getCalendarFeedUrl(): Promise<string> {
   return `${window.location.origin}${data.url}`
 }
 
+/** 重置 ICS 订阅令牌：旧地址立即失效，已添加的日历需要重新订阅 */
+export async function resetCalendarFeedUrl(): Promise<string> {
+  const data = await apiRequest<{ url: string }>('/tasks/calendar-feed-url/reset', {
+    method: 'POST',
+  })
+  return `${window.location.origin}${data.url}`
+}
+
 /** 下载当前用户任务的 iCalendar 文件（.ics，可导入系统日历） */
 export async function downloadTasksIcs(): Promise<void> {
   const res = await fetch(`${getApiBase()}/tasks/export.ics`, {
@@ -49,8 +57,15 @@ export type BackendTask = {
   is_recurring?: boolean
   recurrence_rule?: string | null
   parent_task_id?: number | null
+  checklist?: BackendChecklistItem[] | null
   is_deleted?: boolean
   deleted_at?: string | null
+}
+
+export type BackendChecklistItem = {
+  id: string
+  title: string
+  completed: boolean
 }
 
 export type BackendAssignee = {
@@ -164,6 +179,7 @@ export async function createTask(body: {
   assignee_user_ids?: number[]
   is_recurring?: boolean
   recurrence_rule?: string | null
+  checklist?: BackendChecklistItem[]
 }) {
   return apiRequest<BackendTask>('/tasks', {
     method: 'POST',
@@ -248,6 +264,7 @@ export async function updateTask(
     origin: string
     linked_readonly: boolean
     assignee_user_ids: number[]
+    checklist: BackendChecklistItem[]
   }>,
 ) {
   return apiRequest<BackendTask>(`/tasks/${id}`, {
@@ -327,15 +344,45 @@ export async function getHealth() {
   }>('/health')
 }
 
+export type BackendCompany = {
+  id: number
+  name: string
+  slug?: string
+  status?: string
+}
+
 export async function listMyCompanies() {
-  return apiRequest<{ items: { id: number; name: string; slug?: string }[] }>(
-    '/companies/mine',
-  )
+  return apiRequest<{ items: BackendCompany[] }>('/companies/mine')
+}
+
+export async function createCompany(body: {
+  name: string
+  slug: string
+  policy_preset?: string
+}) {
+  return apiRequest<BackendCompany>('/companies', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
 }
 
 export async function listProjects(companyId: number) {
   return apiRequest<{ items: BackendProject[]; total: number }>(
     `/projects?company_id=${companyId}&as_admin=true`,
+  )
+}
+
+export async function createProject(body: { name: string; company_id: number }) {
+  return apiRequest<BackendProject>('/projects', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
+export async function acceptProjectInvitation(token: string) {
+  return apiRequest<{ project_id: number; role: string }>(
+    `/projects/invitations/${encodeURIComponent(token)}/accept`,
+    { method: 'POST', body: '{}' },
   )
 }
 

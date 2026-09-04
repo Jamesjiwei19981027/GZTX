@@ -1,8 +1,6 @@
 {
-  "name": "Remix Flow - Productivity \u0026 Task Management",
-  "description": "A bilingual (English/Chinese) task management and workspace productivity application featuring Kanban boards, Calendar schedules, and interactive activity tracking.",
+  "name": "WorkTodo / 烂笔头PM",
+  "description": "Self-hosted bilingual (zh/en) task and people-axis accountability app: Kanban, calendar, reminders, and collaboration.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": []
 }

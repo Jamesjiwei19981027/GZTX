@@ -26,6 +26,23 @@ class TreeShapeError(ValueError):
     """违反人轴形态规则。message 可直接展示给用户。"""
 
 
+def dedupe_assignees(assignees: list[dict]) -> list[tuple[int, str]]:
+    """把入参归一成 (user_id, role_key) 并按首次出现顺序去重。
+
+    node_assignments 上有 (node_id, user_id, role_key) 唯一约束，重复入参会直接
+    抛 IntegrityError；同一个人重复指派本身就没有语义，这里静默折叠。
+    """
+    seen: set[tuple[int, str]] = set()
+    result: list[tuple[int, str]] = []
+    for a in assignees or []:
+        pair = (int(a["user_id"]), a.get("role_key") or "primary")
+        if pair in seen:
+            continue
+        seen.add(pair)
+        result.append(pair)
+    return result
+
+
 class TreeService:
     async def ensure_builtin_types(self, db: AsyncSession, company_id: int | None = None) -> None:
         for key, (name, tmpl) in BUILTIN_TYPES.items():
@@ -182,16 +199,11 @@ class TreeService:
         await db.flush()
 
         if assignees:
-            await self.assert_assignable(
-                db, project.company_id, [int(a["user_id"]) for a in assignees]
-            )
-            for a in assignees:
+            pairs = dedupe_assignees(assignees)
+            await self.assert_assignable(db, project.company_id, [uid for uid, _ in pairs])
+            for user_id, role_key in pairs:
                 db.add(
-                    NodeAssignment(
-                        node_id=node.id,
-                        user_id=int(a["user_id"]),
-                        role_key=a.get("role_key") or "primary",
-                    )
+                    NodeAssignment(node_id=node.id, user_id=user_id, role_key=role_key)
                 )
             await db.flush()
         return node
@@ -299,20 +311,16 @@ class TreeService:
         node = await db.get(TreeNode, node_id)
         if node is None:
             raise ValueError("节点不存在")
-        await self.assert_assignable(
-            db, node.company_id, [int(a["user_id"]) for a in assignees]
-        )
+        pairs = dedupe_assignees(assignees)
+        await self.assert_assignable(db, node.company_id, [uid for uid, _ in pairs])
 
         q = await db.execute(select(NodeAssignment).where(NodeAssignment.node_id == node_id))
         for row in q.scalars().all():
             await db.delete(row)
-        for a in assignees:
-            asg = NodeAssignment(
-                node_id=node_id,
-                user_id=int(a["user_id"]),
-                role_key=a.get("role_key") or "primary",
-            )
-            db.add(asg)
+        # 先把删除落库，避免与下面的重新插入在同一 flush 里撞唯一约束
+        await db.flush()
+        for user_id, role_key in pairs:
+            db.add(NodeAssignment(node_id=node_id, user_id=user_id, role_key=role_key))
         await db.flush()
         return await self.list_assignees(db, node_id)
 

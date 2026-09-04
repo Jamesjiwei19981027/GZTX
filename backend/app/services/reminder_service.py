@@ -15,6 +15,9 @@ from app.models.user import User
 class ReminderService:
     """Service for reminder-related business logic."""
 
+    # 全渠道失败时的重试上限；超过则标记结束，不再无限重扫
+    MAX_SEND_ATTEMPTS = 5
+
     # 提醒方式配置
     CHANNEL_CONFIG = {
         "web_push": {"name": "浏览器推送", "icon": "🌐"},
@@ -47,6 +50,7 @@ class ReminderService:
             logger.info("[ReminderCheck] Found %s pending reminders (UTC now: %s)", len(pending_reminders), now)
 
         sent_results = []
+        failed_results: List[int] = []
 
         for reminder in pending_reminders:
             # Get user and task info
@@ -122,9 +126,30 @@ class ReminderService:
                 else:
                     logger.error("[ReminderCheck] All channels failed for reminder %s, email fallback also failed", reminder.id)
 
-            # Mark reminder as sent regardless of channel success
+            if not sent_channels:
+                # 全渠道（含兜底邮件）都失败：不能标 is_sent，否则这条提醒永久丢失。
+                # 计入 attempts，超过上限才放弃，避免坏数据把队列钉死。
+                attempts = (reminder.attempts or 0) + 1
+                reminder.attempts = attempts
+                reminder.last_error = "全部通知渠道发送失败"
+                if attempts >= ReminderService.MAX_SEND_ATTEMPTS:
+                    reminder.is_sent = True
+                    reminder.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                    logger.error(
+                        "[ReminderCheck] Reminder %s gave up after %s attempts",
+                        reminder.id, attempts,
+                    )
+                else:
+                    logger.warning(
+                        "[ReminderCheck] Reminder %s will retry (attempt %s/%s)",
+                        reminder.id, attempts, ReminderService.MAX_SEND_ATTEMPTS,
+                    )
+                failed_results.append(reminder.id)
+                continue
+
             reminder.is_sent = True
             reminder.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
+            reminder.last_error = None
 
             sent_results.append({
                 "reminder_id": reminder.id,
@@ -135,9 +160,12 @@ class ReminderService:
                 "sent_at": reminder.sent_at.isoformat()
             })
 
-        if sent_results:
+        if sent_results or failed_results:
             db.commit()
-            logger.info("[ReminderCheck] Committed %s reminder results", len(sent_results))
+            logger.info(
+                "[ReminderCheck] Committed %s sent / %s retryable reminder results",
+                len(sent_results), len(failed_results),
+            )
 
         return sent_results
 

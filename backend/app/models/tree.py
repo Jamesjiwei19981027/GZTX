@@ -9,7 +9,9 @@ from sqlalchemy import (
     Boolean,
     DateTime,
     ForeignKey,
+    Index,
     JSON,
+    UniqueConstraint,
 )
 from sqlalchemy.sql import func
 
@@ -69,6 +71,10 @@ class NodeType(Base):
 
 class TreeNode(Base):
     __tablename__ = "tree_nodes"
+    __table_args__ = (
+        # 人轴整棵读：where project_id=? and is_deleted=false order by sort_order
+        Index("ix_tree_nodes_project_live", "project_id", "is_deleted", "sort_order"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
@@ -93,6 +99,9 @@ class TreeNode(Base):
 
 class NodeAssignment(Base):
     __tablename__ = "node_assignments"
+    __table_args__ = (
+        UniqueConstraint("node_id", "user_id", "role_key", name="uq_node_assignee_role"),
+    )
 
     id = Column(Integer, primary_key=True)
     node_id = Column(Integer, ForeignKey("tree_nodes.id"), nullable=False, index=True)

@@ -14,7 +14,7 @@ from app.api.deps_collab import (
 )
 from app.core.collab_errors import CollabError, fail
 from app.core.config import settings
-from app.core.dependencies import CurrentUser, DbSession
+from app.core.dependencies import CurrentUser, DbSession, CollaborationUser
 from app.models.company import Company, CompanyMembership
 from app.models.user import User
 from app.schemas.common import ResponseData
@@ -67,8 +67,8 @@ def _company_summary(company: Company, membership: CompanyMembership | None = No
 
 
 @router.post("")
-async def create_company(body: CompanyCreate, db: DbSession, user: CurrentUser):
-    """创建公司。single_company 下仅允许空库首次 bootstrap，禁止第二家公司。"""
+async def create_company(body: CompanyCreate, db: DbSession, user: CollaborationUser):
+    """创建公司需完成双验证（邮箱 + 手机）。single_company 下仅允许空库首次 bootstrap，禁止第二家公司。"""
     mode = (settings.DEPLOY_MODE or "single_company").lower()
     if mode == "single_company":
         existing_n = (

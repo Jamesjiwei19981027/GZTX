@@ -83,13 +83,19 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ tasks, lang }) => {
   const todoTasks = serverStats?.pending ?? tasks.filter((t) => t.status === 'To Do').length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Overdue count estimation (tasks not done with dueDate before today or short date)
-  const urgentTasks = serverStats ? tasks.filter((t) => t.priority === 'Urgent' && t.status !== 'Done').length : tasks.filter((t) => t.priority === 'Urgent' && t.status !== 'Done').length;
+  // 逾期任务：优先用服务端统计，回退本地按截止日期计算
+  const localToday = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
+  const overdueTasks =
+    serverStats?.overdue ??
+    tasks.filter((t) => t.status !== 'Done' && !!t.dueDate && t.dueDate < localToday).length;
 
   // Category distribution for PieChart
   const categories = ['Work', 'Health', 'Personal', 'Shopping', 'Documentation'] as const;
   const categoryColors: Record<string, string> = {
-    Work: '#4f378b',
+    Work: '#0058be',
     Health: '#006c49',
     Personal: '#b58300',
     Shopping: '#00639b',
@@ -173,8 +179,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ tasks, lang }) => {
                   ? '本月度'
                   : 'This Month'
                 : lang === 'zh'
-                ? 'Q3 季度'
-                : 'Q3 Quarter'}
+                ? '本季度'
+                : 'Quarter'}
             </button>
           ))}
         </div>
@@ -193,8 +199,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ tasks, lang }) => {
           </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-on-surface">{totalTasks}</span>
-            <span className="text-xs font-semibold text-tertiary flex items-center">
-              <span className="material-symbols-outlined text-sm">trending_up</span> +14%
+            <span className="text-xs text-on-surface-variant">
+              {lang === 'zh' ? '统计周期内' : 'in period'}
             </span>
           </div>
           <div className="mt-3 w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
@@ -251,22 +257,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ tasks, lang }) => {
         <div className="bg-surface-container-lowest p-6 rounded-3xl border border-outline-variant/30 shadow-xs relative overflow-hidden group hover:border-primary/50 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-              {lang === 'zh' ? '紧急阻碍任务' : 'Urgent Tasks'}
+              {lang === 'zh' ? '逾期任务' : 'Overdue Tasks'}
             </span>
             <div className="w-10 h-10 rounded-2xl bg-error/10 text-error flex items-center justify-center">
               <span className="material-symbols-outlined">warning</span>
             </div>
           </div>
           <div className="mt-4 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-error">{urgentTasks}</span>
+            <span className="text-3xl font-extrabold text-error">{overdueTasks}</span>
             <span className="text-xs font-semibold text-error/80">
-              {lang === 'zh' ? '需要优先攻坚' : 'Needs attention'}
+              {lang === 'zh' ? '需要优先处理' : 'Needs attention'}
             </span>
           </div>
           <div className="mt-3 w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
             <div
               className="bg-error h-full rounded-full transition-all duration-500"
-              style={{ width: `${(urgentTasks / (totalTasks || 1)) * 100}%` }}
+              style={{ width: `${(overdueTasks / (totalTasks || 1)) * 100}%` }}
             />
           </div>
         </div>
@@ -298,8 +304,8 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ tasks, lang }) => {
               <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
                   <linearGradient id="colorCreated" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#4f378b" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#4f378b" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#0058be" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#0058be" stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="colorCompleted" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#00639b" stopOpacity={0.4} />
@@ -322,7 +328,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ tasks, lang }) => {
                   type="monotone"
                   dataKey="created"
                   name={lang === 'zh' ? '新增创建需求' : 'Created Tasks'}
-                  stroke="#4f378b"
+                  stroke="#0058be"
                   strokeWidth={3}
                   fillOpacity={1}
                   fill="url(#colorCreated)"
@@ -427,7 +433,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ tasks, lang }) => {
                 }}
               />
               <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
-              <Bar dataKey="待办执行" name={lang === 'zh' ? '执行中待办' : 'Active Tasks'} stackId="a" fill="#4f378b" radius={[0, 0, 4, 4]} />
+              <Bar dataKey="待办执行" name={lang === 'zh' ? '执行中待办' : 'Active Tasks'} stackId="a" fill="#0058be" radius={[0, 0, 4, 4]} />
               <Bar dataKey="已完成" name={lang === 'zh' ? '已完成归档' : 'Completed'} stackId="a" fill="#00639b" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

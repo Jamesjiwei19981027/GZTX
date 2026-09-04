@@ -178,6 +178,55 @@ _notify_drain_lock = asyncio.Lock()
 NOTIFY_DRAIN_BATCH = 50
 # 失败重试上限；超过则置为 dead，不再无限重试堵住队列
 NOTIFY_MAX_ATTEMPTS = 5
+# 认领超时：processing 超过这个时长视为消费者已崩溃，可被重新认领
+NOTIFY_CLAIM_TIMEOUT_SECONDS = 300
+
+
+async def _claim_notify_job(db, job_id: int) -> bool:
+    """原子认领一条 job：pending → processing。
+
+    进程内锁只能防住同一个进程；web lifespan 与独立 scheduler 容器同时跑
+    drain 时，两边会取到同一批 id 并各发一次。这里用带条件的 UPDATE
+    （只有 status 仍是 pending 才更新）保证同一条 job 只被一个消费者取走，
+    以 rowcount 判断是否抢到。
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import update
+
+    from app.models.notify import NotifyJob
+
+    result = await db.execute(
+        update(NotifyJob)
+        .where(NotifyJob.id == job_id, NotifyJob.status == "pending")
+        .values(status="processing", claimed_at=datetime.now(timezone.utc))
+        # 认领必须落到 SQL 上判定，不能让 ORM 在会话内先按内存对象求值
+        .execution_options(synchronize_session=False)
+    )
+    await db.commit()
+    return (result.rowcount or 0) == 1
+
+
+async def _requeue_stale_notify_jobs(db) -> int:
+    """把认领后失联（processing 超时）的 job 放回 pending。"""
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import or_, update
+
+    from app.models.notify import NotifyJob
+
+    cutoff = datetime.now(timezone.utc) - timedelta(seconds=NOTIFY_CLAIM_TIMEOUT_SECONDS)
+    result = await db.execute(
+        update(NotifyJob)
+        .where(
+            NotifyJob.status == "processing",
+            or_(NotifyJob.claimed_at.is_(None), NotifyJob.claimed_at < cutoff),
+        )
+        .values(status="pending", claimed_at=None)
+        .execution_options(synchronize_session=False)
+    )
+    await db.commit()
+    return result.rowcount or 0
 
 
 async def drain_notify_jobs():
@@ -201,6 +250,10 @@ async def drain_notify_jobs():
         sent = failed = 0
         try:
             async with async_session_factory() as db:
+                requeued = await _requeue_stale_notify_jobs(db)
+                if requeued:
+                    print(f"[NotifyDrain] requeued {requeued} stale processing jobs")
+
                 rows = (
                     await db.execute(
                         select(NotifyJob.id)
@@ -212,6 +265,9 @@ async def drain_notify_jobs():
 
                 for job_id in rows:
                     try:
+                        # 多消费者下先原子认领，抢不到就跳过（别人在发）
+                        if not await _claim_notify_job(db, job_id):
+                            continue
                         job = await process_one_job(db, job_id)
                         if job is None:
                             continue
@@ -225,6 +281,7 @@ async def drain_notify_jobs():
                             job.status = (
                                 "dead" if attempts >= NOTIFY_MAX_ATTEMPTS else "pending"
                             )
+                            job.claimed_at = None
                         await db.commit()
                     except Exception as e:  # noqa: BLE001 — 单条失败不能中断整批
                         await db.rollback()

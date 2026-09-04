@@ -1,5 +1,5 @@
 /**
- * Remix UI 主壳：对接 GZTX 后端（任务/人轴/消息/通知/团队/收件箱/报表）。
+ * Web 主壳：对接后端（任务/人轴/消息/通知/团队/收件箱/报表）。
  */
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -15,34 +15,39 @@ import {
 import {
   loadSettings,
   saveSettings,
-} from './data/mockData';
+} from './storage/settings';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { DashboardView } from './components/views/DashboardView';
 import { MyTasksView } from './components/views/MyTasksView';
 import { NewTaskModal } from './components/modals/NewTaskModal';
 import { QuickAddModal } from './components/modals/QuickAddModal';
+import { WorkspaceSetupModal, WorkspaceSetupMode } from './components/modals/WorkspaceSetupModal';
 import { GlobalSearchModal } from './components/modals/GlobalSearchModal';
 import { TaskDetailDrawer } from './components/modals/TaskDetailDrawer';
 import { NotificationsModal } from './components/modals/NotificationsModal';
 import { LoginGate } from './components/LoginGate';
 import { VerifyGate } from './components/VerifyGate';
-import { getToken } from './api/client';
+import { ApiError, getToken, sendPresenceKeepalive } from './api/client';
 import { fetchMe, getVerificationStatus, logout, updateMe, uploadAvatar } from './api/auth';
 import {
   batchCompleteTasks,
   batchDeleteTasks,
   batchRescheduleTasks,
   completeTask,
+  createCompany,
+  createProject,
   createTask,
   createTag,
   deleteTask,
+  getProject,
   listCategories,
   listTags,
   listMyCompanies,
   listProjectMembers,
   listProjects,
   listTasks,
+  acceptProjectInvitation,
   restoreTask,
   uncompleteTask,
   updateTask,
@@ -68,6 +73,9 @@ import { enableWebPush } from './api/notifications';
 import { track } from './api/telemetry';
 import { useToast } from './components/toast/ToastProvider';
 import { ShortcutHelpModal } from './components/modals/ShortcutHelpModal';
+import { clearInviteToken, readInviteToken } from './utils/invite';
+import { toApiDueDate } from './utils/datetime';
+import { readDeepLink, writeDeepLink } from './utils/deepLink';
 
 // 重视图按需分包：人轴（@xyflow/react）、报表（recharts）等只在切到对应视图时才加载
 const KanbanView = React.lazy(() =>
@@ -118,21 +126,32 @@ const ALL_PROJECT_ITEM: Project = {
   active: true,
 };
 
-function toApiDueDate(date?: string, time?: string): string | undefined {
-  if (!date) return undefined;
-  const trimmedTime = (time || '').trim();
-  return trimmedTime ? `${date}T${trimmedTime}:00` : date;
-}
+/** boot 时最多拉多少页任务，避免异常大账号把首屏拖死；超出在 UI 明示截断 */
+const TASK_PAGE_SIZE = 200;
+const TASK_MAX_PAGES = 10;
 
 export default function App() {
   const toast = useToast();
   const [authed, setAuthed] = useState(() => !!getToken());
-  /** null=检查中；false=需补验邮箱/手机；true=双验证通过 */
+  /** null=检查中；false=需补验邮箱；true=邮箱已验证（个人待办可用） */
   const [verified, setVerified] = useState<boolean | null>(() =>
     getToken() ? null : true,
   );
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+  const [workspaceModal, setWorkspaceModal] = useState<WorkspaceSetupMode | null>(null);
+  const [workspaceBusy, setWorkspaceBusy] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [phoneGateOpen, setPhoneGateOpen] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
   const [loadingBoot, setLoadingBoot] = useState(false);
+  /**
+   * boot 把服务端偏好灌进 settings 之前，禁止回写 putUiPrefs / updateMe。
+   * 否则 settings 的初值（localStorage 或默认值）会先把服务端偏好覆盖掉。
+   */
+  const [prefsHydrated, setPrefsHydrated] = useState(false);
+  /** 任务超过 TASK_PAGE_SIZE * TASK_MAX_PAGES 时的截断提示 */
+  const [taskTruncated, setTaskTruncated] = useState<{ loaded: number; total: number } | null>(null);
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [categories, setCategories] = useState<import('./api/backend').BackendCategory[]>([]);
@@ -150,9 +169,16 @@ export default function App() {
   });
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
 
-  const [activeView, setActiveView] = useState<ViewMode>('dashboard');
+  // 深链：`?view=` 决定首屏视图，刷新/分享都保持
+  const [activeView, setActiveView] = useState<ViewMode>(
+    () => readDeepLink().view ?? 'dashboard',
+  );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  /** `?taskId=` 待打开的任务；tasks 载入后再解析成具体任务 */
+  const [pendingTaskId, setPendingTaskId] = useState<string | null>(
+    () => readDeepLink().taskId ?? null,
+  );
 
   const [isNewTaskModalOpen, setIsNewTaskModalOpen] = useState(false);
   const [newTaskDefaultStatus, setNewTaskDefaultStatus] = useState<Status | undefined>();
@@ -171,11 +197,49 @@ export default function App() {
     track(`view.${view}`);
   }, []);
 
+  // 视图 / 任务抽屉状态同步进地址栏（视图 replace、任务详情 push）
+  useEffect(() => {
+    writeDeepLink({ view: activeView, taskId: selectedTask?.id }, Boolean(selectedTask));
+  }, [activeView, selectedTask]);
+
+  // 浏览器前进/后退：从地址栏回读视图与任务
+  useEffect(() => {
+    const onPopState = () => {
+      const { view, taskId } = readDeepLink();
+      setActiveView(view ?? 'dashboard');
+      setPendingTaskId(taskId ?? null);
+      if (!taskId) setSelectedTask(null);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
+
+  // `?taskId=` 需要等任务列表载入后才能解析
+  useEffect(() => {
+    if (!pendingTaskId) return;
+    const target = tasks.find((item) => item.id === pendingTaskId);
+    if (target) {
+      setSelectedTask(target);
+      setPendingTaskId(null);
+    } else if (tasks.length > 0) {
+      // 任务已被删除或不在可见范围内：清掉参数，别让地址栏留死链
+      setPendingTaskId(null);
+    }
+  }, [pendingTaskId, tasks]);
+
   const refreshFromBackend = useCallback(async () => {
     setLoadingBoot(true);
     setBootError(null);
     try {
-      const me = await fetchMe();
+      // 首屏这几个请求互不依赖，串行 await 会把首屏拖成 5 个往返。
+      // 目录/偏好各自降级（失败不算 boot 失败），所以在这里就地 catch。
+      const [me, companies, firstTaskPage, catalog, prefs] = await Promise.all([
+        fetchMe(),
+        listMyCompanies(),
+        listTasks({ page: 1, page_size: TASK_PAGE_SIZE }),
+        Promise.all([listCategories(), listTags()]).catch(() => null),
+        getUiPrefs().catch(() => null),
+      ]);
       setUser(mapUser(me));
       const notifyPref = me.notify_pref || {};
       const channels = (notifyPref.channels || {}) as Record<string, Record<string, unknown>>;
@@ -193,7 +257,6 @@ export default function App() {
           weekendMute: typeof notifyPref.weekend_mute === 'boolean' ? Boolean(notifyPref.weekend_mute) : prev.notifications.weekendMute,
         },
       }));
-      const companies = await listMyCompanies();
       const cid = companies.items?.[0]?.id ?? null;
       setCompanyId(cid);
       let mappedProjects: Project[] = [];
@@ -202,10 +265,27 @@ export default function App() {
         mappedProjects = (projPage.items || []).map(mapProject);
       }
       setProjects(mappedProjects);
-      const taskPage = await listTasks({ page: 1, page_size: 200 });
-      setTasks((taskPage.items || []).map((t) => mapTask(t)));
-      try {
-        const [categoryItems, tagItems] = await Promise.all([listCategories(), listTags()]);
+      // 单页 200 会静默截断（老账号任务过千时看板/日历直接缺数据），
+      // 首页已随首屏并发取回，这里只续拉后续页
+      const collected: import('./api/backend').BackendTask[] = [
+        ...(firstTaskPage.items || []),
+      ];
+      let total = firstTaskPage.total ?? collected.length;
+      if (collected.length >= TASK_PAGE_SIZE && collected.length < total) {
+        for (let page = 2; page <= TASK_MAX_PAGES; page += 1) {
+          const taskPage = await listTasks({ page, page_size: TASK_PAGE_SIZE });
+          const items = taskPage.items || [];
+          total = taskPage.total ?? collected.length + items.length;
+          collected.push(...items);
+          if (items.length < TASK_PAGE_SIZE || collected.length >= total) break;
+        }
+      }
+      setTasks(collected.map((t) => mapTask(t)));
+      setTaskTruncated(
+        total > collected.length ? { loaded: collected.length, total } : null,
+      );
+      if (catalog) {
+        const [categoryItems, tagItems] = catalog;
         setCategories(categoryItems || []);
         setTags(tagItems || []);
         const defaultCategoryId = Number(((notifyPref.ui || {}) as Record<string, unknown>).task_default_category_id);
@@ -215,13 +295,12 @@ export default function App() {
             setSettings((prev) => ({ ...prev, taskDefaults: { ...prev.taskDefaults, category: defaultCategory.name as typeof prev.taskDefaults.category } }));
           }
         }
-      } catch {
+      } else {
         setCategories([]);
         setTags([]);
       }
       void putPresence('online').catch(() => undefined);
-      try {
-        const prefs = await getUiPrefs();
+      if (prefs) {
         const ui = prefs.ui || {};
         setSettings((prev) => ({
           ...prev,
@@ -240,9 +319,9 @@ export default function App() {
             category: typeof ui.task_default_category === 'string' ? ui.task_default_category as typeof prev.taskDefaults.category : prev.taskDefaults.category,
           },
         }));
-      } catch {
-        /* keep local */
       }
+      // 服务端偏好已灌完（成功或降级用本地值），此后才允许回写
+      setPrefsHydrated(true);
     } catch (e) {
       setBootError(e instanceof Error ? e.message : '加载失败');
       // A failed API request must remain visible as an error/empty state.
@@ -255,9 +334,40 @@ export default function App() {
     }
   }, []);
 
+  // 在线状态跟着标签页可见性走：只在 boot 时报一次 online 的话，关掉页面的人
+  // 在别人的成员列表里会永远显示在线。
+  useEffect(() => {
+    if (!authed) return;
+    const report = (status: 'online' | 'offline') => {
+      void putPresence(status).catch(() => undefined);
+    };
+    const onVisibility = () => {
+      report(document.visibilityState === 'visible' ? 'online' : 'offline');
+    };
+    // 关页面/切后台：keepalive fetch（sendBeacon 只能 POST，接口是 PUT）
+    const onLeave = () => {
+      if (sendPresenceKeepalive('offline')) return;
+      report('offline');
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', onLeave);
+    // 列表接口把 last_seen > 5 分钟的 online 当成离线；标签页开着时每 2 分钟续一次心跳
+    const heartbeat = window.setInterval(() => {
+      if (document.visibilityState === 'visible') report('online');
+    }, 120_000);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', onLeave);
+      window.clearInterval(heartbeat);
+    };
+  }, [authed]);
+
   useEffect(() => {
     if (!authed) {
       setVerified(true);
+      setPhoneVerified(false);
+      // 退出后重新登录要再等一次 boot 才允许回写偏好
+      setPrefsHydrated(false);
       return;
     }
     let cancelled = false;
@@ -265,10 +375,15 @@ export default function App() {
     void (async () => {
       try {
         const st = await getVerificationStatus();
-        if (!cancelled) setVerified(Boolean(st.is_verified));
+        if (!cancelled) {
+          setVerified(Boolean(st.email_verified));
+          setPhoneVerified(Boolean(st.phone_verified));
+        }
       } catch {
-        // 旧账号或接口异常时不挡门，避免误锁死
-        if (!cancelled) setVerified(true);
+        if (!cancelled) {
+          setVerified(true);
+          setPhoneVerified(false);
+        }
       }
     })();
     return () => {
@@ -279,6 +394,125 @@ export default function App() {
   useEffect(() => {
     if (authed && verified) void refreshFromBackend();
   }, [authed, verified, refreshFromBackend]);
+
+  useEffect(() => {
+    if (!(authed && verified)) return;
+    const token = readInviteToken();
+    if (!token) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const accepted = await acceptProjectInvitation(token);
+        if (cancelled) return;
+        clearInviteToken();
+        await refreshFromBackend();
+        if (accepted.project_id) {
+          // 取真实项目名：以前直接钉「受邀项目」占位，顶栏会一直显示这个假名字
+          let joined: Project = {
+            id: String(accepted.project_id),
+            name: settings.language === 'zh' ? '受邀项目' : 'Invited project',
+            description: '',
+            color: '#0058be',
+            active: true,
+          };
+          try {
+            joined = mapProject(await getProject(accepted.project_id));
+          } catch {
+            /* 拿不到详情就先用占位名，不挡住加入流程 */
+          }
+          if (cancelled) return;
+          setCurrentProject(joined);
+          switchView('team');
+        }
+        setInviteNotice(settings.language === 'zh' ? '已加入受邀项目' : 'Joined invited project');
+      } catch (e) {
+        if (cancelled) return;
+        const message = e instanceof Error ? e.message : '';
+        const code = e instanceof ApiError ? e.code : 0;
+        if (code === 40320 || /手机/.test(message)) {
+          setPhoneGateOpen(true);
+          setInviteNotice(
+            settings.language === 'zh'
+              ? '接受邀请需要先完成手机验证'
+              : 'Accepting an invite requires phone verification',
+          );
+          return;
+        }
+        clearInviteToken();
+        setInviteNotice(message || (settings.language === 'zh' ? '邀请无效或已过期' : 'Invitation is invalid or expired'));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authed, verified, phoneVerified, refreshFromBackend, settings.language, switchView]);
+
+  const requirePhoneForCollab = useCallback(() => {
+    if (phoneVerified) return true;
+    setPhoneGateOpen(true);
+    toast.info(
+      settings.language === 'zh'
+        ? '协作功能需要先完成手机验证'
+        : 'Collaboration requires phone verification',
+    );
+    return false;
+  }, [phoneVerified, settings.language, toast]);
+
+  const handleCreateCompany = useCallback(
+    async (payload: { name: string; slug?: string }) => {
+      if (!requirePhoneForCollab()) return;
+      setWorkspaceBusy(true);
+      setWorkspaceError(null);
+      try {
+        const created = await createCompany({
+          name: payload.name,
+          slug: payload.slug || payload.name,
+        });
+        setCompanyId(created.id);
+        setWorkspaceModal(null);
+        await refreshFromBackend();
+        toast.success(
+          created.status === 'pending_license'
+            ? settings.language === 'zh'
+              ? '公司已创建。创建项目前需要有效 License。'
+              : 'Company created. A valid license is required before creating projects.'
+            : settings.language === 'zh'
+              ? '公司已创建'
+              : 'Company created',
+        );
+      } catch (e) {
+        setWorkspaceError(e instanceof Error ? e.message : settings.language === 'zh' ? '创建失败' : 'Create failed');
+      } finally {
+        setWorkspaceBusy(false);
+      }
+    },
+    [refreshFromBackend, requirePhoneForCollab, settings.language, toast],
+  );
+
+  const handleCreateProject = useCallback(
+    async (payload: { name: string }) => {
+      if (!requirePhoneForCollab()) return;
+      if (!companyId) {
+        setWorkspaceModal('company');
+        return;
+      }
+      setWorkspaceBusy(true);
+      setWorkspaceError(null);
+      try {
+        const created = await createProject({ name: payload.name, company_id: companyId });
+        const mapped = mapProject(created);
+        setProjects((prev) => [mapped, ...prev.filter((p) => p.id !== mapped.id)]);
+        setCurrentProject(mapped);
+        setWorkspaceModal(null);
+        toast.success(settings.language === 'zh' ? '项目已创建' : 'Project created');
+      } catch (e) {
+        setWorkspaceError(e instanceof Error ? e.message : settings.language === 'zh' ? '创建失败' : 'Create failed');
+      } finally {
+        setWorkspaceBusy(false);
+      }
+    },
+    [companyId, requirePhoneForCollab, settings.language, toast],
+  );
 
   useEffect(() => {
     const pid =
@@ -381,7 +615,9 @@ export default function App() {
     const root = document.documentElement;
     if (settings.themeMode === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
-    if (authed) {
+    // 主题色通过 data-accent 接通 index.css 的调色板变量
+    root.dataset.accent = settings.accentColor;
+    if (authed && prefsHydrated) {
       void putUiPrefs({
         language: settings.language,
         accent: settings.accentColor,
@@ -390,10 +626,10 @@ export default function App() {
         task_default_category_id: categories.find((item) => item.name === settings.taskDefaults.category)?.id,
       }).catch(() => undefined);
     }
-  }, [settings, authed]);
+  }, [settings, authed, prefsHydrated, categories]);
 
   useEffect(() => {
-    if (!authed) return;
+    if (!(authed && prefsHydrated)) return;
     const n = settings.notifications;
     void updateMe({
       notify_pref: {
@@ -407,7 +643,7 @@ export default function App() {
         weekend_mute: n.weekendMute,
       },
     }).catch(() => undefined);
-  }, [authed, settings.notifications]);
+  }, [authed, prefsHydrated, settings.notifications]);
 
   const displayProjects = useMemo(
     () => [ALL_PROJECT_ITEM, ...projects],
@@ -494,6 +730,9 @@ export default function App() {
         assignee_user_ids: (taskData.assigneeUserIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id)),
         is_recurring: taskData.isRecurring || undefined,
         recurrence_rule: taskData.isRecurring ? taskData.recurrenceRule : undefined,
+        checklist: taskData.subtasks?.length
+          ? taskData.subtasks.map((st) => ({ id: st.id, title: st.title, completed: st.completed }))
+          : undefined,
       });
       const mapped = mapTask(created);
       const attachmentFailures: string[] = [];
@@ -543,6 +782,11 @@ export default function App() {
         assignee_user_ids: (updatedTask.assigneeUserIds || updatedTask.assignees?.map((member) => member.id) || [])
           .map((id) => Number(id))
           .filter((id) => Number.isFinite(id)),
+        checklist: (updatedTask.subtasks || []).map((st) => ({
+          id: st.id,
+          title: st.title,
+          completed: st.completed,
+        })),
       });
       setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
       addActivity('updated', '任务已更新:', updatedTask.title);
@@ -698,14 +942,33 @@ export default function App() {
     }
   };
 
-  const handleOpenNewTask = () => {
+  // 下面这几个回调的引用都要稳定：Navbar / Sidebar 走了 React.memo，
+  // 每次渲染新建箭头函数会让浅比较必然失败，memo 等于白加。
+  const handleToggleLang = useCallback(() => {
+    setSettings((prev) => ({
+      ...prev,
+      language: prev.language === 'zh' ? 'en' : 'zh',
+    }));
+  }, []);
+  const handleOpenSettings = useCallback(() => switchView('settings'), [switchView]);
+  const handleReload = useCallback(() => {
+    void refreshFromBackend();
+  }, [refreshFromBackend]);
+  const handleOpenQuickAdd = useCallback(() => setIsQuickAddOpen(true), []);
+  const handleOpenNotifications = useCallback(() => setIsNotificationsModalOpen(true), []);
+  const handleLogout = useCallback(async () => {
+    await logout();
+    setAuthed(false);
+  }, []);
+
+  const handleOpenNewTask = useCallback(() => {
     setNewTaskDefaultTitle('');
     setNewTaskDefaultDesc('');
     setNewTaskDefaultSource(undefined);
     setNewTaskDefaultStatus('To Do');
     setNewTaskDefaultDate(undefined);
     setIsNewTaskModalOpen(true);
-  };
+  }, []);
 
   if (!authed) {
     return (
@@ -731,6 +994,7 @@ export default function App() {
     return (
       <VerifyGate
         lang={settings.language}
+        required="email"
         onVerified={() => setVerified(true)}
         onLogout={() => {
           setAuthed(false);
@@ -742,37 +1006,35 @@ export default function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-surface dark:bg-[#111314] text-on-surface dark:text-[#e2e2e5] font-sans transition-colors duration-200">
-      {(bootError || loadingBoot) && (
+      {(bootError || loadingBoot || inviteNotice || taskTruncated) && (
         <div className="fixed top-16 left-0 right-0 z-[60] px-4 py-2 text-sm text-center bg-amber-50 text-amber-900 border-b border-amber-200 md:pl-[280px]">
           {loadingBoot
             ? '正在从后端同步…'
-            : `后端同步提示：${bootError}（请检查后端服务后重试）`}
+            : inviteNotice
+              ? inviteNotice
+              : bootError
+                ? `后端同步提示：${bootError}（请检查后端服务后重试）`
+                : settings.language === 'zh'
+                  ? `任务过多，仅载入最近 ${taskTruncated?.loaded} / ${taskTruncated?.total} 条，请用搜索或筛选定位更早的任务`
+                  : `Too many tasks: showing the latest ${taskTruncated?.loaded} of ${taskTruncated?.total}. Use search or filters for older tasks.`}
         </div>
       )}
 
       <Navbar
         currentProject={currentProject}
         projects={displayProjects}
-        onSelectProject={(proj) => setCurrentProject(proj)}
+        onSelectProject={setCurrentProject}
         user={user}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         lang={settings.language}
-        onToggleLang={() =>
-          setSettings((prev) => ({
-            ...prev,
-            language: prev.language === 'zh' ? 'en' : 'zh',
-          }))
-        }
-        onOpenSettings={() => switchView('settings')}
-        onResetDemo={() => void refreshFromBackend()}
+        onToggleLang={handleToggleLang}
+        onOpenSettings={handleOpenSettings}
+        onResetDemo={handleReload}
         onOpenNewTask={handleOpenNewTask}
-        onOpenQuickAdd={() => setIsQuickAddOpen(true)}
-        onOpenNotifications={() => setIsNotificationsModalOpen(true)}
-        onLogout={async () => {
-          await logout();
-          setAuthed(false);
-        }}
+        onOpenQuickAdd={handleOpenQuickAdd}
+        onOpenNotifications={handleOpenNotifications}
+        onLogout={handleLogout}
       />
 
       <div className="flex flex-1 pt-16">
@@ -868,6 +1130,14 @@ export default function App() {
               <TeamView
                 companyId={companyId}
                 projectId={currentProject.id}
+                onCreateCompany={() => {
+                  setWorkspaceError(null);
+                  setWorkspaceModal('company');
+                }}
+                onCreateProject={() => {
+                  setWorkspaceError(null);
+                  setWorkspaceModal(companyId ? 'project' : 'company');
+                }}
                 onSelectMember={(m) =>
                   toast.info(
                     settings.language === 'zh'
@@ -902,6 +1172,10 @@ export default function App() {
                 members={projectMembers}
                 tasks={filteredTasks}
                 onSelectTask={setSelectedTask}
+                onCreateCompany={() => {
+                  setWorkspaceError(null);
+                  setWorkspaceModal('company');
+                }}
               />
             )}
 
@@ -1024,6 +1298,43 @@ export default function App() {
         onClose={() => setIsShortcutHelpOpen(false)}
         lang={settings.language}
       />
+
+      <WorkspaceSetupModal
+        isOpen={workspaceModal !== null}
+        mode={workspaceModal || 'company'}
+        lang={settings.language}
+        submitting={workspaceBusy}
+        error={workspaceError}
+        onClose={() => {
+          if (workspaceBusy) return;
+          setWorkspaceModal(null);
+          setWorkspaceError(null);
+        }}
+        onSubmit={(payload) =>
+          workspaceModal === 'project' ? handleCreateProject(payload) : handleCreateCompany(payload)
+        }
+      />
+
+      {phoneGateOpen && (
+        <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4">
+          <div className="w-full max-w-lg">
+            <VerifyGate
+              lang={settings.language}
+              required="phone"
+              onVerified={() => {
+                setPhoneVerified(true);
+                setVerified(true);
+                setPhoneGateOpen(false);
+              }}
+              onLogout={() => {
+                setAuthed(false);
+                setVerified(true);
+                setPhoneGateOpen(false);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

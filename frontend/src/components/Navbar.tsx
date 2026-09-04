@@ -21,7 +21,7 @@ interface NavbarProps {
   onLogout?: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
+const NavbarImpl: React.FC<NavbarProps> = ({
   currentProject,
   projects,
   onSelectProject,
@@ -310,3 +310,6 @@ export const Navbar: React.FC<NavbarProps> = ({
     </>
   );
 };
+
+// memo：顶栏与任务数据无关，靠 props 浅比较挡掉任务列表引起的重渲染
+export const Navbar = React.memo(NavbarImpl);

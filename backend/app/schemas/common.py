@@ -1,10 +1,23 @@
 """
 通用响应模型
 """
-from typing import Any, Optional, Generic, TypeVar
-from pydantic import BaseModel
+from datetime import datetime
+from typing import Annotated, Any, Optional, Generic, TypeVar
+from pydantic import AfterValidator, BaseModel, PlainSerializer
+
+from app.utils.datetime import to_naive_utc, to_utc_iso
 
 T = TypeVar("T")
+
+# 三端 datetime 契约：入参任意时区归一 UTC 落库（naive UTC），
+# 出参一律带 `Z`，客户端负责本地渲染。
+# AfterValidator 跑在 datetime 解析之后，字符串 `...+08:00` 与 aware datetime
+# 都能拿到已解析的 aware 值再换算。
+UTCDateTime = Annotated[
+    datetime,
+    AfterValidator(to_naive_utc),
+    PlainSerializer(to_utc_iso, return_type=str, when_used="always"),
+]
 
 
 class ResponseBase(BaseModel):

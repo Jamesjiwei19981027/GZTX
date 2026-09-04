@@ -15,6 +15,26 @@ export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY)
 }
 
+/** 关页/切后台时上报在线状态。sendBeacon 只能 POST，接口是 PUT，所以用 keepalive fetch。 */
+export function sendPresenceKeepalive(status: 'online' | 'offline'): boolean {
+  const token = getToken()
+  if (!token) return false
+  try {
+    void fetch(`${getApiBase()}/users/me/presence`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status }),
+      keepalive: true,
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function setToken(token: string | null) {
   if (token) localStorage.setItem(TOKEN_KEY, token)
   else localStorage.removeItem(TOKEN_KEY)
@@ -42,7 +62,7 @@ type ApiBody<T> = {
   code?: number
   message?: string
   data?: T
-  detail?: string | { msg?: string; message?: string }[]
+  detail?: string | { code?: number; msg?: string; message?: string } | { msg?: string; message?: string }[]
 }
 
 function extractErrorMessage(body: ApiBody<unknown> | null, status: number): string {
@@ -55,7 +75,17 @@ function extractErrorMessage(body: ApiBody<unknown> | null, status: number): str
       .filter(Boolean)
       .join('; ') || `HTTP ${status}`
   }
+  if (body.detail && typeof body.detail === 'object') {
+    return body.detail.message || body.detail.msg || `HTTP ${status}`
+  }
   return `HTTP ${status}`
+}
+
+function extractErrorCode(body: ApiBody<unknown> | null, status: number): number {
+  if (body?.detail && typeof body.detail === 'object' && !Array.isArray(body.detail) && typeof body.detail.code === 'number') {
+    return body.detail.code
+  }
+  return body?.code ?? status
 }
 
 // 单飞刷新：并发多个 401 只发一次 /auth/refresh，其余请求等同一个 Promise
@@ -135,7 +165,7 @@ export async function apiRequest<T>(
   // ResponseData 成功：HTTP 2xx 且 code===200（注册可能是 201）
   const businessOk = body?.code === undefined || body.code === 200
   if (!res.ok || !businessOk) {
-    throw new ApiError(body?.code ?? res.status, extractErrorMessage(body, res.status))
+    throw new ApiError(extractErrorCode(body, res.status), extractErrorMessage(body, res.status))
   }
   return body.data as T
 }
