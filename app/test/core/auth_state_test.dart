@@ -220,6 +220,55 @@ void main() {
       expect(authState.status, AuthStatus.authenticated);
     });
 
+    test('连续切换公司且最后一次失败：回滚到最后成功加载的公司，公司与项目保持成对', () async {
+      final helper = MockApiClientHelper();
+      helper.whenGet('/users/me', {'id': 101, 'username': 'e2e_user'});
+      helper.whenGet('/companies/mine', {
+        'items': [
+          {'id': 1, 'name': '公司一'},
+          {'id': 2, 'name': '公司二'},
+          {'id': 3, 'name': '公司三'},
+        ],
+      });
+      helper.whenGet(
+        '/projects',
+        {
+          'items': [
+            {'id': 11, 'name': '项目A', 'company_id': 1},
+          ],
+        },
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+      helper.whenGet(
+        '/projects',
+        {
+          'items': [
+            {'id': 22, 'name': '项目B', 'company_id': 2},
+          ],
+        },
+        query: {'company_id': '2', 'as_admin': 'true'},
+      );
+      helper.whenGet(
+        '/projects',
+        {'code': 50000, 'message': '项目服务不可用', 'data': null},
+        statusCode: 500,
+        query: {'company_id': '3', 'as_admin': 'true'},
+      );
+
+      final authState = AuthState(apiClient: helper.buildClient());
+      await authState.bootstrap();
+
+      // C1 → C2（被后一次覆盖）→ C3（失败）
+      final toC2 = authState.selectCompany(const Company(id: 2, name: '公司二'));
+      final toC3 = authState.selectCompany(const Company(id: 3, name: '公司三'));
+      final results = await Future.wait([toC2, toC3]);
+
+      expect(results, [isFalse, isFalse]);
+      expect(authState.currentCompany?.id, 1);
+      expect(authState.currentProject?.id, 11);
+      expect(authState.projects.map((p) => p.id), [11]);
+    });
+
     test('刷新项目列表遇到最终 401：清空会话转为未登录，不会被覆盖回已登录', () async {
       final helper = MockApiClientHelper();
       helper.whenGet('/users/me', {'id': 101, 'username': 'e2e_user'});

@@ -126,6 +126,7 @@ class AuthState extends ChangeNotifier {
       // 3. 获取项目列表
       _projectLoadSeq++;
       _applyProjects(await _fetchProjects(_currentCompany?.id));
+      _projectsCompany = _currentCompany;
 
       _status = AuthStatus.authenticated;
       notifyListeners();
@@ -207,22 +208,20 @@ class AuthState extends ChangeNotifier {
   /// 并发时只采用最后一次发起的项目加载结果（成功或回滚），较早的请求结果直接丢弃。
   Future<bool> selectCompany(Company company) async {
     if (_currentCompany?.id == company.id) return true;
-    final prevCompany = _currentCompany;
-    final prevProjects = _projects;
-    final prevProject = _currentProject;
     final seq = ++_projectLoadSeq;
     _currentCompany = company;
     try {
       final list = await _fetchProjects(company.id);
       if (seq != _projectLoadSeq) return false;
       _applyProjects(list);
+      _projectsCompany = company;
       notifyListeners();
       return true;
     } catch (e) {
       if (seq != _projectLoadSeq) return false;
-      _currentCompany = prevCompany;
-      _projects = prevProjects;
-      _currentProject = prevProject;
+      // 回滚到最后一次成功加载项目时的公司：_projects/_currentProject 只在成功时写入，
+      // 与 _projectsCompany 始终成对，避免连续切换失败后出现“公司与项目不匹配”。
+      _currentCompany = _projectsCompany;
       await _applySessionError(e, duringBootstrap: false);
       return false;
     }
@@ -249,10 +248,12 @@ class AuthState extends ChangeNotifier {
   /// 重新加载项目列表。失败时保留原列表，再按会话异常统一处理；返回是否成功。
   Future<bool> refreshProjects() async {
     final seq = ++_projectLoadSeq;
+    final company = _currentCompany;
     try {
-      final list = await _fetchProjects(_currentCompany?.id);
+      final list = await _fetchProjects(company?.id);
       if (seq != _projectLoadSeq) return false;
       _applyProjects(list);
+      _projectsCompany = company;
       notifyListeners();
       return true;
     } catch (e) {
@@ -264,6 +265,9 @@ class AuthState extends ChangeNotifier {
 
   /// 项目加载序号：每次发起加载自增，结果返回时与最新序号比对，防止并发请求互相覆盖。
   int _projectLoadSeq = 0;
+
+  /// 当前 _projects 所属的公司（最后一次成功加载项目时的公司），用作切换失败时的回滚目标。
+  Company? _projectsCompany;
 
   /// 写入项目列表并维持当前项目（原选中项仍在则保留，否则默认第一项）。
   void _applyProjects(List<Project> list) {
@@ -339,6 +343,7 @@ class AuthState extends ChangeNotifier {
     _companies = const [];
     _currentProject = null;
     _projects = const [];
+    _projectsCompany = null;
     _errorMessage = null;
   }
 }
