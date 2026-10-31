@@ -149,5 +149,77 @@ void main() {
       expect(tokenStorage.accessToken, 'new-fresh-access');
       expect(tokenStorage.refreshToken, 'new-fresh-refresh');
     });
+
+    test('401 刷新失败后清空本地令牌、触发 onAuthExpired 并抛出 AuthException', () async {
+      bool expiredCalled = false;
+      final tokenStorage = InMemoryTokenStorage(
+        access: 'stale-token',
+        refresh: 'invalid-refresh-token',
+      );
+
+      final mock = MockClient((request) async {
+        if (request.url.path.endsWith('/auth/refresh')) {
+          return http.Response(
+            jsonEncode({'code': 401, 'message': '刷新令牌已失效'}),
+            401,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response(
+          jsonEncode({'code': 401, 'message': '未认证'}),
+          401,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = ApiClient(
+        httpClient: mock,
+        tokenStorage: tokenStorage,
+        onAuthExpired: () {
+          expiredCalled = true;
+        },
+      );
+
+      expect(
+        () => client.get('/tasks/list'),
+        throwsA(isA<AuthException>().having(
+          (e) => e.message,
+          'message',
+          '登录已过期，请重新登录',
+        )),
+      );
+
+      // 等待请求结束
+      try {
+        await client.get('/tasks/list');
+      } catch (_) {}
+
+      expect(expiredCalled, true);
+      expect(tokenStorage.hasAccess, false);
+      expect(tokenStorage.accessToken, isNull);
+    });
+
+    test('请求超时自动中断并抛出 NetworkException', () async {
+      final mock = MockClient((request) async {
+        // 延迟大于设定的 timeout
+        await Future.delayed(const Duration(milliseconds: 150));
+        return http.Response('{"code":200,"data":{}}', 200);
+      });
+
+      final client = ApiClient(
+        httpClient: mock,
+        tokenStorage: InMemoryTokenStorage(access: 'token'),
+        timeout: const Duration(milliseconds: 50),
+      );
+
+      expect(
+        () => client.get('/slow/endpoint'),
+        throwsA(isA<NetworkException>().having(
+          (e) => e.message,
+          'message',
+          contains('超时'),
+        )),
+      );
+    });
   });
 }

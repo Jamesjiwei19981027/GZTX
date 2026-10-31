@@ -13,6 +13,7 @@ import '../features/messages/routes.dart';
 import '../features/projects/routes.dart';
 import '../features/reports/routes.dart';
 import '../features/work/routes.dart';
+import 'offline_screen.dart';
 
 /// 全局应用路由配置与分 Tab 页面栈
 class AppRouter {
@@ -28,23 +29,38 @@ class AppRouter {
     initialLocation: '/work',
     refreshListenable: authState,
     redirect: (context, state) {
-      final isAuth = authState.isAuthenticated;
-      final isAuthRoute = state.matchedLocation.startsWith('/login') ||
-          state.matchedLocation.startsWith('/register') ||
-          state.matchedLocation.startsWith('/verify');
       final isGallery = state.matchedLocation == '/gallery';
-
       // 允许自由访问控件展示页进行组件验证
       if (isGallery) return null;
 
-      // 未登录且当前不在登录相关页面，重定向到登录页
-      if (!isAuth && !isAuthRoute) {
-        return '/login';
+      final isAuthRoute = isAuthRouteLocation(state.matchedLocation);
+      final isOfflineRoute = state.matchedLocation == '/offline';
+
+      // 1. 断网或无法连接服务端：重定向至离线兜底页
+      if (authState.status == AuthStatus.offline) {
+        if (!isOfflineRoute) return '/offline';
+        return null;
       }
 
-      // 已登录却停留在登录页，重定向到工作页
-      if (isAuth && isAuthRoute) {
-        return '/work';
+      // 2. 初始启动中与认证中：留在原地不闪跳登录页
+      if (authState.status == AuthStatus.initial ||
+          authState.status == AuthStatus.authenticating) {
+        return null;
+      }
+
+      // 3. 未登录状态：不在认证相关页面则重定向到登录页
+      if (authState.status == AuthStatus.unauthenticated) {
+        if (!isAuthRoute) {
+          return '/login';
+        }
+        return null;
+      }
+
+      // 4. 已登录状态：若停留在登录相关页面或离线页，重定向到主工作页
+      if (authState.isAuthenticated) {
+        if (isAuthRoute || isOfflineRoute) {
+          return '/work';
+        }
       }
 
       return null;
@@ -58,6 +74,7 @@ class AppRouter {
             bottomNavigationBar: AppTabBar(
               currentIndex: navigationShell.currentIndex,
               onTap: (index) {
+                // 原生平台习惯：再点一次当前 Tab 回到该 Tab 根页
                 navigationShell.goBranch(
                   index,
                   initialLocation: index == navigationShell.currentIndex,
@@ -80,13 +97,20 @@ class AppRouter {
         ],
       ),
 
-      // 登录认证路由
+      // 登录认证路由（动态由 features/auth/routes.dart 提供）
       ...authRoutes,
 
       // 其他跨 Tab 页面路由
       ...projectsRoutes,
       ...evidenceRoutes,
       ...reportsRoutes,
+
+      // 断网离线兜底页
+      GoRoute(
+        path: '/offline',
+        name: 'app-offline',
+        builder: (context, state) => OfflineScreen(authState: authState),
+      ),
 
       // 自适应控件展示调试页
       GoRoute(

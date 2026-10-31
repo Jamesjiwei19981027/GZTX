@@ -76,3 +76,18 @@ final List<RouteBase> authRoutes = [
     ),
   ),
 ];
+
+/// 动态获取认证模块的所有顶层路径白名单（支持 T01 自行扩充，无需修改 app_router.dart）
+List<String> get authRoutePaths =>
+    authRoutes.whereType<GoRoute>().map((r) => r.path).toList();
+
+/// 动态判断某个 location 是否属于认证公开路由
+bool isAuthRouteLocation(String location) {
+  for (final path in authRoutePaths) {
+    if (location == path || location.startsWith('$path/')) {
+      return true;
+    }
+  }
+  return false;
+}
+

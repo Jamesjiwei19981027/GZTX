@@ -14,7 +14,7 @@
 
 ## 2. 如何发起网络请求 (`ApiClient`)
 
-底座在 `lib/core/api/` 提供了统一的 API 客户端，自动处理基地址配置（`--dart-define=API_BASE_URL`）、令牌安全存储与并发 401 单飞无感续期。
+底座在 `lib/core/api/` 提供了统一的 API 客户端，自动处理基地址配置（`--dart-define=API_BASE_URL`）、令牌安全存储、默认 30 秒超时控制（超时抛出 `NetworkException`）、并发 401 单飞无感续期，以及最终 401 失败时的全局自动登出清理。
 
 ### 2.1 获取 ApiClient
 ```dart
@@ -33,9 +33,9 @@ final client = ApiClient();
 
 ```dart
 try {
-  // 发起 GET 请求（无需手动拼接 token，已自动附带）
+  // 发起 GET 请求（无需手动拼接 token，已自动附带；默认 30s 超时）
   final dynamic data = await context.apiClient.get(
-    '/tasks/',
+    '/tasks',
     query: {'status': '0', 'page': '1'},
   );
   // data 即为接口返回的业务载荷（无需再访问 ['data']）
@@ -46,8 +46,11 @@ try {
   // 业务失败，e.message 自动提取后端下发的中文 message 或 detail
   showAppToast(context, e.message, type: ToastType.error);
 } on NetworkException catch (e) {
-  // 断网或连接超时
-  showAppToast(context, '网络连接异常，请检查网络', type: ToastType.warning);
+  // 断网或连接超时（超过 30s 自动转为 NetworkException）
+  showAppToast(context, '网络连接异常或请求超时，请检查网络', type: ToastType.warning);
+} on AuthException catch (e) {
+  // 登录态失效且无法续期，底层已自动清理凭据并由路由守卫重定向至登录页
+  showAppToast(context, e.message, type: ToastType.error);
 }
 ```
 
@@ -119,7 +122,19 @@ context.push('/work/kanban');
 context.pop();
 ```
 
-### 表单未保存拦截（返回键安全守护）：
+### 4.1 Tab 点击与原生页面栈行为（与网页版有意不同的差异说明）
+- **切 Tab 保留各自页面栈**：在工作 Tab 进入二级页面后切换到人轴 Tab，再切回工作 Tab，二级页面依然保留，不会丢失浏览进度。
+- **再次点击当前 Tab 回到该 Tab 根页**：当用户已经处于某个 Tab（例如工作 Tab 二级页）时，再次点击底部的“工作”Tab，将重置该分支栈并直接回到工作根页。
+  > **与网页版差异及理由**：在手机网页版中点击当前选中 Tab 为无操作（no-op）；但在移动端原生 App 规范（如 iOS App Store、微信等）中，再次点击当前处于激活状态的底部 Tab 项代表快速回到该模块首页/顶部，相比网页版的无操作更符合移动端用户的单手操作直觉与原生操作习惯。
+
+### 4.2 返回键裁决规则与运行时实现方式说明
+返回行为依照 `mobileRoutes.ts` 规定的四步裁决顺序在 Flutter 原生运行时落地：
+1. **优先关闭弹层**：在 Flutter 架构中，所有对话框（Dialog）、底部浮层（BottomSheet）、操作菜单（ActionSheet）均作为独立的 `ModalRoute` 压入当前 Navigator 栈。因此系统的返回键事件或 PopScope 默认首先弹出最顶层的 `ModalRoute`，天然实现“先关弹层”，无需业务页面显式手动接管。
+2. **未保存内容二次确认拦截**：在包含表单编辑的页面外层包裹 `AppBackScope(isDirty: _hasUnsavedChanges)`。当 `isDirty == true` 时，`AppBackScope` 会拦截系统返回键或左滑返回手势，弹出红色警示二次确认框（“放弃并退出 / 继续编辑”）。
+3. **页面正常出栈**：在非 dirty 状态且无浮层弹层时，当前二级页执行 `context.pop()` 正常退出页面。
+4. **Tab 根页退出应用**：当已处于 5 个 Tab 的根页面且栈中已无更多页面时，触发系统默认的切后台或退出应用操作。
+`resolveBackAction` 纯函数作为该四步决策的算法逻辑定义与单元测试真源。
+
 ```dart
 import 'package:worktodo_app/design/design.dart';
 
@@ -144,6 +159,7 @@ AppBackScope(
 | 控件类型 | 组件名称 | iOS 端表现 | Android 端表现 |
 |---|---|---|---|
 | 页面骨架 | `AppScaffold` | `CupertinoPageScaffold` + `CupertinoNavigationBar` | `Scaffold` + `AppBar` |
+| 底部 5 Tab 导航栏 | `AppTabBar` | `CupertinoTabBar`（内置可选 `badges` 徽标映射与消息未读数支持） | Material 3 `NavigationBar`（支持徽标红点与数字） |
 | 分段切换 | `AppSegmentedControl` | 胶囊式滑动指示器 (`CupertinoSlidingSegmentedControl`) | Material 下划线指示器 |
 | 按钮 | `AppButton` | 触感压暗圆角按钮 | Material 3 `ElevatedButton` / `OutlinedButton` |
 | 输入框 | `AppTextField` | 浅灰圆角底框，支持一键清空与自增高 | Material 3 轮廓输入框 |
@@ -153,9 +169,10 @@ AppBackScope(
 | 二次确认框 | `showAppConfirmDialog` | `CupertinoAlertDialog` | Material `AlertDialog` (危险操作红字警示) |
 | 操作菜单 | `showAppActionSheet` | `CupertinoActionSheet` | 底部弹出操作表单列表 |
 | 底部面板 | `showAppBottomSheet` | iOS 风格半屏模态窗，带关闭手柄 | Material 3 Modal Bottom Sheet |
-| 日期选择器 | `showAppDatePicker` | 滚轮式弹出弹层 (`CupertinoDatePicker`) | 日历网格式对话框 (`showDatePicker`) |
+| 日期选择器 | `showAppDatePicker` | 滚轮式弹出日期弹层 (`CupertinoDatePicker`) | 日历网格式对话框 (`showDatePicker`) |
+| 日期时间选择器 | `showAppDateTimePicker` | 滚轮式弹出日期+时间 (`dateAndTime`) | 日期+时间对话框组合 (`showDatePicker` + `showTimePicker`) |
 | 状态提示 | `AppEmptyState` / `AppErrorState` | 统一空状态、无权限提示与重试入口 | 统一空状态、无权限提示与重试入口 |
-| 轻提示 | `showAppToast` | 顶部悬浮圆角自适应气泡 | 顶部悬浮圆角自适应气泡 |
+| 轻提示 | `showAppToast` | 顶部悬浮圆角自适应气泡（支持单例去重与 dispose） | 顶部悬浮圆角自适应气泡（支持单例去重与 dispose） |
 
 ### 5.2 控件使用示例
 ```dart

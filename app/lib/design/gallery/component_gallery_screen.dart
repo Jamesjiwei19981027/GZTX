@@ -168,12 +168,23 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 ),
                 AppListTile(
                   leading: const AppIcon('calendar'),
-                  title: '日期时间选择器',
+                  title: '日期选择器',
                   subtitle: '点击弹出自适应日期框',
                   onTap: () {
                     showAppDatePicker(
                       context: context,
                       initialDate: DateTime.now(),
+                    );
+                  },
+                ),
+                AppListTile(
+                  leading: const AppIcon('calendar'),
+                  title: '日期时间选择器',
+                  subtitle: '点击弹出自适应日期+时间框',
+                  onTap: () {
+                    showAppDateTimePicker(
+                      context: context,
+                      initialDateTime: DateTime.now(),
                     );
                   },
                 ),

@@ -34,11 +34,38 @@ class AppTabBar extends StatelessWidget {
     required this.currentIndex,
     required this.onTap,
     this.tabs = kAppTabs,
+    this.badges,
+    this.unreadMessagesCount,
   });
 
   final int currentIndex;
   final ValueChanged<int> onTap;
   final List<AppTabItem> tabs;
+
+  /// 按 Tab 索引设置的徽标数（如 {3: 5} 表示第 3 个 Tab 显示 5 条未读）
+  final Map<int, int>? badges;
+
+  /// 快捷设置消息 Tab 未读数的参数（T08 直接使用）
+  final int? unreadMessagesCount;
+
+  int _getBadgeCount(int index, AppTabItem item) {
+    if (badges != null && badges!.containsKey(index)) {
+      return badges![index] ?? 0;
+    }
+    if ((index == 3 || item.id == 'messages') && unreadMessagesCount != null) {
+      return unreadMessagesCount!;
+    }
+    return 0;
+  }
+
+  Widget _wrapBadge(Widget iconWidget, int count) {
+    if (count <= 0) return iconWidget;
+    return Badge.count(
+      count: count,
+      backgroundColor: AppColors.danger,
+      child: iconWidget,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,10 +82,17 @@ class AppTabBar extends StatelessWidget {
         inactiveColor: isDark
             ? AppColors.darkTextTertiary
             : AppColors.textTertiary,
-        items: tabs.map((t) {
+        items: tabs.asMap().entries.map((entry) {
+          final index = entry.key;
+          final t = entry.value;
+          final count = _getBadgeCount(index, t);
+
           return BottomNavigationBarItem(
-            icon: AppIcon(t.iconName, size: 22),
-            activeIcon: AppIcon(t.iconName, size: 22, color: AppColors.primary),
+            icon: _wrapBadge(AppIcon(t.iconName, size: 22), count),
+            activeIcon: _wrapBadge(
+              AppIcon(t.iconName, size: 22, color: AppColors.primary),
+              count,
+            ),
             label: t.label,
           );
         }).toList(),
@@ -72,10 +106,17 @@ class AppTabBar extends StatelessWidget {
       backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
       indicatorColor: AppColors.primaryLight,
       elevation: 3,
-      destinations: tabs.map((t) {
+      destinations: tabs.asMap().entries.map((entry) {
+        final index = entry.key;
+        final t = entry.value;
+        final count = _getBadgeCount(index, t);
+
         return NavigationDestination(
-          icon: AppIcon(t.iconName, size: 22),
-          selectedIcon: AppIcon(t.iconName, size: 22, color: AppColors.primary),
+          icon: _wrapBadge(AppIcon(t.iconName, size: 22), count),
+          selectedIcon: _wrapBadge(
+            AppIcon(t.iconName, size: 22, color: AppColors.primary),
+            count,
+          ),
           label: t.label,
         );
       }).toList(),

@@ -1,10 +1,12 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// 屏幕与极端无障碍适配校验工具
 class ResponsiveChecker {
-  /// 测试在 320 窄屏宽度、430 宽屏宽度、字号放大 200%、深色模式下无布局溢出 (A RenderFlex overflowed)
+  /// 测试在 320 窄屏宽度、430 宽屏宽度、字号放大 200%、深色模式下，
+  /// 同时覆盖 Android (Material) 与 iOS (Cupertino) 双端分支无布局溢出 (A RenderFlex overflowed)
   static Future<void> checkAdaptiveLayout({
     required WidgetTester tester,
     required Widget widget,
@@ -30,41 +32,53 @@ class ResponsiveChecker {
       (const Size(375, 812), 1.0, Brightness.dark, '深色模式'),
     ];
 
+    final platforms = [
+      (TargetPlatform.android, 'Android'),
+      (TargetPlatform.iOS, 'iOS'),
+    ];
+
     try {
-      for (final (size, scale, brightness, label) in testCases) {
-        hasOverflow = false;
-        tester.view.physicalSize = size;
-        tester.view.devicePixelRatio = 1.0;
+      for (final (platform, platformLabel) in platforms) {
+        for (final (size, scale, brightness, label) in testCases) {
+          hasOverflow = false;
+          tester.view.physicalSize = size;
+          tester.view.devicePixelRatio = 1.0;
 
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: ThemeData(
-              brightness: brightness,
-              useMaterial3: true,
-            ),
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            home: MediaQuery(
-              data: MediaQueryData(
-                size: size,
-                textScaler: TextScaler.linear(scale),
-                platformBrightness: brightness,
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: ThemeData(
+                platform: platform,
+                brightness: brightness,
+                useMaterial3: true,
+                cupertinoOverrideTheme: CupertinoThemeData(
+                  brightness: brightness,
+                ),
               ),
-              child: Material(child: widget),
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: MediaQuery(
+                data: MediaQueryData(
+                  size: size,
+                  textScaler: TextScaler.linear(scale),
+                  platformBrightness: brightness,
+                ),
+                child: Material(child: widget),
+              ),
             ),
-          ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 100));
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 100));
 
-        expect(
-          hasOverflow,
-          false,
-          reason: '在 $label (尺寸: $size, 字号: $scale, 模式: $brightness) 下发生布局溢出！',
-        );
+          expect(
+            hasOverflow,
+            false,
+            reason:
+                '在 $platformLabel - $label (尺寸: $size, 字号: $scale, 模式: $brightness) 下发生布局溢出！',
+          );
+        }
       }
     } finally {
       FlutterError.onError = originalOnError;

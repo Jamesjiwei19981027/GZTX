@@ -7,13 +7,24 @@ import 'adaptive_base.dart';
 
 enum ToastType { info, success, warning, error }
 
-/// 弹出全局轻提示 Toast
+OverlayEntry? _activeToastEntry;
+
+/// 弹出全局轻提示 Toast（单例去重，带 entry.dispose 处理）
 void showAppToast(
   BuildContext context,
   String message, {
   ToastType type = ToastType.info,
   Duration duration = const Duration(seconds: 2),
 }) {
+  // 如果已有展示中的 Toast，先移除并销毁，避免在屏幕上堆叠
+  if (_activeToastEntry != null) {
+    if (_activeToastEntry!.mounted) {
+      _activeToastEntry!.remove();
+    }
+    _activeToastEntry!.dispose();
+    _activeToastEntry = null;
+  }
+
   final isIos = isCupertinoPlatform(context);
 
   final (iconData, bgColor) = switch (type) {
@@ -82,10 +93,16 @@ void showAppToast(
     ),
   );
 
+  _activeToastEntry = entry;
   overlay.insert(entry);
+
   Future.delayed(duration, () {
     if (entry.mounted) {
       entry.remove();
+    }
+    entry.dispose();
+    if (_activeToastEntry == entry) {
+      _activeToastEntry = null;
     }
   });
 }

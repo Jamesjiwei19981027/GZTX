@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// 令牌存储抽象接口
@@ -38,7 +39,8 @@ class SecureTokenStorage implements TokenStorage {
     try {
       _accessToken = await _storage.read(key: _accessKey);
       _refreshToken = await _storage.read(key: _refreshKey);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('SecureTokenStorage.init warning: $e');
       // 在不支持 secure_storage 的测试环境或特定平台上安全降级
       _accessToken = null;
       _refreshToken = null;
@@ -50,13 +52,17 @@ class SecureTokenStorage implements TokenStorage {
     _accessToken = access;
     try {
       await _storage.write(key: _accessKey, value: access);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('SecureTokenStorage.save access_token warning: $e');
+    }
 
     if (refresh != null) {
       _refreshToken = refresh;
       try {
         await _storage.write(key: _refreshKey, value: refresh);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('SecureTokenStorage.save refresh_token warning: $e');
+      }
     }
   }
 
@@ -67,7 +73,9 @@ class SecureTokenStorage implements TokenStorage {
     try {
       await _storage.delete(key: _accessKey);
       await _storage.delete(key: _refreshKey);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('SecureTokenStorage.clear warning: $e');
+    }
   }
 }
 

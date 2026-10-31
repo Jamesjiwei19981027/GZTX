@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api/api_client.dart';
 import '../errors/app_error.dart';
@@ -16,7 +17,22 @@ enum AuthStatus {
 }
 
 class AuthState extends ChangeNotifier {
-  AuthState({ApiClient? apiClient}) : _api = apiClient ?? ApiClient();
+  AuthState({ApiClient? apiClient}) : _api = apiClient ?? ApiClient() {
+    // 监听客户端认证失效通知（最终 401），立即同步重置为 unauthenticated 并清空状态
+    _api.onAuthExpired = _handleAuthExpired;
+  }
+
+  void _handleAuthExpired() {
+    _status = AuthStatus.unauthenticated;
+    _currentUser = null;
+    _currentCompany = null;
+    _companies = const [];
+    _currentProject = null;
+    _projects = const [];
+    _errorMessage = '登录已过期，请重新登录';
+    _api.tokens.clear();
+    notifyListeners();
+  }
 
   final ApiClient _api;
 
@@ -57,6 +73,9 @@ class AuthState extends ChangeNotifier {
 
     try {
       await _api.init();
+
+      // 原生模式启动时清除旧外壳遗留在 SharedPreferences 里的明文令牌
+      await _cleanLegacySharedPreferencesToken();
 
       if (!_api.tokens.hasAccess) {
         _status = AuthStatus.unauthenticated;
@@ -108,6 +127,12 @@ class AuthState extends ChangeNotifier {
       await _loadProjectsForCurrentCompany();
 
       _status = AuthStatus.authenticated;
+      notifyListeners();
+    } on AuthException catch (e) {
+      // 认证失效或无法续期，清空会话踢回未登录状态
+      await _clearSession();
+      _errorMessage = e.message;
+      _status = AuthStatus.unauthenticated;
       notifyListeners();
     } on ApiException catch (e) {
       if (e.statusCode == 401 || e.statusCode == 403) {
@@ -169,6 +194,7 @@ class AuthState extends ChangeNotifier {
         await _api.post('/auth/logout').catchError((_) => null);
       }
     } finally {
+      await _cleanLegacySharedPreferencesToken();
       await _clearSession();
       _status = AuthStatus.unauthenticated;
       notifyListeners();
@@ -216,9 +242,13 @@ class AuthState extends ChangeNotifier {
     }
 
     try {
+      // 对照网页版 backend.ts:377-380：使用 /projects 路径，且带 as_admin=true
       final dynamic projData = await _api.get(
-        '/projects/',
-        query: {'company_id': cid.toString()},
+        '/projects',
+        query: {
+          'company_id': cid.toString(),
+          'as_admin': 'true',
+        },
       );
 
       final projList = <Project>[];
@@ -254,6 +284,24 @@ class AuthState extends ChangeNotifier {
     } catch (e) {
       _projects = const [];
       _currentProject = null;
+    }
+  }
+
+  /// 清除历史旧外壳遗留在 SharedPreferences 里的明文令牌
+  Future<void> _cleanLegacySharedPreferencesToken() async {
+    try {
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(milliseconds: 200));
+      if (prefs.containsKey('access_token') ||
+          prefs.containsKey('refresh_token') ||
+          prefs.containsKey('token')) {
+        await prefs.remove('access_token');
+        await prefs.remove('refresh_token');
+        await prefs.remove('token');
+        debugPrint('Legacy plaintext tokens removed from SharedPreferences');
+      }
+    } catch (_) {
+      // 避免在测试环境或特定无通道平台阻塞
     }
   }
 

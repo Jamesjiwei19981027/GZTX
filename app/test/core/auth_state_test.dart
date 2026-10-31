@@ -1,10 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/core/models/company.dart';
 import 'package:worktodo_app/core/models/project.dart';
 import '../helpers/mock_api_client.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+
   group('AuthState 登录态与会话流转测试', () {
     test('bootstrap 顺序加载 me -> companies -> projects 并默认选中首项', () async {
       final helper = MockApiClientHelper();
@@ -23,12 +27,16 @@ void main() {
         'total': 2,
       });
 
-      helper.whenGet('/projects/', {
-        'items': [
-          {'id': 88, 'name': '核心重构项目', 'company_id': 1},
-        ],
-        'total': 1,
-      });
+      helper.whenGet(
+        '/projects',
+        {
+          'items': [
+            {'id': 88, 'name': '核心重构项目', 'company_id': 1},
+          ],
+          'total': 1,
+        },
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
 
       final apiClient = helper.buildClient();
       final authState = AuthState(apiClient: apiClient);
@@ -53,16 +61,24 @@ void main() {
           {'id': 2, 'name': '公司二'},
         ],
       });
-      helper.whenGet('company_id=1', {
-        'items': [
-          {'id': 11, 'name': '项目A', 'company_id': 1},
-        ],
-      });
-      helper.whenGet('company_id=2', {
-        'items': [
-          {'id': 22, 'name': '项目B', 'company_id': 2},
-        ],
-      });
+      helper.whenGet(
+        '/projects',
+        {
+          'items': [
+            {'id': 11, 'name': '项目A', 'company_id': 1},
+          ],
+        },
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+      helper.whenGet(
+        '/projects',
+        {
+          'items': [
+            {'id': 22, 'name': '项目B', 'company_id': 2},
+          ],
+        },
+        query: {'company_id': '2', 'as_admin': 'true'},
+      );
 
       final apiClient = helper.buildClient();
       final authState = AuthState(apiClient: apiClient);
@@ -103,6 +119,24 @@ void main() {
       expect(authState.currentUser, isNull);
       expect(authState.currentCompany, isNull);
       expect(apiClient.tokens.hasAccess, false);
+    });
+
+    test('业务请求最终 401 触发 onAuthExpired 时自动登出回到 unauthenticated', () async {
+      final helper = MockApiClientHelper();
+      helper.whenGet('/users/me', {'id': 101, 'username': 'e2e_user'});
+      helper.whenGet('/companies/mine', {'items': []});
+
+      final apiClient = helper.buildClient();
+      final authState = AuthState(apiClient: apiClient);
+      await authState.bootstrap();
+      expect(authState.isAuthenticated, true);
+
+      // 模拟底层 ApiClient 触发 onAuthExpired
+      apiClient.onAuthExpired?.call();
+
+      expect(authState.status, AuthStatus.unauthenticated);
+      expect(authState.isAuthenticated, false);
+      expect(authState.currentUser, isNull);
     });
   });
 }
