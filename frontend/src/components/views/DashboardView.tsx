@@ -1,5 +1,9 @@
 import React from 'react';
-import { Task, Activity, Language, UserProfile } from '../../types';
+import { Task, Activity, Language, UserProfile, Project } from '../../types';
+import { WorkbenchOverview } from '../WorkbenchOverview';
+import { WorkAssistantEntry } from '../WorkAssistantEntry';
+import { TaskTrendCard } from '../TaskTrendCard';
+import type { TaskWorkspaceScope } from '../../utils/taskWorkspace';
 import { getT } from '../../i18n';
 
 interface DashboardViewProps {
@@ -9,8 +13,16 @@ interface DashboardViewProps {
   onSelectTask: (task: Task) => void;
   onOpenNewTask: () => void;
   onNavigateToTasks: () => void;
+  onNavigateToKanban?: (scope?: TaskWorkspaceScope) => void;
+  onEditScheduledTask?: (task: Task) => void;
+  onOpenNewTaskWithDate?: (date: string) => void;
   onNavigateToPeopleAxis?: () => void;
+  onNavigateToAssistant?: (action: 'progress' | 'reports') => void;
   lang: Language;
+  projects?: Project[];
+  currentProject?: Project;
+  onOpenCalendar?: () => void;
+  onOpenProject?: (project: Project) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -20,8 +32,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onSelectTask,
   onOpenNewTask,
   onNavigateToTasks,
+  onNavigateToKanban,
+  onEditScheduledTask,
+  onOpenNewTaskWithDate,
   onNavigateToPeopleAxis,
+  onNavigateToAssistant,
   lang,
+  projects = [], currentProject, onOpenCalendar, onOpenProject,
 }) => {
   const t = getT(lang);
 
@@ -39,16 +56,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const totalCount = tasks.length;
   const completedCount = tasks.filter((t) => t.status === 'Done').length;
   const inProgressCount = tasks.filter((t) => t.status === 'In Progress').length;
-  const urgentCount = tasks.filter((t) => t.priority === 'High').length;
-  
+  const urgentCount = tasks.filter((t) => t.priority === 'High' && t.status !== 'Done').length;
+
   const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  // Upcoming deadlines (To Do or In Progress sorted by date)
+  // Open tasks sorted by deadline, with undated tasks still available for follow-up.
   const upcomingTasks = tasks
     .filter((t) => t.status !== 'Done')
-    .filter((t) => t.dueDate)
-    .sort((a, b) => `${a.dueDate}T${a.dueTime || '23:59'}`.localeCompare(`${b.dueDate}T${b.dueTime || '23:59'}`))
-    .slice(0, 4);
+    .sort((a, b) => `${a.dueDate || '9999-12-31'}T${a.dueTime || '23:59'}`.localeCompare(`${b.dueDate || '9999-12-31'}T${b.dueTime || '23:59'}`))
+    .slice(0, 5);
 
   // 今日聚焦：今天到期 + 逾期；今天全部完成时给正反馈
   const todayLocal = (() => {
@@ -66,33 +82,85 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
   return (
     <div className="max-w-[1200px] mx-auto w-full pb-20 md:pb-8 animate-in fade-in duration-300">
-      {/* Welcome Message Header */}
-      <section className="mb-6 md:mb-8">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-on-surface dark:text-[#f0f1f2] tracking-tight">
-              {lang === 'zh' ? `早上好, ${user.name.split(' ')[0]}` : `Good morning, ${user.name.split(' ')[0]}`}
-            </h1>
-            <p className="text-sm md:text-base text-on-surface-variant mt-1">
-              {lang === 'zh'
-                ? `今天您有 ${urgentCount} 个高优先级任务待完成。`
-                : `You have ${urgentCount} high-priority tasks to complete today.`}
-            </p>
+        {/* Upcoming Deadlines (7 cols) */}
+        <section aria-label={lang === 'zh' ? '重点待办与跟进' : 'Priority tasks and follow-ups'} className="mb-4 bg-surface dark:bg-[#191c1d] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm">
+          <div className="flex justify-between items-center mb-5">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-error">alarm</span>
+              <h3 className="font-bold text-lg text-on-surface dark:text-[#f0f1f2]">
+                {lang === 'zh' ? '重点待办与跟进' : 'Priority tasks and follow-ups'}
+              </h3>
+            </div>
+            <button
+              onClick={onNavigateToTasks}
+              className="text-primary dark:text-[#adc6ff] font-semibold text-sm hover:underline flex items-center gap-0.5"
+            >
+              <span>{t.viewAll}</span>
+              <span className="material-symbols-outlined text-base">arrow_forward</span>
+            </button>
           </div>
-          <button
-            onClick={onOpenNewTask}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-on-primary rounded-xl font-semibold text-sm shadow-sm hover:opacity-90 transition-all active:scale-95"
-          >
-            <span className="material-symbols-outlined text-lg">add</span>
-            <span>{t.newTask}</span>
-          </button>
-        </div>
-      </section>
 
+          <div className="space-y-3">
+            {upcomingTasks.length === 0 ? (
+              <div className="text-center py-8 text-on-surface-variant text-sm">
+                {lang === 'zh' ? '暂无待办截止任务，去轻松休息下！' : 'No upcoming deadlines! Take a breather.'}
+              </div>
+            ) : (
+              upcomingTasks.map((task, idx) => {
+                const barColors = ['bg-error', 'bg-tertiary', 'bg-primary', 'bg-secondary'];
+                const indicatorColor = barColors[idx % barColors.length];
+
+                return (
+                  <div
+                    key={task.id}
+                    onClick={() => onSelectTask(task)}
+                    className="flex items-center justify-between p-4 bg-surface-container-low dark:bg-[#2e3132] rounded-xl border border-transparent hover:border-outline-variant dark:hover:border-outline transition-all cursor-pointer group shadow-sm hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
+                      <div className={`w-1.5 h-11 rounded-full ${indicatorColor} flex-shrink-0`}></div>
+                      <div className="overflow-hidden">
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-semibold text-sm md:text-base text-on-surface dark:text-[#f0f1f2] truncate group-hover:text-primary transition-colors">
+                            {task.title}
+                          </h4>
+                          {task.priority === 'High' ? (
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-error-container text-on-error-container">
+                              {lang === 'zh' ? '高' : 'High'}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs text-on-surface-variant mt-1">
+                          <span className="flex items-center gap-1 font-medium text-error">
+                            <span className="material-symbols-outlined text-xs">schedule</span>
+                            {task.dueDate ? <>{relativeDue(task.dueDate, task.dueTime)} · {task.dueDate} {task.dueTime ? `• ${task.dueTime}` : ''}</> : lang === 'zh' ? '未设置截止时间' : 'No deadline'}
+                          </span>
+                          <span>•</span>
+                          <span className="truncate">{lang === 'zh' ? '项目:' : 'Project:'} {task.category}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {(task.assignees?.length ? task.assignees : task.assignee ? [task.assignee] : []).slice(0, 3).map((member) => (
+                        member.avatar ? <img key={member.id} src={member.avatar} alt={member.name} title={member.name} className="w-7 h-7 rounded-full object-cover border border-outline-variant hidden sm:block" /> : <span key={member.id} title={member.name} className="w-7 h-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center border border-outline-variant hidden sm:flex">{member.name.slice(0, 1)}</span>
+                      ))}
+                      {(task.assignees?.length || 0) > 3 && <span className="text-[10px] font-bold text-on-surface-variant">+{(task.assignees?.length || 0) - 3}</span>}
+                      <button className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-surface dark:hover:bg-[#191c1d] rounded-full text-on-surface-variant transition-all">
+                        <span className="material-symbols-outlined text-lg">chevron_right</span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+      {onNavigateToAssistant && <div className="mb-4"><WorkAssistantEntry onOpen={onNavigateToAssistant} lang={lang} /></div>}
       {/* 今日聚焦：今天到期 + 逾期数量，点击跳我的任务 */}
       <section
         data-testid="today-focus"
-        onClick={onNavigateToTasks}
+        onClick={() => onNavigateToKanban ? onNavigateToKanban('pending') : onNavigateToTasks()}
         className={`mb-6 p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
           todayAllDone
             ? 'bg-secondary-container/40 border-secondary/30'
@@ -126,21 +194,53 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-4 shrink-0">
-          <div className="text-center">
+          <button type="button" onClick={event => { event.stopPropagation(); onNavigateToKanban ? onNavigateToKanban('pending') : onNavigateToTasks(); }} className="text-center min-h-[44px]"><p className="text-2xl font-extrabold text-primary">{totalCount-completedCount}</p><p className="text-[10px] font-bold text-on-surface-variant">{lang === 'zh' ? '待办事项' : 'Pending'}</p></button>
+          <button type="button" className="text-center min-h-[44px]" onClick={event => { event.stopPropagation(); onNavigateToKanban ? onNavigateToKanban('today') : onNavigateToTasks(); }}>
             <p className="text-2xl font-extrabold text-on-surface dark:text-[#f0f1f2]">{todayOpenCount}</p>
             <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">
               {lang === 'zh' ? '今天到期' : 'Due today'}
             </p>
-          </div>
-          <div className="text-center">
+          </button>
+          <button type="button" className="text-center min-h-[44px]" onClick={event => { event.stopPropagation(); onNavigateToKanban ? onNavigateToKanban('overdue') : onNavigateToTasks(); }}>
             <p className={`text-2xl font-extrabold ${overdueCount > 0 ? 'text-error' : 'text-on-surface dark:text-[#f0f1f2]'}`}>
               {overdueCount}
             </p>
             <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">
               {lang === 'zh' ? '已逾期' : 'Overdue'}
             </p>
-          </div>
+          </button>
           <span className="material-symbols-outlined text-on-surface-variant">arrow_forward</span>
+        </div>
+      </section>
+
+      <div className="mb-4"><TaskTrendCard projectId={currentProject?.id} tasks={tasks} /></div>
+      {currentProject && <div className="mb-6"><WorkbenchOverview tasks={tasks} projects={projects} currentProject={currentProject}
+        onSelectTask={onSelectTask} onEditScheduledTask={onEditScheduledTask} onOpenNewTaskWithDate={onOpenNewTaskWithDate}
+        onOpenCalendar={onOpenCalendar} onOpenProject={onOpenProject} /></div>}
+      <div className="mb-6 flex justify-end">
+          <button
+            onClick={onOpenNewTask}
+            aria-label={t.newTask}
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-on-primary rounded-xl font-semibold text-sm shadow-sm hover:opacity-90 transition-all active:scale-95"
+          >
+            <span className="material-symbols-outlined text-lg">add</span>
+            <span>{t.newTask}</span>
+          </button>
+      </div>
+      {/* Welcome Message Header */}
+      <section className="mb-6 md:mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-extrabold text-on-surface dark:text-[#f0f1f2] tracking-tight">
+              {lang === 'zh' ? `早上好, ${user.name.split(' ')[0]}` : `Good morning, ${user.name.split(' ')[0]}`}
+            </h1>
+            <p className="text-sm md:text-base text-on-surface-variant mt-1">
+              {lang === 'zh'
+                ? `今天您有 ${urgentCount} 个高优先级任务待完成。`
+                : `You have ${urgentCount} high-priority tasks to complete today.`}
+            </p>
+          </div>
+
         </div>
       </section>
 
@@ -273,7 +373,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         {/* Weekly Progress Circle Card (4 cols) */}
         <div className="lg:col-span-4 bg-gradient-to-br from-primary to-[#2170e4] text-on-primary p-6 rounded-2xl shadow-md flex flex-col items-center justify-center text-center relative overflow-hidden">
           <div className="absolute -right-6 -bottom-6 w-32 h-32 rounded-full bg-white/10 blur-xl pointer-events-none"></div>
-          
+
           <h3 className="font-bold text-base mb-4 tracking-wide uppercase text-on-primary/90">
             {t.weeklyProgress}
           </h3>
@@ -319,82 +419,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
       {/* Bottom Bento Layer: Deadlines & Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Upcoming Deadlines (7 cols) */}
-        <section className="lg:col-span-7 bg-surface dark:bg-[#191c1d] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm">
-          <div className="flex justify-between items-center mb-5">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-error">alarm</span>
-              <h3 className="font-bold text-lg text-on-surface dark:text-[#f0f1f2]">
-                {t.upcomingDeadlines}
-              </h3>
-            </div>
-            <button
-              onClick={onNavigateToTasks}
-              className="text-primary dark:text-[#adc6ff] font-semibold text-sm hover:underline flex items-center gap-0.5"
-            >
-              <span>{t.viewAll}</span>
-              <span className="material-symbols-outlined text-base">arrow_forward</span>
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {upcomingTasks.length === 0 ? (
-              <div className="text-center py-8 text-on-surface-variant text-sm">
-                {lang === 'zh' ? '暂无待办截止任务，去轻松休息下！' : 'No upcoming deadlines! Take a breather.'}
-              </div>
-            ) : (
-              upcomingTasks.map((task, idx) => {
-                const barColors = ['bg-error', 'bg-tertiary', 'bg-primary', 'bg-secondary'];
-                const indicatorColor = barColors[idx % barColors.length];
-
-                return (
-                  <div
-                    key={task.id}
-                    onClick={() => onSelectTask(task)}
-                    className="flex items-center justify-between p-4 bg-surface-container-low dark:bg-[#2e3132] rounded-xl border border-transparent hover:border-outline-variant dark:hover:border-outline transition-all cursor-pointer group shadow-sm hover:shadow-md"
-                  >
-                    <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
-                      <div className={`w-1.5 h-11 rounded-full ${indicatorColor} flex-shrink-0`}></div>
-                      <div className="overflow-hidden">
-                        <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-sm md:text-base text-on-surface dark:text-[#f0f1f2] truncate group-hover:text-primary transition-colors">
-                            {task.title}
-                          </h4>
-                          {task.priority === 'High' ? (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-error-container text-on-error-container">
-                              {lang === 'zh' ? '高' : 'High'}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-on-surface-variant mt-1">
-                          <span className="flex items-center gap-1 font-medium text-error">
-                            <span className="material-symbols-outlined text-xs">schedule</span>
-                            {relativeDue(task.dueDate, task.dueTime)} · {task.dueDate} {task.dueTime ? `• ${task.dueTime}` : ''}
-                          </span>
-                          <span>•</span>
-                          <span className="truncate">{lang === 'zh' ? '项目:' : 'Project:'} {task.category}</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      {(task.assignees?.length ? task.assignees : task.assignee ? [task.assignee] : []).slice(0, 3).map((member) => (
-                        member.avatar ? <img key={member.id} src={member.avatar} alt={member.name} title={member.name} className="w-7 h-7 rounded-full object-cover border border-outline-variant hidden sm:block" /> : <span key={member.id} title={member.name} className="w-7 h-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center border border-outline-variant hidden sm:flex">{member.name.slice(0, 1)}</span>
-                      ))}
-                      {(task.assignees?.length || 0) > 3 && <span className="text-[10px] font-bold text-on-surface-variant">+{(task.assignees?.length || 0) - 3}</span>}
-                      <button className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-surface dark:hover:bg-[#191c1d] rounded-full text-on-surface-variant transition-all">
-                        <span className="material-symbols-outlined text-lg">chevron_right</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </section>
-
         {/* Recent Activity & Tip Banner (5 cols) */}
-        <section className="lg:col-span-5 bg-surface dark:bg-[#191c1d] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm flex flex-col justify-between">
+        <section className="lg:col-span-12 bg-surface dark:bg-[#191c1d] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-5">
               <span className="material-symbols-outlined text-secondary">history</span>

@@ -1,0 +1,121 @@
+/** Android APK/WebView regression, using adb touches and the live isolated backend. */
+import { chromium, expect, type Locator } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const endpoint = process.env.AXIS_ANDROID_CDP || 'http://127.0.0.1:9222';
+const browser = await chromium.connectOverCDP(endpoint, { noDefaults: true });
+const page = browser.contexts()[0].pages()[0];
+const run = promisify(execFile);
+const adb = 'C:/Users/11580/AppData/Local/Android/Sdk/platform-tools/adb.exe';
+const out = 'android-acceptance/test-results/feedback';
+await mkdir(out, { recursive: true });
+const checks: string[] = [];
+const errors: string[] = [];
+page.on('pageerror', error => errors.push(error.message));
+page.setDefaultTimeout(20_000);
+const checked = (name: string) => { checks.push(name); console.log(`PASS ${name}`); };
+const nativePoint = async (x: number, y: number) => {
+  const targets = await (await fetch(`${endpoint}/json/list`)).json() as {url:string;description:string}[];
+  const view = JSON.parse(targets.find(t => t.url === page.url())!.description);
+  const dpr = await page.evaluate(() => devicePixelRatio);
+  return [String(Math.round(view.screenX + x * dpr)), String(Math.round(view.screenY + y * dpr))];
+};
+const tap = async (target: Locator) => {
+  await expect(target).toBeVisible();
+  await target.scrollIntoViewIfNeeded();
+  await expect.poll(() => target.evaluate(el => {
+    const box = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(box.x + box.width/2, box.y + box.height/2);
+    return hit === el || !!hit && el.contains(hit);
+  })).toBe(true);
+  const box = (await target.boundingBox())!;
+  await run(adb, ['-s','emulator-5554','shell','input','tap', ...await nativePoint(box.x + box.width/2, box.y + box.height/2)]);
+};
+try {
+  await page.goto('http://127.0.0.1:5177/');
+  if (await page.locator('input[type=password]').isVisible()) {
+    await page.getByPlaceholder('用户名 / 邮箱 / 手机号').fill('axis_pm');
+    await page.locator('input[type=password]').fill(process.env.AXIS_LIVE_PASSWORD || 'axis-debug-2026');
+    await tap(page.locator('form button[type=submit]'));
+  }
+  await expect(page.getByRole('tab',{name:'工作',exact:true})).toBeVisible();
+  await tap(page.getByRole('tab',{name:'工作',exact:true}));
+  await expect(page.getByRole('button',{name:/搜索/})).toHaveCount(1);
+  await expect(page.getByRole('button',{name:'快速添加',exact:true})).toContainText('记录');
+  await expect(page.getByRole('button',{name:'新建任务',exact:true})).toContainText('新建任务');
+  checked('Work: one search, distinct capture and new-task actions');
+  await expect(page.getByRole('region',{name:'首页日程日历'})).toBeVisible();
+  await expect(page.getByRole('region',{name:'项目进度简介'})).toBeVisible();
+  await page.screenshot({path:`${out}/home-overview.png`});
+  checked('Home: interactive schedule and project progress summary are present');
+  const fullHeight=await page.evaluate(()=>innerHeight);
+  await tap(page.getByRole('button',{name:'快速添加',exact:true}));
+  await tap(page.locator('input:visible').first());
+  await expect.poll(async()=>{
+    const result=await run(adb,['-s','emulator-5554','shell','dumpsys','input_method']);
+    return /mInputShown=true/.test(result.stdout) && /mIsInputViewShown=true/.test(result.stdout);
+  }).toBe(true);
+  await expect.poll(async()=>Math.abs(await page.evaluate(()=>innerHeight)-fullHeight)).toBeLessThan(4);
+  await run(adb,['-s','emulator-5554','shell','screencap','-p','/sdcard/codex-keyboard-verified.png']);
+  await run(adb,['-s','emulator-5554','pull','/sdcard/codex-keyboard-verified.png',`${out}/keyboard-verified.png`]);
+  await run(adb,['-s','emulator-5554','shell','input','keyevent','4']);
+  await tap(page.getByRole('button',{name:'取消',exact:true}));
+  checked('Android: touching an input opens the full software keyboard over an unchanged page viewport');
+  await tap(page.getByRole('tab',{name:'人轴',exact:true}));
+  const title = (await page.getByRole('heading',{name:'我的责任链',exact:true}).boundingBox())!;
+  const picker = (await page.getByLabel('选择项目',{exact:true}).boundingBox())!;
+  expect(picker.y).toBeGreaterThan(title.y + title.height);
+  checked('Project picker is below the title');
+  await tap(page.getByRole('button',{name:'项目全貌',exact:true}));
+  const graph = page.getByTestId('mobile-axis-graph');
+  const paths = graph.locator('.react-flow__edge-path');
+  await expect.poll(() => paths.count()).toBeGreaterThan(0);
+  await expect(paths.first()).toHaveAttribute('d',/C/);
+  const card = page.locator('[data-testid^="mobile-axis-node-"]').first();
+  await expect(card).toBeVisible();
+  const before = (await card.boundingBox())!;
+  const beforeLines = await paths.evaluateAll(els => els.map(el => el.getAttribute('d')));
+  const start = await nativePoint(before.x + before.width/2, before.y + before.height/2);
+  const end = await nativePoint(before.x + before.width/2 + 24, before.y + before.height/2 + 22);
+  await run(adb,['-s','emulator-5554','shell','input','swipe',...start,...end,'700']);
+  await expect.poll(async () => Math.abs((await card.boundingBox())!.x - before.x)).toBeGreaterThan(12);
+  expect(await paths.evaluateAll(els => els.map(el => el.getAttribute('d')))).not.toEqual(beforeLines);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  checked('Real Android swipe drags a person independently and updates connectors');
+  await tap(page.getByRole('button',{name:'横向',exact:true}));
+  await expect.poll(() => paths.count()).toBeGreaterThan(0);
+  await page.screenshot({path:`${out}/axis-horizontal.png`});
+  checked('Horizontal layout renders connectors');
+  await tap(page.getByRole('tab',{name:'消息',exact:true}));
+  await tap(page.getByRole('button',{name:'新建私聊',exact:true}));
+  const contacts = page.getByRole('region',{name:'工作联系人页面'});
+  await expect(contacts).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:'消息中心',exact:true})).toHaveCount(0);
+  await expect(contacts.getByRole('button',{name:'赵晨',exact:true})).toBeVisible();
+  await page.screenshot({path:`${out}/work-contacts-page.png`});
+  await tap(contacts.getByRole('button',{name:'赵晨',exact:true}));
+  await expect(page.getByRole('heading',{name:'赵晨',exact:true})).toBeVisible();
+  checked('New message opens allowed contacts and explicitly selected direct conversation');
+  await tap(page.getByRole('tab',{name:'我的',exact:true}));
+  await tap(page.getByText('外观与语言',{exact:true}));
+  await tap(page.getByRole('button',{name:'深色模式'}));
+  await expect(page.locator('html')).toHaveClass(/dark/);
+  const header = page.locator('header').first();
+  const dark = await header.evaluate(el => getComputedStyle(el).backgroundColor);
+  await page.screenshot({path:`${out}/appearance-dark.png`});
+  await tap(page.getByRole('button',{name:'浅色模式'}));
+  await expect(page.locator('html')).not.toHaveClass(/dark/);
+  await expect.poll(() => header.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(dark);
+  checked('Android manual theme switch changes actual computed colors');
+  expect(errors).toEqual([]);
+  await tap(page.getByRole('tab',{name:'工作',exact:true}));
+  await page.screenshot({path:`${out}/ready-for-review.png`});
+  await writeFile(`${out}/result.json`,JSON.stringify({status:'passed',platform:'Android 15 APK WebView',checks},null,2));
+} catch(error) {
+  await page.screenshot({path:`${out}/failure.png`}).catch(()=>{});
+  await writeFile(`${out}/failure.json`,JSON.stringify({checks,error:String(error),errors},null,2));
+  throw error;
+} finally { await browser.close(); }

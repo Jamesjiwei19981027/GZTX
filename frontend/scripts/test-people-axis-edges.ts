@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { borderAnchor, floatingEdgePath, type RectCoords } from '../src/components/views/peopleAxisUtils'
+import { borderAnchor, floatingEdgePath, subordinatePortAnchor, type RectCoords } from '../src/components/views/peopleAxisUtils'
 
 function rect(centerX: number, centerY: number, width = 200, height = 100): RectCoords {
   return {
@@ -68,4 +68,31 @@ function rect(centerX: number, centerY: number, width = 200, height = 100): Rect
   assert.equal(d.includes('NaN'), false)
 }
 
-console.log('people-axis floating edges: 7 cases passed')
+// 8. Subordinate ports follow the group and remain distinct from project anchors.
+{
+  const source = rect(0,0)
+  const right = subordinatePortAnchor(source,[rect(400,0)],'horizontal')
+  const left = subordinatePortAnchor(source,[rect(-400,0)],'horizontal')
+  assert.equal(right.side,'right')
+  assert.equal(left.side,'left')
+  assert.notEqual(right.y,0)
+  const curve = floatingEdgePath(source,rect(400,0),right)
+  assert.ok(curve.startsWith(`M ${right.x} ${right.y} C `))
+}
+
+// 9. All subordinate edges share the port facing their visible group centroid.
+{
+  const source = rect(0,0)
+  const group = subordinatePortAnchor(source,[rect(400,100),rect(400,-100)],'vertical')
+  assert.deepEqual(group,subordinatePortAnchor(source,[rect(400,0)],'vertical'))
+}
+
+// 10. Sliding around a corner must not jump the separate attachment point.
+{
+  const source = rect(0,0)
+  const before = subordinatePortAnchor(source,[rect(200,99.99)],'vertical')
+  const after = subordinatePortAnchor(source,[rect(200,100.01)],'vertical')
+  assert.ok(Math.hypot(before.x-after.x,before.y-after.y)<0.5)
+}
+
+console.log('people-axis floating edges: 10 cases passed')

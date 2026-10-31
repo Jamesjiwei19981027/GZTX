@@ -17,6 +17,7 @@ const VIEW_MODES: ViewMode[] = [
   'messages',
   'inbox',
   'people-axis',
+  'knowledge',
   'notifications',
   'settings',
   'trash',
@@ -32,7 +33,8 @@ export type DeepLinkState = { view?: ViewMode; taskId?: string }
 export function readDeepLink(search?: string): DeepLinkState {
   if (typeof window === 'undefined' && search === undefined) return {}
   const params = new URLSearchParams(search ?? window.location.search)
-  const view = params.get('view')
+  const rawView = params.get('view')
+  const view = rawView === 'ai' ? 'reports' : rawView === 'me-knowledge' ? 'knowledge' : rawView
   const taskId = params.get('taskId')?.trim()
   return {
     ...(isViewMode(view) ? { view } : {}),

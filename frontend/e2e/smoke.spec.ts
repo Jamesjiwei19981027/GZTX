@@ -254,7 +254,8 @@ test('S9 回收站：删除任务 → 回收站可见 → 恢复 → 列表回�
   await page.getByTestId('task-delete').click()
   await expect(row).toHaveCount(0)
 
-  // 回收站可见该任务，点「恢复」后从回收站移除
+  // 次级页面收在「更多」分组：先展开，再进入回收站
+  await sidebar(page).getByRole('button', { name: /更多/ }).click()
   await openView(page, '回收站')
   const trashRow = page.getByTestId('trash-row').filter({ hasText: title })
   await expect(trashRow).toBeVisible()

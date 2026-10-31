@@ -1,0 +1,95 @@
+/**
+ * 移动端专属样式与设计 Token
+ * 仅在 .mobile-shell 与 APP 环境内生效，不污染桌面端布局与根字号
+ */
+
+:root {
+  --mobile-primary: #0058be;
+  --mobile-primary-active: #00419c;
+  --mobile-bg-light: #f2f2f7;
+  --mobile-bg-dark: #000000;
+  --mobile-card-light: #ffffff;
+  --mobile-card-dark: #1c1c1e;
+  --mobile-font-body: 16px;
+  --mobile-font-caption: 12px;
+  --mobile-font-nav-title: 18px;
+  --mobile-font-display-title: 22px;
+}
+
+[data-mobile-platform="ios"] {
+  --mobile-font-body: 17px;
+  --mobile-font-caption: 13px;
+  --mobile-font-nav-title: 17px;
+  --mobile-font-display-title: 28px;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "SF Pro Text", "Helvetica Neue", sans-serif;
+}
+
+/* 移动 Shell 容器样式 */
+.mobile-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--mobile-bg-light);
+  color: #1a1c1e;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.dark .mobile-shell {
+  background-color: var(--mobile-bg-dark);
+  color: #f1f0f4;
+}
+
+/* 安全区域：根据 safeAreaOwner 动态判定 */
+/* 当安全区归宿主 (native) 管理时，Flutter 已经计算了 SafeArea Padding，Web 端不再重复增加 */
+[data-safe-area-owner="web"] .mobile-safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+[data-safe-area-owner="web"] .mobile-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+[data-safe-area-owner="native"] .mobile-safe-top,
+[data-safe-area-owner="native"] .mobile-safe-bottom {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* 触控热区至少 48x48 像素 */
+.mobile-touch-target {
+  min-width: 48px;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 动效适配：系统开启减少动态效果或 bridge 传入 reduceMotion 时立即关闭复杂位移与过渡 */
+@media (prefers-reduced-motion: reduce) {
+  .mobile-shell *,
+  .mobile-shell *::before,
+  .mobile-shell *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+[data-reduce-motion="true"] *,
+[data-reduce-motion="true"] *::before,
+[data-reduce-motion="true"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* 移动端平滑滚动与弹性限制 */
+.mobile-scroll-container {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}

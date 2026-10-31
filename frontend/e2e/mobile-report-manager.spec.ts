@@ -1,0 +1,232 @@
+import { expect, test } from '@playwright/test';
+
+/**
+ * T09 管理者收件箱、项目对照汇总与总领导项目总览 E2E 验证
+ * 覆盖设计 ID 40、41、42、43、95、99、100
+ */
+test('Mobile manager report flow: Inbox, contrast, rollup, leadership overview & review', async ({ page }) => {
+  const calls: string[] = [];
+  let reportRead = false;
+
+  page.on('pageerror', (err) => console.log(`manager-report pageerror: ${err.message}`));
+
+  await page.route('**/api/v1/**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const path = url.pathname.replace('/api/v1', '');
+    calls.push(`${request.method()} ${path}`);
+
+    let data: unknown = {};
+
+    if (path === '/projects/1/report-agents/bindings' && request.method() === 'GET') {
+      data = {
+        items: [
+          { id: 101, user_id: 9, role: 'project', project_id: 1, is_active: true },
+          { id: 102, user_id: 7, role: 'member', project_id: 1, is_active: true },
+        ],
+      };
+    } else if (path === '/projects/1/report-agents/bindings' && request.method() === 'POST') {
+      data = {
+        items: [
+          { id: 101, user_id: 9, role: 'project', project_id: 1, is_active: true },
+          { id: 102, user_id: 7, role: 'member', project_id: 1, is_active: true },
+        ],
+      };
+    } else if (path === '/projects/1/agent-reports' && request.method() === 'GET') {
+      data = {
+        items: [
+          {
+            id: 201,
+            binding_id: 102,
+            author_user_id: 7,
+            parent_user_id: 9,
+            status: 'submitted',
+            summary_text: '完成工作台与任务详情原型',
+            submitted_at: '2026-10-19T09:00:00Z',
+            read: reportRead,
+            sources: [],
+          },
+        ],
+      };
+    } else if (path === '/reports/inbox') {
+      data = {
+        items: [
+          {
+            id: 201,
+            project_id: 1,
+            author_user_id: 7,
+            parent_user_id: 9,
+            status: 'submitted',
+            summary_text: '完成工作台与任务详情原型',
+            submitted_at: '2026-10-19T09:00:00Z',
+            read: reportRead,
+            read_at: reportRead ? '2026-10-19T09:30:00Z' : null,
+          },
+        ],
+      };
+    } else if (path === '/reports/inbox/201/read') {
+      reportRead = true;
+      data = { id: 201, read: true };
+    } else if (path === '/projects/1/agent-reports/aggregate') {
+      data = {
+        id: 301,
+        project_id: 1,
+        status: 'submitted',
+        summary_text: '项目周报：各端核心功能与汇报流转联调完毕',
+        payload_json: {
+          conflicts: [
+            {
+              type: 'task_status_mismatch',
+              task_id: 11,
+              report_ids: [201],
+              statuses: ['In Progress', 'Done'],
+              severity: 'warning',
+            },
+          ],
+        },
+      };
+    } else if (path === '/companies/1/leadership-reports/latest') {
+      data = {
+        id: 401,
+        company_id: 1,
+        leader_user_id: 9,
+        status: 'submitted',
+        summary_text: '跨项目总览：责任树与人轴权限调试正常',
+        created_at: '2026-10-19T10:00:00Z',
+      };
+    } else if (path === '/companies/1/leadership-reports/aggregate') {
+      data = {
+        id: 402,
+        company_id: 1,
+        leader_user_id: 9,
+        status: 'submitted',
+        summary_text: '总领导汇总：最新组织跨项目周报聚合完成',
+        created_at: '2026-10-19T10:30:00Z',
+      };
+    } else if (path === '/reports/201') {
+      data = {
+        id: 201,
+        project_id: 1,
+        author_user_id: 7,
+        parent_user_id: 9,
+        status: 'submitted',
+        summary_text: '完成工作台与任务详情原型',
+        submitted_at: '2026-10-19T09:00:00Z',
+        read: true,
+        sources: [],
+      };
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ code: 200, message: 'ok', data }),
+    });
+  });
+
+  // 渲染移动容器测试入口 (以项目管理者身份登入)
+  await page.route((url) => url.pathname === '/', (route) =>
+    route.fulfill({
+      contentType: 'text/html; charset=utf-8',
+      body: `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div>
+        <script type="module">
+        import RefreshRuntime from '/@react-refresh'; RefreshRuntime.injectIntoGlobalHook(window);
+        window.$RefreshReg$ = () => {}; window.$RefreshSig$ = () => (type) => type; window.__vite_plugin_react_preamble_installed__ = true;
+        </script>
+        <script type="module">
+        import React from '/node_modules/.vite/deps/react.js';
+        import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
+        import '/src/index.css';
+        import { MobileNavigationProvider } from '/src/mobile/navigation/MobileNavigationProvider.tsx';
+        import { MobileRouteOutlet } from '/src/mobile/navigation/MobileRouteOutlet.tsx';
+
+        const mockManager = { id: '9', name: '王宁', role: 'PM', avatar: 'W', email: 'wang@work.com' };
+        const mockProject = { id: '1', name: '责任树联合调试', description: 'desc', color: '#0058be', active: true };
+        const mockMembers = [
+          { id: '7', name: '林悦', role: '产品设计', avatar: 'L' },
+          { id: '9', name: '王宁', role: '项目管理者', avatar: 'W' },
+        ];
+        const mockSettings = { themeMode: 'light', accentColor: 'blue', language: 'zh', notifications: {}, taskDefaults: { priority: 'Medium', category: 'Work' } };
+
+        function App() {
+          return React.createElement(
+            MobileNavigationProvider,
+            { initialTab: 'ai' },
+            React.createElement(MobileRouteOutlet, {
+              user: mockManager,
+              tasks: [],
+              projects: [mockProject],
+              currentProject: mockProject,
+              onSelectProject: () => {},
+              activities: [],
+              settings: mockSettings,
+              companyId: 1,
+              projectMembers: mockMembers,
+              onSelectTask: () => {},
+              onOpenNewTask: () => {},
+              onToggleTaskCompletion: () => {},
+              onBatchComplete: async () => {},
+              onBatchReschedule: async () => {},
+              onBatchDelete: async () => {},
+              onUpdateUser: async () => {},
+              onUploadAvatar: async () => {},
+              onUpdateSettings: () => {},
+              onLogout: async () => {},
+              onOpenQuickAdd: () => {},
+              onOpenSearch: () => {},
+            })
+          );
+        }
+
+        ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+        </script></body></html>`,
+    }),
+  );
+
+  await page.goto('/');
+
+  // 1. 管理者可见管理者能力区
+  await expect(page.getByText('管理者能力')).toBeVisible();
+  await expect(page.getByText('下属汇报收件箱')).toBeVisible();
+
+  // 2. 进入 ID 40：下属汇报收件箱
+  await page.getByText('下属汇报收件箱').click();
+  await expect(page.getByRole('heading', { name: '下属汇报收件箱' })).toBeVisible();
+  await expect(page.getByText('林悦 · 产品设计')).toBeVisible();
+
+  // 点击未读项，自动触发 markReportRead 并进入详情
+  await page.getByText('林悦 · 产品设计').click();
+  await expect(page.getByText('汇报详情与版本')).toBeVisible();
+  expect(calls).toContain('PUT /reports/inbox/201/read');
+
+  // 返回收件箱
+  await page.getByRole('button', { name: '列表' }).click();
+
+  // 3. 点击 "汇总项目汇报" 进入 ID 42：项目汇总与发布
+  await page.getByRole('button', { name: '汇总项目汇报' }).click();
+  await expect(page.getByText('待管理者确认')).toBeVisible();
+  await expect(page.getByText('项目周报')).toBeVisible();
+
+  // 点击 "生成 / 更新项目汇总"
+  await page.getByRole('button', { name: '生成 / 更新项目汇总' }).click();
+  await expect(page.getByText('项目周报：各端核心功能与汇报流转联调完毕')).toBeVisible();
+
+  // 验证 G03 规范防御提示
+  await page.getByRole('button', { name: '确认发布项目摘要' }).click();
+  await expect(page.getByText(/G03 规范提示/)).toBeVisible();
+
+  // 4. 切换到 ID 41：资料对照
+  await page.getByRole('button', { name: '资料对照' }).click();
+  await expect(page.getByRole('heading', { name: '项目资料对照' })).toBeVisible();
+  await expect(page.getByText('交互原型验收')).toBeVisible();
+  await expect(page.getByText('存在差异')).toBeVisible();
+
+  // 5. 点击 "记录核验意见与差异裁决" 进入 ID 100：资料差异确认
+  await page.getByRole('button', { name: '记录核验意见与差异裁决' }).click();
+  await expect(page.getByRole('heading', { name: '资料差异确认' })).toBeVisible();
+  await expect(page.getByText('原型验收状态不一致')).toBeVisible();
+
+  // 记录核验意见并验证 G05 规范提示
+  await page.getByRole('button', { name: '记录核验意见' }).click();
+  await expect(page.getByText(/G05 规范提示/)).toBeVisible();
+});

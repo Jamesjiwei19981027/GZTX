@@ -1,4 +1,8 @@
 @import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+@import "./mobile/mobile.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --font-sans: 'Inter Variable', 'Noto Sans SC Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;

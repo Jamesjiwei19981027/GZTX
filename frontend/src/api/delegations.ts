@@ -1,5 +1,12 @@
 import { apiRequest } from './client'
 
+export const DELEGATION_SCOPE_DESCRIPTION = '将当前项目内勾选的操作权限委托给指定人员，可设置有效期或随时撤销。不授予手机或电脑本地文件的访问权限；查看材料仅限系统内已上传且授权范围内的项目材料。'
+
+/** The selected day remains valid through the end of that day in the user's timezone. */
+export function delegationValidTo(day: string): string | null {
+  return day ? new Date(`${day}T23:59:59`).toISOString() : null
+}
+
 /** 与后端 ALLOWED_DELEGATION_ACTIONS 对齐（backend/app/api/v1/delegations.py） */
 export const DELEGATION_ACTIONS: { key: string; zh: string; en: string }[] = [
   { key: 'progress.read', zh: '查看项目进度（进入项目视图的前提）', en: 'Read progress (required to view project)' },
@@ -7,8 +14,8 @@ export const DELEGATION_ACTIONS: { key: string; zh: string; en: string }[] = [
   { key: 'progress.nudge', zh: '催办进度', en: 'Nudge progress' },
   { key: 'evidence.read', zh: '查看材料', en: 'Read evidence' },
   { key: 'evidence.submit', zh: '提交材料', en: 'Submit evidence' },
-  { key: 'tree.edit_subtree', zh: '编辑负责子树', en: 'Edit owned subtree' },
-  { key: 'wiki.manual_write', zh: '编辑项目 Wiki', en: 'Edit project wiki' },
+  { key: 'tree.edit_subtree', zh: '编辑项目人轴人员与事项（全项目范围）', en: 'Edit people and work items across the project' },
+  { key: 'wiki.manual_write', zh: '编辑项目知识', en: 'Edit project knowledge' },
   { key: 'review.read', zh: '查看评审', en: 'Read reviews' },
   { key: 'review.confirm', zh: '确认评审', en: 'Confirm reviews' },
   { key: 'project.read', zh: '查看项目信息', en: 'Read project info' },

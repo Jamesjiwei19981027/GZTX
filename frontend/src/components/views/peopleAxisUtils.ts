@@ -74,14 +74,37 @@ function controlPoint(anchor: BorderAnchor, k: number): [number, number] {
  * the side it attaches to, so dragging either card keeps the edge glued and
  * curved without jumps.
  */
-export function floatingEdgePath(source: RectCoords, target: RectCoords): string {
-  const from = borderAnchor(source, target.centerX, target.centerY)
-  const to = borderAnchor(target, source.centerX, source.centerY)
+export function floatingEdgePath(source: RectCoords, target: RectCoords, sourceAnchor?: BorderAnchor): string {
+  const from = sourceAnchor || borderAnchor(source, target.centerX, target.centerY)
+  const to = borderAnchor(target, sourceAnchor?.x ?? source.centerX, sourceAnchor?.y ?? source.centerY)
   const dist = Math.hypot(to.x - from.x, to.y - from.y)
   const k = round2(Math.min(160, Math.max(28, dist * 0.42)))
   const [c1x, c1y] = controlPoint(from, k)
   const [c2x, c2y] = controlPoint(to, k)
   return `M ${from.x} ${from.y} C ${round2(c1x)} ${round2(c1y)}, ${round2(c2x)} ${round2(c2y)}, ${to.x} ${to.y}`
+}
+
+/** A shared, separate port faces the visible subordinate group as it moves. */
+export function subordinatePortAnchor(source: RectCoords, targets: RectCoords[], orientation: 'horizontal' | 'vertical'): BorderAnchor {
+  const tx = targets.length ? targets.reduce((sum, t) => sum + t.centerX, 0) / targets.length
+    : source.centerX + (orientation === 'horizontal' ? source.width : 0)
+  const ty = targets.length ? targets.reduce((sum, t) => sum + t.centerY, 0) / targets.length
+    : source.centerY + (orientation === 'vertical' ? source.height : 0)
+  const anchor = borderAnchor(source, tx, ty)
+  const {width: w, height: h, left, right, top, bottom} = source
+  // Offset along the perimeter, wrapping corners continuously instead of
+  // clamping each side independently and jumping when the facing side changes.
+  const distance = anchor.side === 'top' ? anchor.x - left
+    : anchor.side === 'right' ? w + anchor.y - top
+    : anchor.side === 'bottom' ? w + h + right - anchor.x
+    : 2 * w + h + bottom - anchor.y
+  const perimeter = 2 * (w + h)
+  if (!perimeter) return anchor
+  const p = (distance + 32) % perimeter
+  if (p < w) return {x:round2(left+p), y:top, side:'top'}
+  if (p < w+h) return {x:right, y:round2(top+p-w), side:'right'}
+  if (p < 2*w+h) return {x:round2(right-p+w+h), y:bottom, side:'bottom'}
+  return {x:left, y:round2(bottom-p+2*w+h), side:'left'}
 }
 
 /** Return the real average progress for a people-axis tree. */

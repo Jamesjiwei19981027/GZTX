@@ -8,6 +8,7 @@ import './assets/material-symbols-subset.css';
 import '@fontsource-variable/inter';
 import '@fontsource-variable/noto-sans-sc';
 import './index.css';
+import './mobile/mobile.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

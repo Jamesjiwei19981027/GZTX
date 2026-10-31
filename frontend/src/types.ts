@@ -1,7 +1,7 @@
 export type Priority = 'High' | 'Medium' | 'Low';
 export type Status = 'To Do' | 'In Progress' | 'Done';
 export type Category = 'Work' | 'Health' | 'Personal' | 'Shopping' | 'Documentation';
-export type ViewMode = 'dashboard' | 'tasks' | 'kanban' | 'calendar' | 'reports' | 'team' | 'messages' | 'inbox' | 'people-axis' | 'notifications' | 'settings' | 'trash';
+export type ViewMode = 'dashboard' | 'tasks' | 'kanban' | 'calendar' | 'reports' | 'team' | 'messages' | 'inbox' | 'people-axis' | 'knowledge' | 'notifications' | 'settings' | 'trash';
 export type Language = 'zh' | 'en';
 export type AccentColor = 'blue' | 'green' | 'amber' | 'red';
 
@@ -176,6 +176,8 @@ export interface PeopleAxisNode {
   isTerminalPM?: boolean; // "终责（项目 PM）独一无二：坐在轴的终点"
   orderOnAxis: number;
   roleTitle: string; // e.g. "技术总负责人", "产品设计", "最终交付PM"
+  nodeOrigin?: 'project' | 'subordinate';
+  responsibilityPermissions?: ResponsibilityPermissions;
   workItems: AxisWorkItem[]; // "工作项/里程碑/范围只能挂在某个「人」下面"
   /** 后端 primary/collaborator 责任人 user_id（与服务端 _owns_path 同口径，用于前端权限显隐） */
   ownerUserIds?: number[];
@@ -186,3 +188,23 @@ export interface PeopleAxisNode {
     suggestedActions: string[];
   };
 }
+
+export type ResponsibilityPermissions = {
+  channel_access?: boolean;
+  evidence_submit: 'inherit' | 'members' | 'responsible' | 'disabled';
+  allow_add_subordinates: boolean;
+  allow_add_work_items: boolean;
+};
+
+export type ResponsibilityNodeCapabilities = {
+  can_delete_person?: boolean;
+  can_move_person?: boolean;
+  can_manage_assignees?: boolean;
+  can_manage_channel_access?: boolean;
+  can_edit_person: boolean;
+  can_manage_permissions: boolean;
+  can_add_subordinate: boolean;
+  can_add_work_item: boolean;
+  can_submit_evidence: boolean;
+  can_read_evidence: boolean;
+};

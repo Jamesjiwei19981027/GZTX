@@ -32,5 +32,7 @@ check(readDeepLink(''), {}, '空 search')
 check(readDeepLink('?other=1'), {}, '无关参数')
 check(readDeepLink('?taskId=%20%20'), {}, '空白 taskId 视为无')
 check(readDeepLink('?invite=abc&view=team'), { view: 'team' }, '与邀请参数共存')
+check(readDeepLink('?view=ai'), { view: 'reports' }, '旧 AI 入口映射到工作助手')
+check(readDeepLink('?view=me-knowledge'), { view: 'knowledge' }, '旧个人知识链接直达知识')
 
 console.log(`deep link: ${count} assertions passed`)

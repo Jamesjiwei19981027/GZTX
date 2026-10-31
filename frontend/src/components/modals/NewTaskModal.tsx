@@ -165,7 +165,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+    <div role="dialog" aria-modal="true" aria-label={t.createTaskTitle} className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-surface dark:bg-[#2e3132] rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-surface-variant dark:border-outline my-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-6 pb-3 border-b border-surface-variant dark:border-outline-variant">

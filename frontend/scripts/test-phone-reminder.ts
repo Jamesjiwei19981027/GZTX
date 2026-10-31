@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { phoneReminderDue } from '../src/utils/phoneReminder';
+const store = new Map<string,string>();
+const storage = {getItem:(key:string)=>store.get(key) ?? null,setItem:(key:string,value:string)=>{store.set(key,value)}};
+const day = 86_400_000, start = 1000;
+assert.equal(phoneReminderDue(storage,'1',false,start),true);
+assert.equal(phoneReminderDue(storage,'1',false,start+day),true,'Every launch within the week prompts again');
+assert.equal(phoneReminderDue(storage,'1',false,start+7*day),false,'The window must not restart on a later launch');
+assert.equal(phoneReminderDue(storage,'1',true,start+day),false,'Verified account never prompts');
+assert.equal(phoneReminderDue(storage,'2',false,start+8*day),true,'Accounts have independent windows');
+assert.equal(phoneReminderDue(storage,'',false,start),false);
+console.log('Phone verification reminder window assertions passed');

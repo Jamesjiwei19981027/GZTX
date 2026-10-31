@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { AutoGrowingTextarea } from '../AutoGrowingTextarea';
+import { useKeyboardViewport } from '../../mobile/runtime/useKeyboardViewport';
 import { Task, Priority, Category, Language } from '../../types';
 import { getT } from '../../i18n';
 import { parseNlDate } from '../../utils/nlDate';
@@ -27,6 +29,7 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
   lang,
 }) => {
   const t = getT(lang);
+  const { bottomInset, visibleBottom } = useKeyboardViewport();
   const [text, setText] = useState('');
   const [priority, setPriority] = useState<Priority>('Medium');
   /** 手动点过优先级按钮后，不再被 `p0/p1/p2` 语法覆盖 */
@@ -113,12 +116,16 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t.quickAdd}
       className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-start justify-center pt-[18vh] p-4 animate-in fade-in duration-200"
+      style={{ bottom: bottomInset, paddingTop: bottomInset > 0 ? 16 : undefined }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-surface dark:bg-[#2e3132] rounded-2xl max-w-xl w-full p-5 shadow-2xl border border-surface-variant dark:border-outline">
+      <div style={{ maxHeight: Math.max(120, visibleBottom - (bottomInset > 0 ? 32 : window.innerHeight * .18 + 16)) }} className="overflow-y-auto bg-surface dark:bg-[#2e3132] rounded-2xl max-w-xl w-full p-5 shadow-2xl border border-surface-variant dark:border-outline">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2">
@@ -137,13 +144,20 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3">
           <div className="flex items-center bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant dark:border-outline rounded-xl px-3 focus-within:ring-2 focus-within:ring-primary transition-all">
             <span className="material-symbols-outlined text-on-surface-variant text-lg mr-1.5">add_task</span>
-            <input
-              type="text"
+            <AutoGrowingTextarea
+              rows={1}
+              maxRows={5}
               value={text}
               onChange={(e) => setText(e.target.value)}
               placeholder={t.quickAddPlaceholder}
               autoFocus
-              className="flex-1 bg-transparent border-none focus:outline-none focus:ring-0 py-3 text-sm font-semibold text-on-surface dark:text-[#f0f1f2] placeholder-on-surface-variant"
+              onKeyDown={event => {
+                if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing && event.keyCode !== 229) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 py-3 text-sm leading-6 font-semibold text-on-surface dark:text-[#f0f1f2] placeholder-on-surface-variant"
             />
           </div>
 

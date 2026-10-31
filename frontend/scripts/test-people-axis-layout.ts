@@ -7,8 +7,12 @@ import {
   collectHiddenNodeIds,
   CARD_W,
   CARD_H,
+  responsibilityScope,
 } from '../src/components/views/peopleAxisFlowLayout'
 import type { PeopleAxisNode, TeamMember } from '../src/types'
+import { mapTreeToPeopleAxis } from '../src/api/mappers'
+import type { BackendTreeNode } from '../src/api/backend'
+import { withAxisPersonMetadata } from '../src/api/axisPerson'
 
 let passed = 0
 function assert(cond: boolean, msg: string) {
@@ -39,41 +43,47 @@ const nodes = [
   node('g1', 'c1'),
 ]
 
-// --- 横向主轴 ---
-const h = computeAxisLayout(nodes, 'horizontal', {}, 0)
-assert(h.trunkOrder.join(',') === 'head,l1,l2', 'trunk order follows orderOnAxis')
-
-const center = (id: string) => {
-  const p = h.positions.get(id)!
-  return { x: p.x + CARD_W / 2, y: p.y + CARD_H / 2 }
+// Responsibility depth advances along the chosen orientation. Peers never
+// become each other's managers merely because of their display order.
+for (const orientation of ['horizontal', 'vertical'] as const) {
+  const layout = computeAxisLayout(nodes, orientation, {}, 0)
+  const main = (id: string) => orientation === 'horizontal' ? layout.positions.get(id)!.x : layout.positions.get(id)!.y
+  const cross = (id: string) => orientation === 'horizontal' ? layout.positions.get(id)!.y : layout.positions.get(id)!.x
+  assert(main('head') === main('l1') && main('l1') === main('l2'), `${orientation}: first-level owners share one tier`)
+  assert(main('c1') > main('l1') && main('g1') > main('c1'), `${orientation}: each reporting level advances`)
+  assert(main('c1') === main('c2') && cross('c1') !== cross('c2'), `${orientation}: siblings remain peers`)
+  const root = orientation === 'horizontal' ? layout.terminusPosition.x : layout.terminusPosition.y
+  assert(root < main('head'), `${orientation}: project final owner heads the hierarchy`)
+  const spaced = computeAxisLayout(nodes, orientation, {}, 120)
+  const spacedRoot = orientation === 'horizontal' ? spaced.terminusPosition.x : spaced.terminusPosition.y
+  assert(spacedRoot === root - 120, `${orientation}: spacing moves final owner away from the first tier`)
 }
-assert(center('head').x === 0 && center('head').y === 0, 'head sits on spine origin')
-assert(center('l1').x > center('head').x && center('l2').x > center('l1').x, 'stations advance along X')
-assert(center('l1').y < 0 !== center('l2').y < 0, 'stations alternate above/below the spine')
-assert(h.spineCoord === 0, 'spine stays at coord 0')
 
-// l1 的下属沿远离主轴方向外扩，孙辈更远
-const l1Side = Math.sign(center('l1').y)
-assert(Math.sign(center('c1').y) === l1Side && Math.abs(center('c1').y) > Math.abs(center('l1').y), 'children extend away from spine')
-assert(Math.abs(center('g1').y) > Math.abs(center('c1').y), 'grandchildren extend further')
-assert(center('c1').x !== center('c2').x && center('c1').y === center('c2').y, 'siblings spread along the axis')
-
-// 终责在最后一站之后
-const l2c = center('l2')
-assert(h.terminusPosition.x + 100 > l2c.x, 'terminus sits past the last station')
-
-// alongDelta 推移终责
-const h2 = computeAxisLayout(nodes, 'horizontal', {}, 120)
-assert(h2.terminusPosition.x - h.terminusPosition.x === 120, 'alongDelta shifts terminus along the axis')
-
-// --- 纵向主轴 ---
-const v = computeAxisLayout(nodes, 'vertical', {}, 0)
-const vCenter = (id: string) => {
-  const p = v.positions.get(id)!
-  return { x: p.x + CARD_W / 2, y: p.y + CARD_H / 2 }
+// Wide and deep branches must remain separate in either orientation, including
+// adjacent trunk owners with their own descendants.
+const wideTree = [
+  ...nodes,
+  ...Array.from({ length: 5 }, (_, i) => node(`c${i + 3}`, 'l1', i + 2)),
+  ...Array.from({ length: 4 }, (_, i) => node(`head-child-${i}`, 'head', i)),
+  node('g2', 'c2'), node('g3', 'c3'), node('l2-child', 'l2'),
+]
+for (const orientation of ['horizontal', 'vertical'] as const) {
+  const result = computeAxisLayout(wideTree, orientation, {}, 0)
+  const positions = [...result.positions.entries()]
+  for (let a = 0; a < positions.length; a++) {
+    for (let b = a + 1; b < positions.length; b++) {
+      const [aid, ap] = positions[a]
+      const [bid, bp] = positions[b]
+      assert(Math.abs(ap.x - bp.x) >= CARD_W + 16 || Math.abs(ap.y - bp.y) >= CARD_H + 16,
+        `${orientation}: cards ${aid}/${bid} have readable separation`)
+    }
+  }
+  const end = result.terminusPosition
+  assert(positions.every(([, p]) => orientation === 'horizontal'
+    ? end.x < p.x : end.y < p.y), `${orientation}: final owner precedes all branches`)
+  const collapsed = computeAxisLayout(wideTree, orientation, { l1: false }, 0)
+  assert(!collapsed.positions.has('c1') && !collapsed.positions.has('g1'), 'collapsed descendants have no canvas positions')
 }
-assert(vCenter('l1').y > vCenter('head').y && vCenter('l2').y > vCenter('l1').y, 'vertical stations advance along Y')
-assert(vCenter('l1').x < 0 !== vCenter('l2').x < 0, 'vertical stations alternate left/right')
 
 // --- 折叠隐藏 ---
 const hiddenAll = collectHiddenNodeIds(nodes, { l1: false })
@@ -82,4 +92,23 @@ assert(!hiddenAll.has('l1') && !hiddenAll.has('head'), 'collapsed parent itself 
 const hiddenLeaf = collectHiddenNodeIds(nodes, { c1: false })
 assert(hiddenLeaf.has('g1') && !hiddenLeaf.has('c2'), 'collapsing c1 hides only its branch')
 
-console.log(`people-axis metro layout: ${passed} assertions passed`)
+const scope = responsibilityScope(nodes, new Set(['c1']), null)
+assert(scope.direct.has('c1') && scope.mine.has('g1'), 'my scope includes assigned owner and descendants')
+assert(scope.visible.has('l1') && !scope.visible.has('c2') && !scope.visible.has('l2'), 'my scope retains management path without unrelated branches')
+assert(responsibilityScope(nodes, new Set(), null).visible.size === 0, 'unassigned members receive no invented responsibilities')
+const taskOwner = { ...node('task-owner', undefined), workItems: [{ id: 'assigned-task' }] } as PeopleAxisNode
+assert(responsibilityScope([taskOwner], new Set(['assigned-task']), null).direct.has('task-owner'), 'task assignments retain their responsible person in my view')
+const mapped = mapTreeToPeopleAxis([{
+  id: 100, node_type_key: 'person', title: '林悦', description: '设计负责人 / 体验部 / risk=low',
+  assignees: [{ user_id: 3, role_key: 'collaborator', display_name: '陈宇' }, { user_id: 2, role_key: 'primary', display_name: '林悦' }],
+} as BackendTreeNode])
+assert(mapped[0].person.name === '林悦', 'the primary owner is shown even when collaborators come first')
+assert(mapped[0].roleTitle === '设计负责人', 'persisted project role survives reload instead of becoming the person name')
+assert(mapped[0].person.department === '体验部', 'legacy person department survives reload and editing')
+const note = '保留原有项目分工说明'
+const description = withAxisPersonMetadata(note, { name: '刘洋', roleTitle: '客户端负责人', department: '研发部' })
+const editedDescription = withAxisPersonMetadata(description, { name: '王琳', roleTitle: '移动端负责人', department: '研发部' })
+const edited = mapTreeToPeopleAxis([{ id: 101, node_type_key: 'person', title: '旧姓名', description: editedDescription, assignees: [] } as unknown as BackendTreeNode])[0]
+assert(edited.person.name === '王琳' && edited.roleTitle === '移动端负责人', 'manual person and project role round-trip independently')
+assert(editedDescription.includes(note) && editedDescription.split('@axis-person ').length === 2, 'editing metadata preserves notes and replaces the existing record')
+console.log(`people-axis hierarchy: ${passed} assertions passed`)

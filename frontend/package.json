@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=5173 --host=0.0.0.0",
-    "test": "tsx scripts/test-calendar-utils.ts && tsx scripts/test-datetime-contract.ts && tsx scripts/test-quick-add-syntax.ts && tsx scripts/test-deep-link.ts && tsx scripts/test-people-axis-edges.ts && tsx scripts/test-people-axis-layout.ts && tsx scripts/test-notification-settings.ts && tsx scripts/test-task-assignments.ts && tsx scripts/test-messages-contract.ts && tsx scripts/test-calls-mail-contract.ts && tsx scripts/test-nl-date.ts && tsx scripts/test-material-symbols-subset.ts",
+    "test": "tsx scripts/test-calendar-utils.ts && tsx scripts/test-datetime-contract.ts && tsx scripts/test-quick-add-syntax.ts && tsx scripts/test-deep-link.ts && tsx scripts/test-people-axis-edges.ts && tsx scripts/test-people-axis-layout.ts && tsx scripts/test-notification-settings.ts && tsx scripts/test-task-assignments.ts && tsx scripts/test-messages-contract.ts && tsx scripts/test-calls-mail-contract.ts && tsx scripts/test-communication-contract.ts && tsx scripts/test-nl-date.ts && tsx scripts/test-material-symbols-subset.ts && tsx scripts/test-mobile-runtime.ts && tsx scripts/test-mobile-navigation.ts && tsx scripts/test-mobile-axis-and-evidence.ts && tsx scripts/test-mobile-settings.ts && tsx scripts/test-mobile-adaptation.ts",
     "icons:subset": "tsx scripts/subset-material-symbols.ts",
     "build": "vite build",
     "preview": "vite preview --port=5173 --host=0.0.0.0",

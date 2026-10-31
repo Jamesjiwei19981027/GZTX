@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { WorkContactsPage } from '../WorkContactsPage';
 import { MessageItem, Language, UserProfile, TeamMember, Task, MessageAttachment } from '../../types';
 import {
   likeChannelMessage,
@@ -8,7 +9,6 @@ import {
   postChannelMessage,
   postChannelMessageWithAttachments,
   listDirectConversations,
-  createDirectConversation,
   listDirectMessages,
   postDirectMessage,
   uploadChannelFile,
@@ -20,8 +20,15 @@ import {
   createPinnedLink,
   listUserActivity,
   getCallConfig,
+  createCallSession,
+  endCallSession,
+  uploadCallRecording,
+  transcribeCallSession,
+  summarizeCallSession,
+  createChannelSummary,
+  createConversationSummary,
 } from '../../api/shell';
-import type { CallConfig, CollabFile, DirectConversation } from '../../api/shell';
+import type { CallConfig, CollabFile, DirectConversation, CommunicationSummary } from '../../api/shell';
 import { getToken } from '../../api/client';
 
 interface MessagesViewProps {
@@ -79,6 +86,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const [presence, setPresence] = useState<Record<string, string>>({});
   const [conversations, setConversations] = useState<DirectConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<number | null>(null);
+  const [newChatOpen, setNewChatOpen] = useState(false);
   const [rightTab, setRightTab] = useState<'files' | 'tasks' | 'about'>('tasks');
   const [files, setFiles] = useState<CollabFile[]>([]);
   const [pinnedLinks, setPinnedLinks] = useState<{ id: number; title: string; url: string }[]>([]);
@@ -87,7 +95,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [activityItems, setActivityItems] = useState<{ id: number; type: string; title: string; created_at?: string }[]>([]);
+  const [communicationSummary, setCommunicationSummary] = useState<CommunicationSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const [callMode, setCallMode] = useState<'idle' | 'voice' | 'video'>('idle');
+  const [callSessionId, setCallSessionId] = useState<number | null>(null);
+  const [callSummary, setCallSummary] = useState<CommunicationSummary | null>(null);
   const [callConfig, setCallConfig] = useState<CallConfig | null>(null);
   const [callParticipants, setCallParticipants] = useState<number[]>([]);
   const [remoteConnected, setRemoteConnected] = useState(false);
@@ -98,6 +110,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const localMediaRef = useRef<HTMLVideoElement | null>(null);
   const remoteMediaRef = useRef<HTMLVideoElement | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recorderChunksRef = useRef<Blob[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** 单调递增的 load 序号，用来丢弃过期请求的结果 */
   const loadSeqRef = useRef(0);
@@ -195,6 +209,22 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     }
   }, [companyId, projectId, activeChannel, activeConversationId, lang, user.avatar]);
 
+  const summarizeCurrentConversation = async () => {
+    const scopeId = activeChannel === 'direct' ? activeConversationId : channelMap[activeChannel];
+    if (!scopeId) return;
+    setSummaryLoading(true);
+    try {
+      const result = activeChannel === 'direct'
+        ? await createConversationSummary(scopeId)
+        : await createChannelSummary(scopeId);
+      setCommunicationSummary(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '聊天总结失败');
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -284,15 +314,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     try {
       const attachments = attachmentUrl.trim() ? [{ url: attachmentUrl.trim(), name: attachmentUrl.trim().split('/').pop() || 'link' }] : [];
       if (activeChannel === 'direct') {
-        let conversationId = activeConversationId;
+        const conversationId = activeConversationId;
         if (!conversationId) {
-          const other = members.find((member) => member.id !== user.id)?.id;
-          if (!other) throw new Error(lang === 'zh' ? '暂无可用私信对象' : 'No direct-message recipient');
-          const conversation = await createDirectConversation(companyId, { member_user_ids: [Number(other)] });
-          conversationId = conversation.id;
-          setActiveConversationId(conversation.id);
-          const fileIds = await Promise.all(selectedFiles.map((file) => uploadConversationFile(conversation.id, file).then((item) => item.id)));
-          await postDirectMessage(conversation.id, text, attachments, fileIds);
+          setInputText(text);
+          setNewChatOpen(true);
+          throw new Error(lang === 'zh' ? '请先选择工作联系人' : 'Choose a work contact first');
         } else {
           const fileIds = await Promise.all(selectedFiles.map((file) => uploadConversationFile(conversationId as number, file).then((item) => item.id)));
           await postDirectMessage(conversationId as number, text, attachments, fileIds);
@@ -440,7 +466,33 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     }
   };
 
-  const endCall = () => {
+  const finishCallRecording = async (sessionId: number | null) => {
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    if (!recorder || !sessionId || recorder.state === 'inactive') return;
+    const blob = await new Promise<Blob | null>((resolve) => {
+      recorder.onstop = () => resolve(recorderChunksRef.current.length ? new Blob(recorderChunksRef.current, { type: recorder.mimeType || 'audio/webm' }) : null);
+      recorder.stop();
+    });
+    recorderChunksRef.current = [];
+    if (!blob || blob.size === 0) return;
+    const mime = blob.type || 'audio/webm';
+    const extension = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm';
+    try {
+      await uploadCallRecording(sessionId, new File([blob], `call-${sessionId}.${extension}`, { type: mime }));
+      const transcription = await transcribeCallSession(sessionId);
+      if (transcription.transcription_status === 'completed') {
+        setCallSummary(await summarizeCallSession(sessionId));
+      } else if (transcription.transcription_status === 'unavailable') {
+        setError(lang === 'zh' ? '通话已保存，但当前未配置真实语音转写服务' : 'Call saved, but live transcription is not configured');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '通话记录处理失败');
+    }
+  };
+
+  const endCall = async () => {
+    const sessionId = callSessionId;
     const socket = callSocketRef.current;
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ type: 'leave' }));
     socket?.close();
@@ -450,6 +502,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     pendingCandidatesRef.current.clear();
     mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
     mediaStreamRef.current = null;
+    await finishCallRecording(sessionId);
+    if (sessionId) {
+      await endCallSession(sessionId).catch(() => undefined);
+      setCallSessionId(null);
+    }
     if (localMediaRef.current) localMediaRef.current.srcObject = null;
     if (remoteMediaRef.current) remoteMediaRef.current.srcObject = null;
     if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
@@ -472,8 +529,16 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       return;
     }
     try {
-      endCall();
+      await endCall();
+      const session = await createCallSession({ conversation_id: activeConversationId, call_type: mode === 'voice' ? 'audio' : 'video', project_id: projectId && projectId !== 'all' ? Number(projectId) : undefined });
+      setCallSessionId(session.id);
       mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true, video: mode === 'video' });
+      if (typeof MediaRecorder !== 'undefined' && mediaStreamRef.current) {
+        const recorder = new MediaRecorder(mediaStreamRef.current);
+        recorder.ondataavailable = (event) => { if (event.data.size > 0) recorderChunksRef.current.push(event.data); };
+        recorder.start();
+        recorderRef.current = recorder;
+      }
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const token = getToken();
       const socket = new WebSocket(`${protocol}//${window.location.host}/api/v1/calls/ws/${activeConversationId}`);
@@ -502,7 +567,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       if (localMediaRef.current) localMediaRef.current.srcObject = mediaStreamRef.current;
     } catch (err) {
       setError(err instanceof Error ? err.message : (lang === 'zh' ? '未获得麦克风/摄像头权限' : 'Microphone/camera permission was denied'));
-      endCall();
+      await endCall();
     }
   };
 
@@ -541,6 +606,12 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     setShowEmojiPicker(false);
   };
 
+  if (newChatOpen) return <WorkContactsPage companyId={companyId || null} onBack={() => setNewChatOpen(false)}
+    onCreated={(id,title)=>{
+      setConversations(old => old.some(c=>c.id===id) ? old : [...old,{id,title,company_id:companyId!,kind:'direct',members:[]}]);
+      setActiveConversationId(id); setActiveChannel('direct'); setNewChatOpen(false);
+    }} />;
+
   return (
     <div className="space-y-6 animate-in pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-low p-6 rounded-3xl border border-outline-variant/30 shadow-xs">
@@ -571,6 +642,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
           )}
           <button type="button" onClick={() => void startCall('voice')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-xs font-bold text-on-surface-variant hover:text-primary" title="Voice call"><span className="material-symbols-outlined text-base">call</span></button>
           <button type="button" onClick={() => void startCall('video')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-xs font-bold text-on-surface-variant hover:text-primary" title="Video call"><span className="material-symbols-outlined text-base">videocam</span></button>
+          <button type="button" onClick={() => void summarizeCurrentConversation()} disabled={summaryLoading} className="px-2.5 py-2 rounded-xl border border-primary/30 text-xs font-bold text-primary hover:bg-primary/5 disabled:opacity-50" title="AI 总结聊天记录"><span className="material-symbols-outlined text-base">auto_awesome</span></button>
         </div>
       </div>
 
@@ -594,6 +666,21 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         <div className="px-4 py-2 rounded-xl bg-amber-50 text-amber-900 text-sm border border-amber-200">
           {error}
         </div>
+      )}
+
+      {communicationSummary && (
+        <section className="px-4 py-3 rounded-2xl bg-primary/5 border border-primary/20 text-sm space-y-1">
+          <div className="font-bold text-primary">AI 聊天总结 · {communicationSummary.source_count} 条来源</div>
+          <p className="whitespace-pre-wrap text-on-surface">{communicationSummary.summary_text}</p>
+          <div className="text-[11px] text-on-surface-variant">生成方式：{communicationSummary.provider}</div>
+        </section>
+      )}
+      {callSummary && (
+        <section className="px-4 py-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-sm space-y-1">
+          <div className="font-bold text-emerald-800">AI 通话总结 · {callSummary.source_count} 条转写来源</div>
+          <p className="whitespace-pre-wrap text-emerald-950">{callSummary.summary_text}</p>
+          <div className="text-[11px] text-emerald-700">生成方式：{callSummary.provider}</div>
+        </section>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
@@ -627,12 +714,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             ))}
             {activeChannel === 'direct' && (
               <div className="mt-3 pt-3 border-t border-outline-variant/30 space-y-1">
+                <button type="button" onClick={() => setNewChatOpen(true)} className="w-full px-3 py-2 rounded-lg text-primary text-left text-sm font-bold">{lang === 'zh' ? '新建私聊' : 'New private chat'}</button>
                 {conversations.map((conversation) => (
                   <button key={conversation.id} type="button" onClick={() => setActiveConversationId(conversation.id)} className={`w-full text-left px-3 py-2 rounded-lg text-xs ${activeConversationId === conversation.id ? 'bg-primary/10 text-primary font-bold' : 'text-on-surface-variant hover:bg-surface-container'}`}>
                     {conversation.title || conversation.members.map((member) => member.name).join(', ') || (lang === 'zh' ? '私信会话' : 'Direct conversation')}
                   </button>
                 ))}
-                {!conversations.length && <p className="text-[11px] text-on-surface-variant px-3">{lang === 'zh' ? '暂无私信会话，发送消息时创建。' : 'No direct conversations yet.'}</p>}
+                {!conversations.length && <p className="text-[11px] text-on-surface-variant px-3">{lang === 'zh' ? '暂无私信会话，请选择工作联系人。' : 'Choose a work contact to start a chat.'}</p>}
               </div>
             )}
           </div>

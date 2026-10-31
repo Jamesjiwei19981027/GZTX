@@ -11,6 +11,7 @@ import type {
   AxisEvidence,
 } from '../types'
 import { fromApiDueDate, toLocalDateString } from '../utils/datetime'
+import { readAxisPersonMetadata } from './axisPerson'
 import type { BackendUser } from './auth'
 import type {
   BackendMember,
@@ -200,16 +201,22 @@ export function mapTreeToPeopleAxis(
       for (const c of n.children || []) walkPerson(c, parentPersonId)
       return
     }
-    const primary = n.assignees?.[0]
+    const primary = n.assignees?.find(a => a.role_key === 'primary') || n.assignees?.[0]
+    const metadata = readAxisPersonMetadata(n.description)
+    const legacyParts = /(?:^|\/)\s*risk=(?:low|medium|high)\s*$/.test(n.description || '')
+      ? (n.description || '').split(' / ')
+      : []
     const person: TeamMember = {
       id: String(primary?.user_id ?? n.id),
       name:
         primary?.display_name ||
         primary?.nickname ||
         primary?.username ||
+        metadata.name ||
         n.title,
       role: '负责人',
       avatar: primary?.avatar_url || '',
+      department: metadata.department ?? (legacyParts.length >= 3 ? legacyParts[1].trim() : ''),
     }
     const matters: AxisWorkItem[] = []
     for (const c of n.children || []) {
@@ -231,7 +238,15 @@ export function mapTreeToPeopleAxis(
       parentId: parentPersonId,
       isTerminalPM: isTerminal,
       orderOnAxis: order++,
-      roleTitle: n.title,
+      // The person form stores title=name and description=role / department /
+      // risk=… . Recover that explicit form format without treating free notes
+      // on legacy nodes as job titles.
+      roleTitle: metadata.roleTitle || legacyParts[0]?.trim() || n.title,
+      nodeOrigin: n.node_origin || 'project',
+      responsibilityPermissions: {
+        evidence_submit: 'inherit', allow_add_subordinates: true, allow_add_work_items: true,
+        ...n.responsibility_permissions,
+      },
       workItems: matters,
       ownerUserIds,
       ...(offset ? { layoutOffset: offset } : {}),

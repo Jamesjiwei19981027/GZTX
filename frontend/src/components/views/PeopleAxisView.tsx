@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { PersonMembershipActions } from '../PersonMembershipActions';
+import { MaterialTextInput } from '../MaterialTextInput';
+import { inferEvidenceKind } from '../../utils/evidenceFiles';
 import type { Edge } from '@xyflow/react';
 import { PeopleAxisNode, AxisWorkItem, AxisEvidence, Language, TeamMember, Project } from '../../types';
-import { getT } from '../../i18n';
 import {
   createNode,
   getProject,
@@ -13,12 +15,18 @@ import {
   submitEvidence,
 } from '../../api/backend';
 import { mapMember, mapTreeToPeopleAxis } from '../../api/mappers';
+import { withAxisPersonMetadata } from '../../api/axisPerson';
 import { getMyPermissions, getPeopleAxisAggregate, putNodeLayout, runAxisAudit, MyProjectPermissions } from '../../api/shell';
 import { fetchMe } from '../../api/auth';
 import { averagePeopleAxisProgress } from './peopleAxisUtils';
-import { PeopleAxisFlowCanvas, AxisFlowNode, PersonNodeData, SpineEdgeData } from './PeopleAxisFlowCanvas';
-import { computeAxisLayout, collectHiddenNodeIds } from './peopleAxisFlowLayout';
+import { AxisFlowNode, PersonNodeData, SpineEdgeData } from './PeopleAxisFlowCanvas';
+import { computeAxisLayout, collectHiddenNodeIds, responsibilityScope } from './peopleAxisFlowLayout';
 import { DelegationModal } from '../modals/DelegationModal';
+import { ResponsibilityWorkspace, AxisDialog, useAxisMobile, type AxisProjectSummary } from './ResponsibilityWorkspace';
+import { EditResponsibilityPerson } from './EditResponsibilityPerson';
+import { ResponsibilityPermissionFields, defaultResponsibilityPermissions } from './ResponsibilityPermissionFields';
+import { ProjectWikiPanel } from './ProjectWikiPanel';
+import { uploadEvidenceFile } from '../../api/projectWiki';
 
 const TERMINUS_NODE_ID = '__terminus__';
 
@@ -120,12 +128,23 @@ interface PeopleAxisViewProps {
 }
 
 export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId, projects, onSelectProject }) => {
-  const t = getT(lang);
+  const mobile = useAxisMobile();
+  const activeProjectRef = useRef(projectId);
+  activeProjectRef.current = projectId;
+  const [projectName, setProjectName] = useState('');
+  const [projectCreator, setProjectCreator] = useState<number | null>(null);
+  const [finalOwner, setFinalOwner] = useState({ name: lang === 'zh' ? '待指定' : 'Unassigned', avatar: '' });
   const [nodes, setNodes] = useState<PeopleAxisNode[]>([]);
+  const [projectSummaries, setProjectSummaries] = useState<AxisProjectSummary[]>([]);
+  const [scopeChoice, setScopeChoice] = useState<'auto' | 'mine' | 'project'>('auto');
+  const [loadVersion, setLoadVersion] = useState(0);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [backendLoadError, setBackendLoadError] = useState<string | null>(null);
   const [projectMembers, setProjectMembers] = useState<TeamMember[]>([]);
   const [isAddingNode, setIsAddingNode] = useState(false);
+  const [newNodeOrigin, setNewNodeOrigin] = useState<'project' | 'subordinate'>('project');
+  const [newNodePermissions, setNewNodePermissions] = useState(defaultResponsibilityPermissions);
+  const [editingPerson, setEditingPerson] = useState<{ nodeId: number; projectId: string } | null>(null);
   const isBackendProject = Boolean(projectId && projectId !== 'all' && Number(projectId) > 0);
   const backendProjectId = isBackendProject ? Number(projectId) : 0;
   const memberOptions = projectMembers;
@@ -145,15 +164,26 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const [auditLoading, setAuditLoading] = useState(false);
 
   // Flagship Visual Controls
-  const [treeOrientation, setTreeOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
+  const [treeOrientation, setTreeOrientation] = useState<'horizontal' | 'vertical'>(() => mobile ? 'vertical' : 'horizontal');
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
   // 用户拖拽产生的偏移（叠加在布局基准位置上，落盘到后端 layout）
   const [dragOffsets, setDragOffsets] = useState<Record<string, { x: number; y: number }>>({});
   const dragOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
+  const layoutSavesRef = useRef(new Map<number, Promise<unknown>>());
+  const savedOffsetsRef = useRef(new Map<number, {x: number; y: number}>());
+  const saveNodeOffset = useCallback((nodeId: number, offset: { x: number; y: number }) => {
+    // Preserve drag/reset order even when an earlier request is slow or fails.
+    const pending = (layoutSavesRef.current.get(nodeId) || Promise.resolve())
+      .catch(() => undefined).then(() => putNodeLayout(nodeId, offset))
+      .then(result => { savedOffsetsRef.current.set(nodeId, offset); return result; });
+    layoutSavesRef.current.set(nodeId, pending);
+    const clear = () => { if (layoutSavesRef.current.get(nodeId) === pending) layoutSavesRef.current.delete(nodeId); };
+    void pending.then(clear, clear);
+    return pending;
+  }, []);
 
   // Mobile bottom sheet with the description / progress / controls that the
   // desktop layout shows above the canvas.
-  const [showMobileInfo, setShowMobileInfo] = useState(false);
   // 移动端底部面板重置布局后通知画布重新取景（桌面工具条自带 fitView，不走此通道）
   const [canvasResetToken, setCanvasResetToken] = useState(0);
 
@@ -167,9 +197,12 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const [newWorkDueDate, setNewWorkDueDate] = useState('');
   const [newWorkDesc, setNewWorkDesc] = useState('');
   
-  const [newEvTitle, setNewEvTitle] = useState('');
-  const [newEvType, setNewEvType] = useState<'commit' | 'document' | 'figma' | 'log' | 'delivery'>('commit');
-  const [newEvUrl, setNewEvUrl] = useState('#url-proof');
+  const [newEvDescription, setNewEvDescription] = useState('');
+  const [newEvFiles, setNewEvFiles] = useState<File[]>([]);
+  const [evidenceVoiceBusy, setEvidenceVoiceBusy] = useState(false);
+  const [wikiProject, setWikiProject] = useState<{ id: number; name: string } | null>(null);
+  useEffect(() => { setWikiProject(null); setNewEvDescription(''); setNewEvFiles([]); }, [projectId]);
+  useEffect(() => { setNewEvDescription(''); setNewEvFiles([]); }, [isAddingEvidence]);
 
   // Draw.io Interactive Re-linking & Mounting States
   const [linkingSourceNodeId, setLinkingSourceNodeId] = useState<string | null>(null);
@@ -183,52 +216,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const [customDept, setCustomDept] = useState('');
   const [customWorkScope, setCustomWorkScope] = useState('');
   const [customRiskLevel, setCustomRiskLevel] = useState<'low' | 'medium' | 'high'>('low');
-
-  // Palette Drag & Drop States
-  interface PaletteTemplate {
-    id: string;
-    type: 'trunk-leader' | 'subordinate' | 'vendor-lead';
-    title: string;
-    icon: string;
-    defaultRole: string;
-    defaultDept: string;
-  }
-
-  const PALETTE_TEMPLATES: PaletteTemplate[] = [
-    {
-      id: 'tmpl-trunk',
-      type: 'trunk-leader',
-      title: lang === 'zh' ? '🏢 主干部门主管' : '🏢 Trunk Dept Director',
-      icon: 'domain',
-      defaultRole: lang === 'zh' ? '主轴部门负责人' : 'Trunk Dept Director',
-      defaultDept: lang === 'zh' ? '系统工程与总体部' : 'Systems Engineering'
-    },
-    {
-      id: 'tmpl-expert',
-      type: 'subordinate',
-      title: lang === 'zh' ? '👤 归口责任专家' : '👤 Task Expert',
-      icon: 'engineering',
-      defaultRole: lang === 'zh' ? '专项责任专家' : 'Specialist Leader',
-      defaultDept: lang === 'zh' ? '核心技术组' : 'Core Technology'
-    },
-    {
-      id: 'tmpl-vendor',
-      type: 'vendor-lead',
-      title: lang === 'zh' ? '🛠️ 厂商交付接口' : '🛠️ Vendor Lead',
-      icon: 'handshake',
-      defaultRole: lang === 'zh' ? '第三方厂家交付责任人' : 'Vendor Delivery Lead',
-      defaultDept: lang === 'zh' ? '外部协作与配套厂' : 'External Vendors'
-    }
-  ];
-
-  const [paletteDraggingItem, setPaletteDraggingItem] = useState<PaletteTemplate | null>(null);
-  const [paletteDragPos, setPaletteDragPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const [dropHoverTarget, setDropHoverTarget] = useState<{
-    type: 'trunk' | 'node';
-    nodeId?: string;
-    x: number;
-    y: number;
-  } | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToastMessage(msg);
@@ -275,10 +262,28 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     return () => {
       cancelled = true;
     };
-  }, [isBackendProject, backendProjectId]);
+  }, [isBackendProject, backendProjectId, loadVersion]);
 
   useEffect(() => {
     let cancelled = false;
+    setNodes([]);
+    setProjectSummaries([]);
+    setScopeChoice('auto');
+    setSelectedNodeId(null);
+    setLinkingSourceNodeId(null);
+    setLinkingHoveredTargetId(null);
+    setIsAddingNode(false);
+    setEditingPerson(null);
+    setIsAddingWorkItem(null);
+    setIsAddingEvidence(null);
+    setIsDelegationOpen(false);
+    setProjectName('');
+    setProjectCreator(null);
+    setProjectCompanyId(null);
+    setProjectMembers([]);
+    setPmUserId(null);
+    setAlongDelta(0);
+    setFinalOwner({ name: lang === 'zh' ? '待指定' : 'Unassigned', avatar: '' });
     const apply = (loaded: PeopleAxisNode[]) => {
       if (cancelled) return;
       setNodes(loaded);
@@ -288,12 +293,14 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         initialExpanded[n.id] = true;
         const lo = (n as PeopleAxisNode & { layoutOffset?: { x: number; y: number } }).layoutOffset;
         if (lo) offsets[n.id] = { x: lo.x, y: lo.y };
+        const backendId = asBackendId(n.id);
+        if (backendId != null && !layoutSavesRef.current.has(backendId)) savedOffsetsRef.current.set(backendId, lo || {x:0,y:0});
       });
       setExpandedNodes(initialExpanded);
       // ref 需与加载的偏移同步，否则「重置布局」会漏掉本会话未拖动过的后端旧偏移
       dragOffsetsRef.current = offsets;
       setDragOffsets(offsets);
-      setSelectedNodeId(loaded[0]?.id ?? null);
+      setSelectedNodeId(null);
     };
 
     const pid = projectId && projectId !== 'all' ? Number(projectId) : NaN;
@@ -303,7 +310,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       setBackendLoadError(null);
       void getPeopleAxisAggregate().then(async (result) => {
         if (cancelled) return;
-        const aggregate: PeopleAxisNode[] = [];
+        const summaries: AxisProjectSummary[] = [];
         for (const project of result.projects || []) {
           const raw = (project.nodes || []) as Array<Record<string, unknown> & { id: number; parent_id?: number | null; children?: unknown[] }>;
           const byId = new Map<number, Record<string, unknown> & { id: number; parent_id?: number | null; children?: unknown[] }>();
@@ -314,12 +321,17 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
             if (parent) parent.children = [...(parent.children || []), node];
             else roots.push(node);
           });
-          aggregate.push(...mapTreeToPeopleAxis(roots as never[]));
+          summaries.push({
+            id: String(project.project_id), name: project.project_name,
+            nodes: mapTreeToPeopleAxis(roots as never[], project.final_owner_user_id ?? project.pm_user_id),
+            myRole: project.my_role || 'member',
+            ownedNodeIds: (project.my_owned_node_ids || []).map(String),
+          });
         }
-        const withEvidence = await enrichMattersWithEvidence(aggregate);
         if (cancelled) return;
-        apply(withEvidence);
-        setBackendLoadError(withEvidence.length ? (lang === 'zh' ? '全盘人轴为只读聚合视图；用旁边的选择器切到具体项目即可编辑。' : 'Cross-project axis is read-only; choose a project to edit.') : (lang === 'zh' ? '暂无可见项目人轴节点。' : 'No visible people-axis nodes.'));
+        apply([]);
+        setProjectSummaries(summaries);
+        setBackendLoadError(null);
         setSyncStatus('synced');
       }).catch((error) => {
         if (!cancelled) { apply([]); setBackendLoadError(error instanceof Error ? error.message : '加载人轴失败'); setSyncStatus('synced'); }
@@ -357,12 +369,21 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         );
         const withEvidence = await enrichMattersWithEvidence(mapped);
         if (cancelled) return;
+        setProjectName(proj.name);
+        setProjectCreator(proj.created_by ?? null);
+        const ownerId = proj.final_owner_user_id ?? proj.pm_user_id;
+        const ownerMember = mappedMembers.find(m => Number(m.id) === ownerId);
+        setFinalOwner({
+          name: proj.final_owner?.nickname || proj.final_owner?.username || ownerMember?.name || (lang === 'zh' ? '待指定' : 'Unassigned'),
+          avatar: proj.final_owner?.avatar_url || ownerMember?.avatar || '',
+        });
         setAlongDelta(proj.final_owner_along_delta || 0);
         setPmUserId(proj.pm_user_id ?? null);
         setProjectCompanyId(proj.company_id ?? null);
         apply(withEvidence);
         // 空项目不再挂 amber 提示条，改由画布内的首触引导空状态承接
       } catch (e) {
+        if (cancelled) return;
         apply([]);
         setBackendLoadError(
           e instanceof Error
@@ -379,24 +400,28 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     return () => {
       cancelled = true;
     };
-  }, [projectId, lang]);
+  }, [projectId, lang, loadVersion]);
 
   const reloadAxisFromBackend = useCallback(async () => {
-    if (!isBackendProject) return;
+    const isCurrent = () => activeProjectRef.current === String(backendProjectId);
+    if (!isBackendProject || !isCurrent()) return;
     setSyncStatus('syncing');
     try {
-      const [proj, tree] = await Promise.all([
+      const [proj, tree, permissions] = await Promise.all([
         getProject(backendProjectId),
         getProjectTree(backendProjectId),
+        getMyPermissions(backendProjectId),
       ]);
       const mapped = mapTreeToPeopleAxis(
         tree.nodes || [],
         proj.final_owner_user_id ?? proj.pm_user_id,
       );
       const withEvidence = await enrichMattersWithEvidence(mapped);
+      if (!isCurrent()) return;
       setPmUserId(proj.pm_user_id ?? null);
       setProjectCompanyId(proj.company_id ?? null);
       setNodes(withEvidence);
+      setServerPerms(permissions);
       setExpandedNodes((prev) => {
         const next = { ...prev };
         withEvidence.forEach((n) => {
@@ -406,9 +431,9 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       });
       setBackendLoadError(null);
     } catch (e) {
-      showToast(e instanceof Error ? e.message : '刷新失败');
+      if (isCurrent()) showToast(e instanceof Error ? e.message : '刷新失败');
     } finally {
-      setSyncStatus('synced');
+      if (isCurrent()) setSyncStatus('synced');
     }
   }, [isBackendProject, backendProjectId, showToast]);
 
@@ -567,102 +592,33 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   }, [isBackendProject, serverPerms, meId, nodes]);
 
   /** 至少拥有一个可挂载位置（PM 任意；成员需名下有节点） */
-  const canMountSomething = canEditAny || editableNodeIds.size > 0;
+  const canAddSubordinate = (id: string) => serverPerms?.node_permissions
+    ? !!serverPerms.node_permissions[id]?.can_add_subordinate
+    : canEditAny || editableNodeIds.has(id);
+  const canAddWorkItem = (id: string) => serverPerms?.node_permissions
+    ? !!serverPerms.node_permissions[id]?.can_add_work_item
+    : canEditAny || editableNodeIds.has(id);
+  const canSubmitEvidence = (id: string) => serverPerms?.node_permissions
+    ? !!serverPerms.node_permissions[id]?.can_submit_evidence
+    : !!serverPerms?.can_submit_evidence;
+  const canMountSomething = canMoveNodes || nodes.some(node => canAddSubordinate(node.id));
 
-  /** 首触引导：具体项目已加载完但一个节点都没有 */
-  const showEmptyOnboarding =
-    isBackendProject && nodes.length === 0 && syncStatus === 'synced' && !backendLoadError;
-
-  // 调色板落子：不再自动生成随机人员，而是打开预填好的挂载弹窗，由用户自定义后确认
-  const openPaletteMountModal = useCallback((
-    template: PaletteTemplate,
-    target: { type: 'trunk' | 'node'; nodeId?: string }
-  ) => {
-    if (!isBackendProject) {
-      showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择要编辑的项目' : 'Read-only aggregate: pick a project in the banner above first');
-      return;
-    }
-    if (target.type === 'trunk' && !canEditAny) {
-      showToast(lang === 'zh' ? '仅项目 PM 可在主干挂载责任人' : 'Only the project PM can add trunk leaders');
-      return;
-    }
-    if (target.type === 'node' && !canEditAny && !editableNodeIds.has(target.nodeId || '')) {
-      showToast(lang === 'zh' ? '只能在自己负责的节点下挂载下属' : 'You can only mount under nodes you own');
-      return;
-    }
-    setNewParentId(target.type === 'node' && target.nodeId ? target.nodeId : '');
-    setIsCustomPerson(template.type === 'vendor-lead' || memberOptions.length === 0);
-    setCustomName('');
-    setCustomRole(template.defaultRole);
-    setCustomDept(template.defaultDept);
-    setNewRoleTitle(template.defaultRole);
-    setIsAddingNode(true);
-  }, [isBackendProject, lang, showToast, memberOptions.length, canEditAny, editableNodeIds]);
-
-  // Global Pointer Move and Up Listener for Palette Drag-and-Drop
-  useEffect(() => {
-    if (!paletteDraggingItem) return;
-
-    const handleMouseMove = (e: PointerEvent) => {
-      setPaletteDragPos({ x: e.clientX, y: e.clientY });
-
-      // Hit test over node cards (React Flow 节点上保留了 data-node-anchor)
-      const elements = document.elementsFromPoint(e.clientX, e.clientY);
-      for (const el of elements) {
-        const anchorEl = (el as HTMLElement).closest('[data-node-anchor]') as HTMLElement | null;
-        if (anchorEl) {
-          const nodeId = anchorEl.getAttribute('data-node-anchor');
-          if (nodeId) {
-            setDropHoverTarget({ type: 'node', nodeId, x: 0, y: 0 });
-            return;
-          }
-        }
-      }
-
-      // 只有落在画布区域内才算主轴落点；仍停留在调色板上视作未拖出（走 click 逻辑）
-      const overCanvas = elements.some((el) => (el as HTMLElement).closest?.('.react-flow'));
-      setDropHoverTarget(overCanvas ? { type: 'trunk', x: 0, y: 0 } : null);
-    };
-
-    const handleMouseUp = () => {
-      if (paletteDraggingItem && dropHoverTarget) {
-        openPaletteMountModal(paletteDraggingItem, dropHoverTarget);
-      }
-      setPaletteDraggingItem(null);
-      setDropHoverTarget(null);
-    };
-
-    // 触屏上浏览器接管手势（如滚动）会发 pointercancel：只清理状态，绝不执行 drop
-    const handlePointerCancel = () => {
-      setPaletteDraggingItem(null);
-      setDropHoverTarget(null);
-    };
-
-    window.addEventListener('pointermove', handleMouseMove);
-    window.addEventListener('pointerup', handleMouseUp);
-    window.addEventListener('pointercancel', handlePointerCancel);
-    return () => {
-      window.removeEventListener('pointermove', handleMouseMove);
-      window.removeEventListener('pointerup', handleMouseUp);
-      window.removeEventListener('pointercancel', handlePointerCancel);
-    };
-  }, [paletteDraggingItem, dropHoverTarget, openPaletteMountModal]);
-
-  const handlePaletteDragStart = (template: PaletteTemplate, e: React.PointerEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setPaletteDraggingItem(template);
-    setPaletteDragPos({ x: e.clientX, y: e.clientY });
-  };
+  const myScope = useMemo(() => responsibilityScope(nodes,
+    serverPerms ? new Set(serverPerms.owned_node_ids.map(String)) : null, meId), [nodes, serverPerms, meId]);
+  const isProjectPM = serverPerms?.is_pm || meId != null && pmUserId === meId;
+  const scope = scopeChoice === 'auto' ? (!canEditAny && myScope.direct.size > 0 ? 'mine' : 'project') : scopeChoice;
+  const scopedNodes = useMemo(() => scope === 'mine' && !isProjectPM
+    ? nodes.filter(n => myScope.visible.has(n.id)) : nodes, [scope, nodes, isProjectPM, myScope]);
+  const myRoleTitles = nodes.filter(n => myScope.direct.has(n.id)).map(n => n.roleTitle);
+  const roleLabel = isProjectPM ? (lang === 'zh' ? '项目 PM · 统筹项目' : 'Project PM')
+    : myRoleTitles.length ? [...new Set(myRoleTitles)].join(' / ')
+    : serverPerms?.via_delegation ? (lang === 'zh' ? '项目委托管理' : 'Delegated manager')
+    : serverPerms?.is_superadmin ? (lang === 'zh' ? '公司管理员' : 'Company admin')
+    : (lang === 'zh' ? '项目成员 · 尚未分配职责' : 'Member · no assigned responsibility');
 
   // Overall Project Director (Station 0, Head of the Subway Trunk Line)
   const headLeaderNode = useMemo(() => {
     return mainTrunkNodes[0] || null;
-  }, [mainTrunkNodes]);
-
-  // Other Department / Vendor Leaders sitting along the main subway line
-  const sideLeaderNodes = useMemo(() => {
-    return mainTrunkNodes.slice(1);
   }, [mainTrunkNodes]);
 
   const getChildNodes = useCallback((parentId: string) => {
@@ -675,16 +631,17 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const toggleExpandNode = (nodeId: string) => {
     setExpandedNodes(prev => ({
       ...prev,
-      [nodeId]: !prev[nodeId]
+      [nodeId]: prev[nodeId] === false
     }));
   };
 
   /* ---------------- React Flow 画布数据装配 ---------------- */
 
-  // 布局基准位置（地铁主轴 + 分层下属）；拖拽偏移叠加其上
+  // Automatic hierarchy plus persisted manual positions. Moving a card never
+  // changes its reporting relationship; that uses the explicit re-link action.
   const layout = useMemo(
-    () => computeAxisLayout(nodes, treeOrientation, expandedNodes, alongDelta),
-    [nodes, treeOrientation, expandedNodes, alongDelta],
+    () => computeAxisLayout(scopedNodes, treeOrientation, expandedNodes, alongDelta),
+    [scopedNodes, treeOrientation, expandedNodes, alongDelta],
   );
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
@@ -697,13 +654,15 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const rfNodes = useMemo<AxisFlowNode[]>(() => {
     const list: AxisFlowNode[] = [];
     nodes.forEach((n) => {
-      if (hiddenNodeIds.has(n.id)) return;
-      const base = layout.positions.get(n.id);
-      if (!base) return;
+      const hidden = hiddenNodeIds.has(n.id) || !layout.positions.has(n.id);
+      const base = layout.positions.get(n.id) || { x: 0, y: 0 };
       const off = dragOffsets[n.id] || { x: 0, y: 0 };
       const data: PersonNodeData = {
         node: n,
         lang,
+        level: layout.levels.get(n.id) || 1,
+        isMine: myScope.direct.has(n.id),
+        isScopeContext: scope === 'mine' && !isProjectPM && !myScope.mine.has(n.id),
         isOverallLeader: headLeaderNode?.id === n.id,
         isMainAxisLeader: !n.parentId,
         isSelected: selectedNodeId === n.id,
@@ -716,6 +675,13 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           linkingHoveredTargetId === n.id &&
           linkingSourceNodeId !== n.id,
         canEdit: canEditAny || editableNodeIds.has(n.id),
+        canAddSubordinate: canAddSubordinate(n.id),
+        canAddWorkItem: canAddWorkItem(n.id),
+        canSubmitEvidence: canSubmitEvidence(n.id) || n.workItems.some(item => canSubmitEvidence(item.id)),
+        evidenceItemPermissions: Object.fromEntries(n.workItems.map(item => [item.id, canSubmitEvidence(item.id)])),
+        canReadEvidence: !!serverPerms?.can_read_evidence,
+        orientation: treeOrientation,
+        mobile,
         canRelink: canMoveNodes,
         onCardClick: (id) => {
           if (linkingSourceNodeId) {
@@ -726,7 +692,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         },
         onToggleExpand: toggleExpandNode,
         onAddWorkItem: (id) => {
-          if (isBackendProject && !canEditAny && !editableNodeIds.has(id)) {
+          if (!canAddWorkItem(id)) {
             showToast(lang === 'zh' ? '只能给自己负责的节点挂载事项' : 'You can only attach items under nodes you own');
             return;
           }
@@ -737,12 +703,19 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
             showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择要编辑的项目' : 'Select a concrete project first');
             return;
           }
-          if (!canEditAny && !editableNodeIds.has(id)) {
+          if (!canAddSubordinate(id)) {
             showToast(lang === 'zh' ? '只能在自己负责的节点下挂载下属' : 'You can only mount under nodes you own');
             return;
           }
           setNewParentId(id);
+          setNewNodeOrigin('subordinate');
+          setNewNodePermissions(defaultResponsibilityPermissions);
           setIsAddingNode(true);
+        },
+        onEditPerson: (id) => {
+          if (!isBackendProject || !canEditAny && !editableNodeIds.has(id)) return;
+          const nodeId = asBackendId(id);
+          if (nodeId != null) setEditingPerson({ nodeId, projectId: String(backendProjectId) });
         },
         onToggleLinking: (id) => {
           if (!canMoveNodes) {
@@ -767,6 +740,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       list.push({
         id: n.id,
         type: 'person',
+        hidden,
         position: { x: base.x + off.x, y: base.y + off.y },
         data,
         // 布局偏移的持久化接口同样要求编辑权限，无权节点不可拖，避免 403
@@ -778,7 +752,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         id: TERMINUS_NODE_ID,
         type: 'terminus',
         position: layout.terminusPosition,
-        data: { lang, progress: totalProjectProgress },
+        data: { lang, progress: totalProjectProgress, name: finalOwner.name, avatar: finalOwner.avatar },
         draggable: false,
       });
     }
@@ -788,37 +762,28 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     nodes, hiddenNodeIds, layout, dragOffsets, headLeaderNode, lang,
     selectedNodeId, expandedNodes, linkingSourceNodeId, linkingHoveredTargetId,
     getChildNodes, totalProjectProgress, showToast, isBackendProject,
-    canEditAny, canMoveNodes, editableNodeIds,
+    canEditAny, canMoveNodes, editableNodeIds, mobile, finalOwner, myScope, scope, isProjectPM, serverPerms, treeOrientation,
   ]);
 
   const rfEdges = useMemo<Edge[]>(() => {
     const edges: Edge[] = [];
     const spineData: SpineEdgeData = { orientation: treeOrientation, spineCoord: layout.spineCoord };
-    layout.trunkOrder.forEach((id, i) => {
-      if (i === 0) return;
-      edges.push({ id: `spine-${i}`, source: layout.trunkOrder[i - 1], target: id, type: 'spine', data: spineData });
+    layout.trunkOrder.forEach(id => {
+      edges.push({ id: `project-owner-${id}`, source: TERMINUS_NODE_ID, target: id, type: 'spine', data: spineData });
     });
-    if (layout.trunkOrder.length > 0) {
-      edges.push({
-        id: 'spine-terminus',
-        source: layout.trunkOrder[layout.trunkOrder.length - 1],
-        target: TERMINUS_NODE_ID,
-        type: 'spine',
-        data: spineData,
-      });
-    }
-    nodes.forEach((n) => {
+    scopedNodes.forEach((n) => {
       if (!n.parentId) return;
       if (hiddenNodeIds.has(n.id) || hiddenNodeIds.has(n.parentId)) return;
-      edges.push({ id: `branch-${n.id}`, source: n.parentId, target: n.id, type: 'branch' });
+      edges.push({ id: `branch-${n.id}`, source: n.parentId, target: n.id, type: 'branch', data: {...spineData, attachmentKind: n.nodeOrigin || 'project'} });
     });
     return edges;
-  }, [nodes, layout, hiddenNodeIds, treeOrientation]);
+  }, [scopedNodes, layout, hiddenNodeIds, treeOrientation]);
 
   // 拖拽期间位置由画布内部状态驱动（避免每帧重渲染引起闪烁）；
   // 拖拽结束才换算成相对布局基准的偏移量，更新本地状态并落盘后端
   const handleNodeDragStop = useCallback((id: string, position: { x: number; y: number }) => {
     if (id === TERMINUS_NODE_ID) return;
+    if (!isBackendProject || !canEditAny && !editableNodeIds.has(id)) return;
     const base = layoutRef.current.positions.get(id);
     if (!base) return;
     const off = { x: position.x - base.x, y: position.y - base.y };
@@ -829,9 +794,17 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     });
     if (isBackendProject) {
       const backendId = asBackendId(id);
-      if (backendId != null) void putNodeLayout(backendId, off).catch(() => undefined);
+      if (backendId != null) void saveNodeOffset(backendId, off).catch(error => {
+        if (activeProjectRef.current !== String(backendProjectId)) return;
+        setDragOffsets(current => {
+          // Do not roll back a newer drag while an older request is failing.
+          if (current[id]?.x !== off.x || current[id]?.y !== off.y) return current;
+          const next = { ...current, [id]: savedOffsetsRef.current.get(backendId) || {x:0,y:0} }; dragOffsetsRef.current = next; return next;
+        });
+        showToast(error instanceof Error ? error.message : (lang === 'zh' ? '位置保存失败' : 'Position could not be saved'));
+      });
     }
-  }, [isBackendProject]);
+  }, [isBackendProject, backendProjectId, canEditAny, editableNodeIds, lang, showToast, saveNodeOffset]);
 
   const handlePaneClick = () => {
     // 连线模式下点空白不动作（防误触）；提升主干走 banner 上的显式按钮
@@ -841,16 +814,25 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const resetAllDragOffsets = () => {
     // 只清本地的话，刷新后旧偏移又会从后端 layoutOffset 加载回来；
     // 具体项目下把偏移清零落盘，聚合只读视图保持只清本地
+    const retained: Record<string, {x: number; y: number}> = {};
     if (isBackendProject) {
       Object.keys(dragOffsetsRef.current).forEach((id) => {
         const off = dragOffsetsRef.current[id];
+        if (!canEditAny && !editableNodeIds.has(id)) { retained[id] = off; return; }
         if (!off || (off.x === 0 && off.y === 0)) return;
         const backendId = asBackendId(id);
-        if (backendId != null) void putNodeLayout(backendId, { x: 0, y: 0 }).catch(() => undefined);
+        if (backendId != null) void saveNodeOffset(backendId, { x: 0, y: 0 }).catch(error => {
+          if (activeProjectRef.current !== String(backendProjectId)) return;
+          setDragOffsets(current => {
+            if (current[id]) return current;
+            const next = { ...current, [id]: savedOffsetsRef.current.get(backendId) || {x:0,y:0} }; dragOffsetsRef.current = next; return next;
+          });
+          showToast(error instanceof Error ? error.message : (lang === 'zh' ? '位置重置失败' : 'Layout reset failed'));
+        });
       });
     }
-    dragOffsetsRef.current = {};
-    setDragOffsets({});
+    dragOffsetsRef.current = retained;
+    setDragOffsets(retained);
   };
 
   // Helper to check circular parent-child dependency
@@ -877,6 +859,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
     const sourceNode = nodes.find(n => n.id === linkingSourceNodeId);
     const targetNode = nodes.find(n => n.id === targetNodeId);
+    if (sourceNode?.nodeOrigin !== 'subordinate' && targetNode?.nodeOrigin === 'subordinate') {
+      showToast(lang === 'zh' ? '项目定义节点请选择项目定义的上级，下辖分支使用独立挂载点' : 'Project nodes must attach to the project definition');
+      return;
+    }
     const sourceId = asBackendId(linkingSourceNodeId);
     const targetId = asBackendId(targetNodeId);
 
@@ -935,6 +921,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     }
     const sourceNode = nodes.find(n => n.id === linkingSourceNodeId);
     const sourceId = asBackendId(linkingSourceNodeId);
+    if (sourceNode?.nodeOrigin === 'subordinate') {
+      showToast(lang === 'zh' ? '下辖分支需连接人员挂载点，不能移入项目定义主干' : 'Subordinate branches must attach to a person');
+      return;
+    }
 
     if (isBackendProject) {
       if (sourceId == null) {
@@ -995,6 +985,14 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       showToast(lang === 'zh' ? '只能挂载到自己负责的节点之下（主干需项目 PM）' : 'You can only mount under nodes you own');
       return;
     }
+    if (newParentId && !canAddSubordinate(newParentId)) {
+      showToast(lang === 'zh' ? '上级节点未开放新增下级权限' : 'Adding subordinates is not allowed here');
+      return;
+    }
+    if (newNodeOrigin === 'subordinate' && !newParentId) {
+      showToast(lang === 'zh' ? '请选择下辖分支的直属上级挂载点' : 'Choose the parent attachment point');
+      return;
+    }
     let personToAssign: TeamMember;
 
     if (isCustomPerson && customName.trim()) {
@@ -1034,13 +1032,19 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
             parent_id: parentBackendId,
             node_type_key: 'person',
             title: personToAssign.name,
-            description: [
+            node_origin: newNodeOrigin,
+            responsibility_permissions: newNodePermissions,
+            description: withAxisPersonMetadata([
               newRoleTitle || personToAssign.role,
               personToAssign.department,
               `risk=${customRiskLevel}`,
             ]
               .filter(Boolean)
-              .join(' / '),
+              .join(' / '), {
+                name: personToAssign.name,
+                roleTitle: newRoleTitle || personToAssign.role,
+                department: personToAssign.department || '',
+              }),
             sort_order: newParentId ? 0 : mainTrunkNodes.length,
             assignees:
               !isCustomPerson && assigneeUserId
@@ -1123,6 +1127,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const handleAddWorkItem = (nodeId: string, e: React.FormEvent) => {
     e.preventDefault();
     if (!newWorkTitle.trim()) return;
+    if (!canAddWorkItem(nodeId)) {
+      showToast(lang === 'zh' ? '此节点未开放新增事项权限' : 'Adding work items is not allowed here');
+      return;
+    }
 
     if (!isBackendProject) {
       showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择项目，再挂载事项' : 'Select a concrete project before adding work');
@@ -1186,7 +1194,12 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
   const handleAddEvidence = (nodeId: string, workItemId: string, e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEvTitle.trim()) return;
+    if (evidenceVoiceBusy) return;
+    if (!newEvDescription.trim() && !newEvFiles.length) return;
+    if (!canSubmitEvidence(workItemId)) {
+      showToast(lang === 'zh' ? '此节点未开放材料提交权限' : 'Evidence submissions are not allowed here');
+      return;
+    }
 
     if (!isBackendProject) {
       showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择项目，再提交证据' : 'Select a concrete project before submitting evidence');
@@ -1199,26 +1212,29 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         showToast(lang === 'zh' ? '事项尚未同步到后端' : 'Matter not on backend');
         return;
       }
-      const summary = [
-        `[${newEvType}] ${newEvTitle.trim()}`,
-        newEvUrl ? `url: ${newEvUrl}` : '',
-      ]
-        .filter(Boolean)
-        .join('\n');
+      const summary = newEvDescription.trim() || newEvFiles.map(file => file.name).join('、');
       void (async () => {
         try {
           setSyncStatus('syncing');
+          const fileIds: number[] = [];
+          if (newEvFiles.length && !projectCompanyId) throw new Error('项目公司信息未加载，请重试');
+          for (const file of newEvFiles) {
+            const result = await uploadEvidenceFile(file, projectCompanyId!, backendProjectId);
+            fileIds.push(result.file_id);
+          }
           await submitEvidence(matterId, {
             summary,
-            evidence_kind: newEvType,
-            external_url: newEvUrl || undefined,
+            evidence_kind: inferEvidenceKind(newEvFiles),
+            file_ids: fileIds,
           });
+          if (activeProjectRef.current !== String(backendProjectId)) return;
           setIsAddingEvidence(null);
-          setNewEvTitle('');
-          setNewEvUrl('');
+          setNewEvDescription('');
+          setNewEvFiles([]);
           await reloadAxisFromBackend();
           showToast(lang === 'zh' ? '证据已提交' : 'Evidence submitted');
         } catch (err) {
+          if (activeProjectRef.current !== String(backendProjectId)) return;
           showToast(err instanceof Error ? err.message : '提交证据失败');
           setSyncStatus('synced');
         }
@@ -1226,38 +1242,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       return;
     }
 
-    const newEv: AxisEvidence = {
-      id: `ev-${Date.now()}`,
-      type: newEvType,
-      title: newEvTitle,
-      url: newEvUrl || '#proof',
-      timestamp: new Date().toISOString().slice(5, 16).replace('T', ' '),
-      status: 'verified'
-    };
-
-    const updated = nodes.map(n => {
-      if (n.id === nodeId) {
-        return {
-          ...n,
-          workItems: n.workItems.map(wi => {
-            if (wi.id === workItemId) {
-              return {
-                ...wi,
-                evidences: [...wi.evidences, newEv],
-                status: 'Done',
-                progress: 100
-              };
-            }
-            return wi;
-          })
-        };
-      }
-      return n;
-    });
-
-    handleSaveNodes(updated);
-    setIsAddingEvidence(null);
-    setNewEvTitle('');
   };
 
   // Shared by the desktop progress banner and the mobile info sheet.
@@ -1300,614 +1284,95 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   }, [isBackendProject, backendProjectId, alongDelta, lang, showToast]);
 
   return (
-    // 移动端固定为可视区剩余高度（导航栏 4rem + 底部导航 5rem = 9rem），页面不滚动，
-    // 保证画布顶部的状态胶囊/缩放工具条永远在屏内；桌面维持原文档流布局。
-    <div className="h-[calc(100dvh-9rem)] md:h-auto md:min-h-screen flex flex-col md:block overflow-hidden md:overflow-visible bg-background text-on-surface p-0 md:p-6 lg:p-8 space-y-0 md:space-y-8 max-w-[1700px] mx-auto relative">
-      {backendLoadError && (
-        <div className="shrink-0 rounded-xl border border-amber-300 bg-amber-50 text-amber-900 text-sm px-4 py-3 mx-3 mt-3 md:mx-0 md:mt-0 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-          <span>{backendLoadError}</span>
-          {!isBackendProject && onSelectProject && (projects?.length ?? 0) > 0 && (
-            <select
-              value=""
-              onChange={(e) => {
-                const proj = projects!.find((p) => String(p.id) === e.target.value);
-                if (proj) onSelectProject(proj);
-              }}
-              className="shrink-0 px-3 py-2 rounded-xl border border-amber-400 bg-white text-amber-900 text-sm font-bold focus:outline-none focus:border-primary cursor-pointer"
-            >
-              <option value="" disabled>
-                {lang === 'zh' ? '📂 选择项目开始编辑…' : '📂 Pick a project to edit…'}
-              </option>
-              {projects!.map((p) => (
-                <option key={p.id} value={String(p.id)}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-      )}
-      {projectId && projectId !== 'all' && !backendLoadError && (
-        <div className="hidden md:block rounded-xl border border-primary/20 bg-primary/5 text-primary text-sm px-4 py-2">
-          {lang === 'zh'
-            ? `已从后端加载项目 #${projectId} 的人轴树（只读同步；写回见 BACKEND_GAP.md）`
-            : `Loaded people-axis tree for project #${projectId} from backend`}
-        </div>
-      )}
-      {/* HEADER BAR (desktop only; mobile is immersive canvas-first) */}
-      <div className="hidden md:flex md:flex-row md:items-center justify-between gap-4 border-b border-outline-variant/30 pb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
-              {lang === 'zh' ? '人轴地铁站点责任网络 V3.0' : 'People-Axis Metro Network'}
-            </span>
-            <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1">
-              <span className={`w-2 h-2 rounded-full ${syncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`} />
-              {syncStatus === 'synced' ? (lang === 'zh' ? '双端已实时推流同步' : 'Synced') : (lang === 'zh' ? '正在落盘...' : 'Saving...')}
-            </span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-on-surface tracking-tight mt-2 flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-3xl">route</span>
-            <span>{lang === 'zh' ? '人为主干，地铁站点图结构責任链' : 'Subway Route Spine Responsibility Chain'}</span>
-          </h1>
-          <p className="text-sm text-on-surface-variant mt-1 font-medium max-w-3xl">
-            {lang === 'zh'
-              ? '主干即地铁线路：总负责人挂在主干线一头，各部门/厂家领导分列主干两侧。下属卡片连接至主负责人边界中间，支持拖拽自适应拉长！'
-              : 'Metro subway trunk structure: Overall director at one end, vendor/department leaders on alternating sides, subordinates connected at boundary midpoints with draggable cards.'}
-          </p>
-        </div>
-
-        {/* View Controls & Action Toolbar */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="bg-surface-container dark:bg-[#1e2022] border border-outline-variant/40 rounded-2xl p-1.5 flex items-center gap-1 shadow-sm">
-            <button
-              onClick={() => setTreeOrientation('horizontal')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                treeOrientation === 'horizontal'
-                  ? 'bg-primary text-on-primary shadow-xs'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              <span className="material-symbols-outlined text-sm">swap_horiz</span>
-              <span>{lang === 'zh' ? '左右纵树 (横向主轴)' : 'Horizontal Trunk'}</span>
-            </button>
-            <button
-              onClick={() => setTreeOrientation('vertical')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
-                treeOrientation === 'vertical'
-                  ? 'bg-primary text-on-primary shadow-xs'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              <span className="material-symbols-outlined text-sm">swap_vert</span>
-              <span>{lang === 'zh' ? '上下纵树 (纵向主轴)' : 'Vertical Trunk'}</span>
-            </button>
-          </div>
-
-          <button
-            onClick={resetAllDragOffsets}
-            className="px-3.5 py-2 rounded-2xl bg-surface-container border border-outline-variant/40 hover:border-primary/40 text-on-surface text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-            title={lang === 'zh' ? '重置卡片拖拽位置' : 'Reset Card Drag Positions'}
-          >
-            <span className="material-symbols-outlined text-sm">restart_alt</span>
-            <span>{lang === 'zh' ? '重置拖拽布局' : 'Reset Drag Layout'}</span>
-          </button>
-
-          <button
-            disabled={!isBackendProject}
-            onClick={() => {
-              if (!isBackendProject) {
-                showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择要编辑的项目' : 'Select a concrete project first');
-                return;
-              }
-              if (!canMountSomething) {
-                showToast(lang === 'zh' ? '只读成员：无挂载权限，请联系项目 PM 指派节点' : 'Read-only member: ask the PM for an assignment');
-                return;
-              }
-              setNewParentId(canEditAny ? '' : (nodes.find((n) => editableNodeIds.has(n.id))?.id || ''));
-              setIsAddingNode(true);
-            }}
-            className="px-4 py-2 rounded-2xl bg-primary hover:bg-primary/90 text-on-primary text-xs font-black shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <span className="material-symbols-outlined text-base">person_add</span>
-            <span>{lang === 'zh' ? '挂载新责任人' : 'Add Person'}</span>
-          </button>
-
-          {/* 委托授权：仅 PM / 超管可创建（与后端 _can_grant 口径一致，委托授权用户不可再转授） */}
-          {isBackendProject &&
-            projectCompanyId != null &&
-            (serverPerms ? serverPerms.is_pm || serverPerms.is_superadmin : meId != null && pmUserId === meId) && (
-              <button
-                onClick={() => setIsDelegationOpen(true)}
-                className="px-3.5 py-2 rounded-2xl bg-surface-container border border-outline-variant/40 hover:border-primary/40 text-on-surface text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                title={lang === 'zh' ? '创建/管理委托授权' : 'Manage delegations'}
-              >
-                <span className="material-symbols-outlined text-sm">key</span>
-                <span>{lang === 'zh' ? '委托授权' : 'Delegate'}</span>
-              </button>
-            )}
-        </div>
-      </div>
-
+    <div className="axis-view-root">
+      <ResponsibilityWorkspace
+        lang={lang} projectId={projectId} projects={projects} projectName={projectName}
+        onSelectProject={onSelectProject} nodes={scopedNodes} selectedId={selectedNodeId}
+        projectSummaries={projectSummaries} currentUserId={meId}
+        scope={scope} onScopeChange={value => { setScopeChoice(value); setSelectedNodeId(null); setExpandedNodes({}); setLinkingSourceNodeId(null); setLinkingHoveredTargetId(null); }} roleLabel={roleLabel}
+        isProjectPM={!!isProjectPM} hasResponsibilities={myScope.direct.size > 0}
+        onSelect={setSelectedNodeId} expanded={expandedNodes} onToggleExpand={toggleExpandNode}
+        progress={averagePeopleAxisProgress(scopedNodes)} syncing={syncStatus === 'syncing'} error={backendLoadError}
+        mobile={mobile} finalOwner={finalOwner} canAdd={isBackendProject && canMountSomething}
+        onAdd={() => {
+          setNewParentId(canMoveNodes ? '' : (nodes.find(n => canAddSubordinate(n.id))?.id || ''));
+          setNewNodeOrigin(canMoveNodes ? 'project' : 'subordinate');
+          setNewNodePermissions(defaultResponsibilityPermissions);
+          setIsAddingNode(true);
+        }}
+        onOrientation={setTreeOrientation}
+        canvas={{
+          lang, nodes: rfNodes, edges: rfEdges, orientation: treeOrientation,
+          linkingSourceNodeId, onNodeDragStop: handleNodeDragStop, onPaneClick: handlePaneClick,
+          onResetLayout: () => { resetAllDragOffsets(); setCanvasResetToken(n => n + 1); },
+          resetToken: canvasResetToken,
+          onCancelLinking: () => { setLinkingSourceNodeId(null); setLinkingHoveredTargetId(null); },
+          onConnectToSpine: handleConnectToSpine,
+          canConnectToSpine: nodes.find(node => node.id === linkingSourceNodeId)?.nodeOrigin !== 'subordinate',
+        }}
+        onAddEvidence={id => { if (!canSubmitEvidence(id)) return; setIsAddingEvidence(id); setNewEvDescription(''); setNewEvFiles([]); }}
+        onAudit={handleRunAxisAudit} auditing={auditLoading} onReload={() => setLoadVersion(version => version + 1)}
+        onOpenWiki={() => setWikiProject({ id: backendProjectId,
+          name: projects?.find(project => project.id === String(backendProjectId))?.name || projectName || `${lang === 'zh' ? '项目' : 'Project'} #${backendProjectId}` })}
+        onDelegate={isBackendProject && projectCompanyId != null
+          ? () => setIsDelegationOpen(true) : undefined}
+        alongDelta={alongDelta} onAlongChange={setAlongDelta} onAlongSave={saveAlongDelta}
+        canPositionOwner={isBackendProject && meId != null && (meId === pmUserId || meId === projectCreator)}
+        onSeed={() => void seedSampleAxis()} seeding={seedingSample} isProject={isBackendProject}
+      />
+      {isBackendProject && selectedNodeId && nodes.find(node => node.id === selectedNodeId) && <PersonMembershipActions
+        node={nodes.find(node => node.id === selectedNodeId)!}
+        capabilities={serverPerms?.node_permissions?.[selectedNodeId]}
+        onChanged={async()=>{setSelectedNodeId(null);await reloadAxisFromBackend();}} />}
       {isBackendProject && projectCompanyId != null && (
-        <DelegationModal
-          isOpen={isDelegationOpen}
-          onClose={() => setIsDelegationOpen(false)}
-          lang={lang}
-          companyId={projectCompanyId}
-          projectId={backendProjectId}
-          members={memberOptions}
-        />
+        <DelegationModal isOpen={isDelegationOpen} onClose={() => setIsDelegationOpen(false)}
+          canManage={serverPerms ? serverPerms.is_pm || serverPerms.is_superadmin : meId != null && pmUserId === meId}
+          currentUserId={meId}
+          lang={lang} companyId={projectCompanyId} projectId={backendProjectId} members={memberOptions} />
       )}
-
-      {/* METRO SUBWAY TRUNK PROGRESS BANNER (desktop only) */}
-      <div className="hidden md:flex bg-gradient-to-r from-surface-container via-surface to-surface-container border border-outline-variant/40 rounded-3xl p-5 shadow-lg flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
-        <div className="flex items-center gap-4 z-10">
-          <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/30 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-primary text-3xl animate-pulse">subway</span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-lg font-black text-on-surface">
-                {lang === 'zh' ? '主干项目进度轨 (Metro Spine Progress)' : 'Trunk Line Progress Rail'}
-              </h3>
-              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-black">
-                {totalProjectProgress}% {lang === 'zh' ? '总进度' : 'Completed'}
-              </span>
-            </div>
-            <p className="text-xs text-on-surface-variant font-medium mt-1">
-              {lang === 'zh'
-                ? '主干上全是各厂家/部门领导！起点为项目总负责人，终点为终责交付，进度实时流动。'
-                : 'Main subway line features vendor and department leaders with real-time project progress flow.'}
-            </p>
-          </div>
-        </div>
-
-        {/* Progress Track Line Bar */}
-        <div className="w-full md:w-96 flex flex-col gap-2 z-10">
-          <div className="flex justify-between items-center text-xs font-extrabold text-on-surface-variant">
-            <span>{lang === 'zh' ? '起点: 项目总指挥' : 'Start: Overall Director'}</span>
-            <span className="text-primary font-black">{totalProjectProgress}%</span>
-            <span>{lang === 'zh' ? '终点: 终责交付' : 'End: Delivery'}</span>
-          </div>
-          <div className="w-full h-3.5 bg-surface-container-highest dark:bg-[#282b2d] rounded-full overflow-hidden border border-outline-variant/30 p-0.5 relative">
-            <div
-              className="h-full bg-gradient-to-r from-amber-500 via-primary to-emerald-500 rounded-full transition-all duration-700 shadow-sm"
-              style={{ width: `${totalProjectProgress}%` }}
-            />
-          </div>
-          {isBackendProject && (
-            <div className="flex flex-col gap-1.5 mt-1">
-              <label className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider">
-                {lang === 'zh' ? `终责轴向偏移 ${alongDelta}px` : `Terminus offset ${alongDelta}px`}
-              </label>
-              <input
-                type="range"
-                min={0}
-                max={800}
-                step={10}
-                value={alongDelta}
-                onChange={(e) => setAlongDelta(Number(e.target.value))}
-                onPointerUp={saveAlongDelta}
-                className="w-full accent-primary cursor-pointer"
-              />
-              <button
-                type="button"
-                disabled={auditLoading}
-                onClick={handleRunAxisAudit}
-                className="self-start px-3 py-1.5 rounded-xl bg-primary/10 text-primary text-xs font-extrabold cursor-pointer disabled:opacity-50"
-              >
-                {auditLoading
-                  ? lang === 'zh'
-                    ? '审计中…'
-                    : 'Auditing…'
-                  : lang === 'zh'
-                    ? '运行人轴 AI 审计'
-                    : 'Run axis audit'}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* CANVAS BOARD: React Flow 人轴画布
-          Mobile: fullscreen immersive canvas (Apple Freeform style) filling the
-          viewport between navbar and bottom nav; desktop keeps the framed card. */}
-      <div className="relative border-0 md:border border-outline-variant/30 rounded-none md:rounded-3xl bg-surface/50 dark:bg-[#121415]/60 flex-1 min-h-0 md:flex-none md:h-[760px] overflow-hidden shadow-inner">
-        <PeopleAxisFlowCanvas
-          lang={lang}
-          nodes={rfNodes}
-          edges={rfEdges}
-          orientation={treeOrientation}
-          linkingSourceNodeId={linkingSourceNodeId}
-          onNodeDragStop={handleNodeDragStop}
-          onPaneClick={handlePaneClick}
-          onResetLayout={resetAllDragOffsets}
-          resetToken={canvasResetToken}
-        />
-
-        {/* MOBILE STATUS PILL (top-left, replaces the hidden desktop header) */}
-        <div className="md:hidden absolute top-3 left-3 z-40 flex items-center gap-1.5 bg-surface/90 dark:bg-[#1a1c1e]/90 backdrop-blur-md border border-outline-variant/40 rounded-full px-3 py-1.5 shadow-xl">
-          <span className={`w-2 h-2 rounded-full ${syncStatus === 'synced' ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`} />
-          <span className="text-[11px] font-black text-on-surface">
-            {isBackendProject
-              ? (lang === 'zh' ? `项目 #${projectId}` : `Project #${projectId}`)
-              : (lang === 'zh' ? '只读聚合视图' : 'Read-only')}
-          </span>
-          <span className="text-[11px] font-black text-primary">{totalProjectProgress}%</span>
-        </div>
-
-        {/* MOBILE FLOATING ACTION CLUSTER (bottom-right, Apple-canvas style) */}
-        <div className="md:hidden absolute bottom-4 right-3 z-40 flex flex-col items-center gap-2.5">
-          <button
-            onClick={() => setShowMobileInfo(true)}
-            className="w-11 h-11 rounded-full bg-surface/90 dark:bg-[#1a1c1e]/90 backdrop-blur-md border border-outline-variant/40 shadow-xl flex items-center justify-center text-on-surface-variant active:scale-95 transition-transform"
-            title={lang === 'zh' ? '画布信息与设置' : 'Canvas info & settings'}
-          >
-            <span className="material-symbols-outlined text-xl">tune</span>
-          </button>
-          <button
-            onClick={() => setTreeOrientation(o => (o === 'horizontal' ? 'vertical' : 'horizontal'))}
-            className="w-11 h-11 rounded-full bg-surface/90 dark:bg-[#1a1c1e]/90 backdrop-blur-md border border-outline-variant/40 shadow-xl flex items-center justify-center text-on-surface-variant active:scale-95 transition-transform"
-            title={lang === 'zh' ? '切换主轴方向' : 'Toggle trunk orientation'}
-          >
-            <span className="material-symbols-outlined text-xl">
-              {treeOrientation === 'horizontal' ? 'swap_vert' : 'swap_horiz'}
-            </span>
-          </button>
-          <button
-            onClick={() => {
-              if (!isBackendProject) {
-                showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择要编辑的项目' : 'Select a concrete project first');
-                return;
-              }
-              if (!canMountSomething) {
-                showToast(lang === 'zh' ? '只读成员：无挂载权限，请联系项目 PM 指派节点' : 'Read-only member: ask the PM for an assignment');
-                return;
-              }
-              setNewParentId(canEditAny ? '' : (nodes.find((n) => editableNodeIds.has(n.id))?.id || ''));
-              setIsAddingNode(true);
-            }}
-            className="w-[52px] h-[52px] rounded-full bg-primary text-on-primary shadow-2xl flex items-center justify-center active:scale-95 transition-transform"
-            title={lang === 'zh' ? '挂载新责任人' : 'Add Person'}
-          >
-            <span className="material-symbols-outlined text-2xl">person_add</span>
-          </button>
-        </div>
-
-        {/* DRAW.IO LINKING ACTIVE TOP BANNER */}
-        {linkingSourceNodeId && (
-          <div className="absolute top-14 md:top-4 left-1/2 -translate-x-1/2 z-40 max-w-[94%] bg-gradient-to-r from-cyan-600 via-teal-600 to-cyan-600 text-white px-4 md:px-6 py-2.5 rounded-full shadow-2xl flex items-center gap-3 md:gap-4 animate-bounce border-2 border-white/30">
-            <div className="flex items-center gap-2 font-black text-xs md:text-sm">
-              <span className="material-symbols-outlined animate-spin text-lg shrink-0">hub</span>
-              <span className="truncate">
-                {lang === 'zh'
-                  ? `连线模式：点击目标卡片建立父子归属`
-                  : `Linking: tap target card to connect`}
-                <span className="hidden md:inline">
-                  {lang === 'zh' ? '（按 ESC 取消）' : ' (ESC to cancel)'}
-                </span>
-              </span>
-            </div>
-            <button
-              onClick={handleConnectToSpine}
-              className="px-2.5 py-0.5 rounded-full bg-white/25 hover:bg-white/45 text-xs font-black cursor-pointer transition-colors whitespace-nowrap"
-              title={lang === 'zh' ? '把该责任人直接挂到主轴上' : 'Attach directly to the trunk'}
-            >
-              🚩 {lang === 'zh' ? '提升为主干' : 'To Trunk'}
-            </button>
-            <button
-              onClick={() => {
-                setLinkingSourceNodeId(null);
-                setLinkingHoveredTargetId(null);
-                showToast(lang === 'zh' ? '已退出连线模式' : 'Exited linking mode');
-              }}
-              className="px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/40 text-xs font-black cursor-pointer transition-colors"
-            >
-              ✕ {lang === 'zh' ? '退出' : 'Exit'}
-            </button>
-          </div>
-        )}
-
-        {/* FIRST-TOUCH ONBOARDING: 空项目引导（主干是人 / 事项挂人下 / 人挂人是下级） */}
-        {showEmptyOnboarding && (
-          <div
-            data-testid="axis-empty-onboarding"
-            className="absolute inset-0 z-20 flex items-center justify-center p-6 pointer-events-none"
-          >
-            <div className="pointer-events-auto max-w-md w-full bg-surface/95 dark:bg-[#1e2022]/95 backdrop-blur-md border border-outline-variant/50 rounded-3xl shadow-2xl p-6 space-y-4 text-center">
-              <h3 className="text-lg font-black text-on-surface">
-                {lang === 'zh' ? '从「人」开始搭建责任链' : 'Start the chain with people'}
-              </h3>
-              <p className="text-xs text-on-surface-variant leading-relaxed">
-                {lang === 'zh'
-                  ? '人轴的主干是人：工作项、里程碑、范围都挂在某个人下面；把人挂到人上就是 TA 的下级；项目 PM 作为终责钉在轴的终点。'
-                  : 'The trunk is made of people: work items hang under a person, a person under a person is a subordinate, and the PM anchors the end of the axis.'}
-              </p>
-              {/* 静态示意：人 → 人（下级）+ 事项，终点为终责 */}
-              <div className="flex items-center justify-center gap-2 py-2 select-none">
-                <div className="flex flex-col items-center gap-1">
-                  <div className="px-3 py-2 rounded-xl border-2 border-primary/60 bg-primary/10 text-primary text-[11px] font-black">
-                    {lang === 'zh' ? '负责人 A' : 'Person A'}
-                  </div>
-                  <div className="w-px h-3 bg-outline-variant" />
-                  <div className="px-2 py-1 rounded-lg border border-outline-variant text-[10px] text-on-surface-variant">
-                    {lang === 'zh' ? '工作项 / 里程碑' : 'Work / milestone'}
-                  </div>
-                </div>
-                <span className="material-symbols-outlined text-outline">arrow_forward</span>
-                <div className="flex flex-col items-center gap-1">
-                  <div className="px-3 py-2 rounded-xl border-2 border-primary/60 bg-primary/10 text-primary text-[11px] font-black">
-                    {lang === 'zh' ? '负责人 B' : 'Person B'}
-                  </div>
-                  <div className="w-px h-3 bg-outline-variant" />
-                  <div className="px-2 py-1 rounded-lg border border-outline-variant text-[10px] text-on-surface-variant">
-                    {lang === 'zh' ? '下级人员' : 'Subordinate'}
-                  </div>
-                </div>
-                <span className="material-symbols-outlined text-outline">arrow_forward</span>
-                <div className="px-3 py-2 rounded-xl border-2 border-amber-500/70 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[11px] font-black">
-                  {lang === 'zh' ? '终责 PM' : 'Terminal PM'}
-                </div>
-              </div>
-              <button
-                data-testid="axis-add-first-person"
-                onClick={() => {
-                  if (!canMountSomething) {
-                    showToast(lang === 'zh' ? '只读成员：无挂载权限，请联系项目 PM 指派节点' : 'Read-only member: ask the PM for an assignment');
-                    return;
-                  }
-                  setNewParentId('');
-                  setIsAddingNode(true);
-                }}
-                className="w-full py-3 rounded-2xl bg-primary text-on-primary text-sm font-black shadow-md hover:bg-primary/90 transition-all flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-lg">person_add</span>
-                <span>{lang === 'zh' ? '添加第一个人' : 'Add the first person'}</span>
-              </button>
-              {canMountSomething && (
-                <button
-                  data-testid="axis-seed-sample"
-                  disabled={seedingSample}
-                  onClick={() => void seedSampleAxis()}
-                  className="w-full py-3 rounded-2xl border-2 border-primary/40 text-primary text-sm font-black hover:bg-primary/5 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  <span className="material-symbols-outlined text-lg">auto_awesome</span>
-                  <span>
-                    {seedingSample
-                      ? lang === 'zh'
-                        ? '正在生成示例…'
-                        : 'Creating sample…'
-                      : lang === 'zh'
-                        ? '一键生成示例人轴'
-                        : 'Generate a sample axis'}
-                  </span>
-                </button>
-              )}
-              <p className="text-[10px] text-on-surface-variant">
-                {lang === 'zh'
-                  ? '也可以从左侧「责任人挂载面板」把模板卡片拖到画布上。'
-                  : 'You can also drag a template card from the palette onto the canvas.'}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* LEFT PALETTE: MOUNT NEW RESPONSIBILITY NODE（只读成员整体隐藏；聚合视图保留原有只读提示行为） */}
-        {(!isBackendProject || canMountSomething) && (
-        <div className="absolute top-6 left-6 z-30 hidden sm:flex flex-col gap-3 bg-surface/90 dark:bg-[#1e2022]/90 backdrop-blur-md border border-primary/40 rounded-3xl p-4 shadow-2xl max-w-[280px] transition-all hover:border-primary">
-          <div className="flex items-center justify-between gap-2 border-b border-outline-variant/30 pb-2">
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
-              <span className="text-xs font-black text-on-surface uppercase tracking-wider">
-                {lang === 'zh' ? '责任人挂载面板' : 'Mount Palette'}
-              </span>
-            </div>
-            <span className="text-[10px] font-black text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
-              Draw.io Drag
-            </span>
-          </div>
-
-          <p className="text-[11px] font-medium text-on-surface-variant leading-snug">
-            {lang === 'zh'
-              ? '按住左键直接拖拽卡片至画布主轴定位，或拖至任意卡片挂载为直属下属！'
-              : 'Drag card directly onto the canvas trunk or cards to mount'}
-          </p>
-
-          {/* PALETTE TEMPLATE DRAGGABLE CARDS */}
-          <div className="flex flex-col gap-2.5 mt-1">
-            {PALETTE_TEMPLATES.map(template => (
-              <div
-                key={template.id}
-                onPointerDown={e => handlePaletteDragStart(template, e)}
-                onClick={() => {
-                  openPaletteMountModal(
-                    template,
-                    selectedNodeId ? { type: 'node', nodeId: selectedNodeId } : { type: 'trunk' },
-                  );
-                }}
-                className="p-3 rounded-2xl bg-gradient-to-r from-primary/10 via-surface-container to-surface border border-outline-variant/50 hover:border-primary text-left cursor-grab active:cursor-grabbing transition-all hover:scale-[1.02] shadow-sm hover:shadow-md group flex items-center justify-between gap-2 select-none"
-              >
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-xl bg-primary/20 text-primary flex items-center justify-center font-black group-hover:scale-110 transition-transform shrink-0">
-                    <span className="material-symbols-outlined text-lg">{template.icon}</span>
-                  </div>
-                  <div>
-                    <div className="text-xs font-black text-on-surface group-hover:text-primary transition-colors">
-                      {template.title}
-                    </div>
-                    <div className="text-[10px] text-on-surface-variant font-medium">
-                      {template.defaultRole}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="w-6 h-6 rounded-lg bg-surface-container-high flex items-center justify-center text-on-surface-variant group-hover:text-primary shrink-0">
-                  <span className="material-symbols-outlined text-sm">drag_indicator</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-        )}
-
-      </div>
-
-      {/* MOBILE INFO BOTTOM SHEET: description / progress / controls */}
-      {showMobileInfo && (
-        <div className="md:hidden fixed inset-0 z-50" onClick={() => setShowMobileInfo(false)}>
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" />
-          <div
-            onClick={e => e.stopPropagation()}
-            className="absolute inset-x-0 bottom-0 bg-surface dark:bg-[#1a1c1e] rounded-t-3xl border-t border-outline-variant/40 shadow-2xl p-5 pb-8 space-y-5 max-h-[75dvh] overflow-y-auto"
-          >
-            <div className="w-10 h-1 rounded-full bg-outline-variant/60 mx-auto" />
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-base font-black text-on-surface flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-primary text-xl">route</span>
-                  <span>{lang === 'zh' ? '人轴责任画布' : 'People-Axis Canvas'}</span>
-                </h2>
-                <p className="text-xs text-on-surface-variant font-medium mt-1.5 leading-relaxed">
-                  {lang === 'zh'
-                    ? '主干即地铁线路：总负责人挂在主干一头，各部门/厂家领导分列两侧，下属卡片挂在领导之下。单指拖动卡片或画布，双指捏合缩放。'
-                    : 'The trunk is the metro line: director at one end, leaders on both sides. Drag with one finger, pinch to zoom.'}
-                </p>
-              </div>
-              <button
-                onClick={() => setShowMobileInfo(false)}
-                className="shrink-0 w-8 h-8 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant"
-              >
-                <span className="material-symbols-outlined text-lg">close</span>
-              </button>
-            </div>
-
-            {/* Progress rail */}
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-xs font-extrabold text-on-surface-variant">
-                <span>{lang === 'zh' ? '主干项目进度' : 'Trunk progress'}</span>
-                <span className="text-primary font-black">{totalProjectProgress}%</span>
-              </div>
-              <div className="w-full h-3 bg-surface-container-highest dark:bg-[#282b2d] rounded-full overflow-hidden border border-outline-variant/30 p-0.5">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-500 via-primary to-emerald-500 rounded-full transition-all duration-700"
-                  style={{ width: `${totalProjectProgress}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Orientation & reset */}
-            <div className="flex items-center gap-2">
-              <div className="flex-1 bg-surface-container dark:bg-[#1e2022] border border-outline-variant/40 rounded-2xl p-1 flex items-center gap-1">
-                <button
-                  onClick={() => setTreeOrientation('horizontal')}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                    treeOrientation === 'horizontal' ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
-                  }`}
-                >
-                  {lang === 'zh' ? '横向主轴' : 'Horizontal'}
-                </button>
-                <button
-                  onClick={() => setTreeOrientation('vertical')}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                    treeOrientation === 'vertical' ? 'bg-primary text-on-primary' : 'text-on-surface-variant'
-                  }`}
-                >
-                  {lang === 'zh' ? '纵向主轴' : 'Vertical'}
-                </button>
-              </div>
-              <button
-                onClick={() => {
-                  resetAllDragOffsets();
-                  setCanvasResetToken((n) => n + 1);
-                  setShowMobileInfo(false);
-                }}
-                className="px-3.5 py-2.5 rounded-2xl bg-surface-container border border-outline-variant/40 text-on-surface text-xs font-bold flex items-center gap-1"
-              >
-                <span className="material-symbols-outlined text-sm">restart_alt</span>
-                <span>{lang === 'zh' ? '重置布局' : 'Reset'}</span>
-              </button>
-            </div>
-
-            {isBackendProject ? (
-              <div className="space-y-3 pt-1 border-t border-outline-variant/30">
-                <div className="space-y-1.5 pt-3">
-                  <label className="text-[10px] font-extrabold text-on-surface-variant uppercase tracking-wider">
-                    {lang === 'zh' ? `终责轴向偏移 ${alongDelta}px` : `Terminus offset ${alongDelta}px`}
-                  </label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={800}
-                    step={10}
-                    value={alongDelta}
-                    onChange={(e) => setAlongDelta(Number(e.target.value))}
-                    onPointerUp={saveAlongDelta}
-                    className="w-full accent-primary"
-                  />
-                </div>
-                <button
-                  type="button"
-                  disabled={auditLoading}
-                  onClick={handleRunAxisAudit}
-                  className="w-full py-2.5 rounded-2xl bg-primary/10 text-primary text-xs font-extrabold disabled:opacity-50"
-                >
-                  {auditLoading
-                    ? (lang === 'zh' ? '审计中…' : 'Auditing…')
-                    : (lang === 'zh' ? '运行人轴 AI 审计' : 'Run axis audit')}
-                </button>
-              </div>
-            ) : (
-              <p className="text-[11px] text-on-surface-variant font-medium pt-3 border-t border-outline-variant/30">
-                {lang === 'zh'
-                  ? '当前为聚合只读视图，在顶部选择具体项目后可编辑、挂载人员并运行 AI 审计。'
-                  : 'Aggregated read-only view. Select a concrete project to edit.'}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* PALETTE FLOATING DRAG GHOST PREVIEW */}
-      {paletteDraggingItem && (
-        <div
-          className="fixed z-50 pointer-events-none transform -translate-x-1/2 -translate-y-1/2 scale-105 shadow-2xl rounded-2xl border-2 border-primary bg-surface/95 dark:bg-[#1e2022]/95 p-3.5 flex items-center gap-3 backdrop-blur-md animate-pulse"
-          style={{
-            left: `${paletteDragPos.x}px`,
-            top: `${paletteDragPos.y}px`
-          }}
-        >
-          <div className="w-9 h-9 rounded-xl bg-primary text-on-primary flex items-center justify-center font-black shadow-md">
-            <span className="material-symbols-outlined text-xl">{paletteDraggingItem.icon}</span>
-          </div>
-          <div>
-            <div className="text-xs font-black text-on-surface">
-              {paletteDraggingItem.title}
-            </div>
-            <div className="text-[10px] text-primary font-bold">
-              {dropHoverTarget?.type === 'node'
-                ? (lang === 'zh' ? '🔗 松手挂载为该卡片下属' : 'Attach as Subordinate')
-                : dropHoverTarget
-                ? (lang === 'zh' ? '🎯 松手在主轴挂载（可再自定义）' : 'Position on Trunk')
-                : (lang === 'zh' ? '👉 拖到画布或目标卡片上' : 'Drag onto canvas or a card')}
-            </div>
-          </div>
-        </div>
-      )}
+      {editingPerson && editingPerson.projectId === projectId && <AxisDialog title={lang === 'zh' ? '编辑人员' : 'Edit person'} onClose={() => setEditingPerson(null)}>
+        <EditResponsibilityPerson nodeId={editingPerson.nodeId} members={memberOptions} lang={lang} canManageAssignees={serverPerms?.node_permissions?.[String(editingPerson.nodeId)]?.can_manage_assignees !== false} canManagePermissions={serverPerms?.node_permissions ? !!serverPerms.node_permissions[String(editingPerson.nodeId)]?.can_manage_permissions : canEditAny} onSaved={async () => {
+          if (activeProjectRef.current !== editingPerson.projectId) return;
+          setEditingPerson(null);
+          const permissions = await getMyPermissions(backendProjectId).catch(() => null);
+          if (activeProjectRef.current !== editingPerson.projectId) return;
+          setServerPerms(permissions);
+          await reloadAxisFromBackend();
+          showToast(lang === 'zh' ? '人员与项目岗位已更新' : 'Person and project role updated');
+        }} />
+      </AxisDialog>}
+      {wikiProject && <ProjectWikiPanel projectId={wikiProject.id} projectName={wikiProject.name} lang={lang} onClose={() => setWikiProject(null)} />}
+      {isAddingEvidence && (() => {
+        const owner = nodes.find(n => n.workItems.some(w => w.id === isAddingEvidence));
+        if (!owner) return null;
+        return <AxisDialog title={lang === 'zh' ? '提交材料' : 'Submit evidence'} onClose={() => setIsAddingEvidence(null)}>
+          <form className="axis-evidence-form" onSubmit={e => handleAddEvidence(owner.id, isAddingEvidence, e)}>
+            <h2>{lang === 'zh' ? '提交材料' : 'Submit evidence'}</h2>
+            <label>{lang === 'zh' ? '归属事项' : 'Work item'}<select value={isAddingEvidence} onChange={event => setIsAddingEvidence(event.target.value)}>
+              {owner.workItems.filter(item => canSubmitEvidence(item.id)).map(item => <option key={item.id} value={item.id}>{item.title}</option>)}
+            </select></label>
+            <MaterialTextInput value={newEvDescription} onChange={setNewEvDescription} companyId={projectCompanyId || 0} projectId={backendProjectId}
+              scopeKey={`${projectCompanyId}:${backendProjectId}:${isAddingEvidence}`} disabled={syncStatus === 'syncing'} onBusyChange={setEvidenceVoiceBusy} />
+            <label>{lang === 'zh' ? '上传材料' : 'Upload files'}<input type="file" multiple onChange={e => setNewEvFiles(Array.from(e.target.files || []))} /></label>
+            {newEvFiles.length > 0 && <small>{newEvFiles.map(file => file.name).join('、')}</small>}
+            <button className="axis-primary-button" type="submit" disabled={evidenceVoiceBusy || syncStatus === 'syncing' || (!newEvDescription.trim() && !newEvFiles.length)}>{lang === 'zh' ? '提交材料' : 'Submit evidence'}</button>
+          </form>
+        </AxisDialog>;
+      })()}
 
       {/* MODAL: ADD PERSON / NODE */}
       {isAddingNode && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-surface dark:bg-[#1e2022] rounded-3xl p-6 md:p-8 max-w-lg w-full border border-outline-variant/40 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between border-b border-outline-variant/30 pb-4">
-              <h3 className="text-lg font-black text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">person_add</span>
-                <span>{lang === 'zh' ? '挂载新人员责任节点' : 'Add Person Node'}</span>
-              </h3>
-              <button onClick={() => setIsAddingNode(false)} className="text-on-surface-variant hover:text-on-surface text-xl font-bold cursor-pointer">✕</button>
-            </div>
+        <AxisDialog title={lang === 'zh' ? '添加责任人' : 'Add owner'} onClose={() => setIsAddingNode(false)}>
+          <div className="axis-create-form p-6 space-y-6">
+            <h2>{lang === 'zh' ? '添加责任人' : 'Add owner'}</h2>
 
             <form onSubmit={handleAddNode} className="space-y-4">
+              {canMoveNodes ? <label className="axis-origin-field">{lang === 'zh' ? '节点归属' : 'Node origin'}<select value={newNodeOrigin} onChange={event => {
+                const origin = event.target.value as 'project' | 'subordinate'; setNewNodeOrigin(origin);
+                if (origin === 'subordinate' && !newParentId) setNewParentId(nodes.find(n => canAddSubordinate(n.id))?.id || '');
+                if (origin === 'project' && nodes.find(n => n.id === newParentId)?.nodeOrigin === 'subordinate') setNewParentId('');
+              }}><option value="project">{lang === 'zh' ? '项目定义 · 正式责任骨架' : 'Project definition'}</option><option value="subordinate">{lang === 'zh' ? '下辖分支 · 独立挂载点' : 'Subordinate branch'}</option></select></label>
+                : <p className="axis-muted">{lang === 'zh' ? '新增人员作为下辖分支，连接直属上级的独立挂载点。' : 'Add a subordinate branch through the parent attachment point.'}</p>}
               {/* Member Selection Mode Toggle */}
               <div className="p-1 bg-surface-container dark:bg-[#282b2d] rounded-2xl flex items-center gap-1 border border-outline-variant/40">
                 <button
@@ -1926,7 +1391,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                     isCustomPerson ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
-                  {lang === 'zh' ? '✍️ 手动填写负责人信息' : '✍️ Custom Person'}
+                  {lang === 'zh' ? '手动填写' : 'Custom person'}
                 </button>
               </div>
 
@@ -1993,20 +1458,21 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
               <div>
                 <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
-                  {lang === 'zh' ? '直属 Superior 领导 (为空则挂载为主干部门/厂家主管)' : 'Superior Leader'}
+                    {lang === 'zh' ? '直属上级' : 'Direct manager'}
                 </label>
                 <select
                   value={newParentId}
+                  aria-label={lang === 'zh' ? '直属上级' : 'Direct manager'}
                   onChange={e => setNewParentId(e.target.value)}
                   className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm font-bold text-on-surface focus:outline-none focus:border-primary"
                 >
                   {/* 非 PM 不能建主干节点，也只能挂到自己负责的子树下（与服务端 ACL 一致） */}
-                  {canEditAny && (
-                    <option value="">{lang === 'zh' ? '🏢 作为主干部门/厂家主管 (Direct Main Axis Leader)' : '🏢 Trunk Leader'}</option>
+                  {canMoveNodes && newNodeOrigin === 'project' && (
+                    <option value="">{lang === 'zh' ? '项目终责下的一级负责人' : 'First-level owner under project lead'}</option>
                   )}
-                  {(canEditAny ? nodes : nodes.filter((n) => editableNodeIds.has(n.id))).map(n => (
+                  {nodes.filter(n => canAddSubordinate(n.id) && (newNodeOrigin === 'subordinate' || n.nodeOrigin !== 'subordinate')).map(n => (
                     <option key={n.id} value={n.id}>
-                      {n.person.name} ({n.roleTitle})
+                      {n.person.name} ({n.roleTitle}) · {n.nodeOrigin === 'subordinate' ? '下辖分支' : '项目定义'}
                     </option>
                   ))}
                 </select>
@@ -2067,6 +1533,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                 </div>
               </div>
 
+              <ResponsibilityPermissionFields value={newNodePermissions} onChange={setNewNodePermissions} lang={lang} />
               <div className="pt-2 flex justify-end gap-3 border-t border-outline-variant/30">
                 <button
                   type="button"
@@ -2085,20 +1552,14 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
               </div>
             </form>
           </div>
-        </div>
+        </AxisDialog>
       )}
 
       {/* MODAL: ADD WORK ITEM */}
       {isAddingWorkItem && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-surface dark:bg-[#1e2022] rounded-3xl p-6 md:p-8 max-w-md w-full border border-outline-variant/40 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-outline-variant/30 pb-4">
-              <h3 className="text-lg font-black text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">add_task</span>
-                <span>{lang === 'zh' ? '挂载责任事项/交付目标' : 'Attach Deliverable Task'}</span>
-              </h3>
-              <button onClick={() => { setIsAddingWorkItem(null); setNewWorkTitle(''); setNewWorkDueDate(''); setNewWorkDesc(''); }} className="text-on-surface-variant hover:text-on-surface text-xl font-bold cursor-pointer">✕</button>
-            </div>
+        <AxisDialog title={lang === 'zh' ? '添加事项' : 'Add work item'} onClose={() => setIsAddingWorkItem(null)}>
+          <div className="axis-create-form p-6 space-y-6">
+            <h2>{lang === 'zh' ? '添加事项' : 'Add work item'}</h2>
 
             <form onSubmit={e => handleAddWorkItem(isAddingWorkItem, e)} className="space-y-4">
               <div>
@@ -2124,9 +1585,9 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                   onChange={e => setNewWorkType(e.target.value as any)}
                   className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm font-bold text-on-surface focus:outline-none focus:border-primary"
                 >
-                  <option value="milestone">{lang === 'zh' ? '🏆 关键里程碑 (Milestone)' : '🏆 Key Milestone'}</option>
-                  <option value="scope">{lang === 'zh' ? '📦 核心交付范围 (Scope)' : '📦 Core Scope'}</option>
-                  <option value="task">{lang === 'zh' ? '📝 日常攻坚任务 (Task)' : '📝 Standard Task'}</option>
+                  <option value="milestone">{lang === 'zh' ? '关键里程碑' : 'Key milestone'}</option>
+                  <option value="scope">{lang === 'zh' ? '交付范围' : 'Delivery scope'}</option>
+                  <option value="task">{lang === 'zh' ? '工作任务' : 'Task'}</option>
                 </select>
               </div>
 
@@ -2172,7 +1633,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
               </div>
             </form>
           </div>
-        </div>
+        </AxisDialog>
       )}
 
       {/* FLOATING TOAST FEEDBACK BANNER */}

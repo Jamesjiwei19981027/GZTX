@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Language, TeamMember } from '../../types';
 import {
   DELEGATION_ACTIONS,
+  DELEGATION_SCOPE_DESCRIPTION,
+  delegationValidTo,
   Delegation,
   createDelegation,
   listDelegations,
@@ -15,6 +17,8 @@ interface DelegationModalProps {
   companyId: number;
   projectId: number;
   members: TeamMember[];
+  canManage?: boolean;
+  currentUserId?: number | null;
 }
 
 /** progress.read 默认勾选：没有它被委托人连项目视图都进不去 */
@@ -27,6 +31,8 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
   companyId,
   projectId,
   members,
+  canManage = true,
+  currentUserId,
 }) => {
   const zh = lang === 'zh';
   const [items, setItems] = useState<Delegation[]>([]);
@@ -87,7 +93,7 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
         project_id: projectId,
         grantee_user_id: grantee,
         actions: [...actions],
-        valid_to: validTo ? `${validTo}T23:59:59` : null,
+        valid_to: delegationValidTo(validTo),
         reason: reason.trim() || null,
       });
       setActions(new Set(DEFAULT_ACTIONS));
@@ -106,6 +112,7 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
       onClick={onClose}
     >
       <div
+        role="dialog" aria-modal="true" aria-label={zh ? '委托授权' : 'Delegations'}
         className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-surface dark:bg-[#1d2021] shadow-2xl border border-outline-variant/40 p-6"
         onClick={(e) => e.stopPropagation()}
       >
@@ -114,12 +121,14 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
             <span className="material-symbols-outlined text-primary">key</span>
             {zh ? '委托授权' : 'Delegations'}
           </h2>
-          <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface">
+          <button onClick={onClose} aria-label={zh ? '关闭委托授权' : 'Close delegations'} className="text-on-surface-variant hover:text-on-surface">
             <span className="material-symbols-outlined">close</span>
           </button>
         </div>
 
-        <div className="space-y-3">
+        <p className="mb-4 text-xs leading-relaxed text-on-surface-variant">{zh ? DELEGATION_SCOPE_DESCRIPTION : 'Delegate selected operations within this project. Set an expiry or revoke access at any time. This does not grant access to local files on phones or computers; evidence access covers authorized material already uploaded to the system.'}</p>
+        {!canManage && <p className="mb-4 text-xs text-on-surface-variant">{zh ? '你可以查看授权记录；创建授权由项目经理或公司管理员操作。' : 'You can view delegations. Only the project manager or company administrator can create them.'}</p>}
+        {canManage && <div className="space-y-3">
           <div>
             <label className="block text-xs font-bold text-on-surface-variant mb-1">
               {zh ? '被授权人' : 'Grantee'}
@@ -152,7 +161,6 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
                     className="mt-0.5 accent-[var(--color-primary,#0058be)]"
                   />
                   <span>
-                    <code className="text-xs text-on-surface-variant">{a.key}</code>
                     <span className="block text-xs text-on-surface-variant">{zh ? a.zh : a.en}</span>
                   </span>
                 </label>
@@ -161,7 +169,7 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
             {!actions.has('progress.read') && (
               <p className="text-xs text-amber-600 mt-1">
                 {zh
-                  ? '未勾选 progress.read：被委托人将无法进入项目视图，其他授权基本用不上'
+                  ? '未勾选查看项目进度：被委托人将无法通过该授权进入项目视图'
                   : 'Without progress.read the grantee cannot open the project view'}
               </p>
             )}
@@ -201,7 +209,7 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
           >
             {submitting ? (zh ? '创建中…' : 'Creating…') : zh ? '创建委托' : 'Create delegation'}
           </button>
-        </div>
+        </div>}
 
         <div className="mt-6">
           <h3 className="text-sm font-bold text-on-surface mb-2">
@@ -225,9 +233,9 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
                         : zh ? '长期' : 'no expiry'}
                     </span>
                   </div>
-                  <div className="text-xs text-on-surface-variant truncate">{d.actions.join(', ')}</div>
+                  <div className="text-xs text-on-surface-variant truncate">{d.actions.map(action => { const item = DELEGATION_ACTIONS.find(item => item.key === action); return item ? zh ? item.zh : item.en : action; }).join('、')}</div>
                 </div>
-                <button
+                {(canManage || d.grantor_user_id === currentUserId) && <button
                   onClick={() =>
                     void revokeDelegation(d.id)
                       .then(reload)
@@ -236,7 +244,7 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
                   className="text-xs font-bold text-error shrink-0"
                 >
                   {zh ? '撤销' : 'Revoke'}
-                </button>
+                </button>}
               </div>
             ))}
           </div>

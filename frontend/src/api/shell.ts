@@ -153,22 +153,28 @@ export async function putNodeLayout(
   })
 }
 
-export async function getTaskTrend(period: 'week' | 'month' | 'quarter' = 'week') {
-  const p = period === 'quarter' ? 'month' : period
+export type TaskStatsPeriod = 'week' | 'month' | 'quarter';
+function taskStatsQuery(period: string, projectId?: string) {
+  const params = new URLSearchParams({ period, timezone_offset: String(-new Date().getTimezoneOffset()) });
+  if (projectId && projectId !== 'all' && Number(projectId) > 0) params.set('project_id', projectId);
+  return params.toString();
+}
+
+export async function getTaskTrend(period: TaskStatsPeriod = 'week', projectId?: string) {
   return apiRequest<{
     period: string
     series: { date: string; created: number; completed: number }[]
-  }>(`/tasks/stats/trend?period=${p}`)
+  }>(`/tasks/stats/trend?${taskStatsQuery(period, projectId)}`)
 }
 
-export async function getTaskStats(period = 'month') {
+export async function getTaskStats(period = 'month', projectId?: string) {
   return apiRequest<{
     total: number
     completed: number
     pending: number
     in_progress: number
     overdue: number
-  }>(`/tasks/stats?period=${period}`)
+  }>(`/tasks/stats?${taskStatsQuery(period, projectId)}`)
 }
 
 export async function getUiPrefs() {
@@ -219,6 +225,9 @@ export type MyProjectPermissions = {
   /** move/delete 只认 tree.edit_any（不可委托） */
   can_move: boolean
   can_delete: boolean
+  can_submit_evidence: boolean
+  can_read_evidence: boolean
+  node_permissions?: Record<string, import('../types').ResponsibilityNodeCapabilities>
 }
 
 export async function getMyPermissions(projectId: number) {
@@ -226,7 +235,7 @@ export async function getMyPermissions(projectId: number) {
 }
 
 export async function getPeopleAxisAggregate() {
-  return apiRequest<{ projects: { project_id: number; project_name: string; company_id: number; nodes: Record<string, unknown>[] }[] }>('/users/me/people-axis')
+  return apiRequest<{ projects: { project_id: number; project_name: string; company_id: number; pm_user_id?: number; final_owner_user_id?: number; my_role?: string; my_owned_node_ids?: number[]; nodes: Record<string, unknown>[] }[] }>('/users/me/people-axis')
 }
 
 export type DirectConversation = {
@@ -237,6 +246,11 @@ export type DirectConversation = {
   title?: string | null
   members: { user_id: number; name: string; avatar?: string }[]
   last_message?: { body: string; created_at?: string } | null
+}
+
+export type WorkContact = { id: number; name: string; avatar?: string }
+export async function listWorkContacts(companyId: number, projectId?: number) {
+  return apiRequest<{ items: WorkContact[] }>(`/companies/${companyId}/contacts${projectId ? `?project_id=${projectId}` : ''}`)
 }
 
 export async function listDirectConversations(companyId: number) {
@@ -259,6 +273,84 @@ export async function postDirectMessage(conversationId: number, body: string, at
     method: 'POST',
     body: JSON.stringify({ body, attachments, file_ids: fileIds }),
   })
+}
+
+export type CommunicationSummary = {
+  id: number
+  company_id: number
+  project_id?: number | null
+  scope_type: 'channel' | 'conversation' | 'call'
+  scope_id: number
+  source_count: number
+  summary_text: string
+  key_points: string[]
+  decisions: string[]
+  action_items: string[]
+  risks: string[]
+  provider: string
+  status: string
+  error_message?: string | null
+  created_at?: string | null
+}
+
+export async function createChannelSummary(channelId: number) {
+  return apiRequest<CommunicationSummary>(`/channels/${channelId}/summaries`, { method: 'POST', body: '{}' })
+}
+
+export async function listChannelSummaries(channelId: number) {
+  return apiRequest<{ items: CommunicationSummary[] }>(`/channels/${channelId}/summaries`)
+}
+
+export async function createConversationSummary(conversationId: number) {
+  return apiRequest<CommunicationSummary>(`/conversations/${conversationId}/summaries`, { method: 'POST', body: '{}' })
+}
+
+export async function listConversationSummaries(conversationId: number) {
+  return apiRequest<{ items: CommunicationSummary[] }>(`/conversations/${conversationId}/summaries`)
+}
+
+export type CallSession = {
+  id: number
+  company_id: number
+  project_id?: number | null
+  conversation_id: number
+  call_type: 'audio' | 'video'
+  status: string
+  participants: number[]
+  started_at?: string | null
+  ended_at?: string | null
+}
+
+export type CallRecording = {
+  id: number
+  call_session_id: number
+  status: string
+  transcription_status: string
+  transcription_provider?: string | null
+  transcript_text?: string | null
+  transcription_error?: string | null
+}
+
+export async function createCallSession(body: { conversation_id: number; call_type: 'audio' | 'video'; project_id?: number }) {
+  return apiRequest<CallSession>('/calls/sessions', { method: 'POST', body: JSON.stringify(body) })
+}
+
+export async function endCallSession(sessionId: number) {
+  return apiRequest<CallSession>(`/calls/sessions/${sessionId}/end`, { method: 'POST', body: '{}' })
+}
+
+export async function uploadCallRecording(sessionId: number, file: File) {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest<CallRecording>(`/calls/sessions/${sessionId}/recordings`, { method: 'POST', body })
+}
+
+export async function transcribeCallSession(sessionId: number) {
+  return apiRequest<CallRecording>(`/calls/sessions/${sessionId}/transcribe`, { method: 'POST', body: '{}' })
+}
+
+export async function summarizeCallSession(sessionId: number) {
+  return apiRequest<CommunicationSummary>(`/calls/sessions/${sessionId}/summarize`, { method: 'POST', body: '{}' })
 }
 
 export async function uploadChannelFile(channelId: number, file: File) {

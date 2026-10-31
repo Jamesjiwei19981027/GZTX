@@ -101,6 +101,9 @@ export type BackendTreeNode = {
   node_type_key: string
   title: string
   description?: string | null
+  node_origin?: 'project' | 'subordinate'
+  responsibility_permissions?: Partial<import('../types').ResponsibilityPermissions>
+  allow_clear_text_progress?: boolean
   sort_order?: number
   depth?: number
   start_at?: string | null
@@ -156,6 +159,11 @@ export async function listTasks(params?: { page?: number; page_size?: number; se
   q.set('page_size', String(params?.page_size ?? 100))
   if (params?.search) q.set('search', params.search)
   return apiRequest<{ items: BackendTask[]; total: number }>(`/tasks?${q}`)
+}
+
+export async function listProjectTasks(projectId: number, params?: {page?:number;page_size?:number}) {
+  const q = new URLSearchParams({page:String(params?.page ?? 1),page_size:String(params?.page_size ?? 100)});
+  return apiRequest<{items:BackendTask[];total:number}>(`/projects/${projectId}/tasks?${q}`);
 }
 
 export async function createTask(body: {
@@ -257,7 +265,7 @@ export async function updateTask(
     status: number
     category_id: number | null
     tag_ids: number[]
-    due_date: string
+    due_date: string | null
     project_id: number | null
     project_node_id: number | null
     company_id: number | null
@@ -412,6 +420,9 @@ export async function createNode(
     due_at?: string
     sort_order?: number
     assignees?: { user_id: number; role_key?: string }[]
+    node_origin?: 'project' | 'subordinate'
+    responsibility_permissions?: import('../types').ResponsibilityPermissions
+    allow_clear_text_progress?: boolean
   },
 ) {
   return apiRequest<BackendTreeNode>(`/projects/${projectId}/nodes`, {
@@ -430,6 +441,18 @@ export async function moveNode(
   })
 }
 
+export async function getTreeNode(nodeId: number) {
+  return apiRequest<BackendTreeNode>(`/nodes/${nodeId}`)
+}
+
+export async function updateTreeNode(nodeId: number, body: {
+  title?: string; description?: string
+  assignees?: { user_id: number; role_key: string }[]
+  responsibility_permissions?: import('../types').ResponsibilityPermissions
+}) {
+  return apiRequest<BackendTreeNode>(`/nodes/${nodeId}`, { method: 'PATCH', body: JSON.stringify(body) })
+}
+
 export async function setNodeAssignees(nodeId: number, userIds: number[]) {
   return apiRequest(`/nodes/${nodeId}/assignees`, {
     method: 'PUT',
@@ -440,6 +463,21 @@ export async function setNodeAssignees(nodeId: number, userIds: number[]) {
       })),
     }),
   })
+}
+
+export type NodeDeletionPreview = {
+  node_id:number; descendants:Array<{id:number;title:string;node_type_key:string;node_origin:string}>;
+  descendant_count:number; affected_user_ids:number[]; affected_task_count:number; affected_evidence_count:number;
+  handover_candidates:Array<{id:number;title:string}>; requires_confirmation:boolean; warning:string; preview_token:string;
+};
+export function previewNodeDeletion(nodeId:number) {
+  return apiRequest<NodeDeletionPreview>(`/nodes/${nodeId}/deletion-preview`);
+}
+export function deletePersonNode(nodeId:number, options:{preview_token:string;cascade?:boolean;handover_to_node_id?:number}) {
+  const q=new URLSearchParams({preview_token:options.preview_token});
+  if(options.cascade) q.set('cascade','true');
+  if(options.handover_to_node_id) q.set('handover_to_node_id',String(options.handover_to_node_id));
+  return apiRequest<{id:number;is_deleted:boolean;revoked_user_ids:number[]}>(`/nodes/${nodeId}?${q}`,{method:'DELETE'});
 }
 
 export async function listNodeEvidence(nodeId: number) {
@@ -462,6 +500,7 @@ export async function submitEvidence(
     summary: string
     evidence_kind?: string
     external_url?: string
+    file_ids?: number[]
   },
 ) {
   return apiRequest(`/nodes/${nodeId}/evidence`, {
@@ -470,6 +509,7 @@ export async function submitEvidence(
       summary_text: body.summary,
       evidence_kind: body.evidence_kind,
       external_url: body.external_url,
+      file_ids: body.file_ids || [],
     }),
   })
 }

@@ -18,6 +18,10 @@ import {
 } from './storage/settings';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
+import { TaskWorkspaceToolbar } from './components/TaskWorkspaceToolbar';
+import { filterTaskWorkspace, type TaskWorkspaceScope } from './utils/taskWorkspace';
+import { PhoneVerificationReminder } from './components/PhoneVerificationReminder';
+import { MobileAppShell } from './mobile/MobileAppShell';
 import { DashboardView } from './components/views/DashboardView';
 import { MyTasksView } from './components/views/MyTasksView';
 import { NewTaskModal } from './components/modals/NewTaskModal';
@@ -110,6 +114,9 @@ const PeopleAxisView = React.lazy(() =>
 const TrashView = React.lazy(() =>
   import('./components/views/TrashView').then((m) => ({ default: m.TrashView })),
 );
+const PersonalKnowledgeSpace = React.lazy(() =>
+  import('./components/PersonalKnowledgeSpace').then((m) => ({ default: m.PersonalKnowledgeSpace })),
+);
 
 const ViewLoadingFallback: React.FC = () => (
   <div className="flex items-center justify-center py-24 bg-surface text-on-surface-variant text-sm gap-2">
@@ -130,7 +137,54 @@ const ALL_PROJECT_ITEM: Project = {
 const TASK_PAGE_SIZE = 200;
 const TASK_MAX_PAGES = 10;
 
+function useIsMobileViewport(): boolean {
+  const check = useCallback(() => {
+    if (typeof window === 'undefined') return false;
+    const isApp = Boolean(
+      window.flutterShellBridge ||
+        window.FlutterBridge ||
+        window.__isFlutterApp ||
+        (window.__NATIVE_RUNTIME__ as { surface?: string } | undefined)?.surface === 'app' ||
+        new URLSearchParams(window.location.search).get('mobile') === '1',
+    );
+    if (isApp) return true;
+    return window.innerWidth < 1024;
+  }, []);
+
+  const [isMobile, setIsMobile] = useState<boolean>(check);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const isApp = Boolean(
+      window.flutterShellBridge ||
+        window.FlutterBridge ||
+        window.__isFlutterApp ||
+        (window.__NATIVE_RUNTIME__ as { surface?: string } | undefined)?.surface === 'app' ||
+        new URLSearchParams(window.location.search).get('mobile') === '1',
+    );
+    if (isApp) {
+      setIsMobile(true);
+      return;
+    }
+
+    const onNativeRuntimeChange = () => setIsMobile(true);
+    window.addEventListener('nativeRuntimeChange', onNativeRuntimeChange);
+
+    const onResize = () => {
+      setIsMobile(window.innerWidth < 1024);
+    };
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('nativeRuntimeChange', onNativeRuntimeChange);
+      window.removeEventListener('resize', onResize);
+    };
+  }, [check]);
+
+  return isMobile;
+}
+
 export default function App() {
+  const isMobileView = useIsMobileViewport();
   const toast = useToast();
   const [authed, setAuthed] = useState(() => !!getToken());
   /** null=检查中；false=需补验邮箱；true=邮箱已验证（个人待办可用） */
@@ -143,6 +197,7 @@ export default function App() {
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [phoneGateOpen, setPhoneGateOpen] = useState(false);
+  const markPhoneVerified = useCallback(() => setPhoneVerified(true), []);
   const [bootError, setBootError] = useState<string | null>(null);
   const [loadingBoot, setLoadingBoot] = useState(false);
   /**
@@ -175,6 +230,8 @@ export default function App() {
   );
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [taskWorkspaceScope, setTaskWorkspaceScope] = useState<TaskWorkspaceScope>('all');
+  const [trashReturnView, setTrashReturnView] = useState<'tasks' | 'kanban'>('kanban');
   /** `?taskId=` 待打开的任务；tasks 载入后再解析成具体任务 */
   const [pendingTaskId, setPendingTaskId] = useState<string | null>(
     () => readDeepLink().taskId ?? null,
@@ -188,6 +245,7 @@ export default function App() {
   const [newTaskDefaultSource, setNewTaskDefaultSource] = useState<{ channel?: string; title?: string; url?: string } | undefined>();
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
+  const [assistantFocus, setAssistantFocus] = useState<'progress' | 'reports'>('reports');
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
 
@@ -615,6 +673,7 @@ export default function App() {
     const root = document.documentElement;
     if (settings.themeMode === 'dark') root.classList.add('dark');
     else root.classList.remove('dark');
+    root.style.colorScheme = settings.themeMode;
     // 主题色通过 data-accent 接通 index.css 的调色板变量
     root.dataset.accent = settings.accentColor;
     if (authed && prefsHydrated) {
@@ -762,7 +821,7 @@ export default function App() {
 
   const handleUpdateTask = async (updatedTask: Task) => {
     const id = Number(updatedTask.id);
-    if (!Number.isFinite(id)) return;
+    if (!Number.isFinite(id)) return false;
     try {
       await updateTask(id, {
         title: updatedTask.title,
@@ -771,7 +830,7 @@ export default function App() {
         status: uiStatusToApi(updatedTask.status),
         category_id: updatedTask.categoryId,
         tag_ids: updatedTask.tagIds,
-        due_date: toApiDueDate(updatedTask.dueDate, updatedTask.dueTime),
+        due_date: toApiDueDate(updatedTask.dueDate, updatedTask.dueTime) || null,
         project_id:
           updatedTask.projectId && Number(updatedTask.projectId) > 0
             ? Number(updatedTask.projectId)
@@ -791,8 +850,10 @@ export default function App() {
       setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
       addActivity('updated', '任务已更新:', updatedTask.title);
       setSelectedTask(updatedTask);
+      return true;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '更新失败');
+      return false;
     }
   };
 
@@ -1020,6 +1081,48 @@ export default function App() {
         </div>
       )}
 
+      {isMobileView ? (
+        <MobileAppShell
+          user={user}
+          tasks={filteredTasks}
+          projects={displayProjects}
+          currentProject={currentProject}
+          onSelectProject={setCurrentProject}
+          activities={activities}
+          settings={settings}
+          companyId={companyId}
+          projectMembers={projectMembers}
+          onSelectTask={setSelectedTask}
+          onTaskSaved={saved => setTasks(previous => previous.some(task => task.id === saved.id)
+            ? previous.map(task => task.id === saved.id ? saved : task) : [saved, ...previous])}
+          onOpenNewTask={handleOpenNewTask}
+          onToggleTaskCompletion={handleToggleTaskCompletion}
+          onUpdateTaskStatus={handleUpdateTaskStatus}
+          onBatchComplete={handleBatchComplete}
+          onBatchReschedule={handleBatchReschedule}
+          onBatchDelete={handleBatchDelete}
+          onMoveTask={handleMoveTask}
+          onUpdateUser={async (updated) => {
+            const saved = await updateMe({
+              nickname: updated.name,
+              avatar_url: updated.avatar,
+            });
+            setUser(mapUser(saved));
+          }}
+          onUploadAvatar={async (file) => {
+            const saved = await uploadAvatar(file);
+            setUser((prev) => ({ ...prev, avatar: saved.avatar_url }));
+          }}
+          onUpdateSettings={(updated) =>
+            setSettings((prev) => ({ ...prev, ...updated }))
+          }
+          onLogout={handleLogout}
+          onOpenQuickAdd={handleOpenQuickAdd}
+          onOpenSearch={() => setIsGlobalSearchOpen(true)}
+        />
+      ) : (
+        <>
+          <div className={activeView === 'people-axis' ? 'hidden md:block' : undefined}>
       <Navbar
         currentProject={currentProject}
         projects={displayProjects}
@@ -1036,26 +1139,44 @@ export default function App() {
         onOpenNotifications={handleOpenNotifications}
         onLogout={handleLogout}
       />
+      </div>
 
-      <div className="flex flex-1 pt-16">
+      <div className={`flex flex-1 ${activeView === 'people-axis' ? 'pt-0 md:pt-16' : 'pt-16'}`}>
         <Sidebar
           activeView={activeView}
-          onSelectView={switchView}
+          onSelectView={view => { if (view === 'kanban' || view === 'tasks') setTaskWorkspaceScope('all'); switchView(view); }}
           onOpenNewTask={handleOpenNewTask}
           lang={settings.language}
         />
 
-        <main className="flex-1 md:pl-[280px] pb-20 md:pb-8 min-w-0 transition-all duration-200">
+        <main className={`flex-1 md:pl-[280px] ${activeView === 'people-axis' ? 'pb-0' : 'pb-20 md:pb-8'} min-w-0 transition-all duration-200`}>
           <div className="max-w-7xl mx-auto">
+            {(activeView === 'tasks' || activeView === 'kanban') && <TaskWorkspaceToolbar
+              view={activeView} scope={taskWorkspaceScope} lang={settings.language}
+              onViewChange={switchView} onScopeChange={setTaskWorkspaceScope}
+              onOpenTrash={() => { setTrashReturnView(activeView); switchView('trash'); }} />}
+            {activeView === 'trash' && <button type="button" onClick={() => switchView(trashReturnView)}
+              className="min-h-[44px] px-3 text-primary font-medium">{settings.language === 'zh' ? '返回任务管理' : 'Back to tasks'}</button>}
             <React.Suspense fallback={<ViewLoadingFallback />}>
             {activeView === 'dashboard' && (
               <DashboardView
                 user={user}
+                projects={projects}
+                currentProject={currentProject}
+                onOpenCalendar={() => switchView('calendar')}
+                onEditScheduledTask={setSelectedTask}
+                onOpenNewTaskWithDate={date => {
+                  setNewTaskDefaultDate(date); setNewTaskDefaultStatus('To Do'); setNewTaskDefaultSource(undefined);
+                  setNewTaskDefaultTitle(''); setNewTaskDefaultDesc(''); setIsNewTaskModalOpen(true);
+                }}
+                onOpenProject={(project) => { setCurrentProject(project); switchView('people-axis'); }}
                 tasks={filteredTasks}
                 activities={activities}
                 onSelectTask={setSelectedTask}
                 onOpenNewTask={handleOpenNewTask}
-                onNavigateToTasks={() => switchView('tasks')}
+                onNavigateToTasks={() => { setTaskWorkspaceScope('all'); switchView('tasks'); }}
+                onNavigateToKanban={scope => { setTaskWorkspaceScope(scope || 'all'); switchView('kanban'); }}
+                onNavigateToAssistant={action => { setAssistantFocus(action); switchView('reports'); }}
                 onNavigateToPeopleAxis={() => switchView('people-axis')}
                 lang={settings.language}
               />
@@ -1065,14 +1186,24 @@ export default function App() {
               <PeopleAxisView
                 lang={settings.language}
                 projectId={currentProject.id}
-                projects={projects}
+                projects={displayProjects}
                 onSelectProject={(proj) => setCurrentProject(proj)}
+              />
+            )}
+
+            {activeView === 'knowledge' && (
+              <PersonalKnowledgeSpace
+                userId={user.id}
+                projects={displayProjects}
+                currentProject={currentProject}
+                onSelectProject={setCurrentProject}
+                onAskKnowledge={() => switchView('reports')}
               />
             )}
 
             {activeView === 'tasks' && (
               <MyTasksView
-                tasks={filteredTasks}
+                tasks={filterTaskWorkspace(filteredTasks, taskWorkspaceScope)}
                 onToggleTaskCompletion={handleToggleTaskCompletion}
                 onSelectTask={setSelectedTask}
                 onBatchComplete={handleBatchComplete}
@@ -1094,7 +1225,7 @@ export default function App() {
 
             {activeView === 'kanban' && (
               <KanbanView
-                tasks={filteredTasks}
+                tasks={filterTaskWorkspace(filteredTasks, taskWorkspaceScope)}
                 members={projectMembers}
                 lastUpdatedAt={activities[0]?.timestamp}
                 onUpdateTaskStatus={handleUpdateTaskStatus}
@@ -1123,7 +1254,19 @@ export default function App() {
             )}
 
             {activeView === 'reports' && (
-              <ReportsView tasks={tasks} lang={settings.language} />
+              <ReportsView
+                initialFocus={assistantFocus}
+                projects={displayProjects}
+                onSelectProject={setCurrentProject}
+                tasks={filteredTasks}
+                lang={settings.language}
+                projectId={currentProject.id}
+                projectName={currentProject.name}
+                userId={user.id}
+                companyId={companyId}
+                onNavigateToPeopleAxis={() => switchView('people-axis')}
+                onNavigateToInbox={() => switchView('inbox')}
+              />
             )}
 
             {activeView === 'team' && (
@@ -1219,22 +1362,14 @@ export default function App() {
           </div>
         </main>
       </div>
+        </>
+      )}
 
       <NewTaskModal
         isOpen={isNewTaskModalOpen}
         onClose={() => setIsNewTaskModalOpen(false)}
         onCreateTask={handleCreateTask}
-        currentProject={
-          currentProject.id === 'all'
-            ? projects[0] || {
-                id: '0',
-                name: '默认',
-                description: '',
-                color: '#0058be',
-                active: true,
-              }
-            : currentProject
-        }
+        currentProject={currentProject}
         defaultStatus={newTaskDefaultStatus}
         defaultDate={newTaskDefaultDate}
         defaultPriority={settings.taskDefaults.priority}
@@ -1267,7 +1402,7 @@ export default function App() {
         isOpen={isQuickAddOpen}
         onClose={() => setIsQuickAddOpen(false)}
         onCreateTask={handleCreateTask}
-        projectId={currentProject.id === 'all' ? projects[0]?.id || '0' : currentProject.id}
+        projectId={currentProject.id}
         defaultCategory={settings.taskDefaults.category}
         lang={settings.language}
       />
@@ -1315,6 +1450,7 @@ export default function App() {
         }
       />
 
+      <PhoneVerificationReminder userId={user.id || ''} verified={phoneVerified} onVerify={() => setPhoneGateOpen(true)} onVerified={markPhoneVerified} />
       {phoneGateOpen && (
         <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4">
           <div className="w-full max-w-lg">

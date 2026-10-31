@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Task, Status, Priority, Language, TeamMember } from '../../types';
 import { getT } from '../../i18n';
+import { TaskScheduleHistory } from '../TaskScheduleHistory';
 
 interface TaskDetailDrawerProps {
   task: Task | null;
   onClose: () => void;
-  onUpdateTask: (updatedTask: Task) => void;
+  onUpdateTask: (updatedTask: Task) => void | Promise<boolean | void>;
   onDeleteTask: (taskId: string) => void;
   members?: TeamMember[];
   currentUserId?: string;
@@ -22,6 +23,15 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
   lang,
 }) => {
   const t = getT(lang);
+  const [dueDate, setDueDate] = useState('');
+  const [dueTime, setDueTime] = useState('');
+  const [scheduleBusy, setScheduleBusy] = useState(false);
+  const [scheduleError, setScheduleError] = useState('');
+  const [scheduleSaved, setScheduleSaved] = useState(false);
+  useEffect(() => {
+    setDueDate(task?.dueDate || ''); setDueTime(task?.dueTime || '');
+    setScheduleError(''); setScheduleSaved(false);
+  }, [task?.id, task?.dueDate, task?.dueTime]);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -121,6 +131,7 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
               </button>
               <button
                 onClick={onClose}
+                aria-label={lang === 'zh' ? '关闭任务详情' : 'Close task details'}
                 className="p-1.5 hover:bg-surface-container rounded-lg text-on-surface-variant transition-colors"
               >
                 <span className="material-symbols-outlined text-lg">close</span>
@@ -226,11 +237,25 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                 </div>
               )}
 
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-on-surface-variant font-medium">{t.dueDate}</span>
-                <span className="font-bold text-error">
-                  {task.dueDate} {task.dueTime ? `• ${task.dueTime}` : ''}
-                </span>
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <label className="space-y-1"><span>{lang === 'zh' ? '截止日期' : 'Due date'}</span><input type="date" aria-label="截止日期" value={dueDate}
+                    onChange={event => { setDueDate(event.target.value); setScheduleSaved(false); }} className="block w-full min-h-[44px] px-2 rounded-lg border border-outline-variant bg-surface text-on-surface" /></label>
+                  <label className="space-y-1"><span>{lang === 'zh' ? '截止时刻' : 'Due time'}</span><input type="time" aria-label="截止时刻" value={dueTime}
+                    onChange={event => { setDueTime(event.target.value); setScheduleSaved(false); }} className="block w-full min-h-[44px] px-2 rounded-lg border border-outline-variant bg-surface text-on-surface" /></label>
+                </div>
+                <button type="button" disabled={scheduleBusy || !!dueTime && !dueDate} onClick={async () => {
+                  setScheduleBusy(true); setScheduleError('');
+                  try {
+                    const saved = await onUpdateTask({ ...task, dueDate, dueTime: dueTime || undefined });
+                    if (saved === false) setScheduleError(lang === 'zh' ? '日程保存失败，请重试；已保留修改。' : 'Save failed. Your changes are preserved.');
+                    else setScheduleSaved(true);
+                  } catch (error) { setScheduleError(error instanceof Error ? error.message : '日程保存失败'); }
+                  finally { setScheduleBusy(false); }
+                }} className="min-h-[44px] px-3 rounded-lg bg-primary/10 text-primary font-semibold text-xs disabled:opacity-50">{scheduleBusy ? (lang === 'zh' ? '正在保存…' : 'Saving…') : (lang === 'zh' ? '保存日程' : 'Save schedule')}</button>
+                {scheduleError && <p role="alert" className="text-xs text-error">{scheduleError}</p>}
+                {scheduleSaved && <p role="status" className="text-xs text-secondary">{lang === 'zh' ? '日程已更新' : 'Schedule updated'}</p>}
+                <TaskScheduleHistory taskId={task.id} revision={`${task.dueDate}:${task.dueTime}`} />
               </div>
               {task.projectId && (
                 <label className="flex justify-between items-center text-xs text-on-surface-variant font-medium">
