@@ -93,17 +93,17 @@ export DATABASE_URL="postgresql+asyncpg://user:pass@db:5432/worktodo"   # Linux
 # Windows PowerShell: $env:DATABASE_URL = "..."
 
 alembic upgrade head
-# 当前 head: a1b2c3d4e5f6（含 collab 全表 + tasks 兼容列）
+# 当前 head: fg5b6c7d8e9f（含 collab 全表、责任权限、逐级智能体汇报和总领导封装）
 ```
 
 验证：
 
 ```bash
 alembic current
-# 期望: a1b2c3d4e5f6
+# 期望: fg5b6c7d8e9f
 ```
 
-空库从 `001` 链式升至 `a1b2c3d4e5f6` 会创建个人任务表与协作表（companies / projects / tree_nodes / evidence / progress / agents / notify / delegation / reports 等）。
+空库从初始 revision 链式升至 `fg5b6c7d8e9f` 会创建个人任务表、协作表和智能体汇报表（companies / projects / tree_nodes / evidence / progress / agents / notify / delegation / reports / project_report_envelopes / leadership_report_envelopes 等）。
 
 已有个人库：同一 revision 幂等 `create_all(checkfirst)` + `tasks` 列 `origin/company_id/project_id/project_node_id/linked_readonly`。
 
@@ -161,7 +161,7 @@ npm run build
 | 智能体 | 工具链需会话 user/company/project ACL；rule/LLM judge 可配置 |
 | 证据上传 | 必填 `company_id` + 成员 ACL + `MAX_UPLOAD_SIZE`；不回传 storage_key |
 | 委托 | actions 白名单，禁止 `*` |
-| Alembic | head `a1b2c3d4e5f6`：首版 collab 用 create_all 建表 + 幂等列；后续须显式 revision |
+| Alembic | head `fg5b6c7d8e9f`：责任权限、逐级智能体汇报和总领导封装均有显式 revision |
 | Redis 队列 | 非目标；进程内 job 可接受小规模 |
 | 小程序上架审核材料 | 非本 runbook 范围 |
 
@@ -171,7 +171,7 @@ npm run build
 
 - [ ] 生产 `.env`：无示例 `SECRET_KEY` / 无调试默认 License 密钥  
 - [ ] `LICENSE_VERIFY_MODE=ed25519` 且公钥正确  
-- [ ] `alembic upgrade head` → `a1b2c3d4e5f6`  
+- [ ] `docker compose -f docker-compose.prod.yml up -d --build`（`migrate` 服务自动执行 `alembic upgrade head`）
 - [ ] `GET /api/v1/health` → `healthy`  
 - [ ] 前端 `npm run build` 成功并完成反代  
 - [ ] CORS / HTTPS / 反向代理超时与上传体大小  
@@ -194,7 +194,7 @@ npm run build
 
 ## 9. 相关代码
 
-- 迁移：`backend/alembic/versions/a1b2c3d4e5f6_collab_full_schema.py`  
+- 迁移：`backend/alembic/versions/ff4a5b6c7d8e_hierarchical_agent_reports.py`、`fg5b6c7d8e9f_leadership_envelopes.py`
 - 验签：`backend/app/services/license_verify.py`  
 - 配置：`backend/app/core/config.py`  
 - 健康：`GET /api/v1/health`  

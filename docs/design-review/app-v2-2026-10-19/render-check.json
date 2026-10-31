@@ -1,0 +1,912 @@
+{
+  "generatedAt": "2026-10-19T09:55:50.917Z",
+  "count": 100,
+  "pageErrors": [],
+  "horizontalOverflow": [],
+  "brokenImages": [],
+  "reviewNavigation": "passed",
+  "feedbackSave": "passed",
+  "feedbackExport": "passed",
+  "pages": [
+    {
+      "id": "01",
+      "title": "登录",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "02",
+      "title": "注册账号",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 929,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "03",
+      "title": "验证工作邮箱",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "04",
+      "title": "验证手机号",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "05",
+      "title": "员工工作台",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 1008,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "06",
+      "title": "管理者工作台",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 975,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "07",
+      "title": "切换项目",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "08",
+      "title": "创建工作区",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "09",
+      "title": "项目概览",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 942,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "10",
+      "title": "项目设置",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 876,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "11",
+      "title": "成员邀请",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 868,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "12",
+      "title": "我的任务",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 975,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "13",
+      "title": "任务筛选与批量操作",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 899,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "14",
+      "title": "任务详情",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 1144,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "15",
+      "title": "新建 / 编辑任务",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 1013,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "16",
+      "title": "快速添加",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 905,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "17",
+      "title": "从聊天提取任务",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "18",
+      "title": "项目看板",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "19",
+      "title": "日历与日程",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 863,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "20",
+      "title": "我的责任链",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 1024,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "21",
+      "title": "项目全貌",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 925,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "22",
+      "title": "人员 / 责任节点详情",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 957,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "23",
+      "title": "新增 / 编辑人员",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "24",
+      "title": "节点权限",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "25",
+      "title": "调整直属上级",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "26",
+      "title": "提交证据材料",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "27",
+      "title": "证据包详情",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 895,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "28",
+      "title": "进度与记录",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "29",
+      "title": "委托授权",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 951,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "30",
+      "title": "画布设置",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 877,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "31",
+      "title": "AI 责任链审计",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "32",
+      "title": "项目 Wiki",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 846,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "33",
+      "title": "Wiki 草稿与发布",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 852,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "34",
+      "title": "项目知识搜索",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "35",
+      "title": "项目内 AI 入口",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 922,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "36",
+      "title": "与我的 AI 对话",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "37",
+      "title": "编辑我的 AI 汇报",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 932,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "38",
+      "title": "汇报提交与送达",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "39",
+      "title": "汇报历史与版本",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "40",
+      "title": "下属汇报收件箱",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "41",
+      "title": "项目资料对照",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "42",
+      "title": "项目汇总与发布",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 987,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "43",
+      "title": "总领导项目总览",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "44",
+      "title": "消息会话列表",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "45",
+      "title": "项目聊天 / 私聊",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "46",
+      "title": "语音 / 视频通话",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "47",
+      "title": "会话资料",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 856,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "48",
+      "title": "通知收件箱",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "49",
+      "title": "通知 / 汇报详情",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 897,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "50",
+      "title": "外部邮件",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "51",
+      "title": "团队与成员",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "52",
+      "title": "成员详情与职责",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "53",
+      "title": "我的",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 1016,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "54",
+      "title": "个人资料",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "55",
+      "title": "账号安全",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "56",
+      "title": "外观与语言",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "57",
+      "title": "通知与免打扰",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 957,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "58",
+      "title": "任务默认值",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "59",
+      "title": "通知渠道配置",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "60",
+      "title": "AI 模型与语音配置",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "61",
+      "title": "组织与登录集成",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 892,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "62",
+      "title": "套餐、隐私与帮助",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 922,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "63",
+      "title": "通知发送记录",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "64",
+      "title": "回收站",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "65",
+      "title": "全局搜索",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "66",
+      "title": "空状态与首次使用",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 864,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "67",
+      "title": "断网与启动恢复",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "68",
+      "title": "加载失败 / 模型不可用",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "69",
+      "title": "权限不足 / 角色变化",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "70",
+      "title": "删除与高风险操作确认",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "71",
+      "title": "窄屏适配 · 320",
+      "width": 320,
+      "scrollWidth": 320,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "72",
+      "title": "宽屏手机 · 430",
+      "width": 430,
+      "scrollWidth": 430,
+      "height": 934,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "73",
+      "title": "系统大字体 · 150%",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 865,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "74",
+      "title": "系统大字体 · 200%",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "75",
+      "title": "深色模式",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 921,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "76",
+      "title": "平板双栏",
+      "width": 834,
+      "scrollWidth": 834,
+      "height": 1112,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "77",
+      "title": "横屏手机",
+      "width": 844,
+      "scrollWidth": 844,
+      "height": 390,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "78",
+      "title": "键盘弹出与输入",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "79",
+      "title": "验证码登录",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "80",
+      "title": "创建公司",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "81",
+      "title": "接受项目邀请",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "82",
+      "title": "日期与重复规则",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 900,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "83",
+      "title": "成员、标签与附件选择",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 868,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "84",
+      "title": "任务操作菜单",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "85",
+      "title": "周日历",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "86",
+      "title": "横向责任链",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 859,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "87",
+      "title": "节点预览与定位",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "88",
+      "title": "授权记录与撤销",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "89",
+      "title": "频道与会话管理",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "90",
+      "title": "Push 通知设置",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "91",
+      "title": "微信提醒设置",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "92",
+      "title": "语音识别配置",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "93",
+      "title": "文件存储配置",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "94",
+      "title": "单点登录配置",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "95",
+      "title": "项目智能体绑定管理",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "96",
+      "title": "删除账号确认",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "97",
+      "title": "启动与同步中",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 844,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "98",
+      "title": "通知归档与筛选",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 924,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "99",
+      "title": "待补材料与上级追问",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 962,
+      "overflow": [],
+      "errors": []
+    },
+    {
+      "id": "100",
+      "title": "资料差异确认",
+      "width": 390,
+      "scrollWidth": 390,
+      "height": 977,
+      "overflow": [],
+      "errors": []
+    }
+  ]
+}

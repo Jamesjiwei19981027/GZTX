@@ -63,7 +63,7 @@ docker compose up -d
 ## 部署指南
 
 **开发**：`docker compose -f docker-compose.yml up -d`  
-**生产**：`cp .env.example .env` 填密钥后 `docker compose -f docker-compose.prod.yml up -d --build`，首次 `exec backend alembic upgrade head`。
+**生产**：`cp .env.example .env` 填密钥后运行 `docker compose -f docker-compose.prod.yml up -d --build`；一次性 `migrate` 服务会在 backend 和 scheduler 启动前自动执行 `alembic upgrade head`，迁移失败会阻止应用启动。
 
 完整步骤、备份与健康检查：[docs/06-部署运维指南.md](./docs/06-部署运维指南.md)、[docs/07-collab-production-runbook.md](./docs/07-collab-production-runbook.md)。
 

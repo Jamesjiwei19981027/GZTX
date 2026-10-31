@@ -1,0 +1,7 @@
+---
+description: Keep Web and the official APP synchronized for every product change
+alwaysApply: true
+---
+
+- Follow the Web/APP synchronization requirements in the repository root AGENTS.md.
+- Apply every product change to both surfaces and verify affected navigation, inputs, permissions and project scope before reporting completion.
