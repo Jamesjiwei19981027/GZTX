@@ -48,19 +48,39 @@ class WorkTodoApp extends StatefulWidget {
 }
 
 class _WorkTodoAppState extends State<WorkTodoApp> {
-  late final core_auth.AuthState _authState;
-  late final AppRouter _appRouter;
+  core_auth.AuthState? _authState;
+  AppRouter? _appRouter;
+
+  bool get _isNative => widget.useNativeOverride ?? kUseNativeApp;
 
   @override
   void initState() {
     super.initState();
-    _authState = core_auth.AuthState()..bootstrap();
-    _appRouter = AppRouter(authState: _authState);
+    if (_isNative) {
+      _initNativeAuth();
+    }
+  }
+
+  void _initNativeAuth() {
+    if (_authState == null) {
+      final auth = core_auth.AuthState();
+      _authState = auth;
+      _appRouter = AppRouter(authState: auth);
+      auth.bootstrap();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant WorkTodoApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_isNative && _authState == null) {
+      _initNativeAuth();
+    }
   }
 
   @override
   void dispose() {
-    _authState.dispose();
+    _authState?.dispose();
     super.dispose();
   }
 
@@ -123,12 +143,15 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
 
     // 模式 1：启用全新原生版架构
     if (useNative) {
+      if (_authState == null) {
+        _initNativeAuth();
+      }
       return ChangeNotifierProvider<core_auth.AuthState>.value(
-        value: _authState,
+        value: _authState!,
         child: MaterialApp.router(
           title: Brand.fullName,
           theme: _buildAppTheme(context),
-          routerConfig: _appRouter.router,
+          routerConfig: _appRouter!.router,
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,

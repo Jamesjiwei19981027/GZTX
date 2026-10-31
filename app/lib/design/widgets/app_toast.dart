@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -8,19 +10,38 @@ import 'adaptive_base.dart';
 enum ToastType { info, success, warning, error }
 
 OverlayEntry? _activeToastEntry;
+Timer? _activeToastTimer;
 
-/// 弹出全局轻提示 Toast（单例去重，带 entry.dispose 处理）
+/// 供测试清理当前活跃 Toast 状态
+@visibleForTesting
+void resetToastForTesting() {
+  _activeToastTimer?.cancel();
+  _activeToastTimer = null;
+  if (_activeToastEntry != null) {
+    try {
+      _activeToastEntry!.remove();
+    } catch (_) {}
+    _activeToastEntry!.dispose();
+    _activeToastEntry = null;
+  }
+}
+
+/// 弹出全局轻提示 Toast（单例去重，防二次 dispose）
 void showAppToast(
   BuildContext context,
   String message, {
   ToastType type = ToastType.info,
   Duration duration = const Duration(seconds: 2),
 }) {
-  // 如果已有展示中的 Toast，先移除并销毁，避免在屏幕上堆叠
+  // 1. 取消正在计时的旧 Toast 定时器，防止旧定时器回调触发二次 dispose
+  _activeToastTimer?.cancel();
+  _activeToastTimer = null;
+
+  // 2. 如果已有展示中的 Toast，先从 Overlay 移除并安全销毁，避免在屏幕上堆叠
   if (_activeToastEntry != null) {
-    if (_activeToastEntry!.mounted) {
+    try {
       _activeToastEntry!.remove();
-    }
+    } catch (_) {}
     _activeToastEntry!.dispose();
     _activeToastEntry = null;
   }
@@ -96,13 +117,14 @@ void showAppToast(
   _activeToastEntry = entry;
   overlay.insert(entry);
 
-  Future.delayed(duration, () {
-    if (entry.mounted) {
-      entry.remove();
-    }
-    entry.dispose();
+  _activeToastTimer = Timer(duration, () {
     if (_activeToastEntry == entry) {
+      try {
+        entry.remove();
+      } catch (_) {}
+      entry.dispose();
       _activeToastEntry = null;
     }
+    _activeToastTimer = null;
   });
 }

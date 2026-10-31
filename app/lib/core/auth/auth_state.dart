@@ -241,48 +241,44 @@ class AuthState extends ChangeNotifier {
       return;
     }
 
-    try {
-      // 对照网页版 backend.ts:377-380：使用 /projects 路径，且带 as_admin=true
-      final dynamic projData = await _api.get(
-        '/projects',
-        query: {
-          'company_id': cid.toString(),
-          'as_admin': 'true',
-        },
-      );
+    // 对照网页版 backend.ts:377-380：使用 /projects 路径，且带 as_admin=true
+    // 网络、认证、服务端异常直接向上传递，由 bootstrap / refresh 处理（不吞掉异常）
+    final dynamic projData = await _api.get(
+      '/projects',
+      query: {
+        'company_id': cid.toString(),
+        'as_admin': 'true',
+      },
+    );
 
-      final projList = <Project>[];
-      if (projData is Map<String, dynamic>) {
-        final items = projData['items'];
-        if (items is List) {
-          for (final item in items) {
-            if (item is Map<String, dynamic>) {
-              projList.add(Project.fromJson(item));
-            }
-          }
-        }
-      } else if (projData is List) {
-        for (final item in projData) {
+    final projList = <Project>[];
+    if (projData is Map<String, dynamic>) {
+      final items = projData['items'];
+      if (items is List) {
+        for (final item in items) {
           if (item is Map<String, dynamic>) {
             projList.add(Project.fromJson(item));
           }
         }
       }
-      _projects = projList;
-
-      if (_projects.isNotEmpty) {
-        if (_currentProject != null &&
-            _projects.any((p) => p.id == _currentProject!.id)) {
-          _currentProject =
-              _projects.firstWhere((p) => p.id == _currentProject!.id);
-        } else {
-          _currentProject = _projects.first;
+    } else if (projData is List) {
+      for (final item in projData) {
+        if (item is Map<String, dynamic>) {
+          projList.add(Project.fromJson(item));
         }
-      } else {
-        _currentProject = null;
       }
-    } catch (e) {
-      _projects = const [];
+    }
+    _projects = projList;
+
+    if (_projects.isNotEmpty) {
+      if (_currentProject != null &&
+          _projects.any((p) => p.id == _currentProject!.id)) {
+        _currentProject =
+            _projects.firstWhere((p) => p.id == _currentProject!.id);
+      } else {
+        _currentProject = _projects.first;
+      }
+    } else {
       _currentProject = null;
     }
   }
@@ -300,8 +296,8 @@ class AuthState extends ChangeNotifier {
         await prefs.remove('token');
         debugPrint('Legacy plaintext tokens removed from SharedPreferences');
       }
-    } catch (_) {
-      // 避免在测试环境或特定无通道平台阻塞
+    } catch (e) {
+      debugPrint('Error cleaning legacy tokens: $e');
     }
   }
 

@@ -148,8 +148,11 @@ class MockApiClientHelper {
       // 按注册顺序倒序查找（后注册的规则优先命中）
       for (final rule in _rules.reversed) {
         if (rule.matches(method, reqPath, request.url.queryParameters)) {
-          final status = rule.statusCode;
           final bodyData = rule.response;
+          if (bodyData is Exception) {
+            throw bodyData;
+          }
+          final status = rule.statusCode;
 
           final bodyString = bodyData is String
               ? bodyData
