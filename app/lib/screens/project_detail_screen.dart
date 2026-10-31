@@ -299,6 +299,12 @@ class _ProjectDetailScreenState extends State<ProjectDetailScreen> {
               ),
             ),
           IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+          IconButton(
+            tooltip: '项目 AI 汇报',
+            onPressed: () => Navigator.of(context)
+                .pushNamed('/reports', arguments: widget.projectId),
+            icon: const Icon(Icons.auto_awesome_outlined),
+          ),
         ],
       ),
       body: _loading

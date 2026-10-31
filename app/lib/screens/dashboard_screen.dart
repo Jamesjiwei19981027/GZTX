@@ -40,6 +40,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onPressed: state.busy ? null : () => state.refreshTasks(),
             icon: const Icon(Icons.refresh),
           ),
+          IconButton(
+            tooltip: 'AI 汇报与上级消息',
+            onPressed: () => Navigator.of(context).pushNamed('/reports'),
+            icon: const Icon(Icons.notifications_outlined),
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(

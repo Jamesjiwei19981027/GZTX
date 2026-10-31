@@ -9,6 +9,7 @@ import 'screens/agent_chat_screen.dart';
 import 'screens/company_settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/project_detail_screen.dart';
+import 'screens/report_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/shell_screen.dart';
 import 'screens/task_detail_screen.dart';
@@ -177,6 +178,18 @@ class WorkTodoApp extends StatelessWidget {
                 agentName: args['agentName'] as String?,
               ),
             );
+          }
+          if (name == '/reports') {
+            final projectId =
+                settings.arguments is int ? settings.arguments as int : null;
+            return MaterialPageRoute(
+                builder: (_) => ReportScreen(projectId: projectId));
+          }
+          final reportMatch = RegExp(r'^/reports/(\d+)$').firstMatch(name);
+          if (reportMatch != null) {
+            return MaterialPageRoute(
+                builder: (_) =>
+                    ReportScreen(reportId: int.parse(reportMatch.group(1)!)));
           }
           return null;
         },

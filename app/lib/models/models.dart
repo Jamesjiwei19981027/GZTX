@@ -574,3 +574,92 @@ class EvidenceItem {
         createdAt: json['created_at'] as String?,
       );
 }
+
+/// AI 汇报的跨端最小数据模型，字段保持宽松以兼容服务端扩展。
+class ReportItem {
+  ReportItem({
+    required this.id,
+    this.projectId,
+    this.projectName,
+    this.status,
+    this.title,
+    this.summary,
+    this.content,
+    this.createdAt,
+    this.updatedAt,
+    this.sources = const [],
+    this.conflicts = const [],
+    this.stale = false,
+    this.expiresAt,
+    this.sourceCount = 0,
+    this.payload = const {},
+  });
+
+  final int id;
+  final int? projectId;
+  final String? projectName;
+  final String? status;
+  final String? title;
+  final String? summary;
+  final String? content;
+  final String? createdAt;
+  final String? updatedAt;
+  final List<dynamic> sources;
+  final List<dynamic> conflicts;
+  final bool stale;
+  final String? expiresAt;
+  final int sourceCount;
+  final Map<String, dynamic> payload;
+
+  factory ReportItem.fromJson(Map<String, dynamic> json) => ReportItem(
+        id: (json['id'] ?? json['report_id'] ?? 0) is num
+            ? ((json['id'] ?? json['report_id'] ?? 0) as num).toInt()
+            : int.tryParse('${json['id'] ?? json['report_id'] ?? 0}') ?? 0,
+        projectId: (json['project_id'] as num?)?.toInt(),
+        projectName: json['project_name'] as String?,
+        status: json['status'] as String?,
+        title: json['title'] as String?,
+        summary: (json['summary_text'] ?? json['summary']) as String?,
+        content: (json['content'] ?? json['body']) as String?,
+        createdAt: json['created_at'] as String?,
+        updatedAt: json['updated_at'] as String?,
+        sources: json['sources'] is List ? json['sources'] as List : const [],
+        conflicts: json['conflicts'] is List ? json['conflicts'] as List : const [],
+        stale: json['stale'] == true || json['is_stale'] == true,
+        expiresAt: json['expires_at'] as String?,
+        sourceCount: (json['source_count'] as num?)?.toInt() ?? 0,
+        payload: json['payload_json'] is Map
+            ? Map<String, dynamic>.from(json['payload_json'] as Map)
+            : const {},
+      );
+}
+
+class ReportInboxItem {
+  ReportInboxItem({
+    required this.id,
+    this.title,
+    this.message,
+    this.eventType,
+    this.read = false,
+    this.createdAt,
+    this.reportId,
+  });
+
+  final int id;
+  final String? title;
+  final String? message;
+  final String? eventType;
+  final bool read;
+  final String? createdAt;
+  final int? reportId;
+
+  factory ReportInboxItem.fromJson(Map<String, dynamic> json) => ReportInboxItem(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        title: json['title'] as String?,
+        message: (json['content'] ?? json['message'] ?? json['body']) as String?,
+        eventType: json['event_type'] as String?,
+        read: json['read'] == true || json['is_read'] == true,
+        createdAt: json['created_at'] as String?,
+        reportId: (json['report_id'] as num?)?.toInt(),
+      );
+}

@@ -5,6 +5,7 @@ import '../services/api_client.dart';
 import '../services/auth_service.dart';
 import '../services/collab_service.dart';
 import '../services/notification_service.dart';
+import '../services/report_service.dart';
 import '../services/task_service.dart';
 
 /// offline：本地有凭证但这次没能连上服务端。
@@ -16,6 +17,7 @@ class AppState extends ChangeNotifier {
     auth = AuthService(this.api);
     tasks = TaskService(this.api);
     notifications = NotificationService(this.api);
+    reports = ReportService(this.api);
     collab = CollabService(this.api);
   }
 
@@ -23,6 +25,7 @@ class AppState extends ChangeNotifier {
   late final AuthService auth;
   late final TaskService tasks;
   late final NotificationService notifications;
+  late final ReportService reports;
   late final CollabService collab;
 
   AuthStatus status = AuthStatus.unknown;
