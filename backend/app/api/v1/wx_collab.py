@@ -11,7 +11,7 @@ from app.schemas.common import ResponseData
 from app.services.agent_runtime import AgentRuntime
 from sqlalchemy import select
 
-router = APIRouter(prefix="/wx/collab", tags=["wx-collab"])
+router = APIRouter(prefix="/wx/collab", tags=["小程序协作"])
 runtime = AgentRuntime()
 
 
@@ -25,6 +25,7 @@ class WxCollabChatBody(BaseModel):
 
 @router.post("/chat", response_model=ResponseData)
 async def wx_collab_chat(body: WxCollabChatBody, db: DbSession, user: CurrentUser):
+    """小程序端协作对话"""
     text = (body.message or "").strip()
     if not text and body.media_id:
         # ASR 桩：语音 media → 文本

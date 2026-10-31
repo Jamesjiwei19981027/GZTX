@@ -18,9 +18,11 @@ from app.schemas.tree import AssigneesPut, NodeMove, NodePatch
 from app.services.acl import AclService
 from app.services.evidence_service import run_evidence_judge, save_upload_file, submit_evidence
 from app.services.tree_service import TreeService
+from app.services.responsibility_access import get_responsibility_access
+from app.services.person_deletion import deletion_preview, execute_deletion
 from fastapi import Depends
 
-router = APIRouter(tags=["nodes"])
+router = APIRouter(tags=["人轴节点与材料"])
 tsvc = TreeService()
 acl = AclService()
 
@@ -34,6 +36,8 @@ async def _node_dto(db, node: TreeNode) -> dict:
         "behavior_template": tmpl,
         "title": node.title,
         "description": node.description,
+        "node_origin": node.node_origin,
+        "responsibility_permissions": node.responsibility_permissions or {},
         "sort_order": node.sort_order,
         "path": node.path,
         "depth": node.depth,
@@ -51,6 +55,7 @@ async def _node_dto(db, node: TreeNode) -> dict:
 
 @router.get("/nodes/{node_id}")
 async def get_node(node_id: int, db: DbSession, user: CurrentUser):
+    """获取人轴节点详情"""
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
@@ -63,6 +68,7 @@ async def get_node(node_id: int, db: DbSession, user: CurrentUser):
 
 @router.patch("/nodes/{node_id}")
 async def patch_node(node_id: int, body: NodePatch, db: DbSession, user: CurrentUser):
+    """修改人轴节点"""
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
@@ -83,6 +89,16 @@ async def patch_node(node_id: int, body: NodePatch, db: DbSession, user: Current
     if not can:
         return fail(403, 40300, "无权编辑节点")
     data = body.model_dump(exclude_unset=True)
+    assignees = data.pop("assignees", None)
+    responsibility_permissions = data.pop('responsibility_permissions', None)
+    project = await db.get(Project, node.project_id)
+    access = await get_responsibility_access(db, project, user.id)
+    if assignees is not None and not access.for_node(node.id).get('can_manage_assignees'):
+        return fail(403, 40300, '仅项目主责任人或其直属上级可调整人员指派')
+    if responsibility_permissions and not access.for_node(node.id).get('can_manage_permissions'):
+        return fail(403, 40300, "请由直属上级或项目管理人员配置节点权限")
+    if responsibility_permissions and 'channel_access' in responsibility_permissions and not access.for_node(node.id).get('can_manage_channel_access'):
+        return fail(403, 40300, '仅直属责任上级或项目管理人员可授权频道访问')
     if "progress_json" in data:
         return fail(422, 42200, "禁止直接修改 progress_json")
     type_key = data.pop("node_type_key", None)
@@ -95,13 +111,40 @@ async def patch_node(node_id: int, body: NodePatch, db: DbSession, user: Current
         except ValueError as e:
             return fail(422, 42200, str(e))
         if nt.id != node.node_type_id:
+            parent = access.nodes.get(node.parent_id)
+            capability = 'can_add_subordinate' if type_key == 'person' else 'can_add_work_item'
+            if parent and not access.for_node(parent.id).get(capability):
+                return fail(403, 40300, "上级节点不允许新增此类内容")
+            origin = node.node_origin
+            if type_key == 'person':
+                if not access.can_edit_any:
+                    origin = 'subordinate'
+                try:
+                    tsvc.assert_origin_attachment(origin, parent)
+                except ValueError as e:
+                    return fail(422, 42200, str(e))
+            elif parent and origin != 'subordinate':
+                origin = parent.node_origin
+            node.node_origin = origin
             node.node_type_id = nt.id
             # 切换类型时重置进度模板，避免旧 template 残留
             from app.models.tree import default_progress_json
 
             node.progress_json = default_progress_json(nt.behavior_template)
+    if assignees is not None:
+        try:
+            # Save the project role and its assignees in one transaction, even
+            # when the editor hands their own responsibility to another person.
+            await tsvc.set_assignees(db, node_id, assignees)
+        except ValueError as e:
+            await db.rollback()
+            return fail(422, 42200, str(e))
     for k, v in data.items():
         setattr(node, k, v)
+    if type_key == 'person' and assignees is None:
+        await tsvc.ensure_person_members(db, node, [a['user_id'] for a in await tsvc.list_assignees(db, node.id)])
+    if responsibility_permissions is not None:
+        node.responsibility_permissions = {**(node.responsibility_permissions or {}), **responsibility_permissions}
     await db.commit()
     await db.refresh(node)
     return ResponseData(data=await _node_dto(db, node))
@@ -109,13 +152,17 @@ async def patch_node(node_id: int, body: NodePatch, db: DbSession, user: Current
 
 @router.post("/nodes/{node_id}/move")
 async def move_node(node_id: int, body: NodeMove, db: DbSession, user: CurrentUser):
+    """移动人轴节点"""
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
-    if not await acl.can(
-        db, user.id, node.company_id, "tree.edit_any", project_id=node.project_id
-    ):
-        return fail(403, 40305, "需要 PM")
+    project = await db.get(Project, node.project_id)
+    access = await get_responsibility_access(db, project, user.id)
+    if not access.for_node(node.id).get('can_move_person'):
+        return fail(403, 40300, '仅主责任人或其上级可移动该人员分支')
+    target = access.nodes.get(body.new_parent_id)
+    if target and not access.for_node(target.id).get('can_add_subordinate' if await tsvc.type_key_of(db, node) == 'person' else 'can_add_work_item'):
+        return fail(403, 40300, '无权移动到目标人员下')
     await assert_company_write(db, node.company_id, feature="project_tree")
     try:
         node = await tsvc.move_node(db, node_id, body.new_parent_id, body.sort_order)
@@ -129,25 +176,54 @@ async def move_node(node_id: int, body: NodeMove, db: DbSession, user: CurrentUs
     return ResponseData(data=await _node_dto(db, node))
 
 
-@router.delete("/nodes/{node_id}")
-async def delete_node(node_id: int, db: DbSession, user: CurrentUser):
+@router.get('/nodes/{node_id}/deletion-preview')
+async def preview_node_deletion(node_id: int, db: DbSession, user: CurrentUser):
+    """预览删除节点的连锁影响"""
     node = await db.get(TreeNode, node_id)
-    if not node:
+    if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
-    if not await acl.can(
-        db, user.id, node.company_id, "tree.edit_any", project_id=node.project_id
-    ):
-        return fail(403, 40305, "需要 PM")
+    project = await db.get(Project, node.project_id)
+    access = await get_responsibility_access(db, project, user.id)
+    if not access.for_node(node.id).get('can_delete_person'):
+        return fail(403, 40300, '无权删除此人员，请由主责任人管理其下辖人员')
+    return ResponseData(data=await deletion_preview(db, node, access))
+
+
+@router.delete("/nodes/{node_id}")
+async def delete_node(node_id: int, db: DbSession, user: CurrentUser,
+    cascade: bool = False, preview_token: str | None = None, handover_to_node_id: int | None = None):
+    """删除人轴节点"""
+    node = await db.get(TreeNode, node_id)
+    if not node or node.is_deleted:
+        return fail(404, 40400, "节点不存在")
+    project = await db.get(Project, node.project_id)
+    access = await get_responsibility_access(db, project, user.id)
+    if not access.for_node(node.id).get('can_delete_person'):
+        return fail(403, 40300, '无权删除此人员，请由主责任人管理其下辖人员')
     await assert_company_write(db, node.company_id, feature="project_tree")
-    await tsvc.soft_delete_node(db, node_id)
+    preview = await deletion_preview(db, node, access)
+    if cascade and handover_to_node_id is not None:
+        return fail(422, 42200, '请选择级联删除或移交其中一种操作')
+    if preview['requires_confirmation'] or cascade or handover_to_node_id is not None:
+        if preview_token != preview['preview_token'] or not (cascade or handover_to_node_id is not None):
+            return fail(409, 40900, '请先查看最新影响预览，再明确确认级联删除或选择移交人员')
+    target = access.nodes.get(handover_to_node_id)
+    if handover_to_node_id is not None and handover_to_node_id not in {n['id'] for n in preview['handover_candidates']}:
+        return fail(422, 42200, '移交目标必须是本项目中有权管理的存续人员，不能是待删除分支')
+    try:
+        revoked = await execute_deletion(db, node, preview, handover_to=target)
+    except ValueError as e:
+        await db.rollback()
+        return fail(422, 42200, str(e))
     await db.commit()
-    return ResponseData(data={"id": node_id, "is_deleted": True})
+    return ResponseData(data={"id": node_id, "is_deleted": True, 'revoked_user_ids': revoked, 'handover_to_node_id': handover_to_node_id})
 
 
 @router.put("/nodes/{node_id}/assignees")
 async def put_assignees(
     node_id: int, body: AssigneesPut, db: DbSession, user: CurrentUser
 ):
+    """设置节点负责人"""
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
@@ -163,6 +239,10 @@ async def put_assignees(
     )
     if not can:
         return fail(403, 40300, "无权指派")
+    project = await db.get(Project, node.project_id)
+    access = await get_responsibility_access(db, project, user.id)
+    if not access.for_node(node.id).get('can_manage_assignees'):
+        return fail(403, 40300, '无权更改下辖人员指派，请由直属上级管理')
     await assert_company_write(db, node.company_id, feature="project_tree")
     try:
         items = await tsvc.set_assignees(
@@ -183,8 +263,7 @@ async def upload_evidence_file(
     project_id: int | None = Form(None),
     channel: str = Depends(get_client_channel),
 ):
-    if channel == "wechat":
-        return fail(403, 40320, "微信通道禁止上传材料文件")
+    """上传材料文件"""
     if project_id is None:
         return fail(422, 42200, "必须指定 project_id")
     try:
@@ -237,8 +316,7 @@ async def post_evidence(
     user: CollaborationUser,
     channel: str = Depends(get_client_channel),
 ):
-    if channel == "wechat":
-        return fail(403, 40320, "微信通道禁止提交材料")
+    """为节点提交材料"""
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
@@ -250,6 +328,10 @@ async def post_evidence(
         db, user.id, node.company_id, "evidence.submit", project_id=node.project_id
     ):
         return fail(403, 40301, "非项目成员，无法提交材料")
+    project = await db.get(Project, node.project_id)
+    access = await get_responsibility_access(db, project, user.id)
+    if not access.for_node(node.id).get('can_submit_evidence'):
+        return fail(403, 40300, '此节点未开放材料提交权限')
     try:
         structured = dict(body.structured or {})
         if body.evidence_kind:
@@ -343,6 +425,7 @@ def _pkg_dto(pkg: EvidencePackage, files: list[EvidenceFile] | None = None) -> d
 
 @router.get("/evidence/{package_id}")
 async def get_evidence(package_id: int, db: DbSession, user: CurrentUser):
+    """获取材料包详情"""
     pkg = await db.get(EvidencePackage, package_id)
     if not pkg:
         return fail(404, 40400, "材料不存在")
@@ -364,6 +447,7 @@ async def list_evidence(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
+    """列出节点的材料"""
     node = await db.get(TreeNode, node_id)
     if not node:
         return fail(404, 40400, "节点不存在")
@@ -400,6 +484,7 @@ async def list_evidence(
 
 @router.get("/jobs/{job_id}")
 async def get_job(job_id: int, db: DbSession, user: CurrentUser):
+    """查询后台任务状态"""
     job = await db.get(AsyncJob, job_id)
     if not job:
         return fail(404, 40400, "任务不存在")
@@ -431,6 +516,7 @@ async def get_job(job_id: int, db: DbSession, user: CurrentUser):
 
 @router.get("/nodes/{node_id}/progress")
 async def get_progress(node_id: int, db: DbSession, user: CurrentUser):
+    """获取节点进度"""
     node = await db.get(TreeNode, node_id)
     if not node:
         return fail(404, 40400, "节点不存在")
@@ -476,6 +562,7 @@ async def list_progress_records(
     user: CurrentUser,
     limit: int = Query(50, ge=1, le=100),
 ):
+    """列出节点进度记录"""
     node = await db.get(TreeNode, node_id)
     if not node:
         return fail(404, 40400, "节点不存在")
@@ -512,6 +599,7 @@ async def list_progress_records(
 
 @router.get("/projects/{project_id}/wiki")
 async def list_wiki(project_id: int, db: DbSession, user: CurrentUser):
+    """列出项目知识条目"""
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
@@ -520,7 +608,8 @@ async def list_wiki(project_id: int, db: DbSession, user: CurrentUser):
     rows = (
         await db.execute(
             select(ProjectWikiEntry)
-            .where(ProjectWikiEntry.project_id == project_id)
+            .where(ProjectWikiEntry.project_id == project_id,
+                   ProjectWikiEntry.source.notin_(["llm_wiki_draft", "llm_wiki_review"]))
             .order_by(ProjectWikiEntry.id.desc())
         )
     ).scalars().all()
@@ -543,9 +632,13 @@ async def list_wiki(project_id: int, db: DbSession, user: CurrentUser):
 
 @router.get("/wiki/{wiki_id}")
 async def get_wiki(wiki_id: int, db: DbSession, user: CurrentUser):
+    """获取项目知识条目详情"""
     w = await db.get(ProjectWikiEntry, wiki_id)
     if not w:
         return fail(404, 40400, "wiki 不存在")
+    if w.source in ("llm_wiki_draft", "llm_wiki_review") and w.created_by != user.id:
+        if not await acl.can(db, user.id, w.company_id, "wiki.manual_write", project_id=w.project_id):
+            return fail(403, 40300, "无权查看待确认知识草稿")
     if not await acl.can(
         db, user.id, w.company_id, "progress.read", project_id=w.project_id
     ):
@@ -566,6 +659,7 @@ async def get_wiki(wiki_id: int, db: DbSession, user: CurrentUser):
 async def create_wiki(
     project_id: int, body: WikiCreate, db: DbSession, user: CurrentUser
 ):
+    """新建项目知识条目"""
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")

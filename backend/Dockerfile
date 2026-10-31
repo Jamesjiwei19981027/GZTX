@@ -1,9 +1,19 @@
-FROM python:3.11-slim
+FROM node:22-bookworm-slim AS wiki-build
+WORKDIR /wiki-engine
+COPY wiki-engine/package.json wiki-engine/package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY wiki-engine/tsconfig.json wiki-engine/bridge.mjs ./
+COPY wiki-engine/vendor ./vendor
+RUN npm run build && npm prune --omit=dev
+
+FROM python:3.11-slim-bookworm
 
 WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=wiki-build /usr/local/bin/node /usr/local/bin/node
+COPY --from=wiki-build /wiki-engine /app/wiki-engine
 
 # 创建数据目录
 RUN mkdir -p /app/data/uploads

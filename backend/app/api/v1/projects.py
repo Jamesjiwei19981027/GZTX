@@ -29,8 +29,9 @@ from app.services.import_token_store import import_token_store
 from app.services.org_roles import is_org_leader
 from app.services.project_service import ProjectService
 from app.services.tree_service import TreeService
+from app.services.responsibility_access import get_responsibility_access
 
-router = APIRouter(tags=["projects"])
+router = APIRouter(tags=["项目"])
 psvc = ProjectService()
 tsvc = TreeService()
 acl = AclService()
@@ -99,6 +100,7 @@ async def _get_project(db, project_id: int) -> Project | None:
 
 @router.post("/projects")
 async def create_project(body: ProjectCreate, db: DbSession, user: CollaborationUser):
+    """创建项目"""
     company = await db.get(Company, body.company_id)
     if not company:
         return fail(404, 40400, "公司不存在")
@@ -137,6 +139,7 @@ async def list_projects(
     page_size: int = Query(20, ge=1, le=100),
     as_admin: bool = False,
 ):
+    """列出我可见的项目"""
     m = await _active_membership(db, company_id, user.id)
     if not m:
         return fail(403, 40302, "非本公司成员")
@@ -187,6 +190,7 @@ async def list_projects(
 
 @router.get("/projects/{project_id}")
 async def get_project(project_id: int, db: DbSession, user: CurrentUser):
+    """获取项目详情"""
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
@@ -292,6 +296,7 @@ async def get_my_permissions(project_id: int, db: DbSession, user: CurrentUser):
         if is_member
         else "outsider"
     )
+    responsibility_access = await get_responsibility_access(db, p, user.id)
     return ResponseData(
         data={
             "role": role,
@@ -302,6 +307,9 @@ async def get_my_permissions(project_id: int, db: DbSession, user: CurrentUser):
             "via_delegation": via_delegation,
             "can_move": can_move_delete,
             "can_delete": can_move_delete,
+            "can_submit_evidence": responsibility_access.can_submit_evidence,
+            "can_read_evidence": responsibility_access.can_read_evidence,
+            "node_permissions": responsibility_access.node_permissions,
         }
     )
 
@@ -337,6 +345,7 @@ async def set_final_owner_position(
 async def assign_pm(
     project_id: int, body: AssignPmBody, db: DbSession, user: CurrentUser
 ):
+    """指定项目经理"""
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
@@ -357,6 +366,7 @@ async def assign_pm(
 async def pull_member(
     project_id: int, body: PullMemberBody, db: DbSession, user: CurrentUser
 ):
+    """把企业成员拉入项目"""
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
@@ -388,6 +398,7 @@ async def pull_member(
 async def create_invitation(
     project_id: int, body: InviteBody, db: DbSession, user: CurrentUser
 ):
+    """创建项目邀请链接"""
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
@@ -411,6 +422,7 @@ async def create_invitation(
 
 @router.post("/projects/invitations/{token}/accept")
 async def accept_invitation(token: str, db: DbSession, user: CollaborationUser):
+    """接受项目邀请"""
     try:
         member = await psvc.accept_invitation(db, token, user.id)
     except PermissionError as e:
@@ -425,6 +437,7 @@ async def accept_invitation(token: str, db: DbSession, user: CollaborationUser):
 
 @router.post("/projects/{project_id}/leave")
 async def leave_project(project_id: int, db: DbSession, user: CurrentUser):
+    """退出项目"""
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
@@ -438,6 +451,7 @@ async def leave_project(project_id: int, db: DbSession, user: CurrentUser):
 
 @router.post("/projects/{project_id}/archive")
 async def archive_project(project_id: int, db: DbSession, user: CurrentUser):
+    """归档项目"""
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
@@ -457,6 +471,7 @@ async def archive_project(project_id: int, db: DbSession, user: CurrentUser):
 
 @router.get("/projects/{project_id}/members")
 async def list_project_members(project_id: int, db: DbSession, user: CurrentUser):
+    """列出项目成员"""
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
@@ -495,6 +510,8 @@ async def _node_dto(db, node: TreeNode, with_children: bool = False) -> dict:
         "behavior_template": tmpl,
         "title": node.title,
         "description": node.description,
+        "node_origin": node.node_origin,
+        "responsibility_permissions": node.responsibility_permissions or {},
         "sort_order": node.sort_order,
         "path": node.path,
         "depth": node.depth,
@@ -558,6 +575,8 @@ async def _node_dtos_batched(db, nodes: list[TreeNode]) -> list[dict]:
                 "behavior_template": tmpl,
                 "title": node.title,
                 "description": node.description,
+                "node_origin": node.node_origin,
+                "responsibility_permissions": node.responsibility_permissions or {},
                 "sort_order": node.sort_order,
                 "path": node.path,
                 "depth": node.depth,
@@ -580,6 +599,7 @@ async def get_tree(
     user: CurrentUser,
     format: str = Query("nested"),
 ):
+    """获取项目人轴工作树"""
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
@@ -611,10 +631,11 @@ async def get_tree(
 async def create_node(
     project_id: int, body: NodeCreate, db: DbSession, user: CurrentUser
 ):
+    """在人轴工作树中新建节点"""
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
-    target_node = body.parent_id
+    access = await get_responsibility_access(db, p, user.id)
     can = await acl.can(
         db, user.id, p.company_id, "tree.edit_any", project_id=p.id
     ) or (
@@ -630,6 +651,14 @@ async def create_node(
     )
     if not can:
         return fail(403, 40300, "无权编辑树")
+    if body.parent_id is not None:
+        capability = 'can_add_subordinate' if body.node_type_key == 'person' else 'can_add_work_item'
+        if not access.for_node(body.parent_id).get(capability):
+            return fail(403, 40300, '上级节点未开放此项新增权限')
+    parent = access.nodes.get(body.parent_id)
+    origin = body.node_origin or ('project' if access.can_edit_any and (not parent or parent.node_origin == 'project') else 'subordinate')
+    if body.node_type_key == 'person' and origin == 'project' and not access.can_edit_any:
+        return fail(403, 40300, '仅项目管理人员可定义项目骨架')
     await assert_company_write(db, p.company_id, feature="project_tree")
     try:
         node = await tsvc.create_node(
@@ -646,6 +675,8 @@ async def create_node(
             allow_clear_text_progress=body.allow_clear_text_progress,
             created_by=user.id,
             assignees=[a.model_dump() for a in body.assignees],
+            node_origin=origin,
+            responsibility_permissions=body.responsibility_permissions.model_dump(),
         )
     except ValueError as e:
         msg = str(e)
@@ -657,10 +688,36 @@ async def create_node(
     return ResponseData(data=await _node_dto(db, node))
 
 
+@router.get('/projects/{project_id}/tasks')
+async def list_project_tasks(project_id: int, db: DbSession, user: CurrentUser,
+    page: int = Query(1, ge=1), page_size: int = Query(100, ge=1, le=500)):
+    """列出项目下的任务"""
+    from sqlalchemy.orm import selectinload
+    from app.models.task import Task
+    from app.models.task_assignment import TaskAssignment
+    from app.api.v1.tasks import _serialize_task
+
+    project = await _get_project(db, project_id)
+    if not project:
+        return fail(404, 40400, '项目不存在')
+    if not await acl.can(db, user.id, project.company_id, 'project.read', project_id=project.id):
+        return fail(403, 40301, '非项目成员')
+    filters = (Task.project_id == project.id, Task.company_id == project.company_id,
+        Task.origin == 'project_link', Task.is_deleted.is_(False))
+    total = (await db.execute(select(func.count()).select_from(Task).where(*filters))).scalar() or 0
+    rows = (await db.execute(select(Task).where(*filters).options(
+        selectinload(Task.category), selectinload(Task.tags), selectinload(Task.reminders),
+        selectinload(Task.assignees).selectinload(TaskAssignment.user),
+    ).order_by(Task.created_at.desc(), Task.id.desc()).offset((page - 1) * page_size).limit(page_size))).scalars().all()
+    return ResponseData(data={'items': [_serialize_task(task) for task in rows], 'total': total,
+        'page': page, 'page_size': page_size, 'total_pages': ceil(total / page_size)})
+
+
 @router.post("/projects/{project_id}/import/preview")
 async def import_preview(
     project_id: int, body: ImportPreviewBody, db: DbSession, user: CurrentUser
 ):
+    """预览批量导入结果"""
     import secrets
     from app.models.task import Task
 
@@ -702,6 +759,7 @@ async def import_preview(
 async def import_confirm(
     project_id: int, body: ImportConfirmBody, db: DbSession, user: CurrentUser
 ):
+    """确认执行批量导入"""
     from app.models.task import Task
 
     payload = import_token_store.get(body.confirm_token)

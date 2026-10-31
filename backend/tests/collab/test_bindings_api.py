@@ -55,7 +55,5 @@ async def test_asr_transcribe(async_client: AsyncClient, seed_ids):
         files=files,
         data=data,
     )
-    assert r.status_code == 200
-    body = r.json()["data"]
-    assert "text" in body
-    assert body["provider_id"] == "builtin"
+    assert r.status_code == 503
+    assert '[builtin-asr]' not in r.text

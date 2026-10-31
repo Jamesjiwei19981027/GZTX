@@ -84,3 +84,40 @@ async def test_people_axis_aggregate_is_scoped_to_visible_projects(async_client,
     projects = response.json()["data"]["projects"]
     assert any(item["project_id"] == seed_ids["project_id"] for item in projects)
     assert all("nodes" in item for item in projects)
+    current = next(item for item in projects if item["project_id"] == seed_ids["project_id"])
+    assert current["my_role"] == "member"
+    assert current["final_owner_user_id"] == seed_ids["pm_user_id"]
+    assert set(current["my_owned_node_ids"]) == {seed_ids["root_node_id"], seed_ids["node_id"]}
+
+
+@pytest.mark.asyncio
+async def test_people_axis_role_is_per_project(async_client, db_session, seed_ids):
+    from app.models.project import Project, ProjectMember
+
+    project = Project(company_id=seed_ids["company_id"], name="成员负责的另一项目",
+                      created_by=seed_ids["member_user_id"], pm_user_id=seed_ids["member_user_id"])
+    db_session.add(project)
+    await db_session.flush()
+    db_session.add(ProjectMember(project_id=project.id, user_id=seed_ids["member_user_id"], role="pm"))
+    await db_session.commit()
+    response = await async_client.get("/api/v1/users/me/people-axis", headers=seed_ids["member_headers"])
+    assert response.status_code == 200, response.text
+    by_id = {item["project_id"]: item for item in response.json()["data"]["projects"]}
+    assert by_id[seed_ids["project_id"]]["my_role"] == "member"
+    assert by_id[project.id]["my_role"] == "pm"
+    assert by_id[project.id]["nodes"] == []
+
+
+@pytest.mark.asyncio
+async def test_people_axis_excludes_inactive_company_membership(async_client, db_session, seed_ids):
+    from sqlalchemy import update
+    from app.models.company import CompanyMembership
+
+    await db_session.execute(update(CompanyMembership).where(
+        CompanyMembership.company_id == seed_ids["company_id"],
+        CompanyMembership.user_id == seed_ids["member_user_id"],
+    ).values(status="suspended"))
+    await db_session.commit()
+    response = await async_client.get("/api/v1/users/me/people-axis", headers=seed_ids["member_headers"])
+    assert response.status_code == 200, response.text
+    assert response.json()["data"]["projects"] == []

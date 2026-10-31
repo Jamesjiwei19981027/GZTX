@@ -81,7 +81,9 @@ async def get_subscribe_status(user: CurrentUser):
 
 @router.put("/subscribe-preference", response_model=ResponseData)
 async def update_subscribe_preference(body: WxSubscribePreference, user: CurrentUser):
-    """Persist the user's WeChat template-message preference."""
+    """保存小程序订阅消息偏好
+
+    Persist the user's WeChat template-message preference."""
     if body.enabled and not user.wx_openid:
         raise HTTPException(status_code=422, detail="请先绑定微信")
     pref = dict(user.notify_pref or {})

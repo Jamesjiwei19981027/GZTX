@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from app.api.deps_collab import (
+    assert_company_write,
     get_company,
     require_company_member,
     require_super_admin,
@@ -19,7 +20,7 @@ from app.schemas.common import ResponseData
 from app.services.asr.router import AsrRouter
 from app.services.policy_guard import PolicyGuard
 
-router = APIRouter(tags=["bindings"])
+router = APIRouter(tags=["能力绑定与协作通知"])
 
 
 class BindingBody(BaseModel):
@@ -58,7 +59,8 @@ def _summary_asr(b: AsrBinding | None) -> dict:
         "provider_id": b.provider_id,
         "is_default": bool(b.is_default),
         "user_id": b.user_id,
-        "config_json": b.config_json,
+        "config_json": {key:value for key,value in (b.config_json or {}).items() if key not in ('api_key', 'api_key_encrypted')},
+        "has_api_key": bool((b.config_json or {}).get('api_key') or (b.config_json or {}).get('api_key_encrypted')),
     }
 
 
@@ -79,6 +81,7 @@ async def get_bindings(
     company: Company = Depends(get_company),
     _m=Depends(require_company_member),
 ):
+    """查看企业能力绑定"""
     sq = await db.execute(
         select(StorageBinding)
         .where(StorageBinding.company_id == company.id, StorageBinding.is_default.is_(True))
@@ -119,6 +122,7 @@ async def put_storage_binding(
     company: Company = Depends(get_company),
     _admin=Depends(require_super_admin),
 ):
+    """设置企业存储绑定"""
     guard = PolicyGuard()
     if body.provider_id in ("s3", "cloud") or str(body.provider_id).startswith("s3"):
         if not guard.allow_file_egress(company):
@@ -150,6 +154,7 @@ async def put_company_asr(
     company: Company = Depends(get_company),
     _admin=Depends(require_super_admin),
 ):
+    """设置企业语音识别绑定"""
     guard = PolicyGuard()
     if not guard.allow_asr(company, body.provider_id):
         # company default may set allowed list; for empty allowlist + standard preset merged via policy
@@ -171,11 +176,29 @@ async def put_company_asr(
     for row in q.scalars().all():
         row.is_default = False
 
+    config = dict(body.config_json or {})
+    # Secrets are accepted only on administrator writes and never returned.
+    config.pop('api_key_encrypted', None)
+    key = str(config.pop('api_key', '') or '').strip()
+    if key:
+        from app.services.secret_box import encrypt_str
+        config['api_key_encrypted'] = encrypt_str(key)
+    else:
+        previous = (await db.execute(select(AsrBinding).where(AsrBinding.company_id == company.id,
+            AsrBinding.user_id.is_(None), AsrBinding.provider_id == body.provider_id).order_by(AsrBinding.id.desc()).limit(1))).scalar_one_or_none()
+        if previous and (previous.config_json or {}).get('api_key_encrypted'):
+            config['api_key_encrypted'] = previous.config_json['api_key_encrypted']
+    if body.provider_id != 'builtin' and config.get('base_url'):
+        from app.services.asr.openai_compatible import OpenAICompatibleAsr
+        try:
+            OpenAICompatibleAsr(body.provider_id, config)
+        except ValueError:
+            raise CollabError(422, 42200, 'ASR 服务地址无效')
     binding = AsrBinding(
         company_id=company.id,
         user_id=None,
         provider_id=body.provider_id,
-        config_json=body.config_json,
+        config_json=config or None,
         is_default=True,
     )
     db.add(binding)
@@ -191,6 +214,7 @@ async def put_company_model(
     company: Company = Depends(get_company),
     _admin=Depends(require_super_admin),
 ):
+    """设置企业模型绑定"""
     guard = PolicyGuard()
     if not guard.allow_model(company, body.provider_id):
         raise CollabError(403, 40300, f"模型不在白名单: {body.provider_id}")
@@ -218,6 +242,7 @@ async def put_company_model(
 
 @router.put("/users/me/bindings/asr", response_model=ResponseData)
 async def put_user_asr(body: UserAsrBody, db: DbSession, user: CurrentUser):
+    """设置个人语音识别绑定"""
     company = await db.get(Company, body.company_id)
     if not company:
         raise CollabError(404, 40400, "公司不存在")
@@ -269,7 +294,9 @@ async def asr_transcribe(
     user: CurrentUser,
     company_id: int = Form(...),
     file: UploadFile = File(...),
+    project_id: int | None = Form(None),
 ):
+    """语音转文字"""
     company = await db.get(Company, company_id)
     if not company:
         raise CollabError(404, 40400, "公司不存在")
@@ -282,14 +309,46 @@ async def asr_transcribe(
             CompanyMembership.status == "active",
         )
     )
-    if not mq.scalar_one_or_none():
+    membership = mq.scalar_one_or_none()
+    if not membership or membership.employment_status != 'active':
         raise CollabError(403, 40302, "非本公司成员")
 
-    data = await file.read()
-    engine = await AsrRouter().resolve(db, company, user_id=user.id)
-    text = await engine.transcribe(
-        data, file.content_type or "audio/wav", language="zh"
-    )
+    await assert_company_write(db, company.id, feature='asr')
+    if project_id is not None:
+        from app.models.project import Project
+        from app.services.acl import AclService
+        project = await db.get(Project, project_id)
+        if not project or project.company_id != company.id:
+            raise CollabError(404, 40400, '项目不存在')
+        if not await AclService().can(db, user.id, company.id, 'evidence.submit', project_id=project_id):
+            raise CollabError(403, 40300, '无权在此项目录入材料')
+    mime = (file.content_type or '').split(';')[0].lower()
+    if mime == 'application/octet-stream':
+        extension = (file.filename or '').rsplit('.', 1)[-1].lower()
+        mime = {'mp3':'audio/mpeg','m4a':'audio/mp4','mp4':'audio/mp4','webm':'audio/webm','ogg':'audio/ogg','wav':'audio/wav','aac':'audio/aac','flac':'audio/flac'}.get(extension, mime)
+    if not (mime.startswith('audio/') or mime in ('video/webm', 'video/mp4')):
+        raise CollabError(422, 42200, '请选择有效音频文件')
+    data = await file.read(20 * 1024 * 1024 + 1)
+    if not data:
+        raise CollabError(422, 42200, '录音为空，请重新录音')
+    if len(data) > 20 * 1024 * 1024:
+        raise CollabError(413, 41300, '录音超过 20 MB，请分段输入')
+    try:
+        engine = await AsrRouter().resolve(db, company, user_id=user.id)
+    except PermissionError:
+        raise CollabError(403, 40300, '当前公司未允许此语音服务')
+    except ValueError:
+        raise CollabError(503, 50300, '语音服务配置无效，请联系管理员检查 ASR 配置')
+    if getattr(engine, 'provider_id', 'builtin') == 'builtin':
+        raise CollabError(503, 50300, '语音转写服务尚未配置，请联系管理员配置 ASR，或直接输入文字')
+    try:
+        text = str(await engine.transcribe(data, mime, language='zh')).strip()
+    except Exception:
+        raise CollabError(502, 50200, '语音识别服务暂不可用，请重试或直接输入文字')
+    if text.startswith('[builtin-asr]'):
+        raise CollabError(503, 50300, '语音转写服务尚未配置，请联系管理员配置 ASR，或直接输入文字')
+    if not text:
+        raise CollabError(422, 42200, '未识别到有效语音，请重新录音')
     return ResponseData(
         data={"text": text, "provider_id": getattr(engine, "provider_id", "builtin")}
     )
@@ -303,6 +362,7 @@ async def list_collab_notifications(
     page_size: int = 20,
     state: str = Query("active", pattern="^(active|archived|all)$"),
 ):
+    """列出协作通知"""
     from sqlalchemy import func
     from app.models.notify import CollabInboxMessage
 
@@ -366,6 +426,7 @@ async def mark_collab_notification_read(
     db: DbSession,
     user: CurrentUser,
 ):
+    """标记协作通知已读"""
     from app.models.notify import CollabInboxMessage
 
     m = await db.get(CollabInboxMessage, message_id)
@@ -383,6 +444,7 @@ async def mark_all_collab_notifications_read(
     db: DbSession,
     user: CurrentUser,
 ):
+    """全部协作通知标记已读"""
     from app.models.notify import CollabInboxMessage
 
     q = await db.execute(
@@ -406,6 +468,7 @@ async def update_collab_notification_state(
     db: DbSession,
     user: CurrentUser,
 ):
+    """修改协作通知状态"""
     from app.models.notify import CollabInboxMessage
     message = await db.get(CollabInboxMessage, message_id)
     if not message or message.user_id != user.id or message.deleted_at is not None:
@@ -430,6 +493,7 @@ async def delete_collab_notification(
     db: DbSession,
     user: CurrentUser,
 ):
+    """删除协作通知"""
     from app.models.notify import CollabInboxMessage
     message = await db.get(CollabInboxMessage, message_id)
     if not message or message.user_id != user.id or message.deleted_at is not None:
@@ -447,6 +511,7 @@ async def reply_collab_notification(
     db: DbSession,
     user: CurrentUser,
 ):
+    """回复协作通知"""
     from app.models.notify import CollabInboxMessage
 
     message = await db.get(CollabInboxMessage, message_id)

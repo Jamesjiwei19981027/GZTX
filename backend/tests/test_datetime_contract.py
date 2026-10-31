@@ -147,3 +147,38 @@ async def test_timestamps_carry_zulu_suffix(
     listed = await client.get("/api/v1/tasks", headers=auth_headers)
     items = listed.json()["data"]["items"]
     assert items and items[0]["created_at"].endswith("Z")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("payload,expected", [
+    ({"due_date": "2026-10-22T14:45:00+08:00"}, "2026-10-22T06:45:00Z"),
+    ({"due_date": "2026-10-22T06:45:00Z"}, "2026-10-22T06:45:00Z"),
+    ({"due_date": "2026-10-22T06:45:00"}, "2026-10-22T06:45:00Z"),
+    ({"due_date": None}, None),
+    ({"title": "保留原日程"}, "2026-10-21T01:30:00Z"),
+])
+async def test_update_schedule_persists_validated_datetime(client, auth_headers, test_user, db_session, payload, expected):
+    category = await _make_category(db_session, test_user.id)
+    created = await client.post('/api/v1/tasks', headers=auth_headers, json={
+        'title': '首页日程', 'category_id': category.id, 'due_date': '2026-10-21T01:30:00Z',
+    })
+    task_id = created.json()['data']['id']
+    updated = await client.put(f'/api/v1/tasks/{task_id}', headers=auth_headers, json=payload)
+    assert updated.status_code == 200, updated.text
+    assert updated.json()['data']['due_date'] == expected
+    fetched = await client.get(f'/api/v1/tasks/{task_id}', headers=auth_headers)
+    assert fetched.json()['data']['due_date'] == expected
+
+
+@pytest.mark.asyncio
+async def test_update_schedule_reminders_retains_datetime_type(client, auth_headers, test_user, db_session):
+    category = await _make_category(db_session, test_user.id)
+    created = await client.post('/api/v1/tasks', headers=auth_headers, json={'title': '日程提醒', 'category_id': category.id})
+    task_id = created.json()['data']['id']
+    updated = await client.put(f'/api/v1/tasks/{task_id}', headers=auth_headers, json={
+        'due_date': '2026-10-22T14:45:00+08:00',
+        'reminders': [{'task_id': task_id, 'remind_at': '2026-10-22T14:30:00+08:00', 'remind_type': 0}],
+    })
+    assert updated.status_code == 200, updated.text
+    assert updated.json()['data']['due_date'] == '2026-10-22T06:45:00Z'
+    assert updated.json()['data']['reminders'][0]['remind_at'] == '2026-10-22T06:30:00Z'

@@ -5,6 +5,7 @@ from app.models.user import User
 from app.models.category import Category
 from app.models.tag import Tag, task_tags
 from app.models.task import Task
+from app.models.task_schedule import TaskScheduleChange
 from app.models.task_assignment import TaskAssignment
 from app.models.collab_file import CollabFile
 from app.models.external_mail import ExternalMail
@@ -26,6 +27,8 @@ from app.models.progress import ProgressRecord, AdoptionRecord
 from app.models.audit import AuditLog, ReviewCase
 from app.models.wiki import ProjectWikiEntry
 from app.models.knowledge import EvidenceFileText, KnowledgeChunk
+from app.models.personal_knowledge import PersonalKnowledgeEntry, PersonalKnowledgeLink
+from app.models.project_knowledge import ProjectKnowledgeGrant, ProjectKnowledgeSummary
 from app.models.agent import AgentDefinition, AgentSession, AgentMessage
 from app.models.bindings import AsrBinding, StorageBinding, ModelBinding
 from app.models.notify import (
@@ -38,7 +41,15 @@ from app.models.notify import (
 from app.models.usage_event import UsageEvent
 from app.models.integration import IntegrationAccount
 from app.models.delegation import DelegationGrant
-from app.models.report import ReportPolicy, ReportRun
+from app.models.report import (
+    ReportPolicy,
+    ReportRun,
+    ProjectAgentBinding,
+    AgentReport,
+    AgentReportSource,
+    ProjectReportEnvelope,
+    LeadershipReportEnvelope,
+)
 from app.models.verification import VerificationCode
 from app.models.rate_limit import RateLimitCounter
 from app.models.revoked_token import RevokedRefreshToken
@@ -51,6 +62,7 @@ from app.models.shell import (
     DirectMessage,
     PinnedLink,
 )
+from app.models.communication import ConversationSummary, CallSession, CallRecording
 
 __all__ = [
     "User",
@@ -91,6 +103,10 @@ __all__ = [
     "ProjectWikiEntry",
     "EvidenceFileText",
     "KnowledgeChunk",
+    "PersonalKnowledgeEntry",
+    "PersonalKnowledgeLink",
+    "ProjectKnowledgeGrant",
+    "ProjectKnowledgeSummary",
     "AgentDefinition",
     "AgentSession",
     "AgentMessage",
@@ -107,6 +123,11 @@ __all__ = [
     "DelegationGrant",
     "ReportPolicy",
     "ReportRun",
+    "ProjectAgentBinding",
+    "AgentReport",
+    "AgentReportSource",
+    "ProjectReportEnvelope",
+    "LeadershipReportEnvelope",
     "TeamChannel",
     "TeamChannelMessage",
     "UserPresence",
@@ -114,4 +135,7 @@ __all__ = [
     "DirectConversationMember",
     "DirectMessage",
     "PinnedLink",
+    "ConversationSummary",
+    "CallSession",
+    "CallRecording",
 ]

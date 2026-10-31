@@ -24,7 +24,7 @@ from app.services.knowledge.indexer import index_evidence_file
 from app.services.storage.router import StorageRouter
 
 
-async def extract_package(db: AsyncSession, package_id: int) -> dict:
+async def extract_package(db: AsyncSession, package_id: int, *, index_after_adopt: bool = True) -> dict:
     """抽取一个材料包内全部文件，返回统计 {total, succeeded, failed, skipped}。"""
     pkg = await db.get(EvidencePackage, package_id)
     if not pkg:
@@ -111,7 +111,7 @@ async def extract_package(db: AsyncSession, package_id: int) -> dict:
         await db.flush()
 
     # 竞态补索引：包已被采纳（判定先于抽取完成）时，把成功正文补进知识块
-    if pkg.status == "adopted":
+    if index_after_adopt and pkg.status == "adopted":
         indexed = 0
         for ef in files:
             eft = (

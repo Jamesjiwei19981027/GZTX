@@ -58,14 +58,14 @@ async def test_create_project_tree_and_evidence_flow(async_client, seed_ids):
     assert r4.json()["data"]["progress_json"]["status"] == "done"
     assert len(r4.json()["data"]["recent_records"]) >= 1
 
-    # wechat ban
+    # Authenticated mini-program evidence uses the same project ACL.
     r5 = await async_client.post(
         f"/api/v1/nodes/{node_id}/evidence",
         json={"summary_text": "wx", "file_ids": []},
         headers={**seed_ids["member_headers"], "X-Client-Channel": "wechat"},
     )
-    assert r5.status_code == 403
-    assert r5.json()["code"] == 40320
+    assert r5.status_code == 200, r5.text
+    assert r5.json()["code"] == 200
 
 
 @pytest.mark.asyncio

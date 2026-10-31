@@ -15,6 +15,8 @@ TEMPLATES = {
     "progress.auto_write_alert": "节点「{node_title}」在 1 小时内自动写入进度次数过多，请关注。",
     "review.awaiting_pm": "有复核待你确认：{summary}",
     "auth.welcome": "欢迎加入 {company_name}！请使用账号 {username} 登录 {app_url}。",
+    "agent.report.submitted": "项目 {project_id} 收到下属智能体汇报：{summary}",
+    "project.report.aggregated": "项目 {project_id} 已汇总 {report_count} 份智能体汇报。",
 }
 
 

@@ -5,7 +5,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.project import Project
+from app.models.project import Project, ProjectMember
 from app.models.tree import NodeAssignment, NodeType, TreeNode, default_progress_json
 from app.models.user import User
 
@@ -44,6 +44,55 @@ def dedupe_assignees(assignees: list[dict]) -> list[tuple[int, str]]:
 
 
 class TreeService:
+    async def ensure_person_members(self, db, node, user_ids):
+        """Assigning responsibility admits an active company person to this project."""
+        if await self.type_key_of(db, node) != PERSON_TYPE_KEY:
+            return
+        for user_id in set(user_ids):
+            membership = (await db.execute(select(ProjectMember).where(
+                ProjectMember.project_id == node.project_id, ProjectMember.user_id == user_id,
+            ))).scalar_one_or_none()
+            if membership is None:
+                db.add(ProjectMember(project_id=node.project_id, user_id=user_id, role='member'))
+            elif membership.left_at is not None:
+                membership.left_at = None
+                membership.role = 'member'
+        await db.flush()
+
+    async def assert_person_limit(self, db, *, parent, subtree=None):
+        """Count person nodes, independently of item depth, including moved descendants."""
+        ancestors = 0
+        current, seen = parent, set()
+        while current and current.id not in seen:
+            seen.add(current.id)
+            ancestors += int(await self.type_key_of(db, current) == PERSON_TYPE_KEY)
+            current = await db.get(TreeNode, current.parent_id) if current.parent_id else None
+        height = 1
+        if subtree:
+            rows = (await db.execute(select(TreeNode).where(TreeNode.project_id == subtree.project_id,
+                TreeNode.path.like(f'{subtree.path}%'), TreeNode.is_deleted.is_(False)))).scalars().all()
+            person_paths = [n.path for n in rows if await self.type_key_of(db, n) == PERSON_TYPE_KEY]
+            height = max((sum(path.startswith(ancestor) for ancestor in person_paths) for path in person_paths), default=1)
+        if ancestors + height > 3:
+            raise TreeShapeError('人员管理最多允许三层，请调整上级或移交到其他人员')
+
+    async def assert_distinct_supervisor(self, db, node_type_key, parent, assignees):
+        if node_type_key != PERSON_TYPE_KEY or not parent:
+            return
+        parent_owners = set((await db.execute(select(NodeAssignment.user_id).where(
+            NodeAssignment.node_id == parent.id, NodeAssignment.role_key == 'primary',
+        ))).scalars().all())
+        owners = {int(a['user_id']) for a in assignees or [] if a.get('role_key', 'primary') == 'primary'}
+        if parent_owners & owners:
+            raise TreeShapeError('人员不能担任自己的直属上级')
+
+    @staticmethod
+    def assert_origin_attachment(origin: str, parent: TreeNode | None) -> None:
+        if origin == 'subordinate' and parent is None:
+            raise TreeShapeError('下辖分支必须通过人员节点的下辖挂载点连接')
+        if origin == 'project' and parent and parent.node_origin == 'subordinate':
+            raise TreeShapeError('项目定义节点不能挂入下辖分支，请选择项目定义的上级')
+
     async def ensure_builtin_types(self, db: AsyncSession, company_id: int | None = None) -> None:
         for key, (name, tmpl) in BUILTIN_TYPES.items():
             q = await db.execute(
@@ -128,6 +177,8 @@ class TreeService:
 
         parent = await db.get(TreeNode, node.parent_id) if node.parent_id else None
         await self.assert_shape(db, node_type_key=new_type_key, parent=parent)
+        if new_type_key == PERSON_TYPE_KEY:
+            await self.assert_person_limit(db, parent=parent, subtree=node)
 
         if new_type_key != PERSON_TYPE_KEY:
             child = (
@@ -162,6 +213,8 @@ class TreeService:
         allow_clear_text_progress: bool = False,
         created_by: int | None = None,
         assignees: list[dict] | None = None,
+        node_origin: str = "project",
+        responsibility_permissions: dict | None = None,
     ) -> TreeNode:
         nt = await self.resolve_type(db, node_type_key)
         parent = None
@@ -172,6 +225,12 @@ class TreeService:
                 raise ValueError("父节点不存在")
             depth = parent.depth + 1
         await self.assert_shape(db, node_type_key=node_type_key, parent=parent)
+        await self.assert_distinct_supervisor(db, node_type_key, parent, assignees)
+        if node_type_key == PERSON_TYPE_KEY:
+            self.assert_origin_attachment(node_origin, parent)
+            await self.assert_person_limit(db, parent=parent)
+        elif parent:
+            node_origin = parent.node_origin
 
         node = TreeNode(
             company_id=project.company_id,
@@ -180,6 +239,8 @@ class TreeService:
             node_type_id=nt.id,
             title=title,
             description=description,
+            node_origin=node_origin,
+            responsibility_permissions=responsibility_permissions or {},
             sort_order=sort_order,
             path="/",  # temp
             depth=depth,
@@ -206,6 +267,7 @@ class TreeService:
                     NodeAssignment(node_id=node.id, user_id=user_id, role_key=role_key)
                 )
             await db.flush()
+            await self.ensure_person_members(db, node, [uid for uid, _ in pairs])
         return node
 
     async def move_node(
@@ -237,6 +299,13 @@ class TreeService:
         await self.assert_shape(
             db, node_type_key=await self.type_key_of(db, node), parent=parent
         )
+        await self.assert_distinct_supervisor(db, await self.type_key_of(db, node), parent,
+            await self.list_assignees(db, node.id))
+        if await self.type_key_of(db, node) == PERSON_TYPE_KEY:
+            self.assert_origin_attachment(node.node_origin, parent)
+            await self.assert_person_limit(db, parent=parent, subtree=node)
+        elif parent and node.node_origin != 'subordinate':
+            node.node_origin = parent.node_origin
 
         old_path = node.path
         old_depth = node.depth
@@ -313,6 +382,18 @@ class TreeService:
             raise ValueError("节点不存在")
         pairs = dedupe_assignees(assignees)
         await self.assert_assignable(db, node.company_id, [uid for uid, _ in pairs])
+        parent = await db.get(TreeNode, node.parent_id) if node.parent_id else None
+        await self.assert_distinct_supervisor(db, await self.type_key_of(db, node), parent, assignees)
+        # Changing a manager's assignment must not make an existing child its own manager.
+        proposed_owners = {uid for uid, role in pairs if role == 'primary'}
+        if proposed_owners and await self.type_key_of(db, node) == PERSON_TYPE_KEY:
+            duplicate_child = (await db.execute(select(NodeAssignment.user_id).join(
+                TreeNode, TreeNode.id == NodeAssignment.node_id,
+            ).where(TreeNode.parent_id == node.id, TreeNode.is_deleted.is_(False),
+                NodeAssignment.role_key == 'primary', NodeAssignment.user_id.in_(proposed_owners),
+            ).limit(1))).scalar_one_or_none()
+            if duplicate_child is not None:
+                raise TreeShapeError('人员不能担任自己的直属上级')
 
         q = await db.execute(select(NodeAssignment).where(NodeAssignment.node_id == node_id))
         for row in q.scalars().all():
@@ -322,6 +403,7 @@ class TreeService:
         for user_id, role_key in pairs:
             db.add(NodeAssignment(node_id=node_id, user_id=user_id, role_key=role_key))
         await db.flush()
+        await self.ensure_person_members(db, node, [uid for uid, _ in pairs])
         return await self.list_assignees(db, node_id)
 
     async def list_assignees(self, db: AsyncSession, node_id: int) -> list[dict]:

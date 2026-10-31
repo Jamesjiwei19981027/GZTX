@@ -1,0 +1,112 @@
+{
+  "repository": "https://github.com/microsoft/llmwiki",
+  "commit": "e09126f257c1fcf8e63234382748a51cf6a5df7f",
+  "license": "MIT",
+  "modifications": "None. Host bridge and build configuration live outside this directory.",
+  "files": [
+    {
+      "path": "LICENSE",
+      "sha256": "7df20dcdf9197e9945c14858d41c60f11b52b93e5b69e2b63416b874d598d322"
+    },
+    {
+      "path": "package.json",
+      "sha256": "d8b4a0887a39fd486e7612803c69ee0eb9cb301c94eaf37a12d59699fc5a4ea2"
+    },
+    {
+      "path": "src/backlinks.ts",
+      "sha256": "701b01c7d17df07b1acbc0503a8c12b0f19eeb0acaa75c79f425c71ebb1f15cb"
+    },
+    {
+      "path": "src/bulk-ingest.ts",
+      "sha256": "3a90e13bb8a4f7c587ec02a8eea69c1b14c7e85a249ea84a03016c3cd348817f"
+    },
+    {
+      "path": "src/constants.ts",
+      "sha256": "81f95c3e962bf06863d5fa4304e1a933ec7a5ce6b0b7b3cb175520a834aadd20"
+    },
+    {
+      "path": "src/errors.ts",
+      "sha256": "c55863c7912b867e9413b3541094d375e70c54c21abc8da16c1dcc4063a363ce"
+    },
+    {
+      "path": "src/index-ops.ts",
+      "sha256": "ae53d6cceb6e52e0f54fd6ca1f868d54969931393189567ae2d4d1d4e1eab1ba"
+    },
+    {
+      "path": "src/index.ts",
+      "sha256": "edc73f1f5a7cb363737a4565cc00f497f967ac7d3b83b7e0fd7b2993c451e029"
+    },
+    {
+      "path": "src/ingest-context.ts",
+      "sha256": "95b86256ccadfc7df5c020c275a08ccfaeabde3efb1beb7d7d6ed85650828ebd"
+    },
+    {
+      "path": "src/ingest.ts",
+      "sha256": "ee26f41d06f4e49efd9aad65d188b46a4cb59bca6bc4358af3c9d03df4b93503"
+    },
+    {
+      "path": "src/init.ts",
+      "sha256": "39e55231ab59436f0bcf59a6861cfc2a8b4f199acb9c3a5a412f0ef63e6b229b"
+    },
+    {
+      "path": "src/lint.ts",
+      "sha256": "8fd13aa9b124b4a14a44881c44d33ee497b9efa0d5b19d561298c4fb9a92f170"
+    },
+    {
+      "path": "src/log.ts",
+      "sha256": "01f666b09bd54558d11e9f778001f83c40613ebc7b8a6c1b81d94a94ed7810a1"
+    },
+    {
+      "path": "src/mcp/bin.ts",
+      "sha256": "acdf46ea9e1edaef88706ade196ffae2b916a396e76f76c2127e9c1f1abc990a"
+    },
+    {
+      "path": "src/mcp/index.ts",
+      "sha256": "3baf554e83cbe9874089e783a0a2e83b702cde404353cd7a98e6555cef38b94b"
+    },
+    {
+      "path": "src/mcp/prompts.ts",
+      "sha256": "90df09e3379f29a642d1bb409ab103ee31a62081b43873f30571cd03955e4e97"
+    },
+    {
+      "path": "src/mcp/read-tools.ts",
+      "sha256": "ff37caabbd9f6f554812b3b82441b03102d80d826d5e0d90ab28c1847d0a72f0"
+    },
+    {
+      "path": "src/mcp/resources.ts",
+      "sha256": "3fd7b7318e24586e07d8f7f9180749c69396d28cbbbbec9df7364a31aec6c018"
+    },
+    {
+      "path": "src/mcp/server.ts",
+      "sha256": "c74cae3d2e1ed106405a505511cc20964d49116155d75b794d17729cd9eac9b9"
+    },
+    {
+      "path": "src/mcp/write-tools.ts",
+      "sha256": "97fe606c13fac63f8025a998dc2d66ce8f4866835802e2c159c1316574017655"
+    },
+    {
+      "path": "src/query.ts",
+      "sha256": "8fb6d999a2f272c4618db319c2ce7690102c88d2f7d3124ea45b495ceebdb05a"
+    },
+    {
+      "path": "src/search.ts",
+      "sha256": "6b7e8bae2b211eea30a706e279cdb55982fd3197f4af33a26147d7fb09789f5f"
+    },
+    {
+      "path": "src/sources.ts",
+      "sha256": "21461c61a49639199d62c17af657b2f47a58b760af7be3fa437411f140c41dee"
+    },
+    {
+      "path": "src/status.ts",
+      "sha256": "e9910baacc3ccf6e7e67e866750139237500014b58af8a4b3091626f02287991"
+    },
+    {
+      "path": "src/utils.ts",
+      "sha256": "a592dfddf4339e048bd3e55183ce351c53cea5ab309889b27c9aa388f6f041fb"
+    },
+    {
+      "path": "src/wiki.ts",
+      "sha256": "6e4ab3f0e8e735dccd68713277d8f2fdf7c9bd86e0c7d1ce369d14a33b07cbbf"
+    }
+  ]
+}

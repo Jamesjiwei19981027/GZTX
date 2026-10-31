@@ -82,6 +82,7 @@ AVATAR_DIR = os.path.join(
 
 @router.post("/me/avatar", response_model=ResponseData)
 async def upload_avatar(db: DbSession, user: CurrentUser, file: UploadFile = File(...)):
+    """上传当前用户头像"""
     if not file.filename:
         raise HTTPException(status_code=400, detail="请选择图片")
     ext = os.path.splitext(file.filename)[1].lower()
@@ -107,6 +108,7 @@ async def upload_avatar(db: DbSession, user: CurrentUser, file: UploadFile = Fil
 
 @router.get("/{user_id}/avatar")
 async def get_avatar(user_id: int, db: DbSession):
+    """获取指定用户头像"""
     user = await db.get(User, user_id)
     filename = user.notify_pref.get("avatar_file") if user and isinstance(user.notify_pref, dict) else None
     if not filename:
@@ -119,6 +121,7 @@ async def get_avatar(user_id: int, db: DbSession):
 
 @router.get("/me/privacy", response_model=ResponseData)
 async def get_privacy_summary(db: DbSession, user: CurrentUser):
+    """查看当前用户的隐私数据概览"""
     from sqlalchemy import func
     from app.models.task import Task
 
@@ -133,6 +136,7 @@ async def get_privacy_summary(db: DbSession, user: CurrentUser):
 
 @router.get("/me/export", response_model=ResponseData)
 async def export_my_data(db: DbSession, user: CurrentUser):
+    """导出当前用户的全部个人数据"""
     from app.models.task import Task
 
     rows = (await db.execute(select(Task).where(Task.user_id == user.id, Task.is_deleted.is_(False)).order_by(Task.id))).scalars().all()
@@ -152,6 +156,7 @@ async def export_my_data(db: DbSession, user: CurrentUser):
 
 @router.get("/me/billing", response_model=ResponseData)
 async def get_billing_summary(db: DbSession, user: CurrentUser):
+    """查看当前用户的计费概览"""
     from app.models.company import Company, CompanyMembership, ServiceActivation
 
     membership = (await db.execute(select(CompanyMembership).where(
@@ -175,6 +180,7 @@ async def get_billing_summary(db: DbSession, user: CurrentUser):
 
 @router.post("/me/delete", response_model=ResponseData)
 async def delete_my_account(data: AccountDeleteRequest, db: DbSession, user: CurrentUser):
+    """注销当前账号"""
     if data.confirmation.strip().upper() != "DELETE":
         raise HTTPException(status_code=422, detail="请输入 DELETE 以确认")
     if user.password_hash and not verify_password(data.password, user.password_hash):

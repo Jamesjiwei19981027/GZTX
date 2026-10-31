@@ -19,6 +19,7 @@ for _stream in (sys.stdout, sys.stderr):
         pass
 
 from app.core.config import settings
+from app.core.api_docs import setup_api_docs
 from app.db.session import init_db, close_db
 from app.core.dependencies import DbSession
 from app.api.v1 import auth, tasks, categories, tags, reminders, users, notifications, attachments, wx
@@ -26,6 +27,9 @@ from app.api.v1 import companies as companies_api
 from app.api.v1 import projects as projects_api
 from app.api.v1 import nodes as nodes_api
 from app.api.v1 import knowledge as knowledge_api
+from app.api.v1 import project_wiki as project_wiki_api
+from app.api.v1 import personal_knowledge as personal_knowledge_api
+from app.api.v1 import project_knowledge as project_knowledge_api
 from app.api.v1 import agents as agents_api
 from app.api.v1 import bindings as bindings_api
 from app.api.v1 import org as org_api
@@ -46,6 +50,7 @@ _email_check_lock = asyncio.Lock()
 _reminder_check_lock = asyncio.Lock()
 # Daily digest lock
 _daily_digest_lock = asyncio.Lock()
+_report_generation_lock = asyncio.Lock()
 
 
 async def check_new_emails():
@@ -169,6 +174,26 @@ async def purge_trashed_tasks():
             return {"purged": purged}
         except Exception as e:
             print(f"[TrashPurge] Task failed: {e}")
+            return {"error": str(e)}
+
+
+async def run_scheduled_hierarchical_reports():
+    """Generate project member AI report drafts for cron report policies."""
+    if _report_generation_lock.locked():
+        return {"status": "skipped", "reason": "previous_running"}
+    async with _report_generation_lock:
+        from app.db.session import async_session_factory
+        from app.services.hierarchical_reporting import run_scheduled_report_generation
+
+        try:
+            async with async_session_factory() as db:
+                result = await run_scheduled_report_generation(db)
+                await db.commit()
+            if result.get("generated") or result.get("failed"):
+                print(f"[HierarchicalReports] {result}")
+            return result
+        except Exception as e:
+            print(f"[HierarchicalReports] Task failed: {e}")
             return {"error": str(e)}
 
 
@@ -515,6 +540,12 @@ def create_scheduler():
     )
     scheduler.add_job(check_reminders, "interval", seconds=60, id="check_reminders")
     scheduler.add_job(drain_notify_jobs, "interval", seconds=20, id="drain_notify_jobs")
+    scheduler.add_job(
+        run_scheduled_hierarchical_reports,
+        "interval",
+        seconds=900,
+        id="run_scheduled_hierarchical_reports",
+    )
     digest_utc_hour = (settings.DAILY_DIGEST_HOUR - settings.USER_TIMEZONE_OFFSET) % 24
     scheduler.add_job(
         send_daily_digest,
@@ -541,12 +572,12 @@ app = FastAPI(
     version=settings.APP_VERSION,
     description="工作待办提醒系统 API",
     lifespan=lifespan,
-    # 生产不暴露交互式文档与 schema：等于把全部接口形状、字段名和枚举白送给攻击者。
-    # 需要在生产临时开启时显式设置 EXPOSE_API_DOCS=true。
-    docs_url="/docs" if settings.expose_api_docs else None,
-    redoc_url="/redoc" if settings.expose_api_docs else None,
-    openapi_url="/openapi.json" if settings.expose_api_docs else None,
+    # 文档路由由 setup_api_docs 统一挂载：生产默认不暴露，开启时必须带 Basic 门禁
+    docs_url=None,
+    redoc_url=None,
+    openapi_url=None,
 )
+setup_api_docs(app)
 
 # 配置 CORS
 app.add_middleware(
@@ -598,6 +629,9 @@ app.include_router(companies_api.router, prefix="/api/v1")
 app.include_router(projects_api.router, prefix="/api/v1")
 app.include_router(nodes_api.router, prefix="/api/v1")
 app.include_router(knowledge_api.router, prefix="/api/v1")
+app.include_router(project_wiki_api.router, prefix="/api/v1")
+app.include_router(personal_knowledge_api.router, prefix="/api/v1")
+app.include_router(project_knowledge_api.router, prefix="/api/v1")
 app.include_router(agents_api.router, prefix="/api/v1")
 app.include_router(bindings_api.router, prefix="/api/v1")
 app.include_router(org_api.router, prefix="/api/v1")
@@ -614,7 +648,9 @@ app.include_router(events_api.router, prefix="/api/v1")
 
 @app.get("/api/v1/health", tags=["系统"])
 async def health_check(db: DbSession):
-    """Health check with a live database and production migration guard."""
+    """健康检查（含数据库与迁移状态）
+
+    Health check with a live database and production migration guard."""
     from sqlalchemy import text
 
     try:

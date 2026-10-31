@@ -38,7 +38,9 @@ def _subscription_dict(row: PushSubscription) -> dict:
 
 @router.get("/vapid-public-key", response_model=ResponseData)
 async def get_vapid_public_key():
-    """Get VAPID public key for Web Push subscription (public endpoint)."""
+    """获取 Web 推送公钥
+
+    Get VAPID public key for Web Push subscription (public endpoint)."""
     if not settings.VAPID_PUBLIC_KEY:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -53,7 +55,9 @@ async def subscribe_push(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Subscribe to Web Push notifications."""
+    """订阅 Web 推送
+
+    Subscribe to Web Push notifications."""
     payload = subscription.model_dump(exclude_none=True)
     endpoint = subscription.endpoint.strip()
     existing = (
@@ -74,7 +78,9 @@ async def get_push_subscriptions(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get user's Web Push subscriptions."""
+    """列出我的 Web 推送订阅
+
+    Get user's Web Push subscriptions."""
     rows = (
         await db.execute(select(PushSubscription).where(PushSubscription.user_id == current_user.id))
     ).scalars().all()
@@ -87,7 +93,9 @@ async def unsubscribe_push(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Unsubscribe from Web Push notifications."""
+    """取消 Web 推送订阅
+
+    Unsubscribe from Web Push notifications."""
     row = (
         await db.execute(
             select(PushSubscription).where(
@@ -107,7 +115,9 @@ async def test_push_notification(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """Send a test Web Push notification to the current user."""
+    """发送一条测试 Web 推送
+
+    Send a test Web Push notification to the current user."""
     import asyncio
 
     from app.utils.web_push import send_web_push
@@ -249,7 +259,9 @@ async def get_email_notification_status(
 async def get_smtp_config(
     current_user: User = Depends(get_current_user),
 ):
-    """Get user's SMTP configuration (password masked)."""
+    """获取个人 SMTP 配置
+
+    Get user's SMTP configuration (password masked)."""
     notify_pref = current_user.notify_pref or {}
     channels = notify_pref.get("channels", {})
     email_config = channels.get("email", {})
@@ -271,7 +283,9 @@ async def update_smtp_config(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Save user's SMTP configuration (merged into notify_pref.channels.email)."""
+    """保存个人 SMTP 配置
+
+    Save user's SMTP configuration (merged into notify_pref.channels.email)."""
     notify_pref = current_user.notify_pref or {}
     channels = notify_pref.get("channels", {})
     email_config = channels.get("email", {})

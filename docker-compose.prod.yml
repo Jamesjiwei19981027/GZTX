@@ -1,11 +1,35 @@
 # 生产编排：Postgres + 后端 + 静态前端 + nginx
 # 用法: cp .env.example .env  # 填密钥后
 #       docker compose -f docker-compose.prod.yml up -d --build
-# 首次: docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
+# migrate 服务会在 backend/scheduler 启动前自动执行 alembic upgrade head。
 
 version: '3.8'
 
 services:
+  # Run schema migrations exactly once before application processes start.
+  # A failed migration keeps backend and scheduler from serving partial schema.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    env_file:
+      - .env
+    environment:
+      - DEBUG=false
+      - AUTO_CREATE_SCHEMA=false
+      - DATABASE_URL=${DATABASE_URL:?set DATABASE_URL}
+      - SECRET_KEY=${SECRET_KEY:?set SECRET_KEY}
+      - LICENSE_VERIFY_MODE=${LICENSE_VERIFY_MODE:-ed25519}
+      - LICENSE_PUBLIC_KEY=${LICENSE_PUBLIC_KEY:?set LICENSE_PUBLIC_KEY}
+      - ALLOW_FAKE_SSO=false
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - worktodo-network
+
   backend:
     build:
       context: ./backend
@@ -20,6 +44,12 @@ services:
       - DEBUG=false
       - AUTO_CREATE_SCHEMA=false
       - SCHEDULER_ENABLED=false
+      # 接口文档 /docs：开启时必须同时设置 API_DOCS_PASSWORD（≥12 字符），见 docs/api-swagger.md
+      - EXPOSE_API_DOCS=${EXPOSE_API_DOCS:-false}
+      - API_DOCS_USERNAME=${API_DOCS_USERNAME:-apidocs}
+      - API_DOCS_PASSWORD=${API_DOCS_PASSWORD:-}
+      - API_DOCS_SERVERS=${API_DOCS_SERVERS:-}
+      - API_DOCS_ASSET_BASE=${API_DOCS_ASSET_BASE:-https://cdn.jsdelivr.net/npm/swagger-ui-dist@5}
       # 在 .env 中设置完整 DATABASE_URL，例如：
       # DATABASE_URL=postgresql+asyncpg://worktodo:pass@db:5432/worktodo
       - DATABASE_URL=${DATABASE_URL}
@@ -63,6 +93,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - worktodo-network
     healthcheck:
@@ -123,6 +155,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     networks:
       - worktodo-network
 

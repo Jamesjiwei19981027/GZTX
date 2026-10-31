@@ -52,6 +52,8 @@ async def test_pm_permissions(async_client: AsyncClient, seed_ids):
     assert d["via_delegation"] is False
     assert d["can_move"] is True
     assert d["can_delete"] is True
+    assert d["can_submit_evidence"] is True
+    assert d["can_read_evidence"] is True
 
 
 @pytest.mark.asyncio
@@ -90,6 +92,8 @@ async def test_member_without_owned_nodes(
     assert d["owned_node_ids"] == []
     assert d["can_move"] is False
     assert d["can_delete"] is False
+    assert d["can_submit_evidence"] is True
+    assert d["can_read_evidence"] is True
 
 
 @pytest.mark.asyncio
@@ -134,6 +138,7 @@ async def test_delegated_user_gets_edit_all_but_not_move(
     assert d["owned_node_ids"] == []
     assert d["can_move"] is False
     assert d["can_delete"] is False
+    assert d["can_submit_evidence"] is False
 
 
 @pytest.mark.asyncio

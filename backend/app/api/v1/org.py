@@ -20,7 +20,7 @@ from app.services.org_sync.wecom import WeComProvider
 from app.services.policy_presets import DEFAULT_LOGIN_METHODS
 from app.services.secret_box import decrypt_str, encrypt_str
 
-router = APIRouter(prefix="/companies", tags=["org"])
+router = APIRouter(prefix="/companies", tags=["组织架构"])
 
 # 支持在公司设置页配置的集成类型
 KNOWN_PROVIDERS = frozenset(
@@ -259,6 +259,7 @@ async def org_tree(
     company: Company = Depends(get_company),
     _m=Depends(require_company_member),
 ):
+    """获取企业组织架构树"""
     q = await db.execute(
         select(OrgUnit).where(OrgUnit.company_id == company.id, OrgUnit.is_active.is_(True))
     )
@@ -292,6 +293,7 @@ async def list_integrations(
     _admin=Depends(require_super_admin),
     provider: str | None = Query(None),
 ):
+    """列出组织同步集成"""
     q = select(IntegrationAccount).where(IntegrationAccount.company_id == company.id)
     if provider:
         q = q.where(IntegrationAccount.provider == provider)
@@ -399,6 +401,7 @@ async def trigger_org_sync(
     _admin=Depends(require_super_admin),
     provider: str | None = Query(None, description="指定集成；默认取最近一条可同步账号"),
 ):
+    """触发组织架构同步"""
     q = select(IntegrationAccount).where(IntegrationAccount.company_id == company.id)
     if provider:
         q = q.where(IntegrationAccount.provider == provider)
@@ -458,6 +461,7 @@ async def patch_login_methods(
     company: Company = Depends(get_company),
     _admin=Depends(require_super_admin),
 ):
+    """修改企业可用的登录方式"""
     lm = dict(company.login_methods_json or DEFAULT_LOGIN_METHODS)
     for k, v in body.model_dump(exclude_unset=True).items():
         if v is not None:

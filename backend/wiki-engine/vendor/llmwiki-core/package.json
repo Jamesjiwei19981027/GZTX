@@ -1,0 +1,55 @@
+{
+  "name": "@llmwiki/core",
+  "version": "0.1.2",
+  "description": "Core wiki operations and MCP server (stdio launcher: llmwiki-mcp) for LLM Wiki",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/microsoft/llmwiki.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/microsoft/llmwiki/issues"
+  },
+  "homepage": "https://github.com/microsoft/llmwiki#readme",
+  "keywords": [
+    "wiki",
+    "knowledge-base",
+    "mcp",
+    "llm",
+    "markdown"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "llmwiki-mcp": "./dist/mcp/bin.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./mcp-bin": "./dist/mcp/bin.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "gray-matter": "^4.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}

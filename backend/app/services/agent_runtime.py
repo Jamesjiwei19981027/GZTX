@@ -5,10 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.models.agent import AgentDefinition, AgentMessage, AgentSession
+from app.models.evidence import EvidenceFile, EvidencePackage
+from app.models.knowledge import EvidenceFileText
 from app.models.project import Project
 from app.models.tree import TreeNode
 from app.services.acl import AclService
 from app.services.knowledge.search import search_chunks
+from app.services.personal_knowledge import search_personal_knowledge
 
 MAX_USER_CREATED = 5
 
@@ -50,6 +53,8 @@ def _source_label(item: dict) -> str:
         label = f"wiki:{source_id}"
     elif st == "evidence_file":
         label = f"file:{source_id}"
+    elif st == "personal_knowledge":
+        label = f"个人知识:{source_id}"
     else:
         label = f"{st}:{source_id}"
     extras = []
@@ -74,6 +79,45 @@ def _retrieval_meta(items: list[dict]) -> list[dict]:
             "text": (c["chunk_text"] or "")[:100],
         }
         for c in items
+    ]
+
+
+async def _own_evidence_file_retrieval(
+    db: AsyncSession, *, company_id: int, project_id: int, user_id: int
+) -> list[dict]:
+    """Use a user's freshly extracted uploads before knowledge indexing catches up."""
+    rows = (
+        await db.execute(
+            select(EvidenceFile, EvidenceFileText)
+            .join(EvidencePackage, EvidencePackage.id == EvidenceFile.package_id)
+            .join(EvidenceFileText, EvidenceFileText.evidence_file_id == EvidenceFile.id)
+            .where(
+                EvidenceFile.company_id == company_id,
+                EvidenceFile.project_id == project_id,
+                EvidenceFile.uploader_user_id == user_id,
+                EvidencePackage.company_id == company_id,
+                EvidencePackage.project_id == project_id,
+                EvidencePackage.submitter_user_id == user_id,
+                EvidenceFileText.company_id == company_id,
+                EvidenceFileText.project_id == project_id,
+                EvidenceFileText.status == "succeeded",
+            )
+            .order_by(EvidenceFile.created_at.desc(), EvidenceFile.id.desc())
+            .limit(8)
+        )
+    ).all()
+    return [
+        {
+            "chunk_id": f"evidence-file:{file.id}",
+            "chunk_text": (text.text_md or "")[:12000],
+            "source_type": "evidence_file",
+            "source_id": file.id,
+            "node_id": None,
+            "meta": {"original_name": file.original_name, "private_owner_user_id": user_id},
+            "score": 2.0,
+        }
+        for file, text in rows
+        if (text.text_md or "").strip()
     ]
 
 
@@ -380,6 +424,17 @@ class AgentRuntime:
                         retrieval_items = await search_chunks(
                             db, company_id=cid, project_id=pid, query=text
                         )
+                        private_files = await _own_evidence_file_retrieval(
+                            db, company_id=cid, project_id=pid, user_id=uid
+                        )
+                        known_ids = {item.get("chunk_id") for item in retrieval_items}
+                        retrieval_items.extend(
+                            item for item in private_files if item["chunk_id"] not in known_ids
+                        )
+                        personal_items = await search_personal_knowledge(
+                            db, company_id=cid, project_id=pid, user_id=uid, query=text
+                        )
+                        retrieval_items.extend(personal_items)
                 except Exception as e:
                     retrieval_items = []
                     meta["retrieval_error"] = str(e)

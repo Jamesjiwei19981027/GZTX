@@ -2,8 +2,10 @@
 认证相关接口
 """
 import logging
+from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.dependencies import DbSession
 from app.core.security import (
@@ -279,6 +281,33 @@ async def login(data: UserLogin, db: DbSession, request: Request):
         )
 
     return _issue_tokens(user)
+
+
+@router.post("/token")
+async def oauth2_token(
+    db: DbSession,
+    request: Request,
+    form: Annotated[OAuth2PasswordRequestForm, Depends()],
+):
+    """表单登录换令牌（OAuth2 标准格式，供 Swagger 右上角 Authorize 使用）
+
+    与 /auth/login 同一套校验与限流；返回体不套统一信封，以符合 OAuth2 规范。
+    业务客户端请继续使用 /auth/login。
+    """
+    from app.services.rate_limit import enforce_login
+
+    await enforce_login(db, request, form.username)
+    user = await _find_user_by_identifier(db, form.username)
+    if not user or not user.password_hash or not verify_password(form.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号或密码错误")
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="用户已被禁用")
+    return {
+        "access_token": create_access_token(data={"sub": user.id}),
+        "token_type": "bearer",
+        "refresh_token": create_refresh_token(data={"sub": user.id}),
+        "expires_in": 900,
+    }
 
 
 @router.post("/login-code", response_model=ResponseData)

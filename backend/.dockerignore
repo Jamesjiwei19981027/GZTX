@@ -6,6 +6,9 @@ data/
 *.sqlite3
 .pytest_cache/
 .venv/
+.venv*/
+**/node_modules/
+**/dist/
 venv/
 __pycache__/
 *.pyc

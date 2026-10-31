@@ -69,6 +69,12 @@ async def _rebuild_chunks(
 
 async def index_wiki_entry(db: AsyncSession, entry: ProjectWikiEntry) -> int:
     """wiki 条目切块入索引（标题作为一级标题拼进正文，保证标题可检索）。"""
+    # LLM Wiki uses its isolated, project-scoped engine. Never expose private
+    # drafts through shared search or invoke embeddings for this workflow.
+    if entry.source in {"llm_wiki", "llm_wiki_draft", "llm_wiki_review"}:
+        await delete_source(db, SOURCE_WIKI_ENTRY, entry.id)
+        await db.flush()
+        return 0
     text = f"# {entry.title}\n\n{entry.body_text or ''}"
     return await _rebuild_chunks(
         db,

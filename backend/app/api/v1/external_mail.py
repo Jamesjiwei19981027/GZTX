@@ -15,7 +15,7 @@ from app.models.company import CompanyMembership
 from app.models.external_mail import ExternalMail
 from app.schemas.common import ResponseData
 
-router = APIRouter(prefix="/external-mail", tags=["external-mail"])
+router = APIRouter(prefix="/external-mail", tags=["外部邮件"])
 
 
 class ExternalMailStateBody(BaseModel):
@@ -61,6 +61,7 @@ def _mail_dto(mail: ExternalMail, *, include_body: bool = True) -> dict:
 
 @router.get("/status", response_model=ResponseData)
 async def external_mail_status(db: DbSession, user: CurrentUser, company_id: int = Query(...)):
+    """查看外部邮箱同步状态"""
     await _require_company_member(db, company_id, user.id)
     return ResponseData(
         data={
@@ -80,6 +81,7 @@ async def sync_external_mail(
     company_id: int = Query(...),
     limit: int = Query(20, ge=1, le=100),
 ):
+    """立即同步外部邮箱"""
     await _require_company_member(db, company_id, user.id)
     if not _configured():
         raise HTTPException(status_code=503, detail="IMAP credentials are not configured")
@@ -142,6 +144,7 @@ async def list_external_mail(
     state: str = Query("active", pattern="^(active|archived|deleted|all)$"),
     limit: int = Query(50, ge=1, le=100),
 ):
+    """列出外部邮件"""
     await _require_company_member(db, company_id, user.id)
     query = select(ExternalMail).where(ExternalMail.company_id == company_id)
     if state != "all":
@@ -152,6 +155,7 @@ async def list_external_mail(
 
 @router.get("/{mail_id}", response_model=ResponseData)
 async def get_external_mail(mail_id: int, db: DbSession, user: CurrentUser):
+    """获取外部邮件详情"""
     mail = await db.get(ExternalMail, mail_id)
     if not mail:
         raise HTTPException(status_code=404, detail="external mail not found")
@@ -161,6 +165,7 @@ async def get_external_mail(mail_id: int, db: DbSession, user: CurrentUser):
 
 @router.put("/{mail_id}/state", response_model=ResponseData)
 async def update_external_mail_state(mail_id: int, body: ExternalMailStateBody, db: DbSession, user: CurrentUser):
+    """修改外部邮件状态"""
     mail = await db.get(ExternalMail, mail_id)
     if not mail:
         raise HTTPException(status_code=404, detail="external mail not found")

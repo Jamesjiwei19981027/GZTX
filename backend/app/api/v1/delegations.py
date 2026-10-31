@@ -14,7 +14,7 @@ from app.models.project import Project
 from app.schemas.common import ResponseData
 from app.services.acl import AclService
 
-router = APIRouter(prefix="/delegations", tags=["delegations"])
+router = APIRouter(prefix="/delegations", tags=["委托授权"])
 acl = AclService()
 
 # 禁止 "*" 与任意串；仅允许明确动作（含 prefix 形式需完整列出）
@@ -82,6 +82,7 @@ async def _can_grant(db, user_id: int, company_id: int, project_id: int | None) 
 
 @router.post("")
 async def create_delegation(body: DelegationCreate, db: DbSession, user: CurrentUser):
+    """创建委托授权"""
     company = await db.get(Company, body.company_id)
     if not company:
         return fail(404, 40400, "公司不存在")
@@ -138,6 +139,7 @@ async def list_delegations(
     company_id: int = Query(...),
     project_id: int | None = Query(None),
 ):
+    """列出委托授权"""
     mq = await db.execute(
         select(CompanyMembership).where(
             CompanyMembership.company_id == company_id,
@@ -163,6 +165,7 @@ async def list_delegations(
 
 @router.post("/{delegation_id}/revoke")
 async def revoke_delegation(delegation_id: int, db: DbSession, user: CurrentUser):
+    """撤销委托授权"""
     grant = await db.get(DelegationGrant, delegation_id)
     if not grant:
         return fail(404, 40400, "委托不存在")

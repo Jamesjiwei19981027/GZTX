@@ -12,7 +12,7 @@ from app.schemas.common import ResponseData
 from app.services.acl import AclService
 from app.services.knowledge.search import search_chunks
 
-router = APIRouter(tags=["knowledge"])
+router = APIRouter(tags=["知识检索"])
 acl = AclService()
 
 # top_k 请求上限（超出按 20 截断）
@@ -27,6 +27,7 @@ async def knowledge_search(
     q: str = Query(default=""),
     top_k: int | None = Query(default=None, ge=1),
 ):
+    """在项目知识中检索"""
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")

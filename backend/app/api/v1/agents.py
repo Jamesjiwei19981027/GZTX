@@ -13,7 +13,7 @@ from app.schemas.common import ResponseData
 from app.services.agent_runtime import AgentQuotaExceeded, AgentRuntime
 from app.services.entitlement import EntitlementService
 
-router = APIRouter(prefix="/agents", tags=["agents"])
+router = APIRouter(prefix="/agents", tags=["智能体"])
 runtime = AgentRuntime()
 
 DEFAULT_SYSTEM_PROMPT = (
@@ -94,6 +94,7 @@ async def _get_owned_agent(
 
 @router.post("")
 async def create_agent(body: AgentCreate, db: DbSession, user: CurrentUser):
+    """创建智能体"""
     if not await _member(db, body.company_id, user.id):
         return fail(403, 40302, "非本公司成员")
     try:
@@ -118,6 +119,7 @@ async def create_agent(body: AgentCreate, db: DbSession, user: CurrentUser):
 
 @router.get("")
 async def list_agents(company_id: int, db: DbSession, user: CurrentUser):
+    """列出智能体"""
     if not await _member(db, company_id, user.id):
         return fail(403, 40302, "非本公司成员")
     if not await _unlocked_feature(db, company_id, "agents"):
@@ -143,6 +145,7 @@ async def list_agents(company_id: int, db: DbSession, user: CurrentUser):
 async def update_agent(
     agent_id: int, body: AgentUpdate, db: DbSession, user: CurrentUser
 ):
+    """修改智能体"""
     agent = await _get_owned_agent(db, agent_id, user.id)
     if not agent:
         return fail(404, 40400, "智能体不存在或无权修改")
@@ -177,6 +180,7 @@ async def update_agent(
 
 @router.delete("/{agent_id}")
 async def delete_agent(agent_id: int, db: DbSession, user: CurrentUser):
+    """删除智能体"""
     agent = await _get_owned_agent(db, agent_id, user.id)
     if not agent:
         return fail(404, 40400, "智能体不存在或无权删除")
@@ -193,6 +197,7 @@ async def delete_agent(agent_id: int, db: DbSession, user: CurrentUser):
 
 @router.post("/chat")
 async def agent_chat(body: ChatBody, db: DbSession, user: CollaborationUser):
+    """与智能体对话"""
     if not await _member(db, body.company_id, user.id):
         return fail(403, 40302, "非本公司成员")
     if not await _unlocked_feature(db, body.company_id, "agents"):

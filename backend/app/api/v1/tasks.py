@@ -15,6 +15,8 @@ from app.core.dependencies import CurrentUser, DbSession, EmailVerifiedUser
 from app.core.config import settings
 from app.core.collab_errors import fail
 from app.models.task import Task
+from app.models.task_schedule import TaskScheduleChange
+from app.services.task_statistics import statistics_query, statistics_window
 from app.models.task_assignment import TaskAssignment
 from app.models.category import Category
 from app.models.tag import Tag, task_tags
@@ -527,27 +529,12 @@ async def get_task_stats(
     db: DbSession,
     user: CurrentUser,
     period: str = "today",
+    project_id: int | None = Query(None, gt=0),
+    timezone_offset: int = Query(0, ge=-720, le=840),
 ):
     """获取任务统计"""
-    query = select(Task).where(Task.user_id == user.id, Task.is_deleted == False)
-
-    # 按时间范围筛选 — 统一用 naive UTC，与 SQLite func.now()/server_default 一致
-    # （勿用 date.today() 本地日界：UTC 库时会把「今天」任务滤成 0）
-    from datetime import timedelta
-
-    now = datetime.utcnow()
-    if period == "today":
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        query = query.where(Task.created_at >= today_start)
-    elif period == "week":
-        week_ago = now - timedelta(days=7)
-        query = query.where(Task.created_at >= week_ago)
-    elif period == "month":
-        month_ago = now - timedelta(days=30)
-        query = query.where(Task.created_at >= month_ago)
-    elif period == "year":
-        year_ago = now - timedelta(days=365)
-        query = query.where(Task.created_at >= year_ago)
+    start, now, _, _ = statistics_window(period, timezone_offset)
+    query = statistics_query(user.id, project_id).where(Task.created_at >= start, Task.created_at <= now)
 
     result = await db.execute(query)
     tasks = result.scalars().all()
@@ -685,7 +672,9 @@ def _parse_task_draft(content: str, source_text: str) -> dict:
 async def extract_task_from_chat(
     data: TaskExtractRequest, db: DbSession, user: EmailVerifiedUser
 ):
-    """Extract a task draft from chat text using the configured LLM.
+    """从聊天文本中 AI 提取任务草稿
+
+    Extract a task draft from chat text using the configured LLM.
 
     This endpoint is intentionally draft-only: the caller must explicitly send
     the returned fields to ``POST /tasks``.  That keeps chat capture reversible
@@ -969,6 +958,20 @@ async def create_task(data: TaskCreate, db: DbSession, user: EmailVerifiedUser):
     return ResponseData(data=_serialize_task(task))
 
 
+@router.get("/{task_id}/schedule-history", response_model=ResponseData)
+async def task_schedule_history(task_id: int, db: DbSession, user: CurrentUser):
+    """查看任务的排期变更历史"""
+    task = await db.scalar(select(Task).where(Task.id == task_id, Task.is_deleted.is_(False), task_visibility_filter(user.id)))
+    if task is None:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    rows = (await db.execute(select(TaskScheduleChange).where(TaskScheduleChange.task_id == task_id).order_by(TaskScheduleChange.id))).scalars().all()
+    def iso(value):
+        return to_naive_utc(value).isoformat() + "Z" if value else None
+    return ResponseData(data={"items": [{"id": row.id, "actor_user_id": row.actor_user_id,
+        "old_due_date": iso(row.old_due_date), "new_due_date": iso(row.new_due_date),
+        "created_at": iso(row.created_at)} for row in rows]})
+
+
 @router.put("/{task_id}", response_model=ResponseData)
 async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: CurrentUser):
     """更新任务"""
@@ -980,7 +983,13 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
     if not task:
         raise HTTPException(status_code=404, detail="任务不存在")
 
-    update_data = data.model_dump(exclude_unset=True)
+    # UTCDateTime's response serializer emits strings even in model_dump's
+    # Python mode. ORM DateTime fields need the validated datetime objects.
+    update_data = data.model_dump(exclude_unset=True, exclude={"due_date", "reminders"})
+    if "due_date" in data.model_fields_set:
+        update_data["due_date"] = to_naive_utc(data.due_date)
+    if "reminders" in data.model_fields_set:
+        update_data["reminders"] = data.reminders
     requested_assignee_ids = update_data.pop("assignee_user_ids", None)
     assignees_should_change = requested_assignee_ids is not None
 
@@ -1049,7 +1058,7 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
     ):
         return fail(403, 40321, "项目投影待办不可直接修改状态，请通过材料/进度流程")
 
-    if "status" in update_data:
+    if "status" in update_data and update_data["status"] != task.status:
         update_data["completed_at"] = (
             datetime.utcnow() if update_data["status"] == Task.STATUS_DONE else None
         )
@@ -1098,6 +1107,9 @@ async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: Curre
             db.add(reminder)
 
     # 更新其他字段
+    if "due_date" in update_data and to_naive_utc(task.due_date) != update_data["due_date"]:
+        db.add(TaskScheduleChange(task_id=task.id, actor_user_id=user.id,
+            old_due_date=task.due_date, new_due_date=update_data["due_date"]))
     for key, value in update_data.items():
         setattr(task, key, value)
 
@@ -1356,10 +1368,14 @@ async def batch_reschedule(data: BatchReschedule, db: DbSession, user: CurrentUs
         )
     ]
     for task in editable:
+        old_due_date = task.due_date
         if task.due_date is not None:
             task.due_date = datetime.combine(data.due_date, task.due_date.time())
         else:
             task.due_date = datetime.combine(data.due_date, datetime.min.time())
+        if task.due_date != old_due_date:
+            db.add(TaskScheduleChange(task_id=task.id, actor_user_id=user.id,
+                old_due_date=old_due_date, new_due_date=task.due_date))
 
     return ResponseData(
         data={

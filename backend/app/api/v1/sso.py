@@ -18,7 +18,7 @@ from app.services.policy_presets import DEFAULT_LOGIN_METHODS
 from app.services.secret_box import decrypt_str
 from app.services.sso.oidc import get_sso_provider
 
-router = APIRouter(prefix="/sso", tags=["sso"])
+router = APIRouter(prefix="/sso", tags=["单点登录"])
 
 PROVIDER_LOGIN_KEY = {
     "wecom": "wecom",
@@ -68,6 +68,7 @@ async def sso_start(
     db: DbSession,
     company_id: int = Query(...),
 ):
+    """发起单点登录跳转"""
     if provider not in PROVIDER_LOGIN_KEY:
         raise CollabError(404, 40400, f"未知 SSO provider: {provider}")
     company = await db.get(Company, company_id)
@@ -101,6 +102,7 @@ async def sso_callback(
     state: str = Query(""),
     company_id: int | None = Query(None),
 ):
+    """单点登录回调"""
     if provider not in PROVIDER_LOGIN_KEY:
         raise CollabError(404, 40400, f"未知 SSO provider: {provider}")
 

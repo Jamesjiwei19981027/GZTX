@@ -122,6 +122,14 @@ class Settings(BaseSettings):
     # /docs /redoc /openapi.json 是否暴露。默认跟随 DEBUG：
     # 生产开着等于把全部接口形状、字段名与枚举白送给攻击者。
     EXPOSE_API_DOCS: bool | None = None
+    # 文档页 HTTP Basic 门禁；DEBUG=false 且开启文档时必填（启动门禁强制）
+    API_DOCS_USERNAME: str = "apidocs"
+    API_DOCS_PASSWORD: str = ""
+    # Swagger「Servers」下拉追加的地址，逗号分隔，每项 `地址|说明`，
+    # 如 `https://api.example.com|线上,https://staging.example.com|测试`
+    API_DOCS_SERVERS: str = ""
+    # Swagger UI 静态资源地址；国内访问 jsdelivr 不稳时可换镜像
+    API_DOCS_ASSET_BASE: str = "https://cdn.jsdelivr.net/npm/swagger-ui-dist@5"
 
     # 注册双验证（邮箱+手机）总开关；短信服务商：fake（开发桩）| 后续 aliyun/tencent
     REGISTER_VERIFICATION_REQUIRED: bool = True
@@ -250,6 +258,14 @@ class Settings(BaseSettings):
             raise RuntimeError(
                 "ALLOW_FAKE_SSO=true 时任何人都能用 code=fake:x:<任意邮箱> 换取该账号令牌；"
                 "生产必须设为 false"
+            )
+        # 生产开放接口文档必须加门禁，否则全部接口形状对公网可见
+        if self.expose_api_docs and (
+            self._is_placeholder_secret(self.API_DOCS_PASSWORD) or len(self.API_DOCS_PASSWORD) < 12
+        ):
+            raise RuntimeError(
+                "生产开启 EXPOSE_API_DOCS 时必须设置 API_DOCS_PASSWORD（≥12 字符、非占位值），"
+                "文档页将要求该账号密码"
             )
         # 邮件指令通道仅凭 From 地址 + 该密钥鉴权，弱默认值等于任何人都能伪造指令邮件
         if self.IMAP_USER and self._is_placeholder_secret(self.EMAIL_REPLY_SECRET):

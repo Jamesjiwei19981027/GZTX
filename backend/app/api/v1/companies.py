@@ -37,7 +37,7 @@ from app.services.policy_presets import (
     POLICY_PRESETS,
 )
 
-router = APIRouter(prefix="/companies", tags=["companies"])
+router = APIRouter(prefix="/companies", tags=["企业"])
 
 
 def _company_summary(company: Company, membership: CompanyMembership | None = None) -> dict:
@@ -126,6 +126,7 @@ async def list_my_companies(db: DbSession, user: CurrentUser):
 
 @router.post("/saas-open")
 async def saas_open(body: SaasOpenBody, db: DbSession, user: CurrentUser):
+    """SaaS 模式自助开通企业"""
     if settings.DEPLOY_MODE != "saas":
         return fail(403, 40311, "当前环境未启用 SaaS 开通")
     try:
@@ -159,6 +160,7 @@ async def get_company_detail(
     db: DbSession,
     user: CurrentUser,
 ):
+    """获取企业详情"""
     company = await db.get(Company, company_id)
     if not company:
         return fail(404, 40400, "公司不存在")
@@ -399,6 +401,7 @@ async def upload_license(
     db: DbSession,
     user: CurrentUser,
 ):
+    """上传企业授权许可证"""
     company = await db.get(Company, company_id)
     if not company:
         return fail(404, 40400, "公司不存在")
@@ -429,6 +432,7 @@ async def patch_policy(
     db: DbSession,
     user: CurrentUser,
 ):
+    """修改企业数据与模型策略"""
     company = await db.get(Company, company_id)
     if not company:
         return fail(404, 40400, "公司不存在")
@@ -482,6 +486,7 @@ async def list_members(
     page_size: int = Query(20, ge=1, le=100),
     status: str | None = None,
 ):
+    """列出企业成员"""
     company = await db.get(Company, company_id)
     if not company:
         return fail(404, 40400, "公司不存在")
@@ -545,6 +550,7 @@ async def patch_member(
     db: DbSession,
     user: CurrentUser,
 ):
+    """修改企业成员角色或状态"""
     company = await db.get(Company, company_id)
     if not company:
         return fail(404, 40400, "公司不存在")
@@ -609,6 +615,7 @@ async def patch_member(
 
 @router.get("/{company_id}/features")
 async def get_features(company_id: int, db: DbSession, user: CurrentUser):
+    """查看企业已开通的功能"""
     company = await db.get(Company, company_id)
     if not company:
         return fail(404, 40400, "公司不存在")

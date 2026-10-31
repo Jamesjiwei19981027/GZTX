@@ -12,8 +12,8 @@ from app.core.security import decode_token, token_revoked_for_user
 from app.db.session import get_db
 from app.models.user import User
 
-# OAuth2 密码模式
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# OAuth2 密码模式；tokenUrl 指向表单登录接口，Swagger 的 Authorize 才能直接换到令牌
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
 
 
 async def get_current_user(

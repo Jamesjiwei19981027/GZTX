@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "module": "NodeNext", "moduleResolution": "NodeNext",
+    "strict": true, "esModuleInterop": true, "skipLibCheck": true,
+    "rootDir": "vendor/llmwiki-core/src", "outDir": "dist"
+  },
+  "files": [
+    "vendor/llmwiki-core/src/wiki.ts", "vendor/llmwiki-core/src/index-ops.ts",
+    "vendor/llmwiki-core/src/query.ts", "vendor/llmwiki-core/src/lint.ts"
+  ]
+}

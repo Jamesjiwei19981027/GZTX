@@ -12,7 +12,7 @@ from typing import Optional
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import func, select, or_
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.collab_errors import CollabError, fail
@@ -33,14 +33,19 @@ from app.models.shell import (
     DirectMessage,
     PinnedLink,
 )
+from app.models.communication import ConversationSummary
 from app.models.task import Task
+from app.services.task_statistics import statistics_query, statistics_window
 from app.models.tree import TreeNode
 from app.models.user import User
 from app.schemas.common import ResponseData
 from app.services.acl import AclService
 from app.services.tree_service import TreeService
+from app.services.communication_summary import summarize_lines_with_llm, summary_dto
+from app.services.work_contacts import allowed_work_contacts
+from app.services.responsibility_access import can_access_project_channels
 
-router = APIRouter(tags=["shell"])
+router = APIRouter(tags=["频道私聊与界面偏好"])
 acl = AclService()
 tsvc = TreeService()
 
@@ -115,6 +120,11 @@ ALLOWED_COLLAB_EXTENSIONS = {
     ".xls",
     ".xlsx",
     ".zip",
+    ".wav",
+    ".mp3",
+    ".m4a",
+    ".ogg",
+    ".webm",
 }
 
 
@@ -147,13 +157,15 @@ async def _require_channel_scope(
         raise CollabError(404, 40400, "项目不存在")
     if not await acl.can(db, user_id, company_id, "project.read", project_id=project_id):
         raise CollabError(403, 40301, "非项目成员")
+    if not await can_access_project_channels(db, project, user_id):
+        raise CollabError(403, 40301, '下辖人员尚未获得项目频道访问授权，请联系项目管理人员')
 
 
 async def _ensure_default_channels(db, company_id: int, project_id: int | None):
     keys = [
         ("general", "全员交流大厅"),
         ("project", "项目冲刺组"),
-        ("direct", "私信与提及"),
+        ("direct", "公共提及频道"),
     ]
     out = []
     for key, name in keys:
@@ -314,6 +326,7 @@ async def list_channels(
     user: CurrentUser,
     project_id: Optional[int] = None,
 ):
+    """列出企业频道"""
     try:
         await _require_channel_scope(db, user.id, company_id, project_id)
     except CollabError as e:
@@ -326,7 +339,7 @@ async def list_channels(
                 {
                     "id": c.id,
                     "key": c.key,
-                    "name": c.name,
+                    "name": '公共提及频道' if c.key == 'direct' and c.name == '私信与提及' else c.name,
                     "project_id": c.project_id,
                 }
                 for c in channels
@@ -339,6 +352,7 @@ async def list_channels(
 async def create_channel(
     company_id: int, body: ChannelCreate, db: DbSession, user: CurrentUser
 ):
+    """创建频道"""
     try:
         await _require_channel_scope(db, user.id, company_id, body.project_id)
     except CollabError as e:
@@ -364,6 +378,7 @@ async def upload_channel_file(
     user: CurrentUser,
     file: UploadFile = File(...),
 ):
+    """上传频道文件"""
     channel = await db.get(TeamChannel, channel_id)
     if not channel:
         return fail(404, 40400, "channel not found")
@@ -392,6 +407,7 @@ async def list_messages(
     page: int = 1,
     page_size: int = 50,
 ):
+    """列出频道消息"""
     ch = await db.get(TeamChannel, channel_id)
     if not ch:
         return fail(404, 40400, "频道不存在")
@@ -419,6 +435,7 @@ async def list_messages(
 async def post_message(
     channel_id: int, body: MessageCreate, db: DbSession, user: CurrentUser
 ):
+    """发送频道消息"""
     ch = await db.get(TeamChannel, channel_id)
     if not ch:
         return fail(404, 40400, "频道不存在")
@@ -453,6 +470,7 @@ async def post_message(
 
 @router.post("/channels/messages/{message_id}/like", response_model=ResponseData)
 async def like_message(message_id: int, db: DbSession, user: CurrentUser):
+    """点赞频道消息"""
     m = (
         await db.execute(
             select(TeamChannelMessage)
@@ -483,6 +501,8 @@ async def _require_direct_member(db, user_id: int, conversation_id: int):
     if not conversation:
         raise CollabError(404, 40400, "conversation not found")
     await _require_company_member(db, user_id, conversation.company_id)
+    if conversation.project_id is not None:
+        await _require_channel_scope(db, user_id, conversation.company_id, conversation.project_id)
     membership = (
         await db.execute(
             select(DirectConversationMember.id).where(
@@ -498,6 +518,7 @@ async def _require_direct_member(db, user_id: int, conversation_id: int):
 
 @router.get("/companies/{company_id}/conversations", response_model=ResponseData)
 async def list_direct_conversations(company_id: int, db: DbSession, user: CurrentUser):
+    """列出私聊会话"""
     try:
         await _require_company_member(db, user.id, company_id)
     except CollabError as e:
@@ -515,6 +536,11 @@ async def list_direct_conversations(company_id: int, db: DbSession, user: Curren
     ).scalars().unique().all()
     items = []
     for conversation in rows:
+        if conversation.project_id is not None:
+            try:
+                await _require_channel_scope(db, user.id, company_id, conversation.project_id)
+            except CollabError:
+                continue
         members = (
             await db.execute(
                 select(DirectConversationMember, User)
@@ -556,10 +582,23 @@ async def list_direct_conversations(company_id: int, db: DbSession, user: Curren
     return ResponseData(data={"items": items})
 
 
+@router.get("/companies/{company_id}/contacts", response_model=ResponseData)
+async def list_work_contacts(company_id: int, db: DbSession, user: CurrentUser, project_id: int | None = None):
+    """列出工作联系人"""
+    try:
+        await _require_company_member(db, user.id, company_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    ids = await allowed_work_contacts(db, company_id, user.id, project_id)
+    rows = (await db.execute(select(User).where(User.id.in_(ids)).order_by(User.id))).scalars().all()
+    return ResponseData(data={'items': [{'id': u.id, 'name': u.nickname or u.username, 'avatar': u.avatar_url or ''} for u in rows]})
+
+
 @router.post("/companies/{company_id}/conversations", response_model=ResponseData)
 async def create_direct_conversation(
     company_id: int, body: ConversationCreate, db: DbSession, user: CurrentUser
 ):
+    """创建私聊会话"""
     try:
         await _require_company_member(db, user.id, company_id)
         if body.project_id is not None:
@@ -580,6 +619,17 @@ async def create_direct_conversation(
     ).scalars().all()
     if set(active) != set(member_ids):
         return fail(422, 42200, "all conversation members must be active company members")
+    if body.project_id is not None:
+        for member_id in member_ids:
+            try:
+                await _require_channel_scope(db, member_id, company_id, body.project_id)
+            except CollabError:
+                return fail(403, 40300, '项目群聊成员必须具有本项目频道访问权限')
+    if body.kind == 'direct' and len(member_ids) != 2:
+        return fail(422, 42200, '私聊必须选择一位联系人，多人讨论请选择群聊')
+    allowed = await allowed_work_contacts(db, company_id, user.id, body.project_id)
+    if not (set(member_ids) - {user.id}) <= allowed:
+        return fail(403, 40300, '仅可向工作联系人发起会话，请通过项目频道沟通或由项目经理发起')
     if body.kind == "direct":
         existing_rows = (
             await db.execute(
@@ -622,6 +672,7 @@ async def upload_conversation_file(
     user: CurrentUser,
     file: UploadFile = File(...),
 ):
+    """上传私聊文件"""
     try:
         conversation = await _require_direct_member(db, user.id, conversation_id)
     except CollabError as e:
@@ -653,10 +704,129 @@ def _direct_msg_dto(message: DirectMessage, sender: User | None) -> dict:
     }
 
 
+async def _create_scope_summary(db, *, user_id: int, company_id: int, project_id: int | None,
+                                scope_type: str, scope_id: int, messages: list[dict], user: User | None = None) -> ConversationSummary:
+    result = await summarize_lines_with_llm(
+        db,
+        company_id=company_id,
+        user=user,
+        lines=[str(item.get("body") or "") for item in messages],
+    )
+    row = ConversationSummary(
+        company_id=company_id,
+        project_id=project_id,
+        scope_type=scope_type,
+        scope_id=scope_id,
+        requested_by=user_id,
+        source_from_id=messages[0].get("id") if messages else None,
+        source_to_id=messages[-1].get("id") if messages else None,
+        source_count=result["source_count"],
+        summary_text=result["summary_text"],
+        key_points_json=result["key_points"],
+        decisions_json=result["decisions"],
+        action_items_json=result["action_items"],
+        risks_json=result["risks"],
+        provider=result["provider"],
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+async def _list_scope_summaries(db, *, company_id: int, scope_type: str, scope_id: int) -> list[dict]:
+    rows = (await db.execute(
+        select(ConversationSummary)
+        .where(
+            ConversationSummary.company_id == company_id,
+            ConversationSummary.scope_type == scope_type,
+            ConversationSummary.scope_id == scope_id,
+        )
+        .order_by(ConversationSummary.id.desc())
+        .limit(20)
+    )).scalars().all()
+    return [summary_dto(row) for row in rows]
+
+
+@router.post("/channels/{channel_id}/summaries", response_model=ResponseData)
+async def summarize_channel(channel_id: int, db: DbSession, user: CurrentUser):
+    """AI 总结频道聊天记录"""
+    channel = await db.get(TeamChannel, channel_id)
+    if not channel:
+        return fail(404, 40400, "channel not found")
+    try:
+        await _require_channel_scope(db, user.id, channel.company_id, channel.project_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    rows = (await db.execute(
+        select(TeamChannelMessage).where(TeamChannelMessage.channel_id == channel_id)
+        .order_by(TeamChannelMessage.id.asc()).limit(500)
+    )).scalars().all()
+    row = await _create_scope_summary(
+        db,
+        user_id=user.id,
+        company_id=channel.company_id,
+        project_id=channel.project_id,
+        scope_type="channel",
+        scope_id=channel.id,
+        messages=[{"id": item.id, "body": item.body} for item in rows],
+        user=user,
+    )
+    return ResponseData(data=summary_dto(row))
+
+
+@router.get("/channels/{channel_id}/summaries", response_model=ResponseData)
+async def list_channel_summaries(channel_id: int, db: DbSession, user: CurrentUser):
+    """列出频道 AI 总结"""
+    channel = await db.get(TeamChannel, channel_id)
+    if not channel:
+        return fail(404, 40400, "channel not found")
+    try:
+        await _require_channel_scope(db, user.id, channel.company_id, channel.project_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    return ResponseData(data={"items": await _list_scope_summaries(db, company_id=channel.company_id, scope_type="channel", scope_id=channel.id)})
+
+
+@router.post("/conversations/{conversation_id}/summaries", response_model=ResponseData)
+async def summarize_conversation(conversation_id: int, db: DbSession, user: CurrentUser):
+    """AI 总结私聊记录"""
+    try:
+        conversation = await _require_direct_member(db, user.id, conversation_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    rows = (await db.execute(
+        select(DirectMessage).where(DirectMessage.conversation_id == conversation_id)
+        .order_by(DirectMessage.id.asc()).limit(500)
+    )).scalars().all()
+    row = await _create_scope_summary(
+        db,
+        user_id=user.id,
+        company_id=conversation.company_id,
+        project_id=conversation.project_id,
+        scope_type="conversation",
+        scope_id=conversation.id,
+        messages=[{"id": item.id, "body": item.body} for item in rows],
+        user=user,
+    )
+    return ResponseData(data=summary_dto(row))
+
+
+@router.get("/conversations/{conversation_id}/summaries", response_model=ResponseData)
+async def list_conversation_summaries(conversation_id: int, db: DbSession, user: CurrentUser):
+    """列出私聊 AI 总结"""
+    try:
+        conversation = await _require_direct_member(db, user.id, conversation_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    return ResponseData(data={"items": await _list_scope_summaries(db, company_id=conversation.company_id, scope_type="conversation", scope_id=conversation.id)})
+
+
 @router.get("/conversations/{conversation_id}/messages", response_model=ResponseData)
 async def list_direct_messages(
     conversation_id: int, db: DbSession, user: CurrentUser, page: int = 1, page_size: int = 50
 ):
+    """列出私聊消息"""
     try:
         await _require_direct_member(db, user.id, conversation_id)
     except CollabError as e:
@@ -682,6 +852,7 @@ async def list_direct_messages(
 async def post_direct_message(
     conversation_id: int, body: MessageCreate, db: DbSession, user: CurrentUser
 ):
+    """发送私聊消息"""
     try:
         await _require_direct_member(db, user.id, conversation_id)
     except CollabError as e:
@@ -711,6 +882,7 @@ async def post_direct_message(
 
 @router.get("/channels/{channel_id}/files", response_model=ResponseData)
 async def list_channel_files(channel_id: int, db: DbSession, user: CurrentUser):
+    """列出频道文件"""
     channel = await db.get(TeamChannel, channel_id)
     if not channel:
         return fail(404, 40400, "channel not found")
@@ -746,6 +918,7 @@ async def list_channel_files(channel_id: int, db: DbSession, user: CurrentUser):
 
 @router.get("/conversations/{conversation_id}/files", response_model=ResponseData)
 async def list_conversation_files(conversation_id: int, db: DbSession, user: CurrentUser):
+    """列出私聊文件"""
     try:
         await _require_direct_member(db, user.id, conversation_id)
     except CollabError as e:
@@ -763,6 +936,7 @@ async def list_conversation_files(conversation_id: int, db: DbSession, user: Cur
 
 @router.get("/collab/files/{file_id}/download")
 async def download_collab_file(file_id: int, db: DbSession, user: CurrentUser):
+    """下载协作文件"""
     row = await db.get(CollabFile, file_id)
     if not row:
         return fail(404, 40400, "file not found")
@@ -786,6 +960,7 @@ async def download_collab_file(file_id: int, db: DbSession, user: CurrentUser):
 
 @router.get("/channels/{channel_id}/pinned-links", response_model=ResponseData)
 async def list_pinned_links(channel_id: int, db: DbSession, user: CurrentUser):
+    """列出频道置顶链接"""
     channel = await db.get(TeamChannel, channel_id)
     if not channel:
         return fail(404, 40400, "channel not found")
@@ -801,6 +976,7 @@ async def list_pinned_links(channel_id: int, db: DbSession, user: CurrentUser):
 
 @router.post("/channels/{channel_id}/pinned-links", response_model=ResponseData)
 async def create_pinned_link(channel_id: int, body: PinnedLinkBody, db: DbSession, user: CurrentUser):
+    """新增频道置顶链接"""
     channel = await db.get(TeamChannel, channel_id)
     if not channel:
         return fail(404, 40400, "channel not found")
@@ -817,6 +993,7 @@ async def create_pinned_link(channel_id: int, body: PinnedLinkBody, db: DbSessio
 
 @router.delete("/channels/{channel_id}/pinned-links/{link_id}", response_model=ResponseData)
 async def delete_pinned_link(channel_id: int, link_id: int, db: DbSession, user: CurrentUser):
+    """删除频道置顶链接"""
     channel = await db.get(TeamChannel, channel_id)
     link = await db.get(PinnedLink, link_id)
     if not channel or not link or link.channel_id != channel_id:
@@ -837,6 +1014,7 @@ async def project_activity(
     user: CurrentUser,
     limit: int = Query(30, ge=1, le=100),
 ):
+    """获取项目动态"""
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
@@ -897,7 +1075,9 @@ async def user_activity(
     user: CurrentUser,
     limit: int = Query(50, ge=1, le=200),
 ):
-    """Aggregate recent activity across every project visible to the user."""
+    """汇总我在各项目的近期动态
+
+    Aggregate recent activity across every project visible to the user."""
     from app.models.project import ProjectMember
 
     project_ids = (
@@ -948,7 +1128,9 @@ async def aggregate_people_axis(
     user: CurrentUser,
     limit_projects: int = Query(100, ge=1, le=200),
 ):
-    """Read-only cross-project people-axis overview for dashboard views."""
+    """跨项目只读人轴总览
+
+    Read-only cross-project people-axis overview for dashboard views."""
     from app.models.project import ProjectMember
 
     projects = (
@@ -966,6 +1148,13 @@ async def aggregate_people_axis(
     ).scalars().all()
     output = []
     for project in projects:
+        if not await acl.can(db, user.id, project.company_id, "progress.read", project_id=project.id):
+            continue
+        membership = (await db.execute(select(ProjectMember).where(
+            ProjectMember.project_id == project.id,
+            ProjectMember.user_id == user.id,
+            ProjectMember.left_at.is_(None),
+        ))).scalar_one_or_none()
         rows = (
             await db.execute(
                 select(TreeNode).where(
@@ -984,13 +1173,25 @@ async def aggregate_people_axis(
                 "behavior_template": template,
                 "title": node.title,
                 "description": node.description,
+                "node_origin": node.node_origin,
+                "responsibility_permissions": node.responsibility_permissions or {},
                 "sort_order": node.sort_order,
                 "depth": node.depth,
                 "progress_json": node.progress_json,
                 "ui_offset": (node.progress_json or {}).get("ui_offset") if isinstance(node.progress_json, dict) else None,
                 "assignees": await tsvc.list_assignees(db, node.id),
             })
-        output.append({"project_id": project.id, "project_name": project.name, "company_id": project.company_id, "nodes": nodes})
+        output.append({
+            "project_id": project.id, "project_name": project.name,
+            "company_id": project.company_id, "nodes": nodes,
+            "pm_user_id": project.pm_user_id,
+            "final_owner_user_id": project.pm_user_id,
+            "my_role": "pm" if project.pm_user_id == user.id or (membership and membership.role == "pm") else "member",
+            "my_owned_node_ids": [node["id"] for node in nodes if any(
+                assignment.get("user_id") == user.id and assignment.get("role_key") in ("primary", "collaborator")
+                for assignment in node["assignees"]
+            )],
+        })
     return ResponseData(data={"projects": output})
 
 
@@ -1087,6 +1288,7 @@ async def axis_audit(project_id: int, db: DbSession, user: CurrentUser):
 async def put_node_layout(
     node_id: int, body: LayoutBody, db: DbSession, user: CurrentUser
 ):
+    """保存节点在画布上的位置"""
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
@@ -1116,31 +1318,26 @@ async def task_stats_trend(
     db: DbSession,
     user: CurrentUser,
     period: str = "week",
+    project_id: int | None = Query(None, gt=0),
+    timezone_offset: int = Query(0, ge=-720, le=840),
 ):
-    days = 7 if period == "week" else 30 if period == "month" else 90
-    now = datetime.utcnow()
-    start = (now - timedelta(days=days - 1)).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    )
-    q = await db.execute(
-        select(Task).where(
-            Task.user_id == user.id,
-            Task.is_deleted.is_(False),
-            Task.created_at >= start,
-        )
-    )
+    """获取任务统计趋势"""
+    start, now, local_start, local_today = statistics_window(period, timezone_offset)
+    days = (local_today - local_start).days + 1
+    q = await db.execute(statistics_query(user.id, project_id).where(or_(
+        Task.created_at.between(start, now), Task.completed_at.between(start, now))))
     tasks = q.scalars().all()
     buckets: dict[str, dict] = {}
     for i in range(days):
-        d = (start + timedelta(days=i)).strftime("%Y-%m-%d")
+        d = (local_start + timedelta(days=i)).strftime("%Y-%m-%d")
         buckets[d] = {"date": d, "created": 0, "completed": 0}
     for t in tasks:
         if t.created_at:
-            key = t.created_at.strftime("%Y-%m-%d")
+            key = (t.created_at + timedelta(minutes=timezone_offset)).strftime("%Y-%m-%d")
             if key in buckets:
                 buckets[key]["created"] += 1
-        if t.completed_at:
-            key = t.completed_at.strftime("%Y-%m-%d")
+        if t.completed_at and t.status == Task.STATUS_DONE:
+            key = (t.completed_at + timedelta(minutes=timezone_offset)).strftime("%Y-%m-%d")
             if key in buckets:
                 buckets[key]["completed"] += 1
     series = list(buckets.values())
@@ -1149,6 +1346,7 @@ async def task_stats_trend(
 
 @router.put("/users/me/ui-prefs", response_model=ResponseData)
 async def put_ui_prefs(body: UiPrefsBody, db: DbSession, user: CurrentUser):
+    """保存界面偏好"""
     pref = dict(user.notify_pref or {})
     ui = dict(pref.get("ui") or {})
     data = body.model_dump(exclude_unset=True)
@@ -1173,12 +1371,14 @@ async def put_ui_prefs(body: UiPrefsBody, db: DbSession, user: CurrentUser):
 
 @router.get("/users/me/ui-prefs", response_model=ResponseData)
 async def get_ui_prefs(db: DbSession, user: CurrentUser):
+    """获取界面偏好"""
     pref = user.notify_pref or {}
     return ResponseData(data={"ui": pref.get("ui") or {}})
 
 
 @router.put("/users/me/presence", response_model=ResponseData)
 async def put_presence(body: PresenceBody, db: DbSession, user: CurrentUser):
+    """上报在线状态"""
     status = body.status if body.status in ("online", "busy", "offline") else "online"
     row = await db.get(UserPresence, user.id)
     if not row:
@@ -1193,6 +1393,7 @@ async def put_presence(body: PresenceBody, db: DbSession, user: CurrentUser):
 
 @router.get("/companies/{company_id}/presence", response_model=ResponseData)
 async def list_presence(company_id: int, db: DbSession, user: CurrentUser):
+    """列出企业成员在线状态"""
     try:
         await _require_company_member(db, user.id, company_id)
     except CollabError as e:

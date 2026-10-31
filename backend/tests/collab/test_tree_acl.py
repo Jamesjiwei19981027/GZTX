@@ -3,6 +3,37 @@ import pytest
 
 
 @pytest.mark.asyncio
+async def test_edit_person_and_reassign_atomically(async_client, seed_ids):
+    node_id = seed_ids['root_node_id']
+    response = await async_client.patch(f'/api/v1/nodes/{node_id}', headers=seed_ids['member_headers'], json={
+        'title': '交付负责人', 'description': '更新项目岗位',
+    })
+    assert response.status_code == 200, response.text
+    data = response.json()['data']
+    assert data['title'] == '交付负责人'
+    reassigned = await async_client.patch(f'/api/v1/nodes/{node_id}', headers=seed_ids['member_headers'], json={
+        'assignees': [{'user_id': seed_ids['pm_user_id'], 'role_key': 'primary'}],
+    })
+    assert reassigned.status_code == 403, reassigned.text
+    retained = await async_client.patch(f'/api/v1/nodes/{node_id}', headers=seed_ids['member_headers'], json={'title': '仍可维护本人岗位'})
+    assert retained.status_code == 200, retained.text
+    assert retained.json()['data']['assignees'][0]['user_id'] == seed_ids['member_user_id']
+
+
+@pytest.mark.asyncio
+async def test_invalid_person_reassignment_keeps_original_node(async_client, seed_ids):
+    node_id = seed_ids['root_node_id']
+    before = (await async_client.get(f'/api/v1/nodes/{node_id}', headers=seed_ids['pm_headers'])).json()['data']
+    response = await async_client.patch(f'/api/v1/nodes/{node_id}', headers=seed_ids['pm_headers'], json={
+        'title': '不应保存', 'assignees': [{'user_id': seed_ids['outsider_user_id'], 'role_key': 'primary'}],
+    })
+    assert response.status_code == 422, response.text
+    after = (await async_client.get(f'/api/v1/nodes/{node_id}', headers=seed_ids['pm_headers'])).json()['data']
+    assert after['title'] == before['title']
+    assert after['assignees'] == before['assignees']
+
+
+@pytest.mark.asyncio
 async def test_member_subtree_permissions(async_client, seed_ids):
     pid = seed_ids["project_id"]
     root = seed_ids["root_node_id"]

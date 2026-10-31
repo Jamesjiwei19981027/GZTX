@@ -23,7 +23,7 @@ async def test_wechat_chat_ok(async_client: AsyncClient, seed_ids):
 
 
 @pytest.mark.asyncio
-async def test_wechat_cannot_upload_evidence_file(async_client: AsyncClient, seed_ids):
+async def test_authenticated_wechat_member_can_upload_and_submit_evidence(async_client: AsyncClient, seed_ids):
     r = await async_client.post(
         "/api/v1/evidence/files",
         data={
@@ -33,8 +33,22 @@ async def test_wechat_cannot_upload_evidence_file(async_client: AsyncClient, see
         files={"file": ("a.png", b"xxx", "image/png")},
         headers={**seed_ids["member_headers"], "X-Client-Channel": "wechat"},
     )
-    assert r.status_code == 403
-    assert r.json()["code"] == 40320
+    assert r.status_code == 200, r.text
+    file_id = r.json()['data']['file_id']
+    submitted = await async_client.post(f"/api/v1/nodes/{seed_ids['node_id']}/evidence", headers={**seed_ids['member_headers'], 'X-Client-Channel': 'wechat'}, json={'summary_text':'微信材料同步', 'file_ids':[file_id]})
+    assert submitted.status_code == 200, submitted.text
+    package = await async_client.get(f"/api/v1/evidence/{submitted.json()['data']['package_id']}", headers=seed_ids['pm_headers'])
+    assert package.status_code == 200, package.text
+    assert package.json()['data']['files'][0]['file_id'] == file_id
+
+
+@pytest.mark.asyncio
+async def test_wechat_channel_header_does_not_bypass_auth_or_project_acl(async_client: AsyncClient, seed_ids):
+    for headers, expected in [({'X-Client-Channel':'wechat'}, 401), ({**seed_ids['outsider_headers'], 'X-Client-Channel':'wechat'}, 403)]:
+        upload = await async_client.post('/api/v1/evidence/files', data={'company_id':seed_ids['company_id'], 'project_id':seed_ids['project_id']}, files={'file':('private.txt',b'private','text/plain')}, headers=headers)
+        assert upload.status_code == expected, upload.text
+        submit = await async_client.post(f"/api/v1/nodes/{seed_ids['node_id']}/evidence", json={'summary_text':'禁止伪造通道越权'}, headers=headers)
+        assert submit.status_code == expected, submit.text
 
 
 @pytest.mark.asyncio
