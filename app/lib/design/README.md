@@ -190,24 +190,31 @@ AppIcon('trash')
 
 ## 6. 如何编写测试与双平台截图对比（Golden Tests）
 
-### 6.1 组件与双平台 Golden 截图测试
-在 `test/features/<任务名>/` 目录下编写测试，使用 `test/helpers/golden_test_helper.dart`：
+### 6.1 组件与双平台 Golden 截图测试（跨平台约定）
+> **重要约定**：
+> - **Golden 只在 Windows 上生成和比对**：由于不同操作系统（Windows、macOS、Linux CI）底层字体光栅化渲染引擎与亚像素抗锯齿存在微小差异，**所有 Golden 像素比对测试必须添加 `tags: ['golden']` 标签**。
+> - **CI 默认跳过 Golden 测试**：CI 流水线（特别是 Linux 容器）默认执行 `flutter test --exclude-tags golden`，避免跨平台像素抖动导致误报；本地 Windows 开发者在修改控件外观时执行 `flutter test --update-goldens` 进行基准图生成与比对。
+> - **开源中文字体与图标字体内置装载**：测试环境会自动装载仓库内的开源中文字体（`Noto Sans SC` 子集，带 OFL 许可证）以及 `FontManifest.json` 中定义的全部图标字体（MaterialIcons、CupertinoIcons），彻底杜绝方块乱码；若装载失败测试将直接报错中断，严禁静默降级。
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/golden_test_helper.dart';
 
 void main() {
-  testWidgets('我的页面渲染与双平台外观对比', (tester) async {
-    await testAdaptiveGolden(
-      tester: tester,
-      widget: const MyFeatureScreen(),
-      goldenFileNamePrefix: 'my_feature_screen',
-    );
-  });
+  testWidgets(
+    '我的页面渲染与双平台外观对比',
+    tags: ['golden'], // 必须标记 golden 标签，CI 默认跳过
+    (tester) async {
+      await testAdaptiveGolden(
+        tester: tester,
+        widget: const MyFeatureScreen(),
+        goldenFileNamePrefix: 'my_feature_screen',
+      );
+    },
+  );
 }
 ```
-运行 `flutter test --update-goldens` 即可在本地 Windows 上分别生成 iOS 与 Android 两张基准截图，中文已自动加载宋体/黑体，不会出现豆腐块乱码。
+本地运行 `flutter test --update-goldens` 即可在 Windows 上分别生成并比对 iOS 与 Android 两张基准截图。
 
 ### 6.2 320/430 宽、字号 200%、深色模式适配测试
 ```dart
@@ -226,12 +233,15 @@ testWidgets('多尺寸与极端无障碍适配检查', (tester) async {
 ## 7. 运行与调试
 
 ```bash
-# 1. 运行静态代码检查
+# 1. 运行静态代码检查（必须 0 错误 0 警告）
 cd app && flutter analyze
 
-# 2. 运行所有单元测试与 Golden 截图测试
-flutter test
+# 2. 运行所有常规单元测试（CI 默认执行，排除 Windows 专有的 golden 像素比对）
+flutter test --exclude-tags golden
 
-# 3. 以原生重构模式启动 APP（连接至本地后端）
+# 3. 在本地 Windows 上执行并生成/校验 Golden 截图
+flutter test test/design/component_gallery_golden_test.dart
+
+# 4. 以原生重构模式启动 APP（连接至本地后端）
 flutter run -d <设备ID> --dart-define=USE_NATIVE=true
 ```

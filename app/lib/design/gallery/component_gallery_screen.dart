@@ -158,7 +158,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 AppListTile(
                   leading: const AppIcon('user'),
                   title: '个人账号信息',
-                  subtitle: 'e2e_user',
+                  subtitle: '张三 (示例成员)',
                   onTap: () {},
                 ),
                 AppListTile(

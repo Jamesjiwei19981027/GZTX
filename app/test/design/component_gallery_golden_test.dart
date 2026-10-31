@@ -8,13 +8,17 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('ComponentGalleryScreen 自适应展示页 Golden 截图与适配测试', () {
-    testWidgets('生成 iOS 与 Android 自适应控件展示 Golden 截图', (tester) async {
-      await testAdaptiveGolden(
-        tester: tester,
-        widget: const ComponentGalleryScreen(),
-        goldenFileNamePrefix: 'component_gallery',
-      );
-    });
+    testWidgets(
+      '生成 iOS 与 Android 自适应控件展示 Golden 截图',
+      tags: ['golden'],
+      (tester) async {
+        await testAdaptiveGolden(
+          tester: tester,
+          widget: const ComponentGalleryScreen(),
+          goldenFileNamePrefix: 'component_gallery',
+        );
+      },
+    );
 
     testWidgets('320/430 宽、字号 200%、深色模式布局无溢出校验', (tester) async {
       await ResponsiveChecker.checkAdaptiveLayout(

@@ -79,18 +79,38 @@ class AppButton extends StatelessWidget {
 
     Widget content;
     if (isLoading) {
-      content = SizedBox(
+      final indicator = SizedBox(
         width: fontSize + 2,
         height: fontSize + 2,
         child: isIos
             ? CupertinoActivityIndicator(
                 color: fgColor,
-                radius: fontSize / 2,
+                radius: (fontSize + 2) / 2,
               )
             : CircularProgressIndicator(
                 strokeWidth: 2,
                 color: fgColor,
+                backgroundColor: fgColor.withValues(alpha: 0.25),
               ),
+      );
+
+      content = Row(
+        mainAxisSize: isFullWidth ? MainAxisSize.max : MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          indicator,
+          if (label.isNotEmpty) ...[
+            const SizedBox(width: AppSpacing.sm),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: fontSize,
+                fontWeight: FontWeight.w600,
+                color: fgColor,
+              ),
+            ),
+          ],
+        ],
       );
     } else {
       content = Row(
@@ -130,6 +150,8 @@ class AppButton extends StatelessWidget {
         minimumSize: Size(isFullWidth ? double.infinity : 64, height),
         backgroundColor: bgColor,
         foregroundColor: fgColor,
+        disabledBackgroundColor: isLoading ? bgColor.withValues(alpha: 0.7) : null,
+        disabledForegroundColor: isLoading ? fgColor : null,
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
