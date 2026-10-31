@@ -1,0 +1,39 @@
+<view class="page">
+  <view class="heading"><view><text class="title">{{project.name || '项目人轴'}}</text><text class="muted">项目主责任与下辖分支</text></view><button wx:if="{{canAddMain}}" size="mini" bindtap="openAdd">添加责任人</button></view>
+  <view wx:if="{{error}}" class="error">{{error}}<button size="mini" bindtap="reload">重试</button></view>
+  <view wx:if="{{loading}}" class="muted">加载中…</view>
+  <button wx:if="{{focusId}}" size="mini" bindtap="resetFocus">返回完整人轴</button>
+  <view wx:if="{{!loading && !cards.length}}" class="empty">暂无责任人</view>
+  <view wx:for="{{cards}}" wx:key="id" class="card {{item.node_origin === 'subordinate' ? 'secondary' : ''}}">
+    <view class="row"><text class="badge">{{item.originLabel}}</text><text class="muted">上级：{{item.parentTitle}}</text></view>
+    <view class="row"><text class="person">{{item.personName}}</text><text>{{item.title}}</text></view>
+    <view wx:for="{{item.matters}}" wx:for-item="matter" wx:key="id" class="matter">{{matter.title}}</view>
+    <text class="muted">共 {{item.matterCount}} 条事项 · 预览最多三条</text>
+    <view class="actions"><button size="mini" data-id="{{item.id}}" bindtap="openDetail">查看详情</button><button size="mini" data-id="{{item.id}}" bindtap="focusBranch">聚焦分支</button><button wx:if="{{item.canAdd}}" size="mini" data-id="{{item.id}}" bindtap="openAdd">添加下级</button><button wx:if="{{item.canEdit}}" size="mini" data-id="{{item.id}}" bindtap="editPerson">编辑</button><button wx:if="{{item.canDelete}}" size="mini" class="danger" data-id="{{item.id}}" bindtap="previewDelete">删除 / 交接</button></view>
+    <view wx:if="{{item.canChannel}}" class="row"><text>允许访问项目频道</text><switch checked="{{item.channelAccess}}" data-id="{{item.id}}" bindchange="toggleChannel" /></view>
+  </view>
+
+  <view wx:if="{{detail}}" class="overlay"><scroll-view scroll-y class="sheet"><view class="row"><text class="title">{{detail.title}}</text><button size="mini" bindtap="closeDetail">关闭</button></view><text class="muted">{{detail.originLabel}} · {{detail.personName}}</text><text class="description">{{detail.description || '暂无职责说明'}}</text><view wx:for="{{detail.allMatters}}" wx:key="id" class="matter"><text>{{item.title}}</text><button wx:if="{{permissions.node_permissions[item.id].can_submit_evidence}}" size="mini" data-id="{{item.id}}" bindtap="openEvidence">提交材料</button></view><view wx:if="{{!detail.allMatters.length}}" class="empty">暂无事项</view></scroll-view></view>
+
+  <view wx:if="{{editorOpen}}" class="overlay"><view class="sheet"><text class="title">{{editingId ? '编辑责任人' : '新增责任人'}}</text><text class="label">职责名称</text><input value="{{formTitle}}" bindinput="onTitle" placeholder="填写职责名称" /><text class="label">职责说明</text><textarea value="{{formDescription}}" bindinput="onDescription" placeholder="填写职责范围" /><text class="label">项目成员</text><picker disabled="{{!canChangeMember}}" range="{{members}}" range-key="name" value="{{memberIndex}}" bindchange="onMember"><view class="picker">{{members[memberIndex].name || '暂无可选项目成员'}} ▾</view></picker><block wx:if="{{canChangeParent}}"><text class="label">直属责任上级</text><picker range="{{parentOptions}}" range-key="title" value="{{parentIndex}}" bindchange="onParent"><view class="picker">{{parentOptions[parentIndex].title || '选择上级'}} ▾</view></picker></block><view class="actions"><button bindtap="closeEditor" disabled="{{saving}}">取消</button><button class="primary" bindtap="savePerson" loading="{{saving}}" disabled="{{saving || !formTitle}}">保存</button></view></view></view>
+
+  <view wx:if="{{deletion}}" class="overlay"><scroll-view scroll-y class="sheet"><text class="title">删除影响预览</text><text class="description">{{deletion.warning}}</text><text class="description">下级节点 {{deletion.descendant_count}} 个 · 任务 {{deletion.affected_task_count}} 条 · 材料 {{deletion.affected_evidence_count}} 份</text><view wx:for="{{deletion.descendants}}" wx:key="id" class="matter">{{item.title}}</view><text class="label">处理方式</text><picker range="{{deletionChoices}}" range-key="title" value="{{deletionChoiceIndex}}" bindchange="onDeletionChoice"><view class="picker">{{deletionChoices[deletionChoiceIndex].title}} ▾</view></picker><view class="actions"><button bindtap="closeDeletion" disabled="{{saving}}">取消</button><button class="danger" bindtap="confirmDelete" disabled="{{saving}}" loading="{{saving}}">确认操作</button></view></scroll-view></view>
+
+  <view wx:if="{{evidenceNodeId}}" class="overlay evidence-overlay"><view class="sheet">
+    <text class="title">提交材料</text><text class="description">文字可单独提交，也可附加文件；个人 AI 可在当前项目中引用。</text>
+    <text class="label">文字材料</text>
+    <textarea value="{{caption}}" bindinput="onCaption" disabled="{{saving}}" adjust-position="{{false}}" maxlength="-1" placeholder="输入进展、完成情况或问题，也可用语音输入" />
+    <view class="actions">
+      <button wx:if="{{!voiceRecording}}" bindtap="startVoice" disabled="{{saving || voiceAsking || voiceTranscribing}}">{{voiceAsking ? '正在申请麦克风…' : voiceTranscribing ? '正在转为文字…' : '语音输入'}}</button>
+      <button wx:else bindtap="stopVoice">结束录音并转文字</button>
+      <button wx:if="{{voiceRecording || voiceAsking || voiceTranscribing}}" bindtap="cancelVoice">取消语音</button>
+      <button wx:if="{{voiceAudioPath &amp;&amp; !voiceTranscribing}}" bindtap="retryVoice">重试转写</button>
+    </view>
+    <text wx:if="{{voiceRecording}}" class="description danger">正在录音，最长 2 分钟。结束后可编辑识别文字。</text>
+    <text wx:if="{{voiceError}}" class="description danger">{{voiceError}}</text>
+    <text class="muted">语音追加为可编辑文字，检查后再提交。附件可选。</text>
+    <button bindtap="chooseFiles" loading="{{uploading}}" disabled="{{uploading || saving}}">选择附件（可选）</button>
+    <view wx:for="{{uploadedFiles}}" wx:key="id" class="matter">{{item.name}} · 已上传</view>
+    <view class="actions"><button bindtap="closeEvidence" disabled="{{uploading || saving}}">取消</button><button class="primary" bindtap="submitEvidence" loading="{{saving}}" disabled="{{uploading || saving || voiceRecording || voiceAsking || voiceTranscribing || !caption}}">提交材料</button></view>
+  </view></view>
+</view>

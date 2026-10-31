@@ -1,8 +1,44 @@
 <view class="container">
+  <view class="home-metrics">
+    <view class="card home-metric"><text>待办事项</text><text class="metric-value">{{pendingCount}}</text></view>
+    <view class="card home-metric"><text>今日到期</text><text class="metric-value">{{dueTodayCount}}</text></view>
+    <view class="card home-metric"><text>已逾期</text><text class="metric-value">{{overdueCount}}</text></view>
+  </view>
+  <view class="card home-schedule">
+    <view class="overview-row"><text class="overview-title">日程日历</text><button size="mini" bindtap="openCalendar">完整日历</button></view>
+    <view class="overview-row"><button size="mini" data-months="-1" bindtap="shiftMonth">上个月</button><text>{{monthLabel}}</text><button size="mini" bindtap="todaySchedule">今天</button><button size="mini" data-months="1" bindtap="shiftMonth">下个月</button></view>
+    <view class="weekday-labels"><text>一</text><text>二</text><text>三</text><text>四</text><text>五</text><text>六</text><text>日</text></view>
+    <view class="month-days"><view wx:for="{{monthDays}}" wx:key="date" class="month-day {{!item.inMonth?'outside-month':''}} {{item.selected?'selected':''}}" data-date="{{item.date}}" bindtap="selectScheduleDay"><text>{{item.label}}</text><text class="schedule-dot">{{item.hasTasks?'•':' '}}</text></view></view>
+    <text wx:if="{{!scheduleTasks.length}}" class="overview-hint">当天暂无日程</text>
+    <view wx:for="{{scheduleTasks}}" wx:key="id" class="schedule-item" data-id="{{item.id}}" bindtap="goToDetail"><text>{{item.due_time || '全天'}}</text><text>{{item.title}}</text><text wx:if="{{item.status===2}}">已完成</text></view>
+    <text wx:if="{{moreTasks}}" class="overview-hint">当前日程基于已加载的最近 2000 项任务。</text>
+  </view>
+  <view class="card home-progress">
+    <text class="overview-title">项目进度简介</text><text class="overview-hint">按项目人轴事项与里程碑的正式进度汇总</text>
+    <text wx:if="{{progressLoading}}" class="overview-hint">正在同步项目进度…</text>
+    <button wx:if="{{progressError}}" bindtap="loadProjectSummaries">项目进度加载失败，点击重试</button>
+    <text wx:if="{{!progressLoading && !progressError && !projectSummaries.length}}" class="overview-hint">暂无可见项目</text>
+    <view wx:for="{{projectSummaries}}" wx:key="id" class="project-summary">
+      <view class="overview-row"><text>{{item.name}}</text><text wx:if="{{!item.error}}">{{item.total?item.percent+'%':'暂无事项'}}</text></view>
+      <button wx:if="{{item.error}}" bindtap="loadProjectSummaries">加载失败，点击重试</button>
+      <block wx:else><progress percent="{{item.percent}}" activeColor="#0058BE" stroke-width="6"/><text class="overview-hint">已完成 {{item.completed}} / {{item.total}} 项 · 逾期 {{item.overdue}} 项</text></block>
+      <button size="mini" data-id="{{item.id}}" bindtap="openProject">查看项目详情</button>
+    </view>
+  </view>
+  <button class="home-create" bindtap="goToAdd">+ 新建任务</button>
   <view wx:if="{{loading}}" class="loading">加载中...</view>
   
   <view wx:if="{{!loading && tasks.length === 0}}" class="empty">
     <text class="empty-text">暂无待办任务 🎉</text>
+  </view>
+
+  <view class="report-entry card" bindtap="goToReports">
+    <view class="report-entry-title">AI 汇报</view>
+    <view class="report-entry-desc">查看我的汇报与直属领导消息</view>
+  </view>
+  <view class="report-entry card" bindtap="goToChat">
+    <view class="report-entry-title">团队消息</view>
+    <view class="report-entry-desc">群聊、私聊与 AI 沟通纪要</view>
   </view>
 
   <view wx:for="{{tasks}}" wx:key="id" class="task-card card" bindtap="goToDetail" data-id="{{item.id}}">
@@ -20,5 +56,4 @@
     </view>
   </view>
 
-  <view class="fab" bindtap="goToAdd">+</view>
 </view>

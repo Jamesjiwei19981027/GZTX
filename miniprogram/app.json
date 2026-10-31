@@ -5,7 +5,15 @@
     "pages/task-detail/task-detail",
     "pages/task-edit/task-edit",
     "pages/calendar/calendar",
-    "pages/settings/settings"
+    "pages/settings/settings",
+    "pages/reports/reports",
+    "pages/report-detail/report-detail",
+    "pages/chat/chat",
+    "pages/contacts/contacts",
+    "pages/project-detail/project-detail",
+    "pages/people-axis/people-axis",
+    "pages/knowledge/knowledge",
+    "pages/project-knowledge/project-knowledge"
   ],
   "window": {
     "backgroundTextStyle": "light",

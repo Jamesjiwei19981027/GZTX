@@ -1,0 +1,62 @@
+<view class="project-knowledge">
+  <view class="heading">项目知识空间</view>
+  <view class="subtitle">{{projectName || '当前项目'}} · 成员共享的已发布知识</view>
+  <view class="scope-note">共享页面可供项目成员阅读；总结确认后仅存入你本人的当前项目知识。</view>
+  <view wx:if="{{loading}}" class="status">正在读取项目知识…</view>
+  <view wx:if="{{error}}" class="error"><text>{{error}}</text><button size="mini" bindtap="reload" disabled="{{loading || generating || saving || grantPending}}">刷新权限和页面</button><text wx:if="{{summary}}">未保存的编辑仍保留在下方。</text></view>
+  <view wx:if="{{notice}}" class="notice">{{notice}}</view>
+  <block wx:if="{{scope}}">
+    <view class="view-switch"><button size="mini" data-mode="list" class="{{mode === 'list' ? 'active' : ''}}" bindtap="switchMode">共享页面</button><button size="mini" data-mode="graph" class="{{mode === 'graph' ? 'active' : ''}}" bindtap="switchMode">来源关系图</button><text>{{pages.length}} 页</text></view>
+    <view wx:if="{{!loading &amp;&amp; !pages.length}}" class="empty">当前项目还没有已发布的共享知识。</view>
+    <view wx:if="{{mode === 'list'}}">
+      <view wx:for="{{pages}}" wx:key="id" class="shared-page">
+        <view class="page-heading"><checkbox checked="{{item.selected}}" disabled="{{loading || generating || saving || grantPending}}" data-id="{{item.id}}" bindtap="togglePage" aria-label="选择共享页 {{item.title}}"/><text class="page-title" data-id="{{item.id}}" bindtap="openPage">{{item.title}}</text></view>
+        <text class="excerpt" selectable>{{item.body_text || '暂无正文'}}</text>
+        <view class="metadata">{{item.sourceLabel}} · {{item.citations.length}} 条来源引用</view>
+        <button size="mini" data-id="{{item.id}}" bindtap="openPage">阅读与核对来源</button>
+      </view>
+    </view>
+    <block wx:if="{{mode === 'graph' &amp;&amp; nodes.length}}">
+      <view class="graph-controls"><text>缩放 {{zoom * 100}}%</text><slider min="40" max="140" step="10" value="{{zoom * 100}}" bindchange="onZoom"/></view>
+      <view class="hint">连线表示页面中明确的材料来源。拖动仅调整当前视图；点击知识卡片阅读，回到共享页面勾选要总结的内容。</view>
+      <scroll-view wx:if="{{!detail}}" class="graph-viewport" scroll-x scroll-y>
+        <movable-area class="graph-area" style="width:{{boardWidth}}px;height:{{boardHeight}}px;">
+          <canvas class="edge-canvas" canvas-id="projectKnowledgeEdges" style="width:{{boardWidth}}px;height:{{boardHeight}}px;"/>
+          <movable-view wx:for="{{nodes}}" wx:key="id" class="graph-node" style="width:{{220 * zoom}}px;height:{{104 * zoom}}px;" x="{{item.x}}" y="{{item.y}}" direction="all" inertia="{{false}}" animation="{{false}}" out-of-bounds="{{false}}" data-id="{{item.id}}" bindchange="onNodeMove" bindtouchstart="onNodeTouchStart" bindtap="openPage">
+            <view class="node-card {{item.kind}}" style="transform:scale({{zoom}});"><view class="node-title">{{item.title}}</view><view class="node-subtitle">{{item.subtitle}}</view></view>
+          </movable-view>
+        </movable-area>
+      </scroll-view>
+    </block>
+    <view class="section summarize-section">
+      <view class="section-title">让我的 AI 总结</view>
+      <view wx:if="{{!permissions.can_summarize}}" class="permission-note">你可以阅读共享页。请联系项目经理开通总结授权，授权后才能生成和存入个人知识。</view>
+      <view class="hint">已选择 {{selectedIds.length}} 页。总结使用你可用的模型，返回可核对引用的草稿。</view>
+      <textarea class="instruction" value="{{instruction}}" maxlength="2000" disabled="{{loading || generating || saving}}" bindinput="onInstruction" placeholder="可选：希望整理哪些经验、步骤或结论？" aria-label="总结要求"/>
+      <button type="primary" loading="{{generating}}" disabled="{{!permissions.can_summarize || !selectedIds.length || loading || generating || saving || grantPending}}" bindtap="generateSummary">让我的 AI 总结所选页面</button>
+    </view>
+    <view wx:if="{{summary}}" class="section summary-review" id="summaryReview">
+      <view class="section-title">核对并编辑总结</view>
+      <view class="hint">模型：{{summary.provider}} · 配置来源：{{summary.model_source}}。请核对下方原文摘引后再确认保存。</view>
+      <view class="form-label">标题</view><input class="form-input" value="{{formTitle}}" maxlength="300" disabled="{{saving || generating || summary.status === 'saved'}}" bindinput="onTitle" aria-label="总结标题"/>
+      <view class="form-label">正文</view><textarea class="body-editor" value="{{formBody}}" maxlength="-1" disabled="{{saving || generating || summary.status === 'saved'}}" bindinput="onBody" aria-label="总结正文"/>
+      <view class="form-label">标签</view><input class="form-input" value="{{formTags}}" maxlength="1000" disabled="{{saving || generating || summary.status === 'saved'}}" bindinput="onTags" placeholder="用逗号分隔" aria-label="总结标签"/>
+      <view class="form-label">所选共享页与原文摘引</view>
+      <view wx:for="{{summary.sources}}" wx:key="index" class="citation"><view class="citation-title" data-id="{{item.page_id}}" bindtap="openPage">{{item.title}} · #{{item.page_id}}</view><text selectable class="quote">{{item.quote}}</text></view>
+      <button wx:if="{{summary.status !== 'saved'}}" type="primary" loading="{{saving}}" disabled="{{!permissions.can_summarize || !formTitle || loading || generating || saving || grantPending}}" bindtap="saveSummary">确认存入我的当前项目知识</button>
+      <view wx:if="{{summary.status === 'saved'}}" class="notice">此总结已保存。个人条目的后续编辑请在我的知识中完成。</view>
+      <button wx:if="{{savedEntry}}" bindtap="openSavedEntry">打开已保存的个人知识</button>
+    </view>
+    <view wx:if="{{permissions.can_manage_grants}}" class="section grants">
+      <view class="section-title">成员总结授权</view><view class="hint">授权仅允许总结共享知识并存入成员自己的知识空间。</view>
+      <view wx:for="{{members}}" wx:key="user_id" class="member"><view><text>{{item.name}}</text><text wx:if="{{item.is_manager}}" class="metadata">项目管理者 · 默认允许</text></view><switch checked="{{item.can_summarize}}" disabled="{{item.is_manager || loading || generating || saving || grantPending}}" data-id="{{item.user_id}}" bindchange="changeGrant" aria-label="{{item.name}} 的总结授权"/></view>
+    </view>
+  </block>
+  <view wx:if="{{detail}}" class="overlay"><view class="panel">
+    <view class="panel-header"><text class="section-title">{{detail.title}}</text><button size="mini" bindtap="closeDetail">关闭</button></view>
+    <scroll-view scroll-y class="detail-scroll"><text class="detail-body" selectable>{{detail.body_text || '暂无正文'}}</text>
+      <view class="form-label">已发布来源引用</view><view wx:if="{{!detail.citations.length}}" class="hint">此页面没有材料来源引用。</view>
+      <view wx:for="{{detail.citations}}" wx:key="id" class="citation"><view class="citation-title">{{item.source_name}}<text wx:if="{{item.package_id}}"> · 材料包 #{{item.package_id}}</text></view><text class="quote" selectable>{{item.quote}}</text></view>
+    </scroll-view>
+  </view></view>
+</view>

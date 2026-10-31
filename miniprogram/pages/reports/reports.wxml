@@ -1,0 +1,40 @@
+<view class="container">
+  <button size="mini" bindtap="openKnowledge">我的知识空间 · 笔记与关联图</button>
+  <view class="tabs">
+    <view class="tab {{tab === 'reports' ? 'active' : ''}}" data-tab="reports" bindtap="switchTab">我的汇报</view>
+    <view class="tab {{tab === 'inbox' ? 'active' : ''}}" data-tab="inbox" bindtap="switchTab">上级消息<text wx:if="{{unreadCount}}" class="badge">{{unreadCount}}</text></view>
+    <view class="tab {{tab === 'project' ? 'active' : ''}}" data-tab="project" bindtap="switchTab">项目汇总</view>
+  </view>
+    <picker mode="selector" range="{{projects}}" range-key="name" value="{{selectedProjectIndex}}" bindchange="onProjectChange">
+      <view class="project-picker">项目：{{projects.length ? (projects[selectedProjectIndex].name || '请选择') : '暂无项目'}} ▾</view>
+    </picker>
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+  <block wx:if="{{!loading && tab === 'reports'}}">
+    <view wx:if="{{!reports.length}}" class="empty">暂无汇报，先让 AI 根据资料生成草稿</view>
+    <view wx:for="{{reports}}" wx:key="id" class="card" data-id="{{item.id}}" bindtap="openReport">
+      <view class="row"><text class="title">{{item.project_name || item.title || '项目汇报'}}</text><text class="status">{{item.status || '草稿'}}</text></view>
+      <text class="summary">{{item.summary_text || item.summary || '暂无摘要'}}</text>
+      <text wx:if="{{item.stale || item.is_stale}}" class="warning">汇报已过期</text>
+      <text wx:if="{{item.conflicts && item.conflicts.length}}" class="warning">存在资料冲突</text>
+      <text class="time">{{item.created_at || item.updated_at || ''}}</text>
+    </view>
+    <button class="primary" disabled="{{!selectedProjectId}}" bindtap="generate">生成我的 AI 汇报</button>
+  </block>
+  <block wx:if="{{!loading && tab === 'project'}}">
+    <view wx:if="{{isLeader && leadershipSummary}}" class="summary-card leader-summary"><text class="label">总领导 AI 摘要</text><text class="summary">{{leadershipSummary.summary_text || leadershipSummary.summary || '暂无摘要'}}</text><button size="mini" bindtap="aggregateLeadership">重新汇总</button></view>
+
+    <view wx:if="{{managerLoading}}" class="loading">加载项目汇报...</view>
+    <view wx:if="{{!managerLoading && !projectReports.length}}" class="empty">暂无下属汇报或你没有项目管理权限</view>
+    <view wx:if="{{projectSummary}}" class="summary-card"><text class="label">项目 AI 汇总</text><text class="summary">{{projectSummary.summary_text || projectSummary.summary || '暂无汇总'}}</text></view>
+    <view wx:for="{{projectReports}}" wx:key="id" class="card" data-id="{{item.id}}" bindtap="openReport"><view class="row"><text class="title">成员汇报 #{{item.id}}</text><text class="status">{{item.status}}</text></view><text class="summary">{{item.summary_text || item.summary || '暂无内容'}}</text><text wx:if="{{item.source_count}}" class="time">资料来源 {{item.source_count}} 条</text><text wx:if="{{item.conflicts && item.conflicts.length}}" class="warning">存在资料冲突</text></view>
+    <button wx:if="{{projects.length && selectedProjectId}}" class="primary" bindtap="aggregateProject">汇总项目进度</button>
+  </block>
+  <block wx:if="{{!loading && tab === 'inbox'}}">
+    <view wx:if="{{!inbox.length}}" class="empty">暂无上级消息</view>
+    <view wx:for="{{inbox}}" wx:key="id" class="card message {{item.read || item.is_read ? 'read' : ''}}" data-id="{{item.id}}" bindtap="markRead">
+      <view class="row"><text class="title">{{item.title || item.event_type || '汇报提醒'}}</text><text wx:if="{{!(item.read || item.is_read)}}" class="dot">未读</text></view>
+      <text class="summary">{{item.content || item.message || item.body || '直属领导有新的汇报消息'}}</text>
+      <text class="time">{{item.created_at || ''}}</text>
+    </view>
+  </block>
+</view>

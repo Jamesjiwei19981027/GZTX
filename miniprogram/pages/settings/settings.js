@@ -196,6 +196,14 @@ Page({
     });
   },
 
+  goToReports() {
+    wx.navigateTo({ url: '/pages/reports/reports' });
+  },
+
+  goToKnowledge() {
+    wx.navigateTo({ url: '/pages/knowledge/knowledge' });
+  },
+
   onLogout() {
     wx.showModal({
       title: '确认退出',

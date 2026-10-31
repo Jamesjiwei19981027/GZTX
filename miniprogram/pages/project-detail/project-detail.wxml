@@ -1,0 +1,30 @@
+<view class="container">
+  <button class="invite-button" bindtap="toggleInvite">邀请新成员加入</button>
+  <view wx:if="{{showInvite}}" class="card invite-form">
+    <text class="title">成员邀请</text>
+    <input type="text" placeholder="输入成员邮箱" value="{{inviteEmail}}" bindinput="onInviteEmail"/>
+    <button bindtap="createInvite" loading="{{inviteBusy}}" disabled="{{inviteBusy}}">生成邀请凭证</button>
+    <text wx:if="{{inviteError}}" class="error">{{inviteError}}</text>
+    <view wx:if="{{inviteToken}}"><text class="token">{{inviteToken}}</text><button bindtap="copyInvite">复制邀请令牌</button><text class="hint">将令牌发送给同事，可在网页或 App 中接受项目邀请。</text></view>
+  </view>
+  <text wx:if="{{loading}}" class="hint">正在加载项目全部任务…</text>
+  <button wx:if="{{error}}" bindtap="loadProject">{{error}}，点击重试</button>
+  <block wx:if="{{project && !loading && !error}}">
+    <view class="card"><text class="title">{{project.name}}</text><text class="hint">成员 {{members.length}} 人</text></view>
+    <button bindtap="openProjectKnowledge">项目知识空间</button>
+    <view class="card">
+      <text class="title">项目任务待办 · {{tasks.length}}</text>
+      <text wx:if="{{!tasks.length}}" class="hint">当前项目暂无任务</text>
+      <view wx:for="{{tasks}}" wx:key="id" class="task-row" data-id="{{item.id}}" bindtap="openTask"><text class="task-title">{{item.title}}</text><text class="hint">{{item.statusLabel}}</text></view>
+    </view>
+    <view class="card">
+      <text class="title">任务看板</text>
+      <view wx:for="{{columns}}" wx:key="status" wx:for-item="column" class="board-column">
+        <text class="column-title">{{column.title}} · {{column.tasks.length}}</text>
+        <text wx:if="{{!column.tasks.length}}" class="hint">暂无任务</text>
+        <view wx:for="{{column.tasks}}" wx:key="id" class="board-task" data-id="{{item.id}}" bindtap="openTask">{{item.title}}</view>
+      </view>
+    </view>
+    <button bindtap="openAxis">人轴责任链</button>
+  </block>
+</view>

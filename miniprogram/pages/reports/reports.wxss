@@ -1,0 +1,19 @@
+.container { padding: 20rpx; }
+.tabs { display: flex; background: #fff; border-radius: 12rpx; margin-bottom: 20rpx; }
+.tab { flex: 1; text-align: center; padding: 24rpx 0; color: #909399; position: relative; }
+.tab.active { color: #409EFF; font-weight: 600; border-bottom: 4rpx solid #409EFF; }
+.badge { margin-left: 8rpx; background: #F56C6C; color: #fff; border-radius: 16rpx; padding: 2rpx 10rpx; font-size: 20rpx; }
+.card { background: #fff; border-radius: 16rpx; padding: 24rpx; margin-bottom: 16rpx; box-shadow: 0 2rpx 10rpx rgba(0,0,0,.04); }
+.row { display: flex; justify-content: space-between; align-items: center; }
+.title { font-size: 30rpx; color: #303133; font-weight: 600; }
+.status { font-size: 22rpx; color: #409EFF; }
+.summary { display: block; color: #606266; font-size: 26rpx; margin-top: 14rpx; line-height: 1.5; }
+.time { display: block; color: #909399; font-size: 22rpx; margin-top: 14rpx; }
+.loading, .empty { text-align: center; color: #909399; padding: 100rpx 0; }
+.primary { margin-top: 24rpx; background: #409EFF; color: #fff; }
+.message.read { opacity: .72; }
+.dot { color: #F56C6C; font-size: 22rpx; }
+.warning { display: block; color: #9a6700; font-size: 22rpx; margin-top: 8rpx; }
+.project-picker, .summary-card { background: #fff; border-radius: 12rpx; padding: 24rpx; margin-bottom: 16rpx; }
+.summary-card .label { display: block; font-weight: 600; margin-bottom: 10rpx; }
+.leader-summary { border-left: 8rpx solid #409EFF; }

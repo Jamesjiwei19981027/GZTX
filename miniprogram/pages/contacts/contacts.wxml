@@ -1,0 +1,11 @@
+<view class="container">
+  <view class="card">
+    <text class="hint">可联系直属上下级及同级同事，项目经理可主动联系项目成员。其他协作请使用项目频道。</text>
+    <input value="{{query}}" bindinput="onSearch" placeholder="搜索工作联系人" />
+    <text wx:if="{{loading}}" class="hint">正在加载联系人…</text>
+    <text wx:if="{{error}}" class="error">{{error}}</text>
+    <button wx:if="{{error}}" bindtap="loadContacts" size="mini">重试</button>
+    <text wx:if="{{!loading && !filteredContacts.length && !error}}" class="hint">暂无可联系人员</text>
+    <button wx:for="{{filteredContacts}}" wx:key="id" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="startPrivateChat" disabled="{{creatingChat}}">{{item.name}}</button>
+  </view>
+</view>

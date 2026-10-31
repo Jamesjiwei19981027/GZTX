@@ -58,6 +58,7 @@ function request(options, isRetry) {
       data: options.data || {},
       header: {
         'Content-Type': 'application/json',
+        'X-Client-Channel': 'miniprogram',
         'Authorization': app.globalData.token ? 'Bearer ' + app.globalData.token : ''
       },
       success(res) {

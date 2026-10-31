@@ -1,0 +1,14 @@
+<view class="container">
+  <view wx:if="{{loading}}" class="loading">加载中...</view>
+  <block wx:if="{{!loading && report}}">
+    <view class="card">
+      <view class="title">{{report.project_name || report.title || '项目汇报'}}</view>
+      <view class="meta">状态：{{report.status || '草稿'}}　{{report.updated_at || report.created_at || ''}}</view>
+      <view wx:if="{{report.stale || report.is_stale}}" class="warning">这份汇报可能已过期，请补充最新进展。</view>
+      <view wx:if="{{report.conflicts && report.conflicts.length}}" class="warning">汇报与项目资料存在冲突，请直属领导确认。</view>
+      <view class="section"><text class="label">AI 汇报（可编辑）</text><textarea class="body-input" value="{{draft}}" bindinput="onDraftInput" maxlength="20000" auto-height /></view>
+      <view wx:if="{{report.sources && report.sources.length}}" class="section"><text class="label">资料来源</text><text class="body">已关联 {{report.sources.length}} 条资料</text></view>
+    </view>
+    <button wx:if="{{report.status !== 'submitted' && report.status !== 'published'}}" class="primary" bindtap="submit" loading="{{submitting}}">提交给直属领导</button>
+  </block>
+</view>

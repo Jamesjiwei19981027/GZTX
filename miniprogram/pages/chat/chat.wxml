@@ -1,0 +1,23 @@
+<view class="container chat-page">
+  <view class="scope-list card">
+    <view class="row"><view class="section-title">团队频道</view><button size="mini" bindtap="openContacts">新建私聊</button></view>
+    <scroll-view scroll-x class="scope-scroll">
+      <view wx:for="{{channels}}" wx:key="id" class="scope-chip {{activeType === 'channel' && activeId === item.id ? 'active' : ''}}" data-type="channel" data-id="{{item.id}}" data-name="{{item.name || item.key}}" bindtap="selectScope"># {{item.name || item.key}}</view>
+      <view wx:for="{{conversations}}" wx:key="id" class="scope-chip {{activeType === 'conversation' && activeId === item.id ? 'active' : ''}}" data-type="conversation" data-id="{{item.id}}" data-name="{{item.title || '私信'}}" bindtap="selectScope">@ {{item.title || '私信'}}</view>
+    </scroll-view>
+  </view>
+  <view class="card chat-card">
+    <view class="row"><text class="title">{{activeName}}</text><button size="mini" bindtap="summarize">AI总结</button></view>
+    <scroll-view scroll-y class="messages">
+      <view wx:if="{{loading}}" class="empty">加载中...</view>
+      <view wx:if="{{!loading && !messages.length}}" class="empty">暂无消息</view>
+      <view wx:for="{{messages}}" wx:key="id" class="message-row">
+        <text class="sender">{{item.sender_name || item.senderName || ('用户' + item.user_id)}}</text>
+        <text class="body">{{item.body || item.content}}</text>
+        <text class="time">{{item.created_at || ''}}</text>
+      </view>
+    </scroll-view>
+    <view class="composer"><input value="{{input}}" bindinput="onInput" placeholder="写消息..." confirm-type="send" bindconfirm="send"/><button size="mini" type="primary" loading="{{sending}}" bindtap="send">发送</button></view>
+  </view>
+  <view wx:if="{{summary}}" class="card summary-card"><text class="label">AI沟通总结（{{summary.provider}}）</text><text class="summary">{{summary.summary_text}}</text></view>
+</view>

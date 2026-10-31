@@ -29,3 +29,20 @@
   display: flex; align-items: center; justify-content: center;
   font-size: 56rpx; box-shadow: 0 4rpx 16rpx rgba(64, 158, 255, 0.4);
 }
+.overview-row{display:flex;align-items:center;justify-content:space-between;gap:12rpx;margin-bottom:18rpx}
+.overview-row button{margin:0;font-size:24rpx;padding:0 16rpx}
+.overview-title{display:block;font-size:30rpx;font-weight:600}
+.overview-hint{display:block;color:#606266;font-size:24rpx;margin:16rpx 0;line-height:1.6}
+.month-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8rpx;margin:12rpx 0 24rpx}
+.month-day{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:10rpx;padding:12rpx 0;border-radius:14rpx;background:#f2f6fc;color:#606266}
+.month-day.selected{background:#0058be;color:#fff}
+.schedule-dot{height:20rpx;line-height:20rpx}
+.schedule-item{display:flex;gap:20rpx;align-items:center;padding:20rpx 0;font-size:26rpx;border-bottom:1rpx solid #ebeef5}
+.project-summary{padding:24rpx 0;border-bottom:1rpx solid #ebeef5}
+
+.weekday-labels{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));text-align:center;color:#606266;font-size:24rpx}
+.month-day.outside-month{background:transparent;color:#a8abb2}
+.home-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12rpx}
+.home-metric{text-align:center;font-size:24rpx;padding:20rpx 8rpx}
+.metric-value{display:block;font-size:40rpx;color:#0058be;font-weight:700;margin-top:8rpx}
+.home-create{background:#0058be;color:#fff;margin:20rpx 0;border-radius:16rpx}

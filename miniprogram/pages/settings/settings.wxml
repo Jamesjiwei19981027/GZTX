@@ -9,6 +9,18 @@
   </view>
 
   <view class="settings-section">
+    <view class="section-title">项目汇报</view>
+    <view class="setting-item" bindtap="goToKnowledge">
+      <text class="setting-label">我的知识空间</text>
+      <text class="setting-value">笔记与关联图 ›</text>
+    </view>
+    <view class="setting-item" bindtap="goToReports">
+      <text class="setting-label">AI 汇报与上级消息</text>
+      <text class="setting-value">查看 ›</text>
+    </view>
+  </view>
+
+  <view class="settings-section">
     <view class="section-title">通知设置</view>
 
     <view class="setting-item">
@@ -37,9 +49,10 @@
 
     <view class="setting-item">
       <text class="setting-label">手机验证</text>
-      <text wx:if="{{verification.phone_verified}}" class="setting-value">已验证 {{verification.phone}}</text>
+      <text wx:if="{{verification.phone_verified}}" class="setting-value" style="color:#059669">已验证 {{verification.phone}}</text>
+      <text wx:else class="setting-value" style="color:#94a3b8">未验证</text>
       <button
-        wx:else
+        wx:if="{{!verification.phone_verified}}"
         size="mini"
         type="primary"
         open-type="getPhoneNumber"

@@ -1,0 +1,76 @@
+<view class="knowledge-page">
+  <view class="heading">我的知识空间</view>
+  <view class="subtitle">把我的资料写成知识，让想法彼此相连。</view>
+  <picker wx:if="{{projects.length}}" range="{{projects}}" range-key="name" value="{{projectIndex}}" bindchange="onProjectChange">
+    <view class="project-picker">当前项目：{{projectName || '选择具体项目'}} <text>切换 ›</text></view>
+  </picker>
+  <view class="privacy-note">仅本人 · 当前项目独立空间</view>
+  <view wx:if="{{projectId}}" class="toolbar"><button size="mini" disabled="{{loading || saving}}" bindtap="openProjectKnowledge">项目知识 · 共享来源与授权总结</button></view>
+  <view wx:if="{{projectsLoading || loading}}" class="status">正在加载…</view>
+  <view wx:if="{{error}}" class="error"><text>{{error}}</text><button size="mini" bindtap="retry">重试</button></view>
+  <block wx:if="{{projectId}}">
+    <view class="toolbar">
+      <button size="mini" type="primary" disabled="{{loading || saving}}" bindtap="openNew">新建知识</button>
+      <button size="mini" loading="{{syncing}}" disabled="{{loading || syncing || saving}}" bindtap="syncSources">整理我的资料</button>
+      <button size="mini" disabled="{{entries.length &lt; 2 || saving || loading}}" bindtap="openLink">添加关联</button>
+    </view>
+    <view class="hint">整理本人在此项目的材料、文件正文、汇报与 AI 输入，保留来源和已编辑内容。</view>
+    <view wx:if="{{syncMessage}}" class="sync-message">{{syncMessage}}</view>
+    <input class="search" value="{{query}}" bindinput="onSearch" placeholder="搜索标题、正文或标签" confirm-type="search" aria-label="搜索我的知识" />
+    <view class="mode-switch">
+      <button size="mini" class="{{mode === 'list' ? 'active' : ''}}" data-mode="list" bindtap="switchMode">知识列表</button>
+      <button size="mini" class="{{mode === 'graph' ? 'active' : ''}}" data-mode="graph" bindtap="switchMode">关联图</button>
+      <text>{{filteredEntries.length}} 条知识</text>
+    </view>
+    <view wx:if="{{!loading &amp;&amp; !entries.length}}" class="empty">这里是你的项目知识空间。新建一篇笔记，或整理已有的个人资料。</view>
+    <view wx:elif="{{!loading &amp;&amp; !filteredEntries.length}}" class="empty">没有匹配的知识，请更换搜索词。</view>
+    <view wx:if="{{mode === 'list'}}" class="article-list">
+      <view wx:for="{{filteredEntries}}" wx:key="id" class="article">
+        <view class="article-title" data-id="{{item.id}}" bindtap="openEntry">{{item.title}}</view>
+        <text class="article-body" selectable>{{item.body_text || '暂无正文'}}</text>
+        <view class="metadata">{{item.sourceLabel}} <text wx:if="{{item.tagsText}}"> · {{item.tagsText}}</text></view>
+        <view class="article-actions">
+          <button size="mini" data-id="{{item.id}}" bindtap="openEntry">阅读</button>
+          <button size="mini" data-id="{{item.id}}" bindtap="editEntry">编辑</button>
+          <button size="mini" data-id="{{item.id}}" bindtap="viewSource">来源</button>
+          <button size="mini" data-id="{{item.id}}" bindtap="locateEntry">图中定位</button>
+        </view>
+      </view>
+    </view>
+    <block wx:if="{{mode === 'graph' &amp;&amp; entries.length}}">
+      <view class="graph-controls"><text>缩放 {{zoom * 100}}%</text><slider min="40" max="140" step="10" value="{{zoom * 100}}" bindchange="onZoom" aria-label="知识图缩放"/><button size="mini" bindtap="resetView">回到起点</button></view>
+      <view class="hint">拖动卡片调整位置，点击卡片阅读；滑动画布查看其他知识。</view>
+      <scroll-view wx:if="{{!editorOpen &amp;&amp; !detail &amp;&amp; !linkOpen}}" class="graph-viewport" scroll-x scroll-y scroll-left="{{scrollLeft}}" scroll-top="{{scrollTop}}">
+        <movable-area class="graph-area" style="width:{{boardWidth}}px;height:{{boardHeight}}px;">
+          <canvas class="edge-canvas" canvas-id="knowledgeEdges" style="width:{{boardWidth}}px;height:{{boardHeight}}px;" />
+          <movable-view wx:for="{{nodes}}" wx:key="id" class="graph-node" style="width:{{220 * zoom}}px;height:{{104 * zoom}}px;" direction="all" x="{{item.x}}" y="{{item.y}}" inertia="{{false}}" animation="{{false}}" out-of-bounds="{{false}}" data-id="{{item.id}}" bindchange="onNodeMove" bindtouchstart="onNodeTouchStart" bindtouchend="onNodeDragEnd" bindtouchcancel="onNodeDragEnd" bindtap="openEntry">
+            <view class="node-card" style="transform:scale({{zoom}});"><view class="node-title">{{item.title}}</view><view class="node-source">{{item.sourceLabel}}</view><view class="node-tags">{{item.tagsText || '点击阅读 · 拖动移动'}}</view></view>
+          </movable-view>
+        </movable-area>
+      </scroll-view>
+    </block>
+    <view wx:if="{{visibleLinks.length}}" class="relationships">
+      <view class="section-title">知识关联</view>
+      <view wx:for="{{visibleLinks}}" wx:key="id" class="relationship"><view><text>{{item.sourceTitle}} → {{item.targetTitle}}</text><text class="link-label">{{item.label || '关联'}}</text></view><button size="mini" disabled="{{saving}}" data-id="{{item.id}}" bindtap="editLink">说明</button><button size="mini" disabled="{{saving}}" data-id="{{item.id}}" bindtap="deleteLink">移除</button></view>
+    </view>
+  </block>
+  <view wx:if="{{detail}}" class="overlay"><view class="panel">
+    <view class="panel-header"><text class="heading">{{detail.title}}</text><button size="mini" bindtap="closeDetail">关闭</button></view>
+    <scroll-view scroll-y class="detail-scroll"><text class="detail-body" selectable>{{detail.body_text || '暂无正文'}}</text><view class="metadata">{{detail.tagsText}}</view><view class="metadata">{{detail.updated_at || ''}}</view></scroll-view>
+    <view class="toolbar"><button size="mini" data-id="{{detail.id}}" bindtap="editEntry">编辑知识</button><button size="mini" data-id="{{detail.id}}" bindtap="viewSource">查看来源</button><button size="mini" class="danger" disabled="{{saving}}" data-id="{{detail.id}}" bindtap="deleteEntry">删除</button></view>
+  </view></view>
+  <view wx:if="{{editorOpen}}" class="overlay editor-overlay"><view class="panel">
+    <view class="panel-header"><text class="heading">{{editingId ? '编辑知识' : '新建知识'}}</text><button size="mini" disabled="{{saving}}" bindtap="closeEditor">取消</button></view>
+    <view class="form-label">标题</view><input class="form-input" value="{{formTitle}}" maxlength="300" bindinput="onTitle" placeholder="知识标题" aria-label="知识标题" />
+    <view class="form-label">正文</view><textarea class="body-editor" value="{{formBody}}" maxlength="-1" bindinput="onBody" placeholder="写下你的经验、结论与依据…" aria-label="知识正文" />
+    <view class="form-label">标签（用逗号分隔）</view><input class="form-input" value="{{formTags}}" maxlength="1000" bindinput="onTags" placeholder="例如：验收, 复盘" aria-label="知识标签" />
+    <button class="save-button" type="primary" loading="{{saving}}" disabled="{{saving || !formTitle}}" bindtap="saveEntry">保存知识</button>
+  </view></view>
+  <view wx:if="{{linkOpen}}" class="overlay"><view class="panel">
+    <view class="panel-header"><text class="heading">添加知识关联</text><button size="mini" disabled="{{saving}}" bindtap="closeLink">取消</button></view>
+    <view class="form-label">从这条知识</view><picker range="{{entries}}" range-key="title" value="{{linkSourceIndex}}" bindchange="onLinkSource"><view class="form-input">{{entries[linkSourceIndex].title}}</view></picker>
+    <view class="form-label">连接到</view><picker range="{{entries}}" range-key="title" value="{{linkTargetIndex}}" bindchange="onLinkTarget"><view class="form-input">{{entries[linkTargetIndex].title}}</view></picker>
+    <view class="form-label">关系说明</view><input class="form-input" value="{{linkLabel}}" maxlength="200" bindinput="onLinkLabel" placeholder="例如：支持此结论、相关经验" aria-label="知识关系说明" />
+    <button class="save-button" type="primary" disabled="{{saving}}" loading="{{saving}}" bindtap="saveLink">保存关联</button>
+  </view></view>
+</view>
