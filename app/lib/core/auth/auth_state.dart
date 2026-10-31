@@ -124,36 +124,33 @@ class AuthState extends ChangeNotifier {
       }
 
       // 3. 获取项目列表
-      await _loadProjectsForCurrentCompany();
+      _projectLoadSeq++;
+      _applyProjects(await _fetchProjects(_currentCompany?.id));
 
       _status = AuthStatus.authenticated;
       notifyListeners();
     } catch (e) {
-      await _applySessionError(e);
+      await _applySessionError(e, duringBootstrap: true);
     }
   }
 
   /// 会话级异常统一处理（bootstrap 与运行中刷新共用）：
-  /// 认证失效 → 清会话回未登录；断网／服务端错误 → 离线；其他 → 未登录。
-  Future<void> _applySessionError(Object e) async {
-    if (e is AuthException) {
+  /// - 认证失效（AuthException、401/403）→ 清会话回未登录；
+  /// - 断网、服务端错误 → 离线（保留令牌，可重试）；
+  /// - 其他请求错误（如 422 参数校验）→ 启动时按离线处理，运行中保留会话与原状态，只记录错误信息。
+  Future<void> _applySessionError(Object e, {required bool duringBootstrap}) async {
+    if (e is AuthException ||
+        (e is ApiException && (e.statusCode == 401 || e.statusCode == 403))) {
       await _clearSession();
-      _errorMessage = e.message;
+      _errorMessage = (e as AppException).message;
       _status = AuthStatus.unauthenticated;
-    } else if (e is ApiException) {
-      if (e.statusCode == 401 || e.statusCode == 403) {
-        await _clearSession();
-        _status = AuthStatus.unauthenticated;
-      } else {
-        _errorMessage = e.message;
-        _status = AuthStatus.offline;
-      }
-    } else if (e is NetworkException) {
-      _errorMessage = e.message;
+    } else if (e is NetworkException ||
+        (e is ApiException && (e.statusCode == null || e.statusCode! >= 500))) {
+      _errorMessage = (e as AppException).message;
       _status = AuthStatus.offline;
     } else {
-      _errorMessage = '启动初始化失败: $e';
-      _status = AuthStatus.unauthenticated;
+      _errorMessage = e is AppException ? e.message : '请求失败: $e';
+      if (duringBootstrap) _status = AuthStatus.offline;
     }
     notifyListeners();
   }
@@ -207,21 +204,26 @@ class AuthState extends ChangeNotifier {
 
   /// 切换当前所在公司/企业工作区。
   /// 项目加载失败时回滚到原公司与原项目，再按会话异常统一处理；返回是否切换成功。
+  /// 并发时只采用最后一次发起的项目加载结果（成功或回滚），较早的请求结果直接丢弃。
   Future<bool> selectCompany(Company company) async {
     if (_currentCompany?.id == company.id) return true;
     final prevCompany = _currentCompany;
     final prevProjects = _projects;
     final prevProject = _currentProject;
+    final seq = ++_projectLoadSeq;
     _currentCompany = company;
     try {
-      await _loadProjectsForCurrentCompany();
+      final list = await _fetchProjects(company.id);
+      if (seq != _projectLoadSeq) return false;
+      _applyProjects(list);
       notifyListeners();
       return true;
     } catch (e) {
+      if (seq != _projectLoadSeq) return false;
       _currentCompany = prevCompany;
       _projects = prevProjects;
       _currentProject = prevProject;
-      await _applySessionError(e);
+      await _applySessionError(e, duringBootstrap: false);
       return false;
     }
   }
@@ -246,26 +248,44 @@ class AuthState extends ChangeNotifier {
 
   /// 重新加载项目列表。失败时保留原列表，再按会话异常统一处理；返回是否成功。
   Future<bool> refreshProjects() async {
+    final seq = ++_projectLoadSeq;
     try {
-      await _loadProjectsForCurrentCompany();
+      final list = await _fetchProjects(_currentCompany?.id);
+      if (seq != _projectLoadSeq) return false;
+      _applyProjects(list);
       notifyListeners();
       return true;
     } catch (e) {
-      await _applySessionError(e);
+      if (seq != _projectLoadSeq) return false;
+      await _applySessionError(e, duringBootstrap: false);
       return false;
     }
   }
 
-  Future<void> _loadProjectsForCurrentCompany() async {
-    final cid = _currentCompany?.id;
-    if (cid == null) {
-      _projects = const [];
+  /// 项目加载序号：每次发起加载自增，结果返回时与最新序号比对，防止并发请求互相覆盖。
+  int _projectLoadSeq = 0;
+
+  /// 写入项目列表并维持当前项目（原选中项仍在则保留，否则默认第一项）。
+  void _applyProjects(List<Project> list) {
+    _projects = list;
+    if (_projects.isNotEmpty) {
+      if (_currentProject != null &&
+          _projects.any((p) => p.id == _currentProject!.id)) {
+        _currentProject =
+            _projects.firstWhere((p) => p.id == _currentProject!.id);
+      } else {
+        _currentProject = _projects.first;
+      }
+    } else {
       _currentProject = null;
-      return;
     }
+  }
+
+  /// 拉取指定公司的项目列表，不修改任何状态；异常原样向上传递。
+  Future<List<Project>> _fetchProjects(int? cid) async {
+    if (cid == null) return const [];
 
     // 对照网页版 backend.ts:377-380：使用 /projects 路径，且带 as_admin=true
-    // 网络、认证、服务端异常直接向上传递，由 bootstrap / refresh 处理（不吞掉异常）
     final dynamic projData = await _api.get(
       '/projects',
       query: {
@@ -291,19 +311,7 @@ class AuthState extends ChangeNotifier {
         }
       }
     }
-    _projects = projList;
-
-    if (_projects.isNotEmpty) {
-      if (_currentProject != null &&
-          _projects.any((p) => p.id == _currentProject!.id)) {
-        _currentProject =
-            _projects.firstWhere((p) => p.id == _currentProject!.id);
-      } else {
-        _currentProject = _projects.first;
-      }
-    } else {
-      _currentProject = null;
-    }
+    return projList;
   }
 
   /// 清除历史旧外壳遗留在 SharedPreferences 里的明文令牌

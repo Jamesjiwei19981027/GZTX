@@ -131,6 +131,95 @@ void main() {
       expect(authState.status, AuthStatus.offline);
     });
 
+    test('刷新项目列表遇到 422 参数错误：保留会话与原项目，只记录错误信息', () async {
+      final helper = MockApiClientHelper();
+      helper.whenGet('/users/me', {'id': 101, 'username': 'e2e_user'});
+      helper.whenGet('/companies/mine', {
+        'items': [
+          {'id': 1, 'name': '公司一'},
+        ],
+      });
+      helper.whenGet(
+        '/projects',
+        {
+          'items': [
+            {'id': 11, 'name': '项目A', 'company_id': 1},
+          ],
+        },
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+
+      final apiClient = helper.buildClient();
+      final authState = AuthState(apiClient: apiClient);
+      await authState.bootstrap();
+
+      helper.whenGet(
+        '/projects',
+        {
+          'detail': [
+            {'loc': ['query', 'company_id'], 'msg': '参数不合法'},
+          ],
+        },
+        statusCode: 422,
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+      final ok = await authState.refreshProjects();
+
+      expect(ok, isFalse);
+      expect(authState.status, AuthStatus.authenticated);
+      expect(authState.currentProject?.id, 11);
+      expect(apiClient.tokens.hasAccess, isTrue);
+      expect(authState.errorMessage, isNotNull);
+    });
+
+    test('并发切换公司：较早的失败结果被丢弃，只采用最后一次切换', () async {
+      final helper = MockApiClientHelper();
+      helper.whenGet('/users/me', {'id': 101, 'username': 'e2e_user'});
+      helper.whenGet('/companies/mine', {
+        'items': [
+          {'id': 1, 'name': '公司一'},
+          {'id': 2, 'name': '公司二'},
+          {'id': 3, 'name': '公司三'},
+        ],
+      });
+      helper.whenGet(
+        '/projects',
+        {
+          'items': [
+            {'id': 11, 'name': '项目A', 'company_id': 1},
+          ],
+        },
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+      helper.whenGet(
+        '/projects',
+        {'code': 50000, 'message': '项目服务不可用', 'data': null},
+        statusCode: 500,
+        query: {'company_id': '2', 'as_admin': 'true'},
+      );
+      helper.whenGet(
+        '/projects',
+        {
+          'items': [
+            {'id': 33, 'name': '项目C', 'company_id': 3},
+          ],
+        },
+        query: {'company_id': '3', 'as_admin': 'true'},
+      );
+
+      final authState = AuthState(apiClient: helper.buildClient());
+      await authState.bootstrap();
+
+      final first = authState.selectCompany(const Company(id: 2, name: '公司二'));
+      final second = authState.selectCompany(const Company(id: 3, name: '公司三'));
+      final results = await Future.wait([first, second]);
+
+      expect(results, [isFalse, isTrue]);
+      expect(authState.currentCompany?.id, 3);
+      expect(authState.currentProject?.id, 33);
+      expect(authState.status, AuthStatus.authenticated);
+    });
+
     test('刷新项目列表遇到最终 401：清空会话转为未登录，不会被覆盖回已登录', () async {
       final helper = MockApiClientHelper();
       helper.whenGet('/users/me', {'id': 101, 'username': 'e2e_user'});
