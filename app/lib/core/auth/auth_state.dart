@@ -29,6 +29,9 @@ class AuthState extends ChangeNotifier {
     _companies = const [];
     _currentProject = null;
     _projects = const [];
+    _projectsCompany = null;
+    // 作废仍在进行中的项目加载，避免过期后旧请求的成功或回滚结果写回会话
+    _projectLoadSeq++;
     _errorMessage = '登录已过期，请重新登录';
     _api.tokens.clear();
     notifyListeners();
@@ -219,9 +222,10 @@ class AuthState extends ChangeNotifier {
       return true;
     } catch (e) {
       if (seq != _projectLoadSeq) return false;
-      // 回滚到最后一次成功加载项目时的公司：_projects/_currentProject 只在成功时写入，
-      // 与 _projectsCompany 始终成对，避免连续切换失败后出现“公司与项目不匹配”。
+      // 回滚到最后一次成功加载项目时的公司：_projects 只在成功时写入，与 _projectsCompany 始终成对；
+      // 请求期间当前项目可能被改过，再按保留的列表重新对齐，避免“公司与项目不匹配”。
       _currentCompany = _projectsCompany;
+      _applyProjects(_projects);
       await _applySessionError(e, duringBootstrap: false);
       return false;
     }
@@ -344,6 +348,7 @@ class AuthState extends ChangeNotifier {
     _currentProject = null;
     _projects = const [];
     _projectsCompany = null;
+    _projectLoadSeq++;
     _errorMessage = null;
   }
 }
