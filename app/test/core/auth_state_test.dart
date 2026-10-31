@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/core/models/company.dart';
 import 'package:worktodo_app/core/models/project.dart';
+import 'package:worktodo_app/core/api/token_storage.dart';
 import '../helpers/mock_api_client.dart';
 
 void main() {
@@ -91,6 +92,75 @@ void main() {
 
       expect(authState.currentCompany?.id, 2);
       expect(authState.currentProject?.id, 22);
+    });
+
+    test('切换公司时项目加载失败：回滚到原公司与原项目，并转为离线状态', () async {
+      final helper = MockApiClientHelper();
+      helper.whenGet('/users/me', {'id': 101, 'username': 'e2e_user'});
+      helper.whenGet('/companies/mine', {
+        'items': [
+          {'id': 1, 'name': '公司一'},
+          {'id': 2, 'name': '公司二'},
+        ],
+      });
+      helper.whenGet(
+        '/projects',
+        {
+          'items': [
+            {'id': 11, 'name': '项目A', 'company_id': 1},
+          ],
+        },
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+      helper.whenGet(
+        '/projects',
+        {'code': 50000, 'message': '项目服务不可用', 'data': null},
+        statusCode: 500,
+        query: {'company_id': '2', 'as_admin': 'true'},
+      );
+
+      final authState = AuthState(apiClient: helper.buildClient());
+      await authState.bootstrap();
+
+      final ok = await authState.selectCompany(const Company(id: 2, name: '公司二'));
+
+      expect(ok, isFalse);
+      expect(authState.currentCompany?.id, 1);
+      expect(authState.currentProject?.id, 11);
+      expect(authState.projects.map((p) => p.id), [11]);
+      expect(authState.status, AuthStatus.offline);
+    });
+
+    test('刷新项目列表遇到最终 401：清空会话转为未登录，不会被覆盖回已登录', () async {
+      final helper = MockApiClientHelper();
+      helper.whenGet('/users/me', {'id': 101, 'username': 'e2e_user'});
+      helper.whenGet('/companies/mine', {
+        'items': [
+          {'id': 1, 'name': '公司一'},
+        ],
+      });
+      helper.whenGet(
+        '/projects',
+        {'items': []},
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+
+      final authState = AuthState(apiClient: helper.buildClient());
+      await authState.bootstrap();
+      expect(authState.status, AuthStatus.authenticated);
+
+      // 之后同一路径改为 401（无刷新令牌，无法续期）
+      helper.whenGet(
+        '/projects',
+        {'detail': 'Token expired'},
+        statusCode: 401,
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+      final ok = await authState.refreshProjects();
+
+      expect(ok, isFalse);
+      expect(authState.status, AuthStatus.unauthenticated);
+      expect(authState.currentUser, isNull);
     });
 
     test('切换项目 selectProject 正常更新 currentProject', () async {
@@ -211,10 +281,21 @@ void main() {
         statusCode: 401,
       );
 
-      final apiClient = helper.buildClient();
+      // 带上 refresh token，确保真正走到刷新接口并失败，而不是“无刷新令牌”分支
+      final apiClient = helper.buildClient(
+        tokenStorage: InMemoryTokenStorage(
+          access: 'mock-access-token',
+          refresh: 'mock-refresh-token',
+        ),
+      );
       final authState = AuthState(apiClient: apiClient);
       await authState.bootstrap();
 
+      expect(
+        helper.history.where(
+            (r) => r.method == 'POST' && r.url.path.endsWith('/auth/refresh')),
+        hasLength(1),
+      );
       // 验证最终 401 不会被覆盖回 authenticated，且会话被清空转为 unauthenticated
       expect(authState.status, AuthStatus.unauthenticated);
       expect(authState.isAuthenticated, false);

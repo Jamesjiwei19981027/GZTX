@@ -128,13 +128,19 @@ class AuthState extends ChangeNotifier {
 
       _status = AuthStatus.authenticated;
       notifyListeners();
-    } on AuthException catch (e) {
-      // 认证失效或无法续期，清空会话踢回未登录状态
+    } catch (e) {
+      await _applySessionError(e);
+    }
+  }
+
+  /// 会话级异常统一处理（bootstrap 与运行中刷新共用）：
+  /// 认证失效 → 清会话回未登录；断网／服务端错误 → 离线；其他 → 未登录。
+  Future<void> _applySessionError(Object e) async {
+    if (e is AuthException) {
       await _clearSession();
       _errorMessage = e.message;
       _status = AuthStatus.unauthenticated;
-      notifyListeners();
-    } on ApiException catch (e) {
+    } else if (e is ApiException) {
       if (e.statusCode == 401 || e.statusCode == 403) {
         await _clearSession();
         _status = AuthStatus.unauthenticated;
@@ -142,16 +148,14 @@ class AuthState extends ChangeNotifier {
         _errorMessage = e.message;
         _status = AuthStatus.offline;
       }
-      notifyListeners();
-    } on NetworkException catch (e) {
+    } else if (e is NetworkException) {
       _errorMessage = e.message;
       _status = AuthStatus.offline;
-      notifyListeners();
-    } catch (e) {
+    } else {
       _errorMessage = '启动初始化失败: $e';
       _status = AuthStatus.unauthenticated;
-      notifyListeners();
     }
+    notifyListeners();
   }
 
   /// 账号密码登录
@@ -201,12 +205,25 @@ class AuthState extends ChangeNotifier {
     }
   }
 
-  /// 切换当前所在公司/企业工作区
-  Future<void> selectCompany(Company company) async {
-    if (_currentCompany?.id == company.id) return;
+  /// 切换当前所在公司/企业工作区。
+  /// 项目加载失败时回滚到原公司与原项目，再按会话异常统一处理；返回是否切换成功。
+  Future<bool> selectCompany(Company company) async {
+    if (_currentCompany?.id == company.id) return true;
+    final prevCompany = _currentCompany;
+    final prevProjects = _projects;
+    final prevProject = _currentProject;
     _currentCompany = company;
-    await _loadProjectsForCurrentCompany();
-    notifyListeners();
+    try {
+      await _loadProjectsForCurrentCompany();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _currentCompany = prevCompany;
+      _projects = prevProjects;
+      _currentProject = prevProject;
+      await _applySessionError(e);
+      return false;
+    }
   }
 
   /// 切换当前选中的项目
@@ -227,10 +244,16 @@ class AuthState extends ChangeNotifier {
     } catch (_) {}
   }
 
-  /// 重新加载项目列表
-  Future<void> refreshProjects() async {
-    await _loadProjectsForCurrentCompany();
-    notifyListeners();
+  /// 重新加载项目列表。失败时保留原列表，再按会话异常统一处理；返回是否成功。
+  Future<bool> refreshProjects() async {
+    try {
+      await _loadProjectsForCurrentCompany();
+      notifyListeners();
+      return true;
+    } catch (e) {
+      await _applySessionError(e);
+      return false;
+    }
   }
 
   Future<void> _loadProjectsForCurrentCompany() async {
