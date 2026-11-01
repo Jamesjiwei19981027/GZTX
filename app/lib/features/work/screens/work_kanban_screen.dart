@@ -169,9 +169,10 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
               loadingLabel: '正在载入看板…',
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final columnWidth =
-                      ((constraints.maxWidth - AppSpacing.lg * 2 - AppSpacing.sm * 2) / 3)
-                          .clamp(150.0, 260.0);
+                  final columnWidth = (constraints.maxWidth < 680)
+                      ? 220.0
+                      : ((constraints.maxWidth - AppSpacing.lg * 2 - AppSpacing.sm * 2) / 3)
+                          .clamp(220.0, 360.0);
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.fromLTRB(
@@ -501,23 +502,26 @@ class _KanbanCard extends StatelessWidget {
                         horizontal: 4,
                         vertical: 4,
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (busy)
-                            const AppLoading(size: 12)
-                          else
-                            Text(
-                              '移动状态',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark
-                                    ? AppColors.darkTextSecondary
-                                    : AppColors.textSecondary,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (busy)
+                              const AppLoading(size: 12)
+                            else
+                              Text(
+                                '移动状态',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark
+                                      ? AppColors.darkTextSecondary
+                                      : AppColors.textSecondary,
+                                ),
                               ),
-                            ),
-                          const Icon(Icons.expand_more, size: 14),
-                        ],
+                            const Icon(Icons.expand_more, size: 14),
+                          ],
+                        ),
                       ),
                     ),
                   ),

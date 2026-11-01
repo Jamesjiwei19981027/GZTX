@@ -659,109 +659,117 @@ class WorkMonthGrid extends StatelessWidget {
     final days = buildMonthGrid(month, startMonday: startMonday);
     final today = TaskTime.todayKey();
 
-    return Column(
-      children: [
-        Row(
-          children: weekLabels
-              .map(
-                (label) => Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Text(
-                      label,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: isDark
-                            ? AppColors.darkTextTertiary
-                            : AppColors.textTertiary,
+    return MediaQuery.withClampedTextScaling(
+      minScaleFactor: 0.8,
+      maxScaleFactor: 1.25,
+      child: Column(
+        children: [
+          Row(
+            children: weekLabels
+                .map(
+                  (label) => Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? AppColors.darkTextTertiary
+                              : AppColors.textTertiary,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              )
-              .toList(),
-        ),
-        GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          padding: EdgeInsets.zero,
-          itemCount: days.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 7,
-            mainAxisExtent: cellHeight,
-            crossAxisSpacing: 4,
-            mainAxisSpacing: 4,
+                )
+                .toList(),
           ),
-          itemBuilder: (context, index) {
-            final day = days[index];
-            if (day.isEmpty) return const SizedBox.shrink();
-            final selected = day == selectedDay;
-            final inMonth = day.startsWith(TaskTime.monthKey(month));
-            final hasTasks = daysWithTasks.contains(day);
-            final isToday = day == today;
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onSelect(day),
-              onDoubleTap:
-                  onDoubleTap == null ? null : () => onDoubleTap!(day),
-              child: Semantics(
-                button: true,
-                selected: selected,
-                label: day,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.primary
-                        : (inMonth
-                            ? (isDark
-                                ? AppColors.darkSurfaceVariant
-                                : const Color(0xFFF6F7F9))
-                            : Colors.transparent),
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                    border: isToday && !selected
-                        ? Border.all(color: AppColors.primary, width: 1)
-                        : null,
-                  ),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        '${int.parse(day.substring(8))}',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight:
-                              selected ? FontWeight.w700 : FontWeight.w500,
-                          color: selected
-                              ? Colors.white
-                              : (inMonth
-                                  ? (isDark
-                                      ? AppColors.darkTextPrimary
-                                      : AppColors.textPrimary)
-                                  : (isDark
-                                      ? AppColors.darkTextTertiary
-                                      : AppColors.textTertiary)),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: days.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisExtent: cellHeight,
+              crossAxisSpacing: 4,
+              mainAxisSpacing: 4,
+            ),
+            itemBuilder: (context, index) {
+              final day = days[index];
+              if (day.isEmpty) return const SizedBox.shrink();
+              final selected = day == selectedDay;
+              final inMonth = day.startsWith(TaskTime.monthKey(month));
+              final hasTasks = daysWithTasks.contains(day);
+              final isToday = day == today;
+              return GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => onSelect(day),
+                onDoubleTap:
+                    onDoubleTap == null ? null : () => onDoubleTap!(day),
+                child: Semantics(
+                  button: true,
+                  selected: selected,
+                  label: day,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: selected
+                          ? AppColors.primary
+                          : (inMonth
+                              ? (isDark
+                                  ? AppColors.darkSurfaceVariant
+                                  : const Color(0xFFF6F7F9))
+                              : Colors.transparent),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      border: isToday && !selected
+                          ? Border.all(color: AppColors.primary, width: 1)
+                          : null,
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            '${int.parse(day.substring(8))}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight:
+                                  selected ? FontWeight.w700 : FontWeight.w500,
+                              color: selected
+                                  ? Colors.white
+                                  : (inMonth
+                                      ? (isDark
+                                          ? AppColors.darkTextPrimary
+                                          : AppColors.textPrimary)
+                                      : (isDark
+                                          ? AppColors.darkTextTertiary
+                                          : AppColors.textTertiary)),
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 2),
-                      Container(
-                        width: 4,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: hasTasks
-                              ? (selected ? Colors.white : AppColors.primary)
-                              : Colors.transparent,
+                        const SizedBox(height: 2),
+                        Container(
+                          width: 4,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: hasTasks
+                                ? (selected ? Colors.white : AppColors.primary)
+                                : Colors.transparent,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            );
-          },
-        ),
-      ],
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
