@@ -252,8 +252,8 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
-                            children: const [
+                          const Row(
+                            children: [
                               AppIcon('axis', size: 16, color: Color(0xFF7C3AED)),
                               SizedBox(width: 6),
                               Text(

@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../design/design.dart';
 import '../data/work_models.dart';
-import '../data/work_scope.dart';
 
 /// 把底座异常翻译成页面可展示的状态。
 ({String title, String message, bool isOffline, bool isForbidden}) describeError(
@@ -780,7 +779,7 @@ List<String> buildMonthGrid(DateTime month, {bool startMonday = true}) {
   }
   for (var d = 1; d <= daysInMonth; d++) {
     cells.add(
-      TaskTime.monthKey(first) + '-${d.toString().padLeft(2, '0')}',
+      '${TaskTime.monthKey(first)}-${d.toString().padLeft(2, '0')}',
     );
   }
   while (cells.length % 7 != 0) {

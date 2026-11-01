@@ -10,7 +10,6 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/auth/auth_provider.dart';
-import '../../../core/auth/auth_state.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../core/models/project.dart';
 import '../../../core/models/user.dart';
@@ -381,7 +380,7 @@ class _Header extends StatelessWidget {
           width: 40,
           height: 40,
           alignment: Alignment.center,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: AppColors.primaryLight,
             shape: BoxShape.circle,
           ),

@@ -77,14 +77,6 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     super.dispose();
   }
 
-  AuthState? _tryReadAuth() {
-    try {
-      return context.read<AuthState>();
-    } catch (_) {
-      return null;
-    }
-  }
-
   Future<void> _load() async {
     if (!mounted) return;
     setState(() {

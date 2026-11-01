@@ -124,15 +124,15 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
                 color: const Color(0xFFEAF2FE),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
-              child: Row(
+              child: const Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Padding(
+                  Padding(
                     padding: EdgeInsets.only(top: 2),
                     child: AppIcon('info', size: 16, color: AppColors.primary),
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  const Expanded(
+                  SizedBox(width: AppSpacing.sm),
+                  Expanded(
                     child: Text(
                       '回收站中的任务将保留 30 天，期间可随时一键恢复到项目待办中；逾期将由系统自动永久清除。',
                       style: TextStyle(

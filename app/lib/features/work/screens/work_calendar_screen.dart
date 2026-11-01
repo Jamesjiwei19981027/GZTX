@@ -286,7 +286,7 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
                 ),
               ),
             if (dayTasks.isEmpty)
-              WorkSection(child: const WorkEmptyHint(text: '当天暂无安排事项'))
+              const WorkSection(child: WorkEmptyHint(text: '当天暂无安排事项'))
             else
               WorkSection(
                 padding: EdgeInsets.zero,
