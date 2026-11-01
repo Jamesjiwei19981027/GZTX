@@ -53,7 +53,10 @@ class _CallScreenState extends State<CallScreen> {
     if (_controller != null && api == _api && companyId == _companyId) return;
     _api = api;
     _companyId = companyId;
-    _controller?.dispose();
+    // 换企业前先结束旧会话，避免服务端留下未结束的通话（end 对已结束会话是空操作）
+    _controller
+      ?..end()
+      ..dispose();
     final repository =
         widget.repository ?? MessagesRepository(api ?? ApiClient());
     _controller = CallController(
