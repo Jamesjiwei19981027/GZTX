@@ -44,6 +44,15 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
   AuthState? get _auth => resolveMeAuthState(context, widget.authState);
   int? get _companyId => widget.companyIdOverride ?? _auth?.currentCompany?.id;
 
+  /// 可用于组织同步的集成：优先已配置账号，避免选中空壳账号
+  MeIntegration? get _syncTarget {
+    final syncable =
+        _integrations.where((item) => item.supportsOrgSync).toList();
+    if (syncable.isEmpty) return null;
+    final configured = syncable.where((item) => item.isConfigured).toList();
+    return (configured.isNotEmpty ? configured : syncable).first;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -101,17 +110,26 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
   Future<void> _triggerSync() async {
     final companyId = _companyId;
     if (companyId == null) return;
+    final target = _syncTarget;
+    if (target == null) {
+      setState(() {
+        _errorMessage = '尚未配置可同步的组织集成（企业微信 / 钉钉 / 飞书），请先完成授权配置';
+        _successMessage = null;
+      });
+      return;
+    }
     setState(() {
       _syncing = true;
       _errorMessage = null;
       _successMessage = null;
     });
     try {
-      await _api.triggerOrgSync(companyId);
+      await _api.triggerOrgSync(companyId, provider: target.provider);
       if (!mounted) return;
       setState(() {
         _syncing = false;
-        _successMessage = '组织架构同步任务已触发，正在后台拉取人员与部门';
+        _successMessage =
+            '${target.displayName} 组织架构同步任务已触发，正在后台拉取人员与部门';
       });
       await _load();
     } catch (e) {
@@ -163,6 +181,7 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final syncTarget = _syncTarget;
     return MeScreenAppearance(
       controller: widget.appearance,
       child: AppScaffold(
@@ -198,16 +217,20 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
                       children: [
                         Row(
                           children: [
-                            const Expanded(
+                            Expanded(
                               child: Text(
-                                '从办公协同平台拉取最新组织架构',
-                                style: TextStyle(fontSize: 13),
+                                syncTarget == null
+                                    ? '尚未配置可同步的组织集成（企业微信 / 钉钉 / 飞书）'
+                                    : '从${syncTarget.displayName}拉取最新组织架构',
+                                style: const TextStyle(fontSize: 13),
                               ),
                             ),
                             MeInlineButton(
                               label: _syncing ? '同步中…' : '立即同步',
                               isLoading: _syncing,
-                              onPressed: _syncing ? null : _triggerSync,
+                              onPressed: _syncing || syncTarget == null
+                                  ? null
+                                  : _triggerSync,
                             ),
                           ],
                         ),
@@ -259,7 +282,9 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
                                         Text(
                                           item.lastSyncAt != null
                                               ? '上次同步：${formatDisplayDateTime(item.lastSyncAt)}'
-                                              : '尚未建立同步',
+                                              : item.createdAt != null
+                                                  ? '配置于 ${formatDisplayDateTime(item.createdAt)}（尚未同步）'
+                                                  : '尚未建立同步',
                                           style: TextStyle(
                                             fontSize: 11.5,
                                             color: isDarkMode(context)
@@ -271,10 +296,14 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
                                     ),
                                   ),
                                   MeBadge(
-                                    label: item.enabled ? '已启用' : '待配置',
-                                    tone: item.enabled
+                                    label: item.lastSyncAt != null
+                                        ? '已同步'
+                                        : item.isConfigured
+                                            ? '已配置'
+                                            : '待配置',
+                                    tone: item.isConfigured
                                         ? MeTone.success
-                                        : MeTone.neutral,
+                                        : MeTone.warning,
                                   ),
                                 ],
                               ),

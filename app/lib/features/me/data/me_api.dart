@@ -400,8 +400,17 @@ class MeApi {
     return list;
   }
 
-  Future<void> triggerOrgSync(int companyId) async {
-    await _client.post('/companies/$companyId/org-sync', body: const {});
+  /// 触发组织同步（POST /companies/{id}/org-sync?provider=xxx）
+  ///
+  /// 后端在不传 `provider` 时取「最新一条 IntegrationAccount」，而 SMTP/LLM
+  /// 等配置也写在同一张表里，会误选到不支持的厂商。因此必须显式传入已配置的
+  /// 组织集成厂商（wecom / dingtalk / feishu / generic_scim）。
+  Future<void> triggerOrgSync(int companyId, {required String provider}) async {
+    await _client.post(
+      '/companies/$companyId/org-sync',
+      query: {'provider': provider},
+      body: const {},
+    );
   }
 
   Future<MeAsrBinding> fetchCompanyAsr(int companyId) async {

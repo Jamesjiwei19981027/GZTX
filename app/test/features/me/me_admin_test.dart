@@ -112,6 +112,89 @@ void main() {
     expect(find.text('AI 大模型接入参数已保存'), findsOneWidget);
   });
 
+  testWidgets('AI 模型配置：API 地址留空时按厂商预设补默认地址', (tester) async {
+    MeTestHarness.useTallSurface(tester);
+    final harness = await MeTestHarness.create(isAdmin: true);
+    harness.helper.whenPut('/companies/1/llm', {
+      'provider': 'openai',
+      'base_url': 'https://api.openai.com/v1',
+      'model': 'gpt-4o-mini',
+      'enabled': true,
+      'has_api_key': true,
+    });
+
+    await tester.pumpWidget(harness.wrap(_llmConfig(harness)));
+    await tester.pumpAndSettle();
+
+    // 后端允许留空，但客户端不能把空串原样提交，否则配置不可用
+    await tester.enterText(find.byKey(const Key('admin-llm-base-url')), '');
+    await tester.tap(find.text('保存模型配置'));
+    await tester.pumpAndSettle();
+
+    final put = harness.lastRequest('PUT', '/companies/1/llm');
+    expect((put.body as Map)['base_url'], 'https://api.openai.com/v1');
+    expect(find.text('AI 大模型接入参数已保存'), findsOneWidget);
+  });
+
+  testWidgets('AI 模型配置：没有默认地址时必须手填地址', (tester) async {
+    MeTestHarness.useTallSurface(tester);
+    final harness = await MeTestHarness.create(isAdmin: true);
+    harness.helper.whenGet('/companies/1/llm', {
+      'provider': 'custom',
+      'base_url': '',
+      'model': 'my-model',
+      'enabled': true,
+      'has_api_key': true,
+      'presets': {
+        'custom': {
+          'label': '自定义',
+          'default_base_url': '',
+          'default_model': '',
+          'needs_key': true,
+        },
+      },
+    });
+
+    await tester.pumpWidget(harness.wrap(_llmConfig(harness)));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byKey(const Key('admin-llm-base-url')), '');
+    await tester.tap(find.text('保存模型配置'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('请填写 API Base URL'), findsOneWidget);
+    expect(harness.hasRequest('PUT', '/companies/1/llm'), isFalse);
+  });
+
+  testWidgets('AI 模型配置：切换厂商时地址与模型一起换成该厂商预设', (tester) async {
+    MeTestHarness.useTallSurface(tester);
+    final harness = await MeTestHarness.create(isAdmin: true);
+    harness.helper.whenPut('/companies/1/llm', {
+      'provider': 'openai_compatible',
+      'base_url': 'https://api.deepseek.com/v1',
+      'model': 'deepseek-chat',
+      'enabled': true,
+      'has_api_key': true,
+    });
+
+    await tester.pumpWidget(harness.wrap(_llmConfig(harness)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('OpenAI 兼容'));
+    await tester.pumpAndSettle();
+    expect(find.text('https://api.deepseek.com/v1'), findsOneWidget);
+    expect(find.text('deepseek-chat'), findsOneWidget);
+
+    await tester.tap(find.text('保存模型配置'));
+    await tester.pumpAndSettle();
+
+    // 换厂商时 provider / base_url / model 必须成套提交
+    final body = harness.lastRequest('PUT', '/companies/1/llm').body as Map;
+    expect(body['provider'], 'openai_compatible');
+    expect(body['base_url'], 'https://api.deepseek.com/v1');
+    expect(body['model'], 'deepseek-chat');
+  });
+
   testWidgets('AI 模型配置：填写新密钥时提交 api_key', (tester) async {
     MeTestHarness.useTallSurface(tester);
     final harness = await MeTestHarness.create(isAdmin: true);
@@ -221,6 +304,106 @@ void main() {
     expect(harness.hasRequest('PUT', '/companies/1/llm'), isFalse);
   });
 
+  testWidgets('模型密钥：只轮换当前生效配置的密钥，不提交厂商/地址/模型', (tester) async {
+    MeTestHarness.useTallSurface(tester);
+    final harness = await MeTestHarness.create(isAdmin: true);
+    harness.helper.whenPut('/companies/1/llm', {
+      'provider': 'openai',
+      'base_url': 'https://api.openai.com/v1',
+      'model': 'gpt-4o-mini',
+      'enabled': true,
+      'has_api_key': true,
+      'configured': true,
+    });
+
+    await tester.pumpWidget(harness.wrap(_modelKeys(harness)));
+    await tester.pumpAndSettle();
+
+    // 当前生效配置是 OpenAI：不再暴露后端不支持的 deepseek / claude 选项
+    expect(find.text('DeepSeek'), findsNothing);
+    expect(find.text('Claude'), findsNothing);
+    expect(find.text('OpenAI'), findsOneWidget);
+    expect(find.textContaining('gpt-4o-mini'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const Key('admin-model-key')),
+      'sk-rotated-key',
+    );
+    await tester.tap(find.text('保存密钥'));
+    await tester.pumpAndSettle();
+
+    final put = harness.lastRequest('PUT', '/companies/1/llm');
+    final body = put.body as Map;
+    // 只有密钥，避免覆盖地址/模型、也避免 deepseek/claude 被后端改写为 custom
+    expect(body.keys.toSet(), {'api_key'});
+    expect(body['api_key'], 'sk-rotated-key');
+    expect(find.textContaining('OpenAI 密钥已更新'), findsOneWidget);
+  });
+
+  testWidgets('模型密钥：当前为本地桩时提示无需密钥', (tester) async {
+    MeTestHarness.useTallSurface(tester);
+    final harness = await MeTestHarness.create(isAdmin: true);
+    harness.helper.whenGet('/companies/1/llm', {
+      'provider': 'fake',
+      'base_url': '',
+      'model': 'fake',
+      'enabled': true,
+      'has_api_key': false,
+      'configured': true,
+      'presets': {
+        'fake': {
+          'label': 'Fake（本地桩，无需密钥）',
+          'default_base_url': '',
+          'default_model': 'fake',
+          'needs_key': false,
+        },
+      },
+    });
+
+    await tester.pumpWidget(harness.wrap(_modelKeys(harness)));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('无需 API Key'), findsOneWidget);
+    expect(find.byKey(const Key('admin-model-key')), findsNothing);
+  });
+
+  testWidgets('组织与登录集成：按真实字段展示配置状态', (tester) async {
+    MeTestHarness.useTallSurface(tester);
+    final harness = await MeTestHarness.create(isAdmin: true);
+
+    await tester.pumpWidget(harness.wrap(_orgSso(harness)));
+    await tester.pumpAndSettle();
+
+    // wecom 有凭证且已同步；dingtalk 仅有空壳账号 → 待配置
+    expect(find.text('已同步'), findsOneWidget);
+    expect(find.text('待配置'), findsOneWidget);
+    expect(find.textContaining('上次同步'), findsOneWidget);
+  });
+
+  testWidgets('组织与登录集成：没有可同步厂商时禁止触发同步', (tester) async {
+    MeTestHarness.useTallSurface(tester);
+    final harness = await MeTestHarness.create(isAdmin: true);
+    harness.helper.whenGet('/companies/1/integrations', {
+      'items': [
+        {
+          'provider': 'oidc',
+          'has_credentials': true,
+          'config': {'issuer': 'https://idp.example.com'},
+          'last_sync_at': null,
+          'created_at': '2026-10-01T02:00:00Z',
+        },
+      ],
+    });
+
+    await tester.pumpWidget(harness.wrap(_orgSso(harness)));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('尚未配置可同步的组织集成'), findsOneWidget);
+    await tester.tap(find.text('立即同步'));
+    await tester.pumpAndSettle();
+    expect(harness.hasRequest('POST', '/companies/1/org-sync'), isFalse);
+  });
+
   testWidgets('组织与登录集成：触发同步与切换登录方式', (tester) async {
     MeTestHarness.useTallSurface(tester);
     final harness = await MeTestHarness.create(isAdmin: true);
@@ -246,8 +429,10 @@ void main() {
 
     await tester.tap(find.text('立即同步'));
     await tester.pumpAndSettle();
-    expect(harness.hasRequest('POST', '/companies/1/org-sync'), isTrue);
-    expect(find.textContaining('组织架构同步任务已触发'), findsOneWidget);
+    final sync = harness.lastRequest('POST', '/companies/1/org-sync');
+    // 必须显式指定已配置的组织集成厂商，避免后端选中 SMTP/LLM 等非组织账号
+    expect(sync.url.queryParameters['provider'], 'wecom');
+    expect(find.textContaining('企业微信（WeCom） 组织架构同步任务已触发'), findsOneWidget);
 
     // 登录方式开关顺序：账号密码 / 微信 / 企业微信 / 钉钉 / 飞书
     await tester.tap(find.byType(AppSwitch).at(1));

@@ -259,32 +259,63 @@ class MeAsrBinding {
 }
 
 /// 企业集成账号（GET /companies/{id}/integrations）
+///
+/// 后端 `org.py::_integration_dto` 实际下发 `provider` / `config` /
+/// `credentials` / `has_credentials` / `last_sync_at` / `created_at`，
+/// 并没有 `enabled` 或 `status` 字段；配置状态必须按真实字段推导。
 class MeIntegration {
   const MeIntegration({
     this.provider = '',
-    this.enabled = false,
-    this.status = '',
+    this.hasCredentials = false,
+    this.config = const {},
     this.lastSyncAt,
+    this.createdAt,
   });
 
   final String provider;
-  final bool enabled;
-  final String status;
+
+  /// 服务端是否已保存可解密凭证（`has_credentials`）
+  final bool hasCredentials;
+
+  /// 非密钥配置节点（`config`），例如企微回调地址、组织快照
+  final Map<String, dynamic> config;
+
   final DateTime? lastSyncAt;
+  final DateTime? createdAt;
+
+  /// 已配置口径：有凭证、有非空配置或已成功同步过
+  bool get isConfigured =>
+      hasCredentials || config.isNotEmpty || lastSyncAt != null;
+
+  /// 后端 `trigger_org_sync` 支持的集成类型（oidc 仅用于登录，不能同步）
+  static const Set<String> orgSyncProviders = {
+    'wecom',
+    'dingtalk',
+    'feishu',
+    'generic_scim',
+    'generic',
+  };
+
+  bool get supportsOrgSync => orgSyncProviders.contains(provider);
 
   String get displayName => switch (provider) {
         'wecom' => '企业微信（WeCom）',
         'dingtalk' => '钉钉（DingTalk）',
         'feishu' => '飞书（Feishu）',
+        'generic_scim' || 'generic' => '通用快照（SCIM）',
+        'oidc' => '通用 OIDC（仅登录）',
         _ => provider.isEmpty ? '未知服务' : provider.toUpperCase(),
       };
 
   factory MeIntegration.fromJson(Map<String, dynamic> json) {
     return MeIntegration(
       provider: (json['provider'] as String?) ?? '',
-      enabled: json['enabled'] == true,
-      status: (json['status'] as String?) ?? '',
+      hasCredentials: json['has_credentials'] == true,
+      config: json['config'] is Map<String, dynamic>
+          ? json['config'] as Map<String, dynamic>
+          : const {},
       lastSyncAt: parseMeUtc(json['last_sync_at']),
+      createdAt: parseMeUtc(json['created_at']),
     );
   }
 }

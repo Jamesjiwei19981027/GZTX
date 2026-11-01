@@ -11,7 +11,10 @@ import '../../widgets/me_common.dart';
 
 /// 企业模型密钥配置（对应网页 `AdminModelKeysScreen`，设计 ID 92）
 ///
-/// 通过企业级 `PUT /companies/{id}/llm` 更新指定提供商密钥；留空不修改。
+/// 后端 `PUT /companies/{id}/llm` 只保存一套「生效配置」，且 `save_company_llm`
+/// 会把不支持的 provider（deepseek / claude）改写为 `custom`。因此本页只做
+/// 「轮换当前生效配置的密钥」：提交时不带 provider / base_url / model，
+/// 由服务端沿用原配置；要换厂商必须到「AI 模型配置」页连同地址与模型一起提交。
 class AdminModelKeysScreen extends StatefulWidget {
   const AdminModelKeysScreen({
     super.key,
@@ -31,11 +34,15 @@ class AdminModelKeysScreen extends StatefulWidget {
 }
 
 class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
-  static const List<(String, String)> _providers = [
-    ('openai', 'OpenAI'),
-    ('deepseek', 'DeepSeek'),
-    ('claude', 'Claude'),
-  ];
+  /// 后端预设缺失时的兜底名称（仅用于展示，不参与写接口）
+  static const Map<String, String> _fallbackProviderLabels = {
+    'fake': '本地桩（Fake）',
+    'openai': 'OpenAI',
+    'openai_compatible': 'OpenAI 兼容',
+    'azure_openai': 'Azure OpenAI',
+    'ollama': 'Ollama（本地）',
+    'custom': '自定义',
+  };
 
   final _keyController = TextEditingController();
 
@@ -43,7 +50,6 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
   Object? _error;
   MeAdminAccess _admin = MeAdminAccess.none;
   MeLlmConfig _config = const MeLlmConfig();
-  String _provider = 'openai';
   bool _saving = false;
   String? _errorMessage;
   String? _successMessage;
@@ -51,6 +57,19 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
   MeApi get _api => resolveMeApi(context, widget.api);
   AuthState? get _auth => resolveMeAuthState(context, widget.authState);
   int? get _companyId => widget.companyIdOverride ?? _auth?.currentCompany?.id;
+
+  /// 当前生效配置的厂商（后端保证一定是预设内的 id）
+  String get _activeProvider =>
+      _config.provider.isEmpty ? 'fake' : _config.provider;
+
+  /// 当前厂商是否需要 API Key（fake / ollama 不需要）
+  bool get _activeProviderNeedsKey {
+    final preset = _config.presets[_activeProvider];
+    if (preset is Map<String, dynamic> && preset['needs_key'] is bool) {
+      return preset['needs_key'] as bool;
+    }
+    return _activeProvider != 'fake' && _activeProvider != 'ollama';
+  }
 
   @override
   void initState() {
@@ -90,9 +109,6 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
       setState(() {
         _admin = access;
         _config = config;
-        if (_providers.any((p) => p.$1 == config.provider)) {
-          _provider = config.provider;
-        }
         _loading = false;
       });
     } catch (e) {
@@ -108,6 +124,13 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
     final companyId = _companyId;
     final key = _keyController.text.trim();
     if (companyId == null) return;
+    if (!_activeProviderNeedsKey) {
+      setState(() {
+        _errorMessage = '当前提供商「${_providerDisplay(_activeProvider)}」无需 API Key';
+        _successMessage = null;
+      });
+      return;
+    }
     if (key.isEmpty) {
       setState(() {
         // 留空表示保持现有密钥不变，因此不发送请求
@@ -121,18 +144,16 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
       _errorMessage = null;
       _successMessage = null;
     });
+    final providerLabel = _providerDisplay(_activeProvider);
     try {
-      final saved = await _api.saveCompanyLlm(
-        companyId,
-        provider: _provider,
-        apiKey: key,
-      );
+      // 只提交密钥：provider / base_url / model 一律沿用当前生效配置
+      final saved = await _api.saveCompanyLlm(companyId, apiKey: key);
       if (!mounted) return;
       setState(() {
         _config = saved;
         _keyController.clear();
         _saving = false;
-        _successMessage = '${_providerDisplay(_provider)} 密钥已更新并加密存储';
+        _successMessage = '$providerLabel 密钥已更新并加密存储';
       });
     } catch (e) {
       if (!mounted) return;
@@ -143,11 +164,13 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
     }
   }
 
-  static String _providerDisplay(String id) {
-    for (final (value, label) in _providers) {
-      if (value == id) return label;
+  String _providerDisplay(String id) {
+    final preset = _config.presets[id];
+    if (preset is Map<String, dynamic>) {
+      final label = preset['label'];
+      if (label is String && label.trim().isNotEmpty) return label.trim();
     }
-    return id;
+    return _fallbackProviderLabels[id] ?? (id.isEmpty ? '未知' : id.toUpperCase());
   }
 
   @override
@@ -184,86 +207,106 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
                           ),
                         ),
                       MeCard(
-                        title: '多厂商模型密钥管理',
-                        footer: '已保存的密钥前端不回显明文，服务端加密存储；更换新密钥将立即覆盖生效。',
+                        title: '当前生效配置的密钥',
+                        footer: '企业只有一套生效的 AI 配置；本页只轮换它的密钥，'
+                            '不会改动厂商、API 地址与模型。如需更换厂商，'
+                            '请到「AI 模型配置」页同时填写新的 API 地址与调用模型。',
                         children: [
-                          const MeFieldLabel(label: '选择提供商'),
-                          Row(
-                            children: [
-                              for (final (id, label) in _providers) ...[
-                                Expanded(
-                                  child: GestureDetector(
-                                    onTap: () =>
-                                        setState(() => _provider = id),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 9,
-                                      ),
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color: _provider == id
-                                            ? AppColors.primary
-                                            : Colors.transparent,
-                                        borderRadius: BorderRadius.circular(
-                                          AppSpacing.radiusMd,
-                                        ),
-                                        border: Border.all(
-                                          color: _provider == id
-                                              ? AppColors.primary
-                                              : (isDark
-                                                  ? AppColors.darkBorder
-                                                  : AppColors.border),
-                                        ),
-                                      ),
-                                      child: Text(
-                                        label,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: _provider == id
-                                              ? Colors.white
-                                              : (isDark
-                                                  ? AppColors.darkTextPrimary
-                                                  : AppColors.textPrimary),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (id != _providers.last.$1)
-                                  const SizedBox(width: AppSpacing.sm),
-                              ],
-                            ],
-                          ),
+                          const MeFieldLabel(label: '当前提供商'),
+                          _providerField(isDark),
                           const SizedBox(height: AppSpacing.md),
                           const MeFieldLabel(label: '当前配置状态'),
                           _statusField(),
                           const SizedBox(height: AppSpacing.md),
-                          const MeFieldLabel(
-                            label: '输入新密钥',
-                            helper: '留空则保持现有密钥不变',
-                          ),
-                          AppTextField(
-                            key: const Key('admin-model-key'),
-                            controller: _keyController,
-                            placeholder: 'sk-...',
-                            obscureText: true,
-                            onChanged: (_) => setState(() {}),
-                          ),
-                          const SizedBox(height: AppSpacing.lg),
-                          AppButton(
-                            label: '保存密钥',
-                            isFullWidth: true,
-                            size: AppButtonSize.lg,
-                            isLoading: _saving,
-                            onPressed: _saving ? null : _save,
-                          ),
+                          if (_activeProviderNeedsKey) ...[
+                            const MeFieldLabel(
+                              label: '输入新密钥',
+                              helper: '留空则保持现有密钥不变',
+                            ),
+                            AppTextField(
+                              key: const Key('admin-model-key'),
+                              controller: _keyController,
+                              placeholder: 'sk-...',
+                              obscureText: true,
+                              onChanged: (_) => setState(() {}),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            AppButton(
+                              label: '保存密钥',
+                              isFullWidth: true,
+                              size: AppButtonSize.lg,
+                              isLoading: _saving,
+                              onPressed: _saving ? null : _save,
+                            ),
+                          ] else
+                            const MeBanner(
+                              message: '当前提供商无需 API Key（本地桩或本地 Ollama）。'
+                                  '如需接入云端模型，请到「AI 模型配置」页选择厂商并填写地址与模型。',
+                              tone: MeTone.warning,
+                            ),
                         ],
                       ),
                     ],
                   ),
                 ),
               ),
+      ),
+    );
+  }
+
+  Widget _providerField(bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF5F6F7),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _providerDisplay(_activeProvider),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _config.baseUrl.isEmpty ? '未配置 API 地址' : _config.baseUrl,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(
+            _config.model.isEmpty ? '未填写模型' : _config.model,
+            style: TextStyle(
+              fontSize: 11.5,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -57,6 +57,12 @@ class MeAppearanceController extends ChangeNotifier {
     _instance = controller;
   }
 
+  /// 仅用于测试：丢弃全局单例，模拟一次冷启动
+  @visibleForTesting
+  static void resetInstanceForTest() {
+    _instance = null;
+  }
+
   MeThemeMode _themeMode = MeThemeMode.system;
   MeThemeMode get themeMode => _themeMode;
 
@@ -247,24 +253,51 @@ ThemeData meThemeDataFor(Brightness brightness, {ThemeData? base}) {
 
 /// T09 页面外观兜底：立即响应深色开关与字号档位。
 ///
+/// 同时负责冷启动加载：宿主（`main.dart`）未接入时，只要进入「我的」任一页面，
+/// 这里就会调用 [MeAppearanceController.ensureLoaded] 把本地保存的外观设置读回来，
+/// 避免「保存后重启不生效、必须再打开外观页」。
+///
 /// 幂等设计：若宿主（`main.dart`）已经把同样的主题亮度或字号的 MediaQuery 应用下来，
 /// 这里就不再重复包裹，避免「深色叠深色 / 字号翻倍」。
-class MeScreenAppearance extends StatelessWidget {
+class MeScreenAppearance extends StatefulWidget {
   const MeScreenAppearance({super.key, required this.child, this.controller});
 
   final Widget child;
   final MeAppearanceController? controller;
 
   @override
+  State<MeScreenAppearance> createState() => _MeScreenAppearanceState();
+}
+
+class _MeScreenAppearanceState extends State<MeScreenAppearance> {
+  MeAppearanceController? _appearance;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final resolved = widget.controller ??
+        MeAppearanceScope.maybeOf(context) ??
+        MeAppearanceController.instance;
+    if (!identical(resolved, _appearance)) {
+      _appearance = resolved;
+    }
+    if (!resolved.isLoaded) {
+      // 冷启动直接落到本模块页面时，先把持久化的外观设置读回来
+      unawaited(resolved.ensureLoaded());
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final appearance = controller ??
+    final appearance = _appearance ??
+        widget.controller ??
         MeAppearanceScope.maybeOf(context) ??
         MeAppearanceController.instance;
 
     return ListenableBuilder(
       listenable: appearance,
       builder: (context, _) {
-        Widget result = child;
+        Widget result = widget.child;
 
         // 1) 字号：仅在宿主未应用同一档位时补一层
         final scale = appearance.textScale;

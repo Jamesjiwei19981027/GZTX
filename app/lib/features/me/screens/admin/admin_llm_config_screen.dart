@@ -134,9 +134,22 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
   Future<void> _save() async {
     final companyId = _companyId;
     if (companyId == null) return;
-    if (_modelController.text.trim().isEmpty) {
+    final model = _modelController.text.trim();
+    if (model.isEmpty) {
       setState(() => _errorMessage = '调用模型名称为必填项');
       return;
+    }
+    // 地址留空时按厂商预设补默认地址；预设也没有默认值则必须手填
+    var baseUrl = _baseUrlController.text.trim();
+    if (baseUrl.isEmpty) {
+      baseUrl = _presetValue(_provider, 'default_base_url');
+      if (baseUrl.isEmpty) {
+        setState(
+          () => _errorMessage = '请填写 API Base URL（当前提供商没有内置默认地址）',
+        );
+        return;
+      }
+      _baseUrlController.text = baseUrl;
     }
     setState(() {
       _saving = true;
@@ -147,8 +160,8 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
       final saved = await _api.saveCompanyLlm(
         companyId,
         provider: _provider,
-        baseUrl: _baseUrlController.text,
-        model: _modelController.text,
+        baseUrl: baseUrl,
+        model: model,
         // 留空表示不修改已保存的密钥：不传 api_key 字段
         apiKey: _apiKeyController.text,
         enabled: _enabled,
@@ -158,6 +171,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
       if (!mounted) return;
       setState(() {
         _config = saved;
+        _baseUrlController.text = saved.baseUrl;
         _apiKeyController.clear();
         _saving = false;
         _successMessage = 'AI 大模型接入参数已保存';
@@ -169,6 +183,33 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
         _errorMessage = '保存失败：${meErrorMessage(e)}';
       });
     }
+  }
+
+  /// 读取后端预设里的 default_base_url / default_model
+  String _presetValue(String provider, String key) {
+    final preset = _config.presets[provider];
+    if (preset is Map<String, dynamic>) {
+      final value = preset[key];
+      if (value is String) return value.trim();
+    }
+    return '';
+  }
+
+  /// 切换厂商时同步换掉上一家的默认地址 / 模型，避免出现“新厂商 + 旧地址”的坏配置
+  void _selectProvider(String provider) {
+    final currentUrl = _baseUrlController.text.trim();
+    final currentModel = _modelController.text.trim();
+    final previousDefaultUrl = _presetValue(_provider, 'default_base_url');
+    final previousDefaultModel = _presetValue(_provider, 'default_model');
+    setState(() {
+      _provider = provider;
+      if (currentUrl.isEmpty || currentUrl == previousDefaultUrl) {
+        _baseUrlController.text = _presetValue(provider, 'default_base_url');
+      }
+      if (currentModel.isEmpty || currentModel == previousDefaultModel) {
+        _modelController.text = _presetValue(provider, 'default_model');
+      }
+    });
   }
 
   Future<void> _test() async {
@@ -258,7 +299,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                             children: [
                               for (final (id, label) in _providerOptions)
                                 GestureDetector(
-                                  onTap: () => setState(() => _provider = id),
+                                  onTap: () => _selectProvider(id),
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
@@ -300,7 +341,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                           const SizedBox(height: AppSpacing.md),
                           const MeFieldLabel(
                             label: 'API Base URL',
-                            helper: '留空则使用提供商官方接口地址',
+                            helper: '留空则使用该提供商的内置默认地址；没有默认地址时必须填写',
                           ),
                           AppTextField(
                             key: const Key('admin-llm-base-url'),

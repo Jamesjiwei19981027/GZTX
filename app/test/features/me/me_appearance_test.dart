@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/features/me/appearance/me_appearance.dart';
 import 'package:worktodo_app/features/me/screens/me_appearance_screen.dart';
+import 'package:worktodo_app/features/me/screens/me_root_screen.dart';
 
 import 'me_test_harness.dart';
 
@@ -198,6 +199,41 @@ void main() {
     expect(
       Theme.of(tester.element(pageFinder())).brightness,
       Brightness.dark,
+    );
+  });
+
+  testWidgets('外壳仅跟随系统时保存的深色/字号仍需在冷启动生效', (tester) async {
+    MeTestHarness.useTallSurface(tester);
+    final harness = await MeTestHarness.create(isAdmin: true);
+    // 先保存过一次外观设置（相当于上次运行留下的本地值）
+    SharedPreferences.setMockInitialValues({
+      MeAppearanceController.themeModeKey: 'dark',
+      MeAppearanceController.textScaleKey: 1.3,
+    });
+    // 丢弃全局单例，模拟一次冷启动
+    MeAppearanceController.resetInstanceForTest();
+    addTearDown(MeAppearanceController.resetInstanceForTest);
+    final appearance = MeAppearanceController.instance;
+    expect(appearance.isLoaded, isFalse);
+
+    // 冷启动直接进入「我的」首页（不经过外观页）
+    await tester.pumpWidget(
+      harness.wrap(
+        MeRootScreen(api: harness.api, authState: harness.authState),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(appearance.isLoaded, isTrue);
+    expect(appearance.themeMode, MeThemeMode.dark);
+    expect(appearance.textScale, 1.3);
+
+    final page = find.text('我的');
+    expect(page, findsOneWidget);
+    expect(Theme.of(tester.element(page)).brightness, Brightness.dark);
+    expect(
+      MediaQuery.textScalerOf(tester.element(page)).scale(10),
+      closeTo(13, 0.001),
     );
   });
 

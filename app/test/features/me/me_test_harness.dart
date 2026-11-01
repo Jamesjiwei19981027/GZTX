@@ -54,6 +54,9 @@ class MeTestHarness {
     Map<String, dynamic>? user,
   }) async {
     SharedPreferences.setMockInitialValues({});
+    // 每个用例都换一个新的全局外观单例：避免上一个用例在 FakeAsync 区域里
+    // 创建的加载 Future 被下一个用例复用而永远等不到完成
+    MeAppearanceController.resetInstanceForTest();
     final helper = MockApiClientHelper();
     final userData = Map<String, dynamic>.from(user ?? userJson);
     helper.whenGet('/users/me', userData);
@@ -165,8 +168,18 @@ class MeTestHarness {
         'has_api_key': true,
         'configured': true,
         'presets': {
-          'openai': {'label': 'OpenAI'},
-          'openai_compatible': {'label': 'OpenAI 兼容'},
+          'openai': {
+            'label': 'OpenAI',
+            'default_base_url': 'https://api.openai.com/v1',
+            'default_model': 'gpt-4o-mini',
+            'needs_key': true,
+          },
+          'openai_compatible': {
+            'label': 'OpenAI 兼容',
+            'default_base_url': 'https://api.deepseek.com/v1',
+            'default_model': 'deepseek-chat',
+            'needs_key': true,
+          },
         },
       });
       helper.whenGet('/companies/1/bindings', {
@@ -184,13 +197,24 @@ class MeTestHarness {
       });
       helper.whenGet('/companies/1/integrations', {
         'items': [
+          // 与后端 org.py::_integration_dto 一致：没有 enabled / status 字段
           {
             'provider': 'wecom',
-            'enabled': true,
-            'status': 'active',
+            'has_credentials': true,
+            'config': {
+              'redirect_uri': 'https://app.example.com/api/v1/sso/wecom/callback',
+              'auto_create_users': true,
+            },
             'last_sync_at': '2026-10-30T01:00:00Z',
+            'created_at': '2026-10-01T02:00:00Z',
           },
-          {'provider': 'dingtalk', 'enabled': false, 'status': 'unconfigured'},
+          {
+            'provider': 'dingtalk',
+            'has_credentials': false,
+            'config': <String, dynamic>{},
+            'last_sync_at': null,
+            'created_at': '2026-10-02T02:00:00Z',
+          },
         ],
       });
     }
