@@ -480,14 +480,6 @@ class _VerifyScreenState extends State<VerifyScreen> {
             value: status.hasPhone ? status.phone : '未绑定',
             verified: status.phoneVerified,
           ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton(
-              key: const ValueKey('verify-refresh'),
-              onPressed: _busy ? null : _load,
-              child: const Text('刷新状态', style: TextStyle(fontSize: 12)),
-            ),
-          ),
         ],
       ),
     );
