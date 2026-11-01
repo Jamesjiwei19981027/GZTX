@@ -235,7 +235,12 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       }
     }
 
-    final text = local?.summary ?? matchedServerDraft?.summaryText ?? '';
+    // 本地文字只在“未关联汇报”或“关联的就是目标汇报”时沿用，避免把别的汇报的文字提交到目标汇报上
+    final localMatchesTarget = local != null &&
+        (local.draftReportId == null || local.draftReportId == targetReportId);
+    final text = (localMatchesTarget ? local.summary : null) ??
+        matchedServerDraft?.summaryText ??
+        '';
     final parts = text.split('\n\n');
     final completed = parts.isNotEmpty ? parts[0] : '';
     final inProgress = parts.length > 1 ? parts.sublist(1).join('\n\n') : '';

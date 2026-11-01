@@ -291,6 +291,41 @@ void main() {
       expect(body['sources'], isEmpty, reason: '来源不应混入服务器草稿 503 的来源');
     });
 
+    testWidgets('显式打开草稿 503 而本地缓存的是汇报 501 的文字时，不把 501 的文字提交到 503', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      await harness.draftStore.save(
+        userId: ReportsTestFixtures.currentUserId,
+        projectId: ReportsTestFixtures.projectId,
+        summary: '对已提交汇报501的本地修改',
+        draftReportId: 501,
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            initialDraftReportId: 503,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('对已提交汇报501的本地修改'), findsNothing);
+
+      await tester.tap(find.text('确认提交'));
+      await tester.pumpAndSettle();
+
+      final posts = harness.helper.history.where((r) => r.method == 'POST');
+      expect(posts.where((r) => r.url.path.endsWith('/reports/501/submit')), isEmpty);
+      for (final request in posts.where((r) => r.url.path.endsWith('/reports/503/submit'))) {
+        expect((request.body as Map)['summary'], isNot(contains('对已提交汇报501的本地修改')));
+      }
+    });
+
     testWidgets('有中间层领导、没有服务器草稿时，不显示项目经理为接收人、提交按钮可用 (P2)', (tester) async {
       const intermediateLeaderId = 30;
       final membersWithIntermediate = [
