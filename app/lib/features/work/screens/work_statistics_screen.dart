@@ -122,14 +122,21 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
     return false;
   }
 
-  List<({String name, int total, int completed})> get _memberLoads {
+  List<({int userId, String name, int total, int completed})> get _memberLoads {
     final start = _periodStartDate(_period);
     final periodTasks = _tasks.where((t) => _isTaskInPeriod(t, start));
-    final map = <String, ({int total, int completed})>{};
+    final map = <int, ({String name, int total, int completed})>{};
     for (final task in periodTasks) {
       for (final assignee in task.assignees) {
-        final current = map[assignee.displayName] ?? (total: 0, completed: 0);
-        map[assignee.displayName] = (
+        final current = map[assignee.userId] ??
+            (name: assignee.displayName, total: 0, completed: 0);
+        final name = current.name.isNotEmpty
+            ? current.name
+            : (assignee.displayName.isNotEmpty
+                ? assignee.displayName
+                : '成员 #${assignee.userId}');
+        map[assignee.userId] = (
+          name: name,
           total: current.total + 1,
           completed: current.completed + (task.isDone ? 1 : 0),
         );
@@ -137,7 +144,8 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
     }
     final list = map.entries
         .map((entry) => (
-              name: entry.key,
+              userId: entry.key,
+              name: entry.value.name,
               total: entry.value.total,
               completed: entry.value.completed,
             ))

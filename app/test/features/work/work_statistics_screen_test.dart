@@ -122,4 +122,49 @@ void main() {
     expect(find.text('已承接 1 项 · 完成 0 项'), findsOneWidget);
     expect(find.text('已承接 2 项 · 完成 1 项'), findsNothing);
   });
+
+  testWidgets('成员工作量统计按用户ID聚合，避免同名成员合并统计', (tester) async {
+    tester.view.physicalSize = const Size(430, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final harness = await WorkTestHarness.create();
+    harness.api.tasks = [
+      // 成员 10 (张三)
+      WorkTask(
+        id: 911,
+        title: '张三A的任务',
+        status: 0,
+        createdAt: DateTime.now(),
+        assignees: const [TaskAssignee(userId: 10, displayName: '张三')],
+      ),
+      // 成员 20 (同名张三) 承接两项任务
+      WorkTask(
+        id: 912,
+        title: '张三B的任务1',
+        status: 0,
+        createdAt: DateTime.now(),
+        assignees: const [TaskAssignee(userId: 20, displayName: '张三')],
+      ),
+      WorkTask(
+        id: 913,
+        title: '张三B的任务2',
+        status: 2,
+        createdAt: DateTime.now(),
+        assignees: const [TaskAssignee(userId: 20, displayName: '张三')],
+      ),
+    ];
+
+    await tester.pumpWidget(harness.wrap(
+      WorkStatisticsScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 应该分别展示两条张三的独立记录，而不是被合并成一条「已承接 3 项」
+    expect(find.text('已承接 2 项 · 完成 1 项'), findsOneWidget);
+    expect(find.text('已承接 1 项 · 完成 0 项'), findsOneWidget);
+    expect(find.text('已承接 3 项'), findsNothing);
+  });
 }
