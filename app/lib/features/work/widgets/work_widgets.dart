@@ -304,31 +304,41 @@ class WorkStateContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isLoading) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 48),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const AppLoading(),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              loadingLabel,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
+      return SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const AppLoading(),
+                const SizedBox(height: AppSpacing.md),
+                Text(
+                  loadingLabel,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       );
     }
     if (error != null) {
       final info = describeError(error!);
-      return AppErrorState(
-        title: info.title,
-        message: info.message,
-        isForbidden: info.isForbidden,
-        onRetry: info.isForbidden ? null : onRetry,
+      return SingleChildScrollView(
+        physics: const ClampingScrollPhysics(),
+        child: Center(
+          child: AppErrorState(
+            title: info.title,
+            message: info.message,
+            isForbidden: info.isForbidden,
+            onRetry: info.isForbidden ? null : onRetry,
+          ),
+        ),
       );
     }
     return child;

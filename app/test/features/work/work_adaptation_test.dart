@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:worktodo_app/core/auth/auth_state.dart';
+import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/work/screens/work_calendar_screen.dart';
 import 'package:worktodo_app/features/work/screens/work_chat_extract_screen.dart';
 import 'package:worktodo_app/features/work/screens/work_kanban_screen.dart';
@@ -64,4 +65,22 @@ void main() {
       await tester.pumpAndSettle();
     });
   }
+
+  testWidgets('矮屏横屏画布（800x600）工作台展示错误状态或空状态无布局溢出', (tester) async {
+    tester.view.physicalSize = const Size(800, 600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final brokenApi = MockWorkApi(shouldThrowNetworkError: true);
+    final harness = await WorkTestHarness.create(api: brokenApi);
+
+    await tester.pumpWidget(harness.wrap(
+      WorkRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byType(AppErrorState), findsOneWidget);
+  });
 }
