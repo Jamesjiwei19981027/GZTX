@@ -101,8 +101,12 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
   bool _isPhoneGate(Object error) {
     if (error is ApiException) {
       if (error.code == 40320) return true;
-      final text = '${error.message} ${error.detail ?? ''}';
+      final detail = error.detail;
+      final text = '${error.message} ${detail ?? ''}';
       return text.contains('手机') || text.contains('验证');
+    }
+    if (error is AppException) {
+      return error.message.contains('手机验证');
     }
     return false;
   }
@@ -111,20 +115,20 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
     if (_isPhoneGate(error)) {
       return '当前项目要求完成手机号实名验证后方可加入';
     }
-    if (error is ApiException) {
-      final message = error.message;
-      if (message.contains('过期')) {
-        return '该邀请链接已过期，请让项目负责人重新生成';
-      }
-      if (message.contains('无效')) {
-        return '该邀请链接已失效或已被使用';
-      }
-      if (message.contains('不匹配')) {
-        return '该邀请与当前登录账号不匹配，请使用受邀邮箱对应的账号登录';
-      }
-      if (message.contains('不存在')) {
-        return '受邀项目不存在或已被归档';
-      }
+    // 后端对无效/过期邀请返回 422（ApiClient 会转成 ValidationException），
+    // 这里按服务端文案判定，不依赖具体异常子类型
+    final message = error is AppException ? error.message : '';
+    if (message.contains('过期')) {
+      return '该邀请链接已过期，请让项目负责人重新生成';
+    }
+    if (message.contains('无效')) {
+      return '该邀请链接已失效或已被使用';
+    }
+    if (message.contains('不匹配')) {
+      return '该邀请与当前登录账号不匹配，请使用受邀邮箱对应的账号登录';
+    }
+    if (message.contains('不存在')) {
+      return '受邀项目不存在或已被归档';
     }
     return projectErrorMessage(error);
   }

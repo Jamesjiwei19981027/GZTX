@@ -229,8 +229,13 @@ class GoRouterHandle {
 
   void go(String location) => _router.router.go(location);
 
-  String get currentLocation => _router.router
-      .routerDelegate.currentConfiguration.uri.toString();
+  String get currentLocation => _router
+          .router
+          .routerDelegate
+          .currentConfiguration
+          .lastOrNull
+          ?.matchedLocation ??
+      '';
 }
 
 /// 构造一个「响应有延迟」的接口客户端，用于断言加载中状态
