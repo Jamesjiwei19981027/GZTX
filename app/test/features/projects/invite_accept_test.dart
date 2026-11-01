@@ -1,4 +1,12 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:worktodo_app/core/api/api_client.dart';
+import 'package:worktodo_app/core/api/token_storage.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/projects/screens/invite_accept_screen.dart';
@@ -133,6 +141,78 @@ void main() {
             .length,
         1,
       );
+      resetToastForTesting();
+      await tester.pump();
+    });
+
+    testWidgets('重试同步途中换了邀请令牌：旧重试的结果被丢弃，不跳走也不盖住新邀请', (tester) async {
+      final harness = ProjectsTestHarness();
+      var companiesCalls = 0;
+      final retryGate = Completer<void>();
+      Map<String, dynamic>? ok(Object? data) =>
+          {'code': 200, 'message': 'success', 'data': data};
+      final client = MockClient((request) async {
+        final path = request.url.path.replaceFirst('/api/v1', '');
+        Object? data;
+        switch ('${request.method} $path') {
+          case 'GET /users/me':
+            data = {'id': 11, 'username': 'zhangsan', 'nickname': '张三'};
+          case 'GET /companies/mine':
+            companiesCalls++;
+            // 第 1 次是启动；第 2 次是接受后同步（失败）；第 3 次是重试（挂起）
+            if (companiesCalls == 2) {
+              return http.Response('服务暂不可用', 500);
+            }
+            if (companiesCalls == 3) await retryGate.future;
+            data = {'items': [companyJson()], 'total': 1};
+          case 'GET /projects':
+            data = {'items': [projectJson()], 'total': 1};
+          case 'POST /projects/invitations/token-a/accept':
+            data = {'project_id': 11, 'role': 'member'};
+          case 'GET /projects/11':
+            data = projectJson();
+          default:
+            data = {'items': <Object>[], 'total': 0};
+        }
+        return http.Response(
+          jsonEncode(ok(data)),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      });
+      SharedPreferences.setMockInitialValues({});
+      harness.authState = AuthState(
+        apiClient: ApiClient(
+          tokenStorage: InMemoryTokenStorage(access: 'mock-access-token'),
+          httpClient: client,
+          baseUrl: 'http://localhost:8010/api/v1',
+        ),
+      );
+      await harness.authState.bootstrap();
+
+      final router = await harness.pumpApp(
+        tester,
+        location: '/projects/invite/accept?token=token-a',
+      );
+      await tester.tap(find.text('接受并进入项目'));
+      await tester.pumpAndSettle();
+      expect(find.text('重试同步工作区'), findsOneWidget);
+
+      // 点重试后请求挂起，此时打开另一条邀请链接
+      await tester.tap(find.text('重试同步工作区'));
+      await tester.pump();
+      router.go('/projects/invite/accept?token=token-b');
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('接受并进入项目'), findsOneWidget);
+
+      // 旧重试此时才返回成功：不得把新邀请页跳到 A 的团队页
+      retryGate.complete();
+      await tester.pumpAndSettle();
+
+      expect(router.currentLocation, '/projects/invite/accept');
+      expect(find.text('接受并进入项目'), findsOneWidget);
+      expect(find.text('重试同步工作区'), findsNothing);
       resetToastForTesting();
       await tester.pump();
     });

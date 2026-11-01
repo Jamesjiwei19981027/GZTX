@@ -220,6 +220,8 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
   Future<void> _retrySync() async {
     final projectId = _joinedProjectId;
     if (projectId == null || _busy) return;
+    // 与接受流程共用序号：重试途中换了邀请令牌，旧重试的结果一律丢弃
+    final seq = _acceptSeq;
     setState(() {
       _busy = true;
       _syncMessage = null;
@@ -231,7 +233,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
       projectId: projectId,
       invitedCompanyId: _joinedCompanyId,
     );
-    if (!mounted) return;
+    if (!mounted || seq != _acceptSeq) return;
 
     setState(() {
       _busy = false;
