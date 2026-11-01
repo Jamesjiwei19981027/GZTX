@@ -1,8 +1,17 @@
 /// 工作 Tab 根页（WorkRootScreen）组件测试。
 library;
 
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:provider/provider.dart';
+import 'package:worktodo_app/core/api/api_client.dart';
+import 'package:worktodo_app/core/api/token_storage.dart';
+import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/work/screens/work_root_screen.dart';
 import 'package:worktodo_app/features/work/widgets/work_home_sections.dart';
@@ -10,6 +19,48 @@ import 'package:worktodo_app/features/work/widgets/work_trend_card.dart';
 import 'package:worktodo_app/features/work/widgets/work_widgets.dart';
 
 import 'work_test_fixtures.dart';
+
+class _DelayedTokensStorage implements TokenStorage {
+  final Completer<void> _ready = Completer<void>();
+  String? _access;
+  String? _refresh;
+  int clears = 0;
+
+  @override
+  String? get accessToken => _access;
+
+  @override
+  String? get refreshToken => _refresh;
+
+  @override
+  bool get hasAccess => _access != null;
+
+  void completeInit() {
+    _access = 'saved-access';
+    _refresh = 'saved-refresh';
+    if (!_ready.isCompleted) {
+      _ready.complete();
+    }
+  }
+
+  @override
+  Future<void> init() async {
+    await _ready.future;
+  }
+
+  @override
+  Future<void> save({required String access, String? refresh}) async {
+    _access = access;
+    _refresh = refresh;
+  }
+
+  @override
+  Future<void> clear() async {
+    clears++;
+    _access = null;
+    _refresh = null;
+  }
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -130,5 +181,102 @@ void main() {
 
     // 消化 Toast 定时器
     await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('启动时登录态初始化未完成时不提前加载，待认证成功后才加载工作台', (tester) async {
+    final tokens = _DelayedTokensStorage();
+    final requests = <http.Request>[];
+    final client = ApiClient(
+      tokenStorage: tokens,
+      baseUrl: 'https://example.test/api/v1',
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path.endsWith('/users/me')) {
+          return http.Response(
+            jsonEncode({
+              'code': 200,
+              'data': {'id': 1, 'username': 'test', 'nickname': '测试员'},
+            }),
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/companies/mine')) {
+          return http.Response(
+            jsonEncode({
+              'code': 200,
+              'data': {
+                'items': [
+                  {'id': 1, 'name': '测试公司', 'role': 'owner'}
+                ]
+              },
+            }),
+            200,
+          );
+        }
+        if (request.url.path.endsWith('/projects')) {
+          return http.Response(
+            jsonEncode({
+              'code': 200,
+              'data': {
+                'items': [
+                  {'id': 10, 'name': '测试项目', 'company_id': 1}
+                ]
+              },
+            }),
+            200,
+          );
+        }
+        if (request.url.path.contains('/tasks')) {
+          return http.Response(
+            jsonEncode({
+              'code': 200,
+              'data': {
+                'items': [],
+                'total': 0,
+                'page': 1,
+                'page_size': 100,
+                'total_pages': 0,
+              },
+            }),
+            200,
+          );
+        }
+        if (request.url.path.contains('/tree')) {
+          return http.Response(
+            jsonEncode({
+              'code': 200,
+              'data': {'nodes': []},
+            }),
+            200,
+          );
+        }
+        return http.Response(jsonEncode({'detail': 'Not found'}), 404);
+      }),
+    );
+
+    final auth = AuthState(apiClient: client);
+    final boot = auth.bootstrap();
+    expect(auth.status, AuthStatus.authenticating);
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<AuthState>.value(
+        value: auth,
+        child: const MaterialApp(home: WorkRootScreen()),
+      ),
+    );
+    await tester.pump();
+
+    // 在认证初始化阶段，尚未发出 /tasks 请求
+    expect(requests.where((r) => r.url.path.contains('/tasks')), isEmpty);
+    expect(tokens.clears, 0);
+
+    // 完成 token 初始化
+    tokens.completeInit();
+    await boot;
+    await tester.pumpAndSettle();
+
+    // bootstrap 完成后才发出工作台请求
+    expect(requests.where((r) => r.url.path.contains('/tasks')), isNotEmpty);
+    expect(tokens.clears, 0);
   });
 }

@@ -34,6 +34,8 @@ class WorkRootScreen extends StatefulWidget {
 
 class _WorkRootScreenState extends State<WorkRootScreen> {
   AuthState? _auth;
+  AuthStatus? _lastAuthStatus;
+  int? _observedProjectId;
   bool _bootstrapped = false;
 
   List<WorkTask> _tasks = const [];
@@ -49,15 +51,71 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
       DateTime(DateTime.now().year, DateTime.now().month);
   int _reloadToken = 0;
 
-  WorkApi get _api => widget.api ?? WorkApi(context.read<AuthState>().api);
+  WorkApi get _api {
+    if (widget.api != null) return widget.api!;
+    final auth = _auth ?? _tryReadAuth();
+    if (auth != null) return WorkApi(auth.api);
+    return WorkApi(context.read<AuthState>().api);
+  }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_bootstrapped) return;
-    _bootstrapped = true;
-    _auth = widget.authState ?? _tryReadAuth();
-    _loadAll();
+    final auth = widget.authState ?? _tryReadAuth();
+    if (_auth != auth) {
+      _auth?.removeListener(_onAuthChanged);
+      _auth = auth;
+      _auth?.addListener(_onAuthChanged);
+    }
+    _checkAndLoad();
+  }
+
+  @override
+  void dispose() {
+    _auth?.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  void _onAuthChanged() {
+    _checkAndLoad();
+  }
+
+  void _checkAndLoad() {
+    final auth = _auth;
+    if (auth != null) {
+      if (auth.status == AuthStatus.authenticating) {
+        // 登录态正在初始化中，绝不发起请求，避免 401 冲刷本地 token
+        return;
+      }
+      if (auth.status != AuthStatus.authenticated) {
+        if (_loading || _progressLoading) {
+          setState(() {
+            _loading = false;
+            _progressLoading = false;
+          });
+        }
+        return;
+      }
+
+      final currentProjectId = auth.currentProject?.id;
+      final statusChanged = _lastAuthStatus != auth.status;
+      final projectChanged = _observedProjectId != currentProjectId;
+      _lastAuthStatus = auth.status;
+      _observedProjectId = currentProjectId;
+
+      if (!_bootstrapped || statusChanged) {
+        _bootstrapped = true;
+        _loadAll();
+      } else if (projectChanged) {
+        _loadAll();
+      }
+      return;
+    }
+
+    if (!_bootstrapped) {
+      _bootstrapped = true;
+      _loadAll();
+    }
   }
 
   AuthState? _tryReadAuth() {
