@@ -112,6 +112,7 @@ void main() {
 
     // 验证 API 被调用，模式自动退出
     expect(find.text('批量操作'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
   });
 
   testWidgets('网络异常时显示错误状态并可点击重试', (tester) async {
@@ -252,5 +253,52 @@ void main() {
     final task102 = harness.api.tasks.firstWhere((t) => t.id == 102);
     expect(task102.dueDate, TaskTime.todayKey());
     expect(task102.dueTime, '23:30');
+  });
+
+  testWidgets('批量完成处理被跳过的只读任务并弹出未完成明确提示', (tester) async {
+    final harness = await WorkTestHarness.create();
+    harness.api.tasks = [
+      WorkTask.fromJson(buildTaskJson(
+        id: 901,
+        title: '可编辑项目任务',
+        projectId: 1,
+        origin: 'project_link',
+        linkedReadonly: false,
+      )),
+      WorkTask.fromJson(buildTaskJson(
+        id: 902,
+        title: '只读投影项目任务',
+        projectId: 1,
+        origin: 'project_link',
+        linkedReadonly: true,
+      )),
+    ];
+
+    await tester.pumpWidget(harness.wrap(
+      WorkTasksScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+
+    // 进入批量模式
+    await tester.tap(find.text('批量操作'));
+    await tester.pumpAndSettle();
+
+    // 点击全选本页（选中 901 和 902）
+    await tester.tap(find.text('全选本页'));
+    await tester.pumpAndSettle();
+
+    // 点击批量完成
+    final completeBtn = find.text('完成');
+    await tester.tap(completeBtn.last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 验证提示跳过信息
+    expect(find.text('1 项为只读投影任务未完成'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+
+    // 验证普通任务完成，只读任务未被标记为完成
+    expect(harness.api.tasks.firstWhere((t) => t.id == 901).status, 2);
+    expect(harness.api.tasks.firstWhere((t) => t.id == 902).status, 0);
   });
 }

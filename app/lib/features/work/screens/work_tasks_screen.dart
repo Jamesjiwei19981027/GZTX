@@ -184,8 +184,34 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     }
   }
 
-  Future<void> _batchComplete() =>
-      _runBatch(() => _api.batchComplete(_selected.toList()));
+  Future<void> _batchComplete() async {
+    final total = _selected.length;
+    if (total == 0) return;
+    setState(() => _busy = true);
+    try {
+      final completed = await _api.batchComplete(_selected.toList());
+      if (!mounted) return;
+      final skipped = total - completed;
+      setState(() {
+        _busy = false;
+        _batchMode = false;
+        _selected.clear();
+      });
+      await _load();
+      if (!mounted) return;
+      if (skipped > 0) {
+        showAppToast(
+          context,
+          '$skipped 项为只读投影任务未完成',
+          type: ToastType.warning,
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      showAppToast(context, describeError(error).message, type: ToastType.error);
+    }
+  }
 
   Future<void> _batchDelete() async {
     final confirmed = await showAppConfirmDialog(

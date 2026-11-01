@@ -37,7 +37,7 @@ Map<String, dynamic> buildTaskJson({
   int? companyId,
   int? projectId,
   int? projectNodeId,
-  bool linkedReadonly = true,
+  bool linkedReadonly = false,
   bool isDeleted = false,
   String? deletedAt,
 }) {
@@ -487,8 +487,10 @@ class MockWorkApi extends Fake implements WorkApi {
     for (final id in ids) {
       final index = tasks.indexWhere((t) => t.id == id);
       if (index >= 0) {
-        tasks[index] = tasks[index].copyWith(status: 2);
-        count++;
+        if (!tasks[index].linkedReadonly) {
+          tasks[index] = tasks[index].copyWith(status: 2);
+          count++;
+        }
       }
     }
     return count;
