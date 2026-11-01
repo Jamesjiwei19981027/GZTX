@@ -421,7 +421,16 @@ class ReportsTestHarness {
     );
   }
 
-  Widget withProvider(
+  /// 专供 golden 使用：不包含外层 MaterialApp，由 testAdaptiveGolden 统一提供
+  Widget withProvider(Widget child) {
+    return ChangeNotifierProvider<AuthState>.value(
+      value: authState,
+      child: child,
+    );
+  }
+
+  /// 供组件交互与路由流转测试使用：提供完整的路由环境
+  Widget wrapRouted(
     Widget child, {
     ThemeMode themeMode = ThemeMode.light,
     Locale locale = const Locale('zh', 'CN'),

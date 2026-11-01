@@ -19,7 +19,7 @@ void main() {
     final harness = await ReportsTestHarness.create();
     await ResponsiveChecker.checkAdaptiveLayout(
       tester: tester,
-      widget: harness.withProvider(
+      widget: harness.wrapRouted(
         ReportHubScreen(
           api: harness.api,
           projectId: ReportsTestFixtures.projectId,
@@ -34,7 +34,7 @@ void main() {
     final harness = await ReportsTestHarness.create();
     await ResponsiveChecker.checkAdaptiveLayout(
       tester: tester,
-      widget: harness.withProvider(
+      widget: harness.wrapRouted(
         AgentChatScreen(
           api: harness.api,
           projectId: ReportsTestFixtures.projectId,
@@ -50,7 +50,7 @@ void main() {
     final harness = await ReportsTestHarness.create();
     await ResponsiveChecker.checkAdaptiveLayout(
       tester: tester,
-      widget: harness.withProvider(
+      widget: harness.wrapRouted(
         ReportEditorScreen(
           api: harness.api,
           userId: ReportsTestFixtures.currentUserId,
@@ -67,7 +67,7 @@ void main() {
     final harness = await ReportsTestHarness.create();
     await ResponsiveChecker.checkAdaptiveLayout(
       tester: tester,
-      widget: harness.withProvider(
+      widget: harness.wrapRouted(
         ReportDetailScreen(
           api: harness.api,
           projectId: ReportsTestFixtures.projectId,
@@ -83,7 +83,7 @@ void main() {
     final harness = await ReportsTestHarness.create();
     await ResponsiveChecker.checkAdaptiveLayout(
       tester: tester,
-      widget: harness.withProvider(
+      widget: harness.wrapRouted(
         ReportDetailScreen(
           api: harness.api,
           projectId: ReportsTestFixtures.projectId,
@@ -99,7 +99,7 @@ void main() {
     final harness = await ReportsTestHarness.create();
     await ResponsiveChecker.checkAdaptiveLayout(
       tester: tester,
-      widget: harness.withProvider(
+      widget: harness.wrapRouted(
         ReportInboxScreen(
           api: harness.api,
           userId: ReportsTestFixtures.supervisorUserId,
@@ -115,7 +115,7 @@ void main() {
     final harness = await ReportsTestHarness.create();
     await ResponsiveChecker.checkAdaptiveLayout(
       tester: tester,
-      widget: harness.withProvider(
+      widget: harness.wrapRouted(
         ProjectReportScreen(
           api: harness.api,
           projectId: ReportsTestFixtures.projectId,
@@ -130,7 +130,7 @@ void main() {
     final harness = await ReportsTestHarness.create();
     await ResponsiveChecker.checkAdaptiveLayout(
       tester: tester,
-      widget: harness.withProvider(
+      widget: harness.wrapRouted(
         ProjectReportScreen(
           api: harness.api,
           projectId: ReportsTestFixtures.projectId,
@@ -145,7 +145,7 @@ void main() {
     final harness = await ReportsTestHarness.create();
     await ResponsiveChecker.checkAdaptiveLayout(
       tester: tester,
-      widget: harness.withProvider(
+      widget: harness.wrapRouted(
         LeadershipReportScreen(
           api: harness.api,
           companyId: ReportsTestFixtures.companyId,
@@ -158,7 +158,7 @@ void main() {
     final harness = await ReportsTestHarness.create();
     await ResponsiveChecker.checkAdaptiveLayout(
       tester: tester,
-      widget: harness.withProvider(
+      widget: harness.wrapRouted(
         ReportReviewScreen(
           api: harness.api,
           projectId: ReportsTestFixtures.projectId,

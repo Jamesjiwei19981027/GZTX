@@ -20,7 +20,7 @@ void main() {
     testWidgets('未选项目时展示选择项目提示与空状态', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           AgentChatScreen(
             api: harness.api,
             projectId: 0,
@@ -39,7 +39,7 @@ void main() {
     testWidgets('选定项目后展示隔离提示，并可发送对话接收回复', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           AgentChatScreen(
             api: harness.api,
             projectId: ReportsTestFixtures.projectId,
@@ -126,7 +126,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ReportEditorScreen(
             api: harness.api,
             userId: ReportsTestFixtures.currentUserId,
@@ -161,7 +161,7 @@ void main() {
       );
 
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ReportEditorScreen(
             api: harness.api,
             userId: ReportsTestFixtures.currentUserId,
@@ -197,7 +197,7 @@ void main() {
     testWidgets('submitted 模式展示送达流转与 G01 暂不可确认回执', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ReportDetailScreen(
             api: harness.api,
             projectId: ReportsTestFixtures.projectId,
@@ -219,7 +219,7 @@ void main() {
     testWidgets('detail 模式展示汇报内容、快照与来源证据', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ReportDetailScreen(
             api: harness.api,
             projectId: ReportsTestFixtures.projectId,
@@ -240,7 +240,7 @@ void main() {
     testWidgets('history 模式展示汇报列表与状态筛选', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ReportDetailScreen(
             api: harness.api,
             projectId: ReportsTestFixtures.projectId,
@@ -262,7 +262,7 @@ void main() {
     testWidgets('收件箱展示未读红点，点击标记已读', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ReportInboxScreen(
             api: harness.api,
             userId: ReportsTestFixtures.supervisorUserId, // 领导视角查阅直属下属汇报
@@ -300,7 +300,7 @@ void main() {
     testWidgets('followup 模式展示审阅内容与跟进建议', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ReportReviewScreen(
             api: harness.api,
             projectId: ReportsTestFixtures.projectId,
@@ -319,7 +319,7 @@ void main() {
     testWidgets('conflict 模式展示资料差异与冲突项', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ReportReviewScreen(
             api: harness.api,
             projectId: ReportsTestFixtures.projectId,
@@ -337,7 +337,7 @@ void main() {
     testWidgets('bindings 模式展示汇报智能体绑定与同步操作', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ReportReviewScreen(
             api: harness.api,
             projectId: ReportsTestFixtures.projectId,
@@ -365,7 +365,7 @@ void main() {
     testWidgets('contrast 模式展示完成情况与对照', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ProjectReportScreen(
             api: harness.api,
             projectId: ReportsTestFixtures.projectId,
@@ -389,7 +389,7 @@ void main() {
 
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ProjectReportScreen(
             api: harness.api,
             projectId: ReportsTestFixtures.projectId,
@@ -414,7 +414,7 @@ void main() {
     testWidgets('展示企业最新汇报并支持重新汇总', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           LeadershipReportScreen(
             api: harness.api,
             companyId: ReportsTestFixtures.companyId,
@@ -444,7 +444,7 @@ void main() {
 
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(
-        harness.withProvider(
+        harness.wrapRouted(
           ReportHubScreen(
             api: harness.api,
             projectId: ReportsTestFixtures.projectId,
