@@ -121,6 +121,27 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('深链进入详情（不带 projectId）时通过人轴总览反查项目', (tester) async {
+    final harness = await AxisTestHarness.create();
+    tester.view.physicalSize = const Size(430, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(resetToastForTesting);
+    await tester.pumpWidget(harness.wrap(
+      AxisNodeDetailScreen(nodeId: 102, api: harness.api),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('林悦 · 责任详情'), findsOneWidget);
+    expect(
+      harness.helper.history.any(
+        (r) => r.url.path == '/api/v1/users/me/people-axis',
+      ),
+      isTrue,
+    );
+  });
+
   testWidgets('事项详情显示所属人员与进度入口', (tester) async {
     final harness = await AxisTestHarness.create();
     await pumpDetail(tester, harness, nodeId: 201);

@@ -203,6 +203,31 @@ class AxisTestHarness {
         },
       };
 
+  /// `/users/me/people-axis` 返回的是扁平节点列表（后端 shell.py 口径），
+  /// 与人树接口的嵌套结构不同。
+  static List<Map<String, dynamic>> flatten(
+    List<Map<String, dynamic>> roots,
+  ) {
+    final out = <Map<String, dynamic>>[];
+    void walk(Map<String, dynamic> node) {
+      out.add({
+        ...node,
+        'children': <Map<String, dynamic>>[],
+      });
+      final children = node['children'];
+      if (children is List) {
+        for (final child in children) {
+          if (child is Map) walk(Map<String, dynamic>.from(child));
+        }
+      }
+    }
+
+    for (final root in roots) {
+      walk(root);
+    }
+    return out;
+  }
+
   static Map<String, dynamic> projectJson({int id = projectId, String name = '责任树联合调试'}) => {
         'id': id,
         'name': name,
@@ -469,7 +494,7 @@ class AxisTestHarness {
             'project_name': '责任树联合调试',
             'company_id': 1,
             'pm_user_id': pmUserId,
-            'nodes': tree ?? defaultTree(),
+            'nodes': flatten(tree ?? defaultTree()),
           }
         ],
       });
