@@ -180,6 +180,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
     final isDark = isDarkMode(context);
     final selected = controller.themeMode == mode;
     return GestureDetector(
+      key: Key('me-theme-${mode.storageValue}'),
       onTap: _saving ? null : () => _applyTheme(mode),
       behavior: HitTestBehavior.opaque,
       child: Container(
@@ -254,6 +255,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
     final selected = controller.textScale == scale;
     final isDark = isDarkMode(context);
     return InkWell(
+      key: Key('me-scale-${scale ?? 'system'}'),
       onTap: _saving ? null : () => _applyTextScale(scale),
       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: Padding(

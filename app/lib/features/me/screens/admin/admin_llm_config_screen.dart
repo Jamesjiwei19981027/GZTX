@@ -303,12 +303,14 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                             helper: '留空则使用提供商官方接口地址',
                           ),
                           AppTextField(
+                            key: const Key('admin-llm-base-url'),
                             controller: _baseUrlController,
                             placeholder: 'https://api.openai.com/v1',
                           ),
                           const SizedBox(height: AppSpacing.md),
                           const MeFieldLabel(label: '调用模型名称', required: true),
                           AppTextField(
+                            key: const Key('admin-llm-model'),
                             controller: _modelController,
                             placeholder: 'gpt-4o / deepseek-chat',
                           ),
@@ -320,6 +322,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                                 : '请输入提供商 API Key',
                           ),
                           AppTextField(
+                            key: const Key('admin-llm-api-key'),
                             controller: _apiKeyController,
                             placeholder: _config.hasApiKey ? 'sk-••••••••' : 'sk-...',
                             obscureText: true,

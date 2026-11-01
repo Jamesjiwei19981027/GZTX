@@ -233,6 +233,7 @@ class _MeProfileScreenState extends State<MeProfileScreen> {
                           children: [
                             const MeFieldLabel(label: '姓名 / 昵称', required: true),
                             AppTextField(
+                              key: const Key('me-profile-nickname'),
                               controller: _nicknameController,
                               placeholder: '请输入您的姓名',
                               onChanged: (_) => setState(() {}),

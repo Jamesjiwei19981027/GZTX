@@ -317,6 +317,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
                 children: [
                   const MeFieldLabel(label: '开始静音', required: true),
                   AppTextField(
+                    key: const Key('me-notify-quiet-start'),
                     controller: _startController,
                     placeholder: '22:00',
                     keyboardType: TextInputType.datetime,
@@ -332,6 +333,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
                 children: [
                   const MeFieldLabel(label: '恢复提醒', required: true),
                   AppTextField(
+                    key: const Key('me-notify-quiet-end'),
                     controller: _endController,
                     placeholder: '08:00',
                     keyboardType: TextInputType.datetime,
@@ -368,26 +370,18 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
       title: '测试发送与记录',
       footer: '测试发送会真实调用后端渠道，并写入「通知发送记录」。',
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: AppButton(
-                label: '测试邮件',
-                variant: AppButtonVariant.secondary,
-                icon: const AppIcon('mail', size: 15),
-                onPressed: _testing ? null : () => _sendTest('email'),
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Expanded(
-              child: AppButton(
-                label: '测试推送',
-                variant: AppButtonVariant.secondary,
-                icon: const AppIcon('bell', size: 15),
-                onPressed: _testing ? null : () => _sendTest('webpush'),
-              ),
-            ),
-          ],
+        AppButton(
+          label: '发送测试邮件',
+          variant: AppButtonVariant.secondary,
+          isFullWidth: true,
+          onPressed: _testing ? null : () => _sendTest('email'),
+        ),
+        const SizedBox(height: AppSpacing.sm),
+        AppButton(
+          label: '发送测试推送',
+          variant: AppButtonVariant.secondary,
+          isFullWidth: true,
+          onPressed: _testing ? null : () => _sendTest('webpush'),
         ),
         const SizedBox(height: AppSpacing.sm),
         AppButton(

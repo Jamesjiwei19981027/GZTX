@@ -220,6 +220,7 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
                         children: [
                           const MeFieldLabel(label: 'SMTP 服务器地址', required: true),
                           AppTextField(
+                            key: const Key('admin-smtp-host'),
                             controller: _hostController,
                             placeholder: 'smtp.example.com',
                           ),
@@ -235,6 +236,7 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
                                       required: true,
                                     ),
                                     AppTextField(
+                                      key: const Key('admin-smtp-port'),
                                       controller: _portController,
                                       placeholder: '465 / 587',
                                       keyboardType: TextInputType.number,
@@ -266,12 +268,14 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
                             required: true,
                           ),
                           AppTextField(
+                            key: const Key('admin-smtp-user'),
                             controller: _userController,
                             placeholder: 'notifications@example.com',
                           ),
                           const SizedBox(height: AppSpacing.md),
                           const MeFieldLabel(label: '发件人显示地址'),
                           AppTextField(
+                            key: const Key('admin-smtp-from'),
                             controller: _fromController,
                             placeholder: 'worktodo-noreply@example.com',
                           ),
@@ -283,6 +287,7 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
                                 : '请输入第三方邮箱授权密码',
                           ),
                           AppTextField(
+                            key: const Key('admin-smtp-password'),
                             controller: _passwordController,
                             placeholder:
                                 _config.hasPassword ? '••••••••••••' : '请输入密码或授权码',
@@ -301,7 +306,7 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           AppButton(
-                            label: '保存 SMTP 配置',
+                            label: '保存配置',
                             isFullWidth: true,
                             size: AppButtonSize.lg,
                             isLoading: _saving,

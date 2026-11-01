@@ -131,198 +131,28 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
 
   Future<void> _openBindSheet(String channel) async {
     final isEmail = channel == 'email';
-    final targetController = TextEditingController(
-      text: isEmail
-          ? (_verification?.email ?? '').trim()
-          : (_verification?.phone ?? '').trim(),
-    );
-    final codeController = TextEditingController();
-    var sending = false;
-    var confirming = false;
-    var cooldown = 0;
-    String? sheetError;
-    String? sheetSuccess;
-    Timer? timer;
-
     final callerTheme = Theme.of(context);
     final callerCupertino = CupertinoTheme.of(context);
+    final initialTarget = isEmail
+        ? (_verification?.email ?? '').trim()
+        : (_verification?.phone ?? '').trim();
 
-    await showAppBottomSheet<void>(
+    final updated = await showAppBottomSheet<MeVerificationStatus>(
       context: context,
       title: isEmail ? '绑定/验证邮箱' : '绑定/验证手机',
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            Future<void> sendCode() async {
-              final target = targetController.text.trim();
-              if (target.isEmpty) {
-                setSheetState(() => sheetError = '请输入有效的手机号或邮箱');
-                return;
-              }
-              setSheetState(() {
-                sending = true;
-                sheetError = null;
-              });
-              try {
-                final result = await _api.sendBindCode(
-                  channel: channel,
-                  target: target,
-                );
-                if (!context.mounted) return;
-                timer?.cancel();
-                timer = Timer.periodic(const Duration(seconds: 1), (t) {
-                  if (!context.mounted) {
-                    t.cancel();
-                    return;
-                  }
-                  setSheetState(() {
-                    cooldown = (cooldown - 1).clamp(0, 600);
-                    if (cooldown == 0) t.cancel();
-                  });
-                });
-                setSheetState(() {
-                  sending = false;
-                  cooldown = result.cooldownSeconds;
-                  sheetSuccess = '验证码已发送至 $target';
-                });
-              } catch (e) {
-                if (!context.mounted) return;
-                setSheetState(() {
-                  sending = false;
-                  sheetError = meErrorMessage(e);
-                });
-              }
-            }
-
-            Future<void> confirm() async {
-              final target = targetController.text.trim();
-              final code = codeController.text.trim();
-              if (target.isEmpty || code.isEmpty) {
-                setSheetState(() => sheetError = '请输入完整的目标与验证码');
-                return;
-              }
-              setSheetState(() {
-                confirming = true;
-                sheetError = null;
-              });
-              try {
-                final updated = await _api.confirmBindCode(
-                  channel: channel,
-                  target: target,
-                  code: code,
-                );
-                if (!context.mounted) return;
-                setSheetState(() {
-                  confirming = false;
-                  sheetSuccess = '绑定验证成功';
-                });
-                if (!mounted) return;
-                setState(() {
-                  _verification = updated;
-                  _successMessage = '绑定验证成功';
-                });
-                timer?.cancel();
-                Navigator.of(context).pop();
-              } catch (e) {
-                if (!context.mounted) return;
-                setSheetState(() {
-                  confirming = false;
-                  sheetError = meErrorMessage(e);
-                });
-              }
-            }
-
-            return Theme(
-              data: callerTheme,
-              child: CupertinoTheme(
-                data: callerCupertino,
-                child: Material(
-                  color: Colors.transparent,
-                  child: Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      AppSpacing.pageHorizontal,
-                      AppSpacing.sm,
-                      AppSpacing.pageHorizontal,
-                      AppSpacing.lg +
-                          MediaQuery.viewInsetsOf(context).bottom,
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        MeFieldLabel(
-                          label: isEmail ? '邮箱地址' : '手机号',
-                          required: true,
-                        ),
-                        AppTextField(
-                          controller: targetController,
-                          placeholder: isEmail ? 'name@company.com' : '13800000000',
-                          keyboardType: isEmail
-                              ? TextInputType.emailAddress
-                              : TextInputType.phone,
-                          onChanged: (_) => setSheetState(() {}),
-                        ),
-                        const SizedBox(height: AppSpacing.md),
-                        const MeFieldLabel(label: '验证码', required: true),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: AppTextField(
-                                controller: codeController,
-                                placeholder: '6 位数字验证码',
-                                keyboardType: TextInputType.number,
-                                onChanged: (_) => setSheetState(() {}),
-                              ),
-                            ),
-                            const SizedBox(width: AppSpacing.sm),
-                            MeInlineButton(
-                              label: cooldown > 0
-                                  ? '${cooldown}s'
-                                  : (sending ? '发送中…' : '获取验证码'),
-                              isLoading: sending,
-                              onPressed: cooldown > 0 || sending
-                                  ? null
-                                  : () => unawaited(sendCode()),
-                            ),
-                          ],
-                        ),
-                        if (sheetError != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: AppSpacing.md),
-                            child: MeBanner(
-                              message: sheetError!,
-                              tone: MeTone.danger,
-                            ),
-                          ),
-                        if (sheetSuccess != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: AppSpacing.md),
-                            child: MeBanner(
-                              message: sheetSuccess!,
-                              tone: MeTone.success,
-                            ),
-                          ),
-                        const SizedBox(height: AppSpacing.md),
-                        AppButton(
-                          label: '确认绑定',
-                          isFullWidth: true,
-                          isLoading: confirming,
-                          onPressed:
-                              confirming ? null : () => unawaited(confirm()),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
+      builder: (sheetContext) => _MeBindSheet(
+        api: _api,
+        channel: channel,
+        initialTarget: initialTarget,
+        theme: callerTheme,
+        cupertinoTheme: callerCupertino,
+      ),
     );
-    timer?.cancel();
-    targetController.dispose();
-    codeController.dispose();
+    if (updated == null || !mounted) return;
+    setState(() {
+      _verification = updated;
+      _successMessage = '绑定验证成功';
+    });
   }
 
   @override
@@ -377,6 +207,7 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
       children: [
         const MeFieldLabel(label: '当前原密码', required: true),
         AppTextField(
+          key: const Key('me-security-old-password'),
           controller: _oldPasswordController,
           placeholder: '请输入原密码',
           obscureText: !_showPassword,
@@ -390,6 +221,7 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
           helper: '至少 6 位字符，推荐包含数字和英文字母',
         ),
         AppTextField(
+          key: const Key('me-security-new-password'),
           controller: _newPasswordController,
           placeholder: '请输入新密码',
           obscureText: !_showPassword,
@@ -399,6 +231,7 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
         const SizedBox(height: AppSpacing.md),
         const MeFieldLabel(label: '确认新密码', required: true),
         AppTextField(
+          key: const Key('me-security-confirm-password'),
           controller: _confirmPasswordController,
           placeholder: '请再次输入新密码',
           obscureText: !_showPassword,
@@ -581,3 +414,203 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
   }
 }
 
+
+/// 绑定 / 验证邮箱或手机的底部面板（自持控制器，随面板销毁释放）
+class _MeBindSheet extends StatefulWidget {
+  const _MeBindSheet({
+    required this.api,
+    required this.channel,
+    required this.initialTarget,
+    required this.theme,
+    required this.cupertinoTheme,
+  });
+
+  final MeApi api;
+  final String channel;
+  final String initialTarget;
+  final ThemeData theme;
+  final CupertinoThemeData cupertinoTheme;
+
+  @override
+  State<_MeBindSheet> createState() => _MeBindSheetState();
+}
+
+class _MeBindSheetState extends State<_MeBindSheet> {
+  late final TextEditingController _targetController;
+  final _codeController = TextEditingController();
+  Timer? _timer;
+  bool _sending = false;
+  bool _confirming = false;
+  int _cooldown = 0;
+  String? _error;
+  String? _success;
+
+  bool get _isEmail => widget.channel == 'email';
+
+  @override
+  void initState() {
+    super.initState();
+    _targetController = TextEditingController(text: widget.initialTarget);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _targetController.dispose();
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _sendCode() async {
+    final target = _targetController.text.trim();
+    if (target.isEmpty) {
+      setState(() => _error = '请输入有效的手机号或邮箱');
+      return;
+    }
+    setState(() {
+      _sending = true;
+      _error = null;
+      _success = null;
+    });
+    try {
+      final result = await widget.api.sendBindCode(
+        channel: widget.channel,
+        target: target,
+      );
+      if (!mounted) return;
+      _timer?.cancel();
+      setState(() {
+        _sending = false;
+        _cooldown = result.cooldownSeconds;
+        _success = '验证码已发送至 $target';
+      });
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted) {
+          timer.cancel();
+          return;
+        }
+        setState(() {
+          _cooldown = (_cooldown - 1).clamp(0, 600);
+          if (_cooldown == 0) timer.cancel();
+        });
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _sending = false;
+        _error = meErrorMessage(e);
+      });
+    }
+  }
+
+  Future<void> _confirm() async {
+    final target = _targetController.text.trim();
+    final code = _codeController.text.trim();
+    if (target.isEmpty || code.isEmpty) {
+      setState(() => _error = '请输入完整的目标与验证码');
+      return;
+    }
+    setState(() {
+      _confirming = true;
+      _error = null;
+    });
+    try {
+      final updated = await widget.api.confirmBindCode(
+        channel: widget.channel,
+        target: target,
+        code: code,
+      );
+      if (!mounted) return;
+      _timer?.cancel();
+      Navigator.of(context).pop(updated);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _confirming = false;
+        _error = meErrorMessage(e);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Theme(
+      data: widget.theme,
+      child: CupertinoTheme(
+        data: widget.cupertinoTheme,
+        child: Material(
+          color: Colors.transparent,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.pageHorizontal,
+              AppSpacing.sm,
+              AppSpacing.pageHorizontal,
+              AppSpacing.lg + MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MeFieldLabel(
+                  label: _isEmail ? '邮箱地址' : '手机号',
+                  required: true,
+                ),
+                AppTextField(
+                  key: const Key('me-bind-target'),
+                  controller: _targetController,
+                  placeholder: _isEmail ? 'name@company.com' : '13800000000',
+                  keyboardType: _isEmail
+                      ? TextInputType.emailAddress
+                      : TextInputType.phone,
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: AppSpacing.md),
+                const MeFieldLabel(label: '验证码', required: true),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppTextField(
+                        key: const Key('me-bind-code'),
+                        controller: _codeController,
+                        placeholder: '6 位数字验证码',
+                        keyboardType: TextInputType.number,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    MeInlineButton(
+                      key: const Key('me-bind-send'),
+                      label: _cooldown > 0
+                          ? '${_cooldown}s'
+                          : (_sending ? '发送中…' : '获取验证码'),
+                      isLoading: _sending,
+                      onPressed: _cooldown > 0 || _sending ? null : _sendCode,
+                    ),
+                  ],
+                ),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.md),
+                    child: MeBanner(message: _error!, tone: MeTone.danger),
+                  ),
+                if (_success != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.md),
+                    child: MeBanner(message: _success!, tone: MeTone.success),
+                  ),
+                const SizedBox(height: AppSpacing.md),
+                AppButton(
+                  key: const Key('me-bind-confirm'),
+                  label: '确认绑定',
+                  isFullWidth: true,
+                  isLoading: _confirming,
+                  onPressed: _confirming ? null : _confirm,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

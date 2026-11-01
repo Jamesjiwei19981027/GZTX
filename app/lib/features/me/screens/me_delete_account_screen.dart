@@ -260,6 +260,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                             required: true,
                           ),
                           AppTextField(
+                            key: const Key('me-delete-password'),
                             controller: _passwordController,
                             placeholder: '请输入密码进行身份核验',
                             obscureText: true,
@@ -272,6 +273,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                             helper: '必须输入大写字母 $meDeleteKeyword 确认',
                           ),
                           AppTextField(
+                            key: const Key('me-delete-keyword'),
                             controller: _keywordController,
                             placeholder: meDeleteKeyword,
                             onChanged: (_) => setState(() {}),

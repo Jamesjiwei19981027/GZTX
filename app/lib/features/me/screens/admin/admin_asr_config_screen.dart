@@ -229,6 +229,7 @@ class _AdminAsrConfigScreenState extends State<AdminAsrConfigScreen> {
                               required: true,
                             ),
                             AppTextField(
+                              key: const Key('admin-asr-base-url'),
                               controller: _baseUrlController,
                               placeholder: 'https://asr.example.com/v1',
                             ),
@@ -238,6 +239,7 @@ class _AdminAsrConfigScreenState extends State<AdminAsrConfigScreen> {
                               required: true,
                             ),
                             AppTextField(
+                              key: const Key('admin-asr-model'),
                               controller: _modelController,
                               placeholder: 'whisper-1',
                             ),
@@ -249,6 +251,7 @@ class _AdminAsrConfigScreenState extends State<AdminAsrConfigScreen> {
                                   : '自有服务若无需密钥可留空',
                             ),
                             AppTextField(
+                              key: const Key('admin-asr-api-key'),
                               controller: _apiKeyController,
                               placeholder:
                                   _binding.hasApiKey ? '••••••••' : 'sk-...',

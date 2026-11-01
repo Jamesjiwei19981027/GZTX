@@ -156,18 +156,19 @@ class _MeNotifyLogsScreenState extends State<MeNotifyLogsScreen> {
     final failed = record.isFailed;
     return MeCard(
       children: [
-        Row(
+        Wrap(
+          spacing: AppSpacing.sm,
+          runSpacing: AppSpacing.xs,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             MeBadge(
               label: _channelLabel(record.channel),
               tone: MeTone.neutral,
             ),
-            const SizedBox(width: AppSpacing.sm),
             MeBadge(
               label: failed ? '发送失败' : '送达成功',
               tone: failed ? MeTone.danger : MeTone.success,
             ),
-            const Spacer(),
             Text(
               formatDisplayDateTime(record.createdAt),
               style: TextStyle(

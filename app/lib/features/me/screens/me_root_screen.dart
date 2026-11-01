@@ -40,6 +40,7 @@ class _MeRootScreenState extends State<MeRootScreen> {
   MeUiPrefs _prefs = const MeUiPrefs();
   MeAdminAccess _admin = MeAdminAccess.none;
   Object? _adminError;
+  Object? _prefsError;
   bool _adminLoading = true;
 
   @override
@@ -61,15 +62,24 @@ class _MeRootScreenState extends State<MeRootScreen> {
     setState(() {
       _loading = true;
       _error = null;
+      _prefsError = null;
     });
     try {
       final api = _api;
       final user = await api.fetchMe();
-      final prefs = await api.fetchUiPrefs();
+      // 界面偏好失败不影响首页主体，但要把原因显示出来
+      MeUiPrefs prefs = _prefs;
+      Object? prefsError;
+      try {
+        prefs = await api.fetchUiPrefs();
+      } catch (e) {
+        prefsError = e;
+      }
       if (!mounted) return;
       setState(() {
         _user = user;
         _prefs = prefs;
+        _prefsError = prefsError;
         _loading = false;
       });
     } catch (e) {
@@ -163,6 +173,15 @@ class _MeRootScreenState extends State<MeRootScreen> {
                       AppSpacing.xxxl,
                     ),
                     children: [
+                      if (_prefsError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                          child: MeBanner(
+                            message: '界面偏好读取失败：${meErrorMessage(_prefsError!)}',
+                            tone: MeTone.warning,
+                            onRetry: _load,
+                          ),
+                        ),
                       if (_error != null)
                         Padding(
                           padding: const EdgeInsets.only(bottom: AppSpacing.md),

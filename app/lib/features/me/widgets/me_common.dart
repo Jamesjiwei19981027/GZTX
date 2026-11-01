@@ -355,15 +355,18 @@ class MeFieldLabel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: isDark
-                      ? AppColors.darkTextSecondary
-                      : AppColors.textSecondary,
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppColors.darkTextSecondary
+                        : AppColors.textSecondary,
+                  ),
                 ),
               ),
               if (required)
@@ -559,7 +562,9 @@ class MeErrorState extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              isForbidden ? '您暂未获得此页面的访问授权，请联系企业管理员。' : message,
+              message.isEmpty
+                  ? (isForbidden ? '您暂未获得此页面的访问授权，请联系企业管理员。' : '')
+                  : message,
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 13.5, height: 1.45, color: bodyColor),
             ),

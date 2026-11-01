@@ -214,15 +214,34 @@ class MeAppearanceHost extends StatelessWidget {
 }
 
 /// 按外观设置构建浅色 / 深色主题（页面内兜底使用，宿主接入后自动幂等跳过）
-ThemeData meThemeDataFor(Brightness brightness) {
+///
+/// [base] 传入当前环境的主题（`Theme.of(context)`）时会保留其字体与排版，
+/// 只切换亮度与配色，避免切换深色后字体回退到系统默认。
+ThemeData meThemeDataFor(Brightness brightness, {ThemeData? base}) {
+  final scheme = ColorScheme.fromSeed(
+    seedColor: const Color(0xFF0058BE),
+    brightness: brightness,
+  );
+  final cupertinoTheme = CupertinoThemeData(brightness: brightness);
+  final scaffoldBackground = brightness == Brightness.dark
+      ? const Color(0xFF111315)
+      : const Color(0xFFF8F9FA);
+
+  if (base != null) {
+    return base.copyWith(
+      brightness: brightness,
+      colorScheme: scheme,
+      cupertinoOverrideTheme: cupertinoTheme,
+      scaffoldBackgroundColor: scaffoldBackground,
+    );
+  }
+
   return ThemeData(
     useMaterial3: true,
     brightness: brightness,
-    colorScheme: ColorScheme.fromSeed(
-      seedColor: const Color(0xFF0058BE),
-      brightness: brightness,
-    ),
-    cupertinoOverrideTheme: CupertinoThemeData(brightness: brightness),
+    colorScheme: scheme,
+    cupertinoOverrideTheme: cupertinoTheme,
+    scaffoldBackgroundColor: scaffoldBackground,
   );
 }
 
@@ -270,10 +289,12 @@ class MeScreenAppearance extends StatelessWidget {
         if (Theme.of(context).brightness == targetBrightness) {
           return result;
         }
+        final ambientCupertino = CupertinoTheme.of(context);
         return Theme(
-          data: meThemeDataFor(targetBrightness),
+          data: meThemeDataFor(targetBrightness, base: Theme.of(context)),
           child: CupertinoTheme(
-            data: CupertinoThemeData(brightness: targetBrightness),
+            // 保留宿主（或测试）已配置的 Cupertino 字体，只切换亮度
+            data: ambientCupertino.copyWith(brightness: targetBrightness),
             child: result,
           ),
         );

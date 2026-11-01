@@ -244,6 +244,7 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
                             helper: '留空则保持现有密钥不变',
                           ),
                           AppTextField(
+                            key: const Key('admin-model-key'),
                             controller: _keyController,
                             placeholder: 'sk-...',
                             obscureText: true,
@@ -251,7 +252,7 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
                           ),
                           const SizedBox(height: AppSpacing.lg),
                           AppButton(
-                            label: '更新密钥并加密入库',
+                            label: '保存密钥',
                             isFullWidth: true,
                             size: AppButtonSize.lg,
                             isLoading: _saving,
