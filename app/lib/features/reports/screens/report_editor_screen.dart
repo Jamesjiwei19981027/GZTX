@@ -204,8 +204,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     setState(() {
       _members = members;
       _myBindingId = myBindingId;
-      _parentUserId = serverDraft?.parentUserId ?? parentUserId ?? _parentUserId;
-      _draftReportId = local?.draftReportId ?? serverDraft?.id ?? _draftReportId;
+      _parentUserId = serverDraft?.parentUserId ?? parentUserId;
+      _draftReportId = local?.draftReportId ?? serverDraft?.id;
       _sources = serverDraft?.sources ?? const [];
       _taskSnapshots = serverDraft?.taskSnapshots ?? const [];
       _evidenceSnapshots = serverDraft?.evidenceSnapshots ?? const [];

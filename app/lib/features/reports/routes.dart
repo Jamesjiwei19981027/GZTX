@@ -39,7 +39,7 @@ final List<RouteBase> reportsRoutes = [
       projectId: _projectId(context, state),
       projectName: _projectName(context, state),
       projects: _projects(context),
-      onSelectProject: (option) => _selectProject(context, option),
+      onSelectProject: (option) => _selectProject(context, state, option),
     ),
     routes: [
       GoRoute(
@@ -49,7 +49,7 @@ final List<RouteBase> reportsRoutes = [
           projectId: _projectId(context, state),
           projectName: _projectName(context, state),
           projects: _projects(context),
-          onSelectProject: (option) => _selectProject(context, option),
+          onSelectProject: (option) => _selectProject(context, state, option),
         ),
       ),
       GoRoute(
@@ -59,7 +59,7 @@ final List<RouteBase> reportsRoutes = [
           projectId: _projectId(context, state),
           projectName: _projectName(context, state),
           projects: _projects(context),
-          onSelectProject: (option) => _selectProject(context, option),
+          onSelectProject: (option) => _selectProject(context, state, option),
           initialDraftReportId: _intParam(state, 'draftReportId'),
         ),
       ),
@@ -91,7 +91,7 @@ final List<RouteBase> reportsRoutes = [
           projectId: _projectId(context, state),
           projectName: _projectName(context, state),
           projects: _projects(context),
-          onSelectProject: (option) => _selectProject(context, option),
+          onSelectProject: (option) => _selectProject(context, state, option),
         ),
       ),
       GoRoute(
@@ -167,8 +167,18 @@ int? _projectId(BuildContext context, GoRouterState state) {
   return current != null && current > 0 ? current : null;
 }
 
-String? _projectName(BuildContext context, GoRouterState state) =>
-    context.authStateRead.currentProject?.name;
+String? _projectName(BuildContext context, GoRouterState state) {
+  final effectiveId = _projectId(context, state);
+  if (effectiveId == null) return null;
+  final auth = context.authStateRead;
+  for (final project in auth.projects) {
+    if (project.id == effectiveId) return project.name;
+  }
+  if (auth.currentProject?.id == effectiveId) {
+    return auth.currentProject?.name;
+  }
+  return null;
+}
 
 List<ProjectOption> _projects(BuildContext context) {
   final auth = context.authStateRead;
@@ -187,7 +197,11 @@ List<ProjectOption> _projects(BuildContext context) {
   return options;
 }
 
-void _selectProject(BuildContext context, ProjectOption option) {
+void _selectProject(
+  BuildContext context,
+  GoRouterState state,
+  ProjectOption option,
+) {
   Project? target;
   for (final project in context.authStateRead.projects) {
     if (project.id == option.id) {
@@ -198,4 +212,9 @@ void _selectProject(BuildContext context, ProjectOption option) {
   if (target != null) {
     context.authStateRead.selectProject(target);
   }
+  final newParams = Map<String, String>.from(state.uri.queryParameters);
+  newParams['projectId'] = '${option.id}';
+  newParams.remove('draftReportId');
+  final newUri = state.uri.replace(queryParameters: newParams);
+  GoRouter.of(context).go(newUri.toString());
 }

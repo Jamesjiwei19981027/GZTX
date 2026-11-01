@@ -82,6 +82,29 @@ class ReportsTestFixtures {
     },
   ];
 
+  static const List<Map<String, dynamic>> project20BindingsJson = [
+    {
+      'id': 201,
+      'company_id': companyId,
+      'project_id': otherProjectId,
+      'user_id': currentUserId,
+      'agent_definition_id': 1,
+      'role': 'member',
+      'is_active': true,
+      'context_scope': {'company_id': companyId, 'project_id': otherProjectId},
+    },
+    {
+      'id': 202,
+      'company_id': companyId,
+      'project_id': otherProjectId,
+      'user_id': supervisorUserId,
+      'agent_definition_id': 2,
+      'role': 'project',
+      'is_active': true,
+      'context_scope': {'company_id': companyId, 'project_id': otherProjectId},
+    },
+  ];
+
   static const List<Map<String, dynamic>> membersJson = [
     {
       'user_id': currentUserId,
@@ -389,6 +412,41 @@ class ReportsTestHarness {
     helper.whenPost(
       '/agents/chat',
       ReportsTestFixtures.chatReplyJson,
+    );
+
+    // 项目 20 的特定响应（置于末尾以在倒序查找中优先匹配）
+    helper.whenGet(
+      '/projects/${ReportsTestFixtures.otherProjectId}/report-agents/bindings',
+      {'items': ReportsTestFixtures.project20BindingsJson},
+    );
+    helper.whenPost(
+      '/projects/${ReportsTestFixtures.otherProjectId}/report-agents/bindings',
+      {'items': ReportsTestFixtures.project20BindingsJson},
+    );
+    helper.whenGet(
+      '/projects/${ReportsTestFixtures.otherProjectId}/members',
+      {'items': ReportsTestFixtures.membersJson},
+    );
+    helper.whenGet(
+      '/projects/${ReportsTestFixtures.otherProjectId}/agent-reports',
+      {
+        'items': [
+          ReportsTestFixtures.submittedReportJson,
+        ],
+      },
+    );
+    helper.whenGet(
+      '/reports/my',
+      {
+        'items': [
+          ReportsTestFixtures.submittedReportJson,
+        ],
+      },
+      query: {'project_id': '${ReportsTestFixtures.otherProjectId}'},
+    );
+    helper.whenPost(
+      '/projects/${ReportsTestFixtures.otherProjectId}/agent-reports',
+      ReportsTestFixtures.submittedReportJson,
     );
 
     final client = helper.buildClient();

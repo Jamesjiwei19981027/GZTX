@@ -9,6 +9,7 @@ import 'package:worktodo_app/features/reports/screens/report_editor_screen.dart'
 import 'package:worktodo_app/features/reports/screens/report_hub_screen.dart';
 import 'package:worktodo_app/features/reports/screens/report_inbox_screen.dart';
 import 'package:worktodo_app/features/reports/screens/report_review_screen.dart';
+import 'package:worktodo_app/features/reports/routes.dart';
 import 'package:worktodo_app/features/reports/widgets/report_ui.dart';
 
 import 'reports_test_fixtures.dart';
@@ -468,6 +469,91 @@ void main() {
       expect(find.text('项目汇总与发布'), findsOneWidget);
       expect(find.text('智能体绑定管理'), findsOneWidget);
       expect(find.text('领导层项目总览'), findsOneWidget);
+    });
+  });
+
+  group('Reports 路由与项目隔离切换测试 (P1)', () {
+    testWidgets('在写汇报页 /reports/create?projectId=10 切换到项目 20 时更新路由参数、项目名与提交请求', (tester) async {
+      tester.view.physicalSize = const Size(430, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await ReportsTestHarness.create();
+      // 使用真实的 reportsRoutes 路由栈挂载，初始路由带 projectId=10
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          const SizedBox(),
+          routes: reportsRoutes,
+          initialLocation: '/reports/create?projectId=10',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证初始项目为项目 10（AI 协同平台）
+      expect(find.text('AI 协同平台'), findsWidgets);
+
+      // 打开项目切换弹窗并选择项目 20（移动重构项目）
+      final projectBar = find.byType(ReportProjectBar);
+      expect(projectBar, findsOneWidget);
+      await tester.tap(projectBar);
+      await tester.pumpAndSettle();
+
+      final targetProjectOption = find.text('移动重构项目').last;
+      await tester.tap(targetProjectOption);
+      await tester.pumpAndSettle();
+
+      // 断言项目名更新为移动重构项目（而不是旧项目）
+      expect(find.text('移动重构项目'), findsWidgets);
+
+      // 输入汇报内容并点击提交
+      final textFields = find.byType(TextField);
+      expect(textFields, findsNWidgets(2));
+      await tester.enterText(textFields.first, '本周完成移动端重构');
+      await tester.enterText(textFields.last, '下周进行全量测试');
+      await tester.pump();
+
+      // 点击确认提交
+      final submitBtn = find.text('确认提交');
+      expect(submitBtn, findsOneWidget);
+      await tester.tap(submitBtn);
+      await tester.pumpAndSettle();
+
+      // 验证网络请求包含对项目 20 (otherProjectId) 的提交
+      final postRequests = harness.helper.history
+          .where((r) => r.method == 'POST' && r.url.path.contains('/projects/20/agent-reports'))
+          .toList();
+      expect(postRequests.isNotEmpty, isTrue);
+    });
+
+    testWidgets('在对话页切换项目时更新路由参数且项目名与上下文隔离到新项目', (tester) async {
+      tester.view.physicalSize = const Size(430, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await ReportsTestHarness.create();
+      // 挂载对话页 /reports/chat?projectId=10
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          const SizedBox(),
+          routes: reportsRoutes,
+          initialLocation: '/reports/chat?projectId=10',
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('AI 协同平台'), findsWidgets);
+      expect(find.textContaining('上下文仅限当前项目（AI 协同平台）'), findsOneWidget);
+
+      // 切换到项目 20
+      await tester.tap(find.byType(ReportProjectBar));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('移动重构项目').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('移动重构项目'), findsWidgets);
+      expect(find.textContaining('上下文仅限当前项目（移动重构项目）'), findsOneWidget);
     });
   });
 }
