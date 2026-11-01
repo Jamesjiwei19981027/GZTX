@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/design/design.dart';
 
 import '../../helpers/mock_api_client.dart';
+import 'package:worktodo_app/features/work/screens/work_root_screen.dart';
+
 import 'helpers/auth_test_app.dart';
 
 void stubRegisterSession(
@@ -229,7 +231,7 @@ void main() {
 
       expect(app.tokens.accessToken, 'new-access-token');
       // 邮箱与手机都已验证 → 验证门直接放行到工作 Tab
-      expect(find.text('工作 (T02)'), findsOneWidget);
+      expect(find.byType(WorkRootScreen), findsOneWidget);
     });
 
     testWidgets('用户名已存在：展示后端中文错误', (tester) async {

@@ -5,6 +5,8 @@ import 'package:worktodo_app/features/auth/models/auth_models.dart';
 import 'package:worktodo_app/features/auth/routes.dart';
 
 import '../../helpers/mock_api_client.dart';
+import 'package:worktodo_app/features/work/screens/work_root_screen.dart';
+
 import 'helpers/auth_test_app.dart';
 
 void main() {
@@ -81,13 +83,13 @@ void main() {
       final app = AuthTestApp(helper: helper, authenticated: true);
       await app.pump(tester);
 
-      expect(find.text('工作 (T02)'), findsOneWidget);
+      expect(find.byType(WorkRootScreen), findsOneWidget);
 
       app.appRouter.router.go(AuthPaths.login);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('工作 (T02)'), findsOneWidget);
+      expect(find.byType(WorkRootScreen), findsOneWidget);
     });
   });
 }

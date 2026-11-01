@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/design/design.dart';
 
 import '../../helpers/mock_api_client.dart';
+import 'package:worktodo_app/features/work/screens/work_root_screen.dart';
+
 import 'helpers/auth_test_app.dart';
 
 /// 取“发验证码”按钮内部真实的 [AppButton]，用于断言可用状态
@@ -118,7 +120,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('工作 (T02)'), findsOneWidget);
+      expect(find.byType(WorkRootScreen), findsOneWidget);
     });
 
     testWidgets('邮箱与手机均已验证时验证门直接放行到工作 Tab', (tester) async {
@@ -130,7 +132,7 @@ void main() {
       );
       await goVerify(tester, app);
 
-      expect(find.text('工作 (T02)'), findsOneWidget);
+      expect(find.byType(WorkRootScreen), findsOneWidget);
     });
 
     testWidgets('已验证显示绿色“已验证”，未验证显示“未验证”', (tester) async {
@@ -166,7 +168,7 @@ void main() {
       final before = helper.history
           .where((r) => r.url.path.endsWith('/users/me/verification'))
           .length;
-      await tester.tap(find.text('重试'));
+      await tester.tap(find.text('重试').hitTestable());
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 50));
       final after = helper.history
@@ -190,7 +192,7 @@ void main() {
 
       expect(find.text('验证状态加载失败'), findsOneWidget);
       expect(find.text('网络连接异常或请求超时，请检查网络后重试'), findsOneWidget);
-      expect(find.text('重试'), findsOneWidget);
+      expect(find.text('重试').hitTestable(), findsOneWidget);
     });
 
     testWidgets('接口返回空手机号时，输入合法手机号后“发验证码”按钮变为可点', (tester) async {
@@ -303,7 +305,7 @@ void main() {
 
       // 手机验证成功后必须真正离开验证页（旧实现会卡在这一页）
       expect(find.text('协作功能需要补验手机'), findsNothing);
-      expect(find.text('工作 (T02)'), findsOneWidget);
+      expect(find.byType(WorkRootScreen), findsOneWidget);
     });
 
     testWidgets('退出登录会清空令牌并回到登录页', (tester) async {

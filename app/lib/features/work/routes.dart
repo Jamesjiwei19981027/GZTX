@@ -1,137 +1,122 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../design/design.dart';
+import 'data/work_scope.dart';
+import 'screens/work_calendar_screen.dart';
+import 'screens/work_chat_extract_screen.dart';
+import 'screens/work_kanban_screen.dart';
+import 'screens/work_quick_add_screen.dart';
+import 'screens/work_root_screen.dart';
+import 'screens/work_search_screen.dart';
+import 'screens/work_statistics_screen.dart';
+import 'screens/work_task_detail_screen.dart';
+import 'screens/work_task_edit_screen.dart';
+import 'screens/work_tasks_screen.dart';
+import 'screens/work_trash_screen.dart';
 
-/// T02 工作模块路由占位
-class WorkPlaceholderScreen extends StatelessWidget {
-  const WorkPlaceholderScreen({
-    super.key,
-    this.screenName = 'work-root',
-    this.title = '工作',
-  });
+int? _queryInt(GoRouterState state, String key) =>
+    int.tryParse(state.uri.queryParameters[key] ?? '');
 
-  final String screenName;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      title: title,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const AppIcon('work', size: 48, color: AppColors.primary),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                '$title (T02)',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '屏幕标识: $screenName\n待 T02 任务包实现具体页面',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                alignment: WrapAlignment.center,
-                children: [
-                  AppButton(
-                    label: '前往任务列表',
-                    size: AppButtonSize.sm,
-                    variant: AppButtonVariant.secondary,
-                    onPressed: () => context.push('/work/tasks'),
-                  ),
-                  AppButton(
-                    label: '前往看板',
-                    size: AppButtonSize.sm,
-                    variant: AppButtonVariant.secondary,
-                    onPressed: () => context.push('/work/kanban'),
-                  ),
-                  AppButton(
-                    label: '查看组件展示页',
-                    size: AppButtonSize.sm,
-                    onPressed: () => context.push('/gallery'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+/// T02 工作模块路由表（Tab 0）。
+///
+/// 屏幕标识与 `REGISTERED_SCREENS.work` 严格对齐：
+/// - work-root
+/// - work-tasks
+/// - work-kanban
+/// - work-calendar
+/// - work-statistics
+/// - work-trash
+/// - work-task-detail
+/// - work-task-edit
+/// - work-quick-add
+/// - work-search
+/// - work-chat-extract
 final List<RouteBase> workRoutes = [
   GoRoute(
     path: '/work',
     name: 'work-root',
-    builder: (context, state) => const WorkPlaceholderScreen(
-      screenName: 'work-root',
-      title: '工作',
-    ),
+    builder: (context, state) => const WorkRootScreen(),
     routes: [
       GoRoute(
         path: 'tasks',
         name: 'work-tasks',
-        builder: (context, state) => const WorkPlaceholderScreen(
-          screenName: 'work-tasks',
-          title: '任务列表',
+        builder: (context, state) => WorkTasksScreen(
+          initialScope: TaskWorkspaceScope.fromQuery(
+            state.uri.queryParameters['scope'],
+          ),
         ),
       ),
       GoRoute(
         path: 'kanban',
         name: 'work-kanban',
-        builder: (context, state) => const WorkPlaceholderScreen(
-          screenName: 'work-kanban',
-          title: '工作看板',
+        builder: (context, state) => WorkKanbanScreen(
+          initialScope: TaskWorkspaceScope.fromQuery(
+            state.uri.queryParameters['scope'],
+          ),
         ),
       ),
       GoRoute(
         path: 'calendar',
         name: 'work-calendar',
-        builder: (context, state) => const WorkPlaceholderScreen(
-          screenName: 'work-calendar',
-          title: '日历视图',
+        builder: (context, state) => WorkCalendarScreen(
+          initialDay: state.uri.queryParameters['date'],
         ),
       ),
       GoRoute(
         path: 'statistics',
         name: 'work-statistics',
-        builder: (context, state) => const WorkPlaceholderScreen(
-          screenName: 'work-statistics',
-          title: '任务统计',
+        builder: (context, state) => WorkStatisticsScreen(
+          initialPeriod: state.uri.queryParameters['period'] ?? 'week',
         ),
       ),
       GoRoute(
         path: 'trash',
         name: 'work-trash',
-        builder: (context, state) => const WorkPlaceholderScreen(
-          screenName: 'work-trash',
-          title: '回收站',
-        ),
+        builder: (context, state) => const WorkTrashScreen(),
       ),
       GoRoute(
         path: 'task/:id',
         name: 'work-task-detail',
-        builder: (context, state) => WorkPlaceholderScreen(
-          screenName: 'work-task-detail',
-          title: '任务详情 #${state.pathParameters['id']}',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+          return WorkTaskDetailScreen(taskId: id);
+        },
+        routes: [
+          GoRoute(
+            path: 'edit',
+            name: 'work-task-edit-nested',
+            builder: (context, state) {
+              final id = int.tryParse(state.pathParameters['id'] ?? '') ?? 0;
+              return WorkTaskEditScreen(taskId: id);
+            },
+          ),
+        ],
+      ),
+      GoRoute(
+        path: 'task-edit',
+        name: 'work-task-edit',
+        builder: (context, state) => WorkTaskEditScreen(
+          taskId: _queryInt(state, 'id'),
+          initialDate: state.uri.queryParameters['date'],
+          initialStatus: _queryInt(state, 'status'),
+        ),
+      ),
+      GoRoute(
+        path: 'quick-add',
+        name: 'work-quick-add',
+        builder: (context, state) => WorkQuickAddScreen(
+          initialDate: state.uri.queryParameters['date'],
         ),
       ),
       GoRoute(
         path: 'search',
         name: 'work-search',
-        builder: (context, state) => const WorkPlaceholderScreen(
-          screenName: 'work-search',
-          title: '全局搜索',
+        builder: (context, state) => const WorkSearchScreen(),
+      ),
+      GoRoute(
+        path: 'chat-extract',
+        name: 'work-chat-extract',
+        builder: (context, state) => WorkChatExtractScreen(
+          initialText: state.uri.queryParameters['text'],
         ),
       ),
     ],
