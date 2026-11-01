@@ -28,7 +28,8 @@ class MessageAvatar extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurfaceVariant : AppColors.primaryLight,
-        borderRadius: BorderRadius.circular(isChannel ? AppSpacing.md : size / 2),
+        borderRadius:
+            BorderRadius.circular(isChannel ? AppSpacing.md : size / 2),
       ),
       child: Text(
         text,
@@ -81,7 +82,9 @@ class PresenceIndicator extends StatelessWidget {
             status.label,
             style: TextStyle(
               fontSize: 12,
-              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
         ],

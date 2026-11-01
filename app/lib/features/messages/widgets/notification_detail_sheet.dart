@@ -17,7 +17,8 @@ class NotificationDetailSheet extends StatefulWidget {
   final CollabNotification notification;
 
   @override
-  State<NotificationDetailSheet> createState() => _NotificationDetailSheetState();
+  State<NotificationDetailSheet> createState() =>
+      _NotificationDetailSheetState();
 }
 
 class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
@@ -141,11 +142,13 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.warningLight,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSm),
                       ),
                       child: const Text(
                         '需回复',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF7A4E00)),
+                        style:
+                            TextStyle(fontSize: 11, color: Color(0xFF7A4E00)),
                       ),
                     ),
                 ],

@@ -114,8 +114,9 @@ final List<RouteBase> messagesRoutes = [
           final query = state.uri.queryParameters;
           final conversation = int.tryParse(query['conversationId'] ?? '');
           return CallScreen(
-            conversationId:
-                (conversation != null && conversation > 0) ? conversation : null,
+            conversationId: (conversation != null && conversation > 0)
+                ? conversation
+                : null,
             callType: query['callType'] == 'video' ? 'video' : 'audio',
             targetName: _nameOf(state, '协同成员'),
           );

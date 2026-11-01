@@ -68,8 +68,9 @@ class ConversationProfileController extends ChangeNotifier {
       final filesFuture = isChannel
           ? repository.listChannelFiles(scopeId)
           : repository.listConversationFiles(scopeId);
-      final linksFuture =
-          isChannel ? repository.listPinnedLinks(scopeId) : Future.value(<PinnedLink>[]);
+      final linksFuture = isChannel
+          ? repository.listPinnedLinks(scopeId)
+          : Future.value(<PinnedLink>[]);
       final membersFuture =
           isChannel ? Future.value(<ConversationMember>[]) : _loadMembers();
       final presenceFuture = isChannel
@@ -132,7 +133,8 @@ class ConversationProfileController extends ChangeNotifier {
     try {
       await repository.deletePinnedLink(scopeId, link.id);
       if (_disposed) return true;
-      _links = _links.where((item) => item.id != link.id).toList(growable: false);
+      _links =
+          _links.where((item) => item.id != link.id).toList(growable: false);
       _safeNotify();
       return true;
     } catch (error) {

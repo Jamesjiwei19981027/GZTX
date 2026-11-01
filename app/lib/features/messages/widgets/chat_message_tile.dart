@@ -27,8 +27,9 @@ class ChatMessageTile extends StatelessWidget {
     final bubbleColor = isMine
         ? AppColors.primary
         : (isDark ? AppColors.darkSurface : Colors.white);
-    final textColor =
-        isMine ? Colors.white : (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary);
+    final textColor = isMine
+        ? Colors.white
+        : (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary);
     final secondaryColor = isMine
         ? Colors.white.withValues(alpha: 0.78)
         : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary);
@@ -46,14 +47,16 @@ class ChatMessageTile extends StatelessWidget {
           color: bubbleColor,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(AppSpacing.radiusLg),
-            topRight: Radius.circular(isMine ? AppSpacing.xxs : AppSpacing.radiusLg),
+            topRight:
+                Radius.circular(isMine ? AppSpacing.xxs : AppSpacing.radiusLg),
             bottomLeft: const Radius.circular(AppSpacing.radiusLg),
             bottomRight: const Radius.circular(AppSpacing.radiusLg),
           ),
           border: isMine
               ? null
               : Border.all(
-                  color: isDark ? AppColors.darkBorder : const Color(0xFFE4E6E8),
+                  color:
+                      isDark ? AppColors.darkBorder : const Color(0xFFE4E6E8),
                   width: 0.5,
                 ),
         ),
@@ -87,7 +90,8 @@ class ChatMessageTile extends StatelessWidget {
                             : (isDark
                                 ? AppColors.darkSurfaceVariant
                                 : AppColors.background),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -110,7 +114,8 @@ class ChatMessageTile extends StatelessWidget {
                             const SizedBox(width: AppSpacing.sm),
                             Text(
                               attachment.sizeLabel,
-                              style: TextStyle(fontSize: 11, color: secondaryColor),
+                              style: TextStyle(
+                                  fontSize: 11, color: secondaryColor),
                             ),
                           ],
                         ],
@@ -134,7 +139,8 @@ class ChatMessageTile extends StatelessWidget {
                     '${message.likes}',
                     style: TextStyle(
                       fontSize: 11,
-                      color: isMine ? const Color(0xFFFFE08A) : AppColors.warning,
+                      color:
+                          isMine ? const Color(0xFFFFE08A) : AppColors.warning,
                     ),
                   ),
                 ],
@@ -148,7 +154,8 @@ class ChatMessageTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
       child: Row(
-        mainAxisAlignment: isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment:
+            isMine ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (!isMine) ...[
@@ -162,7 +169,8 @@ class ChatMessageTile extends StatelessWidget {
               children: [
                 if (!isMine) ...[
                   Padding(
-                    padding: const EdgeInsets.only(left: AppSpacing.xs, bottom: 2),
+                    padding:
+                        const EdgeInsets.only(left: AppSpacing.xs, bottom: 2),
                     child: Text(
                       message.senderName,
                       style: TextStyle(

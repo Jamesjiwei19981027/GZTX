@@ -33,7 +33,10 @@ bool _asBool(dynamic value, [bool fallback = false]) {
 
 List<String> _asStringList(dynamic value) {
   if (value is List) {
-    return value.map((item) => _asString(item)).where((e) => e.isNotEmpty).toList();
+    return value
+        .map((item) => _asString(item))
+        .where((e) => e.isNotEmpty)
+        .toList();
   }
   return const [];
 }
@@ -115,7 +118,8 @@ class DirectConversation {
     if (rawMembers is List) {
       for (final item in rawMembers) {
         if (item is Map) {
-          members.add(ConversationMember.fromJson(item.cast<String, dynamic>()));
+          members
+              .add(ConversationMember.fromJson(item.cast<String, dynamic>()));
         }
       }
     }
@@ -269,8 +273,9 @@ class ChatSummary {
   final DateTime? createdAt;
 
   /// 与网页版一致：`deterministic` 展示为“事实规则摘要”
-  String get providerLabel =>
-      provider == 'deterministic' ? '事实规则摘要' : (provider.isEmpty ? '未知来源' : provider);
+  String get providerLabel => provider == 'deterministic'
+      ? '事实规则摘要'
+      : (provider.isEmpty ? '未知来源' : provider);
 
   factory ChatSummary.fromJson(Map<String, dynamic> json) => ChatSummary(
         id: _asInt(json['id']),

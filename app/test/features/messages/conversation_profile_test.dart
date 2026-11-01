@@ -74,7 +74,8 @@ void main() {
 
   testWidgets('删除钉选链接需要二次确认', (tester) async {
     final helper = channelHelper();
-    helper.whenDelete('/channels/5/pinned-links/81', {'id': 81, 'deleted': true});
+    helper
+        .whenDelete('/channels/5/pinned-links/81', {'id': 81, 'deleted': true});
 
     await pumpMessagesScreen(tester, channelProfile(helper));
     await tester.pumpAndSettle();
@@ -87,7 +88,8 @@ void main() {
     await tester.tap(find.text('删除').last);
     await tester.pumpAndSettle();
 
-    expect(requests(helper, 'DELETE', '/channels/5/pinned-links/81'), isNotEmpty);
+    expect(
+        requests(helper, 'DELETE', '/channels/5/pinned-links/81'), isNotEmpty);
     expect(find.text('需求文档'), findsNothing);
     expect(find.text('钉选链接 (0)'), findsOneWidget);
 
@@ -122,6 +124,58 @@ void main() {
     expect(find.text('在线'), findsOneWidget);
     expect(find.text('忙碌'), findsOneWidget);
     expect(find.textContaining('钉选链接'), findsNothing);
+  });
+
+  testWidgets('同一页面切换会话编号后重新拉取新会话资料', (tester) async {
+    final helper = MockApiClientHelper()
+      ..whenGet(
+        '/channels/5/pinned-links',
+        {
+          'items': [
+            {'id': 81, 'title': '五号频道的链接', 'url': 'https://example.com/a'},
+          ],
+        },
+      )
+      ..whenGet('/channels/5/files', {'items': <Map<String, dynamic>>[]})
+      ..whenGet(
+        '/channels/6/pinned-links',
+        {
+          'items': [
+            {'id': 82, 'title': '六号频道的链接', 'url': 'https://example.com/b'},
+          ],
+        },
+      )
+      ..whenGet('/channels/6/files', {'items': <Map<String, dynamic>>[]});
+    final repository = MessagesRepository(helper.buildClient());
+
+    await pumpMessagesScreen(
+      tester,
+      ConversationProfileScreen(
+        repository: repository,
+        scopeType: 'channel',
+        scopeId: 5,
+        name: '全员交流大厅',
+        companyId: 1,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('五号频道的链接'), findsOneWidget);
+
+    await pumpMessagesScreen(
+      tester,
+      ConversationProfileScreen(
+        repository: repository,
+        scopeType: 'channel',
+        scopeId: 6,
+        name: '项目冲刺组',
+        companyId: 1,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('六号频道的链接'), findsOneWidget);
+    expect(find.text('五号频道的链接'), findsNothing);
+    expect(requests(helper, 'GET', '/channels/6/pinned-links'), isNotEmpty);
   });
 
   testWidgets('资料加载失败给出原因并可重试', (tester) async {

@@ -146,9 +146,7 @@ class ApiMessageFileUploader implements MessageFileUploader {
           ? (payload['message'] ?? payload['detail'])?.toString()
           : null;
       throw ApiException(
-        message == null || message.trim().isEmpty
-            ? '文件上传失败'
-            : message.trim(),
+        message == null || message.trim().isEmpty ? '文件上传失败' : message.trim(),
         statusCode: response.statusCode,
       );
     }
@@ -165,8 +163,6 @@ class ApiMessageFileUploader implements MessageFileUploader {
   }
 
   /// 与浏览器一致：文件名中的双引号与换行做转义，避免破坏 multipart 头
-  String _escape(String name) => name
-      .replaceAll('"', '%22')
-      .replaceAll('\r', '')
-      .replaceAll('\n', '');
+  String _escape(String name) =>
+      name.replaceAll('"', '%22').replaceAll('\r', '').replaceAll('\n', '');
 }

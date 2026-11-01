@@ -28,7 +28,8 @@ class ExternalMailView extends StatelessWidget {
                 SizedBox(height: AppSpacing.md),
                 Text(
                   '检测外部邮件服务状态…',
-                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style:
+                      TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -74,7 +75,8 @@ class ExternalMailView extends StatelessWidget {
           style: TextStyle(
             fontSize: 13,
             height: 1.5,
-            color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+            color:
+                isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -161,7 +163,8 @@ class ExternalMailView extends StatelessWidget {
               ? const AppEmptyState(
                   title: '外部邮箱暂无新信件',
                   description: '可点击上方「立即拉取邮件」从服务器同步。',
-                  icon: AppIcon('mail', size: 42, color: AppColors.textTertiary),
+                  icon:
+                      AppIcon('mail', size: 42, color: AppColors.textTertiary),
                 )
               : ListView(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xl),
@@ -171,11 +174,10 @@ class ExternalMailView extends StatelessWidget {
                       children: [
                         for (final mail in items)
                           AppListTile(
-                            leading:
-                                const AppIcon('mail', size: 18, color: AppColors.primary),
+                            leading: const AppIcon('mail',
+                                size: 18, color: AppColors.primary),
                             title: mail.subjectLabel,
-                            subtitle:
-                                '发件人：${mail.fromAddress}'
+                            subtitle: '发件人：${mail.fromAddress}'
                                 '${mail.receivedAt == null ? '' : ' · ${formatRelativeDate(mail.receivedAt)}'}',
                             onTap: () => _openDetail(context, mail),
                           ),
@@ -199,8 +201,10 @@ class ExternalMailView extends StatelessWidget {
     );
   }
 
-  Widget _banner(BuildContext context, String message, {required bool isError}) {
-    final background = isError ? AppColors.dangerLight : const Color(0xFFE8F1FE);
+  Widget _banner(BuildContext context, String message,
+      {required bool isError}) {
+    final background =
+        isError ? AppColors.dangerLight : const Color(0xFFE8F1FE);
     final color = isError ? AppColors.danger : AppColors.primary;
     return Container(
       width: double.infinity,
@@ -303,12 +307,14 @@ class _MailDetailSheetState extends State<_MailDetailSheet> {
           const SizedBox(height: AppSpacing.xs),
           Text(
             '发件人：${detail.fromAddress}',
-            style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+            style:
+                const TextStyle(fontSize: 12, color: AppColors.textSecondary),
           ),
           if (detail.receivedAt != null)
             Text(
               '接收时间：${formatDisplayDateTime(detail.receivedAt)}',
-              style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textTertiary),
             ),
           const SizedBox(height: AppSpacing.md),
           Container(
@@ -381,7 +387,8 @@ class _ExternalMailScreenState extends State<ExternalMailScreen> {
     _api = api;
     _companyId = companyId;
     if (companyId == null) return;
-    final repository = widget.repository ?? MessagesRepository(api ?? ApiClient());
+    final repository =
+        widget.repository ?? MessagesRepository(api ?? ApiClient());
     _controller = ExternalMailController(
       repository: repository,
       companyId: companyId,

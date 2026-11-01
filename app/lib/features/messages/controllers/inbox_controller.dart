@@ -106,7 +106,9 @@ class InboxController extends ChangeNotifier {
       if (_disposed || seq != _seq) return;
       _error = friendlyMessage(error);
       _forbidden = error is ApiException &&
-          (error.statusCode == 403 || error.code == 40300 || error.code == 40301);
+          (error.statusCode == 403 ||
+              error.code == 40300 ||
+              error.code == 40301);
       _loading = false;
       _safeNotify();
     }
@@ -141,7 +143,9 @@ class InboxController extends ChangeNotifier {
     try {
       final updated = await repository.markAllNotificationsRead();
       if (_disposed) return updated;
-      _items = _items.map((item) => item.copyWith(read: true)).toList(growable: false);
+      _items = _items
+          .map((item) => item.copyWith(read: true))
+          .toList(growable: false);
       _recountUnread();
       return updated;
     } catch (error) {
@@ -160,7 +164,8 @@ class InboxController extends ChangeNotifier {
     _actionError = null;
     _safeNotify();
     try {
-      await repository.updateNotificationState(item.id, archived: !item.archived);
+      await repository.updateNotificationState(item.id,
+          archived: !item.archived);
       if (_disposed) return true;
       if (_filter == NotificationFilter.all) {
         _items = [
@@ -170,7 +175,9 @@ class InboxController extends ChangeNotifier {
                 : current,
         ];
       } else {
-        _items = _items.where((current) => current.id != item.id).toList(growable: false);
+        _items = _items
+            .where((current) => current.id != item.id)
+            .toList(growable: false);
       }
       _recountUnread();
       return true;
@@ -192,7 +199,9 @@ class InboxController extends ChangeNotifier {
     try {
       await repository.deleteNotification(item.id);
       if (_disposed) return true;
-      _items = _items.where((current) => current.id != item.id).toList(growable: false);
+      _items = _items
+          .where((current) => current.id != item.id)
+          .toList(growable: false);
       _recountUnread();
       return true;
     } catch (error) {
@@ -344,7 +353,9 @@ class ExternalMailController extends ChangeNotifier {
     try {
       await repository.updateExternalMailState(item.id, 'archived');
       if (_disposed) return true;
-      _items = _items.where((current) => current.id != item.id).toList(growable: false);
+      _items = _items
+          .where((current) => current.id != item.id)
+          .toList(growable: false);
       _safeNotify();
       return true;
     } catch (error) {

@@ -73,7 +73,8 @@ class MessagesRepository {
 
   /// 点赞接口返回 `{id, likes}`，只回传最新计数
   Future<int> likeChannelMessage(int messageId) async {
-    final data = await _api.post('/channels/messages/$messageId/like', body: {});
+    final data =
+        await _api.post('/channels/messages/$messageId/like', body: {});
     final map = _map(data);
     final likes = map['likes'];
     return likes is num ? likes.toInt() : 0;
@@ -114,7 +115,9 @@ class MessagesRepository {
 
   Future<List<DirectConversation>> listConversations(int companyId) async {
     final data = await _api.get('/companies/$companyId/conversations');
-    return _items(data).map(DirectConversation.fromJson).toList(growable: false);
+    return _items(data)
+        .map(DirectConversation.fromJson)
+        .toList(growable: false);
   }
 
   Future<List<ChatMessage>> listDirectMessages(
@@ -215,7 +218,9 @@ class MessagesRepository {
       '/notifications/collab',
       query: {'page': '$page', 'page_size': '$pageSize', 'state': state},
     );
-    return _items(data).map(CollabNotification.fromJson).toList(growable: false);
+    return _items(data)
+        .map(CollabNotification.fromJson)
+        .toList(growable: false);
   }
 
   Future<void> markNotificationRead(int id) async {
@@ -301,9 +306,7 @@ class MessagesRepository {
       '/external-mail',
       query: {'company_id': '$companyId', 'state': state},
     );
-    return _items(data)
-        .map(ExternalMailItem.fromJson)
-        .toList(growable: false);
+    return _items(data).map(ExternalMailItem.fromJson).toList(growable: false);
   }
 
   Future<ExternalMailItem> getExternalMail(int mailId) async {
@@ -422,5 +425,4 @@ String? _translateBackendMessage(String raw) {
   return null;
 }
 
-bool _containsLatinWord(String text) =>
-    RegExp(r'[A-Za-z]{3,}').hasMatch(text);
+bool _containsLatinWord(String text) => RegExp(r'[A-Za-z]{3,}').hasMatch(text);

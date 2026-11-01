@@ -101,13 +101,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('通知详情'), findsOneWidget);
-    expect(requests(helper, 'PUT', '/notifications/collab/401/read'), isNotEmpty);
+    expect(
+        requests(helper, 'PUT', '/notifications/collab/401/read'), isNotEmpty);
 
     await tester.enterText(
-      find.descendant(
-        of: find.byType(BottomSheet),
-        matching: find.byType(EditableText),
-      ).first,
+      find
+          .descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byType(EditableText),
+          )
+          .first,
       '我下午三点前确认',
     );
     await tester.pump();
@@ -129,7 +132,12 @@ void main() {
     final helper = notificationHelper();
     helper.whenPut(
       '/notifications/collab/401/state',
-      {'id': 401, 'read': true, 'archived': true, 'archived_at': '2026-10-30T07:00:00Z'},
+      {
+        'id': 401,
+        'read': true,
+        'archived': true,
+        'archived_at': '2026-10-30T07:00:00Z'
+      },
     );
     helper.whenPut('/notifications/collab/401/read', {'id': 401, 'read': true});
 
@@ -155,7 +163,8 @@ void main() {
   testWidgets('删除通知需要二次确认，确认后移除', (tester) async {
     final helper = notificationHelper();
     helper.whenPut('/notifications/collab/401/read', {'id': 401, 'read': true});
-    helper.whenDelete('/notifications/collab/401', {'id': 401, 'deleted': true});
+    helper
+        .whenDelete('/notifications/collab/401', {'id': 401, 'deleted': true});
 
     await pumpMessagesScreen(tester, inbox(helper));
     await tester.pumpAndSettle();
@@ -213,7 +222,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      requests(helper, 'GET', '/notifications/collab').last.url.queryParameters['state'],
+      requests(helper, 'GET', '/notifications/collab')
+          .last
+          .url
+          .queryParameters['state'],
       'archived',
     );
     expect(find.textContaining('这是一条已归档的通知'), findsOneWidget);

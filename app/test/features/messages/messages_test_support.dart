@@ -235,7 +235,8 @@ class MessagesFixtures {
   static const Map<String, dynamic> callConfigUnconfigured = {
     'configured': false,
     'ice_servers': <Map<String, dynamic>>[],
-    'message': 'STUN/TURN is not configured; local/browser defaults may still work',
+    'message':
+        'STUN/TURN is not configured; local/browser defaults may still work',
   };
 
   static const Map<String, dynamic> callConfigConfigured = {
@@ -358,7 +359,8 @@ Future<void> disposeMessagesTree(WidgetTester tester) async {
 }
 
 /// 取最后一次请求
-MockRequestRecord lastRequest(MockApiClientHelper helper) => helper.history.last;
+MockRequestRecord lastRequest(MockApiClientHelper helper) =>
+    helper.history.last;
 
 Iterable<MockRequestRecord> requests(
   MockApiClientHelper helper,
@@ -374,7 +376,6 @@ Iterable<MockRequestRecord> requests(
         normalize(record.url.path) == path,
   );
 }
-
 
 /// 构建带企业 / 项目上下文的登录态，供需要 Provider 的页面（路由跳转后）使用
 Future<AuthState> bootstrapTestAuth(
@@ -392,7 +393,12 @@ Future<AuthState> bootstrapTestAuth(
   helper.whenGet('/companies/mine', {
     'items': withCompany
         ? [
-            {'id': MessagesFixtures.companyId, 'name': '示例科技', 'slug': 'demo', 'status': 'active'},
+            {
+              'id': MessagesFixtures.companyId,
+              'name': '示例科技',
+              'slug': 'demo',
+              'status': 'active'
+            },
           ]
         : <Map<String, dynamic>>[],
     'total': withCompany ? 1 : 0,

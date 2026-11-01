@@ -22,7 +22,10 @@ void main() {
       query: {'project_id': '7'},
     );
     helper.whenGet('/companies/1/conversations', {
-      'items': [MessagesFixtures.directConversation, MessagesFixtures.groupConversation],
+      'items': [
+        MessagesFixtures.directConversation,
+        MessagesFixtures.groupConversation
+      ],
     });
     return helper;
   }
@@ -89,7 +92,8 @@ void main() {
       statusCode: 500,
       query: {'project_id': '7'},
     );
-    helper.whenGet('/companies/1/conversations', {'items': <Map<String, dynamic>>[]});
+    helper.whenGet(
+        '/companies/1/conversations', {'items': <Map<String, dynamic>>[]});
 
     await pumpMessagesScreen(tester, screen(helper));
     await tester.pumpAndSettle();
@@ -107,7 +111,40 @@ void main() {
     await tester.tap(find.text('重试'));
     await tester.pumpAndSettle();
 
-    expect(requests(helper, 'GET', '/companies/1/channels').length, greaterThan(before));
+    expect(requests(helper, 'GET', '/companies/1/channels').length,
+        greaterThan(before));
+    expect(find.text('全员交流大厅'), findsOneWidget);
+  });
+
+  testWidgets('断网时给出中文网络提示与重试入口', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet(
+      '/companies/1/channels',
+      Exception('网络断开'),
+      query: {'project_id': '7'},
+    );
+    helper.whenGet(
+      '/companies/1/conversations',
+      Exception('网络断开'),
+    );
+
+    await pumpMessagesScreen(tester, screen(helper));
+    await tester.pumpAndSettle();
+
+    expect(find.text('网络连接异常或请求超时，请检查网络后重试'), findsWidgets);
+    expect(find.text('重试'), findsWidgets);
+
+    helper.whenGet(
+      '/companies/1/channels',
+      {
+        'items': [MessagesFixtures.generalChannel],
+      },
+      query: {'project_id': '7'},
+    );
+    helper.whenGet(
+        '/companies/1/conversations', {'items': <Map<String, dynamic>>[]});
+    await tester.tap(find.text('重试').first);
+    await tester.pumpAndSettle();
     expect(find.text('全员交流大厅'), findsOneWidget);
   });
 
@@ -118,7 +155,8 @@ void main() {
       {'items': <Map<String, dynamic>>[]},
       query: {'project_id': '7'},
     );
-    helper.whenGet('/companies/1/conversations', {'items': <Map<String, dynamic>>[]});
+    helper.whenGet(
+        '/companies/1/conversations', {'items': <Map<String, dynamic>>[]});
 
     await pumpMessagesScreen(tester, screen(helper));
     await tester.pumpAndSettle();

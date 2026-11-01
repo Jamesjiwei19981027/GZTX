@@ -135,7 +135,8 @@ class _InboxScreenState extends State<InboxScreen> {
               onPressed: inbox.markingAll ? null : _markAllRead,
               child: Text(
                 inbox.markingAll ? '处理中…' : '全部已读',
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
               ),
             ),
           ),
@@ -191,7 +192,8 @@ class _InboxScreenState extends State<InboxScreen> {
                 SizedBox(height: AppSpacing.md),
                 Text(
                   '获取站内通知…',
-                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style:
+                      TextStyle(fontSize: 13, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -232,9 +234,10 @@ class _InboxScreenState extends State<InboxScreen> {
                           ),
                           AppEmptyState(
                             title: '暂无通知',
-                            description: controller.filter == NotificationFilter.archived
-                                ? '无已归档通知。'
-                                : '当前收件箱没有新的协作通知。',
+                            description:
+                                controller.filter == NotificationFilter.archived
+                                    ? '无已归档通知。'
+                                    : '当前收件箱没有新的协作通知。',
                             icon: const AppIcon(
                               'bell',
                               size: 42,
@@ -284,7 +287,8 @@ class _InboxScreenState extends State<InboxScreen> {
             ),
           )
         : null;
-    final time = item.createdAt == null ? '' : formatRelativeDate(item.createdAt);
+    final time =
+        item.createdAt == null ? '' : formatRelativeDate(item.createdAt);
 
     return AppListTile(
       leading: Stack(
@@ -295,9 +299,8 @@ class _InboxScreenState extends State<InboxScreen> {
             height: 36,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: item.read
-                  ? AppColors.surfaceVariant
-                  : AppColors.primaryLight,
+              color:
+                  item.read ? AppColors.surfaceVariant : AppColors.primaryLight,
               shape: BoxShape.circle,
             ),
             child: AppIcon(

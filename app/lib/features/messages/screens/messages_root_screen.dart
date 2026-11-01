@@ -144,7 +144,8 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
               ),
               child: AppSegmentedControl<_MessageListTab>(
                 segments: {
-                  _MessageListTab.channels: '项目频道 (${controller.channels.length})',
+                  _MessageListTab.channels:
+                      '项目频道 (${controller.channels.length})',
                   _MessageListTab.direct:
                       '直接私聊 (${controller.conversations.length})',
                 },
@@ -215,7 +216,8 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
           AppEmptyState(
             title: '暂无项目频道',
             description: '选择项目后可进入项目频道，也可以直接找工作联系人私聊。',
-            icon: const AppIcon('messages', size: 42, color: AppColors.textTertiary),
+            icon: const AppIcon('messages',
+                size: 42, color: AppColors.textTertiary),
             actionLabel: '选择工作联系人',
             onAction: _openNewChat,
           ),
@@ -265,7 +267,8 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
           AppEmptyState(
             title: '暂无直接私聊',
             description: '点击右上角「+」选择工作联系人发起私聊。',
-            icon: const AppIcon('messages', size: 42, color: AppColors.textTertiary),
+            icon: const AppIcon('messages',
+                size: 42, color: AppColors.textTertiary),
             actionLabel: '发起私聊',
             onAction: _openNewChat,
           ),

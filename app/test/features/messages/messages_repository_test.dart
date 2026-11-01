@@ -24,8 +24,7 @@ void main() {
         });
 
       final repository = MessagesRepository(helper.buildClient());
-      final channels =
-          await repository.listChannels(1, projectId: 7);
+      final channels = await repository.listChannels(1, projectId: 7);
       final conversations = await repository.listConversations(1);
 
       expect(channels.single.name, '全员交流大厅');
@@ -88,7 +87,11 @@ void main() {
       final helper = MockApiClientHelper()
         ..whenPost(
           '/companies/1/conversations',
-          {'id': 88, 'member_user_ids': [11, 21], 'kind': 'direct'},
+          {
+            'id': 88,
+            'member_user_ids': [11, 21],
+            'kind': 'direct'
+          },
         );
 
       final repository = MessagesRepository(helper.buildClient());
@@ -216,11 +219,13 @@ void main() {
         '企业尚未配置 IMAP 外部邮箱，请联系管理员',
       );
       expect(
-        friendlyMessage(ApiException('not a conversation member', statusCode: 403)),
+        friendlyMessage(
+            ApiException('not a conversation member', statusCode: 403)),
         '您不是该会话成员，无法查看',
       );
       expect(
-        friendlyMessage(ApiException('unsupported collaboration file type', statusCode: 415)),
+        friendlyMessage(ApiException('unsupported collaboration file type',
+            statusCode: 415)),
         contains('不支持该文件类型'),
       );
       expect(

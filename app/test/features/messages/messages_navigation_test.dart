@@ -89,7 +89,11 @@ void main() {
     );
     helper.whenPost(
       '/companies/1/conversations',
-      {'id': 88, 'member_user_ids': [11, 21], 'kind': 'direct'},
+      {
+        'id': 88,
+        'member_user_ids': [11, 21],
+        'kind': 'direct'
+      },
     );
     helper.whenGet(
       '/conversations/88/messages',

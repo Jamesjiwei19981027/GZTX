@@ -227,7 +227,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               if (widget.isChannel)
                 AppListTile(
                   title: '为此消息点赞 (+1)',
-                  subtitle: message.likes > 0 ? '当前 ${message.likes} 个赞' : '让同事知道这条消息有用',
+                  subtitle: message.likes > 0
+                      ? '当前 ${message.likes} 个赞'
+                      : '让同事知道这条消息有用',
                   leading: const AppIcon('thumbs-up', size: 20),
                   showChevron: false,
                   onTap: () async {
@@ -346,9 +348,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                           : controller.sendError!,
                       actionLabel:
                           controller.failedText != null ? '重试发送' : null,
-                      onAction: controller.failedText != null
-                          ? _retrySend
-                          : null,
+                      onAction:
+                          controller.failedText != null ? _retrySend : null,
                       onDismiss: () {
                         controller.dismissFailedSend();
                         controller.clearSendError();

@@ -31,8 +31,7 @@ class ChatInputBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final isIos = isCupertinoPlatform(context);
     final isDark = isDarkMode(context);
-    final keyboardInset =
-        isIos ? MediaQuery.viewInsetsOf(context).bottom : 0.0;
+    final keyboardInset = isIos ? MediaQuery.viewInsetsOf(context).bottom : 0.0;
 
     return Container(
       decoration: BoxDecoration(
@@ -80,7 +79,8 @@ class ChatInputBar extends StatelessWidget {
                 children: [
                   IconButton(
                     tooltip: '发送文件',
-                    onPressed: enabled && !sending && !uploading ? onPickFile : null,
+                    onPressed:
+                        enabled && !sending && !uploading ? onPickFile : null,
                     icon: const AppIcon('paperclip', size: 21),
                   ),
                   Expanded(
@@ -99,7 +99,8 @@ class ChatInputBar extends StatelessWidget {
                     label: '发送',
                     size: AppButtonSize.sm,
                     isLoading: sending,
-                    onPressed: enabled && !sending && !uploading ? onSend : null,
+                    onPressed:
+                        enabled && !sending && !uploading ? onSend : null,
                   ),
                 ],
               ),

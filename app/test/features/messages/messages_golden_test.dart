@@ -31,7 +31,10 @@ void main() {
       query: {'project_id': '7'},
     )
     ..whenGet('/companies/1/conversations', {
-      'items': [MessagesFixtures.directConversation, MessagesFixtures.groupConversation],
+      'items': [
+        MessagesFixtures.directConversation,
+        MessagesFixtures.groupConversation
+      ],
     });
 
   testWidgets(

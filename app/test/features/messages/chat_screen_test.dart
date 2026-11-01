@@ -353,7 +353,8 @@ void main() {
     await tester.tap(find.text('为此消息点赞 (+1)'));
     await tester.pumpAndSettle();
 
-    expect(requests(helper, 'POST', '/channels/messages/9001/like'), isNotEmpty);
+    expect(
+        requests(helper, 'POST', '/channels/messages/9001/like'), isNotEmpty);
     expect(find.text('3'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));
@@ -522,8 +523,9 @@ void main() {
 
     expect(uploader.uploadedScopeType, 'conversation');
     expect(uploader.uploadedScopeId, 55);
-    final body = requests(helper, 'POST', '/conversations/55/messages').single.body
-        as Map<String, dynamic>;
+    final body = requests(helper, 'POST', '/conversations/55/messages')
+        .single
+        .body as Map<String, dynamic>;
     expect(body['file_ids'], [301]);
     expect(find.text('需求说明.pdf'), findsOneWidget);
 
@@ -549,7 +551,8 @@ void main() {
     );
     final repository = MessagesRepository(helper.buildClient());
 
-    await pumpMessagesScreen(tester, chatScreen(helper, repository: repository));
+    await pumpMessagesScreen(
+        tester, chatScreen(helper, repository: repository));
     await tester.pumpAndSettle();
     expect(find.text('频道五的消息'), findsOneWidget);
 

@@ -81,6 +81,8 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
         oldWidget.scopeType != widget.scopeType) {
       _controller?.dispose();
       _controller = null;
+      // 置空后 _resolve 才会按新编号重建控制器；否则会命中“参数未变”的提前返回
+      _repository = null;
       _resolve();
     }
   }
@@ -189,7 +191,8 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
       );
     }
     if (controller.error != null) {
-      return AppErrorState(message: controller.error!, onRetry: controller.load);
+      return AppErrorState(
+          message: controller.error!, onRetry: controller.load);
     }
 
     return ListView(
@@ -207,12 +210,14 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
                   child: Text(
                     '暂无钉选链接',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                    style:
+                        TextStyle(fontSize: 12, color: AppColors.textTertiary),
                   ),
                 ),
               for (final link in controller.links)
                 AppListTile(
-                  leading: const AppIcon('pin', size: 18, color: AppColors.warning),
+                  leading:
+                      const AppIcon('pin', size: 18, color: AppColors.warning),
                   title: link.title,
                   subtitle: link.url,
                   showChevron: false,
@@ -227,7 +232,8 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
                       IconButton(
                         tooltip: '删除钉选链接',
                         onPressed: () => _deleteLink(link),
-                        icon: const AppIcon('trash', size: 18, color: AppColors.danger),
+                        icon: const AppIcon('trash',
+                            size: 18, color: AppColors.danger),
                       ),
                     ],
                   ),
@@ -254,7 +260,8 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
                   child: Text(
                     '成员信息暂不可用，可返回会话列表重试。',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                    style:
+                        TextStyle(fontSize: 12, color: AppColors.textTertiary),
                   ),
                 ),
               for (final member in controller.members)
@@ -284,7 +291,8 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
               ),
             for (final file in controller.files)
               AppListTile(
-                leading: const AppIcon('file', size: 18, color: AppColors.primary),
+                leading:
+                    const AppIcon('file', size: 18, color: AppColors.primary),
                 title: file.originalName,
                 subtitle: file.sizeLabel.isEmpty ? null : file.sizeLabel,
                 onTap: () => _copyLink(file.downloadUrl),
@@ -295,7 +303,8 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
     );
   }
 
-  Widget _headerCard(BuildContext context, ConversationProfileController controller) {
+  Widget _headerCard(
+      BuildContext context, ConversationProfileController controller) {
     final isDark = isDarkMode(context);
     return Container(
       margin: const EdgeInsets.fromLTRB(
@@ -332,8 +341,9 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
                   style: TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    color:
-                        isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                    color: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.textPrimary,
                   ),
                 ),
                 const SizedBox(height: 2),

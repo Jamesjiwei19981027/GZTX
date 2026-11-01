@@ -117,8 +117,10 @@ class ChatController extends ChangeNotifier {
     } catch (error) {
       if (_disposed || seq != _requestSeq) return;
       final message = friendlyMessage(error);
-      final forbidden =
-          error is ApiException && (error.statusCode == 403 || error.code == 40300 || error.code == 40301);
+      final forbidden = error is ApiException &&
+          (error.statusCode == 403 ||
+              error.code == 40300 ||
+              error.code == 40301);
       if (silent) {
         // 轮询失败保留已有消息，只给出可见提示，避免把聊天记录清空
         _pollError = message;
@@ -215,8 +217,7 @@ class ChatController extends ChangeNotifier {
       );
       final message = isChannel
           ? await repository.postChannelMessage(scopeId, '', fileIds: [fileId])
-          : await repository
-              .postDirectMessage(scopeId, '', fileIds: [fileId]);
+          : await repository.postDirectMessage(scopeId, '', fileIds: [fileId]);
       if (_disposed) return true;
       _messages = [..._messages, message];
       _state = ChatLoadState.ready;
@@ -238,7 +239,8 @@ class ChatController extends ChangeNotifier {
       final likes = await repository.likeChannelMessage(message.id);
       if (_disposed) return true;
       _messages = _messages
-          .map((item) => item.id == message.id ? item.copyWith(likes: likes) : item)
+          .map((item) =>
+              item.id == message.id ? item.copyWith(likes: likes) : item)
           .toList(growable: false);
       _safeNotify();
       return true;

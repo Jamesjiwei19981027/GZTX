@@ -62,7 +62,8 @@ class _WorkContactsScreenState extends State<WorkContactsScreen> {
     _companyId = companyId;
     _projectId = projectId;
     if (companyId == null) return;
-    final repository = widget.repository ?? MessagesRepository(api ?? ApiClient());
+    final repository =
+        widget.repository ?? MessagesRepository(api ?? ApiClient());
     _controller = WorkContactsController(
       repository: repository,
       companyId: companyId,
@@ -185,7 +186,8 @@ class _WorkContactsScreenState extends State<WorkContactsScreen> {
                 SizedBox(width: AppSpacing.sm),
                 Text(
                   '正在创建会话…',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style:
+                      TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -193,11 +195,13 @@ class _WorkContactsScreenState extends State<WorkContactsScreen> {
         Expanded(
           child: controller.filtered.isEmpty
               ? AppEmptyState(
-                  title: controller.query.trim().isEmpty ? '暂无可联系人员' : '没有匹配的联系人',
+                  title:
+                      controller.query.trim().isEmpty ? '暂无可联系人员' : '没有匹配的联系人',
                   description: controller.query.trim().isEmpty
                       ? '可通过项目频道与同事沟通，或请项目经理邀请成员。'
                       : '换个姓名关键字再试试。',
-                  icon: const AppIcon('team', size: 42, color: AppColors.textTertiary),
+                  icon: const AppIcon('team',
+                      size: 42, color: AppColors.textTertiary),
                 )
               : ListView(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xl),
@@ -207,10 +211,13 @@ class _WorkContactsScreenState extends State<WorkContactsScreen> {
                       children: [
                         for (final contact in controller.filtered)
                           AppListTile(
-                            leading: MessageAvatar(label: contact.name, size: 36),
+                            leading:
+                                MessageAvatar(label: contact.name, size: 36),
                             title: contact.name,
                             subtitle: '点击发起私聊',
-                            onTap: controller.creating ? null : () => _start(contact),
+                            onTap: controller.creating
+                                ? null
+                                : () => _start(contact),
                           ),
                       ],
                     ),

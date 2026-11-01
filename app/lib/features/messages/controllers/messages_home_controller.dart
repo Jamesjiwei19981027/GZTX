@@ -36,7 +36,8 @@ class MessagesHomeController extends ChangeNotifier {
   List<ChatChannel> get channels => List.unmodifiable(_channels);
 
   List<DirectConversation> _conversations = const [];
-  List<DirectConversation> get conversations => List.unmodifiable(_conversations);
+  List<DirectConversation> get conversations =>
+      List.unmodifiable(_conversations);
 
   String? _channelError;
   String? get channelError => _channelError;
@@ -62,7 +63,8 @@ class MessagesHomeController extends ChangeNotifier {
 
   Future<_Loaded<ChatChannel>> _loadChannels() async {
     try {
-      final items = await repository.listChannels(companyId, projectId: projectId);
+      final items =
+          await repository.listChannels(companyId, projectId: projectId);
       return _Loaded(items: items);
     } catch (error) {
       return _Loaded(
@@ -152,7 +154,9 @@ class WorkContactsController extends ChangeNotifier {
   List<WorkContact> get filtered {
     final keyword = _query.trim();
     if (keyword.isEmpty) return contacts;
-    return contacts.where((c) => c.name.contains(keyword)).toList(growable: false);
+    return contacts
+        .where((c) => c.name.contains(keyword))
+        .toList(growable: false);
   }
 
   void setQuery(String value) {
