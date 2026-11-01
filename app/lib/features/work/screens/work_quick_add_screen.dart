@@ -73,6 +73,7 @@ class _WorkQuickAddScreenState extends State<WorkQuickAddScreen> {
         'title': title,
         'project_id': _scope.projectId,
         'origin': _scope.origin,
+        'linked_readonly': false,
         if (widget.initialDate != null)
           'due_date': TaskTime.toApiDueDate(widget.initialDate),
       });

@@ -416,5 +416,46 @@ void main() {
       final created = harness.api.tasks.firstWhere((t) => t.title == '从进行中列新建的任务');
       expect(created.status, 1);
     });
+
+    testWidgets('新建项目任务显式传 linked_readonly=false，且新建后的任务可编辑', (tester) async {
+      tester.view.physicalSize = const Size(430, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await WorkTestHarness.create();
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskEditScreen(
+          api: harness.api,
+          authState: harness.authState,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final titleField = find.byType(TextField).first;
+      await tester.enterText(titleField, '新创建的可编辑项目任务');
+      await tester.pump();
+
+      final saveBtn = find.widgetWithText(AppButton, '创建任务');
+      await tester.ensureVisible(saveBtn);
+      await tester.tap(saveBtn);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(harness.api.lastCreatedBody?['linked_readonly'], isFalse);
+
+      final created = harness.api.tasks.firstWhere((t) => t.title == '新创建的可编辑项目任务');
+      expect(created.linkedReadonly, isFalse);
+      expect(created.isAxisLocked, isFalse);
+
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskDetailScreen(taskId: created.id, api: harness.api),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('编辑'), findsOneWidget);
+      expect(find.text('删除任务'), findsOneWidget);
+    });
   });
 }

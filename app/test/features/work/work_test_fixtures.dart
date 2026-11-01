@@ -352,9 +352,12 @@ class MockWorkApi extends Fake implements WorkApi {
     return task;
   }
 
+  Map<String, dynamic>? lastCreatedBody;
+
   @override
   Future<WorkTask> createTask(Map<String, dynamic> body) async {
     _checkErrors();
+    lastCreatedBody = Map<String, dynamic>.from(body);
     final title = (body['title'] as String?)?.trim() ?? '';
     if (title.isEmpty) {
       throw ValidationException('任务标题不能为空', errors: const {'title': '任务标题不能为空'});
@@ -368,6 +371,7 @@ class MockWorkApi extends Fake implements WorkApi {
       dueDate: body['due_date'] as String?,
       origin: (body['origin'] as String?) ?? 'personal',
       projectId: body['project_id'] as int?,
+      linkedReadonly: (body['linked_readonly'] as bool?) ?? true,
     ));
     tasks.insert(0, created);
     return created;

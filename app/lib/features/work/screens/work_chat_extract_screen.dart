@@ -117,6 +117,7 @@ class _WorkChatExtractScreenState extends State<WorkChatExtractScreen> {
         'due_date': draft.dueDateIso,
         'project_id': _scope.projectId,
         'origin': _scope.origin,
+        'linked_readonly': false,
         if (draft.sourceChannel != null) 'source_channel': draft.sourceChannel,
         if (draft.sourceTitle != null) 'source_title': draft.sourceTitle,
       });

@@ -42,6 +42,7 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
 
       expect(harness.api.tasks.any((t) => t.title == '下午 3 点联调支付接口'), isTrue);
+      expect(harness.api.lastCreatedBody?['linked_readonly'], isFalse);
     });
   });
 
@@ -130,6 +131,7 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
 
       expect(harness.api.tasks.any((t) => t.title == '周三上午组织产品评审会议'), isTrue);
+      expect(harness.api.lastCreatedBody?['linked_readonly'], isFalse);
     });
 
     testWidgets('无初始文本时智能提取按钮禁用，输入或粘贴文本后按钮即时变为可用', (tester) async {

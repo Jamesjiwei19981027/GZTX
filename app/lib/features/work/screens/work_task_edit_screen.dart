@@ -415,6 +415,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
       } else {
         body['project_id'] = _scope.projectId;
         body['origin'] = _scope.origin;
+        body['linked_readonly'] = false;
         await _api!.createTask(body);
       }
       if (!mounted) return;
