@@ -200,15 +200,21 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
                   _pan += details.delta;
                 });
               },
+              // 画布按内容实际大小布局（不拉伸到视口），超出视口的部分
+              // 由外层容器在视口边界裁剪，平移后仍能命中
               child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  Positioned.fill(
+                  Positioned(
+                    left: 0,
+                    top: 0,
                     child: Transform.translate(
                       offset: _pan,
                       child: SizedBox(
                         width: width,
                         height: height,
                         child: Stack(
+                          clipBehavior: Clip.none,
                           children: [
                             Positioned.fill(
                               child: CustomPaint(

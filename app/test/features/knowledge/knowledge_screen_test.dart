@@ -103,6 +103,51 @@ void main() {
     expect(find.text('八项接口通过验收'), findsOneWidget);
   });
 
+  testWidgets('切到项目知识再切回我的知识后，搜索框仍显示原来的搜索词', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet('/users/me', {'id': 11, 'username': 'E2E 用户'});
+    helper.whenGet('/companies/mine', {
+      'items': [
+        {'id': 3, 'name': '示例公司'},
+      ],
+    });
+    helper.whenGet(
+      '/projects',
+      {
+        'items': [
+          {'id': 7, 'name': '手机端体验升级'},
+        ],
+      },
+      query: {'company_id': '3', 'as_admin': 'true'},
+    );
+    helper.whenGet('/projects/7/personal-knowledge', spaceWithTwoEntries);
+    helper.whenGet('/projects/7/knowledge-space', projectCatalogNoPermission);
+    final authState = AuthState(apiClient: helper.buildClient());
+    await authState.bootstrap();
+
+    await pumpRoot(tester, authState);
+
+    await tester.enterText(find.byType(EditableText).first, '验收');
+    await tester.pump();
+    expect(find.text('客户需求确认'), findsOneWidget);
+    expect(find.text('接口联调记录'), findsNothing);
+
+    await tester.tap(find.text('项目知识'));
+    await tester.pumpAndSettle();
+    expect(find.text('团队共享资料'), findsOneWidget);
+
+    await tester.tap(find.text('我的知识'));
+    await tester.pumpAndSettle();
+
+    // 输入框回填后与过滤条件一致：看得见搜索词，也看得见被过滤的结果差异
+    expect(
+      tester.widget<EditableText>(find.byType(EditableText)).controller.text,
+      '验收',
+    );
+    expect(find.text('客户需求确认'), findsOneWidget);
+    expect(find.text('接口联调记录'), findsNothing);
+  });
+
   testWidgets('知识助手入口跳到知识助手路由', (tester) async {
     final helper = MockApiClientHelper();
     helper.whenGet('/users/me', {'id': 11, 'username': 'E2E 用户'});

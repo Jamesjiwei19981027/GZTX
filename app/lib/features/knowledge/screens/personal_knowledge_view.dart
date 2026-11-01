@@ -34,6 +34,22 @@ class PersonalKnowledgeView extends StatefulWidget {
 class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
   PersonalKnowledgeController get controller => widget.controller;
 
+  late final TextEditingController _search;
+
+  @override
+  void initState() {
+    super.initState();
+    // 切到“项目知识”再切回来时本页会重新挂载，用控制器里保留的搜索词
+    // 回填输入框，避免输入框显示为空、列表却仍被旧关键词过滤
+    _search = TextEditingController(text: controller.search);
+  }
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
   Future<void> _openEditor({PersonalKnowledgeEntry? entry}) async {
     await showAppBottomSheet<void>(
       context: context,
@@ -93,25 +109,28 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
       context: context,
       isDismissible: false,
       enableDrag: false,
-      builder: (_) => LinkEditorSheet(
-        entries: controller.entries,
-        links: controller.links,
-        titleOf: (id) => controller.entryTitleOf(id) ?? '已删除的笔记',
-        onSave: ({
-          int? linkId,
-          required int sourceEntryId,
-          required int targetEntryId,
-          required String label,
-        }) async {
-          final saved = await controller.saveLink(
-            linkId: linkId,
-            sourceEntryId: sourceEntryId,
-            targetEntryId: targetEntryId,
-            label: label,
-          );
-          return saved != null;
-        },
-        onDelete: controller.deleteLink,
+      builder: (_) => ListenableBuilder(
+        listenable: controller,
+        builder: (context, _) => LinkEditorSheet(
+          entries: controller.entries,
+          links: controller.links,
+          titleOf: (id) => controller.entryTitleOf(id) ?? '已删除的笔记',
+          onSave: ({
+            int? linkId,
+            required int sourceEntryId,
+            required int targetEntryId,
+            required String label,
+          }) async {
+            final saved = await controller.saveLink(
+              linkId: linkId,
+              sourceEntryId: sourceEntryId,
+              targetEntryId: targetEntryId,
+              label: label,
+            );
+            return saved != null;
+          },
+          onDelete: controller.deleteLink,
+        ),
       ),
     );
   }
@@ -192,6 +211,7 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               child: AppTextField(
+                controller: _search,
                 placeholder: '搜索标题、正文或标签',
                 prefix: const AppIcon('search', size: 16),
                 onChanged: controller.setSearch,

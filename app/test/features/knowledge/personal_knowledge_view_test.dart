@@ -634,6 +634,43 @@ void main() {
     expect(position['x'], isNot(0));
   });
 
+  testWidgets('删除关联后浮层里的条数和列表立即更新', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet(
+      '/projects/7/personal-knowledge',
+      spaceWithTwoEntriesAndLink,
+    );
+    helper.whenDelete('/projects/7/personal-knowledge/links/9', {
+      'id': 9,
+      'is_deleted': true,
+    });
+    final controller = await buildController(helper);
+
+    await pumpKnowledgeView(
+      tester,
+      PersonalKnowledgeView(controller: controller, companyId: 3),
+    );
+    await tester.tap(find.text('更多'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('手动调整关联'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已有 1 条关联'), findsOneWidget);
+    expect(find.text('客户需求确认 → 接口联调记录'), findsOneWidget);
+
+    await tester.tap(find.text('删除').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('删除关联'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已有 0 条关联'), findsOneWidget);
+    expect(find.text('客户需求确认 → 接口联调记录'), findsNothing);
+    expect(find.text('还没有关联，可以让 AI 整理，或者手动添加。'), findsOneWidget);
+    expect(controller.links, isEmpty);
+    expect(helper.history.last.method, 'DELETE');
+    await drainToasts(tester);
+  });
+
   testWidgets('仅收集资料走 sync 并提示新增数量', (tester) async {
     final helper = MockApiClientHelper();
     helper.whenGet('/projects/7/personal-knowledge', spaceWithTwoEntries);

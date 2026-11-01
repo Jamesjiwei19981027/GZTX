@@ -39,6 +39,43 @@ const Map<String, dynamic> spaceWithTwoEntries = {
   'links': <dynamic>[],
 };
 
+/// 个人知识空间：两条笔记 + 一条手工关联
+const Map<String, dynamic> spaceWithTwoEntriesAndLink = {
+  'scope': {'company_id': 3, 'project_id': 7, 'owner_user_id': 11},
+  'entries': [
+    {
+      'id': 21,
+      'title': '客户需求确认',
+      'body_text': '客户确认先做验收清单',
+      'tags': ['验收'],
+      'position': null,
+      'source_type': 'manual',
+      'source_id': null,
+      'source_ref': <String, dynamic>{},
+      'updated_at': '2026-10-31T02:00:00Z',
+    },
+    {
+      'id': 22,
+      'title': '接口联调记录',
+      'body_text': '接口全部通过',
+      'tags': <String>[],
+      'position': null,
+      'source_type': 'agent_report',
+      'source_id': 4,
+      'source_ref': {'report_id': 4},
+      'updated_at': null,
+    },
+  ],
+  'links': [
+    {
+      'id': 9,
+      'source_entry_id': 21,
+      'target_entry_id': 22,
+      'label': '提供验收依据',
+    },
+  ],
+};
+
 /// 项目知识空间：无总结权限、无成员管理权限
 const Map<String, dynamic> projectCatalogNoPermission = {
   'scope': {'company_id': 3, 'project_id': 7, 'owner_user_id': 11},
@@ -133,5 +170,25 @@ Future<void> pumpKnowledgeView(WidgetTester tester, Widget child) async {
 /// 让轻提示（Toast）自然结束，避免测试结束时残留定时器
 Future<void> drainToasts(WidgetTester tester) async {
   await tester.pump(const Duration(seconds: 3));
+  await tester.pump();
+}
+
+/// 以 iOS 平台渲染知识空间，用于验证 iOS 上的浮层与返回行为。
+///
+/// 平台取自 `Theme.of(context).platform`（设计底座的 `isCupertinoPlatform` 判定依据），
+/// 不改全局 `defaultTargetPlatform`，避免影响其他测试。
+Future<void> pumpKnowledgeViewIos(WidgetTester tester, Widget child) async {
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: ThemeData(platform: TargetPlatform.iOS),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('zh', 'CN')],
+      home: Scaffold(body: child),
+    ),
+  );
   await tester.pump();
 }

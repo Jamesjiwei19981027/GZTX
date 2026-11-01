@@ -67,6 +67,35 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
               shrinkWrap: true,
               padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
               children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'AI 发现的关联',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? AppColors.darkTextPrimary
+                              : AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: _submitting
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      icon: AppIcon(
+                        'close',
+                        size: 20,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
                 Text(
                   '已根据你的笔记找到这些关联，确认后加入关联图。',
                   style: TextStyle(

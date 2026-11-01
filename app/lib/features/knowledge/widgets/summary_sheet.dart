@@ -114,6 +114,19 @@ class _SummarySheetState extends State<SummarySheet> {
                           : AppColors.textTertiary,
                     ),
                   ),
+                  IconButton(
+                    tooltip: '关闭',
+                    onPressed: _saving
+                        ? null
+                        : () => Navigator.of(context).pop(false),
+                    icon: AppIcon(
+                      'close',
+                      size: 20,
+                      color: isDark
+                          ? AppColors.darkTextSecondary
+                          : AppColors.textSecondary,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: AppSpacing.xs),

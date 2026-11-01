@@ -88,6 +88,46 @@ void main() {
     expect(moved!.y, greaterThan(0));
   });
 
+  testWidgets('超出初始视口的节点平移进可见区后可以点开', (tester) async {
+    String? opened;
+    await pumpGraph(
+      tester,
+      KnowledgeGraph(
+        nodes: const [
+          KnowledgeGraphNode(
+            id: '21',
+            title: '客户需求确认',
+            subtitle: '客户确认先做验收清单',
+            position: KnowledgePoint(0, 0),
+          ),
+          KnowledgeGraphNode(
+            id: '23',
+            title: '第三行笔记',
+            subtitle: '网页版存过的坐标',
+            position: KnowledgePoint(0, 500),
+          ),
+        ],
+        height: 320,
+        onTapNode: (node) => opened = node.id,
+      ),
+    );
+
+    // 初始视口里点不到第三行节点
+    expect(find.text('第三行笔记').hitTestable(), findsNothing);
+
+    // 在画布空白处向上平移，把 y=500 的节点移进可见区
+    final canvas = tester.getRect(find.byType(KnowledgeGraph));
+    await tester.dragFrom(
+      Offset(canvas.right - 20, canvas.top + 200),
+      const Offset(0, -460),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('第三行笔记'));
+    await tester.pump();
+    expect(opened, '23');
+  });
+
   testWidgets('空节点列表不报错', (tester) async {
     await pumpGraph(tester, const KnowledgeGraph(nodes: []));
     expect(tester.takeException(), isNull);
