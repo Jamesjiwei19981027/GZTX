@@ -480,20 +480,27 @@ class MockWorkApi extends Fake implements WorkApi {
     return item;
   }
 
+  /// 按后端口径：只处理本人名下（不在 [batchForeignIds] 里的视为本人）的任务，只读投影单独计数
+  Set<int> batchForeignIds = {};
+
   @override
-  Future<int> batchComplete(List<int> ids) async {
+  Future<BatchCompleteResult> batchComplete(List<int> ids) async {
     _checkErrors();
     var count = 0;
+    var readonly = 0;
     for (final id in ids) {
+      if (batchForeignIds.contains(id)) continue;
       final index = tasks.indexWhere((t) => t.id == id);
       if (index >= 0) {
-        if (!tasks[index].linkedReadonly) {
+        if (tasks[index].linkedReadonly) {
+          readonly++;
+        } else {
           tasks[index] = tasks[index].copyWith(status: 2);
           count++;
         }
       }
     }
-    return count;
+    return BatchCompleteResult(completed: count, skippedReadonly: readonly);
   }
 
   @override

@@ -305,6 +305,37 @@ void main() {
     expect(harness.api.tasks.firstWhere((t) => t.id == 902).status, 0);
   });
 
+  testWidgets('批量完成时别人分配给我的可编辑任务不会被误报成只读投影', (tester) async {
+    final harness = await WorkTestHarness.create();
+    harness.api.tasks = [
+      WorkTask.fromJson(buildTaskJson(
+        id: 911,
+        title: '同事分配给我的任务',
+        projectId: 1,
+        origin: 'project_link',
+        linkedReadonly: false,
+      )),
+    ];
+    // 后端批量完成只处理本人创建的任务：这条既不完成，也不计入只读跳过
+    harness.api.batchForeignIds = {911};
+
+    await tester.pumpWidget(harness.wrap(
+      WorkTasksScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('批量操作'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('全选本页'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('完成').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.textContaining('只读投影'), findsNothing);
+    expect(find.textContaining('1 项无法批量完成'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('从空列表新建任务并返回后自动重新加载任务列表', (tester) async {
     final harness = await WorkTestHarness.create();
     harness.api.tasks = [];

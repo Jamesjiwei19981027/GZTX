@@ -189,9 +189,11 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     if (total == 0) return;
     setState(() => _busy = true);
     try {
-      final completed = await _api.batchComplete(_selected.toList());
+      final result = await _api.batchComplete(_selected.toList());
       if (!mounted) return;
-      final skipped = total - completed;
+      final readonly = result.skippedReadonly;
+      // 其余未完成的：别人名下的任务、加载后已被删除的任务等，后端不计入只读
+      final other = total - result.completed - readonly;
       setState(() {
         _busy = false;
         _batchMode = false;
@@ -199,12 +201,12 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
       });
       await _load();
       if (!mounted) return;
-      if (skipped > 0) {
-        showAppToast(
-          context,
-          '$skipped 项为只读投影任务未完成',
-          type: ToastType.warning,
-        );
+      final notes = [
+        if (readonly > 0) '$readonly 项为只读投影任务未完成',
+        if (other > 0) '$other 项无法批量完成（非本人创建或已被删除），请进入任务单独处理',
+      ];
+      if (notes.isNotEmpty) {
+        showAppToast(context, notes.join('；'), type: ToastType.warning);
       }
     } catch (error) {
       if (!mounted) return;

@@ -91,12 +91,17 @@ class WorkApi {
     return WorkTask.fromJson(_asMap(data));
   }
 
-  Future<int> batchComplete(List<int> ids) async {
+  /// 批量完成：后端只完成本人名下、可编辑的任务，只读投影任务单独计数跳过
+  Future<BatchCompleteResult> batchComplete(List<int> ids) async {
     final data = await _client.patch(
       '/tasks/batch/complete',
       body: {'task_ids': ids},
     );
-    return (_asMap(data)['completed_count'] as num?)?.toInt() ?? 0;
+    final map = _asMap(data);
+    return BatchCompleteResult(
+      completed: (map['completed_count'] as num?)?.toInt() ?? 0,
+      skippedReadonly: (map['skipped_readonly'] as num?)?.toInt() ?? 0,
+    );
   }
 
   Future<int> batchReschedule(List<int> ids, String dueDate) async {
@@ -215,4 +220,12 @@ List<dynamic> _asList(dynamic value) {
     if (items is List) return items;
   }
   return const [];
+}
+
+/// 批量完成结果（对齐后端 `completed_count` / `skipped_readonly`）
+class BatchCompleteResult {
+  const BatchCompleteResult({required this.completed, required this.skippedReadonly});
+
+  final int completed;
+  final int skippedReadonly;
 }
