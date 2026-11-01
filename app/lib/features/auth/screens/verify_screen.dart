@@ -80,6 +80,11 @@ class _VerifyScreenState extends State<VerifyScreen> {
   @override
   void initState() {
     super.initState();
+    // “发验证码”按钮的可用状态取决于绑定目标是否非空，而接口返回的邮箱/手机号
+    // 可能为空（只用邮箱注册的用户首次绑手机）。必须监听输入，否则按钮会
+    // 一直停留在首帧的禁用状态。
+    _emailTarget.addListener(_onTargetChanged);
+    _phoneTarget.addListener(_onTargetChanged);
     if (widget.initialStatus != null) {
       _status = widget.initialStatus;
       _loading = false;
@@ -96,6 +101,8 @@ class _VerifyScreenState extends State<VerifyScreen> {
 
   @override
   void dispose() {
+    _emailTarget.removeListener(_onTargetChanged);
+    _phoneTarget.removeListener(_onTargetChanged);
     _emailTarget.dispose();
     _emailCode.dispose();
     _phoneTarget.dispose();
@@ -103,6 +110,28 @@ class _VerifyScreenState extends State<VerifyScreen> {
     _emailCountdown.dispose();
     _phoneCountdown.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant VerifyScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.required == widget.required) return;
+    // 同一路由只换了 `required`（例如邮箱验证通过后点“去绑定手机”，
+    // 从 `/verify?required=email` 跳到 `/verify?required=phone`）时，
+    // GoRouter 会复用同一个页面状态。这里必须重置“已离开”标记，
+    // 否则手机验证成功后 `_onSatisfied()` 会直接返回，用户卡在验证页。
+    _leaving = false;
+    _actionError = null;
+    _actionHint = null;
+    final status = _status;
+    if (status != null && status.satisfies(widget.required)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _onSatisfied());
+    }
+  }
+
+  /// 绑定目标输入变化时重建，让“发验证码”按钮的可用状态跟着更新。
+  void _onTargetChanged() {
+    if (mounted) setState(() {});
   }
 
   AuthApi get _api => widget.api ?? AuthApi(context.read<AuthState>().api);
