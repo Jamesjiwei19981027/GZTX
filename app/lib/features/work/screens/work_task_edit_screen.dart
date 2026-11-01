@@ -23,6 +23,7 @@ class WorkTaskEditScreen extends StatefulWidget {
     super.key,
     this.taskId,
     this.initialDate,
+    this.initialStatus,
     this.api,
     this.authState,
   });
@@ -30,6 +31,7 @@ class WorkTaskEditScreen extends StatefulWidget {
   /// 为空表示新建。
   final int? taskId;
   final String? initialDate;
+  final int? initialStatus;
   final WorkApi? api;
   final AuthState? authState;
 
@@ -111,6 +113,9 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   void initState() {
     super.initState();
     _dueDate = widget.initialDate;
+    if (widget.initialStatus != null) {
+      _status = widget.initialStatus!;
+    }
     _titleController.addListener(_markDirty);
     _descriptionController.addListener(_markDirty);
   }
@@ -141,7 +146,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
     _titleController.text = '';
     _descriptionController.text = '';
     _priority = 1;
-    _status = 0;
+    _status = widget.initialStatus ?? 0;
     _dueDate = widget.initialDate;
     _dueTime = null;
     _categoryId = null;

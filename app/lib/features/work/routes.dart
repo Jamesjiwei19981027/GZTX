@@ -97,6 +97,7 @@ final List<RouteBase> workRoutes = [
         builder: (context, state) => WorkTaskEditScreen(
           taskId: _queryInt(state, 'id'),
           initialDate: state.uri.queryParameters['date'],
+          initialStatus: _queryInt(state, 'status'),
         ),
       ),
       GoRoute(

@@ -380,5 +380,41 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('自定义 (biweekly)'), findsOneWidget);
     });
+
+    testWidgets('新建任务支持传入 initialStatus 并继承对应初始状态', (tester) async {
+      tester.view.physicalSize = const Size(430, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await WorkTestHarness.create();
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskEditScreen(
+          initialStatus: 1, // 进行中
+          api: harness.api,
+          authState: harness.authState,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // 验证当前状态下拉选中的是「进行中」
+      expect(find.text('进行中'), findsWidgets);
+
+      // 输入标题并保存
+      final titleField = find.byType(TextField).first;
+      await tester.enterText(titleField, '从进行中列新建的任务');
+      await tester.pump();
+
+      final saveBtn = find.widgetWithText(AppButton, '创建任务');
+      await tester.ensureVisible(saveBtn);
+      await tester.tap(saveBtn);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(seconds: 3));
+
+      // 验证创建出来的任务 status 是 1
+      final created = harness.api.tasks.firstWhere((t) => t.title == '从进行中列新建的任务');
+      expect(created.status, 1);
+    });
   });
 }

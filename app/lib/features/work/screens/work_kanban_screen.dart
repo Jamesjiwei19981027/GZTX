@@ -247,7 +247,9 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
                               },
                               onMoveTask: _move,
                               onCreate: () async {
-                                await context.push('/work/task-edit');
+                                await context.push(
+                                  '/work/task-edit?status=${entry.key}',
+                                );
                                 if (!mounted) return;
                                 await _load();
                               },
@@ -355,6 +357,15 @@ class _Column extends StatelessWidget {
                               : AppColors.textSecondary,
                         ),
                       ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    IconButton(
+                      tooltip: '在「$title」新建事项',
+                      icon: const Icon(Icons.add, size: 16),
+                      onPressed: onCreate,
+                      visualDensity: VisualDensity.compact,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
