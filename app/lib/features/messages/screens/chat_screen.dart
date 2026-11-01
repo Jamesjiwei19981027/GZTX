@@ -73,7 +73,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     var companyId = widget.companyId;
     var userId = widget.currentUserId;
     ApiClient? api;
-    if (widget.repository == null || companyId == null || userId == null) {
+    if (widget.repository == null) {
       final auth = context.authStateRead;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;

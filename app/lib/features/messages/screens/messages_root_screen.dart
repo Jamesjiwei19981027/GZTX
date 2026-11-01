@@ -9,6 +9,7 @@ import '../controllers/messages_home_controller.dart';
 import '../data/messages_repository.dart';
 import '../models/messages_models.dart';
 import '../widgets/message_avatar.dart';
+import '../widgets/permission_notice.dart';
 
 /// 消息 Tab 根页：项目频道 + 直接私聊。
 ///
@@ -51,7 +52,7 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
     var projectId = widget.projectId;
     ApiClient? api;
 
-    if (widget.repository == null || companyId == null) {
+    if (widget.repository == null) {
       final auth = context.authStateRead;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;
@@ -184,14 +185,25 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
 
   Widget _channelList(BuildContext context, MessagesHomeController controller) {
     if (controller.channelError != null) {
+      if (controller.channelForbidden) {
+        return ListView(
+          children: [
+            SizedBox(height: MediaQuery.sizeOf(context).height * 0.06),
+            PermissionNotice(
+              title: '无法进入项目频道',
+              message: controller.channelError!,
+              hint: '次级人员默认不能进入频道；如需进入，请联系项目管理人员开通项目频道访问授权。',
+            ),
+          ],
+        );
+      }
       return ListView(
         children: [
           SizedBox(height: MediaQuery.sizeOf(context).height * 0.12),
           AppErrorState(
-            isForbidden: controller.channelForbidden,
             title: '无法进入项目频道',
             message: controller.channelError!,
-            onRetry: controller.channelForbidden ? null : controller.load,
+            onRetry: controller.load,
           ),
         ],
       );

@@ -46,7 +46,7 @@ class _InboxScreenState extends State<InboxScreen> {
   void _resolve() {
     var companyId = widget.companyId;
     ApiClient? api;
-    if (widget.repository == null || companyId == null) {
+    if (widget.repository == null) {
       final auth = context.authStateRead;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;
@@ -311,6 +311,7 @@ class _InboxScreenState extends State<InboxScreen> {
               right: -1,
               top: -1,
               child: Container(
+                key: ValueKey('unread-dot-${item.id}'),
                 width: 9,
                 height: 9,
                 decoration: BoxDecoration(

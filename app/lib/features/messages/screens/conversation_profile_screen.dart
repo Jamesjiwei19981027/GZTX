@@ -51,7 +51,7 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
   void _resolve() {
     var companyId = widget.companyId;
     ApiClient? api;
-    if (widget.repository == null || companyId == null) {
+    if (widget.repository == null) {
       final auth = context.authStateRead;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;

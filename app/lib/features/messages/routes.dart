@@ -41,8 +41,8 @@ String _typeOf(GoRouterState state) =>
     state.uri.queryParameters['type'] == 'direct' ? 'direct' : 'channel';
 
 String _nameOf(GoRouterState state, String fallback) {
-  final raw = state.uri.queryParameters['name'];
-  final value = raw == null ? '' : Uri.decodeComponent(raw).trim();
+  // go_router 已对查询参数解码一次，这里不能再解一次（中文会被判为非法百分号编码）
+  final value = (state.uri.queryParameters['name'] ?? '').trim();
   return value.isEmpty ? fallback : value;
 }
 

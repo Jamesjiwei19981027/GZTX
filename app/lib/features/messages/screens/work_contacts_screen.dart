@@ -44,7 +44,7 @@ class _WorkContactsScreenState extends State<WorkContactsScreen> {
     var companyId = widget.companyId;
     var projectId = widget.projectId;
     ApiClient? api;
-    if (widget.repository == null || companyId == null) {
+    if (widget.repository == null) {
       final auth = context.authStateRead;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;

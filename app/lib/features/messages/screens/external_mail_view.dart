@@ -370,7 +370,7 @@ class _ExternalMailScreenState extends State<ExternalMailScreen> {
     super.didChangeDependencies();
     var companyId = widget.companyId;
     ApiClient? api;
-    if (widget.repository == null || companyId == null) {
+    if (widget.repository == null) {
       final auth = context.authStateRead;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;
