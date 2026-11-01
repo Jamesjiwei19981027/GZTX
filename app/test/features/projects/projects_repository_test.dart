@@ -37,14 +37,108 @@ void main() {
         query: {'page': '2', 'page_size': '200'},
       );
 
-      final tasks = await ProjectsRepository(helper.buildClient())
-          .fetchProjectTasks(11);
+      final result =
+          await ProjectsRepository(helper.buildClient()).fetchProjectTasks(11);
+      final tasks = result.tasks;
 
       expect(tasks.map((task) => task.id), [1, 2, 3]);
       expect(tasks[2].statusLabel, '已完成');
+      expect(result.total, 3);
+      expect(result.truncated, isFalse);
       expect(
         helper.history.where((item) => item.url.path.endsWith('/tasks')).length,
         2,
+      );
+    });
+
+    test('项目任务超过 10 页时按 total 继续拉，不静默丢任务', () async {
+      final helper = MockApiClientHelper();
+      const totalTasks = 2200;
+      for (var page = 1; page <= 11; page++) {
+        final items = <Map<String, dynamic>>[];
+        for (var index = 0; index < 200; index++) {
+          final id = (page - 1) * 200 + index + 1;
+          items.add(taskJson(id: id, title: '任务 $id'));
+        }
+        helper.whenGet(
+          '/projects/11/tasks',
+          {
+            'items': items,
+            'total': totalTasks,
+            'page': page,
+            'page_size': 200,
+          },
+          query: {'page': '$page', 'page_size': '200'},
+        );
+      }
+
+      final result =
+          await ProjectsRepository(helper.buildClient()).fetchProjectTasks(11);
+
+      // 旧的「最多 10 页」口径只会有 2000 条，这里必须拿全
+      expect(result.tasks.length, totalTasks);
+      expect(result.tasks.last.id, totalTasks);
+      expect(result.total, totalTasks);
+      expect(result.truncated, isFalse);
+      expect(
+        helper.history.where((item) => item.url.path.endsWith('/tasks')).length,
+        11,
+      );
+    });
+
+    test('接口不返回 total 时以空页结束，不会按短页提前放弃', () async {
+      final helper = MockApiClientHelper();
+      helper.whenGet(
+        '/projects/11/tasks',
+        {
+          'items': [
+            taskJson(id: 1, title: '需求方案确认'),
+            taskJson(id: 2, title: '交互原型设计'),
+          ],
+        },
+        query: {'page': '1', 'page_size': '200'},
+      );
+      helper.whenGet(
+        '/projects/11/tasks',
+        {'items': <Map<String, dynamic>>[]},
+        query: {'page': '2', 'page_size': '200'},
+      );
+
+      final result =
+          await ProjectsRepository(helper.buildClient()).fetchProjectTasks(11);
+
+      expect(result.tasks.map((task) => task.id), [1, 2]);
+      expect(result.total, isNull);
+      expect(result.truncated, isFalse);
+      expect(
+        helper.history.where((item) => item.url.path.endsWith('/tasks')).length,
+        2,
+      );
+    });
+
+    test('后端忽略分页参数时按安全上限停止并标记截断', () async {
+      final helper = MockApiClientHelper();
+      // 每页都返回 200 条、total 永远更大：模拟后端忽略 page 参数的异常
+      final items = List<Map<String, dynamic>>.generate(
+        200,
+        (index) => taskJson(id: index + 1, title: '任务 ${index + 1}'),
+      );
+      for (var page = 1; page <= ProjectsRepository.maxTaskPages; page++) {
+        helper.whenGet(
+          '/projects/11/tasks',
+          {'items': items, 'total': 999999},
+          query: {'page': '$page', 'page_size': '200'},
+        );
+      }
+
+      final result =
+          await ProjectsRepository(helper.buildClient()).fetchProjectTasks(11);
+
+      expect(result.tasks.length, 200 * ProjectsRepository.maxTaskPages);
+      expect(result.truncated, isTrue);
+      expect(
+        helper.history.where((item) => item.url.path.endsWith('/tasks')).length,
+        ProjectsRepository.maxTaskPages,
       );
     });
 

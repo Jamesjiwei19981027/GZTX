@@ -35,6 +35,9 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
   bool _tasksLoading = true;
   Object? _tasksError;
   List<ProjectTask> _tasks = const [];
+  /// 任务是否撞到分页安全上限（撞到就必须在界面上说明「仅显示前 N 条」）
+  bool _tasksTruncated = false;
+  int? _tasksTotal;
 
   int _loadSeq = 0;
 
@@ -58,6 +61,8 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       _permissionsError = null;
       _tasks = const [];
       _tasksError = null;
+      _tasksTruncated = false;
+      _tasksTotal = null;
       _tasksLoading = true;
       _loading = true;
       _error = null;
@@ -122,7 +127,9 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       final tasks = await _repo.fetchProjectTasks(widget.projectId);
       if (!mounted || seq != _loadSeq) return;
       setState(() {
-        _tasks = tasks;
+        _tasks = tasks.tasks;
+        _tasksTruncated = tasks.truncated;
+        _tasksTotal = tasks.total;
         _tasksLoading = false;
       });
     } catch (error) {
@@ -372,7 +379,26 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
         label: '管理任务',
         onPressed: () => _openProjectScoped('/work/tasks'),
       ),
-      child: _buildTaskBody(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_tasksTruncated) ...[
+            _buildTruncatedNotice(what: '任务'),
+            const SizedBox(height: AppSpacing.sm),
+          ],
+          _buildTaskBody(),
+        ],
+      ),
+    );
+  }
+
+  /// 撞到分页安全上限时的显式提示：不能把「前 N 条」当成全部任务展示
+  Widget _buildTruncatedNotice({required String what}) {
+    final total = _tasksTotal;
+    final totalText = total == null ? '' : '（共 $total 条）';
+    return Text(
+      '仅显示前 ${_tasks.length} 条$what$totalText，完整数据请到任务列表查看。',
+      style: const TextStyle(fontSize: 12, color: AppColors.warning),
     );
   }
 
@@ -460,6 +486,10 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                       _buildKanbanColumn(column.$1, column.$2),
                       if (column != columns.last)
                         const SizedBox(height: AppSpacing.sm),
+                    ],
+                    if (_tasksTruncated) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      _buildTruncatedNotice(what: '任务'),
                     ],
                   ],
                 ),

@@ -40,10 +40,28 @@ class _ProjectInviteScreenState extends State<ProjectInviteScreen> {
   bool _copied = false;
   String? _error;
 
+  int _submitSeq = 0;
+
   @override
   void dispose() {
     _email.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(ProjectInviteScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.projectId == widget.projectId) return;
+    // /projects/11/invite → /projects/12/invite 会复用同一页面状态：清掉上一个项目
+    // 生成的邀请链接与邮箱输入，避免把「11 的邀请链接」当成 12 的结果展示/复制。
+    _submitSeq++;
+    _email.clear();
+    setState(() {
+      _invite = null;
+      _busy = false;
+      _copied = false;
+      _error = null;
+    });
   }
 
   ProjectsRepository get _repo =>
@@ -55,6 +73,8 @@ class _ProjectInviteScreenState extends State<ProjectInviteScreen> {
       setState(() => _error = '请输入有效的受邀人员工作邮箱');
       return;
     }
+    final seq = ++_submitSeq;
+    final projectId = widget.projectId;
     setState(() {
       _busy = true;
       _error = null;
@@ -62,16 +82,17 @@ class _ProjectInviteScreenState extends State<ProjectInviteScreen> {
     });
     try {
       final invitation = await _repo.createInvitation(
-        widget.projectId,
+        projectId,
         email: email,
       );
-      if (!mounted) return;
+      // 期间切了项目：这次结果属于旧项目，直接丢弃
+      if (!mounted || seq != _submitSeq) return;
       setState(() {
         _busy = false;
         _invite = invitation;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _submitSeq) return;
       setState(() {
         _busy = false;
         _error = projectErrorMessage(error);
