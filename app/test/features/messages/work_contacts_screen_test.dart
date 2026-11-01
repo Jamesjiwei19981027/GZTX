@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:worktodo_app/core/models/project.dart';
 import 'package:worktodo_app/features/messages/data/messages_repository.dart';
 import 'package:worktodo_app/features/messages/screens/work_contacts_screen.dart';
 
@@ -38,6 +39,43 @@ void main() {
     await tester.enterText(find.byType(EditableText), '赵六');
     await tester.pumpAndSettle();
     expect(find.text('没有匹配的联系人'), findsOneWidget);
+  });
+
+  testWidgets('页面常驻时切换项目：联系人改为新项目的数据', (tester) async {
+    final helper = MockApiClientHelper()
+      ..whenGet(
+        '/companies/1/contacts',
+        {
+          'items': [
+            {'id': 21, 'name': '七号项目同事', 'avatar': ''},
+          ],
+        },
+        query: {'project_id': '7'},
+      )
+      ..whenGet(
+        '/companies/1/contacts',
+        {
+          'items': [
+            {'id': 31, 'name': '八号项目同事', 'avatar': ''},
+          ],
+        },
+        query: {'project_id': '8'},
+      );
+    final auth = await bootstrapTestAuth(helper);
+
+    await pumpMessagesRouter(
+      tester,
+      auth,
+      (context, state) => const WorkContactsScreen(),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('七号项目同事'), findsOneWidget);
+
+    auth.selectProject(const Project(id: 8, name: '第二个项目', companyId: 1));
+    await tester.pumpAndSettle();
+
+    expect(find.text('八号项目同事'), findsOneWidget);
+    expect(find.text('七号项目同事'), findsNothing);
   });
 
   testWidgets('加载失败显示原因并可重试，不显示英文', (tester) async {

@@ -7,6 +7,7 @@ import '../../../core/auth/auth_provider.dart';
 import '../../../design/design.dart';
 import '../controllers/chat_controller.dart';
 import '../data/message_file_transfer.dart';
+import '../data/message_links.dart';
 import '../data/messages_repository.dart';
 import '../models/messages_models.dart';
 import '../widgets/chat_input_bar.dart';
@@ -74,7 +75,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     var userId = widget.currentUserId;
     ApiClient? api;
     if (widget.repository == null) {
-      final auth = context.authStateRead;
+      // 订阅登录态：切公司/项目后这里会被重新调用，用当前企业的接口客户端重建控制器
+      final auth = context.authState;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;
       userId ??= auth.currentUser?.id;
@@ -271,10 +273,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       showAppToast(context, '该附件暂无下载链接', type: ToastType.warning);
       return;
     }
-    final base = repository.api.baseUrl.endsWith('/')
-        ? repository.api.baseUrl.substring(0, repository.api.baseUrl.length - 1)
-        : repository.api.baseUrl;
-    final url = raw.startsWith('http') ? raw : '$base$raw';
+    final url = resolveMessageLink(repository.api.baseUrl, raw);
     await Clipboard.setData(ClipboardData(text: url));
     if (!mounted) return;
     showAppToast(context, '下载链接已复制，可在浏览器打开');

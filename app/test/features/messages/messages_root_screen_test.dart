@@ -1,5 +1,15 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:worktodo_app/core/api/api_client.dart';
+import 'package:worktodo_app/core/api/token_storage.dart';
+import 'package:worktodo_app/core/auth/auth_state.dart';
+import 'package:worktodo_app/core/models/project.dart';
 import 'package:worktodo_app/features/messages/data/messages_repository.dart';
 import 'package:worktodo_app/features/messages/screens/messages_root_screen.dart';
 
@@ -193,5 +203,100 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('全员交流大厅'), findsOneWidget);
     expect(find.text('项目频道 (2)'), findsOneWidget);
+  });
+
+  testWidgets('消息 Tab 常驻时切换项目：列表换成新项目数据，旧请求的迟到结果被丢弃', (tester) async {
+    final releaseProject7 = Completer<void>();
+    final channelsProjects = <String?>[];
+
+    http.Response reply(Object body, [int status = 200]) => http.Response(
+          jsonEncode(body),
+          status,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+
+    final client = MockClient((request) async {
+      switch (request.url.path) {
+        case '/api/v1/users/me':
+          return reply({'id': 11, 'username': 'e2e_user', 'nickname': '张三'});
+        case '/api/v1/companies/mine':
+          return reply({
+            'items': [
+              {'id': 1, 'name': '示例科技', 'slug': 'demo', 'status': 'active'},
+            ],
+            'total': 1,
+          });
+        case '/api/v1/projects':
+          return reply({
+            'items': [
+              {'id': 7, 'name': '示例项目', 'company_id': 1},
+              {'id': 8, 'name': '第二个项目', 'company_id': 1},
+            ],
+          });
+        case '/api/v1/companies/1/conversations':
+          return reply({'items': <Map<String, dynamic>>[]});
+        case '/api/v1/companies/1/channels':
+          final projectId = request.url.queryParameters['project_id'];
+          channelsProjects.add(projectId);
+          if (projectId == '7') {
+            // 旧项目的频道请求挂起，模拟切换后迟到的响应
+            await releaseProject7.future;
+            return reply({
+              'items': [
+                {
+                  'id': 5,
+                  'key': 'general',
+                  'name': '七号项目的频道',
+                  'project_id': 7,
+                },
+              ],
+            });
+          }
+          return reply({
+            'items': [
+              {
+                'id': 9,
+                'key': 'sprint',
+                'name': '八号项目的频道',
+                'project_id': 8,
+              },
+            ],
+          });
+      }
+      return reply({'code': 404, 'message': '未配置模拟数据: ${request.url.path}'}, 404);
+    });
+
+    SharedPreferences.setMockInitialValues({});
+    final auth = AuthState(
+      apiClient: ApiClient(
+        tokenStorage: InMemoryTokenStorage(access: 'mock-access-token'),
+        httpClient: client,
+        baseUrl: 'http://localhost:8010/api/v1',
+      ),
+    );
+    await auth.bootstrap();
+    expect(auth.currentProject?.id, 7);
+
+    await pumpMessagesRouter(
+      tester,
+      auth,
+      (context, state) => const MessagesRootScreen(),
+    );
+    await tester.pump();
+    expect(channelsProjects, ['7']);
+
+    auth.selectProject(const Project(id: 8, name: '第二个项目', companyId: 1));
+    await tester.pumpAndSettle();
+
+    expect(channelsProjects, ['7', '8']);
+    expect(find.text('八号项目的频道'), findsOneWidget);
+    expect(find.text('七号项目的频道'), findsNothing);
+
+    // 旧项目的请求此刻才返回：页面必须继续显示新项目的数据
+    releaseProject7.complete();
+    await tester.pumpAndSettle();
+
+    expect(find.text('八号项目的频道'), findsOneWidget);
+    expect(find.text('七号项目的频道'), findsNothing);
   });
 }

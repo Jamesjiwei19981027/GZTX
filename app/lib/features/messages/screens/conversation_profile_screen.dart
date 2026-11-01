@@ -5,6 +5,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../design/design.dart';
 import '../controllers/conversation_profile_controller.dart';
+import '../data/message_links.dart';
 import '../data/messages_repository.dart';
 import '../models/messages_models.dart';
 import '../widgets/message_avatar.dart';
@@ -52,7 +53,8 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
     var companyId = widget.companyId;
     ApiClient? api;
     if (widget.repository == null) {
-      final auth = context.authStateRead;
+      // 订阅登录态：切公司后按新企业重建控制器，避免继续展示旧企业的会话资料
+      final auth = context.authState;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;
     }
@@ -139,10 +141,7 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
       showAppToast(context, '该内容暂无链接', type: ToastType.warning);
       return;
     }
-    final base = repository.api.baseUrl.endsWith('/')
-        ? repository.api.baseUrl.substring(0, repository.api.baseUrl.length - 1)
-        : repository.api.baseUrl;
-    final url = rawUrl.startsWith('http') ? rawUrl : '$base$rawUrl';
+    final url = resolveMessageLink(repository.api.baseUrl, rawUrl);
     await Clipboard.setData(ClipboardData(text: url));
     if (!mounted) return;
     showAppToast(context, '链接已复制，可在浏览器打开');

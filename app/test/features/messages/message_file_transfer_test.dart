@@ -125,6 +125,135 @@ void main() {
     );
   });
 
+  test('访问令牌过期但刷新令牌有效时，续期后重试一次并上传成功', () async {
+    final storage = InMemoryTokenStorage(
+      access: 'expired-token',
+      refresh: 'refresh-1',
+    );
+    final authHeaders = <String?>[];
+    var refreshCalls = 0;
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/auth/refresh') {
+        refreshCalls++;
+        expect(jsonDecode(request.body), {'refresh_token': 'refresh-1'});
+        return http.Response(
+          jsonEncode({
+            'code': 200,
+            'data': {'access_token': 'new-token', 'refresh_token': 'refresh-2'},
+          }),
+          200,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      authHeaders.add(request.headers['Authorization']);
+      if (request.headers['Authorization'] == 'Bearer new-token') {
+        return http.Response(
+          jsonEncode({
+            'code': 200,
+            'data': {'id': 301},
+          }),
+          201,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      return http.Response(
+        jsonEncode({'code': 401, 'message': '访问令牌已过期'}),
+        401,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final uploader = ApiMessageFileUploader(
+      api: ApiClient(
+        tokenStorage: storage,
+        baseUrl: 'http://localhost:8010/api/v1',
+      ),
+      httpClient: client,
+    );
+
+    expect(
+      await uploader.upload(scopeType: 'channel', scopeId: 5, file: file()),
+      301,
+    );
+    expect(refreshCalls, 1, reason: '401 后只续期一次');
+    expect(authHeaders, ['Bearer expired-token', 'Bearer new-token']);
+    expect(storage.accessToken, 'new-token');
+    expect(storage.refreshToken, 'refresh-2', reason: '刷新令牌轮换后要保存');
+  });
+
+  test('续期被拒时清空凭证并触发登录过期处理，不循环重试', () async {
+    final storage = InMemoryTokenStorage(
+      access: 'expired-token',
+      refresh: 'refresh-1',
+    );
+    var expired = 0;
+    var uploadCalls = 0;
+    final client = MockClient((request) async {
+      if (request.url.path == '/api/v1/auth/refresh') {
+        return http.Response(
+          jsonEncode({'code': 401, 'message': '刷新令牌已失效'}),
+          401,
+          headers: {'content-type': 'application/json; charset=utf-8'},
+        );
+      }
+      uploadCalls++;
+      return http.Response(
+        jsonEncode({'code': 401, 'message': '访问令牌已过期'}),
+        401,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final uploader = ApiMessageFileUploader(
+      api: ApiClient(
+        tokenStorage: storage,
+        baseUrl: 'http://localhost:8010/api/v1',
+        onAuthExpired: () => expired++,
+      ),
+      httpClient: client,
+    );
+
+    await expectLater(
+      uploader.upload(scopeType: 'channel', scopeId: 5, file: file()),
+      throwsA(isA<AuthException>()),
+    );
+    expect(uploadCalls, 1);
+    expect(expired, 1);
+    expect(storage.hasAccess, isFalse);
+    expect(storage.refreshToken, isNull);
+  });
+
+  test('没有刷新令牌时直接按登录过期处理，不再重发上传', () async {
+    final storage = InMemoryTokenStorage(access: 'expired-token');
+    var expired = 0;
+    var uploadCalls = 0;
+    final client = MockClient((request) async {
+      uploadCalls++;
+      return http.Response(
+        jsonEncode({'code': 401, 'message': '访问令牌已过期'}),
+        401,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+
+    final uploader = ApiMessageFileUploader(
+      api: ApiClient(
+        tokenStorage: storage,
+        baseUrl: 'http://localhost:8010/api/v1',
+        onAuthExpired: () => expired++,
+      ),
+      httpClient: client,
+    );
+
+    await expectLater(
+      uploader.upload(scopeType: 'conversation', scopeId: 55, file: file()),
+      throwsA(isA<AuthException>()),
+    );
+    expect(uploadCalls, 1);
+    expect(expired, 1);
+    expect(storage.hasAccess, isFalse);
+  });
+
   test('未集成选择器时给出中文说明，不静默返回', () async {
     const picker = UnavailableMessageFilePicker();
     expect(picker.isAvailable, isFalse);

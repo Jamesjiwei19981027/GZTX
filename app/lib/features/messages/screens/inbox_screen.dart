@@ -47,7 +47,8 @@ class _InboxScreenState extends State<InboxScreen> {
     var companyId = widget.companyId;
     ApiClient? api;
     if (widget.repository == null) {
-      final auth = context.authStateRead;
+      // 订阅登录态：切公司后按新企业重建收件箱控制器，通知与外部邮件都按企业隔离
+      final auth = context.authState;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;
     }

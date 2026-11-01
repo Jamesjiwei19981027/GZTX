@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/features/messages/data/messages_repository.dart';
 import 'package:worktodo_app/features/messages/screens/conversation_profile_screen.dart';
@@ -176,6 +177,40 @@ void main() {
     expect(find.text('六号频道的链接'), findsOneWidget);
     expect(find.text('五号频道的链接'), findsNothing);
     expect(requests(helper, 'GET', '/channels/6/pinned-links'), isNotEmpty);
+  });
+
+  testWidgets('复制共享文件链接时补全来源地址，钉选外链保持原样', (tester) async {
+    final helper = channelHelper();
+    // 测试环境没有真实剪贴板，这里接管平台通道并记录写入的内容
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add((call.arguments as Map)['text'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+    });
+
+    await pumpMessagesScreen(tester, channelProfile(helper));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('需求说明.pdf'));
+    await tester.pumpAndSettle();
+    expect(copied.last, 'http://localhost:8010/api/v1/collab/files/301/download');
+    expect(copied.last, isNot(contains('/api/v1/api/v1')));
+
+    await tester.tap(find.text('需求文档'));
+    await tester.pumpAndSettle();
+    expect(copied.last, 'https://example.com/spec');
+
+    await tester.pump(const Duration(seconds: 3));
+    await disposeMessagesTree(tester);
   });
 
   testWidgets('资料加载失败给出原因并可重试', (tester) async {

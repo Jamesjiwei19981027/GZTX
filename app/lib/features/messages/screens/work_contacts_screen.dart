@@ -45,7 +45,8 @@ class _WorkContactsScreenState extends State<WorkContactsScreen> {
     var projectId = widget.projectId;
     ApiClient? api;
     if (widget.repository == null) {
-      final auth = context.authStateRead;
+      // 订阅登录态：切公司/项目后按新上下文重建联系人控制器，避免继续查询旧公司
+      final auth = context.authState;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;
       if (widget.projectId == null) {

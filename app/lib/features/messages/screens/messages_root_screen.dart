@@ -53,7 +53,10 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
     ApiClient? api;
 
     if (widget.repository == null) {
-      final auth = context.authStateRead;
+      // 消息 Tab 常驻底部导航：这里用 watch 建立对登录态的依赖，
+      // 切换公司/项目时 didChangeDependencies 会重跑，按新上下文重建控制器。
+      // 若只 read，Tab 一直挂载就不会重查，会继续显示上一个公司/项目的数据。
+      final auth = context.authState;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;
       if (widget.projectId == null) {

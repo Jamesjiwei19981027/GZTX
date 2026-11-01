@@ -71,6 +71,10 @@ abstract class MessageFileUploader {
 ///
 /// 直接上传到 `/channels/{id}/files` 或 `/conversations/{id}/files`，
 /// 再把返回的文件编号随消息一起提交（与网页版 `uploadChannelFile` 流程一致）。
+///
+/// 底座 `ApiClient` 的 401 续期是私有的，multipart 不能直接走它的传输层，
+/// 因此这里在本模块内实现与之一致的续期规则：401 时用刷新令牌换新令牌后重试一次，
+/// 续期失败（无刷新令牌 / 服务端拒绝 / 网络异常）再清空凭证并触发登录过期回调。
 class ApiMessageFileUploader implements MessageFileUploader {
   ApiMessageFileUploader({
     required ApiClient api,
@@ -82,6 +86,13 @@ class ApiMessageFileUploader implements MessageFileUploader {
   final ApiClient _api;
   final http.Client _http;
   final Duration timeout;
+
+  /// 单飞续期：并发上传同时收到 401 时只刷新一次，避免轮换后的刷新令牌被重复使用
+  Future<bool>? _refreshInflight;
+
+  String get _baseUrl => _api.baseUrl.endsWith('/')
+      ? _api.baseUrl.substring(0, _api.baseUrl.length - 1)
+      : _api.baseUrl;
 
   @override
   Future<int> upload({
@@ -106,30 +117,23 @@ class ApiMessageFileUploader implements MessageFileUploader {
     builder.add(file.bytes);
     write('\r\n--$boundary--\r\n');
 
-    final base = _api.baseUrl.endsWith('/')
-        ? _api.baseUrl.substring(0, _api.baseUrl.length - 1)
-        : _api.baseUrl;
-    final uri = Uri.parse('$base$path');
-    final headers = <String, String>{
-      'Accept': 'application/json',
-      'Content-Type': 'multipart/form-data; boundary=$boundary',
-    };
-    if (_api.tokens.hasAccess) {
-      headers['Authorization'] = 'Bearer ${_api.tokens.accessToken}';
-    }
+    final uri = Uri.parse('$_baseUrl$path');
+    // 报文与分隔符只构造一次，401 续期后重试复用同一份字节
+    final encoded = (boundary: boundary, bytes: builder.takeBytes());
 
-    http.Response response;
-    try {
-      response = await _http
-          .post(uri, headers: headers, body: builder.takeBytes())
-          .timeout(
-            timeout,
-            onTimeout: () => throw NetworkException('文件上传超时，请检查网络后重试'),
-          );
-    } on AppException {
-      rethrow;
-    } catch (error) {
-      throw NetworkException('网络连接异常，文件未发送', cause: error);
+    var response = await _post(uri, encoded);
+    if (response.statusCode == 401) {
+      final refreshed = await _refreshToken();
+      if (!refreshed) {
+        await _expireSession();
+        throw AuthException('登录已过期，请重新登录', code: 401);
+      }
+      response = await _post(uri, encoded);
+      if (response.statusCode == 401) {
+        // 续期成功后仍是 401：与 ApiClient 一致按最终过期处理，不再循环重试
+        await _expireSession();
+        throw AuthException('登录已过期，请重新登录', code: 401);
+      }
     }
 
     dynamic payload;
@@ -160,6 +164,94 @@ class ApiMessageFileUploader implements MessageFileUploader {
       throw ApiException('文件上传未返回文件编号，请稍后重试');
     }
     return fileId.toInt();
+  }
+
+  Future<http.Response> _post(
+    Uri uri,
+    ({String boundary, Uint8List bytes}) encoded,
+  ) async {
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'Content-Type': 'multipart/form-data; boundary=${encoded.boundary}',
+    };
+    if (_api.tokens.hasAccess) {
+      headers['Authorization'] = 'Bearer ${_api.tokens.accessToken}';
+    }
+    try {
+      return await _http
+          .post(uri, headers: headers, body: encoded.bytes)
+          .timeout(
+            timeout,
+            onTimeout: () => throw NetworkException('文件上传超时，请检查网络后重试'),
+          );
+    } on AppException {
+      rethrow;
+    } catch (error) {
+      throw NetworkException('网络连接异常，文件未发送', cause: error);
+    }
+  }
+
+  Future<bool> _refreshToken() {
+    return _refreshInflight ??= _requestNewToken().whenComplete(() {
+      _refreshInflight = null;
+    });
+  }
+
+  /// 与 `ApiClient._doRefresh` 同一套判定：只有服务端明确拒绝才清凭证，
+  /// 网络波动/超时保留本地凭证但本轮仍按续期失败处理。
+  Future<bool> _requestNewToken() async {
+    final refresh = _api.tokens.refreshToken;
+    if (refresh == null || refresh.isEmpty) return false;
+
+    http.Response response;
+    try {
+      response = await _http
+          .post(
+            Uri.parse('$_baseUrl/auth/refresh'),
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({'refresh_token': refresh}),
+          )
+          .timeout(timeout);
+    } catch (_) {
+      return false;
+    }
+
+    if (response.statusCode == 401 || response.statusCode == 403) {
+      await _api.tokens.clear();
+      return false;
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) return false;
+
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(utf8.decode(response.bodyBytes));
+    } catch (_) {
+      return false;
+    }
+    if (decoded is! Map<String, dynamic>) return false;
+
+    final data = decoded['data'];
+    final access = data is Map<String, dynamic>
+        ? data['access_token'] as String?
+        : decoded['access_token'] as String?;
+    if (access == null || access.isEmpty) return false;
+
+    final rotated = data is Map<String, dynamic>
+        ? data['refresh_token'] as String?
+        : decoded['refresh_token'] as String?;
+    await _api.tokens.save(
+      access: access,
+      refresh: (rotated != null && rotated.isNotEmpty) ? rotated : null,
+    );
+    return true;
+  }
+
+  Future<void> _expireSession() async {
+    await _api.tokens.clear();
+    _api.onAuthExpired?.call();
   }
 
   /// 与浏览器一致：文件名中的双引号与换行做转义，避免破坏 multipart 头

@@ -45,7 +45,8 @@ class _CallScreenState extends State<CallScreen> {
     var companyId = widget.companyId;
     ApiClient? api;
     if (widget.repository == null) {
-      final auth = context.authStateRead;
+      // 订阅登录态：切公司后按新企业重建通话控制器（会话与 ICE 配置都按企业隔离）
+      final auth = context.authState;
       api = auth.api;
       companyId ??= auth.currentCompany?.id;
     }
