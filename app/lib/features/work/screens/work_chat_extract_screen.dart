@@ -33,10 +33,8 @@ class WorkChatExtractScreen extends StatefulWidget {
 }
 
 class _WorkChatExtractScreenState extends State<WorkChatExtractScreen> {
-  bool _bootstrapped = false;
   late final TextEditingController _controller =
       TextEditingController(text: widget.initialText ?? '');
-
   TaskExtractDraft? _draft;
   bool _extracting = false;
   bool _creating = false;
@@ -56,12 +54,6 @@ class _WorkChatExtractScreenState extends State<WorkChatExtractScreen> {
 
   TaskScope get _scope =>
       TaskScope.normalizeOrPersonal(_auth?.currentProject?.id.toString());
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _bootstrapped = true;
-  }
 
   @override
   void dispose() {

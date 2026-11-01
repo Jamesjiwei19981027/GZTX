@@ -151,7 +151,7 @@ class WorkApi {
 
   Map<String, String> _statsQuery(String period, int? projectId) => {
         'period': period,
-        'timezone_offset': '${timezoneOffsetMinutes}',
+        'timezone_offset': '$timezoneOffsetMinutes',
         if (projectId != null && projectId > 0) 'project_id': '$projectId',
       };
 

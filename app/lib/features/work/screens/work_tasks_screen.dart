@@ -34,7 +34,6 @@ class WorkTasksScreen extends StatefulWidget {
 }
 
 class _WorkTasksScreenState extends State<WorkTasksScreen> {
-  AuthState? _auth;
   bool _bootstrapped = false;
 
   List<WorkTask> _tasks = const [];
@@ -58,7 +57,6 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     super.didChangeDependencies();
     if (_bootstrapped) return;
     _bootstrapped = true;
-    _auth = widget.authState ?? _tryReadAuth();
     _load();
   }
 

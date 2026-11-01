@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../design/design.dart';
 import '../data/work_models.dart';
+import '../data/work_scope.dart';
 import 'work_widgets.dart';
 
 class WorkHomeCalendar extends StatelessWidget {

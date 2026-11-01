@@ -14,6 +14,10 @@ class TaskTime {
 
   static String _pad(int n) => n.toString().padLeft(2, '0');
 
+  /// 本地时间 → 本地日期键 `YYYY-MM-DD`（供页面直接调用）。
+  static String localDateKey(DateTime local) =>
+      '${local.year.toString().padLeft(4, '0')}-${_pad(local.month)}-${_pad(local.day)}';
+
   /// 本地日期（`YYYY-MM-DD`）+ 可选本地时刻（`HH:mm`）→ UTC ISO 串。
   ///
   /// 与网页 `utils/datetime.ts::toApiDueDate` 同口径：没有时刻按当天 00:00。
