@@ -34,30 +34,53 @@ class _TeamScreenState extends State<TeamScreen> {
   TeamRoleFilter _filter = TeamRoleFilter.all;
   String _search = '';
 
+  int _loadSeq = 0;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
+  @override
+  void didUpdateWidget(TeamScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.projectId == widget.projectId) return;
+    // /projects/11/team → /projects/12/team 会复用同一页面状态，必须清掉
+    // 上一个项目的成员与在线状态，否则会看到 11 的成员却进 12 的名片。
+    setState(() {
+      _members = const [];
+      _presence = const {};
+      _error = null;
+      _presenceError = null;
+      _loading = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
+  }
+
   ProjectsRepository get _repo =>
       ProjectsRepository(context.authStateRead.api);
 
   Future<void> _load() async {
+    // 序号用于丢弃旧参数请求的迟到结果
+    final seq = ++_loadSeq;
+    final projectId = widget.projectId;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final members = await _repo.fetchMembers(widget.projectId);
-      if (!mounted) return;
+      final members = await _repo.fetchMembers(projectId);
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _members = members;
         _loading = false;
       });
-      await _loadPresence();
+      await _loadPresence(seq);
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _loading = false;
         _error = error;
@@ -66,9 +89,10 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   /// 在线状态是辅助信息：失败时保留成员列表，并在页面上明确提示，不静默吞掉
-  Future<void> _loadPresence() async {
+  Future<void> _loadPresence(int seq) async {
     final companyId = context.authStateRead.currentCompany?.id;
     if (companyId == null) {
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _presence = const {};
         _presenceError = null;
@@ -77,13 +101,13 @@ class _TeamScreenState extends State<TeamScreen> {
     }
     try {
       final presence = await _repo.fetchPresence(companyId);
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _presence = presence;
         _presenceError = null;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _presence = const {};
         _presenceError = error;

@@ -15,7 +15,13 @@ class ProjectsRepository {
 
   final ApiClient _api;
 
-  static const int _maxTaskPages = 10;
+  /// 任务分页每页条数（与网页版一致）
+  static const int taskPageSize = 200;
+
+  /// 任务分页的安全上限，只用于防御「后端忽略 `page` 参数」这类异常导致的死循环。
+  /// 100 页 × 200 条 = 2 万条任务，远超单个项目的实际量；真被截断时
+  /// [ProjectTasksResult.truncated] 为 true，界面必须明确提示「仅显示前 N 条」。
+  static const int maxTaskPages = 100;
 
   ApiClient get api => _api;
 
@@ -67,12 +73,17 @@ class ProjectsRepository {
   }
 
   /// 项目任务（`GET /projects/{id}/tasks`，按页拉全，与网页口径一致）
-  Future<List<ProjectTask>> fetchProjectTasks(int projectId) async {
-    final result = <ProjectTask>[];
-    for (var page = 1; page <= _maxTaskPages; page++) {
+  ///
+  /// 一直拉到接口返回的 `total` 或空页为止，不再固定页数，避免大项目静默丢任务；
+  /// 仅当超过 [maxTaskPages] 的安全上限时才截断，并把 `truncated` 交给界面提示。
+  Future<ProjectTasksResult> fetchProjectTasks(int projectId) async {
+    final tasks = <ProjectTask>[];
+    int? total;
+    var truncated = false;
+    for (var page = 1;; page++) {
       final dynamic data = await _api.get(
         '/projects/$projectId/tasks',
-        query: {'page': page.toString(), 'page_size': '200'},
+        query: {'page': page.toString(), 'page_size': '$taskPageSize'},
       );
       final map = _mapOf(data);
       final items = map['items'];
@@ -83,12 +94,24 @@ class ProjectsRepository {
           if (task != null) pageItems.add(ProjectTask.fromJson(task));
         }
       }
-      result.addAll(pageItems);
-      final total = map['total'];
+      final rawTotal = map['total'];
+      if (rawTotal is num) total = rawTotal.toInt();
+      tasks.addAll(pageItems);
+
+      // 空页＝接口没有更多数据（不按「短页」提前结束：后端可能下调 page_size）
       if (pageItems.isEmpty) break;
-      if (total is num && result.length >= total.toInt()) break;
+      final knownTotal = total;
+      if (knownTotal != null && tasks.length >= knownTotal) break;
+      if (page >= maxTaskPages) {
+        truncated = true;
+        break;
+      }
     }
-    return result;
+    return ProjectTasksResult(
+      tasks: List.unmodifiable(tasks),
+      total: total,
+      truncated: truncated,
+    );
   }
 
   /// 新建项目（`POST /projects`）
@@ -154,6 +177,31 @@ class ProjectsRepository {
   Future<void> leaveProject(int projectId) async {
     await _api.post('/projects/$projectId/leave');
   }
+}
+
+/// 项目任务分页拉取结果
+///
+/// [truncated] 为 true 表示撞到了 [ProjectsRepository.maxTaskPages] 安全上限，
+/// 界面必须提示「仅显示前 N 条」，不能假装是全部任务。
+class ProjectTasksResult {
+  const ProjectTasksResult({
+    required this.tasks,
+    this.total,
+    this.truncated = false,
+  });
+
+  final List<ProjectTask> tasks;
+
+  /// 接口给出的任务总数；接口未返回时为 null
+  final int? total;
+
+  final bool truncated;
+
+  int get length => tasks.length;
+
+  bool get isEmpty => tasks.isEmpty;
+
+  bool get isNotEmpty => tasks.isNotEmpty;
 }
 
 Map<String, dynamic> _mapOf(dynamic value) => _mapOrNull(value) ?? <String, dynamic>{};

@@ -34,31 +34,57 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
   ProjectDetail? _project;
   ProjectPermissions? _permissions;
 
+  int _loadSeq = 0;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
+  @override
+  void didUpdateWidget(ProjectSettingsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.projectId == widget.projectId) return;
+    // go_router 在 /projects/11/settings → /projects/12/settings 之间会复用同一个
+    // 页面状态：只靠 initState 加载，页面会继续展示 11 的详情与权限，而「归档/退出」
+    // 用的却是 12 的 ID。这里清空旧数据并按新 ID 重新加载。
+    setState(() {
+      _project = null;
+      _permissions = null;
+      _loading = true;
+      _error = null;
+      _busy = false;
+      _actionError = null;
+      _message = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
+  }
+
   ProjectsRepository get _repo =>
       ProjectsRepository(context.authStateRead.api);
 
   Future<void> _load() async {
+    // 序号用于丢弃旧参数请求的迟到结果
+    final seq = ++_loadSeq;
+    final projectId = widget.projectId;
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
-      final detail = await _repo.fetchProject(widget.projectId);
-      final permissions = await _repo.fetchPermissions(widget.projectId);
-      if (!mounted) return;
+      final detail = await _repo.fetchProject(projectId);
+      final permissions = await _repo.fetchPermissions(projectId);
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _project = detail;
         _permissions = permissions;
         _loading = false;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _loading = false;
         _error = error;
@@ -67,6 +93,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
   }
 
   Future<void> _archive() async {
+    final projectId = widget.projectId;
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '确认归档项目？',
@@ -74,8 +101,10 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
       confirmLabel: '确认归档',
       isDestructive: true,
     );
-    if (!confirmed || !mounted) return;
+    // 确认框打开期间切了项目（如从 11 跳到 12）：这次确认属于旧项目，直接丢弃
+    if (!confirmed || !mounted || projectId != widget.projectId) return;
 
+    final seq = ++_loadSeq;
     setState(() {
       _busy = true;
       _actionError = null;
@@ -83,17 +112,17 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     });
     final auth = context.authStateRead;
     try {
-      await _repo.archiveProject(widget.projectId);
-      final detail = await _repo.fetchProject(widget.projectId);
+      await _repo.archiveProject(projectId);
+      final detail = await _repo.fetchProject(projectId);
       await auth.refreshProjects();
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _project = detail;
         _busy = false;
         _message = '项目已归档，已转为只读历史存档';
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _busy = false;
         _actionError = projectErrorMessage(error);
@@ -102,6 +131,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
   }
 
   Future<void> _leave() async {
+    final projectId = widget.projectId;
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '确认退出项目？',
@@ -109,8 +139,9 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
       confirmLabel: '确认退出',
       isDestructive: true,
     );
-    if (!confirmed || !mounted) return;
+    if (!confirmed || !mounted || projectId != widget.projectId) return;
 
+    final seq = ++_loadSeq;
     setState(() {
       _busy = true;
       _actionError = null;
@@ -118,14 +149,14 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     });
     final auth = context.authStateRead;
     try {
-      await _repo.leaveProject(widget.projectId);
+      await _repo.leaveProject(projectId);
       await auth.refreshProjects();
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() => _busy = false);
       showAppToast(context, '已退出该项目', type: ToastType.success);
       Navigator.of(context).maybePop();
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _busy = false;
         _actionError = projectErrorMessage(error);
