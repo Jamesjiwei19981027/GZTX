@@ -127,9 +127,9 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     _saveTimer = null;
 
     if (!_submitted &&
+        !_hydrating &&
         outgoingProjectId > 0 &&
-        outgoingStore != null &&
-        outgoingSummary.trim().isNotEmpty) {
+        outgoingStore != null) {
       unawaited(outgoingStore.save(
         userId: outgoingUserId,
         projectId: outgoingProjectId,
@@ -402,8 +402,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   void dispose() {
     _disposed = true;
     _saveTimer?.cancel();
-    // 离开页面前把尚未落盘的编辑内容写入本地草稿（已提交时不得再次回写）
-    if (!_submitted && !_hydrating && _projectId > 0 && _combinedSummary.isNotEmpty) {
+    // 离开页面前把尚未落盘的编辑内容写入本地草稿（已提交时不得再次回写；空内容即删除本地草稿）
+    if (!_submitted && !_hydrating && _projectId > 0 && _store != null) {
       unawaited(_store!.save(
         userId: _userId,
         projectId: _projectId,

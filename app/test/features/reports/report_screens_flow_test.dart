@@ -437,6 +437,76 @@ void main() {
       expect(submitBtn.onPressed, isNotNull);
     });
 
+    testWidgets('删空草稿后在300毫秒内离开，本地草稿被删除，重新打开内容不再出现 (P2)', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      // 无服务端草稿，完全依靠本地草稿
+      harness.helper.whenGet(
+        '/reports/my',
+        {'items': []},
+        query: {'project_id': '${ReportsTestFixtures.projectId}'},
+      );
+
+      // 本地预先保存草稿
+      await harness.draftStore.save(
+        userId: ReportsTestFixtures.currentUserId,
+        projectId: ReportsTestFixtures.projectId,
+        summary: '原本保存的待删草稿',
+      );
+
+      // 首次打开编辑页，能看到草稿
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('原本保存的待删草稿'), findsOneWidget);
+
+      // 用户把内容全删空
+      final textFields = find.byType(TextField);
+      await tester.enterText(textFields.first, '');
+      await tester.enterText(textFields.last, '');
+      // 不等待 300ms 防抖计时器完成，仅 pump 50ms 模拟立即离开
+      await tester.pump(const Duration(milliseconds: 50));
+
+      // 离开页面（挂载其他组件，触发 dispose）
+      await tester.pumpWidget(
+        harness.wrapRouted(const Scaffold(body: Text('其他页面'))),
+      );
+      await tester.pumpAndSettle();
+
+      // 校验本地草稿已被清空（remove key）
+      final local = await harness.draftStore.load(
+        userId: ReportsTestFixtures.currentUserId,
+        projectId: ReportsTestFixtures.projectId,
+      );
+      expect(local, isNull);
+
+      // 再次打开编辑页，删掉的内容不再出现
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('原本保存的待删草稿'), findsNothing);
+    });
+
     testWidgets('有中间层领导、没有服务器草稿时，不显示项目经理为接收人、提交按钮可用 (P2)', (tester) async {
       const intermediateLeaderId = 30;
       final membersWithIntermediate = [
