@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/projects/invite_link.dart';
 import 'package:worktodo_app/features/projects/screens/project_invite_screen.dart';
 
@@ -51,6 +53,39 @@ void main() {
       expect(find.textContaining('invite=inv-token-1'), findsOneWidget);
       expect(find.text('复制专属邀请链接'), findsOneWidget);
       expect(find.textContaining('系统不会自动往外部邮箱发送'), findsOneWidget);
+    });
+
+    testWidgets('点击复制按钮给出已复制提示', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      // 测试环境没有真实剪贴板插件，这里接管平台通道使复制成功
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async => null,
+      );
+      addTearDown(() {
+        tester.binding.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null);
+      });
+      harness.helper.whenPost('/projects/11/invitations', {
+        'id': 7,
+        'token': 'inv-token-1',
+        'status': 'pending',
+      });
+
+      await harness.pumpScreen(tester, const ProjectInviteScreen(projectId: 11));
+      await tester.enterText(find.byType(TextFormField).first, 'lunyue@example.com');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('生成邀请凭证'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('复制专属邀请链接'));
+      await tester.pump();
+
+      expect(find.text('已复制邀请链接'), findsOneWidget);
+      expect(find.text('已复制邀请链接到剪贴板'), findsOneWidget);
+      resetToastForTesting();
+      await tester.pump();
     });
 
     testWidgets('无邀请权限时展示服务端中文提示', (tester) async {

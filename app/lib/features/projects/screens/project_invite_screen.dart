@@ -85,9 +85,10 @@ class _ProjectInviteScreenState extends State<ProjectInviteScreen> {
       if (!mounted) return;
       setState(() => _copied = true);
       showAppToast(context, '已复制邀请链接', type: ToastType.success);
-    } on PlatformException catch (error) {
+    } catch (error) {
+      // 剪贴板不可用时给出可见提示，用户仍可长按选择链接文本手动复制
       if (!mounted) return;
-      setState(() => _error = '复制失败：${error.message ?? '剪贴板不可用'}');
+      setState(() => _error = '复制失败，请长按上方链接文字手动复制');
     }
   }
 
