@@ -1,0 +1,134 @@
+/// 工作 Tab 根页（WorkRootScreen）组件测试。
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:worktodo_app/design/design.dart';
+import 'package:worktodo_app/features/work/screens/work_root_screen.dart';
+import 'package:worktodo_app/features/work/widgets/work_home_sections.dart';
+import 'package:worktodo_app/features/work/widgets/work_trend_card.dart';
+import 'package:worktodo_app/features/work/widgets/work_widgets.dart';
+
+import 'work_test_fixtures.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  testWidgets('工作首页展示 Header、重点待办、AI 入口、统计卡、趋势图与项目进度', (tester) async {
+    tester.view.physicalSize = const Size(430, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final harness = await WorkTestHarness.create();
+    await tester.pumpWidget(harness.wrap(
+      WorkRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 1. Header 用户名与项目
+    expect(find.text('张三'), findsOneWidget);
+    expect(find.text('工作台核心项目'), findsOneWidget);
+
+    // 2. 重点待办与跟进标题与事项
+    expect(find.text('重点待办与跟进'), findsOneWidget);
+    expect(find.text('编制第三季度财务复核报告'), findsAtLeastNWidgets(1));
+
+    // 3. AI 汇报入口
+    expect(find.text('告诉 AI 最新进展'), findsOneWidget);
+    expect(find.text('查看汇报'), findsOneWidget);
+
+    // 4. 统计卡
+    expect(find.text('待办事项'), findsOneWidget);
+    expect(find.text('今日到期'), findsAtLeastNWidgets(1));
+    expect(find.text('已逾期'), findsAtLeastNWidgets(1));
+
+    // 5. 趋势图
+    expect(find.byType(WorkTrendCard), findsOneWidget);
+
+    // 6. 日程日历
+    expect(find.byType(WorkHomeCalendar), findsOneWidget);
+
+    // 7. 项目进度
+    expect(find.byType(WorkProjectProgressSection), findsOneWidget);
+    expect(find.text('示例企业协作项目'), findsOneWidget);
+  });
+
+  testWidgets('重点待办为空时展示空状态提示', (tester) async {
+    final emptyApi = MockWorkApi(tasks: const []);
+    final harness = await WorkTestHarness.create(api: emptyApi);
+
+    await tester.pumpWidget(harness.wrap(
+      WorkRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('暂无待办事项'), findsOneWidget);
+  });
+
+  testWidgets('网络断开时显示错误重试状态，点击重试恢复', (tester) async {
+    final brokenApi = MockWorkApi(shouldThrowNetworkError: true);
+    final harness = await WorkTestHarness.create(api: brokenApi);
+
+    await tester.pumpWidget(harness.wrap(
+      WorkRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 出现错误状态组件
+    expect(find.byType(AppErrorState), findsOneWidget);
+    expect(find.text('网络连接异常'), findsOneWidget);
+
+    // 修复网络并点击重试
+    brokenApi.shouldThrowNetworkError = false;
+    await tester.tap(find.text('重试'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('重点待办与跟进'), findsOneWidget);
+  });
+
+  testWidgets('点击人轴锁定事项时触发只读提示，不直接修改', (tester) async {
+    addTearDown(resetToastForTesting);
+    tester.view.physicalSize = const Size(430, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final harness = await WorkTestHarness.create();
+    await tester.pumpWidget(harness.wrap(
+      WorkRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 找到人轴锁定任务「人轴一期代码审查与架构验收」的复选框并点击
+    final targetTile = find.ancestor(
+      of: find.text('人轴一期代码审查与架构验收'),
+      matching: find.byType(WorkTaskTile),
+    );
+    expect(targetTile, findsOneWidget);
+
+    final toggleButton = find.descendant(
+      of: targetTile,
+      matching: find.bySemanticsLabel('完成任务'),
+    );
+    expect(toggleButton, findsOneWidget);
+    await tester.tap(toggleButton);
+    await tester.pump();
+
+    // 验证提示 Toast 出现
+    expect(find.text('该事项由人轴责任节点同步，请在责任节点中更新进度'), findsOneWidget);
+
+    // 消化 Toast 定时器
+    await tester.pump(const Duration(seconds: 3));
+  });
+}

@@ -8,7 +8,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/core/errors/app_error.dart';
 import 'package:worktodo_app/features/work/data/work_api.dart';
@@ -530,6 +532,7 @@ Future<AuthState> createTestAuthState({
   int projectId = 1,
   String projectName = '工作台核心项目',
 }) async {
+  SharedPreferences.setMockInitialValues({});
   final helper = MockApiClientHelper();
   helper.whenGet('/users/me', {
     'id': userId,
@@ -588,11 +591,66 @@ class WorkTestHarness {
   }
 
   Widget wrap(Widget child, {ThemeData? theme}) {
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => child,
+        ),
+        GoRoute(
+          path: '/work/tasks',
+          builder: (context, state) => const Scaffold(body: Text('任务列表目标页')),
+        ),
+        GoRoute(
+          path: '/work/task/:id',
+          builder: (context, state) =>
+              Scaffold(body: Text('任务详情目标页 #${state.pathParameters['id']}')),
+        ),
+        GoRoute(
+          path: '/projects/:id',
+          builder: (context, state) =>
+              Scaffold(body: Text('项目详情目标页 #${state.pathParameters['id']}')),
+        ),
+        GoRoute(
+          path: '/reports/chat',
+          builder: (context, state) => const Scaffold(body: Text('汇报对话目标页')),
+        ),
+        GoRoute(
+          path: '/reports',
+          builder: (context, state) => const Scaffold(body: Text('汇报总览目标页')),
+        ),
+        GoRoute(
+          path: '/work/search',
+          builder: (context, state) => const Scaffold(body: Text('全局搜索目标页')),
+        ),
+        GoRoute(
+          path: '/work/kanban',
+          builder: (context, state) => const Scaffold(body: Text('看板目标页')),
+        ),
+        GoRoute(
+          path: '/work/calendar',
+          builder: (context, state) => const Scaffold(body: Text('日历目标页')),
+        ),
+        GoRoute(
+          path: '/work/statistics',
+          builder: (context, state) => const Scaffold(body: Text('统计目标页')),
+        ),
+        GoRoute(
+          path: '/work/trash',
+          builder: (context, state) => const Scaffold(body: Text('回收站目标页')),
+        ),
+        GoRoute(
+          path: '/work/task-edit',
+          builder: (context, state) => const Scaffold(body: Text('任务编辑目标页')),
+        ),
+      ],
+    );
     return ChangeNotifierProvider<AuthState>.value(
       value: authState,
-      child: MaterialApp(
+      child: MaterialApp.router(
         theme: theme ?? ThemeData.light(useMaterial3: true),
-        home: child,
+        routerConfig: router,
       ),
     );
   }
