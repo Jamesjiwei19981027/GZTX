@@ -73,4 +73,7 @@ scripts/uninstall-flutter.bat
 backend/data/objects/
 backend/data/uploads/
 data/
+# APP 源码与测试里的 data/ 是数据层代码，不是运行时数据
+!app/lib/**/data/
+!app/test/**/data/
 backups/
