@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:worktodo_app/core/models/project.dart';
 import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/work/data/work_models.dart';
 import 'package:worktodo_app/features/work/screens/work_tasks_screen.dart';
@@ -162,5 +163,33 @@ void main() {
     await tester.enterText(find.byType(TextField).first, '第 120 项');
     await tester.pumpAndSettle();
     expect(find.text('分页任务第 120 项'), findsOneWidget);
+  });
+
+  testWidgets('项目隔离测试：任务列表仅展示当前选中项目任务及个人任务，切换项目后自动刷新', (tester) async {
+    final harness = await WorkTestHarness.create();
+    harness.api.tasks = [
+      WorkTask.fromJson(buildTaskJson(id: 801, title: '项目一独有任务', projectId: 1, origin: 'project_link')),
+      WorkTask.fromJson(buildTaskJson(id: 802, title: '项目二独有任务', projectId: 2, origin: 'project_link')),
+      WorkTask.fromJson(buildTaskJson(id: 803, title: '全局个人私有任务', projectId: null, origin: 'personal')),
+    ];
+
+    await tester.pumpWidget(harness.wrap(
+      WorkTasksScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+
+    // 验证当前显示项目 1 任务与个人任务，排除项目 2 任务
+    expect(find.text('项目一独有任务'), findsOneWidget);
+    expect(find.text('全局个人私有任务'), findsOneWidget);
+    expect(find.text('项目二独有任务'), findsNothing);
+
+    // 切换当前项目为项目 2
+    harness.authState.selectProject(const Project(id: 2, name: '项目二', companyId: 1));
+    await tester.pumpAndSettle();
+
+    // 验证刷新后显示项目 2 任务与个人任务，排除项目 1 任务
+    expect(find.text('项目二独有任务'), findsOneWidget);
+    expect(find.text('全局个人私有任务'), findsOneWidget);
+    expect(find.text('项目一独有任务'), findsNothing);
   });
 }

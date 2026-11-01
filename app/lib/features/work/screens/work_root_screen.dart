@@ -288,9 +288,10 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
     final user = widget.authState == null ? context.currentUser : _auth?.currentUser;
     final project =
         widget.authState == null ? context.currentProject : _auth?.currentProject;
-    final focus = focusTasks(_tasks);
-    final counts = summaryCounts(_tasks);
-    final total = pendingCount(_tasks);
+    final scopedTasks = filterTasksByProject(_tasks, project?.id);
+    final focus = focusTasks(scopedTasks);
+    final counts = summaryCounts(scopedTasks);
+    final total = pendingCount(scopedTasks);
 
     return AppScaffold(
       title: '工作',
@@ -372,7 +373,7 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   WorkHomeCalendar(
-                    tasks: _tasks,
+                    tasks: scopedTasks,
                     selectedDay: _selectedDay,
                     displayMonth: _displayMonth,
                     onSelectDay: _selectDay,

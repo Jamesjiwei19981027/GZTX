@@ -166,4 +166,26 @@ void main() {
       expect(t2.statusLabel, '已完成');
     });
   });
+
+  group('5. 项目隔离与任务可见性口径 (filterTasksByProject)', () {
+    test('未指定项目时保留全量任务；选中项目后仅保留该项目任务与个人私有任务', () {
+      final tasks = [
+        WorkTask.fromJson(buildTaskJson(id: 1, title: '项目1事项', projectId: 1, origin: 'project_link')),
+        WorkTask.fromJson(buildTaskJson(id: 2, title: '项目2事项', projectId: 2, origin: 'project_link')),
+        WorkTask.fromJson(buildTaskJson(id: 3, title: '个人私有事项', projectId: null, origin: 'personal')),
+      ];
+
+      // 未选项目：全量可见
+      final all = filterTasksByProject(tasks, null);
+      expect(all.map((t) => t.id), [1, 2, 3]);
+
+      // 选中项目 1：只可见项目 1 与个人事项，排除项目 2
+      final p1Only = filterTasksByProject(tasks, 1);
+      expect(p1Only.map((t) => t.id), [1, 3]);
+
+      // 选中项目 2：只可见项目 2 与个人事项，排除项目 1
+      final p2Only = filterTasksByProject(tasks, 2);
+      expect(p2Only.map((t) => t.id), [2, 3]);
+    });
+  });
 }

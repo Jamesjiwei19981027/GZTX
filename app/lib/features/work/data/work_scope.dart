@@ -96,6 +96,22 @@ enum TaskPriorityFilter {
   final int? value;
 }
 
+/// 项目任务隔离：与 Web 端 App.tsx 保持同口径：
+/// - 若未选中任何具体项目（selectedProjectId == null），显示所有；
+/// - 若选中了具体项目，只显示归属于该项目的任务（task.projectId == selectedProjectId）
+///   以及个人私有任务（task.projectId == null 或 task.origin == 'personal'）。
+List<WorkTask> filterTasksByProject(
+  List<WorkTask> tasks,
+  int? selectedProjectId,
+) {
+  if (selectedProjectId == null) return tasks;
+  return tasks.where((task) {
+    return task.projectId == selectedProjectId ||
+        task.projectId == null ||
+        task.origin == 'personal';
+  }).toList();
+}
+
 /// 按工作区范围筛选（与 `filterTaskWorkspace` 完全一致）。
 List<WorkTask> filterTaskWorkspace(
   List<WorkTask> tasks,

@@ -34,6 +34,7 @@ class WorkTasksScreen extends StatefulWidget {
 }
 
 class _WorkTasksScreenState extends State<WorkTasksScreen> {
+  AuthState? _auth;
   bool _bootstrapped = false;
 
   List<WorkTask> _tasks = const [];
@@ -50,14 +51,34 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
   final Set<int> _selected = {};
   bool _busy = false;
 
-  WorkApi get _api => widget.api ?? WorkApi(context.read<AuthState>().api);
+  WorkApi get _api =>
+      widget.api ??
+      WorkApi((_auth ?? widget.authState ?? context.read<AuthState>()).api);
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final auth = widget.authState ?? _tryReadAuth();
+    if (_auth != auth) {
+      _auth?.removeListener(_onAuthChanged);
+      _auth = auth;
+      _auth?.addListener(_onAuthChanged);
+    }
     if (_bootstrapped) return;
     _bootstrapped = true;
     _load();
+  }
+
+  AuthState? _tryReadAuth() {
+    try {
+      return context.read<AuthState>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _onAuthChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -73,6 +94,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
 
   @override
   void dispose() {
+    _auth?.removeListener(_onAuthChanged);
     _searchController.dispose();
     super.dispose();
   }
@@ -100,8 +122,13 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     }
   }
 
+  int? get _selectedProjectId => (_auth ?? widget.authState)?.currentProject?.id;
+
+  List<WorkTask> get _projectTasks =>
+      filterTasksByProject(_tasks, _selectedProjectId);
+
   List<WorkTask> get _visibleTasks {
-    final scoped = filterTaskWorkspace(_tasks, _scope);
+    final scoped = filterTaskWorkspace(_projectTasks, _scope);
     return filterTaskList(
       scoped,
       status: _status,
@@ -295,7 +322,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
                       for (final status in TaskStatusFilter.values)
                         WorkFilterChip(
                           label: status == TaskStatusFilter.all
-                              ? '全部 (${_tasks.length})'
+                              ? '全部 (${_projectTasks.length})'
                               : status.label,
                           selected: _status == status,
                           onTap: () => setState(() => _status = status),

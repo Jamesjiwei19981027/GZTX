@@ -34,6 +34,7 @@ class WorkKanbanScreen extends StatefulWidget {
 }
 
 class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
+  AuthState? _auth;
   bool _bootstrapped = false;
 
   List<WorkTask> _tasks = const [];
@@ -42,14 +43,34 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
   late TaskWorkspaceScope _scope = widget.initialScope;
   int? _movingTaskId;
 
-  WorkApi get _api => widget.api ?? WorkApi(context.read<AuthState>().api);
+  WorkApi get _api =>
+      widget.api ??
+      WorkApi((_auth ?? widget.authState ?? context.read<AuthState>()).api);
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final auth = widget.authState ?? _tryReadAuth();
+    if (_auth != auth) {
+      _auth?.removeListener(_onAuthChanged);
+      _auth = auth;
+      _auth?.addListener(_onAuthChanged);
+    }
     if (_bootstrapped) return;
     _bootstrapped = true;
     _load();
+  }
+
+  AuthState? _tryReadAuth() {
+    try {
+      return context.read<AuthState>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _onAuthChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -58,6 +79,12 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
     if (oldWidget.initialScope != widget.initialScope) {
       setState(() => _scope = widget.initialScope);
     }
+  }
+
+  @override
+  void dispose() {
+    _auth?.removeListener(_onAuthChanged);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -110,7 +137,9 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scoped = filterTaskWorkspace(_tasks, _scope);
+    final project = (_auth ?? widget.authState)?.currentProject;
+    final projectTasks = filterTasksByProject(_tasks, project?.id);
+    final scoped = filterTaskWorkspace(projectTasks, _scope);
     final isDark = isDarkMode(context);
 
     return AppScaffold(
