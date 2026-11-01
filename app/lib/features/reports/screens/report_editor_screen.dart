@@ -192,19 +192,32 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       warning ??= reportErrorMessage(cause, fallback: '未能读取本地草稿');
     }
 
-    // 获取服务端汇报草稿以解析人轴真实直属上级
-    AgentReport? serverDraft;
+    // 按优先级确定目标汇报（显式 draftReportId > 本地草稿关联的 ID > 服务器上本项目的草稿）
+    int? targetReportId = widget.initialDraftReportId ?? local?.draftReportId;
+    AgentReport? matchedServerDraft;
     int? resolvedParentUserId;
     try {
       final mine = await _api!.listMyReports(projectId: projectId);
       final drafts = mine
-          .where((report) =>
-              report.status == 'draft' && report.summaryText.trim().isNotEmpty)
+          .where((report) => report.status == 'draft')
           .toList()
         ..sort((a, b) => b.id.compareTo(a.id));
-      if (drafts.isNotEmpty) {
-        serverDraft = drafts.first;
-        resolvedParentUserId = serverDraft.parentUserId;
+      final nonEmptyDrafts = drafts
+          .where((report) => report.summaryText.trim().isNotEmpty)
+          .toList();
+
+      targetReportId ??= (nonEmptyDrafts.isNotEmpty ? nonEmptyDrafts.first.id : null);
+
+      if (targetReportId != null) {
+        for (final draft in drafts) {
+          if (draft.id == targetReportId) {
+            matchedServerDraft = draft;
+            break;
+          }
+        }
+      }
+      if (matchedServerDraft != null) {
+        resolvedParentUserId = matchedServerDraft.parentUserId;
       }
     } catch (cause) {
       if (local == null) {
@@ -240,7 +253,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
 
     resolvedParentUserId ??= projectLeaderId;
 
-    final text = local?.summary ?? serverDraft?.summaryText ?? '';
+    final text = local?.summary ?? matchedServerDraft?.summaryText ?? '';
     final parts = text.split('\n\n');
     final completed = parts.isNotEmpty ? parts[0] : '';
     final inProgress = parts.length > 1 ? parts.sublist(1).join('\n\n') : '';
@@ -249,10 +262,10 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       _members = members;
       _myBindingId = myBindingId;
       _parentUserId = resolvedParentUserId;
-      _draftReportId = local?.draftReportId ?? serverDraft?.id ?? _draftReportId;
-      _sources = serverDraft?.sources ?? const [];
-      _taskSnapshots = serverDraft?.taskSnapshots ?? const [];
-      _evidenceSnapshots = serverDraft?.evidenceSnapshots ?? const [];
+      _draftReportId = targetReportId;
+      _sources = matchedServerDraft?.sources ?? const [];
+      _taskSnapshots = matchedServerDraft?.taskSnapshots ?? const [];
+      _evidenceSnapshots = matchedServerDraft?.evidenceSnapshots ?? const [];
       _loadWarning = warning;
       _completed.text = completed;
       _inProgress.text = inProgress;

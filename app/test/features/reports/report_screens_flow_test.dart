@@ -256,6 +256,41 @@ void main() {
       expect(postPaths.where((p) => p.endsWith('/agent-reports')), isEmpty);
     });
 
+    testWidgets('本地关联 501 且服务器另有草稿 503 时，提交请求是 /reports/501/submit 且不带 503 的来源 (P2)', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      await harness.draftStore.save(
+        userId: ReportsTestFixtures.currentUserId,
+        projectId: ReportsTestFixtures.projectId,
+        summary: '对已提交汇报501的本地修改',
+        draftReportId: 501,
+      );
+      harness.helper.whenPost('/reports/501/submit', ReportsTestFixtures.submittedReportJson);
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('确认提交'));
+      await tester.pumpAndSettle();
+
+      final request = harness.helper.history.singleWhere(
+        (r) => r.method == 'POST' && r.url.path.endsWith('/reports/501/submit'),
+      );
+      final body = request.body as Map<String, dynamic>;
+      expect(body['summary'], '对已提交汇报501的本地修改');
+      expect(body['sources'], isEmpty, reason: '来源不应混入服务器草稿 503 的来源');
+    });
+
     testWidgets('历史汇报接收人与当前上级不同时，编辑页显示当前上级 (P2)', (tester) async {
       final harness = await ReportsTestHarness.create();
       // 用户本地有草稿（例如调岗后写的新汇报）
