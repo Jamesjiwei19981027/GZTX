@@ -1,0 +1,406 @@
+import 'dart:math' as math;
+
+import 'package:flutter/material.dart';
+
+import '../../../design/design.dart';
+import '../models/knowledge_models.dart';
+
+/// 关联图节点
+class KnowledgeGraphNode {
+  const KnowledgeGraphNode({
+    required this.id,
+    required this.title,
+    this.subtitle = '',
+    this.badge = '',
+    required this.position,
+    this.tappable = true,
+  });
+
+  final String id;
+  final String title;
+  final String subtitle;
+  final String badge;
+  final KnowledgePoint position;
+  final bool tappable;
+}
+
+/// 关联图连线
+class KnowledgeGraphEdge {
+  const KnowledgeGraphEdge({
+    required this.fromId,
+    required this.toId,
+    this.label = '',
+  });
+
+  final String fromId;
+  final String toId;
+  final String label;
+}
+
+/// 按网页版规则为条目排布坐标：优先用保存的位置，其余按 3 列网格填充空位
+Map<int, KnowledgePoint> resolvePersonalPositions(
+    List<PersonalKnowledgeEntry> entries) {
+  const cellWidth = 280.0;
+  const cellHeight = 180.0;
+  final positions = <int, KnowledgePoint>{};
+  final occupied = <KnowledgePoint>[];
+  for (final entry in entries) {
+    final position = entry.position;
+    if (position != null) {
+      positions[entry.id] = position;
+      occupied.add(position);
+    }
+  }
+  var cell = 0;
+  for (final entry in entries) {
+    if (positions.containsKey(entry.id)) continue;
+    KnowledgePoint candidate;
+    do {
+      candidate = KnowledgePoint(
+        (cell % 3) * cellWidth,
+        (cell ~/ 3) * cellHeight,
+      );
+      cell++;
+    } while (occupied.any((other) =>
+        (other.x - candidate.x).abs() < 240 &&
+        (other.y - candidate.y).abs() < 150));
+    positions[entry.id] = candidate;
+    occupied.add(candidate);
+  }
+  return positions;
+}
+
+/// 简单可读的关联图：节点 + 连线，可点开节点，也可拖动节点后保存位置。
+///
+/// 不引入第三方图形库，避免新增依赖；交互保持在“看懂关系”这一层。
+class KnowledgeGraph extends StatefulWidget {
+  const KnowledgeGraph({
+    super.key,
+    required this.nodes,
+    this.edges = const [],
+    this.onTapNode,
+    this.onMoveNode,
+    this.height = 360,
+    this.hint = '拖动查看全图，点开节点看内容',
+  });
+
+  final List<KnowledgeGraphNode> nodes;
+  final List<KnowledgeGraphEdge> edges;
+  final ValueChanged<KnowledgeGraphNode>? onTapNode;
+  final void Function(KnowledgeGraphNode node, KnowledgePoint position)? onMoveNode;
+  final double height;
+  final String hint;
+
+  @override
+  State<KnowledgeGraph> createState() => _KnowledgeGraphState();
+}
+
+class _KnowledgeGraphState extends State<KnowledgeGraph> {
+  static const double _nodeWidth = 140;
+  static const double _nodeHeight = 78;
+  static const double _padding = 16;
+
+  final TransformationController _transform = TransformationController();
+  final Map<String, Offset> _dragging = {};
+
+  @override
+  void dispose() {
+    _transform.dispose();
+    super.dispose();
+  }
+
+  Offset _positionOf(KnowledgeGraphNode node) {
+    final override = _dragging[node.id];
+    if (override != null) return override;
+    return Offset(node.position.x, node.position.y);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
+    final positions = <String, Offset>{
+      for (final node in widget.nodes) node.id: _positionOf(node),
+    };
+    final contentWidth = positions.values.fold<double>(0,
+            (max, offset) => offset.dx > max ? offset.dx : max) +
+        _nodeWidth +
+        _padding * 2;
+    final contentHeight = positions.values.fold<double>(0,
+            (max, offset) => offset.dy > max ? offset.dy : max) +
+        _nodeHeight +
+        _padding * 2;
+
+    return LayoutBuilder(builder: (context, constraints) {
+      final width = contentWidth < constraints.maxWidth
+          ? constraints.maxWidth
+          : contentWidth;
+      final height = contentHeight < widget.height
+          ? widget.height
+          : contentHeight;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: widget.height,
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF7F8FA),
+              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+              border: Border.all(
+                color: isDark ? AppColors.darkBorder : AppColors.border,
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InteractiveViewer(
+              transformationController: _transform,
+              constrained: false,
+              minScale: 0.4,
+              maxScale: 2.0,
+              boundaryMargin: const EdgeInsets.all(120),
+              child: SizedBox(
+                width: width,
+                height: height,
+                child: Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _EdgePainter(
+                          edges: widget.edges,
+                          positions: positions,
+                          nodeWidth: _nodeWidth,
+                          nodeHeight: _nodeHeight,
+                          lineColor: isDark
+                              ? AppColors.darkTextTertiary
+                              : AppColors.textTertiary,
+                          labelColor: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.textSecondary,
+                          labelBackground: isDark
+                              ? AppColors.darkSurface
+                              : Colors.white,
+                        ),
+                      ),
+                    ),
+                    for (final node in widget.nodes)
+                      Positioned(
+                        left: positions[node.id]!.dx + _padding,
+                        top: positions[node.id]!.dy + _padding,
+                        width: _nodeWidth,
+                        height: _nodeHeight,
+                        child: _GraphNodeCard(
+                          node: node,
+                          onTap: widget.onTapNode == null || !node.tappable
+                              ? null
+                              : () => widget.onTapNode!(node),
+                          onDragUpdate: widget.onMoveNode == null
+                              ? null
+                              : (delta) {
+                                  final scale =
+                                      _transform.value.getMaxScaleOnAxis();
+                                  setState(() {
+                                    final current = positions[node.id]!;
+                                    _dragging[node.id] = current +
+                                        Offset(delta.dx / scale, delta.dy / scale);
+                                  });
+                                },
+                          onDragEnd: widget.onMoveNode == null
+                              ? null
+                              : () {
+                                  final moved = _dragging[node.id];
+                                  if (moved == null) return;
+                                  widget.onMoveNode!(
+                                    node,
+                                    KnowledgePoint(moved.dx, moved.dy),
+                                  );
+                                },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            widget.hint,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+            ),
+          ),
+        ],
+      );
+    });
+  }
+}
+
+class _GraphNodeCard extends StatelessWidget {
+  const _GraphNodeCard({
+    required this.node,
+    this.onTap,
+    this.onDragUpdate,
+    this.onDragEnd,
+  });
+
+  final KnowledgeGraphNode node;
+  final VoidCallback? onTap;
+  final ValueChanged<Offset>? onDragUpdate;
+  final VoidCallback? onDragEnd;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
+    final card = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            node.title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Flexible(
+            child: Text(
+              node.subtitle,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
+              ),
+            ),
+          ),
+          if (node.badge.isNotEmpty)
+            Text(
+              node.badge,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, color: AppColors.primary),
+            ),
+        ],
+      ),
+    );
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      onPanUpdate: onDragUpdate == null
+          ? null
+          : (details) => onDragUpdate!(details.delta),
+      onPanEnd: onDragEnd == null ? null : (_) => onDragEnd!(),
+      child: card,
+    );
+  }
+}
+
+class _EdgePainter extends CustomPainter {
+  _EdgePainter({
+    required this.edges,
+    required this.positions,
+    required this.nodeWidth,
+    required this.nodeHeight,
+    required this.lineColor,
+    required this.labelColor,
+    required this.labelBackground,
+  });
+
+  final List<KnowledgeGraphEdge> edges;
+  final Map<String, Offset> positions;
+  final double nodeWidth;
+  final double nodeHeight;
+  final Color lineColor;
+  final Color labelColor;
+  final Color labelBackground;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = lineColor
+      ..strokeWidth = 1.6
+      ..style = PaintingStyle.stroke;
+    for (final edge in edges) {
+      final from = positions[edge.fromId];
+      final to = positions[edge.toId];
+      if (from == null || to == null) continue;
+      final start = Offset(from.dx + nodeWidth, from.dy + nodeHeight / 2);
+      final end = Offset(to.dx, to.dy + nodeHeight / 2);
+      final middle = Offset((start.dx + end.dx) / 2, (start.dy + end.dy) / 2);
+      final path = Path()
+        ..moveTo(start.dx, start.dy)
+        ..cubicTo(middle.dx, start.dy, middle.dx, end.dy, end.dx, end.dy);
+      canvas.drawPath(path, paint);
+
+      // 箭头
+      final angle = (end - Offset(middle.dx, end.dy)).direction;
+      const arrowSize = 6.0;
+      final arrow = Path()
+        ..moveTo(end.dx, end.dy)
+        ..lineTo(
+          end.dx - arrowSize * 1.6 * _cos(angle - 0.4),
+          end.dy - arrowSize * 1.6 * _sin(angle - 0.4),
+        )
+        ..lineTo(
+          end.dx - arrowSize * 1.6 * _cos(angle + 0.4),
+          end.dy - arrowSize * 1.6 * _sin(angle + 0.4),
+        )
+        ..close();
+      canvas.drawPath(arrow, Paint()..color = lineColor);
+
+      if (edge.label.trim().isEmpty) continue;
+      final painter = TextPainter(
+        text: TextSpan(
+          text: edge.label,
+          style: TextStyle(fontSize: 10, color: labelColor),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '…',
+      )..layout(maxWidth: 96);
+      final labelOffset = Offset(
+        middle.dx - painter.width / 2,
+        middle.dy - painter.height - 2,
+      );
+      final background = Paint()..color = labelBackground.withValues(alpha: 0.9);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(
+            labelOffset.dx - 3,
+            labelOffset.dy - 1,
+            painter.width + 6,
+            painter.height + 2,
+          ),
+          const Radius.circular(3),
+        ),
+        background,
+      );
+      painter.paint(canvas, labelOffset);
+    }
+  }
+
+  double _cos(double value) => math.cos(value);
+
+  double _sin(double value) => math.sin(value);
+
+  @override
+  bool shouldRepaint(covariant _EdgePainter oldDelegate) {
+    return oldDelegate.edges != edges ||
+        oldDelegate.positions != positions ||
+        oldDelegate.lineColor != lineColor ||
+        oldDelegate.labelBackground != labelBackground;
+  }
+}
