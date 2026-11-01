@@ -131,5 +131,31 @@ void main() {
 
       expect(harness.api.tasks.any((t) => t.title == '周三上午组织产品评审会议'), isTrue);
     });
+
+    testWidgets('无初始文本时智能提取按钮禁用，输入或粘贴文本后按钮即时变为可用', (tester) async {
+      final harness = await WorkTestHarness.create();
+      await tester.pumpWidget(harness.wrap(
+        WorkChatExtractScreen(
+          api: harness.api,
+          authState: harness.authState,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      final buttonFinder = find.widgetWithText(AppButton, '开始智能提取任务');
+      expect(buttonFinder, findsOneWidget);
+
+      // 初始无内容，按钮禁用
+      final buttonBefore = tester.widget<AppButton>(buttonFinder);
+      expect(buttonBefore.onPressed, isNull);
+
+      // 输入文本
+      await tester.enterText(find.byType(TextField), '请明天提醒我处理财务报表');
+      await tester.pump();
+
+      // 输入文本后重新 build，按钮变为可用
+      final buttonAfter = tester.widget<AppButton>(buttonFinder);
+      expect(buttonAfter.onPressed, isNotNull);
+    });
   });
 }

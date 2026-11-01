@@ -56,7 +56,18 @@ class _WorkChatExtractScreenState extends State<WorkChatExtractScreen> {
       TaskScope.normalizeOrPersonal(_auth?.currentProject?.id.toString());
 
   @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onTextChanged);
+  }
+
+  void _onTextChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
   void dispose() {
+    _controller.removeListener(_onTextChanged);
     _controller.dispose();
     super.dispose();
   }
@@ -167,6 +178,7 @@ class _WorkChatExtractScreenState extends State<WorkChatExtractScreen> {
             placeholder: '例如：「请张工在周五前将项目测试报告整理并同步到人轴上」',
             minLines: 5,
             maxLines: 10,
+            onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: AppSpacing.md),
           AppButton(
