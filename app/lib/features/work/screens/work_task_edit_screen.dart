@@ -48,6 +48,22 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   final _descriptionController = TextEditingController();
   final _subtaskController = TextEditingController();
 
+  static const _recurrenceRuleOptions = {
+    'daily': '每天重复',
+    'weekdays': '每个工作日',
+    'weekly': '每周重复',
+    'monthly': '每月重复',
+    'yearly': '每年重复',
+  };
+
+  Map<String, String> get _currentRecurrenceOptions {
+    final options = Map<String, String>.from(_recurrenceRuleOptions);
+    if (!options.containsKey(_recurrenceRule)) {
+      options[_recurrenceRule] = '自定义 ($_recurrenceRule)';
+    }
+    return options;
+  }
+
   int _priority = 1;
   int _status = 0;
   String? _dueDate;
@@ -620,12 +636,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                     _dropdownRow<String>(
                       label: '重复规则',
                       value: _recurrenceRule,
-                      items: const {
-                        'daily': '每天重复',
-                        'weekdays': '每个工作日',
-                        'weekly': '每周重复',
-                        'monthly': '每月重复',
-                      },
+                      items: _currentRecurrenceOptions,
                       onChanged: (value) => setState(() {
                         _recurrenceRule = value;
                         _dirty = true;

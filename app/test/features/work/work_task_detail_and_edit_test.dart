@@ -335,5 +335,50 @@ void main() {
       expect((savedRule as Map)['frequency'], 'weekly');
       expect(savedRule['interval'], 2);
     });
+
+    testWidgets('编辑任务支持 yearly 重复规则且对未知重复规则做优雅兼容不崩溃', (tester) async {
+      tester.view.physicalSize = const Size(430, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await WorkTestHarness.create();
+      // 任务 701: yearly
+      harness.api.tasks.add(WorkTask.fromJson(buildTaskJson(
+        id: 701,
+        title: '年度例会任务',
+        isRecurring: true,
+        recurrenceRule: 'yearly',
+      )));
+      // 任务 702: 未知自定义规则
+      harness.api.tasks.add(WorkTask.fromJson(buildTaskJson(
+        id: 702,
+        title: '双周自定义任务',
+        isRecurring: true,
+        recurrenceRule: 'biweekly',
+      )));
+
+      // 验证 701 打开正常，包含“每年重复”
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskEditScreen(
+          taskId: 701,
+          api: harness.api,
+          authState: harness.authState,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('每年重复'), findsOneWidget);
+
+      // 验证 702 打开正常，未崩溃，显示“自定义 (biweekly)”
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskEditScreen(
+          taskId: 702,
+          api: harness.api,
+          authState: harness.authState,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('自定义 (biweekly)'), findsOneWidget);
+    });
   });
 }
