@@ -468,6 +468,62 @@ void main() {
       expect(find.textContaining('资料差异'), findsWidgets);
     });
 
+    testWidgets('汇总后汇报状态变为 aggregated 时冲突核验页仍能展示冲突且不显示暂无资料差异 (P2)', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      final aggregatedReports = [
+        {
+          'id': 601,
+          'project_id': ReportsTestFixtures.projectId,
+          'binding_id': 101,
+          'author_user_id': ReportsTestFixtures.currentUserId,
+          'parent_user_id': ReportsTestFixtures.supervisorUserId,
+          'status': 'aggregated', // 后端汇总后状态为 aggregated
+          'summary_text': '汇总源汇报A',
+          'payload_json': {
+            'task_snapshot': [
+              {'id': 201, 'title': '安全规范审计', 'status': 'done'},
+            ],
+          },
+        },
+        {
+          'id': 602,
+          'project_id': ReportsTestFixtures.projectId,
+          'binding_id': 102,
+          'author_user_id': 12,
+          'parent_user_id': ReportsTestFixtures.supervisorUserId,
+          'status': 'aggregated', // 同样为 aggregated
+          'summary_text': '汇总源汇报B',
+          'payload_json': {
+            'task_snapshot': [
+              {'id': 201, 'title': '安全规范审计', 'status': 'failed'},
+            ],
+          },
+        },
+      ];
+
+      harness.helper.whenGet(
+        '/projects/${ReportsTestFixtures.projectId}/agent-reports',
+        {'items': aggregatedReports},
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportReviewScreen(
+            api: harness.api,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            mode: ReportReviewMode.conflict,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 断言：检测到任务状态分歧并展示，绝不出现“暂无资料差异”
+      expect(find.text('暂无资料差异'), findsNothing);
+      expect(find.textContaining('任务状态不一致'), findsOneWidget);
+      expect(find.textContaining('done / failed'), findsOneWidget);
+    });
+
     testWidgets('bindings 模式展示汇报智能体绑定与同步操作', (tester) async {
       final harness = await ReportsTestHarness.create();
       await tester.pumpWidget(

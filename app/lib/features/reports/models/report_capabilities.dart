@@ -183,7 +183,7 @@ List<ReportConflict> detectReportConflicts(List<AgentReport> reports) {
   final conflicts = <ReportConflict>[];
   final sorted = [...reports]..sort((a, b) => a.id.compareTo(b.id));
   for (final report in sorted) {
-    if (report.status != 'submitted') continue;
+    if (report.status != 'submitted' && report.status != 'aggregated') continue;
     for (final task in report.taskSnapshots) {
       final status = task.status ?? '';
       final previous = seen[task.id];

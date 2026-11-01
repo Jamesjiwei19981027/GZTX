@@ -244,6 +244,35 @@ void main() {
       expect(conflicts.first.reportIds, equals([1, 2]));
       expect(conflicts.first.statuses, equals(['done', 'in_progress']));
     });
+
+    test('detectReportConflicts 汇总后状态为 aggregated 的汇报依然纳入检查并识别差异 (P2)', () {
+      const r1 = AgentReport(
+        id: 1,
+        status: 'aggregated', // 后端汇总后状态变为 aggregated
+        summaryText: '汇报1（已汇总）',
+        payloadJson: {
+          'task_snapshot': [
+            {'id': 10, 'title': '接口联调', 'status': 'done'},
+          ],
+        },
+      );
+      const r2 = AgentReport(
+        id: 2,
+        status: 'aggregated',
+        summaryText: '汇报2（已汇总）',
+        payloadJson: {
+          'task_snapshot': [
+            {'id': 10, 'title': '接口联调', 'status': 'in_progress'},
+          ],
+        },
+      );
+
+      final conflicts = detectReportConflicts([r1, r2]);
+      expect(conflicts.length, equals(1));
+      expect(conflicts.first.taskId, equals(10));
+      expect(conflicts.first.reportIds, equals([1, 2]));
+      expect(conflicts.first.statuses, equals(['done', 'in_progress']));
+    });
   });
 
   group('错误信息中文转换（reportErrorMessage）', () {
