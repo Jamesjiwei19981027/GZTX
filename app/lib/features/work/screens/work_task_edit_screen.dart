@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../core/errors/app_error.dart';
+import '../../../core/models/project.dart';
 import '../../../design/design.dart';
 import '../data/work_api.dart';
 import '../data/work_models.dart';
@@ -71,9 +72,23 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   bool _dirty = false;
   int _loadToken = 0;
 
-  TaskScope get _scope => TaskScope.normalizeOrPersonal(
-        _auth?.currentProject?.id.toString(),
-      );
+  TaskScope? _taskScope;
+
+  TaskScope get _scope =>
+      _taskScope ??
+      TaskScope.normalizeOrPersonal(_auth?.currentProject?.id.toString());
+
+  String? get _scopeProjectName {
+    final pid = _scope.projectId;
+    if (pid == null) return null;
+    if (_auth?.currentProject?.id == pid) {
+      return _auth?.currentProject?.name;
+    }
+    for (final p in _auth?.projects ?? const <Project>[]) {
+      if (p.id == pid) return p.name;
+    }
+    return '项目 #$pid';
+  }
 
   @override
   void initState() {
@@ -104,6 +119,8 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   }
 
   void _resetForm() {
+    _taskScope = null;
+    _members = const [];
     _titleController.text = '';
     _descriptionController.text = '';
     _priority = 1;
@@ -136,13 +153,16 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   }
 
   Future<void> _bootstrap() async {
-    final projectId = _scope.projectId;
-    if (projectId != null) {
-      _loadMembers(projectId);
-    }
     if (widget.isEditing) {
       await _loadTask();
     } else {
+      _taskScope = TaskScope.normalizeOrPersonal(
+        _auth?.currentProject?.id.toString(),
+      );
+      final projectId = _taskScope?.projectId;
+      if (projectId != null) {
+        _loadMembers(projectId);
+      }
       setState(() => _loading = false);
     }
   }
@@ -177,7 +197,19 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
     try {
       final task = await _api!.getTask(widget.taskId!);
       if (!mounted || token != _loadToken) return;
+
+      final targetScope = TaskScope(
+        projectId: task.projectId,
+        origin: task.origin,
+      );
+      if (task.projectId != null) {
+        _loadMembers(task.projectId!);
+      } else {
+        _members = const [];
+      }
+
       setState(() {
+        _taskScope = targetScope;
         _titleController.text = task.title;
         _descriptionController.text = task.description ?? '';
         _priority = task.priority;
@@ -416,7 +448,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
-                      _scope.describe(_auth?.currentProject?.name),
+                      _scope.describe(_scopeProjectName),
                       style: const TextStyle(
                         fontSize: 12,
                         height: 1.4,

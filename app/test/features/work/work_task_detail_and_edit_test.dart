@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:worktodo_app/core/models/project.dart';
 import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/work/data/work_models.dart';
 import 'package:worktodo_app/features/work/screens/work_task_detail_screen.dart';
@@ -258,6 +259,36 @@ void main() {
       // 验证第一项被删除，第二项依然保留
       expect(find.text('已有第一项'), findsNothing);
       expect(find.text('新增第二项'), findsOneWidget);
+    });
+
+    testWidgets('编辑任务时从任务自身所属项目解析成员列表，不使用全局选中项目', (tester) async {
+      tester.view.physicalSize = const Size(430, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await WorkTestHarness.create();
+      harness.authState.selectProject(const Project(id: 1, name: '项目一', companyId: 1));
+
+      // 任务 555 属于项目 2
+      harness.api.tasks.add(WorkTask.fromJson(buildTaskJson(
+        id: 555,
+        title: '属于项目二的任务',
+        projectId: 2,
+        origin: 'project_link',
+      )));
+
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskEditScreen(
+          taskId: 555,
+          api: harness.api,
+          authState: harness.authState,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // 验证范围提示展示为【项目 #2】
+      expect(find.textContaining('项目 #2'), findsOneWidget);
     });
   });
 }
