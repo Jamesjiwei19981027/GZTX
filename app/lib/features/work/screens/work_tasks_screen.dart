@@ -271,6 +271,12 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     await _load();
   }
 
+  Future<void> _createTask() async {
+    await context.push('/work/task-edit');
+    if (!mounted) return;
+    await _load();
+  }
+
   void _switchView(String view) {
     if (view == 'tasks') return;
     context.pushReplacement('/work/kanban?scope=${_scope.queryValue}');
@@ -483,7 +489,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
                             description: '可调整筛选条件或新建待办',
                             icon: const AppIcon('work', size: 40),
                             actionLabel: '新建任务',
-                            onAction: () => context.push('/work/task-edit'),
+                            onAction: _createTask,
                           ),
                         ],
                       )

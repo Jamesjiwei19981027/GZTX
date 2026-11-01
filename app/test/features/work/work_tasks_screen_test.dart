@@ -3,6 +3,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/core/models/project.dart';
 import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/work/data/work_models.dart';
@@ -300,5 +303,58 @@ void main() {
     // 验证普通任务完成，只读任务未被标记为完成
     expect(harness.api.tasks.firstWhere((t) => t.id == 901).status, 2);
     expect(harness.api.tasks.firstWhere((t) => t.id == 902).status, 0);
+  });
+
+  testWidgets('从空列表新建任务并返回后自动重新加载任务列表', (tester) async {
+    final harness = await WorkTestHarness.create();
+    harness.api.tasks = [];
+
+    final router = GoRouter(
+      initialLocation: '/',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => WorkTasksScreen(
+            api: harness.api,
+            authState: harness.authState,
+          ),
+        ),
+        GoRoute(
+          path: '/work/task-edit',
+          builder: (context, state) => Scaffold(
+            body: ElevatedButton(
+              onPressed: () async {
+                await harness.api.createTask({'title': '从空列表新建的任务'});
+                if (context.mounted) context.pop();
+              },
+              child: const Text('保存并返回'),
+            ),
+          ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(ChangeNotifierProvider<AuthState>.value(
+      value: harness.authState,
+      child: MaterialApp.router(routerConfig: router),
+    ));
+    await tester.pumpAndSettle();
+
+    // 初始展示空状态
+    expect(find.text('暂无匹配事项'), findsOneWidget);
+    expect(find.text('新建任务'), findsOneWidget);
+
+    // 点击空状态的「新建任务」按钮
+    await tester.tap(find.text('新建任务'));
+    await tester.pumpAndSettle();
+
+    // 进入编辑页，点击保存并返回
+    expect(find.text('保存并返回'), findsOneWidget);
+    await tester.tap(find.text('保存并返回'));
+    await tester.pumpAndSettle();
+
+    // 返回后：空状态消失，列表成功刷新并展示新任务
+    expect(find.text('暂无匹配事项'), findsNothing);
+    expect(find.text('从空列表新建的任务'), findsOneWidget);
   });
 }
