@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/auth_provider.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../design/design.dart';
 import '../data/reports_api.dart';
@@ -67,6 +68,12 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
         oldWidget.userId != widget.userId) {
       _sync();
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   void _sync() {
@@ -203,9 +210,9 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
   Widget build(BuildContext context) {
     final projectId = ReportScope.projectId(context, widget.projectId);
     if (projectId <= 0) {
-      return AppScaffold(
+      return const AppScaffold(
         title: '下属汇报收件箱',
-        body: const AppEmptyState(
+        body: AppEmptyState(
           title: '请选择具体项目',
           description: '汇报按项目隔离，请先切换到具体项目。',
           icon: AppIcon('folder', size: 44, color: AppColors.primary),

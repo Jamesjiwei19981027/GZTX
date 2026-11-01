@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/errors/app_error.dart';
+import '../../../core/auth/auth_provider.dart';
 import '../../../design/design.dart';
 import '../data/reports_api.dart';
 import '../models/report_capabilities.dart';

@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/models/project.dart';
-import 'widgets/report_ui.dart';
+import '../widgets/report_ui.dart';
 
 /// 页面参数兜底：路由显式传值优先，其次读取全局登录态。
 ///

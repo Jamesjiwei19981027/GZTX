@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/auth_provider.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../design/design.dart';
 import '../data/reports_api.dart';
@@ -125,7 +126,7 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
 
     try {
       final store = _draftStore!;
-      final results = await Future.wait<Object>([
+      final results = await Future.wait<Object?>([
         _api!.listBindings(projectId),
         _api!.listMyReports(projectId: projectId),
         _api!.listInbox(),
@@ -254,8 +255,8 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: const [
+                const Row(
+                  children: [
                     AppIcon('ai', size: 20, color: AppColors.primary),
                     SizedBox(width: AppSpacing.sm),
                     Text(
@@ -316,9 +317,9 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
           ),
           if (_isManager) ...[
             const SizedBox(height: AppSpacing.lg),
-            ReportSectionTitle(
+            const ReportSectionTitle(
               '管理者能力',
-              trailing: const ReportStatusChip(
+              trailing: ReportStatusChip(
                 label: '已授权',
                 tone: ReportBannerTone.success,
               ),

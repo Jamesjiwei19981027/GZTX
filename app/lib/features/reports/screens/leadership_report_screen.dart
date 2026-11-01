@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/auth/auth_provider.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../design/design.dart';
 import '../data/reports_api.dart';
@@ -59,6 +60,12 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
     if (oldWidget.companyId != widget.companyId || oldWidget.api != widget.api) {
       _sync();
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   void _sync() {
@@ -130,9 +137,9 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
   Widget build(BuildContext context) {
     const title = '领导层项目总览';
     if (_forbidden) {
-      return AppScaffold(
+      return const AppScaffold(
         title: title,
-        body: const AppEmptyState(
+        body: AppEmptyState(
           title: '需要总领导权限',
           description: '跨项目总览仅对组织总领导开放。系统保证总领导仅接收允许的项目摘要封装，'
               '不合并各项目原始上下文。',
@@ -141,7 +148,7 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
       );
     }
     if (_loading) {
-      return AppScaffold(title: title, body: const Center(child: AppLoading()));
+      return const AppScaffold(title: title, body: Center(child: AppLoading()));
     }
     if (_error != null) {
       return AppScaffold(

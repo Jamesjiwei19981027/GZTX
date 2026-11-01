@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../core/errors/app_error.dart';
+import '../../../core/auth/auth_provider.dart';
 import '../../../design/design.dart';
 import '../data/reports_api.dart';
 import '../models/report_capabilities.dart';
@@ -473,9 +473,9 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                             clearButtonEnabled: false,
                           ),
                           const SizedBox(height: AppSpacing.lg),
-                          ReportSectionTitle(
+                          const ReportSectionTitle(
                             '来源依据',
-                            trailing: const Text(
+                            trailing: Text(
                               '严格基于项目事实',
                               style: TextStyle(fontSize: 10.5, color: AppColors.textTertiary),
                             ),
@@ -491,8 +491,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                           const SizedBox(height: AppSpacing.sm),
                           _supervisorCard(context, supervisor),
                           if (supervisor.isSelf)
-                            Padding(
-                              padding: const EdgeInsets.only(top: AppSpacing.sm),
+                            const Padding(
+                              padding: EdgeInsets.only(top: AppSpacing.sm),
                               child: Text(
                                 '直属领导不能是自己。请在人轴画布或设置中指定您的直属上级后再提交。',
                                 style: TextStyle(

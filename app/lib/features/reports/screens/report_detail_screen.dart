@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/auth/auth_provider.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../design/design.dart';
 import '../data/reports_api.dart';
@@ -88,6 +89,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           : widget.mode;
       _sync();
     }
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
   }
 
   void _sync() {
