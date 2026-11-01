@@ -1,85 +1,51 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../design/design.dart';
+import 'auth_paths.dart';
+import 'screens/login_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/verify_screen.dart';
 
-/// T01 登录注册模块路由占位
-class AuthPlaceholderScreen extends StatelessWidget {
-  const AuthPlaceholderScreen({
-    super.key,
-    this.screenName = 'auth-login',
-    this.title = '登录 / 注册 (T01)',
-  });
-
-  final String screenName;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      title: title,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const AppIcon('lock', size: 48, color: AppColors.primary),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '屏幕标识: $screenName\n待 T01 任务包实现具体页面',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              AppButton(
-                label: '返回上一页',
-                variant: AppButtonVariant.secondary,
-                onPressed: () => context.pop(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+/// T01 登录注册模块路由。
+///
+/// - `/login`：登录页（公开）
+/// - `/login/register`：注册页（登录页子路由，返回键回登录页）
+/// - `/register`：旧外壳使用过的注册路径，保留重定向避免旧链接失效
+/// - `/verify`：验证门（**不是公开路由**，必须已登录才能进入）
 final List<RouteBase> authRoutes = [
   GoRoute(
-    path: '/login',
+    path: AuthPaths.login,
     name: 'auth-login',
-    builder: (context, state) => const AuthPlaceholderScreen(
-      screenName: 'auth-login',
-      title: '登录',
-    ),
+    builder: (context, state) => const LoginScreen(),
+    routes: [
+      GoRoute(
+        path: 'register',
+        name: 'auth-register',
+        builder: (context, state) => const RegisterScreen(),
+      ),
+    ],
   ),
   GoRoute(
-    path: '/register',
-    name: 'auth-register',
-    builder: (context, state) => const AuthPlaceholderScreen(
-      screenName: 'auth-register',
-      title: '注册',
-    ),
+    path: AuthPaths.legacyRegister,
+    name: 'auth-register-legacy',
+    redirect: (context, state) => AuthPaths.register,
   ),
   GoRoute(
-    path: '/verify',
+    path: AuthPaths.verify,
     name: 'auth-verify',
-    builder: (context, state) => const AuthPlaceholderScreen(
-      screenName: 'auth-verify',
-      title: '手机/邮箱验证',
+    builder: (context, state) => VerifyScreen(
+      required: AuthPaths.parseRequirement(
+        state.uri.queryParameters['required'],
+      ),
     ),
   ),
 ];
 
-/// 动态获取认证模块的所有顶层路径白名单（支持 T01 自行扩充，无需修改 app_router.dart）
+/// 公开（未登录可访问）的认证路径，供全局路由守卫使用。
+///
+/// 只包含登录与注册：验证门 `/verify` 需要登录态，因此**不能**放进白名单
+/// （T00 的守卫会把已登录用户从白名单页面送回 `/work`，放进去会导致验证门永远打不开）。
 List<String> get authRoutePaths =>
-    authRoutes.whereType<GoRoute>().map((r) => r.path).toList();
+    const [AuthPaths.login, AuthPaths.legacyRegister];
 
 /// 动态判断某个 location 是否属于认证公开路由
 bool isAuthRouteLocation(String location) {
@@ -90,4 +56,3 @@ bool isAuthRouteLocation(String location) {
   }
   return false;
 }
-

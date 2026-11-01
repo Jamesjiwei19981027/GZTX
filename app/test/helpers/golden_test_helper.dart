@@ -63,6 +63,9 @@ Future<void> loadTestFonts(WidgetTester tester) async {
   final families = [
     'NotoSansSC',
     '.SF Pro Text',
+    // CupertinoAlertDialog 硬编码使用这两个字体族，不注册的话弹窗文案在 Windows 上是方块
+    'CupertinoSystemText',
+    'CupertinoSystemDisplay',
   ];
 
   for (final family in families) {

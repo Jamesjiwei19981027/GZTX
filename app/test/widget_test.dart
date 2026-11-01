@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:worktodo_app/features/auth/screens/login_screen.dart';
 import 'package:worktodo_app/main.dart';
 
 void main() {
@@ -39,8 +40,8 @@ void main() {
     await tester.pumpAndSettle();
 
     // 原生版启动后，未登录状态下重定向到登录页面
-    expect(find.text('登录'), findsWidgets);
-    expect(find.textContaining('auth-login'), findsOneWidget);
+    expect(find.byType(LoginScreen), findsOneWidget);
+    expect(find.text('欢迎回来'), findsOneWidget);
 
     // 原生版启动后清除历史明文令牌
     expect(prefs.containsKey('access_token'), false);
