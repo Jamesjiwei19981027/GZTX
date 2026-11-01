@@ -425,26 +425,72 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: AppButton(
-                          label: _dueDate == null ? '设置截止日期' : '截止日期 $_dueDate',
-                          variant: AppButtonVariant.secondary,
-                          size: AppButtonSize.sm,
-                          onPressed: _pickDueDate,
-                        ),
+                  InkWell(
+                    onTap: _pickDueDate,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: 10,
                       ),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: AppButton(
-                          label: _dueTime == null ? '全天' : '截止时刻 $_dueTime',
-                          variant: AppButtonVariant.secondary,
-                          size: AppButtonSize.sm,
-                          onPressed: _pickDueTime,
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.darkBorder
+                              : AppColors.border,
                         ),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSm),
                       ),
-                    ],
+                      child: Row(
+                        children: [
+                          const AppIcon('calendar', size: 16),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              _dueDate == null
+                                  ? '设置截止日期（可选）'
+                                  : '截止日期: $_dueDate',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  InkWell(
+                    onTap: _pickDueTime,
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: isDark
+                              ? AppColors.darkBorder
+                              : AppColors.border,
+                        ),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusSm),
+                      ),
+                      child: Row(
+                        children: [
+                          const AppIcon('time', size: 16),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Text(
+                              _dueTime == null ? '全天（不设具体时刻）' : '截止时刻: $_dueTime',
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                          const Icon(Icons.arrow_drop_down, size: 20),
+                        ],
+                      ),
+                    ),
                   ),
                   if (_dueDate != null)
                     Align(
