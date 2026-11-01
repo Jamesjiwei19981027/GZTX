@@ -18,10 +18,14 @@ class AxisProgressScreen extends StatefulWidget {
   const AxisProgressScreen({
     super.key,
     required this.nodeId,
+    this.projectId,
     this.api,
   });
 
   final int nodeId;
+
+  /// 节点所属项目 ID；由详情页带进来，材料提交链接必须继续传下去。
+  final int? projectId;
   final AxisApi? api;
 
   @override
@@ -34,6 +38,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
   Object? _error;
   String _title = '';
   AxisProgressSnapshot? _snapshot;
+  int _epoch = 0;
 
   @override
   void didChangeDependencies() {
@@ -43,7 +48,29 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant AxisProgressScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.nodeId == widget.nodeId) return;
+    // 同一路由换节点 ID 时 State 会被复用：作废旧请求，按新 ID 重新加载。
+    _epoch++;
+    setState(() {
+      _title = '';
+      _snapshot = null;
+      _error = null;
+      _loading = true;
+    });
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _epoch++;
+    super.dispose();
+  }
+
   Future<void> _load() async {
+    final epoch = ++_epoch;
     setState(() {
       _loading = true;
       _error = null;
@@ -52,14 +79,14 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
       final api = _api!;
       final node = await api.fetchNode(widget.nodeId);
       final progress = await api.fetchProgress(widget.nodeId);
-      if (!mounted) return;
+      if (!mounted || epoch != _epoch) return;
       setState(() {
         _title = (node['title'] ?? '').toString();
         _snapshot = progress;
         _loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || epoch != _epoch) return;
       setState(() {
         _error = e;
         _loading = false;
@@ -167,8 +194,13 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                       AppButton(
                         label: '提交材料',
                         isFullWidth: true,
-                        onPressed: () =>
-                            context.push('/evidence/submit?nodeId=${widget.nodeId}'),
+                        onPressed: () {
+                          final projectId = widget.projectId;
+                          context.push(
+                            '/evidence/submit?nodeId=${widget.nodeId}'
+                            '${projectId == null ? '' : '&projectId=$projectId'}',
+                          );
+                        },
                       ),
                     ],
                   ),

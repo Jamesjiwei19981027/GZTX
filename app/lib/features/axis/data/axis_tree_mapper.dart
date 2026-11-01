@@ -130,6 +130,7 @@ class AxisTreeMapper {
         nodeOrigin: (node['node_origin'] ?? 'project').toString(),
         isTerminalPm: isTerminal,
         ownerUserIds: ownerUserIds,
+        assignees: assignees.map(AxisAssignee.fromJson).toList(),
         workItems: matters,
         responsibilityPermissions: (node['responsibility_permissions'] is Map)
             ? Map<String, dynamic>.from(

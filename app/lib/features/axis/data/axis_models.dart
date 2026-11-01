@@ -41,6 +41,24 @@ String _asString(Object? value, [String fallback = '']) {
   return value.toString();
 }
 
+/// 后端视为“已完成”的进度状态（与 `shell.py::axis_audit` 同口径）。
+///
+/// 普通事项写 `done` / `completed`；里程碑完成只写 `reached`，
+/// 且 `progress_json` 里通常没有 `percent` 字段。
+const Set<String> axisCompletedStatuses = {'done', 'completed', 'reached'};
+
+bool axisStatusIsCompleted(String status) =>
+    axisCompletedStatuses.contains(status);
+
+/// 把 `progress_json` 归一成展示用百分比。
+///
+/// 已完成但没写 `percent` 的节点（典型是里程碑 `reached`）按 100% 展示，
+/// 避免出现“已完成 · 进度 0%”这种自相矛盾的显示。
+int axisProgressPercent(Map<String, dynamic> progress) {
+  if (axisStatusIsCompleted(_asString(progress['status']))) return 100;
+  return _asDouble(progress['percent']).round();
+}
+
 /// 人员节点下挂载的责任事项（工作项 / 里程碑 / 范围）。
 class AxisWorkItem {
   const AxisWorkItem({
@@ -61,12 +79,15 @@ class AxisWorkItem {
   final int percent;
   final DateTime? dueAt;
 
-  bool get isDone => status == 'done' || status == 'completed' || percent >= 100;
+  bool get isMilestone => nodeTypeKey == 'milestone';
+
+  bool get isDone => axisStatusIsCompleted(status) || percent >= 100;
 
   String get statusLabel {
     if (isDone) return '已完成';
     if (status == 'blocked') return '受阻';
     if (status == 'at_risk') return '有风险';
+    if (isMilestone && status == 'not_reached') return '未达成';
     if (percent > 0 || status == 'in_progress') return '进行中';
     return '未开始';
   }
@@ -90,10 +111,32 @@ class AxisWorkItem {
       title: _asString(json['title'], '未命名事项'),
       nodeTypeKey: _asString(json['node_type_key'], 'work_item'),
       status: _asString(progress['status']),
-      percent: _asDouble(progress['percent']).round(),
+      percent: axisProgressPercent(progress),
       dueAt: due is String ? DateTime.tryParse(due)?.toLocal() : null,
     );
   }
+}
+
+/// 一条节点指派（后端 `node_assignments`）。
+///
+/// `role_key` 原样保留：`primary` / `collaborator` / `observer` 等。
+/// 编辑人员时必须整份回传，否则后端 `TreeService.set_assignees` 会整体替换，
+/// 把协作者和观察者悄悄删掉。
+class AxisAssignee {
+  const AxisAssignee({required this.userId, required this.roleKey});
+
+  final int userId;
+  final String roleKey;
+
+  Map<String, dynamic> toJson() => {
+        'user_id': userId,
+        'role_key': roleKey.isEmpty ? 'collaborator' : roleKey,
+      };
+
+  factory AxisAssignee.fromJson(Map<String, dynamic> json) => AxisAssignee(
+        userId: _asInt(json['user_id']),
+        roleKey: _asString(json['role_key']),
+      );
 }
 
 /// 人轴上的人员卡片。
@@ -114,6 +157,7 @@ class AxisPersonNode {
     required this.ownerUserIds,
     required this.workItems,
     required this.responsibilityPermissions,
+    this.assignees = const [],
     this.layoutOffset,
     this.startAt,
     this.dueAt,
@@ -136,6 +180,9 @@ class AxisPersonNode {
   final String nodeOrigin;
   final bool isTerminalPm;
   final List<int> ownerUserIds;
+
+  /// 后端返回的全部指派（含协作者、观察者），编辑保存时按角色整份回传。
+  final List<AxisAssignee> assignees;
   final List<AxisWorkItem> workItems;
   final Map<String, dynamic> responsibilityPermissions;
   final Offset? layoutOffset;
@@ -144,6 +191,14 @@ class AxisPersonNode {
   final int sortOrder;
 
   bool get isPrimary => nodeOrigin == 'project';
+
+  /// 主负责人指派：优先 `role_key == 'primary'`，没有时退回第一条（与网页一致）。
+  AxisAssignee? get primaryAssignee {
+    for (final assignee in assignees) {
+      if (assignee.roleKey == 'primary') return assignee;
+    }
+    return assignees.isEmpty ? null : assignees.first;
+  }
 
   bool get allowChannelAccess =>
       responsibilityPermissions['channel_access'] == true;
@@ -159,6 +214,7 @@ class AxisPersonNode {
         nodeOrigin: nodeOrigin,
         isTerminalPm: isTerminalPm,
         ownerUserIds: ownerUserIds,
+        assignees: assignees,
         workItems: workItems,
         responsibilityPermissions: responsibilityPermissions,
         layoutOffset: layoutOffset ?? this.layoutOffset,
@@ -595,20 +651,22 @@ class AxisProgressSnapshot {
   final List<AxisProgressRecord> records;
 
   String get statusLabel {
-    if (status == 'done' || status == 'completed' || percent >= 100) {
-      return '已完成';
-    }
+    if (isDone) return '已完成';
     if (status == 'blocked') return '受阻';
     if (status == 'at_risk') return '有风险';
+    if (status == 'not_reached') return '未达成';
     if (percent > 0 || status == 'in_progress') return '进行中';
     return '未开始';
   }
+
+  /// 里程碑完成只写 `reached`、不写 `percent`，这里与 [AxisWorkItem] 同口径。
+  bool get isDone => axisStatusIsCompleted(status) || percent >= 100;
 
   factory AxisProgressSnapshot.fromJson(Map<String, dynamic> json) {
     final progress = _asMap(json['progress_json']);
     return AxisProgressSnapshot(
       nodeId: _asInt(json['node_id']),
-      percent: _asDouble(progress['percent']).round(),
+      percent: axisProgressPercent(progress),
       status: _asString(progress['status']),
       records: _asMapList(json['recent_records'])
           .map(AxisProgressRecord.fromJson)

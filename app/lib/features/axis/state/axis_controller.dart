@@ -43,6 +43,11 @@ class AxisController extends ChangeNotifier {
   AxisSpacing spacing = AxisSpacing.standard;
   bool showAiStatus = true;
   bool expandSubordinates = true;
+
+  /// 重置布局标记：画布忽略手动偏移，且本次加载不从后端回填位置。
+  ///
+  /// 只在重置后生效一次。用户重新拖动卡片（[saveLayout]）或下一次加载应用完
+  /// 重置后必须清掉，否则之后保存成功的偏移会被画布一直忽略（返工 #5）。
   bool resetLayoutRequested = false;
 
   final Map<int, Offset> _layoutOffsets = {};
@@ -168,7 +173,11 @@ class AxisController extends ChangeNotifier {
       this.members = members;
       this.permissions = permissions;
       this.project = project;
-      if (!resetLayoutRequested) {
+      if (resetLayoutRequested) {
+        // 本次加载已按重置后的自动对齐展示，标记立即失效，
+        // 之后拖动的偏移照常生效。
+        resetLayoutRequested = false;
+      } else {
         _layoutOffsets
           ..clear()
           ..addEntries(mapped
@@ -214,6 +223,8 @@ class AxisController extends ChangeNotifier {
   /// 保存卡片位置：先本地生效，失败回滚并抛出，由页面提示。
   Future<void> saveLayout(int nodeId, Offset offset) async {
     final previous = offsetFor(nodeId);
+    // 用户重新摆放卡片，重置态到此为止；否则这次偏移会被画布忽略。
+    resetLayoutRequested = false;
     _layoutOffsets[nodeId] = offset;
     notifyListeners();
     try {
@@ -230,45 +241,44 @@ class AxisController extends ChangeNotifier {
   }
 
   /// 保存终责卡沿主干偏移。仅 PM/创建者可调，后端二次强制。
+  ///
+  /// 请求期间用户可能已经切到别的项目：成功/失败回调都必须先确认当前项目仍是
+  /// 发起请求的那个，否则会把旧项目的名称、位置和权限写回新项目（返工 #6）。
   Future<void> saveFinalOwnerDelta(double delta) async {
     final currentProject = project;
     if (currentProject == null) return;
+    final projectId = currentProject.id;
     final previous = currentProject.finalOwnerAlongDelta;
-    project = AxisProjectInfo(
-      id: currentProject.id,
-      name: currentProject.name,
-      pmUserId: currentProject.pmUserId,
-      createdBy: currentProject.createdBy,
-      finalOwnerAlongDelta: delta,
-      status: currentProject.status,
-    );
+    // 后端 `along_delta` 是整数字段，本地先按同一取整规则显示，避免回填时跳变。
+    final target = delta.roundToDouble();
+    project = _withFinalOwnerOffset(currentProject, target);
     notifyListeners();
     try {
-      final saved = await api.saveFinalOwnerDelta(currentProject.id, delta);
-      if (_disposed) return;
-      project = AxisProjectInfo(
-        id: currentProject.id,
-        name: currentProject.name,
-        pmUserId: currentProject.pmUserId,
-        createdBy: currentProject.createdBy,
-        finalOwnerAlongDelta: saved,
-        status: currentProject.status,
-      );
+      final saved = await api.saveFinalOwnerDelta(projectId, target);
+      if (!_belongsToCurrentProject(projectId)) return;
+      project = _withFinalOwnerOffset(project!, saved);
       notifyListeners();
     } catch (e) {
-      if (_disposed) return;
-      project = AxisProjectInfo(
-        id: currentProject.id,
-        name: currentProject.name,
-        pmUserId: currentProject.pmUserId,
-        createdBy: currentProject.createdBy,
-        finalOwnerAlongDelta: previous,
-        status: currentProject.status,
-      );
+      if (!_belongsToCurrentProject(projectId)) return;
+      project = _withFinalOwnerOffset(project!, previous);
       notifyListeners();
       rethrow;
     }
   }
+
+  /// 当前展示的项目是否仍是 [projectId]；切换项目或销毁后为 false。
+  bool _belongsToCurrentProject(int projectId) =>
+      !_disposed && project?.id == projectId;
+
+  AxisProjectInfo _withFinalOwnerOffset(AxisProjectInfo base, double delta) =>
+      AxisProjectInfo(
+        id: base.id,
+        name: base.name,
+        pmUserId: base.pmUserId,
+        createdBy: base.createdBy,
+        finalOwnerAlongDelta: delta,
+        status: base.status,
+      );
 
   /// 人员权限与交接：次级人员的频道访问开关写 `responsibility_permissions`。
   Future<void> updateChannelAccess(AxisPersonNode node, bool allowed) async {

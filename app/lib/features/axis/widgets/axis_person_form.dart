@@ -59,9 +59,8 @@ class _AxisPersonFormState extends State<AxisPersonForm> {
     _name = TextEditingController(text: node?.name ?? '');
     _role = TextEditingController(text: node?.roleTitle ?? '');
     _department = TextEditingController(text: node?.department ?? '');
-    _selectedUserId = node?.ownerUserIds.isNotEmpty == true
-        ? node!.ownerUserIds.first
-        : null;
+    _selectedUserId = node?.primaryAssignee?.userId ??
+        (node?.ownerUserIds.isNotEmpty == true ? node!.ownerUserIds.first : null);
     _parentId = isEdit ? node!.parentId : widget.suggestedParentId;
   }
 
@@ -190,14 +189,8 @@ class _AxisPersonFormState extends State<AxisPersonForm> {
         );
       } else {
         final node = widget.node!;
-        final assignees = widget.canManageAssignees
-            ? <Map<String, dynamic>>[
-                if (_selectedUserId != null)
-                  {'user_id': _selectedUserId, 'role_key': 'primary'}
-                else if (node.ownerUserIds.isNotEmpty)
-                  {'user_id': node.ownerUserIds.first, 'role_key': 'primary'},
-              ]
-            : null;
+        final assignees =
+            widget.canManageAssignees ? _assigneesForSave(node) : null;
         await widget.api.updateNode(
           node.id,
           title: name,
@@ -219,6 +212,26 @@ class _AxisPersonFormState extends State<AxisPersonForm> {
       return;
     }
     if (mounted) setState(() => _submitting = false);
+  }
+
+  /// 组装保存用的指派列表。
+  ///
+  /// 后端 PATCH 只要带 `assignees` 就整份替换（`TreeService.set_assignees`
+  /// 先删后插），所以必须把原有指派连同角色一起回传：只改姓名/岗位时原样保留，
+  /// 只有改选主负责人时才替换主负责人那一条，协作者和观察者不动。
+  List<Map<String, dynamic>> _assigneesForSave(AxisPersonNode node) {
+    final primary = node.primaryAssignee;
+    final selected = _selectedUserId;
+    if (selected == null) return const [];
+    if (primary != null && primary.userId == selected) {
+      return node.assignees.map((assignee) => assignee.toJson()).toList();
+    }
+    return [
+      {'user_id': selected, 'role_key': 'primary'},
+      for (final assignee in node.assignees)
+        if (assignee.userId != primary?.userId && assignee.userId != selected)
+          assignee.toJson(),
+    ];
   }
 
   @override

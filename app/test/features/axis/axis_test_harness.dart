@@ -97,6 +97,35 @@ class AxisTestHarness {
     };
   }
 
+  /// 里程碑节点：后端按 `behavior_template=milestone` 建，progress_json 只有
+  /// `template` + `status`（`not_reached` / `reached`），完成时不写 percent。
+  static Map<String, dynamic> milestone({
+    required int id,
+    required int parentId,
+    required String title,
+    String status = 'not_reached',
+    int? percent,
+  }) {
+    return {
+      'id': id,
+      'parent_id': parentId,
+      'node_type_key': 'milestone',
+      'behavior_template': 'milestone',
+      'title': title,
+      'description': null,
+      'node_origin': 'project',
+      'responsibility_permissions': {},
+      'sort_order': 0,
+      'progress_json': {
+        'template': 'milestone',
+        'status': status,
+        if (percent != null) 'percent': percent,
+      },
+      'assignees': <Map<String, dynamic>>[],
+      'children': <Map<String, dynamic>>[],
+    };
+  }
+
   /// 默认人树：王宁（主轴）→ 林悦（次级）→ 交互原型设计；陈宇（PM，终责）。
   static List<Map<String, dynamic>> defaultTree() => [
         personNode(

@@ -8,6 +8,38 @@ import 'axis_test_harness.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  /// 后端人树里一个人员可以有 primary / collaborator / observer 多条指派
+  /// （`node_assignments`），PATCH 带 assignees 时是整份替换。
+  List<Map<String, dynamic>> treeWithSharedAssignees() {
+    final tree = AxisTestHarness.defaultTree();
+    final person = tree.firstWhere(
+      (node) => (node['children'] as List).any((child) => child['id'] == 102),
+    );
+    final lin = (person['children'] as List)
+        .firstWhere((child) => child['id'] == 102) as Map<String, dynamic>;
+    lin['assignees'] = [
+      {
+        'user_id': 11,
+        'role_key': 'primary',
+        'display_name': '林悦',
+        'avatar_url': null,
+      },
+      {
+        'user_id': 13,
+        'role_key': 'collaborator',
+        'display_name': '赵晨',
+        'avatar_url': null,
+      },
+      {
+        'user_id': 14,
+        'role_key': 'observer',
+        'display_name': '观察者',
+        'avatar_url': null,
+      },
+    ];
+    return tree;
+  }
+
   Future<void> pumpEdit(WidgetTester tester, AxisTestHarness harness) async {
     tester.view.physicalSize = const Size(430, 1400);
     tester.view.devicePixelRatio = 1.0;
@@ -88,5 +120,69 @@ void main() {
     expect(find.text('放弃修改？'), findsWidgets);
     expect(find.text('继续编辑'), findsWidgets);
     expect(find.text('放弃并退出'), findsWidgets);
+  });
+
+  testWidgets('已有 3 条指派时只改职务保存，PATCH 仍是 3 条且角色不变', (tester) async {
+    final harness = await AxisTestHarness.create(
+      isPm: true,
+      tree: treeWithSharedAssignees(),
+    );
+    harness.helper.register('PATCH', '/nodes/102', AxisTestHarness.nodeDetail());
+    await pumpEdit(tester, harness);
+
+    await tester.enterText(
+      find.byKey(const Key('axis-form-role')),
+      '高级设计负责人',
+    );
+    await tester.pump();
+    await tester.tap(find.text('保存人员'));
+    await tester.pumpAndSettle();
+
+    final patch = harness.helper.history.firstWhere(
+      (r) => r.method == 'PATCH' && r.url.path == '/api/v1/nodes/102',
+      orElse: () => throw StateError('未发出保存请求'),
+    );
+    final assignees = (patch.body as Map)['assignees'] as List;
+    expect(assignees, hasLength(3));
+    expect(
+      assignees.map((item) => item['user_id']).toList(),
+      [11, 13, 14],
+      reason: '协作者与观察者必须原样保留',
+    );
+    expect(
+      assignees.map((item) => item['role_key']).toList(),
+      ['primary', 'collaborator', 'observer'],
+    );
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  testWidgets('改选主负责人时只替换主负责人那一条，其余指派保留', (tester) async {
+    final harness = await AxisTestHarness.create(
+      isPm: true,
+      tree: treeWithSharedAssignees(),
+    );
+    harness.helper.register('PATCH', '/nodes/102', AxisTestHarness.nodeDetail());
+    await pumpEdit(tester, harness);
+
+    await tester.tap(find.byKey(const Key('axis-form-member')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('陈宇 (axis_dev)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存人员'));
+    await tester.pumpAndSettle();
+
+    final patch = harness.helper.history.firstWhere(
+      (r) => r.method == 'PATCH' && r.url.path == '/api/v1/nodes/102',
+      orElse: () => throw StateError('未发出保存请求'),
+    );
+    final assignees = ((patch.body as Map)['assignees'] as List)
+        .cast<Map<String, dynamic>>();
+    expect(assignees, hasLength(3));
+    expect(assignees.first, {'user_id': 12, 'role_key': 'primary'});
+    expect(
+      assignees.skip(1).map((item) => item['role_key']).toList(),
+      ['collaborator', 'observer'],
+    );
+    await tester.pump(const Duration(seconds: 3));
   });
 }

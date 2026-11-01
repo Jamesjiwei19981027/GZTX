@@ -53,6 +53,28 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant AxisNodeDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.nodeId == widget.nodeId &&
+        oldWidget.projectId == widget.projectId) {
+      return;
+    }
+    // GoRouter 复用同一个页面状态（如 /axis/node/102 → /axis/node/201）：
+    // 必须作废进行中的请求、清掉旧节点数据，再按新参数重新加载，
+    // 否则会“旧数据配新 ID”，进度与材料入口指向另一个节点。
+    _epoch++;
+    setState(() {
+      _nodeJson = null;
+      _tree = const [];
+      _permissions = AxisPermissions.empty;
+      _projectId = null;
+      _error = null;
+      _loading = true;
+    });
+    _load();
+  }
+
+  @override
   void dispose() {
     _epoch++;
     super.dispose();
@@ -115,7 +137,11 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   }
 
   Future<void> _openProgress() async {
-    await context.push('/axis/node/${widget.nodeId}/progress');
+    final projectId = _projectId;
+    await context.push(
+      '/axis/node/${widget.nodeId}/progress'
+      '${projectId == null ? '' : '?projectId=$projectId'}',
+    );
   }
 
   Future<void> _openEdit(AxisPersonNode person) async {
@@ -124,8 +150,23 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
     await _load();
   }
 
+  /// 带着解析出的项目 ID 打开材料提交。
+  ///
+  /// 深链进来时全局选中的项目可能不是本节点所属项目，材料路由会退回全局项目，
+  /// 造成草稿和上传落到别的项目（项目隔离）。
+  String get _evidenceSubmitLocation {
+    final projectId = _projectId;
+    return '/evidence/submit?nodeId=${widget.nodeId}'
+        '${projectId == null ? '' : '&projectId=$projectId'}';
+  }
+
+  String get _wikiLocation {
+    final projectId = _projectId;
+    return '/evidence/wiki${projectId == null ? '' : '?projectId=$projectId'}';
+  }
+
   Future<void> _openEvidence() async {
-    await context.push('/evidence/submit?nodeId=${widget.nodeId}');
+    await context.push(_evidenceSubmitLocation);
   }
 
   Future<void> _showPermissions(AxisPersonNode person) async {
@@ -762,7 +803,11 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
             ),
           ],
           const SizedBox(height: AppSpacing.lg),
-          _PersonTabs(person: person, onOpenProgress: _openProgress),
+          _PersonTabs(
+            person: person,
+            projectId: _projectId,
+            onOpenProgress: _openProgress,
+          ),
           const SizedBox(height: AppSpacing.lg),
           const AxisSectionTitle('人员权限与交接'),
           AxisCard(
@@ -829,7 +874,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
             label: '打开项目知识库',
             variant: AppButtonVariant.secondary,
             isFullWidth: true,
-            onPressed: () => context.push('/evidence/wiki'),
+            onPressed: () => context.push(_wikiLocation),
           ),
         ],
       ),
@@ -839,9 +884,8 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   Widget _buildMatter(BuildContext context) {
     final json = _nodeJson ?? const <String, dynamic>{};
     final workItem = AxisWorkItem.fromJson(json);
-    final progress = json['progress_json'];
-    final percent =
-        progress is Map ? ((progress['percent'] as num?)?.toInt() ?? 0) : 0;
+    // percent 已在模型里按后端状态归一（里程碑 reached 按 100% 展示）。
+    final percent = workItem.percent;
     final parentId = (json['parent_id'] as num?)?.toInt();
     AxisPersonNode? owner;
     for (final node in _tree) {
@@ -931,9 +975,16 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
 }
 
 class _PersonTabs extends StatefulWidget {
-  const _PersonTabs({required this.person, required this.onOpenProgress});
+  const _PersonTabs({
+    required this.person,
+    required this.onOpenProgress,
+    this.projectId,
+  });
 
   final AxisPersonNode person;
+
+  /// 详情页解析出的项目 ID；材料提交链接必须带上，不能落回全局选中项目。
+  final int? projectId;
   final Future<void> Function() onOpenProgress;
 
   @override
@@ -971,8 +1022,13 @@ class _PersonTabsState extends State<_PersonTabs> {
                         '${item.statusLabel} · ${item.percent}%',
                       ),
                       trailing: const Icon(Icons.chevron_right, size: 18),
-                      onTap: () =>
-                          context.push('/axis/node/${item.id}/progress'),
+                      onTap: () {
+                        final projectId = widget.projectId;
+                        context.push(
+                          '/axis/node/${item.id}/progress'
+                          '${projectId == null ? '' : '?projectId=$projectId'}',
+                        );
+                      },
                     ),
                   ),
               ],
@@ -993,9 +1049,13 @@ class _PersonTabsState extends State<_PersonTabs> {
                 AppButton(
                   label: '提交新证据材料',
                   size: AppButtonSize.sm,
-                  onPressed: () => context.push(
-                    '/evidence/submit?nodeId=${widget.person.id}',
-                  ),
+                  onPressed: () {
+                    final projectId = widget.projectId;
+                    context.push(
+                      '/evidence/submit?nodeId=${widget.person.id}'
+                      '${projectId == null ? '' : '&projectId=$projectId'}',
+                    );
+                  },
                 ),
               ],
             ),

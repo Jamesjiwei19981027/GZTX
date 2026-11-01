@@ -52,6 +52,7 @@ final List<RouteBase> axisRoutes = [
         name: 'axis-progress',
         builder: (context, state) => AxisProgressScreen(
           nodeId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          projectId: _projectIdOf(state),
         ),
       ),
       GoRoute(

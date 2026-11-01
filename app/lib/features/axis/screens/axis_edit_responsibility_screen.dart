@@ -41,6 +41,7 @@ class _AxisEditResponsibilityScreenState
   List<AxisMember> _members = const [];
   AxisPermissions _permissions = AxisPermissions.empty;
   int? _projectId;
+  int _epoch = 0;
 
   @override
   void didChangeDependencies() {
@@ -50,7 +51,37 @@ class _AxisEditResponsibilityScreenState
     _load();
   }
 
+  @override
+  void didUpdateWidget(covariant AxisEditResponsibilityScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.personId == widget.personId &&
+        oldWidget.projectId == widget.projectId) {
+      return;
+    }
+    // 同一路由换人员 ID 时 State 会被复用：作废旧请求后按新 ID 重新加载，
+    // 否则表单会拿上一个人的数据保存到下一个人身上。
+    _epoch++;
+    setState(() {
+      _person = null;
+      _tree = const [];
+      _members = const [];
+      _permissions = AxisPermissions.empty;
+      _projectId = null;
+      _error = null;
+      _loading = true;
+      _dirty = false;
+    });
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _epoch++;
+    super.dispose();
+  }
+
   Future<void> _load() async {
+    final epoch = ++_epoch;
     setState(() {
       _loading = true;
       _error = null;
@@ -69,7 +100,7 @@ class _AxisEditResponsibilityScreenState
         api.fetchMembers(projectId),
         api.fetchPermissions(projectId),
       ]);
-      if (!mounted) return;
+      if (!mounted || epoch != _epoch) return;
       final tree = AxisTreeMapper.mapTree(
         results[0] as List<Map<String, dynamic>>,
       );
@@ -87,7 +118,7 @@ class _AxisEditResponsibilityScreenState
         _dirty = false;
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || epoch != _epoch) return;
       setState(() {
         _error = e;
         _loading = false;
