@@ -193,6 +193,37 @@ void main() {
     expect(find.text('项目一独有任务'), findsNothing);
   });
 
+  testWidgets('批量模式下切换项目会清空勾选，不会对隐藏的旧项目任务执行批量完成', (tester) async {
+    final harness = await WorkTestHarness.create();
+    harness.api.tasks = [
+      WorkTask.fromJson(buildTaskJson(id: 801, title: '项目一独有任务', projectId: 1, origin: 'project_link')),
+      WorkTask.fromJson(buildTaskJson(id: 802, title: '项目二独有任务', projectId: 2, origin: 'project_link')),
+    ];
+
+    await tester.pumpWidget(harness.wrap(
+      WorkTasksScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('批量操作'));
+    await tester.pump();
+    await tester.tap(find.text('全选本页'));
+    await tester.pump();
+    expect(find.text('已选 1 项'), findsOneWidget);
+
+    harness.authState.selectProject(const Project(id: 2, name: '项目二', companyId: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('已选 0 项'), findsOneWidget);
+
+    await tester.tap(find.text('完成').last);
+    await tester.pumpAndSettle();
+    expect(
+      harness.api.tasks.firstWhere((t) => t.id == 801).status,
+      isNot(2),
+      reason: '项目一的任务已不在当前视图，不能被批量完成',
+    );
+  });
+
   testWidgets('批量改期准确保留任务原有時刻并在时区转换下维持目标本地日期', (tester) async {
     final harness = await WorkTestHarness.create();
     await tester.pumpWidget(harness.wrap(

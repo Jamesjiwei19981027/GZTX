@@ -63,6 +63,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
       _auth?.removeListener(_onAuthChanged);
       _auth = auth;
       _auth?.addListener(_onAuthChanged);
+      _lastProjectId = _selectedProjectId;
     }
     if (_bootstrapped) return;
     _bootstrapped = true;
@@ -77,8 +78,16 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     }
   }
 
+  int? _lastProjectId;
+
   void _onAuthChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final projectId = _selectedProjectId;
+    setState(() {
+      // 换项目后旧项目的勾选不可见，必须清空，否则批量操作会作用到隐藏的旧项目任务
+      if (projectId != _lastProjectId) _selected.clear();
+      _lastProjectId = projectId;
+    });
   }
 
   @override
