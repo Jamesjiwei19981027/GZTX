@@ -295,10 +295,14 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
             const SizedBox(height: AppSpacing.md),
           ],
         const SizedBox(height: AppSpacing.lg),
-        AppButton(
-          label: '记录核验意见与差异裁决',
-          icon: const AppIcon('edit', size: 17, color: Colors.white),
-          onPressed: () => context.push('/reports/review/conflict?projectId=$projectId'),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.center,
+          child: AppButton(
+            label: '记录核验意见与差异裁决',
+            icon: const AppIcon('edit', size: 17, color: Colors.white),
+            onPressed: () => context.push('/reports/review/conflict?projectId=$projectId'),
+          ),
         ),
         const SizedBox(height: AppSpacing.xl),
       ],

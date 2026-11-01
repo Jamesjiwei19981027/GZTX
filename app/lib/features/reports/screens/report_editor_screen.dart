@@ -69,6 +69,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   String? _loadWarning;
   int _version = 0;
   bool _disposed = false;
+  bool _submitted = false;
 
   int? _draftReportId;
   int? _myBindingId;
@@ -329,6 +330,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
         );
       }
       if (!mounted || _projectId != projectId) return;
+      _submitted = true;
       await _store!.clear(userId: _userId, projectId: projectId);
       if (!mounted) return;
       context.pushReplacement(
@@ -350,8 +352,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   void dispose() {
     _disposed = true;
     _saveTimer?.cancel();
-    // 离开页面前把尚未落盘的编辑内容写入本地草稿
-    if (!_hydrating && _projectId > 0 && _combinedSummary.isNotEmpty) {
+    // 离开页面前把尚未落盘的编辑内容写入本地草稿（已提交时不得再次回写）
+    if (!_submitted && !_hydrating && _projectId > 0 && _combinedSummary.isNotEmpty) {
       unawaited(_store!.save(
         userId: _userId,
         projectId: _projectId,
@@ -637,25 +639,31 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       child: Row(
         children: [
           Expanded(
-            child: AppButton(
-              label: _generating ? '正在提取事实…' : '重新生成',
-              variant: AppButtonVariant.secondary,
-              isLoading: _generating,
-              onPressed: _submitting ? null : _generate,
-              icon: _generating
-                  ? null
-                  : const AppIcon('ai', size: 17, color: AppColors.primary),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: AppButton(
+                label: _generating ? '正在提取事实…' : '重新生成',
+                variant: AppButtonVariant.secondary,
+                isLoading: _generating,
+                onPressed: _submitting ? null : _generate,
+                icon: _generating
+                    ? null
+                    : const AppIcon('ai', size: 17, color: AppColors.primary),
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: AppButton(
-              label: _submitting ? '正在提交…' : '确认提交',
-              isLoading: _submitting,
-              onPressed: supervisor.isSelf || _generating ? null : _submit,
-              icon: _submitting
-                  ? null
-                  : const AppIcon('send', size: 17, color: Colors.white),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: AppButton(
+                label: _submitting ? '正在提交…' : '确认提交',
+                isLoading: _submitting,
+                onPressed: supervisor.isSelf || _generating ? null : _submit,
+                icon: _submitting
+                    ? null
+                    : const AppIcon('send', size: 17, color: Colors.white),
+              ),
             ),
           ),
         ],

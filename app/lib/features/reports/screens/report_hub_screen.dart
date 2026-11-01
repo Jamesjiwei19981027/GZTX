@@ -273,10 +273,14 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                 const SizedBox(height: AppSpacing.lg),
                 SizedBox(
                   width: double.infinity,
-                  child: AppButton(
-                    label: '告诉 AI 最新进展',
-                    icon: const AppIcon('messages', size: 17, color: Colors.white),
-                    onPressed: () => context.push('/reports/chat?projectId=$projectId'),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.center,
+                    child: AppButton(
+                      label: '告诉 AI 最新进展',
+                      icon: const AppIcon('messages', size: 17, color: Colors.white),
+                      onPressed: () => context.push('/reports/chat?projectId=$projectId'),
+                    ),
                   ),
                 ),
               ],
