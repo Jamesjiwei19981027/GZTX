@@ -147,6 +147,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     _userId = userId;
     _api = api;
     _store = store;
+    _generating = false;
+    _submitting = false;
     _draftReportId = widget.initialDraftReportId;
     _parentUserId = null;
     _myBindingId = null;
@@ -298,6 +300,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   Future<void> _generate() async {
     if (_generating || _submitting) return;
     final projectId = _projectId;
+    final version = _version;
     setState(() {
       _generating = true;
       _error = null;
@@ -305,7 +308,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     });
     try {
       final draft = await _api!.generateDraft(projectId: projectId);
-      if (!mounted || _projectId != projectId) return;
+      if (!mounted || _projectId != projectId || _version != version) return;
       final parts = draft.summaryText.split('\n\n');
       _hydrating = true;
       setState(() {
@@ -321,12 +324,12 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       _hydrating = false;
       await _persistDraft();
     } catch (cause) {
-      if (!mounted || _projectId != projectId) return;
+      if (!mounted || _projectId != projectId || _version != version) return;
       setState(() {
         _error = reportErrorMessage(cause, fallback: '生成草稿失败，请稍后重试');
       });
     } finally {
-      if (mounted && _projectId == projectId) {
+      if (mounted && _projectId == projectId && _version == version) {
         setState(() => _generating = false);
       }
     }
@@ -335,6 +338,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   Future<void> _submit() async {
     if (_submitting || _generating) return;
     final projectId = _projectId;
+    final version = _version;
     if (_parentUserId != null && _supervisor.isSelf) {
       setState(() => _error = '直属领导不能是自己。人轴责任链要求汇报流向明确的上级管理者。');
       return;
@@ -373,7 +377,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
           sources: _sources,
         );
       }
-      if (!mounted || _projectId != projectId) return;
+      if (!mounted || _projectId != projectId || _version != version) return;
       _submitted = true;
       _saveTimer?.cancel();
       _saveTimer = null;
@@ -383,12 +387,12 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
         '/reports/submitted/${result.id}?projectId=$projectId',
       );
     } catch (cause) {
-      if (!mounted || _projectId != projectId) return;
+      if (!mounted || _projectId != projectId || _version != version) return;
       setState(() {
         _error = reportErrorMessage(cause, fallback: '提交汇报失败，请检查网络或权限');
       });
     } finally {
-      if (mounted && _projectId == projectId) {
+      if (mounted && _projectId == projectId && _version == version) {
         setState(() => _submitting = false);
       }
     }

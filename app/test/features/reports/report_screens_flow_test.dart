@@ -1,6 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/design/design.dart';
+import 'package:worktodo_app/features/reports/data/reports_api.dart';
+import 'package:worktodo_app/features/reports/models/report_models.dart';
 import 'package:worktodo_app/features/reports/screens/agent_chat_screen.dart';
 import 'package:worktodo_app/features/reports/screens/leadership_report_screen.dart';
 import 'package:worktodo_app/features/reports/screens/project_report_screen.dart';
@@ -357,6 +360,81 @@ void main() {
         projectId: ReportsTestFixtures.projectId,
       );
       expect(local, isNull);
+    });
+
+    testWidgets('在项目 10 发起生成，切到项目 20 后放行旧请求，项目 20 的生成和提交按钮都能正常使用 (P2)', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      final controllableApi = _ControllableReportsApi(harness.helper.buildClient());
+      final completer = Completer<AgentReport>();
+      controllableApi.pendingGenerate = completer;
+
+      final project20Members = [
+        ...ReportsTestFixtures.membersJson,
+        {'user_id': 20, 'display_name': '李四', 'role': 'pm', 'left_at': null},
+      ];
+      harness.helper.whenGet('/projects/20/members', {'items': project20Members});
+      harness.helper.whenGet('/projects/20/report-agents/bindings', {'items': ReportsTestFixtures.project20BindingsJson});
+      harness.helper.whenGet('/reports/my', {'items': []}, query: {'project_id': '20'});
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: controllableApi,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: 10,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [
+              ProjectOption(id: 10, name: 'AI 协同平台'),
+              ProjectOption(id: 20, name: '移动重构项目'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 在项目 10 点击“重新生成”发起生成（请求被挂起）
+      await tester.tap(find.text('重新生成'));
+      await tester.pump();
+
+      // 验证此时项目 10 处于生成中（loading）状态
+      expect(find.text('正在提取事实…'), findsOneWidget);
+
+      // 切到项目 20
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: controllableApi,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: 20,
+            projectName: '移动重构项目',
+            draftStore: harness.draftStore,
+            projects: const [
+              ProjectOption(id: 10, name: 'AI 协同平台'),
+              ProjectOption(id: 20, name: '移动重构项目'),
+            ],
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // 放行旧项目 10 的请求
+      completer.complete(AgentReport.fromJson(ReportsTestFixtures.draftReportJson));
+      await tester.pumpAndSettle();
+
+      // 输入文字以满足提交的前置非空条件
+      final textFields = find.byType(TextField);
+      await tester.enterText(textFields.first, '项目 20 事实内容');
+      await tester.pump();
+
+      // 验证项目 20 的重新生成和确认提交按钮状态正常，均可使用
+      final generateBtn = tester.widget<AppButton>(find.widgetWithText(AppButton, '重新生成'));
+      expect(generateBtn.isLoading, isFalse);
+      expect(generateBtn.onPressed, isNotNull);
+
+      final submitBtn = tester.widget<AppButton>(find.widgetWithText(AppButton, '确认提交'));
+      expect(submitBtn.isLoading, isFalse);
+      expect(submitBtn.onPressed, isNotNull);
     });
 
     testWidgets('有中间层领导、没有服务器草稿时，不显示项目经理为接收人、提交按钮可用 (P2)', (tester) async {
@@ -1150,4 +1228,18 @@ void main() {
       expect(find.textContaining('上下文仅限当前项目（移动重构项目）'), findsOneWidget);
     });
   });
+}
+
+class _ControllableReportsApi extends ReportsApi {
+  _ControllableReportsApi(super.client);
+
+  Completer<AgentReport>? pendingGenerate;
+
+  @override
+  Future<AgentReport> generateDraft({int? projectId}) {
+    if (pendingGenerate != null) {
+      return pendingGenerate!.future;
+    }
+    return super.generateDraft(projectId: projectId);
+  }
 }
