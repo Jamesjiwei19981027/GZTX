@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/core/api/token_storage.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
@@ -13,7 +14,7 @@ void main() {
   SharedPreferences.setMockInitialValues({});
 
   group('路由与 5 个 Tab 导航测试', () {
-    testWidgets('5 个 Tab 切换并呈现各 Tab 占位页', (tester) async {
+    testWidgets('5 个 Tab 切换到各自的路由', (tester) async {
       final helper = MockApiClientHelper();
       helper.whenGet('/users/me', {'id': 1, 'username': 'e2e_user'});
       helper.whenGet('/companies/mine', {'items': []});
@@ -23,45 +24,30 @@ void main() {
 
       final appRouter = AppRouter(authState: authState);
 
-      await tester.pumpWidget(
-        MaterialApp.router(
-          routerConfig: appRouter.router,
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-        ),
-      );
+      await tester.pumpWidget(_mount(authState, appRouter));
       await tester.pumpAndSettle();
+
+      // 断言当前路由地址而不是页面文案：各 Tab 由各任务包替换为真实页面后仍然成立
+      String location() =>
+          appRouter.router.routerDelegate.currentConfiguration.uri.path;
 
       // 默认在 Tab 0: 工作
-      expect(find.text('工作 (T02)'), findsOneWidget);
+      expect(location(), '/work');
 
-      // 切换到 Tab 1: 人轴
-      await tester.tap(find.text('人轴'));
-      await tester.pumpAndSettle();
-      expect(find.text('人轴 (T04)'), findsOneWidget);
-
-      // 切换到 Tab 2: 知识
-      await tester.tap(find.text('知识'));
-      await tester.pumpAndSettle();
-      expect(find.text('知识 (T06)'), findsOneWidget);
-
-      // 切换到 Tab 3: 消息
-      await tester.tap(find.text('消息'));
-      await tester.pumpAndSettle();
-      expect(find.text('消息 (T08)'), findsOneWidget);
-
-      // 切换到 Tab 4: 我的
-      await tester.tap(find.text('我的'));
-      await tester.pumpAndSettle();
-      expect(find.text('我的 (T09)'), findsOneWidget);
-
-      // 切回工作 Tab
-      await tester.tap(find.text('工作'));
-      await tester.pumpAndSettle();
-      expect(find.text('工作 (T02)'), findsOneWidget);
+      for (final (label, path) in const [
+        ('人轴', '/axis'),
+        ('知识', '/knowledge'),
+        ('消息', '/messages'),
+        ('我的', '/me'),
+        ('工作', '/work'),
+      ]) {
+        await tester.tap(find.descendant(
+          of: find.byType(AppTabBar),
+          matching: find.text(label),
+        ));
+        await tester.pumpAndSettle();
+        expect(location(), path, reason: '点击「$label」Tab');
+      }
     });
 
     testWidgets('Tab 页面栈保留测试：在工作 Tab 推入二级页 -> 切到人轴 -> 切回工作 Tab 仍保留二级页，再次点击当前 Tab 回到根页',
@@ -75,16 +61,7 @@ void main() {
 
       final appRouter = AppRouter(authState: authState);
 
-      await tester.pumpWidget(
-        MaterialApp.router(
-          routerConfig: appRouter.router,
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-        ),
-      );
+      await tester.pumpWidget(_mount(authState, appRouter));
       await tester.pumpAndSettle();
 
       // 1. 初始位于工作 Tab 根页
@@ -130,16 +107,7 @@ void main() {
 
       final appRouter = AppRouter(authState: authState);
 
-      await tester.pumpWidget(
-        MaterialApp.router(
-          routerConfig: appRouter.router,
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-        ),
-      );
+      await tester.pumpWidget(_mount(authState, appRouter));
       await tester.pumpAndSettle();
 
       // 断言被重定向到 /offline 离线页
@@ -167,4 +135,19 @@ void main() {
       );
     });
   });
+}
+
+/// 与 main.dart 一致：在 MaterialApp.router 外提供登录态
+Widget _mount(AuthState authState, AppRouter appRouter) {
+  return ChangeNotifierProvider<AuthState>.value(
+    value: authState,
+    child: MaterialApp.router(
+      routerConfig: appRouter.router,
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+    ),
+  );
 }
