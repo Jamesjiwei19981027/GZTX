@@ -538,6 +538,69 @@ void main() {
       expect(find.text('智能体绑定管理'), findsOneWidget);
       expect(find.text('领导层项目总览'), findsOneWidget);
     });
+
+    testWidgets('新项目无任何绑定和收件时项目经理仍展示管理区与智能体绑定管理入口 (P2)', (tester) async {
+      tester.view.physicalSize = const Size(430, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      const newProjectId = 99;
+      final pmUserId = ReportsTestFixtures.supervisorUserId; // 20
+      final harness = await ReportsTestHarness.create(
+        user: ReportsTestFixtures.supervisorJson,
+      );
+
+      // 新项目没有任何智能体绑定、无汇报、无收件
+      harness.helper.whenGet(
+        '/projects/$newProjectId/report-agents/bindings',
+        {'items': <Map<String, dynamic>>[]},
+      );
+      harness.helper.whenGet(
+        '/projects/$newProjectId/agent-reports',
+        {'items': <Map<String, dynamic>>[]},
+      );
+      harness.helper.whenGet(
+        '/projects/$newProjectId/members',
+        {
+          'items': [
+            {
+              'user_id': pmUserId,
+              'display_name': '直属领导李四',
+              'role': 'pm', // 项目经理
+              'left_at': null,
+            },
+          ],
+        },
+      );
+      harness.helper.whenGet(
+        '/reports/my',
+        {'items': <Map<String, dynamic>>[]},
+        query: {'project_id': '$newProjectId'},
+      );
+      harness.helper.whenGet(
+        '/reports/inbox',
+        {'items': <Map<String, dynamic>>[]},
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportHubScreen(
+            api: harness.api,
+            projectId: newProjectId,
+            projectName: '全新未初始化项目',
+            userId: pmUserId,
+            projects: const [ProjectOption(id: newProjectId, name: '全新未初始化项目')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 断言管理区如实展示，包含智能体绑定管理入口
+      expect(find.text('管理者能力'), findsOneWidget);
+      expect(find.text('智能体绑定管理'), findsOneWidget);
+      expect(find.text('同步并管理项目内汇报智能体'), findsOneWidget);
+    });
   });
 
   group('Reports 路由与项目隔离切换测试 (P1)', () {

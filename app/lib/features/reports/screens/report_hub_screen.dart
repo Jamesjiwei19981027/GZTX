@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/errors/app_error.dart';
+import '../../../core/models/project.dart';
 import '../../../design/design.dart';
 import '../data/reports_api.dart';
 import '../models/report_capabilities.dart';
@@ -55,6 +56,7 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
   List<ReportAgentBinding> _bindings = const [];
   List<AgentReport> _myReports = const [];
   List<AgentReport> _inboxReports = const [];
+  List<ReportMember> _members = const [];
   bool _hasDraft = false;
 
   int _version = 0;
@@ -132,6 +134,11 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
         _api!.listInbox(),
         store.load(userId: userId, projectId: projectId),
       ]);
+      List<ReportMember> members = const [];
+      try {
+        members = await _api!.listProjectMembers(projectId);
+      } catch (_) {}
+
       if (_disposed || version != _version) return;
       final bindings = results[0] as List<ReportAgentBinding>;
       final myReports = results[1] as List<AgentReport>;
@@ -140,6 +147,7 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
       setState(() {
         _bindings = bindings;
         _myReports = myReports;
+        _members = members;
         // 与网页版一致：入口页仅统计当前项目内的收件箱汇报
         _inboxReports = inbox
             .where((report) =>
@@ -161,10 +169,40 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
 
   bool get _isManager {
     final userId = _resolvedUserId ?? 0;
+    final projectId = _resolvedProjectId;
+
+    // 1. 已有项目级智能体绑定或有收件箱汇报
     final hasProjectBinding = _bindings.any(
       (binding) => binding.isProjectAgent && binding.userId == userId,
     );
-    return hasProjectBinding || _inboxReports.isNotEmpty;
+    if (hasProjectBinding || _inboxReports.isNotEmpty) return true;
+
+    // 2. 从项目成员接口判断角色
+    for (final member in _members) {
+      if (member.userId == userId) {
+        final role = (member.role ?? '').toLowerCase();
+        if (role == 'pm' || role == 'owner' || role == 'admin' || role == 'manager') {
+          return true;
+        }
+      }
+    }
+
+    // 3. 从项目列表判断当前用户的项目权限（独立于绑定是否存在）
+    final auth = context.authStateRead;
+    Project? currentProj;
+    for (final p in auth.projects) {
+      if (p.id == projectId) {
+        currentProj = p;
+        break;
+      }
+    }
+    currentProj ??= auth.currentProject?.id == projectId ? auth.currentProject : null;
+    final projRole = (currentProj?.role ?? '').toLowerCase();
+    if (projRole == 'pm' || projRole == 'owner' || projRole == 'admin' || projRole == 'manager') {
+      return true;
+    }
+
+    return false;
   }
 
   int get _historyCount =>
