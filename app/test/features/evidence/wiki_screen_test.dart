@@ -131,6 +131,64 @@ void main() {
     );
   });
 
+  testWidgets('检索到的材料命中可点开材料详情，知识命中不提供跳转', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet('/projects/3/llm-wiki', wikiCatalogJson(pages: [wikiPageJson()]));
+    helper.whenGet(
+      '/projects/3/knowledge/search',
+      {
+        'items': [
+          {
+            'chunk_id': 1,
+            'chunk_text': '员工工作台、管理者汇报与任务详情纳入本次原型验收范围。',
+            'source_type': 'evidence',
+            'source_id': 91,
+          },
+          {
+            'chunk_id': 2,
+            'chunk_text': '原型评审已通过，进入开发阶段。',
+            'source_type': 'wiki_entry',
+            'source_id': 12,
+          },
+        ],
+      },
+      query: {'q': '原型验收', 'top_k': '5'},
+    );
+
+    await pumpEvidenceRouter(
+      tester,
+      entry: WikiScreen(api: buildEvidenceApi(helper), projectId: 3),
+      entryPath: '/wiki',
+      startAtEntry: true,
+      size: const Size(412, 1200),
+    );
+    await settle(tester);
+
+    await tester.tap(find.text('资料搜索'));
+    await settle(tester);
+    await tester.enterText(find.byType(TextFormField), '原型验收');
+    await settle(tester);
+    await tester.tap(find.text('检索'));
+    await settle(tester);
+
+    expect(find.text('材料 #91'), findsOneWidget);
+    expect(find.text('知识 #12'), findsOneWidget);
+
+    await tester.tap(find.text('材料 #91'));
+    await tester.pumpAndSettle();
+    expect(find.text('材料详情 91'), findsOneWidget);
+
+    // 返回检索结果，知识命中没有对应页面，点击不跳转
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('材料 #91'), findsOneWidget);
+
+    await tester.tap(find.text('知识 #12'));
+    await tester.pumpAndSettle();
+    expect(find.text('材料详情 12'), findsNothing);
+    expect(find.text('知识 #12'), findsOneWidget);
+  });
+
   testWidgets('检索无结果时显示空状态', (tester) async {
     final helper = MockApiClientHelper();
     helper.whenGet('/projects/3/llm-wiki', wikiCatalogJson());
@@ -181,11 +239,10 @@ void main() {
       wikiCatalogJson(
         pages: [wikiPageJson()],
         drafts: [
-          wikiPageJson(
+          wikiDraftJson(
             id: 5,
             title: '评审结论草稿',
             body: '本次评审通过，进入开发阶段。',
-            source: 'llm_wiki_draft',
             facts: [wikiFactJson()],
           ),
         ],
@@ -250,7 +307,7 @@ void main() {
       wikiCatalogJson(
         canPublish: false,
         drafts: [
-          wikiPageJson(id: 5, title: '评审结论草稿', source: 'llm_wiki_draft'),
+          wikiDraftJson(id: 5, title: '评审结论草稿'),
         ],
       ),
     );

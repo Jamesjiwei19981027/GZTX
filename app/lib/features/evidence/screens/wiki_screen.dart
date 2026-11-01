@@ -456,55 +456,80 @@ class _WikiScreenState extends State<WikiScreen> {
           )
         else
           for (final hit in _hits) ...[
-            EvidenceCard(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          '${hit.sourceLabel} #${hit.sourceId}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: isDark
-                                ? AppColors.darkTextPrimary
-                                : AppColors.textPrimary,
-                          ),
-                        ),
-                      ),
-                      EvidenceStatusChip(
-                        label: hit.sourceLabel,
-                        tone: EvidenceChipTone.primary,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    hit.chunkText.trim().isEmpty ? '（无正文）' : hit.chunkText.trim(),
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 13,
-                      height: 1.55,
-                      color: isDark
-                          ? AppColors.darkTextSecondary
-                          : AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            _buildHitCard(hit, isDark),
             const SizedBox(height: AppSpacing.md),
           ],
         if (_hits.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.sm),
-          const EvidenceBanner(message: '结果保留来源与项目范围，点击材料可回到原始内容。'),
+          EvidenceBanner(
+            message: _hits.any((hit) => _hitPath(hit) != null)
+                ? '结果保留来源与项目范围，点击材料可回到原始内容。'
+                : '结果保留来源与项目范围。',
+          ),
         ],
       ],
+    );
+  }
+
+  /// 材料命中可回到材料包；其他来源暂无对应页面，不提供点击。
+  String? _hitPath(KnowledgeHit hit) {
+    if (hit.sourceId <= 0) return null;
+    return switch (hit.sourceType) {
+      'evidence' || 'evidence_file' || 'evidence_package' =>
+        '/evidence/package/${hit.sourceId}',
+      _ => null,
+    };
+  }
+
+  Widget _buildHitCard(KnowledgeHit hit, bool isDark) {
+    final card = EvidenceCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  '${hit.sourceLabel} #${hit.sourceId}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              EvidenceStatusChip(
+                label: hit.sourceLabel,
+                tone: EvidenceChipTone.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            hit.chunkText.trim().isEmpty ? '（无正文）' : hit.chunkText.trim(),
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              height: 1.55,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+    final path = _hitPath(hit);
+    if (path == null) return card;
+    return GestureDetector(
+      onTap: () => context.push(path),
+      behavior: HitTestBehavior.opaque,
+      child: card,
     );
   }
 }

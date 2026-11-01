@@ -422,17 +422,18 @@ class WikiPage {
 
   bool get isDraft => source == 'llm_wiki_draft' || source == 'draft';
 
+  /// 后端两种引用格式都要读：已发布页写在 `meta.facts`，草稿由
+  /// `generate_draft` 写在 `meta.proposals[].facts`，这里按出现顺序展平。
   factory WikiPage.fromJson(Map<String, dynamic> json) {
     final meta = json['meta'] is Map
         ? (json['meta'] as Map).cast<String, dynamic>()
         : const <String, dynamic>{};
-    final rawFacts = meta['facts'];
     final facts = <WikiFact>[];
-    if (rawFacts is List) {
-      for (final item in rawFacts) {
-        if (item is Map) {
-          facts.add(WikiFact.fromJson(item.cast<String, dynamic>()));
-        }
+    _collectFacts(meta['facts'], facts);
+    final proposals = meta['proposals'];
+    if (proposals is List) {
+      for (final proposal in proposals) {
+        if (proposal is Map) _collectFacts(proposal['facts'], facts);
       }
     }
     return WikiPage(
@@ -448,6 +449,15 @@ class WikiPage {
       revision: (meta['revision'] as num?)?.toInt(),
       topic: meta['topic_key'] as String? ?? meta['topic'] as String?,
     );
+  }
+
+  static void _collectFacts(Object? raw, List<WikiFact> target) {
+    if (raw is! List) return;
+    for (final item in raw) {
+      if (item is Map) {
+        target.add(WikiFact.fromJson(item.cast<String, dynamic>()));
+      }
+    }
   }
 }
 
@@ -555,11 +565,12 @@ class KnowledgeHit {
   final int sourceId;
   final double? score;
 
+  /// 后端索引器写入的来源类型：`evidence_file`、`wiki_entry`
+  /// （见 `backend/app/services/knowledge/indexer.py`）。
   String get sourceLabel => switch (sourceType) {
-        'evidence' => '材料',
+        'evidence' || 'evidence_file' || 'evidence_package' => '材料',
         'task' => '任务',
-        'wiki' => '知识',
-        'llm_wiki' => '知识',
+        'wiki' || 'wiki_entry' || 'llm_wiki' => '知识',
         _ => '资料',
       };
 

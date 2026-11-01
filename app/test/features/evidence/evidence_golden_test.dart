@@ -26,10 +26,10 @@ void main() {
           wikiPageJson(revision: 3, facts: [wikiFactJson()]),
         ],
         drafts: [
-          wikiPageJson(
+          wikiDraftJson(
             id: 5,
             title: '评审结论草稿',
-            source: 'llm_wiki_draft',
+            body: '本阶段完成任务与汇报链路联调。',
             facts: [wikiFactJson()],
           ),
         ],

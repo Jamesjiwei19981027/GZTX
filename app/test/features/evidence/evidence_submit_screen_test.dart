@@ -97,6 +97,57 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('提交成功后不能重复提交，需清空表单才开始新材料', (tester) async {
+    final helper = baseHelper();
+    helper.whenPost('/nodes/7/evidence', {
+      'package_id': 91,
+      'status': 'submitted',
+      'job_id': '55',
+    });
+    helper.whenGet('/jobs/55', {
+      'job_id': '55',
+      'job_type': 'evidence_judge',
+      'status': 'succeeded',
+      'error_message': null,
+    });
+
+    int submitPosts() => helper.history
+        .where((record) =>
+            record.method == 'POST' && record.url.path.endsWith('/nodes/7/evidence'))
+        .length;
+
+    await pumpEvidenceScreen(tester, buildScreen(helper: helper));
+    await settle(tester);
+
+    await tester.enterText(find.byType(TextFormField), '同一份材料只提交一次');
+    await settle(tester);
+    await tester.tap(find.text('提交材料'));
+    await settle(tester);
+    await advance(tester, const Duration(milliseconds: 10));
+
+    expect(find.textContaining('材料编号 #91'), findsOneWidget);
+    expect(submitPosts(), 1);
+
+    // 成功后提交按钮消失，再改文字也不会重新出现
+    expect(find.text('提交材料'), findsNothing);
+    await tester.enterText(find.byType(TextFormField), '同一份材料只提交一次，补一句说明');
+    await settle(tester);
+    expect(find.text('提交材料'), findsNothing);
+    expect(submitPosts(), 1);
+
+    // 只有走“继续提交新材料”清空表单后才允许再次提交
+    await tester.tap(find.text('继续提交新材料'));
+    await settle(tester);
+    expect(find.textContaining('材料编号 #91'), findsNothing);
+    final button = tester.widget<AppButton>(
+      find.widgetWithText(AppButton, '提交材料'),
+    );
+    expect(button.onPressed, isNull);
+    expect(submitPosts(), 1);
+
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   testWidgets('键盘弹出时文字输入框仍可滚动到可见区域且不溢出', (tester) async {
     final helper = baseHelper();
 

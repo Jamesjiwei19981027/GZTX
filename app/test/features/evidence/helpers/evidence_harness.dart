@@ -203,28 +203,33 @@ Future<void> pumpEvidenceScreen(
 }
 
 /// 带路由的挂载：用于需要 `context.push` / `context.pop` 的页面测试
+///
+/// [entryPath] 为被测页面路径；[startAtEntry] 为 true 时直接落在被测页面，
+/// 为 false 时先停在 /list，由用例点“打开草稿”推进去后再按返回。
 Future<void> pumpEvidenceRouter(
   WidgetTester tester, {
   required Widget entry,
   Size size = const Size(412, 915),
+  String entryPath = '/draft',
+  bool startAtEntry = false,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
   final router = GoRouter(
-    initialLocation: '/list',
+    initialLocation: startAtEntry ? entryPath : '/list',
     routes: [
       GoRoute(
         path: '/list',
         builder: (context, state) => Scaffold(
           body: Center(
             child: TextButton(
-              onPressed: () => context.push('/draft'),
+              onPressed: () => context.push(entryPath),
               child: const Text('打开草稿'),
             ),
           ),
         ),
       ),
-      GoRoute(path: '/draft', builder: (context, state) => entry),
+      GoRoute(path: entryPath, builder: (context, state) => entry),
       GoRoute(
         path: '/evidence/package/:id',
         builder: (context, state) =>
@@ -315,6 +320,7 @@ Map<String, dynamic> wikiCatalogJson({
   };
 }
 
+/// 已发布页：引用写在 `meta.facts`（后端 publish 后 `entry_dto` 的格式）
 Map<String, dynamic> wikiPageJson({
   int id = 1,
   String title = '移动端体验升级',
@@ -332,6 +338,40 @@ Map<String, dynamic> wikiPageJson({
     'meta': {
       'revision': revision,
       'facts': facts,
+    },
+    'updated_at': null,
+  };
+}
+
+/// 草稿：与后端 `generate_draft` 写入的 `meta_json` 一致，
+/// 引用在 `meta.proposals[].facts`，不在 `meta.facts`。
+Map<String, dynamic> wikiDraftJson({
+  int id = 5,
+  String title = '待确认 · 完成交互原型评审',
+  String body = '本次评审通过，进入开发阶段。',
+  String source = 'llm_wiki_draft',
+  List<Map<String, dynamic>> facts = const [],
+}) {
+  return {
+    'id': id,
+    'title': title,
+    'body_text': body,
+    'node_id': 7,
+    'source': source,
+    'meta': {
+      'status': 'draft',
+      'source_hash': 'fixture-hash',
+      'model': 'fixture-model',
+      'source_ids': ['file:501'],
+      'proposals': [
+        {
+          'key': 'work:7',
+          'topic': 'work',
+          'title': title,
+          'facts': facts,
+          'base': null,
+        },
+      ],
     },
     'updated_at': null,
   };

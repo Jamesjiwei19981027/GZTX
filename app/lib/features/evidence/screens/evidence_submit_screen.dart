@@ -225,7 +225,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
   }
 
   Future<void> _submit() async {
-    if (_submitting || _uploading || _voiceBusy) return;
+    if (_submitting || _uploading || _voiceBusy || _outcome != null) return;
     final summary = _summary.text.trim();
     if (summary.isEmpty) {
       setState(() => _error = '请填写材料说明');
@@ -325,11 +325,31 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
     context.push('/evidence/package/$id');
   }
 
+  /// 提交成功后不允许再次提交同一份材料，需先清空表单再开新的一份。
+  void _startNewSubmission() {
+    _poller?.cancel();
+    setState(() {
+      _summary.clear();
+      _files.clear();
+      _outcome = null;
+      _job = null;
+      _pollTimedOut = false;
+      _error = null;
+      _uploadError = null;
+      _pendingUpload = null;
+      _offlineDraftSaved = false;
+      _restoredDraftHint = null;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
-    final canSubmit =
-        _summary.text.trim().isNotEmpty && !_submitting && !_uploading && !_voiceBusy;
+    final canSubmit = _summary.text.trim().isNotEmpty &&
+        !_submitting &&
+        !_uploading &&
+        !_voiceBusy &&
+        _outcome == null;
 
     return AppScaffold(
       title: '提交证据材料',
@@ -441,13 +461,14 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
                   '材料归属当前项目，供个人 AI 与汇报引用。',
             ),
             const SizedBox(height: AppSpacing.lg),
-            AppButton(
-              label: _submitting ? '正在提交材料…' : '提交材料',
-              size: AppButtonSize.lg,
-              isFullWidth: true,
-              isLoading: _submitting,
-              onPressed: canSubmit ? _submit : null,
-            ),
+            if (_outcome == null)
+              AppButton(
+                label: _submitting ? '正在提交材料…' : '提交材料',
+                size: AppButtonSize.lg,
+                isFullWidth: true,
+                isLoading: _submitting,
+                onPressed: canSubmit ? _submit : null,
+              ),
             if (_outcome != null) ...[
               const SizedBox(height: AppSpacing.lg),
               _buildOutcome(isDark),
@@ -460,7 +481,10 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
   }
 
   bool get _canRetrySubmit =>
-      !_submitting && _nodeIdForRetry && _summary.text.trim().isNotEmpty;
+      _outcome == null &&
+      !_submitting &&
+      _nodeIdForRetry &&
+      _summary.text.trim().isNotEmpty;
 
   bool get _nodeIdForRetry => widget.nodeId != null;
 
@@ -602,6 +626,13 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
             variant: AppButtonVariant.secondary,
             isFullWidth: true,
             onPressed: (_outcome?.packageId ?? 0) > 0 ? _openDetail : null,
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          AppButton(
+            label: '继续提交新材料',
+            variant: AppButtonVariant.secondary,
+            isFullWidth: true,
+            onPressed: _startNewSubmission,
           ),
         ],
       ),

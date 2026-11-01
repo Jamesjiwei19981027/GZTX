@@ -88,6 +88,94 @@ void main() {
     });
   });
 
+  group('知识条目引用解析', () {
+    Map<String, dynamic> fact(String text, String quote, int lineStart) => {
+          'text': text,
+          'quote': quote,
+          'source_name': '交互评审纪要.pdf',
+          'source_id': 'file:501',
+          'package_id': 91,
+          'line_start': lineStart,
+          'line_end': lineStart + 1,
+        };
+
+    test('已发布页从 meta.facts 读取引用', () {
+      final page = WikiPage.fromJson({
+        'id': 1,
+        'title': '移动端体验升级',
+        'source': 'llm_wiki_published',
+        'meta': {
+          'topic_key': 'work:7',
+          'revision': 2,
+          'facts': [fact('移动端页面已完成评审', '本周完成移动端页面评审', 12)],
+        },
+      });
+
+      expect(page.facts, hasLength(1));
+      expect(page.facts.single.text, '移动端页面已完成评审');
+      expect(page.facts.single.lineStart, 12);
+      expect(page.revision, 2);
+    });
+
+    test('草稿按 proposals[].facts 展平读取引用', () {
+      final page = WikiPage.fromJson({
+        'id': 5,
+        'title': '待确认 · 完成交互原型评审',
+        'source': 'llm_wiki_draft',
+        'meta': {
+          'status': 'draft',
+          'proposals': [
+            {
+              'key': 'work:7',
+              'topic': 'work',
+              'facts': [fact('原型已评审通过', '原型评审已通过', 3)],
+            },
+            {
+              'key': 'risks',
+              'topic': 'risks',
+              'facts': [
+                fact('安卓端联调延后', '安卓端联调延后两天', 8),
+                fact('缺少埋点数据', '埋点数据尚未接入', 15),
+              ],
+            },
+          ],
+        },
+      });
+
+      expect(page.isDraft, isTrue);
+      expect(
+        page.facts.map((item) => item.text),
+        ['原型已评审通过', '安卓端联调延后', '缺少埋点数据'],
+      );
+      expect(page.facts.last.lineStart, 15);
+      expect(page.facts.first.sourceName, '交互评审纪要.pdf');
+    });
+
+    test('两种格式同时存在时都读取，草稿没有引用时为空列表', () {
+      final mixed = WikiPage.fromJson({
+        'id': 5,
+        'source': 'llm_wiki_draft',
+        'meta': {
+          'facts': [fact('已发布事实', '已发布事实原文', 1)],
+          'proposals': [
+            {
+              'key': 'work:7',
+              'facts': [fact('草稿事实', '草稿事实原文', 2)],
+            },
+          ],
+        },
+      });
+      expect(mixed.facts, hasLength(2));
+
+      final empty = WikiPage.fromJson({
+        'id': 6,
+        'source': 'llm_wiki_draft',
+        'meta': {'status': 'draft', 'proposals': <Map<String, dynamic>>[]},
+      });
+      expect(empty.facts, isEmpty);
+    });
+  });
+
   group('multipart 报文', () {
     test('包含表单字段、中文文件名与文件字节，边界符闭合', () {
       final body = buildMultipartBody(
