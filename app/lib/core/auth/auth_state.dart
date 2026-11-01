@@ -93,38 +93,7 @@ class AuthState extends ChangeNotifier {
       }
 
       // 2. 获取企业/公司列表
-      final dynamic compData = await _api.get('/companies/mine');
-      final compList = <Company>[];
-      if (compData is Map<String, dynamic>) {
-        final items = compData['items'];
-        if (items is List) {
-          for (final item in items) {
-            if (item is Map<String, dynamic>) {
-              compList.add(Company.fromJson(item));
-            }
-          }
-        }
-      } else if (compData is List) {
-        for (final item in compData) {
-          if (item is Map<String, dynamic>) {
-            compList.add(Company.fromJson(item));
-          }
-        }
-      }
-      _companies = compList;
-
-      if (_companies.isNotEmpty) {
-        // 如果原有选中的公司仍在列表里则保留，否则默认第一家
-        if (_currentCompany != null &&
-            _companies.any((c) => c.id == _currentCompany!.id)) {
-          _currentCompany =
-              _companies.firstWhere((c) => c.id == _currentCompany!.id);
-        } else {
-          _currentCompany = _companies.first;
-        }
-      } else {
-        _currentCompany = null;
-      }
+      _applyCompanies(await _fetchCompanies());
 
       // 3. 获取项目列表
       _projectLoadSeq++;
@@ -264,6 +233,67 @@ class AuthState extends ChangeNotifier {
       if (seq != _projectLoadSeq) return false;
       await _applySessionError(e, duringBootstrap: false);
       return false;
+    }
+  }
+
+  /// 只重新拉取公司列表（如接受邀请后新加入了公司），不重走 bootstrap、不改当前公司与项目。
+  /// 当前公司仍在列表中时换成最新数据；切换到新公司由调用方再调 [selectCompany]。
+  /// 失败时：认证失效清会话回未登录；其他错误（断网、5xx 等）保留会话与登录状态，
+  /// 只记录错误信息，返回 false 由调用方提示重试。
+  Future<bool> refreshCompanies() async {
+    try {
+      final list = await _fetchCompanies();
+      _companies = list;
+      final current = _currentCompany;
+      if (current != null) {
+        for (final c in list) {
+          if (c.id == current.id) {
+            _currentCompany = c;
+            if (_projectsCompany?.id == c.id) _projectsCompany = c;
+            break;
+          }
+        }
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      if (e is AuthException ||
+          (e is ApiException && (e.statusCode == 401 || e.statusCode == 403))) {
+        await _applySessionError(e, duringBootstrap: false);
+      } else {
+        _errorMessage = e is AppException ? e.message : '请求失败: $e';
+        notifyListeners();
+      }
+      return false;
+    }
+  }
+
+  /// 拉取当前用户所属公司列表，不修改任何状态；异常原样向上传递。
+  Future<List<Company>> _fetchCompanies() async {
+    final dynamic compData = await _api.get('/companies/mine');
+    final dynamic items =
+        compData is Map<String, dynamic> ? compData['items'] : compData;
+    final compList = <Company>[];
+    if (items is List) {
+      for (final item in items) {
+        if (item is Map<String, dynamic>) {
+          compList.add(Company.fromJson(item));
+        }
+      }
+    }
+    return compList;
+  }
+
+  /// 启动时写入公司列表：原选中的公司仍在列表里则保留，否则默认第一家。
+  void _applyCompanies(List<Company> list) {
+    _companies = list;
+    if (_companies.isEmpty) {
+      _currentCompany = null;
+    } else if (_currentCompany != null &&
+        _companies.any((c) => c.id == _currentCompany!.id)) {
+      _currentCompany = _companies.firstWhere((c) => c.id == _currentCompany!.id);
+    } else {
+      _currentCompany = _companies.first;
     }
   }
 
