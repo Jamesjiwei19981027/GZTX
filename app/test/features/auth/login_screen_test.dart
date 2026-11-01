@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/design/design.dart';
 
 import '../../helpers/mock_api_client.dart';
+import 'package:worktodo_app/features/work/screens/work_root_screen.dart';
+
 import 'helpers/auth_test_app.dart';
 
 /// 预置登录成功后的必需接口
@@ -222,7 +224,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       await tester.pump(const Duration(milliseconds: 50));
 
-      expect(find.text('工作 (T02)'), findsOneWidget);
+      expect(find.byType(WorkRootScreen), findsOneWidget);
       expect(app.authState.status.name, 'authenticated');
     });
 

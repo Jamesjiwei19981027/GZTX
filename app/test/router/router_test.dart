@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/core/api/token_storage.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/design/design.dart';
+import 'package:worktodo_app/features/work/screens/work_root_screen.dart';
+import 'package:worktodo_app/features/work/screens/work_tasks_screen.dart';
 import 'package:worktodo_app/router/app_router.dart';
 import '../helpers/mock_api_client.dart';
 
@@ -64,14 +66,15 @@ void main() {
       await tester.pumpWidget(_mount(authState, appRouter));
       await tester.pumpAndSettle();
 
-      // 1. 初始位于工作 Tab 根页
-      expect(find.text('工作 (T02)'), findsOneWidget);
+      // 1. 初始位于工作 Tab 根页（断言页面类型，不依赖页面文案）
+      final workRoot = find.byType(WorkRootScreen).hitTestable();
+      expect(workRoot, findsOneWidget);
 
-      // 2. 点击进入工作 Tab 下的二级页（任务列表）
-      await tester.tap(find.text('前往任务列表'));
+      // 2. 进入工作 Tab 下的二级页（任务列表）
+      appRouter.router.go('/work/tasks');
       await tester.pumpAndSettle();
-      expect(find.text('任务列表 (T02)'), findsOneWidget);
-      expect(find.text('工作 (T02)'), findsNothing);
+      expect(find.byType(WorkTasksScreen), findsOneWidget);
+      expect(workRoot, findsNothing);
 
       // 3. 切换到 Tab 1: 人轴（断言路由地址，不依赖人轴页文案）
       await tester.tap(find.descendant(
@@ -87,14 +90,17 @@ void main() {
         matching: find.text('工作'),
       ));
       await tester.pumpAndSettle();
-      expect(find.text('任务列表 (T02)'), findsOneWidget);
-      expect(find.text('工作 (T02)'), findsNothing);
+      expect(find.byType(WorkTasksScreen), findsOneWidget);
+      expect(workRoot, findsNothing);
 
       // 5. 再次点击当前处于激活状态的工作 Tab（原生习惯：再点一次当前 Tab 回到该 Tab 根页）
-      await tester.tap(find.text('工作'));
+      await tester.tap(find.descendant(
+        of: find.byType(AppTabBar),
+        matching: find.text('工作'),
+      ));
       await tester.pumpAndSettle();
-      expect(find.text('工作 (T02)'), findsOneWidget);
-      expect(find.text('任务列表 (T02)'), findsNothing);
+      expect(workRoot, findsOneWidget);
+      expect(find.byType(WorkTasksScreen), findsNothing);
     });
 
     testWidgets('断网状态 (AuthStatus.offline) 自动重定向至离线兜底页并可交互', (tester) async {
