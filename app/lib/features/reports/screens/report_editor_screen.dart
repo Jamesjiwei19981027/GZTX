@@ -167,32 +167,37 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       warning ??= reportErrorMessage(cause, fallback: '未能读取本地草稿');
     }
 
-    // 本地没有草稿时，取服务端最近一份未提交草稿（AI 生成较慢，离开页面后可回来查看）
+    // 获取服务端汇报草稿或最近汇报以解析人轴真实直属上级
     AgentReport? serverDraft;
-    if (local == null) {
-      try {
-        final mine = await _api!.listMyReports(projectId: projectId);
-        final drafts = mine
-            .where((report) =>
-                report.status == 'draft' && report.summaryText.trim().isNotEmpty)
-            .toList()
-          ..sort((a, b) => b.id.compareTo(a.id));
-        if (drafts.isNotEmpty) serverDraft = drafts.first;
-      } catch (cause) {
+    int? resolvedParentUserId;
+    try {
+      final mine = await _api!.listMyReports(projectId: projectId);
+      final drafts = mine
+          .where((report) =>
+              report.status == 'draft' && report.summaryText.trim().isNotEmpty)
+          .toList()
+        ..sort((a, b) => b.id.compareTo(a.id));
+      if (drafts.isNotEmpty && local == null) {
+        serverDraft = drafts.first;
+      }
+      if (serverDraft != null) {
+        resolvedParentUserId = serverDraft.parentUserId;
+      } else if (mine.isNotEmpty) {
+        final sorted = List<AgentReport>.from(mine)..sort((a, b) => b.id.compareTo(a.id));
+        resolvedParentUserId = sorted.first.parentUserId;
+      }
+    } catch (cause) {
+      if (local == null) {
         warning ??= reportErrorMessage(cause, fallback: '未能加载已生成的汇报草稿');
       }
     }
 
     if (_disposed || version != _version) return;
 
-    int? parentUserId;
     int? myBindingId;
     for (final binding in bindings) {
       if (binding.role == 'member' && binding.userId == userId) {
         myBindingId = binding.id;
-      }
-      if (binding.isProjectAgent && binding.userId != null) {
-        parentUserId ??= binding.userId;
       }
     }
 
@@ -204,7 +209,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     setState(() {
       _members = members;
       _myBindingId = myBindingId;
-      _parentUserId = serverDraft?.parentUserId ?? parentUserId;
+      _parentUserId = resolvedParentUserId;
       _draftReportId = local?.draftReportId ?? serverDraft?.id;
       _sources = serverDraft?.sources ?? const [];
       _taskSnapshots = serverDraft?.taskSnapshots ?? const [];

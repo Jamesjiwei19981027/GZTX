@@ -91,38 +91,18 @@ void main() {
   });
 
   group('ReportEditorScreen 写汇报与直属领导判定测试', () {
-    testWidgets('直属领导是自己时展示红色警示并禁止提交', (tester) async {
-      final selfSupervisorBindings = [
-        {
-          'id': 101,
-          'company_id': 1,
-          'project_id': ReportsTestFixtures.projectId,
-          'user_id': ReportsTestFixtures.currentUserId,
-          'agent_definition_id': 1,
-          'role': 'member',
-          'is_active': true,
-          'context_scope': {'company_id': 1, 'project_id': ReportsTestFixtures.projectId},
-        },
-        {
-          'id': 102,
-          'company_id': 1,
-          'project_id': ReportsTestFixtures.projectId,
-          'user_id': ReportsTestFixtures.currentUserId,
-          'agent_definition_id': 2,
-          'role': 'project',
-          'is_active': true,
-          'context_scope': {'company_id': 1, 'project_id': ReportsTestFixtures.projectId},
-        },
-      ];
+    testWidgets('服务端解析直属领导是自己时展示红色警示并禁止提交', (tester) async {
+      final invalidReport = {
+        ...ReportsTestFixtures.draftReportJson,
+        'parent_user_id': ReportsTestFixtures.currentUserId,
+      };
 
       final harness = await ReportsTestHarness.create();
       harness.helper.whenGet(
-        '/projects/${ReportsTestFixtures.projectId}/report-agents/bindings',
-        {'items': selfSupervisorBindings},
-      );
-      harness.helper.whenGet(
         '/reports/my',
-        {'items': <Map<String, dynamic>>[]},
+        {
+          'items': [invalidReport],
+        },
         query: {'project_id': '${ReportsTestFixtures.projectId}'},
       );
 
@@ -149,6 +129,94 @@ void main() {
         find.widgetWithText(AppButton, '确认提交'),
       );
       expect(submitButton.onPressed, isNull);
+    });
+
+    testWidgets('项目经理打开没有服务端草稿时直属领导为空且提交按钮可用 (P1)', (tester) async {
+      final pmUserId = ReportsTestFixtures.supervisorUserId; // 20 (项目经理)
+      final harness = await ReportsTestHarness.create();
+      // 服务端没有草稿
+      harness.helper.whenGet(
+        '/reports/my',
+        {'items': <Map<String, dynamic>>[]},
+        query: {'project_id': '${ReportsTestFixtures.projectId}'},
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: pmUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 直属领导显示“未指定直属领导”，而不是“直属领导不能是自己”
+      expect(find.text('未指定直属领导'), findsOneWidget);
+      expect(find.text('直属领导不能是自己'), findsNothing);
+
+      // 输入内容
+      final textFields = find.byType(TextField);
+      await tester.enterText(textFields.first, '项目整体推进顺利');
+      await tester.pump();
+
+      // 确认提交按钮不被禁用
+      final submitButton = tester.widget<AppButton>(
+        find.widgetWithText(AppButton, '确认提交'),
+      );
+      expect(submitButton.onPressed, isNotNull);
+    });
+
+    testWidgets('有中间层领导的成员打开时展示真实中间层领导而非项目经理 (P1)', (tester) async {
+      const intermediateLeaderId = 30;
+      final membersWithIntermediate = [
+        ...ReportsTestFixtures.membersJson,
+        {
+          'user_id': intermediateLeaderId,
+          'display_name': '中间层组长王五',
+          'role': 'leader',
+          'left_at': null,
+        },
+      ];
+      final memberReportWithIntermediate = {
+        ...ReportsTestFixtures.draftReportJson,
+        'parent_user_id': intermediateLeaderId,
+      };
+
+      final harness = await ReportsTestHarness.create();
+      harness.helper.whenGet(
+        '/projects/${ReportsTestFixtures.projectId}/members',
+        {'items': membersWithIntermediate},
+      );
+      harness.helper.whenGet(
+        '/reports/my',
+        {
+          'items': [memberReportWithIntermediate],
+        },
+        query: {'project_id': '${ReportsTestFixtures.projectId}'},
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证展示的是真实中间层组长王五，而不是项目经理李四
+      expect(find.text('中间层组长王五'), findsOneWidget);
+      expect(find.text('直属领导李四'), findsNothing);
     });
 
     testWidgets('正常直属领导下可从本地草稿恢复内容并提交', (tester) async {
