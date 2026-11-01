@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
+import 'package:worktodo_app/features/projects/data/projects_repository.dart';
 import 'package:worktodo_app/features/projects/screens/project_overview_screen.dart';
 
 import 'support/projects_test_harness.dart';
@@ -341,6 +342,35 @@ void main() {
       expect(find.textContaining('权限信息加载失败'), findsOneWidget);
       expect(find.text('邀请新成员加入'), findsNothing);
       expect(find.text('项目任务待办 · 3'), findsOneWidget);
+    });
+
+    testWidgets('任务超过分页安全上限时明确提示仅显示前 N 条', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      registerOverviewMocks(harness);
+      // 模拟后端忽略 page 参数：每页都返回数据、total 永远更大，永远拉不完
+      const perPage = 5;
+      for (var page = 1; page <= ProjectsRepository.maxTaskPages; page++) {
+        final items = List<Map<String, dynamic>>.generate(
+          perPage,
+          (index) => taskJson(
+            id: (page - 1) * perPage + index + 1,
+            title: '任务 ${(page - 1) * perPage + index + 1}',
+          ),
+        );
+        harness.helper.whenGet(
+          '/projects/11/tasks',
+          {'items': items, 'total': 999999},
+          query: {'page': '$page', 'page_size': '200'},
+        );
+      }
+
+      await harness.pumpScreen(tester, const ProjectOverviewScreen(projectId: 11));
+
+      final loaded = perPage * ProjectsRepository.maxTaskPages;
+      expect(find.text('项目任务待办 · $loaded'), findsOneWidget);
+      expect(find.textContaining('仅显示前 $loaded 条任务'), findsWidgets);
+      expect(find.textContaining('完整数据请到任务列表查看'), findsWidgets);
     });
   });
 }

@@ -37,35 +37,71 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
   ProjectMember? _member;
   List<ProjectTask> _tasks = const [];
 
+  /// 任务是否撞到分页安全上限（撞到就必须说明「仅显示前 N 条」）
+  bool _tasksTruncated = false;
+  int? _tasksTotal;
+
+  int _loadSeq = 0;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
+  @override
+  void didUpdateWidget(MemberDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.projectId == widget.projectId &&
+        oldWidget.userId == widget.userId) {
+      return;
+    }
+    // go_router 换参数（/projects/11/team/5 → /projects/12/team/7）时会复用同一个
+    // 页面状态，只靠 initState 加载会继续展示上一个项目/成员的职责与事项。
+    setState(() {
+      _member = null;
+      _tasks = const [];
+      _tasksError = null;
+      _tasksTruncated = false;
+      _tasksTotal = null;
+      _loading = true;
+      _error = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _load();
+    });
+  }
+
   ProjectsRepository get _repo =>
       ProjectsRepository(context.authStateRead.api);
 
   Future<void> _load() async {
+    // 每次加载带序号：旧参数/旧一次请求的迟到结果直接丢弃
+    final seq = ++_loadSeq;
+    final projectId = widget.projectId;
+    final userId = widget.userId;
     setState(() {
       _loading = true;
       _error = null;
       _tasksError = null;
+      _tasksTruncated = false;
+      _tasksTotal = null;
     });
     try {
-      final members = await _repo.fetchMembers(widget.projectId);
+      final members = await _repo.fetchMembers(projectId);
       ProjectMember? member;
       for (final item in members) {
-        if (item.userId == widget.userId) {
+        if (item.userId == userId) {
           member = item;
           break;
         }
       }
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       if (member == null) {
         setState(() {
           _loading = false;
           _member = null;
+          _tasks = const [];
           _error = null;
         });
         return;
@@ -75,19 +111,21 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
         _loading = false;
       });
       try {
-        final tasks = await _repo.fetchProjectTasks(widget.projectId);
-        if (!mounted) return;
+        final tasks = await _repo.fetchProjectTasks(projectId);
+        if (!mounted || seq != _loadSeq) return;
         setState(() {
-          _tasks = tasks
-              .where((task) => task.isAssignedTo(widget.userId))
+          _tasks = tasks.tasks
+              .where((task) => task.isAssignedTo(userId))
               .toList(growable: false);
+          _tasksTruncated = tasks.truncated;
+          _tasksTotal = tasks.total;
         });
       } catch (error) {
-        if (!mounted) return;
+        if (!mounted || seq != _loadSeq) return;
         setState(() => _tasksError = error);
       }
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _loadSeq) return;
       setState(() {
         _loading = false;
         _error = error;
@@ -201,6 +239,14 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
         AppListSection(
           header: '当前项目负责事项 (${_tasks.length})',
           children: [
+            if (_tasksTruncated)
+              AppListTile(
+                title: '仅显示前 ${_tasks.length} 条负责事项',
+                subtitle: _tasksTotal == null
+                    ? '项目任务过多，已按安全上限截断，完整数据请到任务列表查看'
+                    : '项目共 $_tasksTotal 条任务，已按安全上限截断，完整数据请到任务列表查看',
+                showChevron: false,
+              ),
             if (_tasksError != null)
               AppListTile(
                 title: '事项加载失败',

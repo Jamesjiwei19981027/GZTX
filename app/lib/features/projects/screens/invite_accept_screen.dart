@@ -41,10 +41,33 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
   bool _syncFailed = false;
   String? _syncMessage;
 
+  /// 令牌/页面参数变化时自增，用于丢弃旧令牌请求的迟到结果
+  int _acceptSeq = 0;
+
   @override
   void dispose() {
     _token.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(InviteAcceptScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialToken == widget.initialToken) return;
+    // 同一条路由换邀请令牌（深链接 A → 深链接 B）时会复用本页状态：
+    // 必须换掉输入框内容，并清空上一个令牌的「已加入 / 同步失败」结果区，
+    // 否则用户会把 A 的结果当成 B 的结果，还会对已消费的邀请重复操作。
+    _acceptSeq++;
+    _token.text = widget.initialToken ?? '';
+    setState(() {
+      _busy = false;
+      _needPhoneVerify = false;
+      _error = null;
+      _joinedProjectId = null;
+      _joinedCompanyId = null;
+      _syncFailed = false;
+      _syncMessage = null;
+    });
   }
 
   ProjectsRepository get _repo =>
@@ -63,6 +86,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
       _syncFailed = false;
       _syncMessage = null;
     });
+    final seq = ++_acceptSeq;
 
     final auth = context.authStateRead;
     try {
@@ -72,7 +96,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
         detail = await _repo.fetchProject(result.projectId);
       } catch (error) {
         // 项目详情拉取失败不影响「已加入」这一结果，但要给出可见提示
-        if (mounted) {
+        if (mounted && seq == _acceptSeq) {
           showAppToast(
             context,
             '已加入项目，但项目详情加载失败：${projectErrorMessage(error)}',
@@ -80,7 +104,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
           );
         }
       }
-      if (!mounted) return;
+      if (!mounted || seq != _acceptSeq) return;
 
       // 刷新公司 → 切公司 → 刷新项目 → 选中受邀项目。
       // 详情失败时不知道受邀公司 ID，靠项目反查公司（见 [_syncWorkspace]）。
@@ -90,7 +114,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
         projectId: result.projectId,
         invitedCompanyId: invitedCompanyId,
       );
-      if (!mounted) return;
+      if (!mounted || seq != _acceptSeq) return;
 
       setState(() {
         _busy = false;
@@ -112,7 +136,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
       );
       context.pushReplacement('/projects/${result.projectId}/team');
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || seq != _acceptSeq) return;
       setState(() {
         _busy = false;
         _needPhoneVerify = _isPhoneGate(error);
