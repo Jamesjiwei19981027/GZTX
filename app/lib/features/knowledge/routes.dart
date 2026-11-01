@@ -2,39 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../design/design.dart';
+import 'screens/knowledge_screen.dart';
 
-/// T06 知识空间路由占位
-class KnowledgePlaceholderScreen extends StatelessWidget {
-  const KnowledgePlaceholderScreen({
-    super.key,
-    this.screenName = 'knowledge-root',
-    this.title = '知识',
-  });
-
-  final String screenName;
-  final String title;
+/// 知识助手对话占位页。
+///
+/// “知识助手”对话本身属于 T07，本任务只提供知识 Tab 内的入口跳转，
+/// 路由名 `knowledge-chat` 保持不变，避免破坏既有深链。
+class KnowledgeChatPlaceholderScreen extends StatelessWidget {
+  const KnowledgeChatPlaceholderScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return AppScaffold(
-      title: title,
+      title: '知识助手',
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.xxl),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const AppIcon('knowledge', size: 48, color: AppColors.primary),
+              const AppIcon('ai', size: 48, color: AppColors.primary),
               const SizedBox(height: AppSpacing.lg),
-              Text(
-                '$title (T06)',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              const Text(
+                '知识助手即将开放',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: AppSpacing.sm),
               Text(
-                '屏幕标识: $screenName\n待 T06 任务包实现具体页面',
+                '对话能力由后续任务提供，这里只保留入口。',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDarkMode(context)
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -48,18 +53,12 @@ final List<RouteBase> knowledgeRoutes = [
   GoRoute(
     path: '/knowledge',
     name: 'knowledge-root',
-    builder: (context, state) => const KnowledgePlaceholderScreen(
-      screenName: 'knowledge-root',
-      title: '知识',
-    ),
+    builder: (context, state) => const KnowledgeScreen(),
     routes: [
       GoRoute(
         path: 'chat',
         name: 'knowledge-chat',
-        builder: (context, state) => const KnowledgePlaceholderScreen(
-          screenName: 'knowledge-chat',
-          title: '知识库问答',
-        ),
+        builder: (context, state) => const KnowledgeChatPlaceholderScreen(),
       ),
     ],
   ),
