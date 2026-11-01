@@ -13,7 +13,7 @@ class WorkApi {
   final ApiClient _client;
 
   /// 时间轴统计用的本地时区偏移（分钟，东八区为 480）。
-  static int get timezoneOffsetMinutes => -DateTime.now().timeZoneOffset.inMinutes;
+  static int get timezoneOffsetMinutes => DateTime.now().timeZoneOffset.inMinutes;
 
   Future<WorkTaskPage> listTasks({
     int page = 1,

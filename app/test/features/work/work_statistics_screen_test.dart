@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/design/design.dart';
+import 'package:worktodo_app/features/work/data/work_api.dart';
 import 'package:worktodo_app/features/work/screens/work_statistics_screen.dart';
 
 import 'work_test_fixtures.dart';
@@ -73,5 +74,14 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('事项总数'), findsOneWidget);
+  });
+
+  test('WorkApi.timezoneOffsetMinutes 返回正确的时区偏移符号（东区为正）', () {
+    final expected = DateTime.now().timeZoneOffset.inMinutes;
+    expect(WorkApi.timezoneOffsetMinutes, expected);
+    // 在东八区（480分钟）环境下，数值必须大于等于 0 且为正数，而不是取负后的负数
+    if (DateTime.now().timeZoneOffset >= Duration.zero) {
+      expect(WorkApi.timezoneOffsetMinutes >= 0, isTrue);
+    }
   });
 }
