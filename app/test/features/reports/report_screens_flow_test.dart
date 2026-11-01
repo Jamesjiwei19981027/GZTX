@@ -390,6 +390,40 @@ void main() {
       expect(find.text('已提交'), findsOneWidget);
       expect(find.text('草稿'), findsWidgets);
     });
+
+    testWidgets('直属领导从收件箱打开下属汇报详情时直属接收人正常显示且不误判为自己 (P2)', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      final leaderUserId = ReportsTestFixtures.supervisorUserId; // 20
+      final subordinateAuthorId = ReportsTestFixtures.currentUserId; // 11
+
+      final subordinateReport = {
+        ...ReportsTestFixtures.submittedReportJson,
+        'id': 508,
+        'author_user_id': subordinateAuthorId,
+        'parent_user_id': leaderUserId,
+      };
+
+      harness.helper.whenGet('/reports/508', subordinateReport);
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportDetailScreen(
+            api: harness.api,
+            userId: leaderUserId, // 当前查看者是直属领导本人
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            reportId: 508,
+            mode: ReportDetailMode.detail,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证直属接收正常展示领导姓名“直属领导李四”，绝不显示“直属领导不能是自己”
+      expect(find.textContaining('直属领导李四'), findsWidgets);
+      expect(find.text('直属领导不能是自己'), findsNothing);
+      expect(find.text('非法上级'), findsNothing);
+    });
   });
 
   group('ReportInboxScreen 收件箱与标记已读测试', () {

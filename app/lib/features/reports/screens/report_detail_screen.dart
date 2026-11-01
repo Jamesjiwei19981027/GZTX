@@ -366,7 +366,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
     final supervisor = resolveDirectSupervisor(
       members: _members,
-      currentUserId: _userId,
+      currentUserId: report.authorUserId,
       parentUserId: report.parentUserId,
     );
     final delivery = getReportDeliveryStatus(report);
@@ -457,7 +457,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     final report = _selected;
     final supervisor = resolveDirectSupervisor(
       members: _members,
-      currentUserId: _userId,
+      currentUserId: report?.authorUserId ?? _userId,
       parentUserId: report?.parentUserId,
     );
     final delivery = getReportDeliveryStatus(report);
