@@ -290,5 +290,50 @@ void main() {
       // 验证范围提示展示为【项目 #2】
       expect(find.textContaining('项目 #2'), findsOneWidget);
     });
+
+    testWidgets('编辑任务时保留结构化重复规则（保留 interval 等属性）', (tester) async {
+      tester.view.physicalSize = const Size(430, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await WorkTestHarness.create();
+      // 任务 666 拥有结构化重复规则
+      harness.api.tasks.add(WorkTask.fromJson(buildTaskJson(
+        id: 666,
+        title: '结构化重复规则任务',
+        isRecurring: true,
+        recurrenceRule: {'frequency': 'weekly', 'interval': 2},
+      )));
+
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskEditScreen(
+          taskId: 666,
+          api: harness.api,
+          authState: harness.authState,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // 仅修改标题
+      final titleInput = find.byType(TextField).first;
+      await tester.enterText(titleInput, '结构化重复规则任务（已修改）');
+      await tester.pump();
+
+      // 点击保存
+      final saveBtn = find.widgetWithText(AppButton, '确认更新任务');
+      await tester.ensureVisible(saveBtn);
+      await tester.tap(saveBtn);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(seconds: 3));
+
+      // 验证保存提交的 recurrence_rule 依然为 Map，且保留了 interval: 2
+      expect(harness.api.lastUpdatedBody, isNotNull);
+      final savedRule = harness.api.lastUpdatedBody!['recurrence_rule'];
+      expect(savedRule, isA<Map<String, dynamic>>());
+      expect((savedRule as Map)['frequency'], 'weekly');
+      expect(savedRule['interval'], 2);
+    });
   });
 }

@@ -28,7 +28,7 @@ Map<String, dynamic> buildTaskJson({
   String? dueDate,
   String? completedAt,
   bool isRecurring = false,
-  String? recurrenceRule,
+  dynamic recurrenceRule,
   Map<String, dynamic>? category,
   List<Map<String, dynamic>> tags = const [],
   List<Map<String, dynamic>> reminders = const [],
@@ -373,9 +373,12 @@ class MockWorkApi extends Fake implements WorkApi {
     return created;
   }
 
+  Map<String, dynamic>? lastUpdatedBody;
+
   @override
   Future<WorkTask> updateTask(int id, Map<String, dynamic> body) async {
     _checkErrors();
+    lastUpdatedBody = body;
     final index = tasks.indexWhere((t) => t.id == id);
     if (index < 0) {
       throw ApiException('任务不存在', statusCode: 404);
@@ -392,6 +395,12 @@ class MockWorkApi extends Fake implements WorkApi {
       dueDate: body.containsKey('due_date')
           ? body['due_date'] as String?
           : current.rawDueDate,
+      isRecurring: body.containsKey('is_recurring')
+          ? body['is_recurring'] as bool? ?? current.isRecurring
+          : current.isRecurring,
+      recurrenceRule: body.containsKey('recurrence_rule')
+          ? body['recurrence_rule']
+          : current.rawRecurrenceRule,
       origin: current.origin,
       projectId: current.projectId,
       projectNodeId: current.projectNodeId,

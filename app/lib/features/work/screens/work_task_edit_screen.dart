@@ -57,6 +57,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   final Set<int> _assigneeIds = {};
   bool _recurring = false;
   String _recurrenceRule = 'daily';
+  dynamic _rawRecurrenceRule;
   List<ChecklistItem> _checklist = const [];
   @visibleForTesting
   List<ChecklistItem> get checklist => _checklist;
@@ -132,6 +133,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
     _assigneeIds.clear();
     _recurring = false;
     _recurrenceRule = 'daily';
+    _rawRecurrenceRule = null;
     _checklist = const [];
     _loading = true;
     _loadError = null;
@@ -224,6 +226,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
         _recurring = task.isRecurring;
         _recurrenceRule =
             task.recurrenceRule ?? 'daily';
+        _rawRecurrenceRule = task.rawRecurrenceRule;
         _checklist = List<ChecklistItem>.from(task.checklist);
         _loading = false;
         _dirty = false;
@@ -347,6 +350,16 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
     return 'new-$next';
   }
 
+  dynamic _resolveRecurrenceRuleForSave() {
+    if (!_recurring) return null;
+    if (_rawRecurrenceRule is Map) {
+      final map = Map<String, dynamic>.from(_rawRecurrenceRule as Map);
+      map['frequency'] = _recurrenceRule;
+      return map;
+    }
+    return _recurrenceRule;
+  }
+
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
@@ -371,7 +384,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
       'tag_ids': _tags.map((tag) => tag.id).toList(),
       'assignee_user_ids': _assigneeIds.toList(),
       'is_recurring': _recurring,
-      'recurrence_rule': _recurring ? _recurrenceRule : null,
+      'recurrence_rule': _resolveRecurrenceRuleForSave(),
       'checklist': _checklist.map((item) => item.toJson()).toList(),
     };
 

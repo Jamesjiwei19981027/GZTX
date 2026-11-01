@@ -179,6 +179,7 @@ class WorkTask {
     this.tags = const [],
     this.isRecurring = false,
     this.recurrenceRule,
+    this.rawRecurrenceRule,
     this.checklist = const [],
     this.assignees = const [],
     this.origin = 'personal',
@@ -216,6 +217,7 @@ class WorkTask {
   final List<TaskTag> tags;
   final bool isRecurring;
   final String? recurrenceRule;
+  final dynamic rawRecurrenceRule;
   final List<ChecklistItem> checklist;
   final List<TaskAssignee> assignees;
   final String origin;
@@ -297,6 +299,7 @@ class WorkTask {
         tags: tags,
         isRecurring: isRecurring,
         recurrenceRule: recurrenceRule,
+        rawRecurrenceRule: rawRecurrenceRule,
         checklist: checklist,
         assignees: assignees,
         origin: origin,
@@ -344,6 +347,7 @@ class WorkTask {
           : const [],
       isRecurring: json['is_recurring'] == true,
       recurrenceRule: ruleText,
+      rawRecurrenceRule: rule,
       checklist: checklist is List
           ? checklist
               .whereType<Map>()
