@@ -1,0 +1,333 @@
+import 'package:flutter/material.dart';
+
+import '../../../core/api/api_client.dart';
+import '../../../core/auth/auth_provider.dart';
+import '../../../core/time/time_utils.dart';
+import '../../../design/design.dart';
+import '../controllers/inbox_controller.dart';
+import '../data/messages_repository.dart';
+import '../models/messages_models.dart';
+import '../widgets/notification_detail_sheet.dart';
+import 'external_mail_view.dart';
+
+/// 通知与收件箱：协作通知（已读、全部已读、回复、归档、删除）+ 外部邮件。
+class InboxScreen extends StatefulWidget {
+  const InboxScreen({
+    super.key,
+    this.repository,
+    this.companyId,
+    this.initialTab = InboxTab.notifications,
+  });
+
+  final MessagesRepository? repository;
+  final int? companyId;
+  final InboxTab initialTab;
+
+  @override
+  State<InboxScreen> createState() => _InboxScreenState();
+}
+
+enum InboxTab { notifications, externalMail }
+
+class _InboxScreenState extends State<InboxScreen> {
+  InboxController? _inbox;
+  ExternalMailController? _mail;
+  MessagesRepository? _repository;
+  ApiClient? _api;
+  int? _companyId;
+  late InboxTab _tab = widget.initialTab;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _resolve();
+  }
+
+  void _resolve() {
+    var companyId = widget.companyId;
+    ApiClient? api;
+    if (widget.repository == null || companyId == null) {
+      final auth = context.authStateRead;
+      api = auth.api;
+      companyId ??= auth.currentCompany?.id;
+    }
+    if (_repository != null && api == _api && companyId == _companyId) return;
+    _api = api;
+    _companyId = companyId;
+    _inbox?.dispose();
+    _mail?.dispose();
+    _inbox = null;
+    _mail = null;
+    _repository = widget.repository ?? MessagesRepository(api ?? ApiClient());
+    if (companyId == null) return;
+    _inbox = InboxController(repository: _repository!)..load();
+    if (_tab == InboxTab.externalMail) {
+      _mail = ExternalMailController(
+        repository: _repository!,
+        companyId: companyId,
+      )..load();
+    }
+  }
+
+  @override
+  void dispose() {
+    _inbox?.dispose();
+    _mail?.dispose();
+    super.dispose();
+  }
+
+  void _switchTab(InboxTab tab) {
+    if (tab == _tab) return;
+    setState(() => _tab = tab);
+    if (tab == InboxTab.externalMail && _mail == null && _companyId != null) {
+      _mail = ExternalMailController(
+        repository: _repository!,
+        companyId: _companyId!,
+      )..load();
+    }
+  }
+
+  Future<void> _markAllRead() async {
+    final controller = _inbox;
+    if (controller == null) return;
+    final updated = await controller.markAllRead();
+    if (!mounted) return;
+    if (updated == null) {
+      showAppToast(
+        context,
+        controller.actionError ?? '全部标为已读失败',
+        type: ToastType.error,
+      );
+      controller.clearActionError();
+      return;
+    }
+    showAppToast(
+      context,
+      updated > 0 ? '已将 $updated 条通知标为已读' : '当前没有未读通知',
+    );
+  }
+
+  Future<void> _openNotification(CollabNotification item) async {
+    final controller = _inbox;
+    if (controller == null) return;
+    await controller.markRead(item.id);
+    if (!mounted) return;
+    await showAppBottomSheet<void>(
+      context: context,
+      title: '通知详情',
+      builder: (context) => NotificationDetailSheet(
+        controller: controller,
+        notification: item,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final inbox = _inbox;
+    return AppScaffold(
+      title: '通知与收件箱',
+      actions: [
+        if (_tab == InboxTab.notifications && inbox != null)
+          Padding(
+            padding: const EdgeInsets.only(right: AppSpacing.sm),
+            child: TextButton(
+              onPressed: inbox.markingAll ? null : _markAllRead,
+              child: Text(
+                inbox.markingAll ? '处理中…' : '全部已读',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+      ],
+      body: _companyId == null
+          ? const AppEmptyState(
+              title: '尚未加入企业',
+              description: '协作通知按企业发送，请先加入企业。',
+              icon: AppIcon('bell', size: 44, color: AppColors.textTertiary),
+            )
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.lg,
+                    AppSpacing.sm,
+                    AppSpacing.lg,
+                    AppSpacing.xs,
+                  ),
+                  child: AppSegmentedControl<InboxTab>(
+                    segments: const {
+                      InboxTab.notifications: '协作通知',
+                      InboxTab.externalMail: '外部邮件',
+                    },
+                    selectedValue: _tab,
+                    onValueChanged: _switchTab,
+                  ),
+                ),
+                Expanded(
+                  child: _tab == InboxTab.notifications
+                      ? _notifications(context)
+                      : (_mail == null
+                          ? const Center(child: AppLoading(size: 26))
+                          : ExternalMailView(controller: _mail!)),
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _notifications(BuildContext context) {
+    final controller = _inbox;
+    if (controller == null) return const Center(child: AppLoading(size: 26));
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (context, _) {
+        if (controller.loading) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AppLoading(size: 26),
+                SizedBox(height: AppSpacing.md),
+                Text(
+                  '获取站内通知…',
+                  style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                ),
+              ],
+            ),
+          );
+        }
+        if (controller.error != null) {
+          return AppErrorState(
+            message: controller.error!,
+            onRetry: controller.load,
+          );
+        }
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                AppSpacing.sm,
+                AppSpacing.lg,
+                AppSpacing.xs,
+              ),
+              child: AppSegmentedControl<NotificationFilter>(
+                segments: {
+                  for (final filter in NotificationFilter.values)
+                    filter: filter.label,
+                },
+                selectedValue: controller.filter,
+                onValueChanged: (value) => controller.setFilter(value),
+              ),
+            ),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: controller.load,
+                child: controller.items.isEmpty
+                    ? ListView(
+                        children: [
+                          SizedBox(
+                            height: MediaQuery.sizeOf(context).height * 0.10,
+                          ),
+                          AppEmptyState(
+                            title: '暂无通知',
+                            description: controller.filter == NotificationFilter.archived
+                                ? '无已归档通知。'
+                                : '当前收件箱没有新的协作通知。',
+                            icon: const AppIcon(
+                              'bell',
+                              size: 42,
+                              color: AppColors.textTertiary,
+                            ),
+                          ),
+                        ],
+                      )
+                    : ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.only(bottom: AppSpacing.xl),
+                        children: [
+                          AppListSection(
+                            children: [
+                              for (final item in controller.items)
+                                _notificationTile(context, controller, item),
+                            ],
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _notificationTile(
+    BuildContext context,
+    InboxController controller,
+    CollabNotification item,
+  ) {
+    final trailing = item.requiresReply && !item.hasReply
+        ? Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpacing.sm,
+              vertical: 2,
+            ),
+            decoration: BoxDecoration(
+              color: AppColors.warningLight,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+            ),
+            child: const Text(
+              '需回复',
+              style: TextStyle(fontSize: 10, color: Color(0xFF7A4E00)),
+            ),
+          )
+        : null;
+    final time = item.createdAt == null ? '' : formatRelativeDate(item.createdAt);
+
+    return AppListTile(
+      leading: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: item.read
+                  ? AppColors.surfaceVariant
+                  : AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: AppIcon(
+              'bell',
+              size: 18,
+              color: item.read ? AppColors.textTertiary : AppColors.primary,
+            ),
+          ),
+          if (!item.read)
+            Positioned(
+              right: -1,
+              top: -1,
+              child: Container(
+                width: 9,
+                height: 9,
+                decoration: BoxDecoration(
+                  color: AppColors.primary,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+              ),
+            ),
+        ],
+      ),
+      title: time.isEmpty
+          ? (item.senderName ?? '系统协同通知')
+          : '${item.senderName ?? '系统协同通知'} · $time',
+      subtitle: item.bodyText.trim().isEmpty ? '无详细内容' : item.bodyText,
+      trailing: trailing,
+      onTap: () => _openNotification(item),
+    );
+  }
+}
