@@ -6,6 +6,7 @@ import '../data/voice_input.dart';
 import '../models/knowledge_models.dart';
 import '../widgets/entry_editor_sheet.dart';
 import '../widgets/knowledge_graph.dart';
+import '../widgets/knowledge_state_container.dart';
 import '../widgets/link_editor_sheet.dart';
 import '../widgets/suggestion_sheet.dart';
 
@@ -299,29 +300,35 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
       return const Center(child: AppLoading());
     }
     if (controller.error != null && controller.entries.isEmpty) {
-      return AppErrorState(
-        title: controller.networkError ? '网络连接异常' : '知识空间读取失败',
-        message: controller.error!,
-        onRetry: controller.load,
+      return KnowledgeStateContainer(
+        child: AppErrorState(
+          title: controller.networkError ? '网络连接异常' : '知识空间读取失败',
+          message: controller.error!,
+          onRetry: controller.load,
+        ),
       );
     }
     if (controller.isEmpty) {
-      return AppEmptyState(
-        icon: const AppIcon(
-          'knowledge',
-          size: 48,
-          color: AppColors.primary,
+      return KnowledgeStateContainer(
+        child: AppEmptyState(
+          icon: const AppIcon(
+            'knowledge',
+            size: 48,
+            color: AppColors.primary,
+          ),
+          title: '记下第一条工作积累',
+          description: '点“记一条”写下想法，或让 AI 整理你已有的材料和汇报。',
+          actionLabel: '记一条',
+          onAction: () => _openEditor(),
         ),
-        title: '记下第一条工作积累',
-        description: '点“记一条”写下想法，或让 AI 整理你已有的材料和汇报。',
-        actionLabel: '记一条',
-        onAction: () => _openEditor(),
       );
     }
     if (controller.isSearchEmpty) {
-      return const AppEmptyState(
-        title: '没有找到相关内容',
-        description: '换个关键词试试。',
+      return const KnowledgeStateContainer(
+        child: AppEmptyState(
+          title: '没有找到相关内容',
+          description: '换个关键词试试。',
+        ),
       );
     }
     return controller.viewMode == KnowledgeViewMode.list
@@ -436,29 +443,34 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
           label: link.label,
         ),
     ];
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: KnowledgeGraph(
-        nodes: nodes,
-        edges: edges,
-        height: 380,
-        onTapNode: (node) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final height = constraints.maxHeight.isFinite
+          ? (constraints.maxHeight - 32).clamp(160.0, 640.0)
+          : 380.0;
+      return Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: KnowledgeGraph(
+          nodes: nodes,
+          edges: edges,
+          height: height,
+          onTapNode: (node) {
           final id = int.tryParse(node.id);
           if (id == null) return;
           final entry = controller.entries.firstWhere(
             (item) => item.id == id,
             orElse: () => entries.first,
           );
-          _openEditor(entry: entry);
-        },
-        onMoveNode: controller.isPending
-            ? null
-            : (node, position) {
-                final id = int.tryParse(node.id);
-                if (id == null) return;
-                controller.savePosition(id, position);
-              },
-      ),
-    );
+            _openEditor(entry: entry);
+          },
+          onMoveNode: controller.isPending
+              ? null
+              : (node, position) {
+                  final id = int.tryParse(node.id);
+                  if (id == null) return;
+                  controller.savePosition(id, position);
+                },
+        ),
+      );
+    });
   }
 }

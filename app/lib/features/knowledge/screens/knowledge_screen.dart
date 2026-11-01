@@ -9,6 +9,7 @@ import '../controllers/personal_knowledge_controller.dart';
 import '../controllers/project_knowledge_controller.dart';
 import '../data/knowledge_repository.dart';
 import '../data/voice_input.dart';
+import '../widgets/knowledge_state_container.dart';
 import 'personal_knowledge_view.dart';
 import 'project_knowledge_view.dart';
 
@@ -114,9 +115,11 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           _projectBar(context, projects, project),
           if (!concrete)
             const Expanded(
-              child: AppEmptyState(
-                title: '先选择一个项目',
-                description: '选择项目后，就能记录、整理和查找自己的知识。',
+              child: KnowledgeStateContainer(
+                child: AppEmptyState(
+                  title: '先选择一个项目',
+                  description: '选择项目后，就能记录、整理和查找自己的知识。',
+                ),
               ),
             )
           else ...[

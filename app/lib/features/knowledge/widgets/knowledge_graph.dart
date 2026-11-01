@@ -81,7 +81,7 @@ class KnowledgeGraph extends StatefulWidget {
     this.onTapNode,
     this.onMoveNode,
     this.height = 360,
-    this.hint = '拖动查看全图，点开节点看内容',
+    this.hint = '拖动空白处移动画面，点开节点看内容',
   });
 
   final List<KnowledgeGraphNode> nodes;
@@ -100,19 +100,37 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
   static const double _nodeHeight = 78;
   static const double _padding = 16;
 
-  final TransformationController _transform = TransformationController();
   final Map<String, Offset> _dragging = {};
-
-  @override
-  void dispose() {
-    _transform.dispose();
-    super.dispose();
-  }
+  Offset _pan = Offset.zero;
+  String? _activeNodeId;
 
   Offset _positionOf(KnowledgeGraphNode node) {
     final override = _dragging[node.id];
     if (override != null) return override;
     return Offset(node.position.x, node.position.y);
+  }
+
+  /// 用原始指针事件实现节点拖动：浮在画布上的节点优先拿到手势，
+  /// 避免与画布平移抢同一个拖动识别器。
+  Widget _draggableNode(KnowledgeGraphNode node, VoidCallback? onTap) {
+    final card = _GraphNodeCard(node: node, onTap: onTap);
+    if (widget.onMoveNode == null) return card;
+    return Listener(
+      onPointerDown: (_) => setState(() => _activeNodeId = node.id),
+      onPointerMove: (event) => setState(() {
+        final current = _dragging[node.id] ??
+            Offset(node.position.x, node.position.y);
+        _dragging[node.id] = current + event.delta;
+      }),
+      onPointerUp: (_) {
+        final moved = _dragging[node.id];
+        setState(() => _activeNodeId = null);
+        if (moved == null) return;
+        widget.onMoveNode!(node, KnowledgePoint(moved.dx, moved.dy));
+      },
+      onPointerCancel: (_) => setState(() => _activeNodeId = null),
+      child: card,
+    );
   }
 
   @override
@@ -131,17 +149,23 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
         _padding * 2;
 
     return LayoutBuilder(builder: (context, constraints) {
+      // 画布高度不超过可用空间，避免窄屏或横屏时把提示文字挤出屏幕
+      const hintHeight = 26.0;
+      final available = constraints.maxHeight.isFinite
+          ? constraints.maxHeight - hintHeight
+          : widget.height;
+      final canvasHeight =
+          widget.height > available ? (available < 120 ? 120.0 : available) : widget.height;
       final width = contentWidth < constraints.maxWidth
           ? constraints.maxWidth
           : contentWidth;
-      final height = contentHeight < widget.height
-          ? widget.height
-          : contentHeight;
+      final height = contentHeight < canvasHeight ? canvasHeight : contentHeight;
       return Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: widget.height,
+            height: canvasHeight,
             decoration: BoxDecoration(
               color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF7F8FA),
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -150,78 +174,71 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
               ),
             ),
             clipBehavior: Clip.antiAlias,
-            child: InteractiveViewer(
-              transformationController: _transform,
-              constrained: false,
-              minScale: 0.4,
-              maxScale: 2.0,
-              boundaryMargin: const EdgeInsets.all(120),
-              child: SizedBox(
-                width: width,
-                height: height,
-                child: Stack(
-                  children: [
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: _EdgePainter(
-                          edges: widget.edges,
-                          positions: positions,
-                          nodeWidth: _nodeWidth,
-                          nodeHeight: _nodeHeight,
-                          lineColor: isDark
-                              ? AppColors.darkTextTertiary
-                              : AppColors.textTertiary,
-                          labelColor: isDark
-                              ? AppColors.darkTextSecondary
-                              : AppColors.textSecondary,
-                          labelBackground: isDark
-                              ? AppColors.darkSurface
-                              : Colors.white,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanUpdate: (details) {
+                // 正在拖动节点时，画面不跟着平移，避免节点和画布同时移动
+                if (_activeNodeId != null) return;
+                setState(() {
+                  _pan += details.delta;
+                });
+              },
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: Transform.translate(
+                      offset: _pan,
+                      child: SizedBox(
+                        width: width,
+                        height: height,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: CustomPaint(
+                                painter: _EdgePainter(
+                                  edges: widget.edges,
+                                  positions: positions,
+                                  nodeWidth: _nodeWidth,
+                                  nodeHeight: _nodeHeight,
+                                  lineColor: isDark
+                                      ? AppColors.darkTextTertiary
+                                      : AppColors.textTertiary,
+                                  labelColor: isDark
+                                      ? AppColors.darkTextSecondary
+                                      : AppColors.textSecondary,
+                                  labelBackground: isDark
+                                      ? AppColors.darkSurface
+                                      : Colors.white,
+                                ),
+                              ),
+                            ),
+                            for (final node in widget.nodes)
+                              Positioned(
+                                left: positions[node.id]!.dx + _padding,
+                                top: positions[node.id]!.dy + _padding,
+                                width: _nodeWidth,
+                                height: _nodeHeight,
+                                child: _draggableNode(
+                                  node,
+                                  widget.onTapNode == null || !node.tappable
+                                      ? null
+                                      : () => widget.onTapNode!(node),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
-                    for (final node in widget.nodes)
-                      Positioned(
-                        left: positions[node.id]!.dx + _padding,
-                        top: positions[node.id]!.dy + _padding,
-                        width: _nodeWidth,
-                        height: _nodeHeight,
-                        child: _GraphNodeCard(
-                          node: node,
-                          onTap: widget.onTapNode == null || !node.tappable
-                              ? null
-                              : () => widget.onTapNode!(node),
-                          onDragUpdate: widget.onMoveNode == null
-                              ? null
-                              : (delta) {
-                                  final scale =
-                                      _transform.value.getMaxScaleOnAxis();
-                                  setState(() {
-                                    final current = positions[node.id]!;
-                                    _dragging[node.id] = current +
-                                        Offset(delta.dx / scale, delta.dy / scale);
-                                  });
-                                },
-                          onDragEnd: widget.onMoveNode == null
-                              ? null
-                              : () {
-                                  final moved = _dragging[node.id];
-                                  if (moved == null) return;
-                                  widget.onMoveNode!(
-                                    node,
-                                    KnowledgePoint(moved.dx, moved.dy),
-                                  );
-                                },
-                        ),
-                      ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             widget.hint,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
               color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
@@ -234,17 +251,10 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
 }
 
 class _GraphNodeCard extends StatelessWidget {
-  const _GraphNodeCard({
-    required this.node,
-    this.onTap,
-    this.onDragUpdate,
-    this.onDragEnd,
-  });
+  const _GraphNodeCard({required this.node, this.onTap});
 
   final KnowledgeGraphNode node;
   final VoidCallback? onTap;
-  final ValueChanged<Offset>? onDragUpdate;
-  final VoidCallback? onDragEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -299,10 +309,6 @@ class _GraphNodeCard extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      onPanUpdate: onDragUpdate == null
-          ? null
-          : (details) => onDragUpdate!(details.delta),
-      onPanEnd: onDragEnd == null ? null : (_) => onDragEnd!(),
       child: card,
     );
   }

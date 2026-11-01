@@ -4,6 +4,7 @@ import '../../../design/design.dart';
 import '../controllers/project_knowledge_controller.dart';
 import '../models/knowledge_models.dart';
 import '../widgets/knowledge_graph.dart';
+import '../widgets/knowledge_state_container.dart';
 import '../widgets/summary_sheet.dart';
 
 /// 项目知识空间（“项目知识”）：读取团队共享资料、授权管理、
@@ -91,10 +92,12 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
           return const Center(child: AppLoading());
         }
         if (controller.error != null && controller.pages.isEmpty) {
-          return AppErrorState(
-            title: controller.networkError ? '网络连接异常' : '项目知识读取失败',
-            message: controller.error!,
-            onRetry: controller.load,
+          return KnowledgeStateContainer(
+            child: AppErrorState(
+              title: controller.networkError ? '网络连接异常' : '项目知识读取失败',
+              message: controller.error!,
+              onRetry: controller.load,
+            ),
           );
         }
         return RefreshIndicator(
