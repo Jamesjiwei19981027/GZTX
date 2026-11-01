@@ -224,7 +224,12 @@ class MeTestHarness {
   }
 
   /// 统一的组件测试外壳（含 Provider 与中文本地化）
-  Widget wrap(Widget child, {ThemeData? theme, TextScaler? textScaler}) {
+  Widget wrap(
+    Widget child, {
+    ThemeData? theme,
+    TextScaler? textScaler,
+    Size size = const Size(390, 844),
+  }) {
     return ChangeNotifierProvider<AuthState>.value(
       value: authState,
       child: MaterialApp(
@@ -237,7 +242,7 @@ class MeTestHarness {
         supportedLocales: const [Locale('zh', 'CN')],
         home: MediaQuery(
           data: MediaQueryData(
-            size: const Size(390, 844),
+            size: size,
             textScaler: textScaler ?? TextScaler.noScaling,
           ),
           child: MeScreenAppearance(child: child),

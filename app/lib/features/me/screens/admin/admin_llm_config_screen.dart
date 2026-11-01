@@ -93,7 +93,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
       setState(() {
         _admin = access;
         _config = config;
-        _provider = config.provider.isEmpty ? 'openai' : config.provider;
+        _provider = config.provider.isEmpty ? 'fake' : config.provider;
         _baseUrlController.text = config.baseUrl;
         _modelController.text = config.model;
         _enabled = config.enabled;
@@ -139,11 +139,12 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
       setState(() => _errorMessage = '调用模型名称为必填项');
       return;
     }
-    // 地址留空时按厂商预设补默认地址；预设也没有默认值则必须手填
+    // 地址留空时按厂商预设补默认地址；预设也没有默认值则必须手填，
+    // 但本地桩（fake）后端本来就接受空地址，不能因此拦下保存
     var baseUrl = _baseUrlController.text.trim();
     if (baseUrl.isEmpty) {
       baseUrl = _presetValue(_provider, 'default_base_url');
-      if (baseUrl.isEmpty) {
+      if (baseUrl.isEmpty && _providerNeedsBaseUrl(_provider)) {
         setState(
           () => _errorMessage = '请填写 API Base URL（当前提供商没有内置默认地址）',
         );
@@ -193,6 +194,14 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
       if (value is String) return value.trim();
     }
     return '';
+  }
+
+  /// 后端 `ResolvedLlm.is_usable()` 只对云端厂商（以及本地 ollama）要求地址：
+  /// `fake`（本地桩，也是后端默认配置）与空 provider 一律接受空地址，
+  /// `custom` 等没有内置默认地址的厂商仍然必须手填。
+  bool _providerNeedsBaseUrl(String provider) {
+    final id = provider.trim();
+    return id.isNotEmpty && id != 'fake';
   }
 
   /// 切换厂商时同步换掉上一家的默认地址 / 模型，避免出现“新厂商 + 旧地址”的坏配置
@@ -341,7 +350,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                           const SizedBox(height: AppSpacing.md),
                           const MeFieldLabel(
                             label: 'API Base URL',
-                            helper: '留空则使用该提供商的内置默认地址；没有默认地址时必须填写',
+                            helper: '留空则使用该提供商的内置默认地址；本地桩（Fake）无需地址',
                           ),
                           AppTextField(
                             key: const Key('admin-llm-base-url'),

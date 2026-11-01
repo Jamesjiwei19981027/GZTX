@@ -13,6 +13,46 @@ import 'me_test_harness.dart';
 
 typedef _AdminPageBuilder = Widget Function(MeTestHarness harness);
 
+/// 与后端 `app/services/llm_settings.py::LLM_PROVIDER_PRESETS` 保持一致
+const Map<String, dynamic> _llmProviderPresets = {
+  'fake': {
+    'label': 'Fake（本地桩，无需密钥）',
+    'default_base_url': '',
+    'default_model': 'fake',
+    'needs_key': false,
+  },
+  'openai': {
+    'label': 'OpenAI',
+    'default_base_url': 'https://api.openai.com/v1',
+    'default_model': 'gpt-4o-mini',
+    'needs_key': true,
+  },
+  'openai_compatible': {
+    'label': 'OpenAI 兼容（DeepSeek / 通义 / 自建）',
+    'default_base_url': 'https://api.deepseek.com/v1',
+    'default_model': 'deepseek-chat',
+    'needs_key': true,
+  },
+  'azure_openai': {
+    'label': 'Azure OpenAI',
+    'default_base_url': 'https://YOUR_RESOURCE.openai.azure.com',
+    'default_model': 'gpt-4o-mini',
+    'needs_key': true,
+  },
+  'ollama': {
+    'label': 'Ollama（本地）',
+    'default_base_url': 'http://127.0.0.1:11434/v1',
+    'default_model': 'llama3.2',
+    'needs_key': false,
+  },
+  'custom': {
+    'label': '自定义',
+    'default_base_url': '',
+    'default_model': '',
+    'needs_key': true,
+  },
+};
+
 const List<(String, _AdminPageBuilder)> _adminPages = [
   ('通知渠道配置', _notifyChannels),
   ('AI 模型配置', _llmConfig),
@@ -164,6 +204,55 @@ void main() {
 
     expect(find.textContaining('请填写 API Base URL'), findsOneWidget);
     expect(harness.hasRequest('PUT', '/companies/1/llm'), isFalse);
+  });
+
+  testWidgets('AI 模型配置：后端默认的本地桩配置（地址为空）也能保存并改动开关', (tester) async {
+    MeTestHarness.useTallSurface(tester);
+    final harness = await MeTestHarness.create(isAdmin: true);
+    // 后端 company_llm_public 在未配置时的默认返回：provider=fake、base_url=''
+    harness.helper.whenGet('/companies/1/llm', {
+      'provider': 'fake',
+      'base_url': '',
+      'model': 'fake',
+      'temperature': 0.2,
+      'max_tokens': 1024,
+      'enabled': true,
+      'use_for_judge': true,
+      'use_for_agent': true,
+      'has_api_key': false,
+      'configured': true,
+      'source': 'company',
+      'presets': _llmProviderPresets,
+    });
+    harness.helper.whenPut('/companies/1/llm', {
+      'provider': 'fake',
+      'base_url': '',
+      'model': 'fake',
+      'enabled': false,
+      'use_for_judge': true,
+      'use_for_agent': true,
+      'has_api_key': false,
+      'configured': true,
+      'presets': _llmProviderPresets,
+    });
+
+    await tester.pumpWidget(harness.wrap(_llmConfig(harness)));
+    await tester.pumpAndSettle();
+
+    // 本地桩在后端 is_usable() 里接受空地址，前端不能因此拦下保存
+    await tester.tap(find.byType(AppSwitch).first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存模型配置'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('请填写 API Base URL'), findsNothing);
+    final put = harness.lastRequest('PUT', '/companies/1/llm');
+    final body = put.body as Map;
+    expect(body['provider'], 'fake');
+    expect(body['base_url'], '');
+    expect(body['model'], 'fake');
+    expect(body['enabled'], isFalse);
+    expect(find.text('AI 大模型接入参数已保存'), findsOneWidget);
   });
 
   testWidgets('AI 模型配置：切换厂商时地址与模型一起换成该厂商预设', (tester) async {
@@ -365,6 +454,50 @@ void main() {
 
     expect(find.textContaining('无需 API Key'), findsOneWidget);
     expect(find.byKey(const Key('admin-model-key')), findsNothing);
+  });
+
+  testWidgets('模型密钥：320 窄屏 + 超长模型名不溢出，也不挤掉厂商与地址', (tester) async {
+    final harness = await MeTestHarness.create(isAdmin: true);
+    harness.helper.whenGet('/companies/1/llm', {
+      'provider': 'openai_compatible',
+      'base_url': 'https://api.fireworks.ai/inference/v1',
+      'model': 'accounts/fireworks/models/llama-v3p1-405b-instruct',
+      'enabled': true,
+      'use_for_judge': true,
+      'use_for_agent': true,
+      'has_api_key': true,
+      'configured': true,
+      'presets': _llmProviderPresets,
+    });
+
+    tester.view.physicalSize = const Size(320, 1400);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(
+      harness.wrap(_modelKeys(harness), size: const Size(320, 1400)),
+    );
+    await tester.pumpAndSettle();
+
+    // 长模型名必须换行/省略，不能在厂商信息行里 RenderFlex overflow
+    expect(tester.takeException(), isNull);
+    expect(find.text('OpenAI 兼容（DeepSeek / 通义 / 自建）'), findsOneWidget);
+    expect(find.text('https://api.fireworks.ai/inference/v1'), findsOneWidget);
+    expect(
+      find.textContaining('accounts/fireworks/models/llama-v3p1-405b-instruct'),
+      findsOneWidget,
+    );
+
+    // 系统字号 200% 时同样不能溢出
+    await tester.pumpWidget(
+      harness.wrap(
+        _modelKeys(harness),
+        size: const Size(320, 1400),
+        textScaler: const TextScaler.linear(2),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('组织与登录集成：按真实字段展示配置状态', (tester) async {

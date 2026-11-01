@@ -255,6 +255,10 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
   }
 
   Widget _providerField(bool isDark) {
+    final secondaryStyle = TextStyle(
+      fontSize: 11.5,
+      color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+    );
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
@@ -268,43 +272,29 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
           color: isDark ? AppColors.darkBorder : AppColors.border,
         ),
       ),
-      child: Row(
+      // 厂商 / 地址 / 模型纵向排列：模型名可能很长（如
+      // accounts/fireworks/models/llama-v3p1-405b-instruct），
+      // 并排会挤爆 320 宽屏幕，这里限制在卡片宽度内换行、超出省略。
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _providerDisplay(_activeProvider),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _config.baseUrl.isEmpty ? '未配置 API 地址' : _config.baseUrl,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    color: isDark
-                        ? AppColors.darkTextSecondary
-                        : AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: AppSpacing.sm),
           Text(
-            _config.model.isEmpty ? '未填写模型' : _config.model,
-            style: TextStyle(
-              fontSize: 11.5,
-              color: isDark
-                  ? AppColors.darkTextSecondary
-                  : AppColors.textSecondary,
-            ),
+            _providerDisplay(_activeProvider),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _config.baseUrl.isEmpty ? '未配置 API 地址' : _config.baseUrl,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: secondaryStyle,
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _config.model.isEmpty ? '未填写模型' : '调用模型：${_config.model}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: secondaryStyle,
           ),
         ],
       ),
