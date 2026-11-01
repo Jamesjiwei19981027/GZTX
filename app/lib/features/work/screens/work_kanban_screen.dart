@@ -246,7 +246,11 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
                                 await _load();
                               },
                               onMoveTask: _move,
-                              onCreate: () => context.push('/work/task-edit'),
+                              onCreate: () async {
+                                await context.push('/work/task-edit');
+                                if (!mounted) return;
+                                await _load();
+                              },
                             ),
                           ),
                           if (entry.key != kanbanColumns.keys.last)

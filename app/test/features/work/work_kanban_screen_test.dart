@@ -182,4 +182,52 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets('看板空列点击在此状态新建，返回后自动刷新看板数据', (tester) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final harness = await WorkTestHarness.create();
+    // 清空所有已完成任务，确保已完成列为空
+    harness.api.tasks.removeWhere((t) => t.status == 2);
+
+    await tester.pumpWidget(harness.wrap(
+      WorkKanbanScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('暂无「已完成」事项'), findsOneWidget);
+    final createBtn = find.widgetWithText(AppButton, '在此状态新建');
+    expect(createBtn, findsAtLeastNWidgets(1));
+
+    // 模拟在路由返回时向 api 添加了一条新完成任务
+    // 点击按钮前记录加载次数或直接验证返回后数据更新
+    final createBtnInDoneColumn = find.descendant(
+      of: find.ancestor(of: find.text('暂无「已完成」事项'), matching: find.byType(DragTarget<int>)),
+      matching: find.text('在此状态新建'),
+    );
+    expect(createBtnInDoneColumn, findsOneWidget);
+
+    await tester.tap(createBtnInDoneColumn);
+    await tester.pumpAndSettle();
+
+    expect(find.text('任务编辑目标页'), findsOneWidget);
+
+    // 模拟在编辑页新建了一条已完成任务并返回看板
+    harness.api.tasks.add(WorkTask.fromJson(buildTaskJson(
+      id: 9991,
+      title: '空列新建的新完成任务',
+      status: 2,
+    )));
+
+    final dynamic nav = tester.state(find.byType(Navigator).last);
+    nav.pop();
+    await tester.pumpAndSettle();
+
+    // 验证看板已自动刷新，已完成列展示新任务
+    expect(find.text('空列新建的新完成任务'), findsOneWidget);
+  });
 }
