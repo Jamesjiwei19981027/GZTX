@@ -14,10 +14,16 @@ import '../data/work_models.dart';
 import '../widgets/work_widgets.dart';
 
 class WorkStatisticsScreen extends StatefulWidget {
-  const WorkStatisticsScreen({super.key, this.api, this.authState});
+  const WorkStatisticsScreen({
+    super.key,
+    this.api,
+    this.authState,
+    this.initialPeriod = 'week',
+  });
 
   final WorkApi? api;
   final AuthState? authState;
+  final String initialPeriod;
 
   @override
   State<WorkStatisticsScreen> createState() => _WorkStatisticsScreenState();
@@ -26,7 +32,7 @@ class WorkStatisticsScreen extends StatefulWidget {
 class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
   bool _bootstrapped = false;
 
-  String _period = 'week';
+  late String _period = widget.initialPeriod;
   TaskStatsSummary? _stats;
   TaskTrend? _trend;
   List<WorkTask> _tasks = const [];
