@@ -729,6 +729,19 @@ class AxisCurvePainter extends CustomPainter {
 
   Offset _deltaFor(int id) => liveDeltas[id] ?? Offset.zero;
 
+  /// 连线终点跟随哪张卡片：
+  /// - 人员→人员：终点是子卡片，跟随子卡片位移；
+  /// - 人员→事项：终点是事项卡片，拖人员时事项整体跟随人员，拖事项时跟随事项本身。
+  static Offset connectionEndDelta(
+    AxisConnection connection,
+    Map<int, Offset> liveDeltas,
+  ) {
+    if (connection.type == AxisConnectionType.personToMatter) {
+      return liveDeltas[connection.fromId] ?? Offset.zero;
+    }
+    return liveDeltas[connection.toId] ?? Offset.zero;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final spineColor =
@@ -789,7 +802,7 @@ class AxisCurvePainter extends CustomPainter {
 
     for (final connection in layout.connections) {
       final start = connection.start + _deltaFor(connection.fromId);
-      final end = connection.end + _deltaFor(connection.toId);
+      final end = connection.end + connectionEndDelta(connection, liveDeltas);
       final path = Path();
       if (orientation == AxisOrientation.vertical) {
         final bow = connection.type == AxisConnectionType.personToPerson

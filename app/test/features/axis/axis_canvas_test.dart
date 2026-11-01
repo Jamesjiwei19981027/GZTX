@@ -41,6 +41,38 @@ void main() {
     return layout;
   }
 
+  test('事项连线终点跟随：拖人员时事项连线整体跟随，拖事项时只动事项端', () {
+    final personToMatter = layout.connections.firstWhere(
+      (c) => c.type == AxisConnectionType.personToMatter,
+    );
+    expect(
+      AxisCurvePainter.connectionEndDelta(
+        personToMatter,
+        {102: const Offset(10, 20)},
+      ),
+      const Offset(10, 20),
+    );
+    expect(
+      AxisCurvePainter.connectionEndDelta(
+        personToMatter,
+        {201: const Offset(5, 6)},
+      ),
+      Offset.zero,
+      reason: '拖动事项本身时，人员端不动；事项端由自己的位移负责',
+    );
+
+    final personToPerson = layout.connections.firstWhere(
+      (c) => c.type == AxisConnectionType.personToPerson,
+    );
+    expect(
+      AxisCurvePainter.connectionEndDelta(
+        personToPerson,
+        {personToPerson.toId: const Offset(8, 9)},
+      ),
+      const Offset(8, 9),
+    );
+  });
+
   testWidgets('拖动人员卡片到另一位人员上：触发调整上级（人挂人）', (tester) async {
     tester.view.physicalSize = const Size(1100, 1400);
     tester.view.devicePixelRatio = 1.0;
