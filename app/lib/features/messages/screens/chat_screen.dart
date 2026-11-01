@@ -395,7 +395,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       }
       return AppErrorState(
         message: controller.error ?? '加载失败，请稍后重试',
-        onRetry: controller.load,
+        onRetry: () {
+          controller.load();
+          controller.startPolling();
+        },
       );
     }
     if (controller.messages.isEmpty) {

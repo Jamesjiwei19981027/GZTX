@@ -233,7 +233,11 @@ class CallController extends ChangeNotifier {
     _loading = false;
     _safeNotify();
 
-    await _createSession();
+    // 未配置信令/穿透服务时不创建会话：那通电话本来就无法建立，
+    // 建一条“通话记录”只会误导用户（与网页版偏差点见回传报告）。
+    if (_config?.configured == true) {
+      await _createSession();
+    }
   }
 
   Future<void> _createSession() async {

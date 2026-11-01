@@ -126,6 +126,9 @@ class ChatController extends ChangeNotifier {
         _state = ChatLoadState.error;
         _error = message;
         _forbidden = forbidden;
+        // 首屏就失败（尤其无权限）时停止轮询，避免对一个打不开的会话持续发请求；
+        // 用户点“重试”或页面重新进入时再启动。
+        stopPolling();
       }
       _safeNotify();
     }

@@ -53,7 +53,8 @@ class _CallScreenState extends State<CallScreen> {
     _api = api;
     _companyId = companyId;
     _controller?.dispose();
-    final repository = widget.repository ?? MessagesRepository(api ?? ApiClient());
+    final repository =
+        widget.repository ?? MessagesRepository(api ?? ApiClient());
     _controller = CallController(
       repository: repository,
       companyId: companyId,
@@ -112,7 +113,9 @@ class _CallScreenState extends State<CallScreen> {
                       children: [
                         _topBar(context),
                         Expanded(child: _center(context, controller)),
-                        if (controller.configured) _controls(context, controller),
+                        if (controller.configured &&
+                            widget.conversationId != null)
+                          _controls(context, controller),
                       ],
                     ),
                   ),
@@ -167,8 +170,8 @@ class _CallScreenState extends State<CallScreen> {
     if (!controller.configured) {
       return _noticePanel(
         title: '音视频服务未配置',
-        description: controller.configError ??
-            '当前企业环境未配置 STUN/TURN 穿透服务器，无法建立实时音视频会话。',
+        description:
+            controller.configError ?? '当前企业环境未配置 STUN/TURN 穿透服务器，无法建立实时音视频会话。',
         extra: controller.sessionError,
         tone: _PanelTone.error,
       );
@@ -231,7 +234,9 @@ class _CallScreenState extends State<CallScreen> {
           Padding(
             padding: const EdgeInsets.only(top: AppSpacing.md),
             child: Text(
-              session.ended ? '通话已结束（会话 #${session.id}）' : '通话会话 #${session.id} 已创建',
+              session.ended
+                  ? '通话已结束（会话 #${session.id}）'
+                  : '通话会话 #${session.id} 已创建',
               style: const TextStyle(fontSize: 11, color: Color(0xFF8E97A6)),
             ),
           )
@@ -262,94 +267,100 @@ class _CallScreenState extends State<CallScreen> {
     required _PanelTone tone,
   }) {
     final isError = tone == _PanelTone.error;
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 78,
-            height: 78,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: isError ? const Color(0xFF3A1216) : const Color(0xFF1B2434),
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: isError ? const Color(0xFF7F1D1D) : const Color(0xFF2F3A4C),
+    return Center(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 78,
+              height: 78,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color:
+                    isError ? const Color(0xFF3A1216) : const Color(0xFF1B2434),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: isError
+                      ? const Color(0xFF7F1D1D)
+                      : const Color(0xFF2F3A4C),
+                ),
+              ),
+              child: AppIcon(
+                'phone',
+                size: 34,
+                color:
+                    isError ? const Color(0xFFF87171) : const Color(0xFF8E97A6),
               ),
             ),
-            child: AppIcon(
-              'phone',
-              size: 34,
-              color: isError ? const Color(0xFFF87171) : const Color(0xFF8E97A6),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              title,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          Text(
-            title,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Container(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            decoration: BoxDecoration(
-              color: const Color(0xFF111827),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              border: Border.all(color: const Color(0xFF1F2937)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '真实诊断信息：',
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFFD1D5DB),
+            const SizedBox(height: AppSpacing.sm),
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111827),
+                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                border: Border.all(color: const Color(0xFF1F2937)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '真实诊断信息：',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFFD1D5DB),
+                    ),
                   ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.6,
-                    color: Color(0xFF9CA3AF),
-                  ),
-                ),
-                if (extra != null && extra.trim().isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    extra,
+                    description,
                     style: const TextStyle(
                       fontSize: 12,
                       height: 1.6,
-                      color: Color(0xFFF87171),
+                      color: Color(0xFF9CA3AF),
                     ),
                   ),
+                  if (extra != null && extra.trim().isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      extra,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.6,
+                        color: Color(0xFFF87171),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.sm),
+                  const Text(
+                    '为避免误导，这里不会显示伪造的“通话中”或虚假振铃。',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                  ),
                 ],
-                const SizedBox(height: AppSpacing.sm),
-                const Text(
-                  '为避免误导，这里不会显示伪造的“通话中”或虚假振铃。',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
-                ),
-              ],
+              ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          SizedBox(
-            width: double.infinity,
-            child: AppButton(
-              label: '返回会话',
-              isFullWidth: true,
-              onPressed: _leaving ? null : _hangUp,
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              child: AppButton(
+                label: '返回会话',
+                isFullWidth: true,
+                onPressed: _leaving ? null : _hangUp,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

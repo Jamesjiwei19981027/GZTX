@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:worktodo_app/core/api/api_client.dart';
 import 'package:worktodo_app/features/messages/data/message_file_transfer.dart';
 import 'package:worktodo_app/features/messages/data/messages_repository.dart';
 import 'package:worktodo_app/features/messages/models/messages_models.dart';
@@ -418,6 +417,115 @@ void main() {
       find.textContaining('当前安装包尚未集成系统文件选择组件'),
       findsOneWidget,
     );
+
+    await tester.pump(const Duration(seconds: 3));
+    await disposeMessagesTree(tester);
+  });
+
+  testWidgets('私聊：发送文字走会话接口，自己与对方的消息分列两侧', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet(
+      '/conversations/55/messages',
+      {
+        'items': [
+          MessagesFixtures.directMessage(
+            id: 8001,
+            userId: 21,
+            senderName: '李四',
+            body: '评审改到明天上午',
+          ),
+        ],
+      },
+      query: {'page': '1', 'page_size': '100'},
+    );
+    helper.whenPost(
+      '/conversations/55/messages',
+      MessagesFixtures.directMessage(
+        id: 8002,
+        userId: 11,
+        senderName: '张三',
+        body: '好的，我调整一下日程',
+      ),
+    );
+
+    await pumpMessagesScreen(
+      tester,
+      ChatScreen(
+        repository: MessagesRepository(helper.buildClient()),
+        scopeType: 'direct',
+        scopeId: 55,
+        name: '李四',
+        currentUserId: 11,
+        companyId: 1,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('评审改到明天上午'), findsOneWidget);
+    await tester.enterText(find.byType(EditableText), '好的，我调整一下日程');
+    await tester.pump();
+    await tester.tap(find.text('发送'));
+    await tester.pumpAndSettle();
+
+    expect(
+      requests(helper, 'POST', '/conversations/55/messages').single.body,
+      {'body': '好的，我调整一下日程'},
+    );
+    expect(find.text('好的，我调整一下日程'), findsOneWidget);
+
+    await disposeMessagesTree(tester);
+  });
+
+  testWidgets('私聊：文件按会话范围上传并随消息提交', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet(
+      '/conversations/55/messages',
+      {'items': <Map<String, dynamic>>[], 'page': 1, 'page_size': 100},
+      query: {'page': '1', 'page_size': '100'},
+    );
+    helper.whenPost(
+      '/conversations/55/messages',
+      MessagesFixtures.directMessage(
+        id: 8003,
+        userId: 11,
+        senderName: '张三',
+        body: '',
+        attachments: [MessagesFixtures.fileAttachment],
+      ),
+    );
+    final picker = _FakePicker(
+      PickedMessageFile(
+        name: '需求说明.pdf',
+        mimeType: 'application/pdf',
+        bytes: Uint8List.fromList([9, 9, 9]),
+      ),
+    );
+    final uploader = _FakeUploader();
+
+    await pumpMessagesScreen(
+      tester,
+      ChatScreen(
+        repository: MessagesRepository(helper.buildClient()),
+        scopeType: 'direct',
+        scopeId: 55,
+        name: '李四',
+        currentUserId: 11,
+        companyId: 1,
+        picker: picker,
+        uploader: uploader,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('发送文件'));
+    await tester.pumpAndSettle();
+
+    expect(uploader.uploadedScopeType, 'conversation');
+    expect(uploader.uploadedScopeId, 55);
+    final body = requests(helper, 'POST', '/conversations/55/messages').single.body
+        as Map<String, dynamic>;
+    expect(body['file_ids'], [301]);
+    expect(find.text('需求说明.pdf'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));
     await disposeMessagesTree(tester);
