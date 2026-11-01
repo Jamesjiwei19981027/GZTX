@@ -73,13 +73,19 @@ void main() {
       expect(find.text('任务列表 (T02)'), findsOneWidget);
       expect(find.text('工作 (T02)'), findsNothing);
 
-      // 3. 切换到 Tab 1: 人轴
-      await tester.tap(find.text('人轴'));
+      // 3. 切换到 Tab 1: 人轴（断言路由地址，不依赖人轴页文案）
+      await tester.tap(find.descendant(
+        of: find.byType(AppTabBar),
+        matching: find.text('人轴'),
+      ));
       await tester.pumpAndSettle();
-      expect(find.text('人轴 (T04)'), findsOneWidget);
+      expect(appRouter.router.routerDelegate.currentConfiguration.uri.path, '/axis');
 
       // 4. 切回 Tab 0: 工作，断言任务列表二级页依然存在（页面栈保留真实验证）
-      await tester.tap(find.text('工作'));
+      await tester.tap(find.descendant(
+        of: find.byType(AppTabBar),
+        matching: find.text('工作'),
+      ));
       await tester.pumpAndSettle();
       expect(find.text('任务列表 (T02)'), findsOneWidget);
       expect(find.text('工作 (T02)'), findsNothing);
