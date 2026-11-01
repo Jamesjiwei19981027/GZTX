@@ -33,9 +33,7 @@ class AuthGateSession {
 
 /// 全局验证门 + 手机号一周提醒的挂载宿主。
 ///
-/// **当前状态：本任务未挂载**（`main.dart` 属于 T00 底座，T01 不得修改）。
-///
-/// 计划用法（一行改动，见回传报告的“共享改动申请”）：
+/// 已由 `main.dart` 挂载在 `MaterialApp.router` 的 `builder` 上：
 /// ```dart
 /// MaterialApp.router(
 ///   builder: (context, child) => AuthGateHost(
@@ -78,6 +76,50 @@ class AuthGateHost extends StatefulWidget {
 class _AuthGateHostState extends State<AuthGateHost> {
   PhoneReminderStorage? _storageCache;
 
+  /// 宿主自建的 Overlay 条目（child 挂在里面）。
+  ///
+  /// `MaterialApp.router` 的 builder 位于根 Navigator 之外，而 Overlay 是 Navigator
+  /// 的子节点、不是它的祖先，所以 builder 的 context 与 `navigatorKey.currentContext`
+  /// 都找不到 Overlay：`showAppToast` 里的 `Overlay.of()` 会抛 “No Overlay widget
+  /// found”，提示弹不出来还会把启动流程打断。这里自建一层 Overlay，
+  /// 弹提示时改用该条目内部的 context（见 [_toastHostKey]）。
+  OverlayEntry? _hostEntry;
+
+  /// 自建 Overlay 条目内部的 context，[showAppToast] 靠它找到上面这层 Overlay
+  final GlobalKey _toastHostKey = GlobalKey(debugLabel: 'authGateToastHost');
+
+  @override
+  void initState() {
+    super.initState();
+    _hostEntry = OverlayEntry(
+      // 每次构建都读最新的 widget.child，MaterialApp 重建时会传入新的 child
+      builder: (_) => KeyedSubtree(key: _toastHostKey, child: widget.child),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant AuthGateHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // child 是 MaterialApp 每次重建新给的实例，条目要重建才能跟上
+    if (!identical(oldWidget.child, widget.child)) {
+      _hostEntry?.markNeedsBuild();
+    }
+  }
+
+  @override
+  void dispose() {
+    final entry = _hostEntry;
+    _hostEntry = null;
+    if (entry != null) {
+      // 卸载顺序是“先子树、后父 State”，此处自建 Overlay 可能已经拆掉。
+      // Overlay 未挂载时 remove() 只断开 entry 与 Overlay 的关联，不触发重建，
+      // 因此可以无条件调用，之后才允许 dispose。
+      entry.remove();
+      entry.dispose();
+    }
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthState>();
@@ -93,7 +135,7 @@ class _AuthGateHostState extends State<AuthGateHost> {
       AuthGateSession.reset();
     }
 
-    return widget.child;
+    return Overlay(initialEntries: [_hostEntry!]);
   }
 
   Future<void> _runGate(AuthState auth) async {
@@ -101,7 +143,8 @@ class _AuthGateHostState extends State<AuthGateHost> {
     final api = widget.api ?? AuthApi(auth.api);
 
     final VerificationStatus status;
-    try {      status = await api.fetchVerificationStatus();
+    try {
+      status = await api.fetchVerificationStatus();
     } catch (e) {
       // 验证状态拿不到时给出可见提示，不静默吞掉
       _showGateError(e);
@@ -131,10 +174,14 @@ class _AuthGateHostState extends State<AuthGateHost> {
   }
 
   void _showGateError(Object error) {
-    final navContext = widget.navigatorKey.currentContext;
-    if (navContext == null || !navContext.mounted) return;
+    // 必须用自建 Overlay 条目里的 context：根 Navigator 自身的 context 上方没有
+    // Overlay，拿它调 Overlay.of 会直接抛 “No Overlay widget found”。
+    // Navigator 的 context 作为兜底（child 现在也挂在自建 Overlay 里）。
+    final toastContext =
+        _toastHostKey.currentContext ?? widget.navigatorKey.currentContext;
+    if (toastContext == null || !toastContext.mounted) return;
     showAppToast(
-      navContext,
+      toastContext,
       '验证状态加载失败：${describeAuthError(error)}',
       type: ToastType.warning,
     );
