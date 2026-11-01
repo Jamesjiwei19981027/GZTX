@@ -192,7 +192,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       warning ??= reportErrorMessage(cause, fallback: '未能读取本地草稿');
     }
 
-    // 获取服务端汇报草稿或最近汇报以解析人轴真实直属上级
+    // 获取服务端汇报草稿以解析人轴真实直属上级
     AgentReport? serverDraft;
     int? resolvedParentUserId;
     try {
@@ -202,14 +202,9 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
               report.status == 'draft' && report.summaryText.trim().isNotEmpty)
           .toList()
         ..sort((a, b) => b.id.compareTo(a.id));
-      if (drafts.isNotEmpty && local == null) {
+      if (drafts.isNotEmpty) {
         serverDraft = drafts.first;
-      }
-      if (serverDraft != null) {
         resolvedParentUserId = serverDraft.parentUserId;
-      } else if (mine.isNotEmpty) {
-        final sorted = List<AgentReport>.from(mine)..sort((a, b) => b.id.compareTo(a.id));
-        resolvedParentUserId = sorted.first.parentUserId;
       }
     } catch (cause) {
       if (local == null) {
@@ -220,11 +215,30 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     if (_disposed || version != _version) return;
 
     int? myBindingId;
+    int? projectLeaderId;
     for (final binding in bindings) {
       if (binding.role == 'member' && binding.userId == userId) {
         myBindingId = binding.id;
       }
+      if (binding.isProjectAgent &&
+          binding.userId != null &&
+          binding.userId != userId) {
+        projectLeaderId = binding.userId;
+      }
     }
+
+    if (projectLeaderId == null) {
+      const pmRoles = {'pm', 'owner', 'admin', 'manager'};
+      for (final member in members) {
+        final role = (member.role ?? '').toLowerCase();
+        if (pmRoles.contains(role) && member.userId != userId) {
+          projectLeaderId = member.userId;
+          break;
+        }
+      }
+    }
+
+    resolvedParentUserId ??= projectLeaderId;
 
     final text = local?.summary ?? serverDraft?.summaryText ?? '';
     final parts = text.split('\n\n');
@@ -638,7 +652,9 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${supervisor.role ?? '人轴直属领导'} · 人轴实时判定',
+                  supervisor.isUnassigned
+                      ? '提交时由系统确定接收人'
+                      : '${supervisor.role ?? '人轴直属领导'} · 人轴实时判定',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),

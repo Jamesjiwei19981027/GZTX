@@ -256,6 +256,108 @@ void main() {
       expect(postPaths.where((p) => p.endsWith('/agent-reports')), isEmpty);
     });
 
+    testWidgets('历史汇报接收人与当前上级不同时，编辑页显示当前上级 (P2)', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      // 用户本地有草稿（例如调岗后写的新汇报）
+      await harness.draftStore.save(
+        userId: ReportsTestFixtures.currentUserId,
+        projectId: ReportsTestFixtures.projectId,
+        summary: '向当前项目经理汇报新进展',
+      );
+      // /reports/my 中只有过去的已提交历史汇报（当时接收人为旧领导编号 30）
+      harness.helper.whenGet(
+        '/reports/my',
+        {
+          'items': [
+            {
+              ...ReportsTestFixtures.submittedReportJson,
+              'parent_user_id': 30,
+            },
+          ],
+        },
+        query: {'project_id': '${ReportsTestFixtures.projectId}'},
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证不应复用历史汇报中的旧领导（编号 30），而是显示当前人轴上级直属领导李四
+      expect(find.text('直属领导（编号 30）'), findsNothing);
+      expect(find.text('直属领导李四'), findsOneWidget);
+    });
+
+    testWidgets('未解析到直属上级时显示未指定直属领导及提交时由系统确定接收人 (P2)', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      // bindings 中没有 project 角色，只有当前用户
+      harness.helper.whenGet(
+        '/projects/${ReportsTestFixtures.projectId}/report-agents/bindings',
+        {
+          'items': [
+            {
+              'id': 101,
+              'company_id': ReportsTestFixtures.companyId,
+              'project_id': ReportsTestFixtures.projectId,
+              'user_id': ReportsTestFixtures.currentUserId,
+              'agent_definition_id': 1,
+              'role': 'member',
+              'is_active': true,
+              'context_scope': {
+                'company_id': ReportsTestFixtures.companyId,
+                'project_id': ReportsTestFixtures.projectId,
+              },
+            },
+          ],
+        },
+      );
+      // members 中只有当前用户，没有 pm
+      harness.helper.whenGet(
+        '/projects/${ReportsTestFixtures.projectId}/members',
+        {
+          'items': [
+            {
+              'user_id': ReportsTestFixtures.currentUserId,
+              'display_name': '测试下属',
+              'role': 'member',
+              'left_at': null,
+            },
+          ],
+        },
+      );
+      harness.helper.whenGet(
+        '/reports/my',
+        {'items': <Map<String, dynamic>>[]},
+        query: {'project_id': '${ReportsTestFixtures.projectId}'},
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('未指定直属领导'), findsOneWidget);
+      expect(find.text('提交时由系统确定接收人'), findsOneWidget);
+    });
+
     testWidgets('刚输入完未满300毫秒自动保存前切换项目，旧项目草稿被安全保存且不串到新项目 (P2)', (tester) async {
       final harness = await ReportsTestHarness.create();
       final currentUserId = ReportsTestFixtures.currentUserId;
