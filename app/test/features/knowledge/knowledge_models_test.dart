@@ -27,11 +27,13 @@ void main() {
         sourceType: 'project_summary',
       );
       expect(entry.sourceLabel, '项目知识总结');
-      expect(const PersonalKnowledgeEntry(id: 2, title: 't').sourceLabel, '我的笔记');
+      expect(
+          const PersonalKnowledgeEntry(id: 2, title: 't').sourceLabel, '我的笔记');
       const page = ProjectKnowledgePage(id: 1, title: 'p', source: 'llm_wiki');
       expect(page.sourceLabel, 'AI 整理 · 已发布');
       expect(
-        const ProjectKnowledgePage(id: 2, title: 'p', source: 'manual').sourceLabel,
+        const ProjectKnowledgePage(id: 2, title: 'p', source: 'manual')
+            .sourceLabel,
         '项目共享笔记',
       );
     });

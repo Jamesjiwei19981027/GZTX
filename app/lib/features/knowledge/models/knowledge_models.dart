@@ -288,8 +288,7 @@ class ProjectKnowledgePage {
   final String? updatedAt;
 
   /// 网页版 `pageSource`：不使用“wiki”等看不懂的词
-  String get sourceLabel =>
-      source == 'llm_wiki' ? 'AI 整理 · 已发布' : '项目共享笔记';
+  String get sourceLabel => source == 'llm_wiki' ? 'AI 整理 · 已发布' : '项目共享笔记';
 
   /// `meta.facts` 里的来源引用（材料包、原文摘引、行号）
   List<KnowledgePageFact> get facts {

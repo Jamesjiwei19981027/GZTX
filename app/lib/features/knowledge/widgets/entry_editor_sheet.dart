@@ -117,7 +117,8 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
       _submitting = true;
       _error = null;
     });
-    final ok = await widget.onSubmit(title, body, parseKnowledgeTags(_tags.text));
+    final ok =
+        await widget.onSubmit(title, body, parseKnowledgeTags(_tags.text));
     if (!mounted) return;
     setState(() => _submitting = false);
     if (ok) {
@@ -257,145 +258,154 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
     final viewInsets = MediaQuery.viewInsetsOf(context).bottom;
     final busy = _submitting || _deleting;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: viewInsets),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: maxHeight),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.lg,
-            0,
-            AppSpacing.lg,
-            AppSpacing.lg,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      widget.isCreating ? '记一条' : '查看笔记',
-                      style: TextStyle(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w600,
-                        color: isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.textPrimary,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: '关闭',
-                    onPressed: busy ? null : _requestClose,
-                    icon: AppIcon(
-                      'close',
-                      size: 20,
-                      color: isDark
-                          ? AppColors.darkTextSecondary
-                          : AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-              if (entry != null && !widget.isCreating)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                  child: Text(
-                    '${entry.sourceLabel} · 仅自己可见',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? AppColors.darkTextTertiary
-                          : AppColors.textTertiary,
-                    ),
-                  ),
-                ),
-              if (_error != null)
-                Container(
-                  margin: const EdgeInsets.only(bottom: AppSpacing.md),
-                  padding: const EdgeInsets.all(AppSpacing.md),
-                  decoration: BoxDecoration(
-                    color: AppColors.dangerLight,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppIcon('alert', size: 16, color: AppColors.danger),
-                      const SizedBox(width: AppSpacing.sm),
-                      Expanded(
-                        child: Text(
-                          _error!,
-                          style: const TextStyle(
-                            fontSize: 13,
-                            color: AppColors.danger,
-                          ),
+    return PopScope(
+      // 有未保存内容时拦截返回键/系统手势，先确认再关闭
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        await _requestClose();
+      },
+      child: Padding(
+        padding: EdgeInsets.only(bottom: viewInsets),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxHeight),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.lg,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        widget.isCreating ? '记一条' : '查看笔记',
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? AppColors.darkTextPrimary
+                              : AppColors.textPrimary,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: busy ? null : _requestClose,
+                      icon: AppIcon(
+                        'close',
+                        size: 20,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
                 ),
-              AppTextField(
-                controller: _title,
-                label: '标题（可不填）',
-                placeholder: '不填时会从正文生成',
-                enabled: !busy,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              AppTextField(
-                controller: _body,
-                label: '记下想法、经验或资料',
-                placeholder: '写下内容就能保存，稍后可让 AI 整理关联…',
-                minLines: 4,
-                maxLines: 10,
-                enabled: !busy,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              _voiceRow(busy),
-              if (_voiceStatus != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: AppSpacing.xs),
-                  child: Text(
-                    _voiceStatus!,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? AppColors.darkTextSecondary
-                          : AppColors.textSecondary,
+                if (entry != null && !widget.isCreating)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                    child: Text(
+                      '${entry.sourceLabel} · 仅自己可见',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.darkTextTertiary
+                            : AppColors.textTertiary,
+                      ),
                     ),
                   ),
+                if (_error != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                    padding: const EdgeInsets.all(AppSpacing.md),
+                    decoration: BoxDecoration(
+                      color: AppColors.dangerLight,
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const AppIcon('alert',
+                            size: 16, color: AppColors.danger),
+                        const SizedBox(width: AppSpacing.sm),
+                        Expanded(
+                          child: Text(
+                            _error!,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: AppColors.danger,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                AppTextField(
+                  controller: _title,
+                  label: '标题（可不填）',
+                  placeholder: '不填时会从正文生成',
+                  enabled: !busy,
                 ),
-              const SizedBox(height: AppSpacing.md),
-              AppTextField(
-                controller: _tags,
-                label: '标签',
-                placeholder: '例如：验收，接口',
-                enabled: !busy,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              AppButton(
-                label: '保存笔记',
-                isFullWidth: true,
-                isLoading: _submitting,
-                onPressed: busy ? null : _save,
-              ),
-              if (entry != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                AppTextField(
+                  controller: _body,
+                  label: '记下想法、经验或资料',
+                  placeholder: '写下内容就能保存，稍后可让 AI 整理关联…',
+                  minLines: 4,
+                  maxLines: 10,
+                  enabled: !busy,
+                ),
                 const SizedBox(height: AppSpacing.sm),
-                AppButton(
-                  label: '删除笔记',
-                  variant: AppButtonVariant.danger,
-                  isFullWidth: true,
-                  isLoading: _deleting,
-                  onPressed: busy ? null : _delete,
+                _voiceRow(busy),
+                if (_voiceStatus != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AppSpacing.xs),
+                    child: Text(
+                      _voiceStatus!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: AppSpacing.md),
+                AppTextField(
+                  controller: _tags,
+                  label: '标签',
+                  placeholder: '例如：验收，接口',
+                  enabled: !busy,
                 ),
-              ],
-              if (entry != null && entry.sourceType != 'manual') ...[
                 const SizedBox(height: AppSpacing.lg),
-                _sourceSection(entry, isDark),
+                AppButton(
+                  label: '保存笔记',
+                  isFullWidth: true,
+                  isLoading: _submitting,
+                  onPressed: busy ? null : _save,
+                ),
+                if (entry != null) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  AppButton(
+                    label: '删除笔记',
+                    variant: AppButtonVariant.danger,
+                    isFullWidth: true,
+                    isLoading: _deleting,
+                    onPressed: busy ? null : _delete,
+                  ),
+                ],
+                if (entry != null && entry.sourceType != 'manual') ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  _sourceSection(entry, isDark),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -460,8 +470,9 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
             '从本人资料整理，原始材料保留。',
             style: TextStyle(
               fontSize: 12,
-              color:
-                  isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
           if (references.isNotEmpty) ...[

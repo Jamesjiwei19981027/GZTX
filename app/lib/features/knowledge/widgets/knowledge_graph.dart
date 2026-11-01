@@ -90,7 +90,8 @@ class KnowledgeGraph extends StatefulWidget {
   final List<KnowledgeGraphNode> nodes;
   final List<KnowledgeGraphEdge> edges;
   final ValueChanged<KnowledgeGraphNode>? onTapNode;
-  final void Function(KnowledgeGraphNode node, KnowledgePoint position)? onMoveNode;
+  final void Function(KnowledgeGraphNode node, KnowledgePoint position)?
+      onMoveNode;
   final double height;
   final String hint;
 
@@ -128,8 +129,8 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
     return Listener(
       onPointerDown: (_) => setState(() => _activeNodeId = node.id),
       onPointerMove: (event) => setState(() {
-        final current = _dragging[node.id] ??
-            Offset(node.position.x, node.position.y);
+        final current =
+            _dragging[node.id] ?? Offset(node.position.x, node.position.y);
         _dragging[node.id] = current + event.delta;
       }),
       onPointerUp: (_) {
@@ -150,12 +151,12 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
     final positions = <String, Offset>{
       for (final node in widget.nodes) node.id: _positionOf(node),
     };
-    final contentWidth = positions.values.fold<double>(0,
-            (max, offset) => offset.dx > max ? offset.dx : max) +
+    final contentWidth = positions.values.fold<double>(
+            0, (max, offset) => offset.dx > max ? offset.dx : max) +
         _nodeWidth +
         _padding * 2;
-    final contentHeight = positions.values.fold<double>(0,
-            (max, offset) => offset.dy > max ? offset.dy : max) +
+    final contentHeight = positions.values.fold<double>(
+            0, (max, offset) => offset.dy > max ? offset.dy : max) +
         nodeHeight +
         _padding * 2;
 
@@ -166,12 +167,14 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
       final available = constraints.maxHeight.isFinite
           ? constraints.maxHeight - hintHeight
           : widget.height;
-      final canvasHeight =
-          widget.height > available ? available.clamp(0.0, widget.height) : widget.height;
+      final canvasHeight = widget.height > available
+          ? available.clamp(0.0, widget.height)
+          : widget.height;
       final width = contentWidth < constraints.maxWidth
           ? constraints.maxWidth
           : contentWidth;
-      final height = contentHeight < canvasHeight ? canvasHeight : contentHeight;
+      final height =
+          contentHeight < canvasHeight ? canvasHeight : contentHeight;
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +182,9 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
           Container(
             height: canvasHeight,
             decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF7F8FA),
+              color: isDark
+                  ? AppColors.darkSurfaceVariant
+                  : const Color(0xFFF7F8FA),
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               border: Border.all(
                 color: isDark ? AppColors.darkBorder : AppColors.border,
@@ -253,7 +258,8 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 12,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ),
         ],
@@ -393,7 +399,8 @@ class _EdgePainter extends CustomPainter {
         middle.dx - painter.width / 2,
         middle.dy - painter.height - 2,
       );
-      final background = Paint()..color = labelBackground.withValues(alpha: 0.9);
+      final background = Paint()
+        ..color = labelBackground.withValues(alpha: 0.9);
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(

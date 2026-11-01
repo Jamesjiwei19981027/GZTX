@@ -151,8 +151,10 @@ void main() {
       expect(applied.links.single.id, 9);
 
       final request = helper.history.last;
-      expect(request.url.path, '/api/v1/projects/7/personal-knowledge/assist/apply');
-      final suggestions = (request.body as Map<String, dynamic>)['suggestions'] as List;
+      expect(request.url.path,
+          '/api/v1/projects/7/personal-knowledge/assist/apply');
+      final suggestions =
+          (request.body as Map<String, dynamic>)['suggestions'] as List;
       expect((suggestions.single as Map)['source_fingerprint'], 'aaa');
     });
 

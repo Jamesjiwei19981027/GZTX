@@ -28,7 +28,9 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
   @override
   void initState() {
     super.initState();
-    _chosen = {for (var index = 0; index < widget.suggestions.length; index++) index};
+    _chosen = {
+      for (var index = 0; index < widget.suggestions.length; index++) index
+    };
   }
 
   Future<void> _confirm() async {
@@ -86,9 +88,7 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
                     ),
                   ),
                 const SizedBox(height: AppSpacing.sm),
-                for (var index = 0;
-                    index < widget.suggestions.length;
-                    index++)
+                for (var index = 0; index < widget.suggestions.length; index++)
                   _suggestionTile(index, isDark),
               ],
             ),

@@ -131,7 +131,8 @@ class _SummarySheetState extends State<SummarySheet> {
                   padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Text(
                     _error!,
-                    style: const TextStyle(fontSize: 13, color: AppColors.danger),
+                    style:
+                        const TextStyle(fontSize: 13, color: AppColors.danger),
                   ),
                 ),
               const SizedBox(height: AppSpacing.md),
@@ -223,7 +224,9 @@ class _SummarySheetState extends State<SummarySheet> {
                 label: '确认存入我的知识',
                 isFullWidth: true,
                 isLoading: _saving,
-                onPressed: _saving || !widget.canSummarize || _title.text.trim().isEmpty
+                onPressed: _saving ||
+                        !widget.canSummarize ||
+                        _title.text.trim().isEmpty
                     ? null
                     : _save,
               ),

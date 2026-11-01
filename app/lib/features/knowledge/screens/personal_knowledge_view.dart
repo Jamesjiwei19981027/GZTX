@@ -57,9 +57,8 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
           }
           return saved != null;
         },
-        onDelete: entry == null
-            ? null
-            : () async => controller.deleteEntry(entry.id),
+        onDelete:
+            entry == null ? null : () async => controller.deleteEntry(entry.id),
       ),
     );
   }
@@ -132,7 +131,8 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
             final ok = await controller.collectOnly();
             if (!mounted) return;
             if (ok && controller.notice != null) {
-              showAppToast(context, controller.notice!, type: ToastType.success);
+              showAppToast(context, controller.notice!,
+                  type: ToastType.success);
             } else if (controller.error != null) {
               showAppToast(context, controller.error!, type: ToastType.error);
             }
@@ -161,31 +161,31 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
               ),
               child: KnowledgeButtonTextScale(
                 child: Wrap(
-                spacing: AppSpacing.sm,
-                runSpacing: AppSpacing.sm,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  AppButton(
-                    label: '记一条',
-                    icon: const AppIcon('plus', size: 16),
-                    onPressed: controller.isPending ? null : () => _openEditor(),
-                  ),
-                  AppButton(
-                    label: controller.organizing ? 'AI 正在整理…' : 'AI 整理',
-                    variant: AppButtonVariant.secondary,
-                    icon: const AppIcon('ai', size: 16),
-                    onPressed:
-                        controller.isPending || controller.isLoading
-                            ? null
-                            : _organize,
-                  ),
-                  AppButton(
-                    label: '更多',
-                    variant: AppButtonVariant.secondary,
-                    size: AppButtonSize.sm,
-                    onPressed: controller.isPending ? null : _openMore,
-                  ),
-                ],
+                  spacing: AppSpacing.sm,
+                  runSpacing: AppSpacing.sm,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    AppButton(
+                      label: '记一条',
+                      icon: const AppIcon('plus', size: 16),
+                      onPressed:
+                          controller.isPending ? null : () => _openEditor(),
+                    ),
+                    AppButton(
+                      label: controller.organizing ? 'AI 正在整理…' : 'AI 整理',
+                      variant: AppButtonVariant.secondary,
+                      icon: const AppIcon('ai', size: 16),
+                      onPressed: controller.isPending || controller.isLoading
+                          ? null
+                          : _organize,
+                    ),
+                    AppButton(
+                      label: '更多',
+                      variant: AppButtonVariant.secondary,
+                      size: AppButtonSize.sm,
+                      onPressed: controller.isPending ? null : _openMore,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -243,7 +243,9 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
   String _statusText() {
     if (controller.organizing) return '正在收集资料并请 AI 寻找关联…';
     if (controller.isPending) {
-      return controller.pendingLabel.isEmpty ? '正在处理…' : controller.pendingLabel;
+      return controller.pendingLabel.isEmpty
+          ? '正在处理…'
+          : controller.pendingLabel;
     }
     if (controller.isLoading) return '正在读取知识空间…';
     return controller.notice ?? '';
@@ -354,7 +356,8 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           child: InkWell(
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-            onTap: controller.isPending ? null : () => _openEditor(entry: entry),
+            onTap:
+                controller.isPending ? null : () => _openEditor(entry: entry),
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.cardPadding),
               child: Column(
@@ -438,9 +441,8 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
     ];
     return LayoutBuilder(builder: (context, constraints) {
       // 按可用宽度决定每行放几个节点，未保存位置的节点默认就能看全
-      final usableWidth = constraints.maxWidth.isFinite
-          ? constraints.maxWidth - 64
-          : 320.0;
+      final usableWidth =
+          constraints.maxWidth.isFinite ? constraints.maxWidth - 64 : 320.0;
       final columns = (usableWidth / 168).floor().clamp(1, 4);
       final cellWidth = usableWidth / columns;
       final positions = resolvePersonalPositions(
@@ -468,12 +470,12 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
           edges: edges,
           height: height,
           onTapNode: (node) {
-          final id = int.tryParse(node.id);
-          if (id == null) return;
-          final entry = controller.entries.firstWhere(
-            (item) => item.id == id,
-            orElse: () => entries.first,
-          );
+            final id = int.tryParse(node.id);
+            if (id == null) return;
+            final entry = controller.entries.firstWhere(
+              (item) => item.id == id,
+              orElse: () => entries.first,
+            );
             _openEditor(entry: entry);
           },
           onMoveNode: controller.isPending

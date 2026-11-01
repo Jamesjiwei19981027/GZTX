@@ -59,7 +59,8 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
     );
     if (!mounted) return;
     if (controller.summary?.isSaved == true && controller.error == null) {
-      showAppToast(context, controller.notice ?? '已存入我的知识', type: ToastType.success);
+      showAppToast(context, controller.notice ?? '已存入我的知识',
+          type: ToastType.success);
       widget.onSavedToPersonal();
     }
   }
@@ -192,7 +193,9 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
                 : '已选 $selected 份资料',
             style: TextStyle(
               fontSize: 12,
-              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
           if (!controller.canSummarize) ...[
@@ -269,8 +272,9 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color:
-                      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
                 ),
               ),
             ),
@@ -278,8 +282,9 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
               '${controller.pages.length} 份',
               style: TextStyle(
                 fontSize: 12,
-                color:
-                    isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                color: isDark
+                    ? AppColors.darkTextTertiary
+                    : AppColors.textTertiary,
               ),
             ),
           ],
@@ -445,8 +450,9 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
             '连线来自共享资料中的明确引用。',
             style: TextStyle(
               fontSize: 12,
-              color:
-                  isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -482,7 +488,8 @@ class _GrantSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
-    final members = controller.catalog?.members ?? const <ProjectKnowledgeMember>[];
+    final members =
+        controller.catalog?.members ?? const <ProjectKnowledgeMember>[];
     final maxHeight = MediaQuery.sizeOf(context).height * 0.75;
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: maxHeight),
@@ -496,8 +503,9 @@ class _GrantSheet extends StatelessWidget {
               '授权成员使用自己的 AI 整理本项目共享知识。',
               style: TextStyle(
                 fontSize: 12,
-                color:
-                    isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
               ),
             ),
           ),
@@ -519,7 +527,8 @@ class _GrantSheet extends StatelessWidget {
                   ),
                 for (final member in members)
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: AppSpacing.sm),
                     child: Row(
                       children: [
                         Expanded(

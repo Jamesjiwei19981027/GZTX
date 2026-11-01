@@ -84,7 +84,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       actions: [
         for (final project in projects)
           AppActionSheetItem(
-            label: project.id == currentId ? '${project.name}（当前）' : project.name,
+            label:
+                project.id == currentId ? '${project.name}（当前）' : project.name,
             onPressed: () => context.authStateRead.selectProject(project),
           ),
       ],
@@ -183,7 +184,9 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
               '当前项目',
               style: TextStyle(
                 fontSize: 12,
-                color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                color: isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -196,7 +199,9 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
                 ),
               ),
             ),
@@ -204,7 +209,9 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
               AppIcon(
                 'chevron-down',
                 size: 16,
-                color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                color: isDark
+                    ? AppColors.darkTextTertiary
+                    : AppColors.textTertiary,
               ),
           ],
         ),

@@ -115,7 +115,8 @@ const Map<String, dynamic> projectCatalogWithPermission = {
 };
 
 /// 供知识空间组件测试复用的外层容器（MaterialApp + 中文本地化）
-Future<void> pumpKnowledgeView(WidgetTester tester, Widget child) async {  await tester.pumpWidget(
+Future<void> pumpKnowledgeView(WidgetTester tester, Widget child) async {
+  await tester.pumpWidget(
     MaterialApp(
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,

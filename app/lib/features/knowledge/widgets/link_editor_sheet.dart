@@ -153,8 +153,9 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color:
-                      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
@@ -172,7 +173,8 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
                   padding: const EdgeInsets.only(top: AppSpacing.sm),
                   child: Text(
                     _error!,
-                    style: const TextStyle(fontSize: 13, color: AppColors.danger),
+                    style:
+                        const TextStyle(fontSize: 13, color: AppColors.danger),
                   ),
                 ),
               const SizedBox(height: AppSpacing.md),
@@ -225,8 +227,9 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color:
-                      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
@@ -288,8 +291,7 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
                             child: const Text('编辑'),
                           ),
                           TextButton(
-                            onPressed:
-                                _submitting ? null : () => _delete(link),
+                            onPressed: _submitting ? null : () => _delete(link),
                             child: const Text(
                               '删除',
                               style: TextStyle(color: AppColors.danger),
@@ -323,7 +325,8 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
           vertical: AppSpacing.md,
         ),
         decoration: BoxDecoration(
-          color: isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant,
+          color:
+              isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant,
           borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         ),
         child: Row(
@@ -360,7 +363,8 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
             AppIcon(
               'chevron-right',
               size: 16,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ],
         ),

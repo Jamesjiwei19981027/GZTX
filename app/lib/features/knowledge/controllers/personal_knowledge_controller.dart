@@ -72,7 +72,8 @@ class PersonalKnowledgeController extends ChangeNotifier {
     final ids = visibleEntries.map((entry) => entry.id).toSet();
     return links
         .where((link) =>
-            ids.contains(link.sourceEntryId) && ids.contains(link.targetEntryId))
+            ids.contains(link.sourceEntryId) &&
+            ids.contains(link.targetEntryId))
         .toList(growable: false);
   }
 
@@ -226,7 +227,8 @@ class PersonalKnowledgeController extends ChangeNotifier {
   Future<bool> deleteEntry(int entryId) async {
     final result = await _guard('正在删除…', () async {
       await repository.deleteEntry(projectId, entryId);
-      entries = entries.where((item) => item.id != entryId).toList(growable: false);
+      entries =
+          entries.where((item) => item.id != entryId).toList(growable: false);
       links = links
           .where((link) =>
               link.sourceEntryId != entryId && link.targetEntryId != entryId)

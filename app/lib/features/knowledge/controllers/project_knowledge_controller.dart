@@ -44,8 +44,7 @@ class ProjectKnowledgeController extends ChangeNotifier {
 
   bool get canManageGrants => catalog?.permissions.canManageGrants ?? false;
 
-  bool get isEmpty =>
-      !isLoading && error == null && pages.isEmpty;
+  bool get isEmpty => !isLoading && error == null && pages.isEmpty;
 
   void _notify() {
     if (_disposed) return;
@@ -114,9 +113,8 @@ class ProjectKnowledgeController extends ChangeNotifier {
         catalog = result;
         // 已选中的页被删除时同步清理，避免提交过期 id
         final pageIds = result.pages.map((page) => page.id).toSet();
-        selectedPageIds = selectedPageIds
-            .where(pageIds.contains)
-            .toList(growable: false);
+        selectedPageIds =
+            selectedPageIds.where(pageIds.contains).toList(growable: false);
       }
     } catch (cause) {
       if (_disposed || version != _readVersion) return;
@@ -216,9 +214,7 @@ class ProjectKnowledgeController extends ChangeNotifier {
         modelSource: current.modelSource,
         personalEntryId: saved.entry.id,
       );
-      notice = saved.alreadySaved
-          ? '这份总结已存在于我的知识，保留原有条目。'
-          : '已存入我的知识。';
+      notice = saved.alreadySaved ? '这份总结已存在于我的知识，保留原有条目。' : '已存入我的知识。';
       return true;
     });
     return result ?? false;

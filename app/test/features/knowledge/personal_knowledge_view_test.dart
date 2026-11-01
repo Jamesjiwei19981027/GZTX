@@ -142,6 +142,42 @@ void main() {
     await drainToasts(tester);
   });
 
+  testWidgets('有未保存内容时按返回键先确认再关闭', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet('/projects/7/personal-knowledge', emptySpace);
+    final controller = await buildController(helper);
+
+    await pumpKnowledgeView(
+      tester,
+      PersonalKnowledgeView(controller: controller, companyId: 3),
+    );
+    await tester.tap(find.text('记一条').first);
+    await tester.pumpAndSettle();
+
+    final fields = find.descendant(
+      of: find.byType(EntryEditorSheet),
+      matching: find.byType(EditableText),
+    );
+    await tester.enterText(fields.at(1), '写了一半的内容');
+    await tester.pump();
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+
+    expect(find.text('放弃未保存的内容？'), findsOneWidget);
+
+    await tester.tap(find.text('继续编辑'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EntryEditorSheet), findsOneWidget);
+    expect(find.text('写了一半的内容'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('放弃修改'));
+    await tester.pumpAndSettle();
+    expect(find.byType(EntryEditorSheet), findsNothing);
+  });
+
   testWidgets('语音识别结果追加到正文，可以继续修改后保存', (tester) async {
     final helper = MockApiClientHelper();
     helper.whenGet('/projects/7/personal-knowledge', emptySpace);
@@ -409,7 +445,8 @@ void main() {
 
     final request = helper.history.last;
     expect(request.method, 'PATCH');
-    expect(request.url.path, '/api/v1/projects/7/personal-knowledge/entries/21');
+    expect(
+        request.url.path, '/api/v1/projects/7/personal-knowledge/entries/21');
     expect(request.body['body_text'], '客户确认先做验收清单，再补接口文档');
     expect(find.text('客户确认先做验收清单，再补接口文档'), findsOneWidget);
     await drainToasts(tester);
@@ -591,7 +628,8 @@ void main() {
 
     final request = helper.history.last;
     expect(request.method, 'PATCH');
-    expect(request.url.path, '/api/v1/projects/7/personal-knowledge/entries/21');
+    expect(
+        request.url.path, '/api/v1/projects/7/personal-knowledge/entries/21');
     final position = (request.body as Map<String, dynamic>)['position'] as Map;
     expect(position['x'], isNot(0));
   });
@@ -624,7 +662,6 @@ void main() {
     );
     await drainToasts(tester);
   });
-
 }
 
 class _FailingTranscriber implements VoiceTranscriber {
