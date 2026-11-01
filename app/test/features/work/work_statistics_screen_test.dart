@@ -3,6 +3,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:worktodo_app/core/models/project.dart';
 import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/work/data/work_api.dart';
 import 'package:worktodo_app/features/work/data/work_models.dart';
@@ -166,5 +167,53 @@ void main() {
     expect(find.text('已承接 2 项 · 完成 1 项'), findsOneWidget);
     expect(find.text('已承接 1 项 · 完成 0 项'), findsOneWidget);
     expect(find.text('已承接 3 项'), findsNothing);
+  });
+
+  testWidgets('统计页成员工作量按当前项目隔离，并在切换项目时自动刷新', (tester) async {
+    tester.view.physicalSize = const Size(430, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final harness = await WorkTestHarness.create();
+    harness.api.tasks = [
+      WorkTask(
+        id: 921,
+        title: '项目一重点任务',
+        projectId: 1,
+        origin: 'project_link',
+        status: 1,
+        createdAt: DateTime.now(),
+        dueDate: TaskTime.todayKey(),
+        assignees: const [TaskAssignee(userId: 101, displayName: '李工程师')],
+      ),
+      WorkTask(
+        id: 922,
+        title: '项目二重点任务',
+        projectId: 2,
+        origin: 'project_link',
+        status: 1,
+        createdAt: DateTime.now(),
+        dueDate: TaskTime.todayKey(),
+        assignees: const [TaskAssignee(userId: 102, displayName: '王架构师')],
+      ),
+    ];
+
+    await tester.pumpWidget(harness.wrap(
+      WorkStatisticsScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+
+    // 默认处于项目 1：只展示李工程师，不展示王架构师
+    expect(find.text('李工程师'), findsOneWidget);
+    expect(find.text('王架构师'), findsNothing);
+
+    // 切换到项目 2
+    harness.authState.selectProject(const Project(id: 2, name: '项目二', companyId: 1));
+    await tester.pumpAndSettle();
+
+    // 切换后：只展示王架构师，不展示李工程师
+    expect(find.text('王架构师'), findsOneWidget);
+    expect(find.text('李工程师'), findsNothing);
   });
 }

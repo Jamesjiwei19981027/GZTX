@@ -11,6 +11,7 @@ import '../../../core/auth/auth_state.dart';
 import '../../../design/design.dart';
 import '../data/work_api.dart';
 import '../data/work_models.dart';
+import '../data/work_scope.dart';
 import '../widgets/work_widgets.dart';
 
 class WorkStatisticsScreen extends StatefulWidget {
@@ -31,6 +32,8 @@ class WorkStatisticsScreen extends StatefulWidget {
 
 class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
   bool _bootstrapped = false;
+  AuthState? _auth;
+  int? _lastProjectId;
 
   late String _period = widget.initialPeriod;
   TaskStatsSummary? _stats;
@@ -40,10 +43,12 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
   Object? _error;
   int _token = 0;
 
-  WorkApi get _api => widget.api ?? WorkApi(context.read<AuthState>().api);
+  WorkApi get _api =>
+      widget.api ??
+      WorkApi((_auth ?? widget.authState ?? context.read<AuthState>()).api);
 
   int? get _projectId =>
-      (widget.authState ?? _tryReadAuth())?.currentProject?.id;
+      (_auth ?? widget.authState ?? _tryReadAuth())?.currentProject?.id;
 
   AuthState? _tryReadAuth() {
     try {
@@ -56,9 +61,31 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final auth = widget.authState ?? _tryReadAuth();
+    if (_auth != auth) {
+      _auth?.removeListener(_onAuthChanged);
+      _auth = auth;
+      _auth?.addListener(_onAuthChanged);
+      _lastProjectId = _projectId;
+    }
     if (_bootstrapped) return;
     _bootstrapped = true;
     _load();
+  }
+
+  @override
+  void dispose() {
+    _auth?.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  void _onAuthChanged() {
+    if (!mounted) return;
+    final projectId = _projectId;
+    if (projectId != _lastProjectId) {
+      _lastProjectId = projectId;
+      _load();
+    }
   }
 
   Future<void> _load() async {
@@ -124,7 +151,8 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
 
   List<({int userId, String name, int total, int completed})> get _memberLoads {
     final start = _periodStartDate(_period);
-    final periodTasks = _tasks.where((t) => _isTaskInPeriod(t, start));
+    final scopedTasks = filterTasksByProject(_tasks, _projectId);
+    final periodTasks = scopedTasks.where((t) => _isTaskInPeriod(t, start));
     final map = <int, ({String name, int total, int completed})>{};
     for (final task in periodTasks) {
       for (final assignee in task.assignees) {
