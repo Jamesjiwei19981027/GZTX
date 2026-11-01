@@ -1,88 +1,201 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../design/design.dart';
+import '../../core/auth/auth_provider.dart';
+import '../../core/models/project.dart';
+import 'screens/agent_chat_screen.dart';
+import 'screens/leadership_report_screen.dart';
+import 'screens/project_report_screen.dart';
+import 'screens/report_detail_screen.dart';
+import 'screens/report_editor_screen.dart';
+import 'screens/report_hub_screen.dart';
+import 'screens/report_inbox_screen.dart';
+import 'screens/report_review_screen.dart';
+import 'widgets/report_ui.dart';
 
-/// T07 AI 汇报模块路由占位
-class ReportsPlaceholderScreen extends StatelessWidget {
-  const ReportsPlaceholderScreen({
-    super.key,
-    this.screenName = 'ai-root',
-    this.title = 'AI 汇报 (T07)',
-  });
-
-  final String screenName;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      title: title,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const AppIcon('ai', size: 48, color: AppColors.primary),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                title,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '屏幕标识: $screenName\n待 T07 任务包实现具体页面',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              AppButton(
-                label: '返回上一页',
-                variant: AppButtonVariant.secondary,
-                onPressed: () => context.pop(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+/// T07 AI 汇报模块路由。
+///
+/// 屏幕名严格沿用网页版 `mobileRoutes.ts` 的 `REGISTERED_SCREENS`：
+/// - `ai-root`              `/reports`
+/// - `ai-chat`              `/reports/chat`
+/// - `ai-report-create`     `/reports/create`
+/// - `ai-report-submitted`  `/reports/submitted/:id`
+/// - `ai-report-detail`     `/reports/detail?reportId=`
+/// - `ai-inbox`             `/reports/inbox`
+/// - `ai-review-followup`   `/reports/review/followup`
+/// - `ai-review-conflict`   `/reports/review/conflict`
+/// - `ai-project-contrast`  `/reports/project/contrast`
+/// - `ai-project-aggregate` `/reports/project/aggregate`
+/// - `ai-leadership`        `/reports/leadership`
+/// - `ai-agent-bindings`    `/reports/bindings`
+///
+/// 页面统一从 `projectId` 查询参数取项目，缺省回退到全局当前项目；
+/// 参数变化时页面自身重新加载，避免同一路由换项目后仍显示旧数据。
 final List<RouteBase> reportsRoutes = [
   GoRoute(
     path: '/reports',
     name: 'ai-root',
-    builder: (context, state) => const ReportsPlaceholderScreen(
-      screenName: 'ai-root',
-      title: 'AI 汇报概览',
+    builder: (context, state) => ReportHubScreen(
+      projectId: _projectId(context, state),
+      projectName: _projectName(context, state),
+      projects: _projects(context),
+      onSelectProject: (option) => _selectProject(context, option),
     ),
     routes: [
       GoRoute(
-        path: 'create',
-        name: 'ai-report-create',
-        builder: (context, state) => const ReportsPlaceholderScreen(
-          screenName: 'ai-report-create',
-          title: '创建汇报',
-        ),
-      ),
-      GoRoute(
-        path: 'detail/:id',
-        name: 'ai-report-detail',
-        builder: (context, state) => ReportsPlaceholderScreen(
-          screenName: 'ai-report-detail',
-          title: '汇报详情 #${state.pathParameters['id']}',
-        ),
-      ),
-      GoRoute(
         path: 'chat',
         name: 'ai-chat',
-        builder: (context, state) => const ReportsPlaceholderScreen(
-          screenName: 'ai-chat',
-          title: '智能助手会话',
+        builder: (context, state) => AgentChatScreen(
+          projectId: _projectId(context, state),
+          projectName: _projectName(context, state),
+          projects: _projects(context),
+          onSelectProject: (option) => _selectProject(context, option),
+        ),
+      ),
+      GoRoute(
+        path: 'create',
+        name: 'ai-report-create',
+        builder: (context, state) => ReportEditorScreen(
+          projectId: _projectId(context, state),
+          projectName: _projectName(context, state),
+          projects: _projects(context),
+          onSelectProject: (option) => _selectProject(context, option),
+          initialDraftReportId: _intParam(state, 'draftReportId'),
+        ),
+      ),
+      GoRoute(
+        path: 'submitted/:id',
+        name: 'ai-report-submitted',
+        builder: (context, state) => ReportDetailScreen(
+          projectId: _projectId(context, state),
+          projectName: _projectName(context, state),
+          reportId: _intPath(state, 'id'),
+          mode: ReportDetailMode.submitted,
+        ),
+      ),
+      GoRoute(
+        path: 'detail',
+        name: 'ai-report-detail',
+        builder: (context, state) => ReportDetailScreen(
+          projectId: _projectId(context, state),
+          projectName: _projectName(context, state),
+          reportId: _intParam(state, 'reportId'),
+          fromManager: state.uri.queryParameters['fromManager'] == '1',
+          mode: ReportDetailMode.history,
+        ),
+      ),
+      GoRoute(
+        path: 'inbox',
+        name: 'ai-inbox',
+        builder: (context, state) => ReportInboxScreen(
+          projectId: _projectId(context, state),
+          projectName: _projectName(context, state),
+          projects: _projects(context),
+          onSelectProject: (option) => _selectProject(context, option),
+        ),
+      ),
+      GoRoute(
+        path: 'review/followup',
+        name: 'ai-review-followup',
+        builder: (context, state) => ReportReviewScreen(
+          projectId: _projectId(context, state),
+          projectName: _projectName(context, state),
+          mode: ReportReviewMode.followup,
+        ),
+      ),
+      GoRoute(
+        path: 'review/conflict',
+        name: 'ai-review-conflict',
+        builder: (context, state) => ReportReviewScreen(
+          projectId: _projectId(context, state),
+          projectName: _projectName(context, state),
+          mode: ReportReviewMode.conflict,
+        ),
+      ),
+      GoRoute(
+        path: 'project/contrast',
+        name: 'ai-project-contrast',
+        builder: (context, state) => ProjectReportScreen(
+          projectId: _projectId(context, state),
+          projectName: _projectName(context, state),
+          mode: ProjectReportMode.contrast,
+        ),
+      ),
+      GoRoute(
+        path: 'project/aggregate',
+        name: 'ai-project-aggregate',
+        builder: (context, state) => ProjectReportScreen(
+          projectId: _projectId(context, state),
+          projectName: _projectName(context, state),
+          mode: ProjectReportMode.aggregate,
+        ),
+      ),
+      GoRoute(
+        path: 'leadership',
+        name: 'ai-leadership',
+        builder: (context, state) => const LeadershipReportScreen(),
+      ),
+      GoRoute(
+        path: 'bindings',
+        name: 'ai-agent-bindings',
+        builder: (context, state) => ReportReviewScreen(
+          projectId: _projectId(context, state),
+          projectName: _projectName(context, state),
+          mode: ReportReviewMode.bindings,
         ),
       ),
     ],
   ),
 ];
+
+int? _intParam(GoRouterState state, String key) {
+  final raw = state.uri.queryParameters[key];
+  if (raw == null || raw.trim().isEmpty) return null;
+  return int.tryParse(raw.trim());
+}
+
+int? _intPath(GoRouterState state, String key) {
+  final raw = state.pathParameters[key];
+  if (raw == null || raw.trim().isEmpty) return null;
+  return int.tryParse(raw.trim());
+}
+
+int? _projectId(BuildContext context, GoRouterState state) {
+  final explicit = _intParam(state, 'projectId');
+  if (explicit != null && explicit > 0) return explicit;
+  final current = context.authStateRead.currentProject?.id;
+  return current != null && current > 0 ? current : null;
+}
+
+String? _projectName(BuildContext context, GoRouterState state) =>
+    context.authStateRead.currentProject?.name;
+
+List<ProjectOption> _projects(BuildContext context) {
+  final auth = context.authStateRead;
+  final current = auth.currentProject;
+  final options = <ProjectOption>[];
+  for (final project in auth.projects) {
+    if (project.id > 0) {
+      options.add(ProjectOption(id: project.id, name: project.name));
+    } else if (current != null && project.id == current.id && current.id > 0) {
+      options.add(ProjectOption(id: current.id, name: current.name));
+    }
+  }
+  if (options.isEmpty && current != null && current.id > 0) {
+    options.add(ProjectOption(id: current.id, name: current.name));
+  }
+  return options;
+}
+
+void _selectProject(BuildContext context, ProjectOption option) {
+  Project? target;
+  for (final project in context.authStateRead.projects) {
+    if (project.id == option.id) {
+      target = project;
+      break;
+    }
+  }
+  if (target != null) {
+    context.authStateRead.selectProject(target);
+  }
+}
