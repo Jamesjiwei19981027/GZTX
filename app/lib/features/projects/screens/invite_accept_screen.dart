@@ -75,15 +75,15 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
 
       // 1. 重新拉取 /companies/mine：首次加入公司的用户本地还没有这家公司，
       //    直接 refreshProjects() 会因 currentCompany 为空返回空列表。
-      //    AuthState 目前没有单独的「刷新公司列表」方法，bootstrap() 是唯一
-      //    会重拉 /companies/mine 的公开入口（见报告中的共享改动申请）。
-      await auth.bootstrap();
+      //    只刷新公司列表，不重走 bootstrap：临时 5xx 不会把整个会话打成离线、丢掉本页。
+      final companiesRefreshed = await auth.refreshCompanies();
       if (!mounted) return;
 
       // 2. 选中受邀项目所属公司，避免留在旧工作区（项目隔离要求）
       final invitedCompanyId = detail?.companyId;
-      var switched = true;
-      if (invitedCompanyId != null &&
+      var switched = companiesRefreshed;
+      if (switched &&
+          invitedCompanyId != null &&
           auth.currentCompany?.id != invitedCompanyId) {
         final matchedCompanies = auth.companies
             .where((item) => item.id == invitedCompanyId)

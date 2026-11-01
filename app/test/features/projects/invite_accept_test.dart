@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/projects/screens/invite_accept_screen.dart';
 
@@ -50,6 +51,62 @@ void main() {
       expect(router.currentLocation, '/projects/11/team');
       expect(find.text('项目团队与成员'), findsOneWidget);
       expect(find.text('已加入「智能客服 2.0」'), findsOneWidget);
+      resetToastForTesting();
+      await tester.pump();
+    });
+
+    testWidgets('接受后不再重走启动流程：/users/me 临时 500 不会把会话打成离线', (tester) async {
+      final harness = ProjectsTestHarness();
+      final auth = await harness.bootstrap();
+      harness.helper.whenGet('/users/me', '服务暂不可用', statusCode: 500);
+      harness.helper.whenPost(
+        '/projects/invitations/inv-token-1/accept',
+        {'project_id': 11, 'role': 'member'},
+      );
+      harness.helper.whenGet('/projects/11', projectJson());
+      harness.helper.whenGet('/projects/11/members', {
+        'items': [memberJson(userId: 11, nickname: '张三')],
+      });
+      harness.helper.whenGet('/companies/1/presence', {'items': []});
+
+      final router = await harness.pumpApp(
+        tester,
+        location: '/projects/invite/accept?token=inv-token-1',
+      );
+      await tester.tap(find.text('接受并进入项目'));
+      await tester.pumpAndSettle();
+
+      expect(auth.status, AuthStatus.authenticated);
+      expect(auth.currentProject?.id, 11);
+      expect(router.currentLocation, '/projects/11/team');
+      resetToastForTesting();
+      await tester.pump();
+    });
+
+    testWidgets('刷新公司列表 500：保持登录，提示手动切换并仍进入受邀项目', (tester) async {
+      final harness = ProjectsTestHarness();
+      final auth = await harness.bootstrap();
+      harness.helper.whenGet('/companies/mine', '服务暂不可用', statusCode: 500);
+      harness.helper.whenPost(
+        '/projects/invitations/inv-token-1/accept',
+        {'project_id': 11, 'role': 'member'},
+      );
+      harness.helper.whenGet('/projects/11', projectJson());
+      harness.helper.whenGet('/projects/11/members', {
+        'items': [memberJson(userId: 11, nickname: '张三')],
+      });
+      harness.helper.whenGet('/companies/1/presence', {'items': []});
+
+      final router = await harness.pumpApp(
+        tester,
+        location: '/projects/invite/accept?token=inv-token-1',
+      );
+      await tester.tap(find.text('接受并进入项目'));
+      await tester.pumpAndSettle();
+
+      expect(auth.status, AuthStatus.authenticated);
+      expect(router.currentLocation, '/projects/11/team');
+      expect(find.textContaining('工作区未能切换'), findsOneWidget);
       resetToastForTesting();
       await tester.pump();
     });
