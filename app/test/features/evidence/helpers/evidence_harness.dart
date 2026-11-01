@@ -87,8 +87,8 @@ class FakeVoiceRecorder implements VoiceRecorder {
       throw VoiceRecorderException(issue, '录音失败（测试桩）');
     }
     return recorded ??
-        VoiceRecording(
-          bytes: const [1, 2, 3, 4],
+        const VoiceRecording(
+          bytes: [1, 2, 3, 4],
           filename: 'material-voice.m4a',
           mimeType: 'audio/mp4',
         );
@@ -170,6 +170,7 @@ Future<void> pumpEvidenceScreen(
   Size size = const Size(412, 915),
   TextScaler textScaler = TextScaler.noScaling,
   Brightness brightness = Brightness.light,
+  EdgeInsets viewInsets = EdgeInsets.zero,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1.0;
@@ -192,6 +193,7 @@ Future<void> pumpEvidenceScreen(
           size: size,
           textScaler: textScaler,
           platformBrightness: brightness,
+          viewInsets: viewInsets,
         ),
         child: screen,
       ),

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/features/evidence/screens/evidence_detail_screen.dart';
 
@@ -66,6 +65,36 @@ void main() {
     await settle(tester);
 
     expect(find.text('支撑文件（1）'), findsOneWidget);
+  });
+
+  testWidgets('提交时间按本地时区展示，不出现原始 UTC 字符串', (tester) async {
+    final helper = baseHelper();
+    final json = packageJson(files: [fileJson()]);
+    json['submitted_at'] = '2026-10-20T06:10:00Z';
+    helper.whenGet('/evidence/91', json);
+
+    await pumpEvidenceScreen(
+      tester,
+      EvidenceDetailScreen(api: buildEvidenceApi(helper), packageId: 91),
+    );
+    await settle(tester);
+
+    expect(find.textContaining('2026-10-20T06:10:00'), findsNothing);
+    expect(find.textContaining('提交于 2026-10-20'), findsOneWidget);
+  });
+
+  testWidgets('断网时给出可见网络提示与重试入口', (tester) async {
+    final helper = baseHelper();
+    helper.whenGet('/evidence/91', Exception('网络不可达'));
+
+    await pumpEvidenceScreen(
+      tester,
+      EvidenceDetailScreen(api: buildEvidenceApi(helper), packageId: 91),
+    );
+    await settle(tester);
+
+    expect(find.textContaining('请检查网络后重试'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
   });
 
   testWidgets('无权限时展示无权限状态而不是空白页', (tester) async {

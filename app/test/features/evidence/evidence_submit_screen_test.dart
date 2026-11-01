@@ -97,6 +97,40 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('键盘弹出时文字输入框仍可滚动到可见区域且不溢出', (tester) async {
+    final helper = baseHelper();
+
+    Object? overflowError;
+    final originalOnError = FlutterError.onError;
+    FlutterError.onError = (details) {
+      if (details.exceptionAsString().contains('overflowed')) {
+        overflowError = details.exception;
+      }
+      originalOnError?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = originalOnError);
+
+    // 模拟系统键盘占据底部 320 逻辑像素
+    await pumpEvidenceScreen(
+      tester,
+      buildScreen(helper: helper),
+      size: const Size(412, 915),
+      viewInsets: const EdgeInsets.only(bottom: 320),
+    );
+    await settle(tester);
+
+    // 输入框仍在树中，可滚动到可见区域后输入
+    await tester.ensureVisible(find.byType(TextFormField));
+    await tester.pump();
+    await tester.enterText(find.byType(TextFormField), '键盘弹出后继续输入');
+    await settle(tester);
+
+    final rect = tester.getRect(find.byType(TextFormField));
+    expect(rect.top, greaterThanOrEqualTo(0));
+    expect(rect.bottom, lessThanOrEqualTo(915 - 320));
+    expect(overflowError, isNull);
+  });
+
   testWidgets('未填写文字时提交按钮不可点击', (tester) async {
     final helper = baseHelper();
     await pumpEvidenceScreen(tester, buildScreen(helper: helper));
