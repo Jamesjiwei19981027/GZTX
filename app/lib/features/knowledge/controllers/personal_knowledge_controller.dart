@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:worktodo_app/core/errors/app_error.dart';
+
 import '../data/knowledge_repository.dart';
 import '../models/knowledge_models.dart';
 
@@ -28,6 +30,9 @@ class PersonalKnowledgeController extends ChangeNotifier {
   String pendingLabel = '';
   String? error;
   bool networkError = false;
+
+  /// 服务端判定无访问权限（403）
+  bool forbidden = false;
   String? notice;
 
   KnowledgeScope? scope;
@@ -117,6 +122,7 @@ class PersonalKnowledgeController extends ChangeNotifier {
   void _fail(Object cause) {
     error = knowledgeErrorMessage(cause);
     networkError = isNetworkFailure(cause);
+    forbidden = cause is ApiException && cause.statusCode == 403;
   }
 
   /// 读取本人当前项目的知识空间
@@ -125,6 +131,7 @@ class PersonalKnowledgeController extends ChangeNotifier {
     isLoading = true;
     error = null;
     networkError = false;
+    forbidden = false;
     _notify();
     try {
       final space = await repository.loadPersonalSpace(projectId);
@@ -154,6 +161,7 @@ class PersonalKnowledgeController extends ChangeNotifier {
     pendingLabel = label;
     error = null;
     networkError = false;
+    forbidden = false;
     notice = null;
     _notify();
     try {

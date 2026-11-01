@@ -39,9 +39,12 @@ class KnowledgeGraphEdge {
 
 /// 按网页版规则为条目排布坐标：优先用保存的位置，其余按 3 列网格填充空位
 Map<int, KnowledgePoint> resolvePersonalPositions(
-    List<PersonalKnowledgeEntry> entries) {
-  const cellWidth = 280.0;
-  const cellHeight = 180.0;
+  List<PersonalKnowledgeEntry> entries, {
+  int columns = 3,
+  double cellWidth = 280,
+  double cellHeight = 180,
+}) {
+  final columnCount = columns < 1 ? 1 : columns;
   final positions = <int, KnowledgePoint>{};
   final occupied = <KnowledgePoint>[];
   for (final entry in entries) {
@@ -57,8 +60,8 @@ Map<int, KnowledgePoint> resolvePersonalPositions(
     KnowledgePoint candidate;
     do {
       candidate = KnowledgePoint(
-        (cell % 3) * cellWidth,
-        (cell ~/ 3) * cellHeight,
+        (cell % columnCount) * cellWidth,
+        (cell ~/ columnCount) * cellHeight,
       );
       cell++;
     } while (occupied.any((other) =>
@@ -97,8 +100,15 @@ class KnowledgeGraph extends StatefulWidget {
 
 class _KnowledgeGraphState extends State<KnowledgeGraph> {
   static const double _nodeWidth = 140;
-  static const double _nodeHeight = 78;
+  static const double _baseNodeHeight = 78;
   static const double _padding = 16;
+
+  /// 系统字号放大时同步加高节点，避免文字被裁掉
+  double _nodeHeightFor(BuildContext context) {
+    final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.5);
+    final height = _baseNodeHeight * (1 + (scale - 1) * 0.62);
+    return height.clamp(_baseNodeHeight, 140.0);
+  }
 
   final Map<String, Offset> _dragging = {};
   Offset _pan = Offset.zero;
@@ -136,6 +146,7 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
   @override
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
+    final nodeHeight = _nodeHeightFor(context);
     final positions = <String, Offset>{
       for (final node in widget.nodes) node.id: _positionOf(node),
     };
@@ -145,17 +156,18 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
         _padding * 2;
     final contentHeight = positions.values.fold<double>(0,
             (max, offset) => offset.dy > max ? offset.dy : max) +
-        _nodeHeight +
+        nodeHeight +
         _padding * 2;
 
     return LayoutBuilder(builder: (context, constraints) {
-      // 画布高度不超过可用空间，避免窄屏或横屏时把提示文字挤出屏幕
-      const hintHeight = 26.0;
+      // 画布高度不超过可用空间，避免窄屏、横屏或放大字号时把提示文字挤出屏幕
+      final hintHeight =
+          MediaQuery.textScalerOf(context).scale(12) * 1.5 + AppSpacing.sm + 4;
       final available = constraints.maxHeight.isFinite
           ? constraints.maxHeight - hintHeight
           : widget.height;
       final canvasHeight =
-          widget.height > available ? (available < 120 ? 120.0 : available) : widget.height;
+          widget.height > available ? available.clamp(0.0, widget.height) : widget.height;
       final width = contentWidth < constraints.maxWidth
           ? constraints.maxWidth
           : contentWidth;
@@ -199,7 +211,7 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
                                   edges: widget.edges,
                                   positions: positions,
                                   nodeWidth: _nodeWidth,
-                                  nodeHeight: _nodeHeight,
+                                  nodeHeight: nodeHeight,
                                   lineColor: isDark
                                       ? AppColors.darkTextTertiary
                                       : AppColors.textTertiary,
@@ -217,7 +229,7 @@ class _KnowledgeGraphState extends State<KnowledgeGraph> {
                                 left: positions[node.id]!.dx + _padding,
                                 top: positions[node.id]!.dy + _padding,
                                 width: _nodeWidth,
-                                height: _nodeHeight,
+                                height: nodeHeight,
                                 child: _draggableNode(
                                   node,
                                   widget.onTapNode == null || !node.tappable

@@ -160,7 +160,7 @@ void main() {
     expect(request.body, {'can_summarize': true});
   });
 
-  testWidgets('读取失败展示重试入口，重试成功后显示共享资料', (tester) async {
+  testWidgets('无访问权限时展示无权限状态', (tester) async {
     final helper = MockApiClientHelper();
     helper.whenGet(
       '/projects/7/knowledge-space',
@@ -178,8 +178,30 @@ void main() {
       ProjectKnowledgeView(controller: controller, onSavedToPersonal: () {}),
     );
 
+    expect(controller.forbidden, isTrue);
+    expect(find.text('暂无访问权限'), findsOneWidget);
+  });
+
+  testWidgets('读取失败展示重试入口，重试成功后显示共享资料', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet(
+      '/projects/7/knowledge-space',
+      '{"code":500,"message":"服务暂时不可用"}',
+      statusCode: 500,
+    );
+    final controller = ProjectKnowledgeController(
+      repository: KnowledgeRepository(helper.buildClient()),
+      projectId: 7,
+    );
+    await controller.load();
+
+    await pumpKnowledgeView(
+      tester,
+      ProjectKnowledgeView(controller: controller, onSavedToPersonal: () {}),
+    );
+
     expect(find.text('项目知识读取失败'), findsOneWidget);
-    expect(find.text('需要在职公司成员与当前项目成员资格'), findsOneWidget);
+    expect(find.text('服务暂时不可用'), findsOneWidget);
 
     helper.whenGet('/projects/7/knowledge-space', projectCatalogWithPermission);
     await tester.tap(find.text('重试'));

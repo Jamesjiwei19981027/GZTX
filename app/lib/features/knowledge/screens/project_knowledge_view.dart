@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../design/design.dart';
 import '../controllers/project_knowledge_controller.dart';
 import '../models/knowledge_models.dart';
+import '../widgets/knowledge_button_text_scale.dart';
 import '../widgets/knowledge_graph.dart';
 import '../widgets/knowledge_state_container.dart';
 import '../widgets/summary_sheet.dart';
@@ -97,6 +98,7 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
               title: controller.networkError ? '网络连接异常' : '项目知识读取失败',
               message: controller.error!,
               onRetry: controller.load,
+              isForbidden: controller.forbidden,
             ),
           );
         }
@@ -124,12 +126,14 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
               _summaryCard(context),
               if (controller.canManageGrants) ...[
                 const SizedBox(height: AppSpacing.md),
-                AppButton(
-                  label: '管理总结授权',
-                  variant: AppButtonVariant.secondary,
-                  isFullWidth: true,
-                  icon: const AppIcon('team', size: 16),
-                  onPressed: controller.isPending ? null : _openGrants,
+                KnowledgeButtonTextScale(
+                  child: AppButton(
+                    label: '管理总结授权',
+                    variant: AppButtonVariant.secondary,
+                    isFullWidth: true,
+                    icon: const AppIcon('team', size: 16),
+                    onPressed: controller.isPending ? null : _openGrants,
+                  ),
                 ),
               ],
               const SizedBox(height: AppSpacing.lg),
@@ -211,15 +215,17 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
               enabled: !controller.isPending,
             ),
             const SizedBox(height: AppSpacing.md),
-            AppButton(
-              label: controller.pendingLabel == '正在整理…'
-                  ? 'AI 正在整理…'
-                  : 'AI 总结到我的知识',
-              isFullWidth: true,
-              isLoading: controller.pendingLabel == '正在整理…',
-              onPressed: controller.isPending || controller.pages.isEmpty
-                  ? null
-                  : _generate,
+            KnowledgeButtonTextScale(
+              child: AppButton(
+                label: controller.pendingLabel == '正在整理…'
+                    ? 'AI 正在整理…'
+                    : 'AI 总结到我的知识',
+                isFullWidth: true,
+                isLoading: controller.pendingLabel == '正在整理…',
+                onPressed: controller.isPending || controller.pages.isEmpty
+                    ? null
+                    : _generate,
+              ),
             ),
             if (controller.pages.isEmpty)
               Padding(
@@ -424,12 +430,14 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AppButton(
-          label: _graphVisible ? '收起来源关系图' : '查看来源关系图',
-          variant: AppButtonVariant.secondary,
-          isFullWidth: true,
-          icon: const AppIcon('axis', size: 16),
-          onPressed: () => setState(() => _graphVisible = !_graphVisible),
+        KnowledgeButtonTextScale(
+          child: AppButton(
+            label: _graphVisible ? '收起来源关系图' : '查看来源关系图',
+            variant: AppButtonVariant.secondary,
+            isFullWidth: true,
+            icon: const AppIcon('axis', size: 16),
+            onPressed: () => setState(() => _graphVisible = !_graphVisible),
+          ),
         ),
         if (_graphVisible) ...[
           const SizedBox(height: AppSpacing.sm),

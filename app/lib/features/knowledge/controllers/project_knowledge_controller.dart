@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 
+import 'package:worktodo_app/core/errors/app_error.dart';
+
 import '../data/knowledge_repository.dart';
 import '../models/knowledge_models.dart';
 
@@ -24,6 +26,9 @@ class ProjectKnowledgeController extends ChangeNotifier {
   String pendingLabel = '';
   String? error;
   bool networkError = false;
+
+  /// 服务端判定无访问权限（403）
+  bool forbidden = false;
   String? notice;
 
   ProjectKnowledgeCatalog? catalog;
@@ -90,6 +95,7 @@ class ProjectKnowledgeController extends ChangeNotifier {
   void _fail(Object cause) {
     error = knowledgeErrorMessage(cause);
     networkError = isNetworkFailure(cause);
+    forbidden = cause is ApiException && cause.statusCode == 403;
   }
 
   Future<void> load() async {
@@ -97,6 +103,7 @@ class ProjectKnowledgeController extends ChangeNotifier {
     isLoading = true;
     error = null;
     networkError = false;
+    forbidden = false;
     _notify();
     try {
       final result = await repository.loadProjectCatalog(projectId);
@@ -128,6 +135,7 @@ class ProjectKnowledgeController extends ChangeNotifier {
     pendingLabel = label;
     error = null;
     networkError = false;
+    forbidden = false;
     notice = null;
     _notify();
     try {

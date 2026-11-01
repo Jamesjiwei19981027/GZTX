@@ -279,6 +279,38 @@ void main() {
     expect(controller.viewMode, KnowledgeViewMode.graph);
   });
 
+  testWidgets('没有笔记时 AI 整理不要求先有记录，只给出提示', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet('/projects/7/personal-knowledge', emptySpace);
+    helper.whenPost('/projects/7/personal-knowledge/sync', {
+      'created': 0,
+      'skipped': 0,
+    });
+    helper.whenPost('/projects/7/personal-knowledge/assist', {
+      'analyzed': 0,
+      'suggestions': <dynamic>[],
+    });
+    final controller = await buildController(helper);
+
+    await pumpKnowledgeView(
+      tester,
+      PersonalKnowledgeView(controller: controller, companyId: 3),
+    );
+
+    await tester.tap(find.text('AI 整理'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('已根据你的笔记找到这些关联，确认后加入关联图。'), findsNothing);
+    expect(controller.notice, '资料已收集，再积累几条笔记就能发现更多关联。');
+    expect(controller.suggestions, isEmpty);
+    expect(
+      helper.history.any((record) =>
+          record.url.path == '/api/v1/projects/7/personal-knowledge/sync'),
+      isTrue,
+    );
+    await drainToasts(tester);
+  });
+
   testWidgets('AI 建议采纳失败时给出可见错误，不静默丢弃', (tester) async {
     final helper = MockApiClientHelper();
     helper.whenGet('/projects/7/personal-knowledge', spaceWithTwoEntries);
@@ -439,6 +471,51 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('客户需求确认'), findsOneWidget);
+  });
+
+  testWidgets('无访问权限时展示无权限状态', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet(
+      '/projects/7/personal-knowledge',
+      '{"code":403,"message":"需要在职公司成员与当前项目成员资格"}',
+      statusCode: 403,
+    );
+    final controller = PersonalKnowledgeController(
+      repository: KnowledgeRepository(helper.buildClient()),
+      projectId: 7,
+      userId: 11,
+    );
+    await controller.load();
+
+    await pumpKnowledgeView(
+      tester,
+      PersonalKnowledgeView(controller: controller, companyId: 3),
+    );
+
+    expect(controller.forbidden, isTrue);
+    expect(find.text('暂无访问权限'), findsOneWidget);
+  });
+
+  testWidgets('键盘弹出时记一条浮层不被遮挡，仍可点击保存', (tester) async {
+    final helper = MockApiClientHelper();
+    helper.whenGet('/projects/7/personal-knowledge', emptySpace);
+    final controller = await buildController(helper);
+
+    await pumpKnowledgeView(
+      tester,
+      PersonalKnowledgeView(controller: controller, companyId: 3),
+    );
+    await tester.tap(find.text('记一条').first);
+    await tester.pumpAndSettle();
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+    addTearDown(() => tester.view.resetViewInsets());
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.text('保存笔记'));
+    await tester.pump();
+    expect(find.text('请先写点内容，再保存这条笔记'), findsOneWidget);
   });
 
   testWidgets('断网时明确提示网络异常并可重试', (tester) async {

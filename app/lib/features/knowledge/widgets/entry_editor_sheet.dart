@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../../core/time/time_utils.dart';
 import '../../../design/design.dart';
 import '../data/voice_input.dart';
 import '../models/knowledge_models.dart';
@@ -476,10 +477,25 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
                 ),
               ),
           ],
+          if (_updatedLabel(entry).isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              '更新于 ${_updatedLabel(entry)}',
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark
+                    ? AppColors.darkTextTertiary
+                    : AppColors.textTertiary,
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+
+  String _updatedLabel(PersonalKnowledgeEntry entry) =>
+      formatDisplayDateTime(parseApiDateTime(entry.updatedAt));
 
   String _referenceLabel(String key) => switch (key) {
         'node_id' => '事项 ID',

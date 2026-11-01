@@ -5,6 +5,7 @@ import '../controllers/personal_knowledge_controller.dart';
 import '../data/voice_input.dart';
 import '../models/knowledge_models.dart';
 import '../widgets/entry_editor_sheet.dart';
+import '../widgets/knowledge_button_text_scale.dart';
 import '../widgets/knowledge_graph.dart';
 import '../widgets/knowledge_state_container.dart';
 import '../widgets/link_editor_sheet.dart';
@@ -158,7 +159,8 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
                 AppSpacing.lg,
                 AppSpacing.sm,
               ),
-              child: Wrap(
+              child: KnowledgeButtonTextScale(
+                child: Wrap(
                 spacing: AppSpacing.sm,
                 runSpacing: AppSpacing.sm,
                 crossAxisAlignment: WrapCrossAlignment.center,
@@ -184,6 +186,7 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
                     onPressed: controller.isPending ? null : _openMore,
                   ),
                 ],
+                ),
               ),
             ),
             Padding(
@@ -305,6 +308,7 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
           title: controller.networkError ? '网络连接异常' : '知识空间读取失败',
           message: controller.error!,
           onRetry: controller.load,
+          isForbidden: controller.forbidden,
         ),
       );
     }
@@ -424,17 +428,6 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
 
   Widget _graph(BuildContext context) {
     final entries = controller.visibleEntries;
-    final positions = resolvePersonalPositions(entries);
-    final nodes = [
-      for (final entry in entries)
-        KnowledgeGraphNode(
-          id: '${entry.id}',
-          title: entry.title,
-          subtitle: entry.bodyText.isEmpty ? '点击补充正文' : entry.bodyText,
-          badge: entry.tags.isEmpty ? '' : '#${entry.tags.first}',
-          position: positions[entry.id] ?? const KnowledgePoint(0, 0),
-        ),
-    ];
     final edges = [
       for (final link in controller.visibleLinks)
         KnowledgeGraphEdge(
@@ -444,8 +437,29 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
         ),
     ];
     return LayoutBuilder(builder: (context, constraints) {
+      // 按可用宽度决定每行放几个节点，未保存位置的节点默认就能看全
+      final usableWidth = constraints.maxWidth.isFinite
+          ? constraints.maxWidth - 64
+          : 320.0;
+      final columns = (usableWidth / 168).floor().clamp(1, 4);
+      final cellWidth = usableWidth / columns;
+      final positions = resolvePersonalPositions(
+        entries,
+        columns: columns,
+        cellWidth: cellWidth,
+      );
+      final nodes = [
+        for (final entry in entries)
+          KnowledgeGraphNode(
+            id: '${entry.id}',
+            title: entry.title,
+            subtitle: entry.bodyText.isEmpty ? '点击补充正文' : entry.bodyText,
+            badge: entry.tags.isEmpty ? '' : '#${entry.tags.first}',
+            position: positions[entry.id] ?? const KnowledgePoint(0, 0),
+          ),
+      ];
       final height = constraints.maxHeight.isFinite
-          ? (constraints.maxHeight - 32).clamp(160.0, 640.0)
+          ? (constraints.maxHeight - 32).clamp(0.0, 640.0)
           : 380.0;
       return Padding(
         padding: const EdgeInsets.all(AppSpacing.lg),
