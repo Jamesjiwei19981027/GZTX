@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/work/data/work_api.dart';
+import 'package:worktodo_app/features/work/data/work_models.dart';
 import 'package:worktodo_app/features/work/screens/work_statistics_screen.dart';
 
 import 'work_test_fixtures.dart';
@@ -83,5 +84,42 @@ void main() {
     if (DateTime.now().timeZoneOffset >= Duration.zero) {
       expect(WorkApi.timezoneOffsetMinutes >= 0, isTrue);
     }
+  });
+
+  testWidgets('成员工作量统计根据选定统计周期过滤历史任务', (tester) async {
+    tester.view.physicalSize = const Size(430, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final harness = await WorkTestHarness.create();
+    harness.api.tasks = [
+      WorkTask(
+        id: 901,
+        title: '去年的年度审计',
+        status: 2,
+        createdAt: DateTime(2025, 1, 1),
+        completedAt: DateTime(2025, 1, 2),
+        assignees: const [TaskAssignee(userId: 1, displayName: '张经理', roleKey: 'admin')],
+      ),
+      WorkTask(
+        id: 902,
+        title: '本周的重点汇报',
+        status: 0,
+        createdAt: DateTime.now(),
+        dueDate: TaskTime.todayKey(),
+        assignees: const [TaskAssignee(userId: 1, displayName: '张经理', roleKey: 'admin')],
+      ),
+    ];
+
+    await tester.pumpWidget(harness.wrap(
+      WorkStatisticsScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 默认周期为本周，张经理应当只有 1 项任务（本周的重点汇报），不统计去年的年度审计
+    expect(find.text('已承接 1 项 · 完成 0 项'), findsOneWidget);
+    expect(find.text('已承接 2 项 · 完成 1 项'), findsNothing);
   });
 }

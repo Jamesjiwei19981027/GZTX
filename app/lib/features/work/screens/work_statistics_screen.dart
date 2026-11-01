@@ -71,13 +71,13 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
       final results = await Future.wait([
         _api.stats(_period, projectId: _projectId),
         _api.trend(_period, projectId: _projectId),
-        _api.listTasks(pageSize: 100),
+        _api.listAllTasks(),
       ]);
       if (!mounted || token != _token) return;
       setState(() {
         _stats = results[0] as TaskStatsSummary;
         _trend = results[1] as TaskTrend;
-        _tasks = (results[2] as WorkTaskPage).items;
+        _tasks = results[2] as List<WorkTask>;
         _loading = false;
       });
     } catch (error) {
@@ -95,9 +95,38 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
     _load();
   }
 
+  DateTime _periodStartDate(String period) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return switch (period) {
+      'month' => DateTime(today.year, today.month, 1),
+      'quarter' => DateTime(today.year, ((today.month - 1) ~/ 3) * 3 + 1, 1),
+      'year' => DateTime(today.year, 1, 1),
+      _ => today.subtract(Duration(days: today.weekday - 1)),
+    };
+  }
+
+  bool _isTaskInPeriod(WorkTask task, DateTime start) {
+    if (task.createdAt != null && !task.createdAt!.isBefore(start)) {
+      return true;
+    }
+    if (task.completedAt != null && !task.completedAt!.isBefore(start)) {
+      return true;
+    }
+    if (task.dueDate != null) {
+      final due = TaskTime.parseLocalDay(task.dueDate);
+      if (due != null && !due.isBefore(start)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   List<({String name, int total, int completed})> get _memberLoads {
+    final start = _periodStartDate(_period);
+    final periodTasks = _tasks.where((t) => _isTaskInPeriod(t, start));
     final map = <String, ({int total, int completed})>{};
-    for (final task in _tasks) {
+    for (final task in periodTasks) {
       for (final assignee in task.assignees) {
         final current = map[assignee.displayName] ?? (total: 0, completed: 0);
         map[assignee.displayName] = (
