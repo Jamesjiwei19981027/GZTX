@@ -4,7 +4,6 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/design/design.dart';
-import 'package:worktodo_app/features/work/data/work_models.dart';
 import 'package:worktodo_app/features/work/screens/work_calendar_screen.dart';
 
 import 'work_test_fixtures.dart';

@@ -70,6 +70,11 @@ class WorkApi {
     return WorkTask.fromJson(_asMap(data));
   }
 
+  /// 彻底删除任务。
+  Future<void> purgeTrash(int id) async {
+    await _client.delete('/tasks/$id');
+  }
+
   Future<int> batchComplete(List<int> ids) async {
     final data = await _client.patch(
       '/tasks/batch/complete',

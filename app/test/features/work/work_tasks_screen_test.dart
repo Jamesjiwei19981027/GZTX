@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/work/screens/work_tasks_screen.dart';
-import 'package:worktodo_app/features/work/widgets/work_widgets.dart';
 
 import 'work_test_fixtures.dart';
 

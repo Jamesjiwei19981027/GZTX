@@ -37,6 +37,7 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
   bool _loading = true;
   Object? _error;
   int? _restoringId;
+  int? _purgingId;
   final Set<int> _restored = {};
 
   WorkApi get _api => widget.api ?? WorkApi(context.read<AuthState>().api);
@@ -89,6 +90,30 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _restoringId = null);
+      showAppToast(context, describeError(error).message, type: ToastType.error);
+    }
+  }
+
+  Future<void> _deletePermanently(WorkTask task) async {
+    final confirmed = await showAppConfirmDialog(
+      context: context,
+      title: '彻底删除任务',
+      message: '确定要彻底删除任务「${task.title}」吗？彻底删除后将无法恢复。',
+      confirmLabel: '彻底删除',
+      isDestructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    setState(() => _purgingId = task.id);
+    try {
+      await _api.purgeTrash(task.id);
+      if (!mounted) return;
+      setState(() => _purgingId = null);
+      showAppToast(context, '已彻底删除「${task.title}」', type: ToastType.success);
+      await _load(_page);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _purgingId = null);
       showAppToast(context, describeError(error).message, type: ToastType.error);
     }
   }
@@ -182,9 +207,12 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
                     for (var i = 0; i < _items.length; i++) ...[
                       _TrashRow(
                         task: _items[i],
-                        busy: _restoringId == _items[i].id,
+                        restoring: _restoringId == _items[i].id,
+                        purging: _purgingId == _items[i].id,
                         restored: _restored.contains(_items[i].id),
                         onRestore: () => _restore(_items[i]),
+                        onDeletePermanently: () =>
+                            _deletePermanently(_items[i]),
                       ),
                       if (i < _items.length - 1)
                         const Divider(height: 0.5, thickness: 0.5),
@@ -227,18 +255,23 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
 class _TrashRow extends StatelessWidget {
   const _TrashRow({
     required this.task,
-    required this.busy,
+    required this.restoring,
+    required this.purging,
     required this.restored,
     required this.onRestore,
+    required this.onDeletePermanently,
   });
 
   final WorkTask task;
-  final bool busy;
+  final bool restoring;
+  final bool purging;
   final bool restored;
   final VoidCallback onRestore;
+  final VoidCallback onDeletePermanently;
 
   @override
   Widget build(BuildContext context) {
+    final busy = restoring || purging;
     return Padding(
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
@@ -274,10 +307,22 @@ class _TrashRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.sm),
+          if (!restored) ...[
+            TextButton(
+              onPressed: busy ? null : onDeletePermanently,
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.danger,
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+              child: Text(purging ? '删除中…' : '彻底删除'),
+            ),
+            const SizedBox(width: AppSpacing.xs),
+          ],
           AppButton(
-            label: restored ? '已恢复' : (busy ? '恢复中…' : '恢复'),
+            label: restored ? '已恢复' : (restoring ? '恢复中…' : '恢复'),
             size: AppButtonSize.sm,
-            isLoading: busy,
+            isLoading: restoring,
             onPressed: busy || restored ? null : onRestore,
           ),
         ],
