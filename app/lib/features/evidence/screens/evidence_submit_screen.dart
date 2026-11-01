@@ -74,6 +74,13 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
   JobPoller? _poller;
   bool _pollTimedOut = false;
 
+  /// 提交代次：每次提交 +1，重置表单再 +1。
+  /// 所有异步回调只认自己发起时的代次，重置后迟到的结果一律丢弃。
+  int _submitGeneration = 0;
+
+  /// 上传代次：重置表单时 +1，让进行中的上传结果作废。
+  int _uploadGeneration = 0;
+
   @override
   void initState() {
     super.initState();
@@ -122,8 +129,9 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
     });
   }
 
-  Future<void> _saveDraft() async {
+  Future<void> _saveDraft({int? generation}) async {
     if (!_isDirty) return;
+    if (generation != null && generation != _submitGeneration) return;
     try {
       await _drafts.save(
         userId: widget.userId,
@@ -136,6 +144,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
         ),
       );
       if (!mounted) return;
+      if (generation != null && generation != _submitGeneration) return;
       setState(() => _offlineDraftSaved = true);
     } catch (error) {
       if (!mounted) return;
@@ -169,6 +178,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
   }
 
   Future<void> _upload(PickedAttachment attachment) async {
+    final generation = ++_uploadGeneration;
     setState(() {
       _uploading = true;
       _uploadProgress = 0;
@@ -181,11 +191,11 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
         companyId: widget.companyId,
         projectId: widget.projectId,
         onProgress: (progress) {
-          if (!mounted) return;
+          if (!mounted || generation != _uploadGeneration) return;
           setState(() => _uploadProgress = progress);
         },
       );
-      if (!mounted) return;
+      if (!mounted || generation != _uploadGeneration) return;
       setState(() {
         _files.add(uploaded);
         _uploading = false;
@@ -194,25 +204,25 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       });
       showAppToast(context, '文件上传成功', type: ToastType.success);
     } on AuthException catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _uploadGeneration) return;
       setState(() {
         _uploading = false;
         _uploadError = error.message;
       });
     } on NetworkException catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _uploadGeneration) return;
       setState(() {
         _uploading = false;
         _uploadError = '${error.message}，可点击重试继续上传';
       });
     } on AppException catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _uploadGeneration) return;
       setState(() {
         _uploading = false;
         _uploadError = error.message;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _uploadGeneration) return;
       setState(() {
         _uploading = false;
         _uploadError = '文件上传失败，请检查格式或文件大小';
@@ -237,6 +247,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       return;
     }
 
+    final generation = ++_submitGeneration;
     setState(() {
       _submitting = true;
       _error = null;
@@ -254,45 +265,48 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
         ),
         fileIds: _files.map((file) => file.fileId).toList(growable: false),
       );
-      if (!mounted) return;
+      if (!mounted || generation != _submitGeneration) return;
       setState(() {
         _outcome = outcome;
         _submitting = false;
         _offlineDraftSaved = false;
       });
       await _clearDraft();
-      if (!mounted) return;
+      if (!mounted || generation != _submitGeneration) return;
       showAppToast(context, '材料已提交', type: ToastType.success);
-      _startPolling(outcome.jobId);
+      _startPolling(outcome.jobId, generation);
     } on AuthException catch (error) {
-      _failWith(error.message);
+      _failWith(error.message, generation);
     } on NetworkException catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _submitGeneration) return;
       setState(() {
         _submitting = false;
         _error = '${error.message}。材料已保存为草稿，网络恢复后可继续提交。';
       });
-      await _saveDraft();
+      await _saveDraft(generation: generation);
     } on ValidationException catch (error) {
-      _failWith(error.message);
+      _failWith(error.message, generation);
     } on ApiException catch (error) {
-      _failWith(error.statusCode == 403
-          ? '此责任事项未开放材料提交权限：${error.message}'
-          : error.message);
+      _failWith(
+        error.statusCode == 403
+            ? '此责任事项未开放材料提交权限：${error.message}'
+            : error.message,
+        generation,
+      );
     } catch (error) {
-      _failWith('提交材料失败，请稍后重试。');
+      _failWith('提交材料失败，请稍后重试。', generation);
     }
   }
 
-  void _failWith(String message) {
-    if (!mounted) return;
+  void _failWith(String message, int generation) {
+    if (!mounted || generation != _submitGeneration) return;
     setState(() {
       _submitting = false;
       _error = message;
     });
   }
 
-  void _startPolling(String? jobId) {
+  void _startPolling(String? jobId, int generation) {
     if (jobId == null || jobId.isEmpty) return;
     _poller?.cancel();
     final poller = JobPoller(
@@ -302,16 +316,16 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
     );
     _poller = poller;
     poller.poll(jobId, onUpdate: (job) {
-      if (!mounted) return;
+      if (!mounted || generation != _submitGeneration) return;
       setState(() => _job = job);
     }).then((job) {
-      if (!mounted) return;
+      if (!mounted || generation != _submitGeneration) return;
       setState(() {
         if (job != null) _job = job;
         _pollTimedOut = job == null || !job.isTerminal;
       });
     }).catchError((Object error) {
-      if (!mounted) return;
+      if (!mounted || generation != _submitGeneration) return;
       setState(() {
         _pollTimedOut = true;
         _error = error is AppException ? error.message : '后台处理状态查询失败，请稍后在材料详情查看。';
@@ -326,21 +340,31 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
   }
 
   /// 提交成功后不允许再次提交同一份材料，需先清空表单再开新的一份。
+  ///
+  /// 重置会作废本轮提交的轮询回调与进行中的上传：它们迟到的结果不得写进新表单。
+  /// 语音识别状态在子组件内部，父页面无法作废，只能在语音进行中禁止重置。
   void _startNewSubmission() {
+    if (!_canStartNewSubmission) return;
     _poller?.cancel();
+    _submitGeneration++;
+    _uploadGeneration++;
     setState(() {
       _summary.clear();
       _files.clear();
+      _uploading = false;
+      _uploadProgress = 0;
+      _pendingUpload = null;
       _outcome = null;
       _job = null;
       _pollTimedOut = false;
       _error = null;
       _uploadError = null;
-      _pendingUpload = null;
       _offlineDraftSaved = false;
       _restoredDraftHint = null;
     });
   }
+
+  bool get _canStartNewSubmission => !_voiceBusy && !_submitting;
 
   @override
   Widget build(BuildContext context) {
@@ -632,7 +656,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
             label: '继续提交新材料',
             variant: AppButtonVariant.secondary,
             isFullWidth: true,
-            onPressed: _startNewSubmission,
+            onPressed: _canStartNewSubmission ? _startNewSubmission : null,
           ),
         ],
       ),

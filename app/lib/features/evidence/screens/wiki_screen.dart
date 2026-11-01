@@ -471,12 +471,17 @@ class _WikiScreenState extends State<WikiScreen> {
     );
   }
 
-  /// 材料命中可回到材料包；其他来源暂无对应页面，不提供点击。
+  /// 材料包命中可回到材料包；其他来源暂无对应页面，不提供点击。
+  ///
+  /// `evidence_file` 的 `source_id` 是附件文件 ID（后端
+  /// `services/knowledge/indexer.py:index_evidence_file` 写入 `EvidenceFile.id`），
+  /// 不是材料包 ID。后端目前没有“文件 ID → 所属材料包”的查询接口，
+  /// 拿它拼 `/evidence/package/{id}` 会打开别的材料包或提示“材料不存在”，
+  /// 因此这类命中暂时不给跳转（接口缺口见 T05 回传报告）。
   String? _hitPath(KnowledgeHit hit) {
     if (hit.sourceId <= 0) return null;
     return switch (hit.sourceType) {
-      'evidence' || 'evidence_file' || 'evidence_package' =>
-        '/evidence/package/${hit.sourceId}',
+      'evidence' || 'evidence_package' => '/evidence/package/${hit.sourceId}',
       _ => null,
     };
   }

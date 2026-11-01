@@ -131,9 +131,11 @@ void main() {
     );
   });
 
-  testWidgets('检索到的材料命中可点开材料详情，知识命中不提供跳转', (tester) async {
+  testWidgets('材料包命中可点开材料详情，附件命中与知识命中不提供跳转', (tester) async {
     final helper = MockApiClientHelper();
     helper.whenGet('/projects/3/llm-wiki', wikiCatalogJson(pages: [wikiPageJson()]));
+    // 材料包 id=91；附件文件 id=501 与材料包 id 不同（后端 indexer 用 EvidenceFile.id），
+    // 因此附件命中不能拼成 /evidence/package/501 直接跳转。
     helper.whenGet(
       '/projects/3/knowledge/search',
       {
@@ -149,6 +151,12 @@ void main() {
             'chunk_text': '原型评审已通过，进入开发阶段。',
             'source_type': 'wiki_entry',
             'source_id': 12,
+          },
+          {
+            'chunk_id': 3,
+            'chunk_text': '评审纪要附件正文：移动端页面完成评审并通过验收。',
+            'source_type': 'evidence_file',
+            'source_id': 501,
           },
         ],
       },
@@ -173,6 +181,7 @@ void main() {
 
     expect(find.text('材料 #91'), findsOneWidget);
     expect(find.text('知识 #12'), findsOneWidget);
+    expect(find.text('材料 #501'), findsOneWidget);
 
     await tester.tap(find.text('材料 #91'));
     await tester.pumpAndSettle();
@@ -187,6 +196,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('材料详情 12'), findsNothing);
     expect(find.text('知识 #12'), findsOneWidget);
+
+    // 附件命中的 source_id 是文件 ID，不能当成材料包 ID 跳转
+    await tester.tap(find.text('材料 #501'));
+    await tester.pumpAndSettle();
+    expect(find.text('材料详情 501'), findsNothing);
+    expect(find.text('材料详情 91'), findsNothing);
+    expect(find.text('材料 #501'), findsOneWidget);
   });
 
   testWidgets('检索无结果时显示空状态', (tester) async {
