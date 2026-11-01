@@ -155,8 +155,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 直属领导显示“未指定直属领导”，而不是“直属领导不能是自己”
-      expect(find.text('未指定直属领导'), findsOneWidget);
+      // 直属领导显示“提交时由系统按人轴确定直属接收人”，而不是“直属领导不能是自己”
+      expect(find.text('提交时由系统按人轴确定直属接收人'), findsOneWidget);
       expect(find.text('直属领导不能是自己'), findsNothing);
 
       // 输入内容
@@ -291,22 +291,30 @@ void main() {
       expect(body['sources'], isEmpty, reason: '来源不应混入服务器草稿 503 的来源');
     });
 
-    testWidgets('历史汇报接收人与当前上级不同时，编辑页显示当前上级 (P2)', (tester) async {
+    testWidgets('有中间层领导、没有服务器草稿时，不显示项目经理为接收人、提交按钮可用 (P2)', (tester) async {
+      const intermediateLeaderId = 30;
+      final membersWithIntermediate = [
+        ...ReportsTestFixtures.membersJson, // 包含李四 (pm, id: 20)
+        {
+          'user_id': intermediateLeaderId,
+          'display_name': '中间层组长王五',
+          'role': 'leader',
+          'left_at': null,
+        },
+      ];
       final harness = await ReportsTestHarness.create();
-      // 用户本地有草稿（例如调岗后写的新汇报）
-      await harness.draftStore.save(
-        userId: ReportsTestFixtures.currentUserId,
-        projectId: ReportsTestFixtures.projectId,
-        summary: '向当前项目经理汇报新进展',
+      harness.helper.whenGet(
+        '/projects/${ReportsTestFixtures.projectId}/members',
+        {'items': membersWithIntermediate},
       );
-      // /reports/my 中只有过去的已提交历史汇报（当时接收人为旧领导编号 30）
+      // 服务端没有未提交的草稿，只有已提交的历史汇报
       harness.helper.whenGet(
         '/reports/my',
         {
           'items': [
             {
               ...ReportsTestFixtures.submittedReportJson,
-              'parent_user_id': 30,
+              'parent_user_id': intermediateLeaderId,
             },
           ],
         },
@@ -327,9 +335,68 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // 验证不应复用历史汇报中的旧领导（编号 30），而是显示当前人轴上级直属领导李四
-      expect(find.text('直属领导（编号 30）'), findsNothing);
-      expect(find.text('直属领导李四'), findsOneWidget);
+      // 验证不显示项目经理李四为接收人，也不显示具体人名，显示系统确定说明
+      expect(find.text('直属领导李四'), findsNothing);
+      expect(find.text('中间层组长王五'), findsNothing);
+      expect(find.text('提交时由系统按人轴确定直属接收人'), findsOneWidget);
+
+      // 输入内容后验证确认提交按钮可用
+      final textFields = find.byType(TextField);
+      await tester.enterText(textFields.first, '本周完成业务接口联调');
+      await tester.pump();
+
+      final submitButton = tester.widget<AppButton>(
+        find.widgetWithText(AppButton, '确认提交'),
+      );
+      expect(submitButton.onPressed, isNotNull);
+    });
+
+    testWidgets('编辑服务器草稿时显示草稿记录的接收人和说明文字 (P2)', (tester) async {
+      const intermediateLeaderId = 30;
+      final membersWithIntermediate = [
+        ...ReportsTestFixtures.membersJson,
+        {
+          'user_id': intermediateLeaderId,
+          'display_name': '中间层组长王五',
+          'role': 'leader',
+          'left_at': null,
+        },
+      ];
+      final memberDraftWithIntermediate = {
+        ...ReportsTestFixtures.draftReportJson,
+        'parent_user_id': intermediateLeaderId,
+      };
+
+      final harness = await ReportsTestHarness.create();
+      harness.helper.whenGet(
+        '/projects/${ReportsTestFixtures.projectId}/members',
+        {'items': membersWithIntermediate},
+      );
+      harness.helper.whenGet(
+        '/reports/my',
+        {
+          'items': [memberDraftWithIntermediate],
+        },
+        query: {'project_id': '${ReportsTestFixtures.projectId}'},
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证展示草稿记录的接收人以及对应的说明文字
+      expect(find.text('中间层组长王五'), findsOneWidget);
+      expect(find.text('以草稿创建时的人轴关系为准，提交时系统会重新确认'), findsOneWidget);
     });
 
     testWidgets('未解析到直属上级时显示未指定直属领导及提交时由系统确定接收人 (P2)', (tester) async {
@@ -389,8 +456,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('未指定直属领导'), findsOneWidget);
-      expect(find.text('提交时由系统确定接收人'), findsOneWidget);
+      expect(find.text('提交时由系统按人轴确定直属接收人'), findsOneWidget);
     });
 
     testWidgets('刚输入完未满300毫秒自动保存前切换项目，旧项目草稿被安全保存且不串到新项目 (P2)', (tester) async {

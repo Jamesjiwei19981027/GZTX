@@ -228,30 +228,12 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     if (_disposed || version != _version) return;
 
     int? myBindingId;
-    int? projectLeaderId;
     for (final binding in bindings) {
       if (binding.role == 'member' && binding.userId == userId) {
         myBindingId = binding.id;
-      }
-      if (binding.isProjectAgent &&
-          binding.userId != null &&
-          binding.userId != userId) {
-        projectLeaderId = binding.userId;
+        break;
       }
     }
-
-    if (projectLeaderId == null) {
-      const pmRoles = {'pm', 'owner', 'admin', 'manager'};
-      for (final member in members) {
-        final role = (member.role ?? '').toLowerCase();
-        if (pmRoles.contains(role) && member.userId != userId) {
-          projectLeaderId = member.userId;
-          break;
-        }
-      }
-    }
-
-    resolvedParentUserId ??= projectLeaderId;
 
     final text = local?.summary ?? matchedServerDraft?.summaryText ?? '';
     final parts = text.split('\n\n');
@@ -328,7 +310,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
         _sources = draft.sources;
         _taskSnapshots = draft.taskSnapshots;
         _evidenceSnapshots = draft.evidenceSnapshots;
-        if (draft.parentUserId != null) _parentUserId = draft.parentUserId;
+        _parentUserId = draft.parentUserId;
         _info = '已基于当前项目任务与资料生成最新事实汇报草稿';
       });
       _hydrating = false;
@@ -348,7 +330,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   Future<void> _submit() async {
     if (_submitting || _generating) return;
     final projectId = _projectId;
-    if (_supervisor.isSelf) {
+    if (_parentUserId != null && _supervisor.isSelf) {
       setState(() => _error = '直属领导不能是自己。人轴责任链要求汇报流向明确的上级管理者。');
       return;
     }
@@ -549,7 +531,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                           const ReportSectionTitle('提交接收人'),
                           const SizedBox(height: AppSpacing.sm),
                           _supervisorCard(context, supervisor),
-                          if (supervisor.isSelf)
+                          if (_parentUserId != null && supervisor.isSelf)
                             const Padding(
                               padding: EdgeInsets.only(top: AppSpacing.sm),
                               child: Text(
@@ -607,8 +589,65 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   }
 
   Widget _supervisorCard(BuildContext context, SupervisorResolution supervisor) {
-    final danger = supervisor.isSelf;
     final dark = isDarkMode(context);
+
+    // 只有当本次编辑的就是某份服务器草稿、且该草稿带 parent_user_id 时，才显示该接收人
+    if (_parentUserId == null) {
+      return Container(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        decoration: BoxDecoration(
+          color: dark ? AppColors.darkSurface : AppColors.surface,
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+          border: Border.all(
+            color: dark ? AppColors.darkBorder : AppColors.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: dark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+              child: AppIcon(
+                'user',
+                size: 18,
+                color: dark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.md),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '提交时由系统按人轴确定直属接收人',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    '以人轴最新责任链实时流转，无需手动选择',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+                  ),
+                ],
+              ),
+            ),
+            const AppIcon(
+              'check-circle',
+              size: 18,
+              color: AppColors.textDisabled,
+            ),
+          ],
+        ),
+      );
+    }
+
+    final danger = supervisor.isSelf;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -628,7 +667,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
             radius: 20,
             backgroundColor: dark ? const Color(0xFF1E3355) : const Color(0xFFDCE8FB),
             child: Text(
-              supervisor.name.characters.first,
+              supervisor.name.characters.isNotEmpty ? supervisor.name.characters.first : '领',
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -664,13 +703,11 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                   ],
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  supervisor.isUnassigned
-                      ? '提交时由系统确定接收人'
-                      : '${supervisor.role ?? '人轴直属领导'} · 人轴实时判定',
+                const Text(
+                  '以草稿创建时的人轴关系为准，提交时系统会重新确认',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+                  style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
                 ),
               ],
             ),
@@ -687,6 +724,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
 
   Widget _bottomBar(BuildContext context, SupervisorResolution supervisor) {
     final dark = isDarkMode(context);
+    final isBlocked = (_parentUserId != null && supervisor.isSelf) || _generating;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -718,7 +756,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
               child: AppButton(
                 label: _submitting ? '正在提交…' : '确认提交',
                 isLoading: _submitting,
-                onPressed: supervisor.isSelf || _generating ? null : _submit,
+                onPressed: isBlocked ? null : _submit,
                 icon: _submitting
                     ? null
                     : const AppIcon('send', size: 17, color: Colors.white),
