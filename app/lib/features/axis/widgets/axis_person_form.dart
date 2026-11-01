@@ -218,7 +218,8 @@ class _AxisPersonFormState extends State<AxisPersonForm> {
   ///
   /// 后端 PATCH 只要带 `assignees` 就整份替换（`TreeService.set_assignees`
   /// 先删后插），所以必须把原有指派连同角色一起回传：只改姓名/岗位时原样保留，
-  /// 只有改选主负责人时才替换主负责人那一条，协作者和观察者不动。
+  /// 只有改选主负责人时才替换主负责人那一条，协作者和观察者不动
+  /// （包括新主负责人原有的协作者/观察者指派：后端允许同一人兼多个角色）。
   List<Map<String, dynamic>> _assigneesForSave(AxisPersonNode node) {
     final primary = node.primaryAssignee;
     final selected = _selectedUserId;
@@ -229,8 +230,7 @@ class _AxisPersonFormState extends State<AxisPersonForm> {
     return [
       {'user_id': selected, 'role_key': 'primary'},
       for (final assignee in node.assignees)
-        if (assignee.userId != primary?.userId && assignee.userId != selected)
-          assignee.toJson(),
+        if (assignee.roleKey != 'primary') assignee.toJson(),
     ];
   }
 

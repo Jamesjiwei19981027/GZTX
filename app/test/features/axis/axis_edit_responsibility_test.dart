@@ -185,4 +185,32 @@ void main() {
     );
     await tester.pump(const Duration(seconds: 3));
   });
+  testWidgets('把协作者提为主负责人时保留其原协作者指派，只去掉旧主负责人', (tester) async {
+    final harness = await AxisTestHarness.create(
+      isPm: true,
+      tree: treeWithSharedAssignees(),
+    );
+    harness.helper.register('PATCH', '/nodes/102', AxisTestHarness.nodeDetail());
+    await pumpEdit(tester, harness);
+
+    await tester.tap(find.byKey(const Key('axis-form-member')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('赵晨 (axis_product)'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存人员'));
+    await tester.pumpAndSettle();
+
+    final patch = harness.helper.history.firstWhere(
+      (r) => r.method == 'PATCH' && r.url.path == '/api/v1/nodes/102',
+      orElse: () => throw StateError('未发出保存请求'),
+    );
+    final assignees = ((patch.body as Map)['assignees'] as List)
+        .cast<Map<String, dynamic>>();
+    expect(assignees, [
+      {'user_id': 13, 'role_key': 'primary'},
+      {'user_id': 13, 'role_key': 'collaborator'},
+      {'user_id': 14, 'role_key': 'observer'},
+    ]);
+    await tester.pump(const Duration(seconds: 3));
+  });
 }
