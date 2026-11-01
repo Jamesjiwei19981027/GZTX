@@ -448,15 +448,6 @@ class MockWorkApi extends Fake implements WorkApi {
   }
 
   @override
-  Future<void> purgeTrash(int id) async {
-    _checkErrors();
-    final index = trash.indexWhere((t) => t.id == id);
-    if (index >= 0) {
-      trash.removeAt(index);
-    }
-  }
-
-  @override
   Future<int> batchComplete(List<int> ids) async {
     _checkErrors();
     var count = 0;

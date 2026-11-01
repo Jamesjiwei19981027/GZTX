@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:worktodo_app/features/work/data/work_models.dart';
@@ -29,7 +28,8 @@ void main() {
     expect(find.textContaining('保留 30 天'), findsOneWidget);
     expect(find.text('旧版需求评审文档归档'), findsOneWidget);
     expect(find.text('恢复'), findsOneWidget);
-    expect(find.text('彻底删除'), findsOneWidget);
+    // 后端无物理删除接口前，不展示彻底删除按钮，避免误导用户
+    expect(find.text('彻底删除'), findsNothing);
 
     // 点击恢复
     await tester.tap(find.text('恢复'));
@@ -42,7 +42,7 @@ void main() {
     expect(harness.api.tasks.any((t) => t.id == 991), isTrue);
   });
 
-  testWidgets('彻底删除二次确认取消时不执行删除', (tester) async {
+  testWidgets('回收站不提供伪彻底删除按钮，只支持恢复', (tester) async {
     final harness = await WorkTestHarness.create();
     final trashItem = WorkTask.fromJson(buildTaskJson(
       id: 992,
@@ -58,59 +58,10 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    // 点击彻底删除
-    await tester.tap(find.text('彻底删除'));
-    await tester.pumpAndSettle();
-
-    // 弹出二次确认弹窗
-    expect(find.text('彻底删除任务'), findsOneWidget);
-    expect(find.textContaining('确定要彻底删除任务「误删的会议纪要草稿」吗？'), findsOneWidget);
-
-    // 点击取消
-    await tester.tap(find.text('取消'));
-    await tester.pumpAndSettle();
-
-    // 弹窗关闭，任务未被删除
-    expect(find.text('彻底删除任务'), findsNothing);
-    expect(harness.api.trash.any((t) => t.id == 992), isTrue);
-    expect(find.text('误删的会议纪要草稿'), findsOneWidget);
-  });
-
-  testWidgets('彻底删除二次确认确认后调用 purge 移除项', (tester) async {
-    final harness = await WorkTestHarness.create();
-    final trashItem = WorkTask.fromJson(buildTaskJson(
-      id: 993,
-      title: '失效废弃的临时脚本',
-      status: 0,
-      deletedAt: '2026-10-27T08:00:00Z',
-    ));
-    harness.api.trash.clear();
-    harness.api.trash.add(trashItem);
-
-    await tester.pumpWidget(harness.wrap(
-      WorkTrashScreen(api: harness.api, authState: harness.authState),
-    ));
-    await tester.pumpAndSettle();
-
-    // 点击彻底删除
-    await tester.tap(find.text('彻底删除'));
-    await tester.pumpAndSettle();
-
-    // 弹窗确定按钮
-    final confirmBtn = find.descendant(
-      of: find.byType(AlertDialog),
-      matching: find.text('彻底删除'),
-    );
-    expect(confirmBtn, findsOneWidget);
-
-    await tester.tap(confirmBtn);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    await tester.pump(const Duration(seconds: 3));
-
-    // 回收站已被清空
-    expect(harness.api.trash.isEmpty, isTrue);
-    expect(find.text('回收站空空如也'), findsOneWidget);
+    // 验证绝无“彻底删除”按钮，也没有“已彻底删除”的 Toast 提示
+    expect(find.text('彻底删除'), findsNothing);
+    expect(find.text('已彻底删除'), findsNothing);
+    expect(find.text('恢复'), findsOneWidget);
   });
 
   testWidgets('回收站为空时展示空状态提示', (tester) async {
