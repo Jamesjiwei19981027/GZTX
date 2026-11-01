@@ -192,4 +192,34 @@ void main() {
     expect(find.text('全局个人私有任务'), findsOneWidget);
     expect(find.text('项目一独有任务'), findsNothing);
   });
+
+  testWidgets('批量改期准确保留任务原有時刻并在时区转换下维持目标本地日期', (tester) async {
+    final harness = await WorkTestHarness.create();
+    await tester.pumpWidget(harness.wrap(
+      WorkTasksScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 进入批量模式
+    await tester.tap(find.text('批量操作'));
+    await tester.pump();
+
+    // 点击选中任务 102
+    await tester.tap(find.text('服务器跨时区日志备份'));
+    await tester.pump();
+
+    // 点击顺延
+    await tester.tap(find.text('顺延'));
+    await tester.pumpAndSettle();
+
+    // 点击日期选择器的确定按钮
+    await tester.tap(find.text('确定'));
+    await tester.pumpAndSettle();
+
+    // 验证任务 102 的 dueDate 保持为所选的目标本地日期，且时刻仍为 23:30
+    final task102 = harness.api.tasks.firstWhere((t) => t.id == 102);
+    expect(task102.dueDate, TaskTime.todayKey());
+    expect(task102.dueTime, '23:30');
+  });
 }

@@ -200,7 +200,15 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     );
     if (picked == null || !mounted) return;
     final target = TaskTime.localDateKey(picked);
-    await _runBatch(() => _api.batchReschedule(_selected.toList(), target));
+    final selectedTasks =
+        _tasks.where((task) => _selected.contains(task.id)).toList();
+    await _runBatch(() async {
+      for (final task in selectedTasks) {
+        if (task.isAxisLocked) continue;
+        final targetDueIso = TaskTime.toApiDueDate(target, task.dueTime);
+        await _api.updateTask(task.id, {'due_date': targetDueIso});
+      }
+    });
   }
 
   void _toggleSelectAll() {
