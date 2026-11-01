@@ -235,7 +235,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       _members = members;
       _myBindingId = myBindingId;
       _parentUserId = resolvedParentUserId;
-      _draftReportId = local?.draftReportId ?? serverDraft?.id;
+      _draftReportId = local?.draftReportId ?? serverDraft?.id ?? _draftReportId;
       _sources = serverDraft?.sources ?? const [];
       _taskSnapshots = serverDraft?.taskSnapshots ?? const [];
       _evidenceSnapshots = serverDraft?.evidenceSnapshots ?? const [];

@@ -219,6 +219,43 @@ void main() {
       expect(find.text('直属领导李四'), findsNothing);
     });
 
+    testWidgets('打开带显式 draftReportId 的草稿且本地有未关联 draftId 文本时提交保留显式草稿 ID (P2)', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      // 本地有未关联 draftReportId 的草稿文字（例如从对话页一键存入的文字）
+      await harness.draftStore.save(
+        userId: ReportsTestFixtures.currentUserId,
+        projectId: ReportsTestFixtures.projectId,
+        summary: '对话页快速暂存的本周进展',
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            initialDraftReportId: 503,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 点击确认提交
+      await tester.tap(find.text('确认提交'));
+      await tester.pumpAndSettle();
+
+      // 验证提交走的是 /api/v1/reports/503/submit，而不是新建 /api/v1/projects/10/agent-reports
+      final postPaths = harness.helper.history
+          .where((r) => r.method == 'POST')
+          .map((r) => r.url.path)
+          .toList();
+      expect(postPaths, contains('/api/v1/reports/503/submit'));
+      expect(postPaths.where((p) => p.endsWith('/agent-reports')), isEmpty);
+    });
+
     testWidgets('刚输入完未满300毫秒自动保存前切换项目，旧项目草稿被安全保存且不串到新项目 (P2)', (tester) async {
       final harness = await ReportsTestHarness.create();
       final currentUserId = ReportsTestFixtures.currentUserId;
