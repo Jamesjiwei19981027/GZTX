@@ -436,7 +436,7 @@ class AxisTestHarness {
             'before_json': {'percent': 40},
             'after_json': {'percent': 70, 'status': 'in_progress'},
             'reason': '补齐员工端原型，管理者汇报入口待验收。',
-            'created_at': '2026-11-01T07:20:00Z',
+            'created_at': '2025-11-01T07:20:00Z', // 用往年时间：相对时间文案不随测试当天变化
           },
           {
             'id': 9000,
@@ -447,7 +447,7 @@ class AxisTestHarness {
             'before_json': null,
             'after_json': {'percent': 40},
             'reason': '基础任务流程已完成，附评审纪要。',
-            'created_at': '2026-10-31T09:40:00Z',
+            'created_at': '2025-10-31T09:40:00Z',
           },
         ],
       };
