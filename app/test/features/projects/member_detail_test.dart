@@ -92,6 +92,35 @@ void main() {
       expect(find.text('返回成员列表'), findsOneWidget);
     });
 
+    testWidgets('已退出成员的职责名片标注已退出', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      harness.helper.whenGet('/projects/11/members', {
+        'items': [
+          memberJson(
+            userId: 6,
+            nickname: '林悦',
+            leftAt: '2026-10-20T02:00:00Z',
+          ),
+        ],
+      });
+      harness.helper.whenGet(
+        '/projects/11/tasks',
+        {'items': <Map<String, dynamic>>[], 'total': 0},
+        query: {'page': '1', 'page_size': '200'},
+      );
+
+      await harness.pumpScreen(
+        tester,
+        const MemberDetailScreen(projectId: 11, userId: 6),
+      );
+
+      expect(find.text('已退出项目'), findsOneWidget);
+      expect(find.textContaining('该成员已退出本项目'), findsOneWidget);
+      expect(find.text('项目成员'), findsNothing);
+      expect(find.text('项目负责人'), findsNothing);
+    });
+
     testWidgets('事项加载失败时可重试', (tester) async {
       final harness = ProjectsTestHarness();
       await harness.bootstrap();

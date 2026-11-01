@@ -6,6 +6,7 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:worktodo_app/core/auth/auth_provider.dart';
+import 'package:worktodo_app/core/models/company.dart';
 import 'package:worktodo_app/design/design.dart';
 
 import '../data/projects_repository.dart';
@@ -37,6 +38,9 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
   String? _error;
   String? _nameError;
   bool _busy = false;
+
+  /// 已创建但尚未成功切换到的公司（切换失败时保留，用于重试，避免重复创建）
+  Company? _createdCompany;
 
   @override
   void initState() {
@@ -146,17 +150,71 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
         slug: slug,
         policyPreset: _policyPreset,
       );
-      // 新建公司后由底座全局状态加载该公司的项目列表并成为当前企业
-      await auth.selectCompany(created);
+      // 公司已经创建成功，后续只是切换工作区；失败不能当成创建失败让用户重试创建
+      final activated = await _activateCompany(created);
       if (!mounted) return;
-      setState(() => _busy = false);
-      showAppToast(context, '公司「${created.name}」已创建', type: ToastType.success);
-      Navigator.of(context).maybePop();
+      if (activated) {
+        setState(() {
+          _busy = false;
+          _createdCompany = null;
+        });
+        showAppToast(
+          context,
+          '公司「${created.name}」已创建',
+          type: ToastType.success,
+        );
+        Navigator.of(context).maybePop();
+      } else {
+        setState(() {
+          _busy = false;
+          _createdCompany = created;
+          _error = '公司「${created.name}」已创建，但切换失败：项目列表未能加载。'
+              '可点下方「重试切换」，无需重新创建公司。';
+        });
+      }
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _busy = false;
         _error = projectErrorMessage(error);
+      });
+    }
+  }
+
+  /// 切换到新建公司；失败时 AuthState 已回滚到原公司，这里只返回结果。
+  Future<bool> _activateCompany(Company company) async {
+    final auth = context.authStateRead;
+    if (auth.currentCompany?.id == company.id) return true;
+    final switched = await auth.selectCompany(company);
+    // 并发加载时 selectCompany 可能因序号被覆盖返回 false，但目标公司已成为当前公司
+    return switched || auth.currentCompany?.id == company.id;
+  }
+
+  /// 切换失败后的恢复入口：只重试切换已创建的公司，不重复 POST /companies
+  Future<void> _retrySwitch() async {
+    final company = _createdCompany;
+    if (company == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final activated = await _activateCompany(company);
+    if (!mounted) return;
+    if (activated) {
+      setState(() {
+        _busy = false;
+        _createdCompany = null;
+      });
+      showAppToast(
+        context,
+        '已切换到公司「${company.name}」',
+        type: ToastType.success,
+      );
+      Navigator.of(context).maybePop();
+    } else {
+      setState(() {
+        _busy = false;
+        _error = '仍无法切换到公司「${company.name}」，请检查网络后重试。公司已创建，无需重新创建。';
       });
     }
   }
@@ -190,7 +248,19 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
               tone: InfoBannerTone.danger,
               icon: 'alert',
             ),
-            const SizedBox(height: AppSpacing.lg),
+            const SizedBox(height: AppSpacing.md),
+          ],
+          if (_createdCompany != null) ...[
+            // 公司已创建成功，只差切换到新工作区；入口常驻，避免用户重复创建
+            AppButton(
+              label: '重试切换到「${_createdCompany!.name}」',
+              variant: AppButtonVariant.secondary,
+              size: AppButtonSize.lg,
+              isFullWidth: true,
+              icon: const AppIcon('refresh', size: 16),
+              onPressed: _busy ? null : _retrySwitch,
+            ),
+            const SizedBox(height: AppSpacing.md),
           ],
           if (isProject) ..._buildProjectForm() else ..._buildCompanyForm(),
         ],

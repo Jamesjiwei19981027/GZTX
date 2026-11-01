@@ -91,9 +91,18 @@ class _TeamScreenState extends State<TeamScreen> {
     }
   }
 
+  /// 现任成员（`left_at` 为空）；已退出成员单列，不计入角色统计
+  List<ProjectMember> get _activeMembers => _members
+      .where((member) => member.isActive)
+      .toList(growable: false);
+
+  List<ProjectMember> get _departedMembers => _members
+      .where((member) => member.hasLeft)
+      .toList(growable: false);
+
   List<ProjectMember> get _filtered {
     final keyword = _search.trim().toLowerCase();
-    return _members.where((member) {
+    return _activeMembers.where((member) {
       final matchSearch = keyword.isEmpty ||
           member.name.toLowerCase().contains(keyword) ||
           (member.username ?? '').toLowerCase().contains(keyword);
@@ -106,8 +115,20 @@ class _TeamScreenState extends State<TeamScreen> {
     }).toList(growable: false);
   }
 
+  /// 已退出成员只按关键字过滤；角色筛选针对现任成员，退出后不再参与角色统计
+  List<ProjectMember> get _filteredDeparted {
+    if (_filter != TeamRoleFilter.all) return const [];
+    final keyword = _search.trim().toLowerCase();
+    return _departedMembers
+        .where((member) =>
+            keyword.isEmpty ||
+            member.name.toLowerCase().contains(keyword) ||
+            (member.username ?? '').toLowerCase().contains(keyword))
+        .toList(growable: false);
+  }
+
   int get _managerCount =>
-      _members.where((member) => member.isManager).length;
+      _activeMembers.where((member) => member.isManager).length;
 
   @override
   Widget build(BuildContext context) {
@@ -166,7 +187,7 @@ class _TeamScreenState extends State<TeamScreen> {
                   runSpacing: AppSpacing.sm,
                   children: [
                     _FilterChip(
-                      label: '全部 (${_members.length})',
+                      label: '全部 (${_activeMembers.length})',
                       selected: _filter == TeamRoleFilter.all,
                       onTap: () => setState(() => _filter = TeamRoleFilter.all),
                     ),
@@ -177,7 +198,7 @@ class _TeamScreenState extends State<TeamScreen> {
                           setState(() => _filter = TeamRoleFilter.manager),
                     ),
                     _FilterChip(
-                      label: '业务成员 (${_members.length - _managerCount})',
+                      label: '业务成员 (${_activeMembers.length - _managerCount})',
                       selected: _filter == TeamRoleFilter.member,
                       onTap: () =>
                           setState(() => _filter = TeamRoleFilter.member),
@@ -222,7 +243,8 @@ class _TeamScreenState extends State<TeamScreen> {
     }
 
     final filtered = _filtered;
-    if (filtered.isEmpty) {
+    final departed = _filteredDeparted;
+    if (filtered.isEmpty && departed.isEmpty) {
       return const AppEmptyState(
         title: '无匹配成员',
         description: '未找到符合搜索条件的成员',
@@ -233,42 +255,73 @@ class _TeamScreenState extends State<TeamScreen> {
     return ListView(
       padding: const EdgeInsets.only(bottom: AppSpacing.xxxl),
       children: [
-        AppListSection(
-          header: '成员列表 (${filtered.length})',
-          children: [
-            for (final member in filtered)
-              AppListTile(
-                leading: Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    MemberAvatar(member: member, size: 40),
-                    Positioned(
-                      right: -2,
-                      bottom: -2,
-                      child: PresenceDot(
-                        status: _presence[member.userId] ?? 'offline',
-                      ),
-                    ),
-                  ],
-                ),
-                title: member.name,
-                subtitle: member.username != null
-                    ? '@${member.username}'
-                    : '用户ID: ${member.userId}',
-                showChevron: false,
-                trailing: ProjectChip(
-                  label: member.roleLabel,
-                  tone: member.isManager
-                      ? ProjectChipTone.primary
-                      : ProjectChipTone.neutral,
-                ),
-                onTap: () => context.push(
-                  '/projects/${widget.projectId}/team/${member.userId}',
-                ),
-              ),
-          ],
-        ),
+        if (filtered.isNotEmpty)
+          AppListSection(
+            header: '成员列表 (${filtered.length})',
+            children: [
+              for (final member in filtered)
+                _buildMemberTile(member, isDeparted: false),
+            ],
+          ),
+        if (filtered.isEmpty)
+          const Padding(
+            padding: EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              AppSpacing.md,
+              AppSpacing.lg,
+              AppSpacing.md,
+            ),
+            child: Text(
+              '项目暂无在职成员',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+          ),
+        if (departed.isNotEmpty)
+          AppListSection(
+            header: '已退出成员 (${departed.length})',
+            children: [
+              for (final member in departed)
+                _buildMemberTile(member, isDeparted: true),
+            ],
+          ),
       ],
+    );
+  }
+
+  Widget _buildMemberTile(ProjectMember member, {required bool isDeparted}) {
+    final avatar = MemberAvatar(member: member, size: 40);
+    return AppListTile(
+      leading: isDeparted
+          ? avatar
+          : Stack(
+              clipBehavior: Clip.none,
+              children: [
+                avatar,
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: PresenceDot(
+                    status: _presence[member.userId] ?? 'offline',
+                  ),
+                ),
+              ],
+            ),
+      title: member.name,
+      subtitle: member.username != null
+          ? '@${member.username}'
+          : '用户ID: ${member.userId}',
+      showChevron: false,
+      trailing: ProjectChip(
+        label: isDeparted ? '已退出' : member.roleLabel,
+        tone: isDeparted
+            ? ProjectChipTone.neutral
+            : (member.isManager
+                ? ProjectChipTone.primary
+                : ProjectChipTone.neutral),
+      ),
+      onTap: () => context.push(
+        '/projects/${widget.projectId}/team/${member.userId}',
+      ),
     );
   }
 }

@@ -167,7 +167,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     }
 
     final project = _project;
-    final canEdit = _permissions?.canManage ?? false;
+    final canArchive = _permissions?.canArchive ?? false;
     final isPm = _permissions?.isPm ?? false;
 
     return ListView(
@@ -197,11 +197,11 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
               icon: 'alert',
             ),
           ),
-        if (!canEdit)
+        if (!canArchive)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: InfoBanner(
-              message: '你当前是普通成员，仅项目管理员 (PM) 可修改项目关键设置或归档。',
+              message: '你没有归档权限。归档需要项目负责人 (PM)、企业管理员或具备管理授权的受托管理人。',
               tone: InfoBannerTone.warning,
               icon: 'warning',
             ),
@@ -227,7 +227,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             ),
           ],
         ),
-        if (canEdit)
+        if (canArchive)
           AppListSection(
             header: '危险操作区',
             children: [

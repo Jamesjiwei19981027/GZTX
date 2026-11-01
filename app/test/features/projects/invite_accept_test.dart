@@ -54,6 +54,119 @@ void main() {
       await tester.pump();
     });
 
+    testWidgets('首次加入公司时先切到受邀公司再选中项目', (tester) async {
+      final harness = ProjectsTestHarness(company: false);
+      final auth = await harness.bootstrap();
+      expect(auth.currentCompany, isNull);
+
+      harness.helper.whenPost(
+        '/projects/invitations/first-token/accept',
+        {'project_id': 11, 'role': 'member'},
+      );
+      // 接受邀请后后端才建立公司成员关系，此时 /companies/mine 才有数据
+      harness.helper.whenGet('/companies/mine', {
+        'items': [companyJson()],
+        'total': 1,
+      });
+      harness.helper.whenGet(
+        '/projects',
+        {
+          'items': [projectJson()],
+          'total': 1,
+        },
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+      harness.helper.whenGet('/projects/11', projectJson());
+      harness.helper.whenGet('/projects/11/members', {
+        'items': [memberJson(userId: 11, nickname: '张三')],
+      });
+      harness.helper.whenGet('/companies/1/presence', {
+        'items': <Map<String, dynamic>>[],
+      });
+
+      final router = await harness.pumpApp(
+        tester,
+        location: '/projects/invite/accept?token=first-token',
+      );
+
+      await tester.tap(find.text('接受并进入项目'));
+      await tester.pumpAndSettle();
+
+      // 重新拉取了公司列表，并把受邀项目所属公司设为当前公司
+      expect(
+        harness.helper.history
+            .where((item) =>
+                item.method == 'GET' &&
+                item.url.path == '/api/v1/companies/mine')
+            .length,
+        2,
+      );
+      expect(auth.currentCompany?.id, 1);
+      expect(auth.currentProject?.id, 11);
+      expect(router.currentLocation, '/projects/11/team');
+      expect(find.text('项目团队与成员'), findsOneWidget);
+      expect(find.text('已加入「智能客服 2.0」'), findsOneWidget);
+      resetToastForTesting();
+      await tester.pump();
+    });
+
+    testWidgets('已在另一公司时切换到受邀项目所属公司', (tester) async {
+      final harness = ProjectsTestHarness();
+      final auth = await harness.bootstrap();
+      expect(auth.currentCompany?.id, 1);
+
+      harness.helper.whenPost(
+        '/projects/invitations/second-token/accept',
+        {'project_id': 21, 'role': 'member'},
+      );
+      harness.helper.whenGet('/companies/mine', {
+        'items': [companyJson(), companyJson(id: 2, name: '未来科技')],
+        'total': 2,
+      });
+      harness.helper.whenGet(
+        '/projects',
+        {
+          'items': [projectJson(id: 21, name: '数据中台', companyId: 2)],
+          'total': 1,
+        },
+        query: {'company_id': '2', 'as_admin': 'true'},
+      );
+      harness.helper.whenGet(
+        '/projects/21',
+        projectJson(id: 21, name: '数据中台', companyId: 2),
+      );
+      harness.helper.whenGet('/projects/21/members', {
+        'items': [memberJson(userId: 11, nickname: '张三')],
+      });
+      harness.helper.whenGet('/companies/2/presence', {
+        'items': <Map<String, dynamic>>[],
+      });
+
+      final router = await harness.pumpApp(
+        tester,
+        location: '/projects/invite/accept?token=second-token',
+      );
+
+      await tester.tap(find.text('接受并进入项目'));
+      await tester.pumpAndSettle();
+
+      expect(
+        harness.helper.history
+            .where((item) =>
+                item.method == 'GET' &&
+                item.url.path == '/api/v1/projects' &&
+                item.url.queryParameters['company_id'] == '2')
+            .isNotEmpty,
+        isTrue,
+      );
+      expect(auth.currentCompany?.id, 2);
+      expect(auth.currentProject?.id, 21);
+      expect(router.currentLocation, '/projects/21/team');
+      expect(find.text('已加入「数据中台」'), findsOneWidget);
+      resetToastForTesting();
+      await tester.pump();
+    });
+
     testWidgets('令牌为空时提示必填', (tester) async {
       final harness = ProjectsTestHarness();
       await harness.bootstrap();

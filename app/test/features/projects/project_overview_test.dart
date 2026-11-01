@@ -8,46 +8,62 @@ import 'support/projects_test_harness.dart';
 /// 注册项目概览所需的全部接口
 void registerOverviewMocks(
   ProjectsTestHarness harness, {
+  int projectId = 11,
   Map<String, dynamic>? permissions,
   Map<String, dynamic>? project,
   List<Map<String, dynamic>>? tasks,
 }) {
-  harness.helper.whenGet('/projects/11', project ?? projectJson());
-  harness.helper.whenGet('/projects/11/members', {
+  final id = projectId;
+  harness.helper.whenGet(
+    '/projects/$id',
+    project ??
+        (id == 11
+            ? projectJson()
+            : projectJson(id: id, name: '数据中台', memberCount: 1)),
+  );
+  harness.helper.whenGet('/projects/$id/members', {
     'items': [
       memberJson(userId: 5, nickname: '王宁', role: 'pm'),
       memberJson(userId: 6, nickname: '林悦'),
     ],
   });
   harness.helper.whenGet(
-    '/projects/11/my-permissions',
+    '/projects/$id/my-permissions',
     permissions ?? permissionsJson(),
   );
   harness.helper.whenGet(
-    '/projects/11/tasks',
+    '/projects/$id/tasks',
     {
       'items': tasks ??
-          [
-            taskJson(
-              id: 1,
-              title: '需求方案确认',
-              assignees: [assigneeJson(userId: 5, name: '王宁')],
-              dueDate: '2026-11-05T08:00:00Z',
-            ),
-            taskJson(
-              id: 2,
-              title: '交互原型设计',
-              status: 1,
-              assignees: [assigneeJson(userId: 6, name: '林悦')],
-            ),
-            taskJson(
-              id: 3,
-              title: '核心功能开发',
-              status: 2,
-              assignees: [assigneeJson(userId: 5, name: '王宁')],
-            ),
-          ],
-      'total': 3,
+          (id == 11
+              ? [
+                  taskJson(
+                    id: 1,
+                    title: '需求方案确认',
+                    assignees: [assigneeJson(userId: 5, name: '王宁')],
+                    dueDate: '2026-11-05T08:00:00Z',
+                  ),
+                  taskJson(
+                    id: 2,
+                    title: '交互原型设计',
+                    status: 1,
+                    assignees: [assigneeJson(userId: 6, name: '林悦')],
+                  ),
+                  taskJson(
+                    id: 3,
+                    title: '核心功能开发',
+                    status: 2,
+                    assignees: [assigneeJson(userId: 5, name: '王宁')],
+                  ),
+                ]
+              : [
+                  taskJson(
+                    id: 9,
+                    title: '数据迁移脚本',
+                    assignees: [assigneeJson(userId: 5, name: '王宁')],
+                  ),
+                ]),
+      'total': tasks?.length ?? (id == 11 ? 3 : 1),
       'page': 1,
       'page_size': 200,
     },
@@ -142,6 +158,105 @@ void main() {
 
       expect(find.text('邀请新成员加入'), findsNothing);
       expect(find.text('项目任务待办 · 3'), findsOneWidget);
+    });
+
+    testWidgets('从 /projects/11 跳到 /projects/12 时按新项目 ID 重新加载', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      registerOverviewMocks(harness);
+      registerOverviewMocks(harness, projectId: 12);
+
+      final router = await harness.pumpApp(tester, location: '/projects/11');
+
+      expect(find.text('智能客服 2.0'), findsWidgets);
+      expect(find.text('需求方案确认'), findsWidgets);
+
+      router.go('/projects/12');
+      await tester.pumpAndSettle();
+
+      // 页面状态被 go_router 复用，必须切到 12 的数据，不能残留 11 的内容
+      expect(find.text('数据中台'), findsWidgets);
+      expect(find.text('智能客服 2.0'), findsNothing);
+      expect(find.text('数据迁移脚本'), findsWidgets);
+      expect(find.text('需求方案确认'), findsNothing);
+      expect(
+        harness.helper.history.where((item) =>
+            item.method == 'GET' &&
+            item.url.path == '/api/v1/projects/12' &&
+            item.url.query.isEmpty),
+        isNotEmpty,
+      );
+      expect(
+        harness.helper.history.where((item) =>
+            item.method == 'GET' &&
+            item.url.path == '/api/v1/projects/12/my-permissions'),
+        isNotEmpty,
+      );
+    });
+
+    testWidgets('委托只拿到 tree.edit_subtree 时不显示邀请入口', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      registerOverviewMocks(
+        harness,
+        permissions: permissionsJson(
+          role: 'member',
+          isPm: false,
+          canEditAll: true,
+          canMove: false,
+          canDelete: false,
+        ),
+      );
+
+      await harness.pumpScreen(tester, const ProjectOverviewScreen(projectId: 11));
+
+      // 后端邀请接口要求 member.pull，接口未透出该能力时宁可不显示
+      expect(find.text('邀请新成员加入'), findsNothing);
+      expect(find.text('项目任务待办 · 3'), findsOneWidget);
+    });
+
+    testWidgets('企业管理员可见邀请入口', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      registerOverviewMocks(
+        harness,
+        permissions: permissionsJson(
+          role: 'superadmin',
+          isPm: false,
+          isSuperadmin: true,
+          canEditAll: false,
+        ),
+      );
+
+      await harness.pumpScreen(tester, const ProjectOverviewScreen(projectId: 11));
+
+      expect(find.text('邀请新成员加入'), findsOneWidget);
+    });
+
+    testWidgets('成员统计按现任成员计数，排除已退出成员', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      final projectWithoutCount = projectJson()..remove('member_count');
+      registerOverviewMocks(
+        harness,
+        project: projectWithoutCount,
+        tasks: const [],
+      );
+      harness.helper.whenGet('/projects/11/members', {
+        'items': [
+          memberJson(userId: 5, nickname: '王宁', role: 'pm'),
+          memberJson(userId: 6, nickname: '林悦'),
+          memberJson(
+            userId: 7,
+            nickname: '赵六',
+            leftAt: '2026-10-20T02:00:00Z',
+          ),
+        ],
+      });
+
+      await harness.pumpScreen(tester, const ProjectOverviewScreen(projectId: 11));
+
+      expect(find.text('成员 2 人'), findsOneWidget);
     });
 
     testWidgets('项目任务加载失败时可点击重试并重新发起请求', (tester) async {

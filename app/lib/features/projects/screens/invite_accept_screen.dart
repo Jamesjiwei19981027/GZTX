@@ -58,7 +58,6 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
     final auth = context.authStateRead;
     try {
       final result = await _repo.acceptInvitation(token);
-      await auth.refreshProjects();
       ProjectDetail? detail;
       try {
         detail = await _repo.fetchProject(result.projectId);
@@ -73,19 +72,60 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
         }
       }
       if (!mounted) return;
-      final matched = auth.projects
-          .where((item) => item.id == result.projectId)
-          .toList();
+
+      // 1. 重新拉取 /companies/mine：首次加入公司的用户本地还没有这家公司，
+      //    直接 refreshProjects() 会因 currentCompany 为空返回空列表。
+      //    AuthState 目前没有单独的「刷新公司列表」方法，bootstrap() 是唯一
+      //    会重拉 /companies/mine 的公开入口（见报告中的共享改动申请）。
+      await auth.bootstrap();
+      if (!mounted) return;
+
+      // 2. 选中受邀项目所属公司，避免留在旧工作区（项目隔离要求）
+      final invitedCompanyId = detail?.companyId;
+      var switched = true;
+      if (invitedCompanyId != null &&
+          auth.currentCompany?.id != invitedCompanyId) {
+        final matchedCompanies = auth.companies
+            .where((item) => item.id == invitedCompanyId)
+            .toList(growable: false);
+        if (matchedCompanies.isNotEmpty) {
+          // selectCompany 成功时已加载该公司项目；失败会回滚到原公司
+          switched = await auth.selectCompany(matchedCompanies.first);
+          if (!mounted) return;
+        } else {
+          switched = false;
+        }
+      }
+
+      // 3. 刷新项目列表并选中受邀项目
+      var refreshed = switched;
+      if (switched) {
+        refreshed = await auth.refreshProjects();
+        if (!mounted) return;
+      }
+      final matched = refreshed
+          ? auth.projects.where((item) => item.id == result.projectId).toList()
+          : const [];
       if (matched.isNotEmpty) {
         auth.selectProject(matched.first);
       }
+
       setState(() => _busy = false);
       final name = detail?.name;
-      showAppToast(
-        context,
-        name == null ? '已加入受邀项目' : '已加入「$name」',
-        type: ToastType.success,
-      );
+      final title = name == null ? '受邀项目' : '「$name」';
+      if (matched.isNotEmpty) {
+        showAppToast(
+          context,
+          name == null ? '已加入受邀项目' : '已加入$title',
+          type: ToastType.success,
+        );
+      } else {
+        showAppToast(
+          context,
+          '已加入$title，但工作区未能切换，请到项目切换页手动选择该项目',
+          type: ToastType.warning,
+        );
+      }
       context.pushReplacement('/projects/${result.projectId}/team');
     } catch (error) {
       if (!mounted) return;

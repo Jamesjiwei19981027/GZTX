@@ -47,6 +47,7 @@ class ProjectMember {
     this.avatarUrl,
     this.role,
     this.joinedAt,
+    this.leftAt,
   });
 
   final int userId;
@@ -57,6 +58,10 @@ class ProjectMember {
   final String? role;
   final String? joinedAt;
 
+  /// 退出项目时间。`GET /projects/{id}/members` 会保留已退出成员的行，
+  /// 以非空 `left_at` 标识；为空表示仍在项目内。
+  final String? leftAt;
+
   factory ProjectMember.fromJson(Map<String, dynamic> json) {
     return ProjectMember(
       userId: _asInt(json['user_id']) ?? 0,
@@ -66,8 +71,15 @@ class ProjectMember {
       avatarUrl: _asString(json['avatar_url']),
       role: _asString(json['role']),
       joinedAt: _asString(json['joined_at']),
+      leftAt: _asString(json['left_at']),
     );
   }
+
+  /// 是否已退出项目（后端保留历史成员行，但不计入现任成员）
+  bool get hasLeft => leftAt != null;
+
+  /// 是否仍在项目内（现任成员）
+  bool get isActive => leftAt == null;
 
   /// 展示名：昵称 > 显示名 > 用户名 > 用户 ID 兜底
   String get name {
@@ -172,9 +184,23 @@ class ProjectPermissions {
     );
   }
 
-  /// 管理操作（归档、生成邀请、成员管理）可见性：对齐网页
-  /// `permissions?.is_pm || permissions?.is_superadmin || permissions?.can_edit_all`
-  bool get canManage => isPm || isSuperadmin || canEditAll;
+  /// 邀请成员入口可见性。
+  ///
+  /// 后端 `POST /projects/{id}/invitations` 要求 ACL `member.pull`
+  /// （PM / 超管 / 含该动作的委托）。`GET /projects/{id}/my-permissions`
+  /// 只透出 `can_edit_all`(tree.edit_subtree) 与 `can_move`/`can_delete`
+  /// (tree.edit_any)，没有暴露 `member.pull`，所以这里只能确定 PM 与超管；
+  /// 仅持有 `member.pull` 的委托目前无法判断，宁可暂不显示入口，
+  /// 也不显示一个点下去必然 403 的按钮（接口补齐 `can_invite` 后放开）。
+  bool get canInviteMembers => isPm || isSuperadmin;
+
+  /// 归档入口可见性。
+  ///
+  /// 后端 `POST /projects/{id}/archive` 要求 ACL `tree.edit_any`；接口以
+  /// `can_delete` 透出该能力（`can_move` 与 `can_delete` 同源取 tree.edit_any）。
+  /// `can_edit_all` 对应 tree.edit_subtree，委托仅拿到它时归档会被 403，
+  /// 因此不能拿 can_edit_all 判断归档。
+  bool get canArchive => isPm || isSuperadmin || canDelete;
 
   /// 当前角色中文标签
   String get roleLabel {

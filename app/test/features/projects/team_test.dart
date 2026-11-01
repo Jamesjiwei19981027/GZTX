@@ -143,6 +143,42 @@ void main() {
       expect(find.text('项目负责人'), findsOneWidget);
     });
 
+    testWidgets('已退出成员不计入现任统计并单独展示', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      harness.helper.whenGet('/projects/11/members', {
+        'items': [
+          memberJson(userId: 5, nickname: '王宁', username: 'wangning', role: 'pm'),
+          memberJson(
+            userId: 6,
+            nickname: '林悦',
+            username: 'linyue',
+            leftAt: '2026-10-20T02:00:00Z',
+          ),
+        ],
+      });
+      harness.helper.whenGet('/companies/1/presence', {
+        'items': <Map<String, dynamic>>[],
+      });
+
+      await harness.pumpScreen(tester, const TeamScreen(projectId: 11));
+
+      // 现任成员只剩王宁，已退出的林悦不参与角色统计
+      expect(find.text('成员列表 (1)'), findsOneWidget);
+      expect(find.text('全部 (1)'), findsOneWidget);
+      expect(find.text('管理员 / PM (1)'), findsOneWidget);
+      expect(find.text('业务成员 (0)'), findsOneWidget);
+      expect(find.text('已退出成员 (1)'), findsOneWidget);
+      expect(find.text('已退出'), findsOneWidget);
+      expect(find.text('林悦'), findsOneWidget);
+
+      // 角色筛选只看现任成员
+      await tester.tap(find.text('业务成员 (0)'));
+      await tester.pumpAndSettle();
+      expect(find.text('无匹配成员'), findsOneWidget);
+      expect(find.text('林悦'), findsNothing);
+    });
+
     testWidgets('项目没有任何成员时给出空状态引导', (tester) async {
       final harness = ProjectsTestHarness();
       await harness.bootstrap();

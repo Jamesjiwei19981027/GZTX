@@ -38,11 +38,54 @@ void main() {
 
       expect(find.text('项目成员'), findsOneWidget);
       expect(
-        find.text('你当前是普通成员，仅项目管理员 (PM) 可修改项目关键设置或归档。'),
+        find.text('你没有归档权限。归档需要项目负责人 (PM)、企业管理员或具备管理授权的受托管理人。'),
         findsOneWidget,
       );
       expect(find.text('归档此项目'), findsNothing);
       expect(find.text('退出项目'), findsOneWidget);
+    });
+
+    testWidgets('委托只拿到 tree.edit_subtree 时看不到归档入口', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      harness.helper.whenGet('/projects/11', projectJson());
+      harness.helper.whenGet(
+        '/projects/11/my-permissions',
+        permissionsJson(
+          role: 'member',
+          isPm: false,
+          canEditAll: true,
+          canMove: false,
+          canDelete: false,
+        ),
+      );
+
+      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+
+      // can_edit_all 对应 tree.edit_subtree，归档需要 tree.edit_any
+      expect(find.text('归档此项目'), findsNothing);
+      expect(find.text('退出项目'), findsOneWidget);
+    });
+
+    testWidgets('委托持有 tree.edit_any 时可见归档入口', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      harness.helper.whenGet('/projects/11', projectJson());
+      harness.helper.whenGet(
+        '/projects/11/my-permissions',
+        permissionsJson(
+          role: 'member',
+          isPm: false,
+          canEditAll: false,
+          canMove: true,
+          canDelete: true,
+        ),
+      );
+
+      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+
+      expect(find.text('归档此项目'), findsOneWidget);
+      expect(find.text('危险操作区'), findsOneWidget);
     });
 
     testWidgets('归档需二次确认，确认后调用归档接口并提示', (tester) async {

@@ -44,6 +44,29 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadAll());
   }
 
+  @override
+  void didUpdateWidget(ProjectOverviewScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.projectId == widget.projectId) return;
+    // go_router 复用同一个页面状态（如 /projects/11 → /projects/12），
+    // 必须清掉上一个项目的展示数据并按新 ID 重新加载，否则会出现
+    // 「看到 11 的标题/任务/权限，操作却指向 12」的串项目。
+    setState(() {
+      _project = null;
+      _members = const [];
+      _permissions = null;
+      _permissionsError = null;
+      _tasks = const [];
+      _tasksError = null;
+      _tasksLoading = true;
+      _loading = true;
+      _error = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadAll();
+    });
+  }
+
   ProjectsRepository get _repo =>
       ProjectsRepository(context.authStateRead.api);
 
@@ -175,7 +198,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       );
     }
 
-    final canManage = _permissions?.canManage ?? false;
+    final canInvite = _permissions?.canInviteMembers ?? false;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -194,7 +217,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
         ],
-        if (canManage) ...[
+        if (canInvite) ...[
           _buildInviteEntry(),
           const SizedBox(height: AppSpacing.lg),
         ],
@@ -254,7 +277,9 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
   }
 
   Widget _buildProjectCard(ProjectDetail project) {
-    final memberCount = project.memberCount ?? _members.length;
+    // 后端 member_count 只统计未退出成员；接口缺失时按成员列表中的现任成员兜底
+    final activeMembers = _members.where((member) => member.isActive).length;
+    final memberCount = project.memberCount ?? activeMembers;
     return SectionCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -35,10 +35,11 @@ Map<String, dynamic> projectJson({
   String status = 'active',
   int memberCount = 2,
   String ownerNickname = '王宁',
+  int companyId = 1,
 }) =>
     {
       'id': id,
-      'company_id': 1,
+      'company_id': companyId,
       'name': name,
       'status': status,
       'pm_user_id': 5,
@@ -55,11 +56,15 @@ Map<String, dynamic> projectJson({
     };
 
 /// 成员出参（对齐 `list_project_members`）
+///
+/// 后端会返回已退出成员的行，用非空 `left_at` 标识，`memberJson(leftAt: ...)`
+/// 用来复现这一类数据。
 Map<String, dynamic> memberJson({
   required int userId,
   required String nickname,
   String? username,
   String role = 'member',
+  String? leftAt,
 }) =>
     {
       'user_id': userId,
@@ -69,7 +74,7 @@ Map<String, dynamic> memberJson({
       'avatar_url': null,
       'role': role,
       'joined_at': '2026-10-01T02:00:00Z',
-      'left_at': null,
+      'left_at': leftAt,
     };
 
 /// 任务出参（对齐 `TaskResponse` 关键字段）
@@ -99,11 +104,16 @@ Map<String, dynamic> assigneeJson({required int userId, required String name}) =
     };
 
 /// 权限快照出参
+///
+/// `can_move` / `can_delete` 在后端同源于 ACL `tree.edit_any`，
+/// 默认跟随 `canEditAll`；委托场景需要单独构造时用 `canMove` / `canDelete`。
 Map<String, dynamic> permissionsJson({
   String role = 'pm',
   bool isPm = true,
   bool isSuperadmin = false,
   bool canEditAll = true,
+  bool? canMove,
+  bool? canDelete,
 }) =>
     {
       'role': role,
@@ -112,8 +122,8 @@ Map<String, dynamic> permissionsJson({
       'can_edit_all': canEditAll,
       'owned_node_ids': const <int>[],
       'via_delegation': false,
-      'can_move': canEditAll,
-      'can_delete': canEditAll,
+      'can_move': canMove ?? canEditAll,
+      'can_delete': canDelete ?? canEditAll,
       'can_submit_evidence': true,
       'can_read_evidence': true,
       'node_permissions': const <String, dynamic>{},

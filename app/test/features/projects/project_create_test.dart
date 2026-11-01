@@ -158,6 +158,73 @@ void main() {
       await tester.pump();
     });
 
+    testWidgets('公司已创建但切换失败时提示失败并提供重试切换入口', (tester) async {
+      final harness = ProjectsTestHarness();
+      final auth = await harness.bootstrap();
+      harness.helper.whenPost('/companies', {
+        'id': 2,
+        'name': '未来科技实业有限公司',
+        'slug': 'future-tech',
+        'status': 'active',
+      });
+      // 新建公司后加载其项目列表失败（非 401/403/5xx，会话仍在）
+      harness.helper.whenGet(
+        '/projects',
+        {'code': 42200, 'message': '企业工作区尚未就绪', 'data': null},
+        statusCode: 422,
+        query: {'company_id': '2', 'as_admin': 'true'},
+      );
+      await _pumpCreate(tester, harness, mode: WorkspaceCreateMode.company);
+
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        '未来科技实业有限公司',
+      );
+      await tester.enterText(find.byType(TextFormField).at(1), 'Future-Tech');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确认创建公司'));
+      await tester.pumpAndSettle();
+
+      // 公司已创建，但切换回滚到原公司，页面不能提示成功、更不能直接离开
+      expect(auth.currentCompany?.id, 1);
+      expect(
+        find.textContaining('公司「未来科技实业有限公司」已创建，但切换失败'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('重试切换到'), findsOneWidget);
+      expect(find.text('确认创建公司'), findsOneWidget);
+      expect(
+        harness.helper.history
+            .where((item) =>
+                item.method == 'POST' &&
+                item.url.path == '/api/v1/companies')
+            .length,
+        1,
+      );
+
+      // 恢复后重试切换：只重发项目列表请求，不重复创建公司
+      harness.helper.whenGet(
+        '/projects',
+        {'items': <Map<String, dynamic>>[], 'total': 0},
+        query: {'company_id': '2', 'as_admin': 'true'},
+      );
+      await tester.tap(find.textContaining('重试切换到'));
+      await tester.pumpAndSettle();
+
+      expect(auth.currentCompany?.id, 2);
+      expect(
+        harness.helper.history
+            .where((item) =>
+                item.method == 'POST' &&
+                item.url.path == '/api/v1/companies')
+            .length,
+        1,
+      );
+      expect(find.text('已切换到公司「未来科技实业有限公司」'), findsOneWidget);
+      resetToastForTesting();
+      await tester.pump();
+    });
+
     testWidgets('安全策略可切换为创业敏捷模式', (tester) async {
       final harness = ProjectsTestHarness();
       await harness.bootstrap();

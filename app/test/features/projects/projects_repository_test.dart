@@ -85,7 +85,7 @@ void main() {
       expect(members.last.roleLabel, '成员');
     });
 
-    test('权限快照：普通成员 canManage 为 false，管理员为 true', () async {
+    test('权限快照：邀请与归档按后端 ACL 分别判定', () async {
       final helper = MockApiClientHelper();
       helper.whenGet('/projects/11/my-permissions', permissionsJson());
       helper.whenGet(
@@ -96,12 +96,70 @@ void main() {
           canEditAll: false,
         ),
       );
+      // 委托只拿到 tree.edit_subtree（可改树，但不能邀请、不能归档）
+      helper.whenGet(
+        '/projects/13/my-permissions',
+        permissionsJson(
+          role: 'member',
+          isPm: false,
+          canEditAll: true,
+          canMove: false,
+          canDelete: false,
+        ),
+      );
+      // 委托只拿到 tree.edit_any（可归档，但没有 member.pull）
+      helper.whenGet(
+        '/projects/14/my-permissions',
+        permissionsJson(
+          role: 'member',
+          isPm: false,
+          canEditAll: false,
+          canMove: true,
+          canDelete: true,
+        ),
+      );
 
       final repo = ProjectsRepository(helper.buildClient());
-      expect((await repo.fetchPermissions(11)).canManage, isTrue);
-      final memberPermissions = await repo.fetchPermissions(12);
-      expect(memberPermissions.canManage, isFalse);
-      expect(memberPermissions.roleLabel, '项目成员');
+      final pm = await repo.fetchPermissions(11);
+      expect(pm.canInviteMembers, isTrue);
+      expect(pm.canArchive, isTrue);
+
+      final member = await repo.fetchPermissions(12);
+      expect(member.canInviteMembers, isFalse);
+      expect(member.canArchive, isFalse);
+      expect(member.roleLabel, '项目成员');
+
+      final treeEditor = await repo.fetchPermissions(13);
+      expect(treeEditor.canEditAll, isTrue);
+      expect(treeEditor.canInviteMembers, isFalse);
+      expect(treeEditor.canArchive, isFalse);
+
+      final archiveDelegate = await repo.fetchPermissions(14);
+      expect(archiveDelegate.canInviteMembers, isFalse);
+      expect(archiveDelegate.canArchive, isTrue);
+    });
+
+    test('成员列表保留 left_at 并区分现任 / 已退出', () async {
+      final helper = MockApiClientHelper();
+      helper.whenGet('/projects/11/members', {
+        'items': [
+          memberJson(userId: 5, nickname: '王宁', role: 'pm'),
+          memberJson(
+            userId: 6,
+            nickname: '林悦',
+            leftAt: '2026-10-20T02:00:00Z',
+          ),
+        ],
+      });
+
+      final members =
+          await ProjectsRepository(helper.buildClient()).fetchMembers(11);
+
+      expect(members.first.hasLeft, isFalse);
+      expect(members.first.isActive, isTrue);
+      expect(members.last.leftAt, '2026-10-20T02:00:00Z');
+      expect(members.last.hasLeft, isTrue);
+      expect(members.last.isActive, isFalse);
     });
 
     test('无权限时向上抛出 403 ApiException（不静默吞掉）', () async {

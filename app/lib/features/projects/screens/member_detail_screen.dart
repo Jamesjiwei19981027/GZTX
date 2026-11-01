@@ -173,14 +173,24 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
               ),
               const SizedBox(height: AppSpacing.md),
               ProjectChip(
-                label: member.isManager ? '项目负责人' : '项目成员',
-                tone: member.isManager
+                label: member.hasLeft
+                    ? '已退出项目'
+                    : (member.isManager ? '项目负责人' : '项目成员'),
+                tone: member.isManager && !member.hasLeft
                     ? ProjectChipTone.primary
                     : ProjectChipTone.neutral,
               ),
             ],
           ),
         ),
+        if (member.hasLeft) ...[
+          const SizedBox(height: AppSpacing.md),
+          const InfoBanner(
+            message: '该成员已退出本项目，仅保留历史成员记录，不再参与现任成员统计。',
+            tone: InfoBannerTone.warning,
+            icon: 'alert',
+          ),
+        ],
         const SizedBox(height: AppSpacing.md),
         const InfoBanner(
           message: '该成员在人轴中的权限、责任节点及汇报内容均受服务端安全策略约束。',
