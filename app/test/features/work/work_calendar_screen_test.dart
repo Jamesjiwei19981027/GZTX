@@ -3,7 +3,9 @@ library;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:worktodo_app/core/models/project.dart';
 import 'package:worktodo_app/design/design.dart';
+import 'package:worktodo_app/features/work/data/work_models.dart';
 import 'package:worktodo_app/features/work/screens/work_calendar_screen.dart';
 
 import 'work_test_fixtures.dart';
@@ -93,5 +95,52 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('日程日历'), findsOneWidget);
+  });
+
+  testWidgets('完整日历按当前项目过滤并在切换项目时自动刷新', (tester) async {
+    final harness = await WorkTestHarness.create();
+    final today = TaskTime.todayKey();
+    harness.api.tasks = [
+      WorkTask.fromJson(buildTaskJson(
+        id: 701,
+        title: '项目一专属日历任务',
+        projectId: 1,
+        origin: 'project_link',
+        dueDate: '${today}T10:00:00Z',
+      )),
+      WorkTask.fromJson(buildTaskJson(
+        id: 702,
+        title: '项目二专属日历任务',
+        projectId: 2,
+        origin: 'project_link',
+        dueDate: '${today}T11:00:00Z',
+      )),
+      WorkTask.fromJson(buildTaskJson(
+        id: 703,
+        title: '个人共享日历任务',
+        projectId: null,
+        origin: 'personal',
+        dueDate: '${today}T12:00:00Z',
+      )),
+    ];
+
+    await tester.pumpWidget(harness.wrap(
+      WorkCalendarScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+
+    // 默认处于项目 1：展示项目 1 任务与个人任务，不展示项目 2 任务
+    expect(find.text('项目一专属日历任务'), findsOneWidget);
+    expect(find.text('个人共享日历任务'), findsOneWidget);
+    expect(find.text('项目二专属日历任务'), findsNothing);
+
+    // 切换到项目 2
+    harness.authState.selectProject(const Project(id: 2, name: '项目二', companyId: 1));
+    await tester.pumpAndSettle();
+
+    // 刷新后：展示项目 2 任务与个人任务，不展示项目 1 任务
+    expect(find.text('项目二专属日历任务'), findsOneWidget);
+    expect(find.text('个人共享日历任务'), findsOneWidget);
+    expect(find.text('项目一专属日历任务'), findsNothing);
   });
 }

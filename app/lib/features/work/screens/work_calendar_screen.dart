@@ -34,6 +34,8 @@ class WorkCalendarScreen extends StatefulWidget {
 
 class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
   bool _bootstrapped = false;
+  AuthState? _auth;
+  int? _lastProjectId;
 
   List<WorkTask> _tasks = const [];
   bool _loading = true;
@@ -44,15 +46,53 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
   late DateTime _cursor =
       TaskTime.parseLocalDay(_selectedDay) ?? DateTime.now();
 
-  WorkApi get _api => widget.api ?? WorkApi(context.read<AuthState>().api);
+  WorkApi get _api =>
+      widget.api ??
+      WorkApi((_auth ?? widget.authState ?? context.read<AuthState>()).api);
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final auth = widget.authState ?? _tryReadAuth();
+    if (_auth != auth) {
+      _auth?.removeListener(_onAuthChanged);
+      _auth = auth;
+      _auth?.addListener(_onAuthChanged);
+      _lastProjectId = _selectedProjectId;
+    }
     if (_bootstrapped) return;
     _bootstrapped = true;
     _load();
   }
+
+  @override
+  void dispose() {
+    _auth?.removeListener(_onAuthChanged);
+    super.dispose();
+  }
+
+  AuthState? _tryReadAuth() {
+    try {
+      return context.read<AuthState>();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  int? get _selectedProjectId =>
+      (_auth ?? widget.authState ?? _tryReadAuth())?.currentProject?.id;
+
+  void _onAuthChanged() {
+    if (!mounted) return;
+    final projectId = _selectedProjectId;
+    if (projectId != _lastProjectId) {
+      _lastProjectId = projectId;
+      _load();
+    }
+  }
+
+  List<WorkTask> get _projectTasks =>
+      filterTasksByProject(_tasks, _selectedProjectId);
 
   @override
   void didUpdateWidget(covariant WorkCalendarScreen oldWidget) {
@@ -124,7 +164,7 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
-    final grouped = groupTasksByLocalDay(_tasks);
+    final grouped = groupTasksByLocalDay(_projectTasks);
     final dayTasks = grouped[_selectedDay] ?? const <WorkTask>[];
     final isPast = _selectedDay.compareTo(TaskTime.todayKey()) < 0;
     final days = _weekMode ? _weekDays(_cursor) : const <String>[];
