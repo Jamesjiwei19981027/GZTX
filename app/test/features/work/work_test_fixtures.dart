@@ -233,10 +233,10 @@ List<ProjectMember> sampleProjectMembers() => const [
     ];
 
 /// 项目进度简介。
-ProjectProgressSummary sampleProjectProgress({int projectId = 1}) =>
+ProjectProgressSummary sampleProjectProgress({int projectId = 1, String? projectName}) =>
     ProjectProgressSummary(
       projectId: projectId,
-      projectName: '示例企业协作项目',
+      projectName: projectName ?? '示例企业协作项目',
       total: 20,
       completed: 12,
       percent: 60,
@@ -574,12 +574,20 @@ class MockWorkApi extends Fake implements WorkApi {
     return sampleProjectMembers();
   }
 
+  Future<ProjectProgressSummary> Function({
+    required int projectId,
+    String? projectName,
+  })? onProjectProgress;
+
   @override
   Future<ProjectProgressSummary> projectProgress({
     required int projectId,
     String? projectName,
   }) async {
     _checkErrors();
+    if (onProjectProgress != null) {
+      return onProjectProgress!(projectId: projectId, projectName: projectName);
+    }
     return sampleProjectProgress(projectId: projectId);
   }
 }

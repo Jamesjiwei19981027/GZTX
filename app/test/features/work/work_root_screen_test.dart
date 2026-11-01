@@ -12,7 +12,9 @@ import 'package:provider/provider.dart';
 import 'package:worktodo_app/core/api/api_client.dart';
 import 'package:worktodo_app/core/api/token_storage.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
+import 'package:worktodo_app/core/models/project.dart';
 import 'package:worktodo_app/design/design.dart';
+import 'package:worktodo_app/features/work/data/work_models.dart';
 import 'package:worktodo_app/features/work/screens/work_root_screen.dart';
 import 'package:worktodo_app/features/work/widgets/work_home_sections.dart';
 import 'package:worktodo_app/features/work/widgets/work_trend_card.dart';
@@ -278,5 +280,51 @@ void main() {
     // bootstrap 完成后才发出工作台请求
     expect(requests.where((r) => r.url.path.contains('/tasks')), isNotEmpty);
     expect(tokens.clears, 0);
+  });
+
+  testWidgets('工作台项目进度请求被迟到的旧响应丢弃，不覆盖新项目结果', (tester) async {
+    final harness = await WorkTestHarness.create();
+    final completerA = Completer<ProjectProgressSummary>();
+
+    harness.api.onProjectProgress = ({required int projectId, String? projectName}) {
+      if (projectId == 1) {
+        return completerA.future;
+      }
+      return Future.value(ProjectProgressSummary(
+        projectId: projectId,
+        projectName: projectName ?? '项目B',
+        total: 10,
+        completed: 8,
+        percent: 80,
+      ));
+    };
+
+    await tester.pumpWidget(harness.wrap(
+      WorkRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 切换到项目 2
+    harness.authState.selectProject(const Project(id: 2, name: '项目B', companyId: 1));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // 项目 2 的进度返回，页面显示「项目B」
+    expect(find.text('项目B'), findsWidgets);
+
+    // 此时旧请求项目 1 迟到返回
+    completerA.complete(const ProjectProgressSummary(
+      projectId: 1,
+      projectName: '旧项目A',
+      total: 20,
+      completed: 5,
+      percent: 25,
+    ));
+    await tester.pumpAndSettle();
+
+    // 验证：页面仍然显示「项目B」，旧项目「旧项目A」被丢弃，不会覆盖当前项目进度
+    expect(find.text('旧项目A'), findsNothing);
+    expect(find.text('项目B'), findsWidgets);
   });
 }

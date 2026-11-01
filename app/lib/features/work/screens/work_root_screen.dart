@@ -50,6 +50,7 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
   late DateTime _displayMonth = TaskTime.parseLocalDay(_selectedDay) ??
       DateTime(DateTime.now().year, DateTime.now().month);
   int _reloadToken = 0;
+  int _progressToken = 0;
 
   WorkApi get _api {
     if (widget.api != null) return widget.api!;
@@ -162,6 +163,7 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
   }
 
   Future<void> _loadProgress() async {
+    final token = ++_progressToken;
     final targets = _progressTargets;
     if (!mounted) return;
     if (targets.isEmpty) {
@@ -180,11 +182,14 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
     final failures = <int>{};
     for (final project in targets) {
       try {
-        items.add(await _api.projectProgress(
+        final summary = await _api.projectProgress(
           projectId: project.id,
           projectName: project.name,
-        ));
+        );
+        if (!mounted || token != _progressToken) return;
+        items.add(summary);
       } catch (_) {
+        if (!mounted || token != _progressToken) return;
         failures.add(project.id);
         items.add(ProjectProgressSummary(
           projectId: project.id,
@@ -192,7 +197,7 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
         ));
       }
     }
-    if (!mounted) return;
+    if (!mounted || token != _progressToken) return;
     setState(() {
       _progress = items;
       _progressFailures = failures;
