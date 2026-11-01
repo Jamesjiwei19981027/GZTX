@@ -410,21 +410,41 @@ class MockWorkApi extends Fake implements WorkApi {
     return updated;
   }
 
+  int completeTaskCallCount = 0;
+  int uncompleteTaskCallCount = 0;
+
   @override
   Future<void> completeTask(int id) async {
     _checkErrors();
+    completeTaskCallCount++;
     final index = tasks.indexWhere((t) => t.id == id);
     if (index >= 0) {
-      tasks[index] = tasks[index].copyWith(status: 2);
+      final current = tasks[index];
+      tasks[index] = current.copyWith(status: 2, completedAt: DateTime.now());
+      if (current.isRecurring && current.recurrenceRule != null) {
+        final nextId = tasks.fold<int>(0, (max, t) => t.id > max ? t.id : max) + 1;
+        tasks.add(WorkTask.fromJson(buildTaskJson(
+          id: nextId,
+          title: current.title,
+          description: current.description,
+          priority: current.priority,
+          status: 0,
+          isRecurring: true,
+          recurrenceRule: current.rawRecurrenceRule,
+          projectId: current.projectId,
+          origin: current.origin,
+        )));
+      }
     }
   }
 
   @override
   Future<void> uncompleteTask(int id) async {
     _checkErrors();
+    uncompleteTaskCallCount++;
     final index = tasks.indexWhere((t) => t.id == id);
     if (index >= 0) {
-      tasks[index] = tasks[index].copyWith(status: 0);
+      tasks[index] = tasks[index].copyWith(status: 0, clearCompletedAt: true);
     }
   }
 

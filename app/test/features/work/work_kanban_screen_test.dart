@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/design/design.dart';
+import 'package:worktodo_app/features/work/data/work_models.dart';
 import 'package:worktodo_app/features/work/screens/work_kanban_screen.dart';
 
 import 'work_test_fixtures.dart';
@@ -129,5 +130,56 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('待办事项'), findsOneWidget);
+  });
+
+  testWidgets('拖拽周期性任务至已完成列调用 completeTask 并触发下一期任务生成', (tester) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final harness = await WorkTestHarness.create();
+    // 添加一个周期任务 888 到进行中
+    harness.api.tasks.add(WorkTask.fromJson(buildTaskJson(
+      id: 888,
+      title: '周会例行汇报',
+      status: 1,
+      isRecurring: true,
+      recurrenceRule: 'weekly',
+    )));
+
+    await tester.pumpWidget(harness.wrap(
+      WorkKanbanScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    final card = find.text('周会例行汇报');
+    expect(card, findsOneWidget);
+
+    final doneTarget = find.ancestor(
+      of: find.text('已完成'),
+      matching: find.byType(DragTarget<int>),
+    );
+    expect(doneTarget, findsOneWidget);
+
+    final gesture = await tester.startGesture(tester.getCenter(card));
+    await tester.pump(const Duration(milliseconds: 600));
+    await gesture.moveTo(tester.getCenter(doneTarget));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    // 验证调用了 completeTask 而不是普通的 updateTask
+    expect(harness.api.completeTaskCallCount, 1);
+    final task888 = harness.api.tasks.firstWhere((t) => t.id == 888);
+    expect(task888.status, 2);
+
+    // 并且触发了下一期任务生成（总任务数增加了新的待办）
+    expect(
+      harness.api.tasks.any((t) => t.title == '周会例行汇报' && t.status == 0 && t.id != 888),
+      isTrue,
+    );
   });
 }

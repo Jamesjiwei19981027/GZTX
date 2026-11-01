@@ -119,7 +119,16 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
     HapticFeedback.lightImpact();
     setState(() => _movingTaskId = task.id);
     try {
-      await _api.updateTask(task.id, {'status': status});
+      if (status == 2) {
+        await _api.completeTask(task.id);
+      } else if (task.status == 2) {
+        await _api.uncompleteTask(task.id);
+        if (status != 0) {
+          await _api.updateTask(task.id, {'status': status});
+        }
+      } else {
+        await _api.updateTask(task.id, {'status': status});
+      }
       if (!mounted) return;
       await _load();
     } catch (error) {
