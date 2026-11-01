@@ -326,6 +326,39 @@ void main() {
       }
     });
 
+    testWidgets('提交汇报成功后取消未触发的自动保存计时器，本地草稿为空 (P2)', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: ReportsTestFixtures.currentUserId,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [ProjectOption(id: 10, name: 'AI 协同平台')],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 输入新内容（触发 300ms 防抖自动保存计时器）
+      final textFields = find.byType(TextField);
+      await tester.enterText(textFields.first, '即将提交的完成工作');
+      // 不等待 300ms 计时器到期，立即提交
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('确认提交'));
+      // 等待提交网络请求完成与计时器窗口完全结束
+      await tester.pumpAndSettle();
+
+      // 验证本地草稿已被清空，且没有被延迟触发的计时器回写
+      final local = await harness.draftStore.load(
+        userId: ReportsTestFixtures.currentUserId,
+        projectId: ReportsTestFixtures.projectId,
+      );
+      expect(local, isNull);
+    });
+
     testWidgets('有中间层领导、没有服务器草稿时，不显示项目经理为接收人、提交按钮可用 (P2)', (tester) async {
       const intermediateLeaderId = 30;
       final membersWithIntermediate = [

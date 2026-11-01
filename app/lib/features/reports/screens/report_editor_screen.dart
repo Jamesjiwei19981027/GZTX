@@ -262,13 +262,13 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   }
 
   void _onTextChanged() {
-    if (_hydrating) return;
+    if (_hydrating || _submitted) return;
     _saveTimer?.cancel();
     _saveTimer = Timer(const Duration(milliseconds: 300), _persistDraft);
   }
 
   Future<void> _persistDraft() async {
-    if (_projectId <= 0) return;
+    if (_submitted || _projectId <= 0) return;
     final saved = await _store!.save(
       userId: _userId,
       projectId: _projectId,
@@ -375,6 +375,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       }
       if (!mounted || _projectId != projectId) return;
       _submitted = true;
+      _saveTimer?.cancel();
+      _saveTimer = null;
       await _store!.clear(userId: _userId, projectId: projectId);
       if (!mounted) return;
       context.pushReplacement(
