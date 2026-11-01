@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/design/design.dart';
+import 'package:worktodo_app/features/work/data/work_models.dart';
 import 'package:worktodo_app/features/work/screens/work_tasks_screen.dart';
 
 import 'work_test_fixtures.dart';
@@ -129,5 +130,37 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('编制第三季度财务复核报告'), findsOneWidget);
+  });
+
+  testWidgets('任务列表分页测试：多页数据通过分页循环拉全，避免超过单页上限时丢失数据', (tester) async {
+    // 构造 120 条任务，超过单页 100/50 的限制
+    final manyTasks = List.generate(
+      120,
+      (i) => WorkTask.fromJson(buildTaskJson(
+        id: 1000 + i,
+        title: '分页任务第 ${i + 1} 项',
+        status: 0,
+        priority: 1,
+      )),
+    );
+    final mockApi = MockWorkApi(tasks: manyTasks);
+    final harness = await WorkTestHarness.create(api: mockApi);
+
+    await tester.pumpWidget(harness.wrap(
+      WorkTasksScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    // 验证任务全部拉全，统计显示为全部 120 项
+    expect(find.text('全部 (120)'), findsOneWidget);
+    // 第一条任务存在
+    expect(find.text('分页任务第 1 项'), findsOneWidget);
+
+    // 搜索第 120 条任务，验证最后一页的任务同样成功拉取并展示
+    await tester.enterText(find.byType(TextField).first, '第 120 项');
+    await tester.pumpAndSettle();
+    expect(find.text('分页任务第 120 项'), findsOneWidget);
   });
 }

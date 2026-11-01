@@ -28,6 +28,27 @@ class WorkApi {
     return WorkTaskPage.fromJson(_asMap(data));
   }
 
+  /// 循环拉取所有分页，直到获取完整任务集。
+  Future<List<WorkTask>> listAllTasks({
+    String? search,
+    int pageSize = 100,
+  }) async {
+    final all = <WorkTask>[];
+    var page = 1;
+    while (true) {
+      final res =
+          await listTasks(page: page, pageSize: pageSize, search: search);
+      all.addAll(res.items);
+      if (all.length >= res.total ||
+          res.items.isEmpty ||
+          page >= res.totalPages) {
+        break;
+      }
+      page++;
+    }
+    return all;
+  }
+
   Future<WorkTask> getTask(int id) async {
     final data = await _client.get('/tasks/$id');
     return WorkTask.fromJson(_asMap(data));

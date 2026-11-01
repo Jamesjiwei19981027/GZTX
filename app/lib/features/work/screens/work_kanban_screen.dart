@@ -67,10 +67,10 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
       _error = null;
     });
     try {
-      final page = await _api.listTasks(pageSize: 100);
+      final items = await _api.listAllTasks();
       if (!mounted) return;
       setState(() {
-        _tasks = page.items;
+        _tasks = items;
         _loading = false;
       });
     } catch (error) {

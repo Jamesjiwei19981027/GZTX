@@ -305,7 +305,41 @@ class MockWorkApi extends Fake implements WorkApi {
               (t.description?.toLowerCase().contains(q) ?? false))
           .toList();
     }
-    return WorkTaskPage(items: list, total: list.length);
+    final total = list.length;
+    final totalPages = total == 0 ? 1 : (total + pageSize - 1) ~/ pageSize;
+    final startIndex = (page - 1) * pageSize;
+    final items = startIndex >= total
+        ? <WorkTask>[]
+        : list.sublist(startIndex, (startIndex + pageSize).clamp(0, total));
+    return WorkTaskPage(
+      items: items,
+      total: total,
+      page: page,
+      pageSize: pageSize,
+      totalPages: totalPages,
+    );
+  }
+
+  @override
+  Future<List<WorkTask>> listAllTasks({
+    String? search,
+    int pageSize = 100,
+  }) async {
+    _checkErrors();
+    final all = <WorkTask>[];
+    var page = 1;
+    while (true) {
+      final res =
+          await listTasks(page: page, pageSize: pageSize, search: search);
+      all.addAll(res.items);
+      if (all.length >= res.total ||
+          res.items.isEmpty ||
+          page >= res.totalPages) {
+        break;
+      }
+      page++;
+    }
+    return all;
   }
 
   @override
