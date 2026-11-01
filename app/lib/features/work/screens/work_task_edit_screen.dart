@@ -92,6 +92,36 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
     _bootstrap();
   }
 
+  @override
+  void didUpdateWidget(WorkTaskEditScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.taskId != oldWidget.taskId) {
+      _loadToken++;
+      _resetForm();
+      _bootstrap();
+    }
+  }
+
+  void _resetForm() {
+    _titleController.text = '';
+    _descriptionController.text = '';
+    _priority = 1;
+    _status = 0;
+    _dueDate = widget.initialDate;
+    _dueTime = null;
+    _categoryId = null;
+    _tags = const [];
+    _assigneeIds.clear();
+    _recurring = false;
+    _recurrenceRule = 'daily';
+    _checklist = const [];
+    _loading = true;
+    _loadError = null;
+    _saving = false;
+    _formError = null;
+    _dirty = false;
+  }
+
   AuthState? _tryReadAuth() {
     try {
       return context.read<AuthState>();

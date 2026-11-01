@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:worktodo_app/design/design.dart';
+import 'package:worktodo_app/features/work/data/work_models.dart';
 import 'package:worktodo_app/features/work/screens/work_task_detail_screen.dart';
 import 'package:worktodo_app/features/work/screens/work_task_edit_screen.dart';
 
@@ -163,6 +164,45 @@ void main() {
 
       final updated = harness.api.tasks.firstWhere((t) => t.id == 101);
       expect(updated.title, '编制第三季度财务复核报告（终版）');
+    });
+
+    testWidgets('编辑页换了任务 ID 时重新加载新任务，旧任务的表单不会覆盖新任务', (tester) async {
+      tester.view.physicalSize = const Size(430, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await WorkTestHarness.create();
+      harness.api.tasks.add(WorkTask.fromJson(buildTaskJson(
+        id: 999,
+        title: '全新任务999',
+        category: {'id': 1, 'name': 'Work'},
+      )));
+
+      // 首次加载任务 101
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskEditScreen(
+          taskId: 101,
+          api: harness.api,
+          authState: harness.authState,
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('编制第三季度财务复核报告'), findsOneWidget);
+
+      // 切换组件的 taskId 为 999（模拟 GoRouter 复用 State）
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskEditScreen(
+          taskId: 999,
+          api: harness.api,
+          authState: harness.authState,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      // 验证表单更新为新任务 999 的数据，不再保留旧任务 101 的数据
+      expect(find.text('全新任务999'), findsOneWidget);
+      expect(find.text('编制第三季度财务复核报告'), findsNothing);
     });
   });
 }
