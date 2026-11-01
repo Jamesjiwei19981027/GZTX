@@ -219,6 +219,71 @@ void main() {
       expect(find.text('直属领导李四'), findsNothing);
     });
 
+    testWidgets('刚输入完未满300毫秒自动保存前切换项目，旧项目草稿被安全保存且不串到新项目 (P2)', (tester) async {
+      final harness = await ReportsTestHarness.create();
+      final currentUserId = ReportsTestFixtures.currentUserId;
+      const project10Id = ReportsTestFixtures.projectId;
+      const project20Id = ReportsTestFixtures.otherProjectId;
+
+      // 首次以项目 10 渲染
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: currentUserId,
+            projectId: project10Id,
+            projectName: 'AI 协同平台',
+            draftStore: harness.draftStore,
+            projects: const [
+              ProjectOption(id: project10Id, name: 'AI 协同平台'),
+              ProjectOption(id: project20Id, name: '移动重构项目'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 在输入框中输入最新文字
+      final textFields = find.byType(TextField);
+      expect(textFields, findsNWidgets(2));
+      const freshText = '刚刚输入的紧急工作进展，尚未经过300毫秒延迟';
+      await tester.enterText(textFields.first, freshText);
+      await tester.pump(); // 仅触发变更，绝对不等待 300ms 计时器
+
+      // 立即通过修改 widget 参数切换为项目 20
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ReportEditorScreen(
+            api: harness.api,
+            userId: currentUserId,
+            projectId: project20Id,
+            projectName: '移动重构项目',
+            draftStore: harness.draftStore,
+            projects: const [
+              ProjectOption(id: project10Id, name: 'AI 协同平台'),
+              ProjectOption(id: project20Id, name: '移动重构项目'),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // 验证旧项目 10 的草稿已被安全落盘，且包含刚刚输入的新内容
+      final project10Draft = await harness.draftStore.load(
+        userId: currentUserId,
+        projectId: project10Id,
+      );
+      expect(project10Draft, isNotNull);
+      expect(project10Draft!.summary, contains(freshText));
+
+      // 验证新项目 20 独立干净，未串入旧项目的内容
+      final project20Draft = await harness.draftStore.load(
+        userId: currentUserId,
+        projectId: project20Id,
+      );
+      expect(project20Draft?.summary.contains(freshText) ?? false, isFalse);
+    });
+
     testWidgets('正常直属领导下可从本地草稿恢复内容并提交', (tester) async {
       final harness = await ReportsTestHarness.create();
       // 预先写入本地隔离草稿

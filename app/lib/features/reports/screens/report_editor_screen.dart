@@ -115,6 +115,34 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
         !_initialising) {
       return;
     }
+
+    // 切换前先用旧的用户/项目 ID 保存快照并取消待处理计时器
+    final outgoingProjectId = _projectId;
+    final outgoingUserId = _userId;
+    final outgoingStore = _store;
+    final outgoingDraftId = _draftReportId;
+    final outgoingSummary = _combinedSummary;
+
+    _saveTimer?.cancel();
+    _saveTimer = null;
+
+    if (!_submitted &&
+        outgoingProjectId > 0 &&
+        outgoingStore != null &&
+        outgoingSummary.trim().isNotEmpty) {
+      unawaited(outgoingStore.save(
+        userId: outgoingUserId,
+        projectId: outgoingProjectId,
+        summary: outgoingSummary,
+        draftReportId: outgoingDraftId,
+      ));
+    }
+
+    // 先置 hydrating = true 避免清空输入框时触发新自动保存计时器
+    _hydrating = true;
+    _completed.clear();
+    _inProgress.clear();
+
     _projectId = projectId;
     _userId = userId;
     _api = api;
@@ -129,9 +157,6 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     _error = null;
     _info = null;
     _loadWarning = null;
-    _completed.clear();
-    _inProgress.clear();
-    _hydrating = true;
     _initialising = true;
     _initialise();
   }
