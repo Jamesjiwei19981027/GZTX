@@ -1,4 +1,7 @@
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
@@ -17,6 +20,128 @@ import 'support/projects_test_harness.dart';
 /// 双平台截图测试统一入口：把页面挂到已登录的全局状态上
 Widget _wrap(AuthState auth, Widget child) {
   return ChangeNotifierProvider<AuthState>.value(value: auth, child: child);
+}
+
+const String _goldenFont = 'NotoSansSC';
+
+const CupertinoTextThemeData _goldenCupertinoTextTheme = CupertinoTextThemeData(
+  textStyle: TextStyle(fontFamily: _goldenFont),
+  actionTextStyle: TextStyle(fontFamily: _goldenFont),
+  tabLabelTextStyle: TextStyle(fontFamily: _goldenFont),
+  navTitleTextStyle: TextStyle(
+    fontFamily: _goldenFont,
+    fontSize: 17,
+    fontWeight: FontWeight.w600,
+  ),
+  navLargeTitleTextStyle: TextStyle(fontFamily: _goldenFont),
+  pickerTextStyle: TextStyle(fontFamily: _goldenFont),
+  dateTimePickerTextStyle: TextStyle(fontFamily: _goldenFont),
+);
+
+/// 双平台截图：先与页面交互（如点按钮进入“工作区同步失败”结果态），再截图。
+///
+/// `testAdaptiveGolden` 只截静态初态，无法覆盖「点完才出现」的界面，
+/// 这里沿用同一套字体、主题与机型尺寸口径，只在截图前多走一步交互。
+Future<void> _testGoldenAfterAction({
+  required WidgetTester tester,
+  required AuthState auth,
+  required Widget child,
+  required String goldenFileNamePrefix,
+  required Future<void> Function() action,
+}) async {
+  await loadTestFonts(tester);
+
+  Widget wrap(Widget themedApp) => ChangeNotifierProvider<AuthState>.value(
+        value: auth,
+        child: themedApp,
+      );
+
+  // 1. iOS
+  const iosSize = Size(390, 844);
+  debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+  await tester.binding.setSurfaceSize(iosSize);
+  tester.view.physicalSize = iosSize;
+  tester.view.devicePixelRatio = 1.0;
+  await tester.pumpWidget(
+    wrap(
+      CupertinoTheme(
+        data: const CupertinoThemeData(textTheme: _goldenCupertinoTextTheme),
+        child: MaterialApp(
+          theme: ThemeData(
+            platform: TargetPlatform.iOS,
+            fontFamily: _goldenFont,
+            fontFamilyFallback: const [_goldenFont, '.SF Pro Text'],
+            cupertinoOverrideTheme: const CupertinoThemeData(
+              textTheme: _goldenCupertinoTextTheme,
+            ),
+          ),
+          localizationsDelegates: const [
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [Locale('zh', 'CN')],
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: iosSize,
+              devicePixelRatio: 1.0,
+              padding: EdgeInsets.only(top: 47, bottom: 34),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+  await action();
+  await tester.pumpAndSettle();
+  await expectLater(
+    find.byType(MaterialApp),
+    matchesGoldenFile('goldens/${goldenFileNamePrefix}_ios.png'),
+  );
+
+  // 2. Android
+  const androidSize = Size(412, 915);
+  debugDefaultTargetPlatformOverride = TargetPlatform.android;
+  await tester.binding.setSurfaceSize(androidSize);
+  tester.view.physicalSize = androidSize;
+  tester.view.devicePixelRatio = 1.0;
+  await tester.pumpWidget(
+    wrap(
+      MaterialApp(
+        theme: ThemeData(
+          platform: TargetPlatform.android,
+          fontFamily: _goldenFont,
+          fontFamilyFallback: const [_goldenFont],
+        ),
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('zh', 'CN')],
+        home: MediaQuery(
+          data: const MediaQueryData(
+            size: androidSize,
+            devicePixelRatio: 1.0,
+            padding: EdgeInsets.only(top: 24, bottom: 16),
+          ),
+          child: child,
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+  await action();
+  await tester.pumpAndSettle();
+  await expectLater(
+    find.byType(MaterialApp),
+    matchesGoldenFile('goldens/${goldenFileNamePrefix}_android.png'),
+  );
+
+  debugDefaultTargetPlatformOverride = null;
+  await tester.binding.setSurfaceSize(null);
 }
 
 void _registerOverview(ProjectsTestHarness harness) {
@@ -163,6 +288,32 @@ void main() {
           const InviteAcceptScreen(initialToken: 'inv-token-1'),
         ),
         goldenFileNamePrefix: 'invite_accept_screen',
+      );
+    },
+  );
+
+  testWidgets(
+    '接受邀请后工作区同步失败结果区双平台外观',
+    tags: ['golden'],
+    (tester) async {
+      final harness = ProjectsTestHarness();
+      final auth = await harness.bootstrap();
+      // 邀请已消费，但 /companies/mine 临时不可用：页面停在结果区等重试
+      harness.helper.whenGet('/companies/mine', '服务暂不可用', statusCode: 500);
+      harness.helper.whenPost(
+        '/projects/invitations/inv-token-1/accept',
+        {'project_id': 11, 'role': 'member'},
+      );
+      harness.helper.whenGet('/projects/11', projectJson());
+
+      await _testGoldenAfterAction(
+        tester: tester,
+        auth: auth,
+        child: const InviteAcceptScreen(initialToken: 'inv-token-1'),
+        goldenFileNamePrefix: 'invite_accept_sync_failed_screen',
+        action: () async {
+          await tester.tap(find.text('接受并进入项目'));
+        },
       );
     },
   );

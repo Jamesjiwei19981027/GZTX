@@ -83,7 +83,7 @@ void main() {
       await tester.pump();
     });
 
-    testWidgets('刷新公司列表 500：保持登录，提示手动切换并仍进入受邀项目', (tester) async {
+    testWidgets('刷新公司列表 500：留在本页，重试后选中受邀项目且接受接口只调一次', (tester) async {
       final harness = ProjectsTestHarness();
       final auth = await harness.bootstrap();
       harness.helper.whenGet('/companies/mine', '服务暂不可用', statusCode: 500);
@@ -104,9 +104,164 @@ void main() {
       await tester.tap(find.text('接受并进入项目'));
       await tester.pumpAndSettle();
 
+      // 同步失败时不再直接进团队页：留在本页，给出重试与「先进入项目」两个入口
       expect(auth.status, AuthStatus.authenticated);
+      expect(router.currentLocation, '/projects/invite/accept');
+      expect(find.text('重试同步工作区'), findsOneWidget);
+      expect(find.text('先进入项目'), findsOneWidget);
+      expect(find.text('接受并进入项目'), findsNothing);
+      expect(find.textContaining('已加入项目，但工作区同步失败'), findsOneWidget);
+
+      // 服务恢复后点重试：只重跑「刷新公司 → 切公司 → 刷新项目 → 选中项目」
+      harness.helper.whenGet('/companies/mine', {
+        'items': [companyJson()],
+        'total': 1,
+      });
+      await tester.tap(find.text('重试同步工作区'));
+      await tester.pumpAndSettle();
+
+      expect(auth.status, AuthStatus.authenticated);
+      expect(auth.currentCompany?.id, 1);
+      expect(auth.currentProject?.id, 11);
       expect(router.currentLocation, '/projects/11/team');
-      expect(find.textContaining('工作区未能切换'), findsOneWidget);
+      expect(
+        harness.helper.history
+            .where((item) =>
+                item.method == 'POST' &&
+                item.url.path ==
+                    '/api/v1/projects/invitations/inv-token-1/accept')
+            .length,
+        1,
+      );
+      resetToastForTesting();
+      await tester.pump();
+    });
+
+    testWidgets('同步失败时可「先进入项目」直达受邀项目团队页', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      harness.helper.whenGet('/companies/mine', '服务暂不可用', statusCode: 500);
+      harness.helper.whenPost(
+        '/projects/invitations/inv-token-2/accept',
+        {'project_id': 11, 'role': 'member'},
+      );
+      harness.helper.whenGet('/projects/11', projectJson());
+      harness.helper.whenGet('/projects/11/members', {
+        'items': [memberJson(userId: 11, nickname: '张三')],
+      });
+      harness.helper.whenGet('/companies/1/presence', {'items': []});
+
+      final router = await harness.pumpApp(
+        tester,
+        location: '/projects/invite/accept?token=inv-token-2',
+      );
+      await tester.tap(find.text('接受并进入项目'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('先进入项目'));
+      await tester.pumpAndSettle();
+
+      expect(router.currentLocation, '/projects/11/team');
+      expect(find.text('项目团队与成员'), findsOneWidget);
+      resetToastForTesting();
+      await tester.pump();
+    });
+
+    testWidgets('项目详情拉取失败时按项目反查公司，仍选中受邀项目', (tester) async {
+      final harness = ProjectsTestHarness(company: false);
+      final auth = await harness.bootstrap();
+      expect(auth.currentCompany, isNull);
+
+      harness.helper.whenPost(
+        '/projects/invitations/detail-fail-token/accept',
+        {'project_id': 11, 'role': 'member'},
+      );
+      // 接受邀请后后端才建立公司成员关系，此时 /companies/mine 才有数据
+      harness.helper.whenGet('/companies/mine', {
+        'items': [companyJson()],
+        'total': 1,
+      });
+      harness.helper.whenGet(
+        '/projects',
+        {
+          'items': [projectJson()],
+          'total': 1,
+        },
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+      // 受邀项目详情临时失败：拿不到受邀公司 ID
+      harness.helper.whenGet('/projects/11', '服务暂不可用', statusCode: 500);
+      harness.helper.whenGet('/projects/11/members', {
+        'items': [memberJson(userId: 11, nickname: '张三')],
+      });
+      harness.helper.whenGet('/companies/1/presence', {'items': []});
+
+      final router = await harness.pumpApp(
+        tester,
+        location: '/projects/invite/accept?token=detail-fail-token',
+      );
+      await tester.tap(find.text('接受并进入项目'));
+      await tester.pumpAndSettle();
+
+      expect(auth.currentCompany?.id, 1);
+      expect(auth.currentProject?.id, 11);
+      expect(router.currentLocation, '/projects/11/team');
+
+      // 项目切换页不再显示“尚未加入任何公司”
+      router.go('/projects/switch');
+      await tester.pumpAndSettle();
+      expect(find.text('尚未加入任何公司'), findsNothing);
+      expect(find.text('智能客服 2.0'), findsOneWidget);
+      resetToastForTesting();
+      await tester.pump();
+    });
+
+    testWidgets('项目详情失败且受邀项目在另一公司时，逐个公司核对后选中', (tester) async {
+      final harness = ProjectsTestHarness();
+      final auth = await harness.bootstrap();
+      expect(auth.currentCompany?.id, 1);
+
+      harness.helper.whenPost(
+        '/projects/invitations/detail-fail-2/accept',
+        {'project_id': 21, 'role': 'member'},
+      );
+      harness.helper.whenGet('/companies/mine', {
+        'items': [companyJson(), companyJson(id: 2, name: '未来科技')],
+        'total': 2,
+      });
+      // 当前公司（1）里没有受邀项目
+      harness.helper.whenGet(
+        '/projects',
+        {
+          'items': [projectJson(id: 12, name: '数据中台')],
+          'total': 1,
+        },
+        query: {'company_id': '1', 'as_admin': 'true'},
+      );
+      harness.helper.whenGet(
+        '/projects',
+        {
+          'items': [projectJson(id: 21, name: '数据迁移', companyId: 2)],
+          'total': 1,
+        },
+        query: {'company_id': '2', 'as_admin': 'true'},
+      );
+      harness.helper.whenGet('/projects/21', '服务暂不可用', statusCode: 500);
+      harness.helper.whenGet('/projects/21/members', {
+        'items': [memberJson(userId: 11, nickname: '张三')],
+      });
+      harness.helper.whenGet('/companies/2/presence', {'items': []});
+
+      final router = await harness.pumpApp(
+        tester,
+        location: '/projects/invite/accept?token=detail-fail-2',
+      );
+      await tester.tap(find.text('接受并进入项目'));
+      await tester.pumpAndSettle();
+
+      expect(auth.currentCompany?.id, 2);
+      expect(auth.currentProject?.id, 21);
+      expect(router.currentLocation, '/projects/21/team');
       resetToastForTesting();
       await tester.pump();
     });
