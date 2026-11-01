@@ -57,6 +57,8 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   bool _recurring = false;
   String _recurrenceRule = 'daily';
   List<ChecklistItem> _checklist = const [];
+  @visibleForTesting
+  List<ChecklistItem> get checklist => _checklist;
 
   List<ProjectMember> _members = const [];
   bool _membersLoading = false;
@@ -68,7 +70,6 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   String? _formError;
   bool _dirty = false;
   int _loadToken = 0;
-  int _subtaskSeq = 0;
 
   TaskScope get _scope => TaskScope.normalizeOrPersonal(
         _auth?.currentProject?.id.toString(),
@@ -285,14 +286,33 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
     final title = _subtaskController.text.trim();
     if (title.isEmpty) return;
     setState(() {
-      _subtaskSeq++;
+      final newId = _generateNextSubtaskId();
       _checklist = [
         ..._checklist,
-        ChecklistItem(id: 'new-$_subtaskSeq', title: title),
+        ChecklistItem(id: newId, title: title),
       ];
       _subtaskController.clear();
       _dirty = true;
     });
+  }
+
+  String _generateNextSubtaskId() {
+    var maxSeq = 0;
+    final usedIds = _checklist.map((e) => e.id).toSet();
+    for (final id in usedIds) {
+      final match = RegExp(r'^new-(\d+)').firstMatch(id);
+      if (match != null) {
+        final val = int.tryParse(match.group(1)!);
+        if (val != null && val > maxSeq) {
+          maxSeq = val;
+        }
+      }
+    }
+    var next = maxSeq + 1;
+    while (usedIds.contains('new-$next')) {
+      next++;
+    }
+    return 'new-$next';
   }
 
   Future<void> _save() async {

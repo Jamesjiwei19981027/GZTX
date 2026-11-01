@@ -204,5 +204,60 @@ void main() {
       expect(find.text('全新任务999'), findsOneWidget);
       expect(find.text('编制第三季度财务复核报告'), findsNothing);
     });
+
+    testWidgets('重新打开编辑器并新增清单项时生成不重复的 ID，删除其中一项不会误删同名项', (tester) async {
+      tester.view.physicalSize = const Size(430, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await WorkTestHarness.create();
+      // 任务已有清单项，且其 ID 为 new-1
+      harness.api.tasks.add(WorkTask.fromJson(buildTaskJson(
+        id: 777,
+        title: '清单重复测试任务',
+        checklist: [
+          {'id': 'new-1', 'title': '已有第一项', 'completed': false},
+        ],
+      )));
+
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskEditScreen(
+          taskId: 777,
+          api: harness.api,
+          authState: harness.authState,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      expect(find.text('已有第一项'), findsOneWidget);
+
+      // 新增一个清单项
+      final input = find.widgetWithText(AppTextField, '添加清单条目…');
+      await tester.ensureVisible(input);
+      await tester.enterText(input, '新增第二项');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pump();
+
+      expect(find.text('已有第一项'), findsOneWidget);
+      expect(find.text('新增第二项'), findsOneWidget);
+
+      // 验证新添加项的 ID 不等于 new-1（应该是 new-2）
+      final dynamic state = tester.state(find.byType(WorkTaskEditScreen));
+      final items = state.checklist as List<ChecklistItem>;
+      expect(items.length, 2);
+      expect(items[0].id, 'new-1');
+      expect(items[1].id, 'new-2');
+
+      // 点击删除第一项的关闭按钮
+      final closeBtns = find.byTooltip('删除清单项');
+      expect(closeBtns, findsNWidgets(2));
+      await tester.tap(closeBtns.first);
+      await tester.pump();
+
+      // 验证第一项被删除，第二项依然保留
+      expect(find.text('已有第一项'), findsNothing);
+      expect(find.text('新增第二项'), findsOneWidget);
+    });
   });
 }
