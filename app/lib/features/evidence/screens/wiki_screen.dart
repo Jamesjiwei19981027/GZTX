@@ -283,13 +283,13 @@ class _WikiScreenState extends State<WikiScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
-          for (final page in pages) ...[
-            EvidenceSectionTitle(page.title),
+          for (var index = 0; index < pages.length; index++) ...[
+            if (index > 0) EvidenceSectionTitle(pages[index].title),
             EvidenceCard(
               child: Text(
-                (page.bodyText ?? '').trim().isEmpty
+                (pages[index].bodyText ?? '').trim().isEmpty
                     ? '本页暂无正文内容。'
-                    : page.bodyText!.trim(),
+                    : pages[index].bodyText!.trim(),
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.6,

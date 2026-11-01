@@ -57,7 +57,6 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
   @override
   void initState() {
     super.initState();
-    widget.onBusyChange?.call(false);
   }
 
   @override
@@ -255,7 +254,6 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
           minLines: 5,
           maxLines: 8,
           enabled: !disabled,
-          onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: AppSpacing.sm),
         Wrap(

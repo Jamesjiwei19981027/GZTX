@@ -235,21 +235,6 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
             ),
           ],
           const SizedBox(height: AppSpacing.lg),
-          const EvidenceSectionTitle('提交说明'),
-          EvidenceCard(
-            child: Text(
-              package.summaryText?.trim().isNotEmpty == true
-                  ? package.summaryText!.trim()
-                  : '本次材料未填写文字说明。',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.6,
-                color:
-                    isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.lg),
           EvidenceSectionTitle('支撑文件（${package.files.length}）'),
           if (package.files.isEmpty)
             const EvidenceCard(
@@ -288,6 +273,25 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
                 _InfoRow(label: '所属项目', value: '项目 #${package.projectId}'),
                 const EvidenceDivider(),
                 _InfoRow(label: '提报人', value: submitterLabel),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          const EvidenceSectionTitle('材料信息'),
+          EvidenceCard(
+            padding: EdgeInsets.zero,
+            child: Column(
+              children: [
+                _InfoRow(label: '材料类型', value: package.kindLabel),
+                const EvidenceDivider(),
+                _InfoRow(label: '当前状态', value: package.statusLabel),
+                const EvidenceDivider(),
+                _InfoRow(
+                  label: '提交时间',
+                  value: submittedAt.isEmpty ? '未记录' : submittedAt,
+                ),
+                const EvidenceDivider(),
+                _InfoRow(label: '材料编号', value: '#${package.id}'),
               ],
             ),
           ),
