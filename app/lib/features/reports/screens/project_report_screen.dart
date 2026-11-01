@@ -128,7 +128,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
   }
 
   Future<void> _aggregateReports() async {
-    if (_aggregating || _projectId <= 0) return;
+    if (_aggregating || _projectId <= 0 || !_hasPendingSubmissions) return;
     final projectId = _projectId;
     setState(() {
       _aggregating = true;
@@ -170,6 +170,9 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
 
   int get _submittedCount =>
       _reports.where((report) => report.isSubmitted).length;
+
+  bool get _hasPendingSubmissions =>
+      _reports.any((report) => report.status == 'submitted');
 
   int get _missingSourceCount =>
       _reports.where((report) => report.isSubmitted && report.sourceCount == 0).length;
@@ -432,8 +435,17 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
           icon: _aggregating
               ? null
               : const AppIcon('ai', size: 17, color: Colors.white),
-          onPressed: _aggregating ? null : _aggregateReports,
+          onPressed: (_aggregating || !_hasPendingSubmissions) ? null : _aggregateReports,
         ),
+        if (!_hasPendingSubmissions) ...[
+          const SizedBox(height: AppSpacing.xs),
+          const Center(
+            child: Text(
+              '暂无新提交的汇报',
+              style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+            ),
+          ),
+        ],
         const SizedBox(height: AppSpacing.sm),
         AppButton(
           label: '确认发布项目摘要',

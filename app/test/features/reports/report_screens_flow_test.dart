@@ -1088,6 +1088,113 @@ void main() {
 
       expect(find.textContaining('AI 协同平台本周期整体完成度 85%'), findsOneWidget);
     });
+
+    testWidgets('没有状态为 submitted 的待汇总汇报时，生成汇总按钮置灰且说明暂无新提交的汇报 (P2)', (tester) async {
+      tester.view.physicalSize = const Size(430, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await ReportsTestHarness.create();
+      harness.helper.whenGet(
+        '/projects/${ReportsTestFixtures.projectId}/agent-reports',
+        {
+          'items': [
+            {
+              ...ReportsTestFixtures.submittedReportJson,
+              'status': 'aggregated',
+            },
+          ],
+        },
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ProjectReportScreen(
+            api: harness.api,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            mode: ProjectReportMode.aggregate,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final aggregateBtn = tester.widget<AppButton>(
+        find.widgetWithText(AppButton, '生成 / 更新项目汇总'),
+      );
+      expect(aggregateBtn.onPressed, isNull);
+      expect(find.text('暂无新提交的汇报'), findsOneWidget);
+
+      final initialCount = harness.helper.history.where(
+        (r) => r.method == 'POST' && r.url.path.contains('/agent-reports/aggregate'),
+      ).length;
+      await tester.tap(find.widgetWithText(AppButton, '生成 / 更新项目汇总'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      final afterCount = harness.helper.history.where(
+        (r) => r.method == 'POST' && r.url.path.contains('/agent-reports/aggregate'),
+      ).length;
+      expect(afterCount, equals(initialCount));
+    });
+
+    testWidgets('汇总生成一次后待汇总汇报变为 aggregated，按钮置灰且说明暂无新提交的汇报 (P2)', (tester) async {
+      tester.view.physicalSize = const Size(430, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final harness = await ReportsTestHarness.create();
+      harness.helper.whenGet(
+        '/projects/${ReportsTestFixtures.projectId}/agent-reports',
+        {
+          'items': [
+            ReportsTestFixtures.submittedReportJson,
+          ],
+        },
+      );
+
+      await tester.pumpWidget(
+        harness.wrapRouted(
+          ProjectReportScreen(
+            api: harness.api,
+            projectId: ReportsTestFixtures.projectId,
+            projectName: 'AI 协同平台',
+            mode: ProjectReportMode.aggregate,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      var aggregateBtn = tester.widget<AppButton>(
+        find.widgetWithText(AppButton, '生成 / 更新项目汇总'),
+      );
+      expect(aggregateBtn.onPressed, isNotNull);
+      expect(find.text('暂无新提交的汇报'), findsNothing);
+
+      harness.helper.whenGet(
+        '/projects/${ReportsTestFixtures.projectId}/agent-reports',
+        {
+          'items': [
+            {
+              ...ReportsTestFixtures.submittedReportJson,
+              'status': 'aggregated',
+            },
+          ],
+        },
+      );
+
+      await tester.tap(find.widgetWithText(AppButton, '生成 / 更新项目汇总'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('AI 协同平台本周期整体完成度 85%'), findsOneWidget);
+
+      aggregateBtn = tester.widget<AppButton>(
+        find.widgetWithText(AppButton, '生成 / 更新项目汇总'),
+      );
+      expect(aggregateBtn.onPressed, isNull);
+      expect(find.text('暂无新提交的汇报'), findsOneWidget);
+    });
   });
 
   group('LeadershipReportScreen 领导层汇报测试', () {
