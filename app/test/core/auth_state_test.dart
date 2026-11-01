@@ -466,5 +466,73 @@ void main() {
       expect(authState.projects, isEmpty);
       expect(authState.currentProject, isNull);
     });
+
+    group('refreshCompanies 只刷新公司列表', () {
+      Future<(MockApiClientHelper, AuthState)> boot() async {
+        final helper = MockApiClientHelper();
+        helper.whenGet('/users/me', {'id': 101, 'username': 'e2e_user'});
+        helper.whenGet('/companies/mine', {
+          'items': [
+            {'id': 1, 'name': '示范集团'},
+          ],
+        });
+        helper.whenGet(
+          '/projects',
+          {
+            'items': [
+              {'id': 88, 'name': '核心重构项目', 'company_id': 1},
+            ],
+          },
+          query: {'company_id': '1', 'as_admin': 'true'},
+        );
+        final authState = AuthState(
+          apiClient: helper.buildClient(
+            tokenStorage: InMemoryTokenStorage(access: 'token'),
+          ),
+        );
+        await authState.bootstrap();
+        return (helper, authState);
+      }
+
+      test('成功：拿到新公司，当前公司与项目不变，不重拉 /users/me', () async {
+        final (helper, authState) = await boot();
+        final meCalls = helper.history.where((h) => h.url.path.endsWith('/users/me')).length;
+        helper.whenGet('/companies/mine', {
+          'items': [
+            {'id': 1, 'name': '示范集团'},
+            {'id': 2, 'name': '受邀公司'},
+          ],
+        });
+
+        expect(await authState.refreshCompanies(), isTrue);
+        expect(authState.companies.map((c) => c.id), [1, 2]);
+        expect(authState.currentCompany?.id, 1);
+        expect(authState.currentProject?.id, 88);
+        expect(authState.status, AuthStatus.authenticated);
+        expect(
+          helper.history.where((h) => h.url.path.endsWith('/users/me')).length,
+          meCalls,
+        );
+      });
+
+      test('500：保持登录与原列表，只记录错误', () async {
+        final (helper, authState) = await boot();
+        helper.whenGet('/companies/mine', '服务暂不可用', statusCode: 500);
+
+        expect(await authState.refreshCompanies(), isFalse);
+        expect(authState.status, AuthStatus.authenticated);
+        expect(authState.companies.map((c) => c.id), [1]);
+        expect(authState.errorMessage, isNotNull);
+      });
+
+      test('401：清会话回到未登录', () async {
+        final (helper, authState) = await boot();
+        helper.whenGet('/companies/mine', '登录已过期', statusCode: 401);
+
+        expect(await authState.refreshCompanies(), isFalse);
+        expect(authState.status, AuthStatus.unauthenticated);
+        expect(authState.companies, isEmpty);
+      });
+    });
   });
 }
