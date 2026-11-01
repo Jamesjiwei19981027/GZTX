@@ -7,6 +7,7 @@ import 'config/api_config.dart';
 import 'config/brand.dart';
 import 'core/auth/auth_state.dart' as core_auth;
 import 'design/tokens/colors.dart';
+import 'features/auth/gate/auth_gate_host.dart';
 import 'router/app_router.dart';
 import 'screens/web_shell_screen.dart';
 
@@ -152,6 +153,12 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
           title: Brand.fullName,
           theme: _buildAppTheme(context),
           routerConfig: _appRouter!.router,
+          // 已登录用户启动时检查邮箱/手机验证状态（未验证邮箱进验证门，未验证手机按七天规则提醒）
+          builder: (context, child) => AuthGateHost(
+            router: _appRouter!.router,
+            navigatorKey: AppRouter.rootNavigatorKey,
+            child: child ?? const SizedBox.shrink(),
+          ),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
