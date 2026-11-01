@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_provider.dart';
-import '../../../core/time/time_utils.dart';
 import '../../../design/design.dart';
 import '../controllers/inbox_controller.dart';
 import '../data/messages_repository.dart';
 import '../models/messages_models.dart';
 import '../widgets/notification_detail_sheet.dart';
+import '../widgets/notification_tile.dart';
 import 'external_mail_view.dart';
 
 /// 通知与收件箱：协作通知（已读、全部已读、回复、归档、删除）+ 外部邮件。
@@ -253,7 +253,10 @@ class _InboxScreenState extends State<InboxScreen> {
                           AppListSection(
                             children: [
                               for (final item in controller.items)
-                                _notificationTile(context, controller, item),
+                                NotificationTile(
+                                  item: item,
+                                  onTap: () => _openNotification(item),
+                                ),
                             ],
                           ),
                         ],
@@ -263,75 +266,6 @@ class _InboxScreenState extends State<InboxScreen> {
           ],
         );
       },
-    );
-  }
-
-  Widget _notificationTile(
-    BuildContext context,
-    InboxController controller,
-    CollabNotification item,
-  ) {
-    final trailing = item.requiresReply && !item.hasReply
-        ? Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppSpacing.sm,
-              vertical: 2,
-            ),
-            decoration: BoxDecoration(
-              color: AppColors.warningLight,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-            ),
-            child: const Text(
-              '需回复',
-              style: TextStyle(fontSize: 10, color: Color(0xFF7A4E00)),
-            ),
-          )
-        : null;
-    final time =
-        item.createdAt == null ? '' : formatRelativeDate(item.createdAt);
-
-    return AppListTile(
-      leading: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color:
-                  item.read ? AppColors.surfaceVariant : AppColors.primaryLight,
-              shape: BoxShape.circle,
-            ),
-            child: AppIcon(
-              'bell',
-              size: 18,
-              color: item.read ? AppColors.textTertiary : AppColors.primary,
-            ),
-          ),
-          if (!item.read)
-            Positioned(
-              right: -1,
-              top: -1,
-              child: Container(
-                key: ValueKey('unread-dot-${item.id}'),
-                width: 9,
-                height: 9,
-                decoration: BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-              ),
-            ),
-        ],
-      ),
-      title: time.isEmpty
-          ? (item.senderName ?? '系统协同通知')
-          : '${item.senderName ?? '系统协同通知'} · $time',
-      subtitle: item.bodyText.trim().isEmpty ? '无详细内容' : item.bodyText,
-      trailing: trailing,
-      onTap: () => _openNotification(item),
     );
   }
 }
