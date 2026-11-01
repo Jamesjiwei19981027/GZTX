@@ -12,6 +12,7 @@ import '../utils/auth_error_message.dart';
 import '../utils/auth_validators.dart';
 import '../utils/countdown_controller.dart';
 import '../widgets/auth_message_banner.dart';
+import '../widgets/code_field_row.dart';
 import '../widgets/send_code_button.dart';
 
 /// 注册页
@@ -237,33 +238,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   enabled: !_busy,
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: AppTextField(
-                        key: const ValueKey('register-email'),
-                        controller: _email,
-                        label: '工作邮箱',
-                        placeholder: 'name@company.com',
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        prefix: const AppIcon('mail', size: 18),
-                        enabled: !_busy,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: SendCodeButton(
-                        key: const ValueKey('register-send-email-code'),
-                        controller: _emailCountdown,
-                        enabled: !_busy && _email.text.trim().isNotEmpty,
-                        onPressed: () => _sendCode(AuthChannel.email),
-                        idleLabel: '发验证码',
-                      ),
-                    ),
-                  ],
+                CodeFieldRow(
+                  field: AppTextField(
+                    key: const ValueKey('register-email'),
+                    controller: _email,
+                    label: '工作邮箱',
+                    placeholder: 'name@company.com',
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    prefix: const AppIcon('mail', size: 18),
+                    enabled: !_busy,
+                  ),
+                  button: SendCodeButton(
+                    key: const ValueKey('register-send-email-code'),
+                    controller: _emailCountdown,
+                    enabled: !_busy && _email.text.trim().isNotEmpty,
+                    onPressed: () => _sendCode(AuthChannel.email),
+                    idleLabel: '发验证码',
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 AppTextField(
@@ -277,33 +269,24 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   enabled: !_busy,
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: AppTextField(
-                        key: const ValueKey('register-phone'),
-                        controller: _phone,
-                        label: '手机号（可选）',
-                        placeholder: '手机号',
-                        keyboardType: TextInputType.phone,
-                        textInputAction: TextInputAction.next,
-                        prefix: const AppIcon('phone', size: 18),
-                        enabled: !_busy,
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2),
-                      child: SendCodeButton(
-                        key: const ValueKey('register-send-phone-code'),
-                        controller: _phoneCountdown,
-                        enabled: !_busy && _phone.text.trim().isNotEmpty,
-                        onPressed: () => _sendCode(AuthChannel.sms),
-                        idleLabel: '发验证码',
-                      ),
-                    ),
-                  ],
+                CodeFieldRow(
+                  field: AppTextField(
+                    key: const ValueKey('register-phone'),
+                    controller: _phone,
+                    label: '手机号（可选）',
+                    placeholder: '手机号',
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    prefix: const AppIcon('phone', size: 18),
+                    enabled: !_busy,
+                  ),
+                  button: SendCodeButton(
+                    key: const ValueKey('register-send-phone-code'),
+                    controller: _phoneCountdown,
+                    enabled: !_busy && _phone.text.trim().isNotEmpty,
+                    onPressed: () => _sendCode(AuthChannel.sms),
+                    idleLabel: '发验证码',
+                  ),
                 ),
                 if (_phone.text.trim().isNotEmpty) ...[
                   const SizedBox(height: AppSpacing.lg),

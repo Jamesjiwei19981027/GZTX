@@ -13,6 +13,7 @@ import '../utils/auth_error_message.dart';
 import '../utils/auth_validators.dart';
 import '../utils/countdown_controller.dart';
 import '../widgets/auth_message_banner.dart';
+import '../widgets/code_field_row.dart';
 import '../widgets/send_code_button.dart';
 
 /// 登录方式
@@ -454,32 +455,23 @@ class _LoginScreenState extends State<LoginScreen> {
           enabled: !_busy,
         ),
         const SizedBox(height: AppSpacing.lg),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: AppTextField(
-                key: const ValueKey('login-code'),
-                controller: _code,
-                label: '动态验证码',
-                placeholder: '6 位数字验证码',
-                keyboardType: TextInputType.number,
-                textInputAction: TextInputAction.done,
-                prefix: const AppIcon('lock', size: 18),
-                enabled: !_busy,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 2),
-              child: SendCodeButton(
-                key: const ValueKey('login-send-code'),
-                controller: _countdown,
-                enabled: !_busy && _target.text.trim().isNotEmpty,
-                onPressed: _sendLoginCode,
-              ),
-            ),
-          ],
+        CodeFieldRow(
+          field: AppTextField(
+            key: const ValueKey('login-code'),
+            controller: _code,
+            label: '动态验证码',
+            placeholder: '6 位数字验证码',
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.done,
+            prefix: const AppIcon('lock', size: 18),
+            enabled: !_busy,
+          ),
+          button: SendCodeButton(
+            key: const ValueKey('login-send-code'),
+            controller: _countdown,
+            enabled: !_busy && _target.text.trim().isNotEmpty,
+            onPressed: _sendLoginCode,
+          ),
         ),
         const SizedBox(height: AppSpacing.lg),
         AppButton(

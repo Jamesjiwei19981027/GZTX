@@ -12,6 +12,7 @@ import '../utils/auth_validators.dart';
 import '../utils/countdown_controller.dart';
 import '../utils/phone_reminder.dart';
 import '../widgets/auth_message_banner.dart';
+import '../widgets/code_field_row.dart';
 import '../widgets/phone_reminder.dart';
 import '../widgets/send_code_button.dart';
 
@@ -168,7 +169,23 @@ class _VerifyScreenState extends State<VerifyScreen> {
     }
 
     if (!mounted) return;
-    context.go(AuthPaths.work);
+    _goWork();
+  }
+
+  /// 回到工作 Tab。
+  ///
+  /// 优先出栈回到进入验证门之前的页面（工作 Tab 的 StatefulShellRoute 不会被卸载重建）；
+  /// 若验证门是登录后直接跳入的顶层页（无可出栈页面），再直接切到工作 Tab。
+  /// 用 post-frame 回调避免同一帧内既卸载又重建带 GlobalKey 的导航壳。
+  void _goWork() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(AuthPaths.work);
+      }
+    });
   }
 
   Future<void> _sendBindCode(AuthChannel channel) async {
@@ -519,33 +536,24 @@ class _VerifyScreenState extends State<VerifyScreen> {
             enabled: !_busy,
           ),
           const SizedBox(height: AppSpacing.md),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Expanded(
-                child: AppTextField(
-                  key: ValueKey('verify-code-${channel.apiValue}'),
-                  controller: codeController,
-                  label: '验证码',
-                  placeholder: codePlaceholder,
-                  keyboardType: TextInputType.number,
-                  textInputAction: TextInputAction.done,
-                  prefix: const AppIcon('lock', size: 18),
-                  enabled: !_busy,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.sm),
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: SendCodeButton(
-                  key: ValueKey('verify-send-${channel.apiValue}'),
-                  controller: countdown,
-                  enabled: !_busy && targetController.text.trim().isNotEmpty,
-                  onPressed: () => _sendBindCode(channel),
-                  idleLabel: sendLabel,
-                ),
-              ),
-            ],
+          CodeFieldRow(
+            field: AppTextField(
+              key: ValueKey('verify-code-${channel.apiValue}'),
+              controller: codeController,
+              label: '验证码',
+              placeholder: codePlaceholder,
+              keyboardType: TextInputType.number,
+              textInputAction: TextInputAction.done,
+              prefix: const AppIcon('lock', size: 18),
+              enabled: !_busy,
+            ),
+            button: SendCodeButton(
+              key: ValueKey('verify-send-${channel.apiValue}'),
+              controller: countdown,
+              enabled: !_busy && targetController.text.trim().isNotEmpty,
+              onPressed: () => _sendBindCode(channel),
+              idleLabel: sendLabel,
+            ),
           ),
           const SizedBox(height: AppSpacing.lg),
           AppButton(
