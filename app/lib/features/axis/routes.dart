@@ -1,81 +1,69 @@
-import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../design/design.dart';
+import 'screens/axis_audit_screen.dart';
+import 'screens/axis_delegations_screen.dart';
+import 'screens/axis_edit_responsibility_screen.dart';
+import 'screens/axis_node_detail_screen.dart';
+import 'screens/axis_progress_screen.dart';
+import 'screens/axis_root_screen.dart';
 
-/// T04 人轴模块路由占位
-class AxisPlaceholderScreen extends StatelessWidget {
-  const AxisPlaceholderScreen({
-    super.key,
-    this.screenName = 'axis-root',
-    this.title = '人轴',
-  });
+int? _queryInt(GoRouterState state, String key) =>
+    int.tryParse(state.uri.queryParameters[key] ?? '');
 
-  final String screenName;
-  final String title;
+int? _projectIdOf(GoRouterState state) => _queryInt(state, 'projectId');
 
-  @override
-  Widget build(BuildContext context) {
-    return AppScaffold(
-      title: title,
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(AppSpacing.xxl),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const AppIcon('axis', size: 48, color: AppColors.primary),
-              const SizedBox(height: AppSpacing.lg),
-              Text(
-                '$title (T04)',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '屏幕标识: $screenName\n待 T04 任务包实现具体页面',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: AppColors.textSecondary),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
+/// T04 人轴路由（Tab 1）
+///
+/// 路由名与网页 `mobileRoutes.ts` 的 screen id 对齐：
+/// axis-root、axis-person-detail、axis-node-detail、axis-edit-responsibility、
+/// axis-progress、axis-delegations、axis-audit。
 final List<RouteBase> axisRoutes = [
   GoRoute(
     path: '/axis',
     name: 'axis-root',
-    builder: (context, state) => const AxisPlaceholderScreen(
-      screenName: 'axis-root',
-      title: '人轴',
-    ),
+    builder: (context, state) => const AxisRootScreen(),
     routes: [
-      GoRoute(
-        path: 'node/:id',
-        name: 'axis-node-detail',
-        builder: (context, state) => AxisPlaceholderScreen(
-          screenName: 'axis-node-detail',
-          title: '节点详情 #${state.pathParameters['id']}',
-        ),
-      ),
       GoRoute(
         path: 'person/:id',
         name: 'axis-person-detail',
-        builder: (context, state) => AxisPlaceholderScreen(
-          screenName: 'axis-person-detail',
-          title: '人员主页 #${state.pathParameters['id']}',
+        builder: (context, state) => AxisNodeDetailScreen(
+          nodeId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          projectId: _projectIdOf(state),
         ),
       ),
       GoRoute(
-        path: 'progress',
-        name: 'axis-progress',
-        builder: (context, state) => const AxisPlaceholderScreen(
-          screenName: 'axis-progress',
-          title: '人轴推进看板',
+        path: 'node/:id',
+        name: 'axis-node-detail',
+        builder: (context, state) => AxisNodeDetailScreen(
+          nodeId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          projectId: _projectIdOf(state),
         ),
+      ),
+      GoRoute(
+        path: 'person/:id/edit',
+        name: 'axis-edit-responsibility',
+        builder: (context, state) => AxisEditResponsibilityScreen(
+          personId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          projectId: _projectIdOf(state),
+        ),
+      ),
+      GoRoute(
+        path: 'node/:id/progress',
+        name: 'axis-progress',
+        builder: (context, state) => AxisProgressScreen(
+          nodeId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          projectId: _projectIdOf(state),
+        ),
+      ),
+      GoRoute(
+        path: 'delegations',
+        name: 'axis-delegations',
+        builder: (context, state) => const AxisDelegationsScreen(),
+      ),
+      GoRoute(
+        path: 'audit',
+        name: 'axis-audit',
+        builder: (context, state) => const AxisAuditScreen(),
       ),
     ],
   ),
