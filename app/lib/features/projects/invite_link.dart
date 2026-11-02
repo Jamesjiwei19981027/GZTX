@@ -35,11 +35,16 @@ String inviteAcceptLocation(String token) {
   ).toString();
 }
 
+final RegExp _inviteTokenPattern = RegExp(r'^[A-Za-z0-9_-]{16,256}$');
+bool isValidInviteToken(String token) => _inviteTokenPattern.hasMatch(token);
+
 /// 从深链接查询参数中取出邀请令牌（`?invite=` 或 `?token=`）
 String? readInviteTokenFromQuery(Map<String, String> query) {
   for (final key in const ['token', 'invite']) {
     final value = query[key]?.trim();
-    if (value != null && value.isNotEmpty) return value;
+    if (value != null && value.isNotEmpty && isValidInviteToken(value)) {
+      return value;
+    }
   }
   return null;
 }

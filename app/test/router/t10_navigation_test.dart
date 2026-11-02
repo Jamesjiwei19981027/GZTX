@@ -94,7 +94,8 @@ void main() {
     final auth = AuthState(apiClient: helper.buildClient(tokenStorage: tokens));
     await auth.bootstrap();
     final app = AppRouter(
-        authState: auth, initialLocation: 'worktodo://invite/cold-token');
+        authState: auth,
+        initialLocation: 'worktodo://invite/cold_token_12345678901234567890');
     await tester.pumpWidget(_mount(auth, app));
     await tester.pumpAndSettle();
     expect(app.router.routeInformationProvider.value.uri.path, '/login');
@@ -104,11 +105,11 @@ void main() {
     expect(find.byType(InviteAcceptScreen), findsOneWidget);
     expect(
         app.router.routeInformationProvider.value.uri.queryParameters['token'],
-        'cold-token');
+        'cold_token_12345678901234567890');
     for (final link in [
-      'worktodo://invite/hot-token',
-      '/invite/hot-token',
-      '/?invite=hot-token'
+      'worktodo://invite/hot_token_12345678901234567890',
+      '/invite/hot_token_12345678901234567890',
+      '/?invite=hot_token_12345678901234567890'
     ]) {
       app.router.go(link);
       await tester.pumpAndSettle();
@@ -117,7 +118,7 @@ void main() {
       expect(
           app.router.routeInformationProvider.value.uri
               .queryParameters['token'],
-          'hot-token');
+          'hot_token_12345678901234567890');
       expect(find.byType(InviteAcceptScreen), findsOneWidget);
     }
     await tester.pumpWidget(const SizedBox.shrink());
@@ -193,12 +194,25 @@ void main() {
     auth.dispose();
   });
   test('自定义邀请链接和旧网页链接均归一化，令牌安全编码', () {
-    expect(normalizeAppLink(Uri.parse('worktodo://invite/a%2Fb')),
-        '/projects/invite/accept?token=a%2Fb');
-    expect(normalizeAppLink(Uri.parse('/invite/token-123')),
-        '/projects/invite/accept?token=token-123');
-    expect(normalizeAppLink(Uri.parse('/?invite=old-token')),
-        '/projects/invite/accept?token=old-token');
+    const valid43 = '4Z7wK9xL2mN5pQ8rT1vX3yA6bC9dE2fG5hJ8kM1nP4s';
+    expect(normalizeAppLink(Uri.parse('worktodo://invite/$valid43')),
+        '/projects/invite/accept?token=$valid43');
+    expect(normalizeAppLink(Uri.parse('/invite/$valid43')),
+        '/projects/invite/accept?token=$valid43');
+    expect(normalizeAppLink(Uri.parse('/?invite=$valid43')),
+        '/projects/invite/accept?token=$valid43');
+    expect(normalizeAppLink(Uri.parse('/?token=$valid43')),
+        '/projects/invite/accept?token=$valid43');
+
+    // 含 /、%2F、?、#、空格、过短的令牌一律返回 null
+    expect(normalizeAppLink(Uri.parse('worktodo://invite/short')), isNull);
+    expect(normalizeAppLink(Uri.parse('/invite/token-123')), isNull);
+    expect(normalizeAppLink(Uri.parse('/?invite=old-token')), isNull);
+    expect(normalizeAppLink(Uri.parse('worktodo://invite/a%2Fb')), isNull);
+    expect(normalizeAppLink(Uri.parse('worktodo://invite/token/extra')), isNull);
+    expect(normalizeAppLink(Uri.parse('worktodo://invite/token?query=1')), isNull);
+    expect(normalizeAppLink(Uri.parse('worktodo://invite/token#frag')), isNull);
+    expect(normalizeAppLink(Uri.parse('worktodo://invite/token with space')), isNull);
     expect(
         normalizeAppLink(Uri.parse('https://evil.invalid/invite/a')), isNull);
     expect(normalizeAppLink(Uri.parse('worktodo://invite/')), isNull);

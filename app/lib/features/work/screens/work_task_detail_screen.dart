@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/auth/auth_state.dart';
-import '../../../core/models/project.dart';
+import '../../../core/auth/project_label.dart';
 import '../../../core/time/time_utils.dart';
 import '../../../design/design.dart';
 import '../data/work_api.dart';
@@ -63,11 +63,7 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
     } catch (_) {
       auth = null;
     }
-    if (auth?.currentProject?.id == projectId) return auth!.currentProject!.name;
-    for (final p in auth?.projects ?? const <Project>[]) {
-      if (p.id == projectId) return p.name;
-    }
-    return '项目 #$projectId';
+    return projectLabelFor(auth, projectId);
   }
 
   @override

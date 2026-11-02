@@ -103,18 +103,22 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     return AppScaffold(
       title: 'AI 责任链审计',
       body: _running
-          ? const Center(
+          ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  AppLoading(),
-                  SizedBox(height: AppSpacing.md),
+                  const AppLoading(),
+                  const SizedBox(height: AppSpacing.md),
                   Text(
                     '正在运行责任链审计…',
-                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondaryOf(isDark),
+                    ),
                   ),
                 ],
               ),
@@ -216,6 +220,7 @@ class _SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     final pending = result?.pendingCount ?? 0;
     return AxisCard(
       child: Column(
@@ -241,9 +246,9 @@ class _SummaryCard extends StatelessWidget {
           Text(
             '${result?.overallRiskLabel ?? '整体风险较低'}'
             ' · ${AxisRules.formatDateTime(result?.generatedAt)}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(isDark),
             ),
           ),
         ],
@@ -259,6 +264,7 @@ class _AuditNodeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     final color = node.riskLevel == 'high'
         ? AppColors.danger
         : node.riskLevel == 'medium'
@@ -286,10 +292,10 @@ class _AuditNodeRow extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             node.summary,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
               height: 1.4,
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(isDark),
             ),
           ),
           if (node.suggestedActions.isNotEmpty) ...[
@@ -304,9 +310,9 @@ class _AuditNodeRow extends StatelessWidget {
                     Expanded(
                       child: Text(
                         action,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textSecondaryOf(isDark),
                         ),
                       ),
                     ),

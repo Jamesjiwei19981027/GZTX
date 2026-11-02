@@ -278,6 +278,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     final auth = widget.authState ??
         (() {
           try {
@@ -315,17 +316,20 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
 
     final controller = _controller;
     if (controller == null || controller.loading) {
-      return const AppScaffold(
+      return AppScaffold(
         title: '人轴',
         body: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AppLoading(),
-              SizedBox(height: AppSpacing.md),
+              const AppLoading(),
+              const SizedBox(height: AppSpacing.md),
               Text(
                 '正在加载责任链数据…',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondaryOf(isDark),
+                ),
               ),
             ],
           ),
@@ -479,6 +483,7 @@ class _NoProjectState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.xxl),
       children: [
@@ -492,13 +497,13 @@ class _NoProjectState extends StatelessWidget {
           style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: AppSpacing.sm),
-        const Text(
+        Text(
           '人轴按项目组织人员与责任。请先新建项目，或通过项目经理发出的邀请加入已有项目。',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13,
             height: 1.5,
-            color: AppColors.textSecondary,
+            color: AppColors.textSecondaryOf(isDark),
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -658,6 +663,7 @@ class _MineView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     final self = controller.selfNode;
     final supervisor = controller.supervisorNode;
     final subordinates = controller.subordinateNodes;
@@ -809,7 +815,7 @@ class _MineView extends StatelessWidget {
                             : Icons.radio_button_unchecked,
                         color: item.isDone
                             ? AppColors.primary
-                            : AppColors.textTertiary,
+                            : AppColors.textTertiaryOf(isDark),
                       ),
                       title: Text(item.title),
                       subtitle: Text(
@@ -841,6 +847,7 @@ class _SelfCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     return InkWell(
       key: const Key('axis-self-card'),
       onTap: onTap,
@@ -884,9 +891,9 @@ class _SelfCard extends StatelessWidget {
                         '${node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle}'
                         ' · ${node.department.isEmpty ? '项目团队' : node.department}',
                         maxLines: 2,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          color: AppColors.textSecondaryOf(isDark),
                         ),
                       ),
                     ],
@@ -938,6 +945,7 @@ class _MiniPersonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -963,9 +971,9 @@ class _MiniPersonCard extends StatelessWidget {
                   Text(
                     subtitle,
                     maxLines: 2,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textSecondary,
+                      color: AppColors.textSecondaryOf(isDark),
                     ),
                   ),
                   if (showAiStatus) ...[
@@ -1287,6 +1295,7 @@ class _ChoiceButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
@@ -1306,7 +1315,9 @@ class _ChoiceButton extends StatelessWidget {
           style: TextStyle(
             fontSize: 12,
             fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            color: selected ? AppColors.primary : AppColors.textSecondary,
+            color: selected
+                ? AppColors.primary
+                : AppColors.textSecondaryOf(isDark),
           ),
         ),
       ),

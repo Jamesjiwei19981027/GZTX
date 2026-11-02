@@ -221,5 +221,75 @@ void main() {
         )),
       );
     });
+
+    test('JSON 请求不跟随重定向，保持方法/头/请求体一致，且 302 走错误分支', () async {
+      final recording = _RecordingHttpClient();
+      final client = ApiClient(
+        httpClient: recording,
+        tokenStorage: InMemoryTokenStorage(access: 'secret_token_123'),
+      );
+
+      // 1. GET 请求
+      final getRes = await client.get('/test/get');
+      expect(getRes, {'success': true});
+      expect(recording.recordedRequests.length, 1);
+      final getReq = recording.recordedRequests.first;
+      expect(getReq.followRedirects, isFalse);
+      expect(getReq.method, 'GET');
+      expect(getReq.headers['authorization'], 'Bearer secret_token_123');
+      expect(getReq.headers['accept'], 'application/json');
+
+      // 2. POST 请求
+      final postRes = await client.post('/test/post', body: {'name': '张三', 'count': 42});
+      expect(postRes, {'success': true});
+      expect(recording.recordedRequests.length, 2);
+      final postReq = recording.recordedRequests[1];
+      expect(postReq.followRedirects, isFalse);
+      expect(postReq.method, 'POST');
+      expect(postReq.headers['content-type'], contains('application/json'));
+      expect(postReq, isA<http.Request>());
+      expect((postReq as http.Request).body, jsonEncode({'name': '张三', 'count': 42}));
+
+      // 3. 服务端返回 302 重定向：不跟随跳转，按非 2xx 抛出 ApiException，不会发起第二次跳转请求
+      recording.handler = (req) async {
+        return http.StreamedResponse(
+          Stream.value(utf8.encode('{"code":302,"message":"请跳转到指定地址"}')),
+          302,
+          headers: {
+            'content-type': 'application/json',
+            'location': 'https://evil.external.site/leak',
+          },
+        );
+      };
+
+      expect(
+        () => client.get('/redirect/test'),
+        throwsA(isA<ApiException>().having(
+          (e) => e.statusCode,
+          'statusCode',
+          302,
+        )),
+      );
+      // 只产生了一次请求（没有向 location 发出新的请求）
+      expect(recording.recordedRequests.length, 3);
+    });
   });
+}
+
+class _RecordingHttpClient extends http.BaseClient {
+  final List<http.BaseRequest> recordedRequests = [];
+  Future<http.StreamedResponse> Function(http.BaseRequest request)? handler;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    recordedRequests.add(request);
+    if (handler != null) {
+      return handler!(request);
+    }
+    return http.StreamedResponse(
+      Stream.value(utf8.encode('{"code":200,"message":"ok","data":{"success":true}}')),
+      200,
+      headers: {'content-type': 'application/json'},
+    );
+  }
 }

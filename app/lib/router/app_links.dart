@@ -5,12 +5,16 @@ String? normalizeAppLink(Uri uri) {
   if (uri.scheme == 'worktodo') {
     if (uri.host != 'invite' || uri.pathSegments.length != 1) return null;
     final token = uri.pathSegments.single.trim();
-    return token.isEmpty ? null : inviteAcceptLocation(token);
+    return token.isEmpty || !isValidInviteToken(token)
+        ? null
+        : inviteAcceptLocation(token);
   }
   if (uri.hasScheme || uri.hasAuthority) return null;
   if (uri.pathSegments.length == 2 && uri.pathSegments.first == 'invite') {
     final token = uri.pathSegments.last.trim();
-    return token.isEmpty ? null : inviteAcceptLocation(token);
+    return token.isEmpty || !isValidInviteToken(token)
+        ? null
+        : inviteAcceptLocation(token);
   }
   if (uri.path.isEmpty || uri.path == '/') {
     final token = readInviteTokenFromQuery(uri.queryParameters);

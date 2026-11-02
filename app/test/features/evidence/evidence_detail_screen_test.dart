@@ -1,8 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
+import 'package:worktodo_app/core/auth/auth_state.dart';
+import 'package:worktodo_app/core/models/project.dart';
 import 'package:worktodo_app/features/evidence/screens/evidence_detail_screen.dart';
 
 import '../../helpers/mock_api_client.dart';
 import 'helpers/evidence_harness.dart';
+
+class _DetailFakeAuthState extends AuthState {
+  _DetailFakeAuthState(this._projects);
+  final List<Project> _projects;
+
+  @override
+  List<Project> get projects => _projects;
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -144,5 +155,29 @@ void main() {
 
     expect(find.text('支撑文件（0）'), findsOneWidget);
     expect(find.text('本次材料没有附件，仅提交了文字说明。'), findsOneWidget);
+  });
+
+  testWidgets('有 AuthState 且项目在列表里时，页面显示项目名称，不出现“项目 #”', (tester) async {
+    final helper = baseHelper();
+    helper.whenGet('/evidence/91', packageJson(files: [fileJson()]));
+
+    final fakeAuth = _DetailFakeAuthState(const [
+      Project(id: 3, name: '供应链协同平台', companyId: 1),
+    ]);
+
+    await pumpEvidenceScreen(
+      tester,
+      ChangeNotifierProvider<AuthState>.value(
+        value: fakeAuth,
+        child: EvidenceDetailScreen(
+          api: buildEvidenceApi(helper),
+          packageId: 91,
+        ),
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text('供应链协同平台'), findsOneWidget);
+    expect(find.textContaining('项目 #'), findsNothing);
   });
 }

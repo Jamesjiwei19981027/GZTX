@@ -213,6 +213,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
             }
           }
 
+          final isDark = isDarkMode(ctx);
           return ListView(
             shrinkWrap: true,
             padding: const EdgeInsets.all(AppSpacing.lg),
@@ -229,11 +230,11 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
+                    Text(
                       '权限作用于当前项目的人轴节点',
                       style: TextStyle(
                         fontSize: 11,
-                        color: AppColors.textTertiary,
+                        color: AppColors.textTertiaryOf(isDark),
                       ),
                     ),
                   ],
@@ -659,6 +660,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   }
 
   Widget _buildPerson(BuildContext context, AxisPersonNode person) {
+    final isDark = isDarkMode(context);
     final supervisor =
         _tree.where((node) => node.id == person.parentId).toList();
     final subordinates =
@@ -710,7 +712,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                                 label: person.isPrimary ? '主轴人员' : '次级人员',
                                 color: person.isPrimary
                                     ? AppColors.primary
-                                    : AppColors.textTertiary,
+                                    : AppColors.textTertiaryOf(isDark),
                               ),
                             ],
                           ),
@@ -718,9 +720,9 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                           Text(
                             '${person.roleTitle.isEmpty ? '岗位未指定' : person.roleTitle}'
                             ' · ${person.department.isEmpty ? '项目部门' : person.department}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: AppColors.textSecondary,
+                              color: AppColors.textSecondaryOf(isDark),
                             ),
                           ),
                         ],
@@ -731,11 +733,12 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                 const Divider(height: 22),
                 Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 64,
                       child: Text('直属领导',
                           style: TextStyle(
-                              fontSize: 12, color: AppColors.textTertiary)),
+                              fontSize: 12,
+                              color: AppColors.textTertiaryOf(isDark))),
                     ),
                     Expanded(
                       child: Text(
@@ -750,11 +753,12 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 64,
                       child: Text('直属下属',
                           style: TextStyle(
-                              fontSize: 12, color: AppColors.textTertiary)),
+                              fontSize: 12,
+                              color: AppColors.textTertiaryOf(isDark))),
                     ),
                     Expanded(
                       child: Text(
@@ -824,9 +828,12 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                   style: const TextStyle(fontSize: 12, height: 1.5),
                 ),
                 const SizedBox(height: AppSpacing.xs),
-                const Text(
+                Text(
                   '人轴最多三级。',
-                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textTertiaryOf(isDark),
+                  ),
                 ),
                 if (canChannel) ...[
                   const Divider(height: 20),
@@ -852,11 +859,13 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                     onPressed: () => _showDeletion(person),
                   )
                 else
-                  const Text(
+                  Text(
                     '你没有移除该人员的权限。次级人员只能由其主轴负责人移除；'
                     '项目经理可移除所有主轴人员。',
-                    style:
-                        TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textTertiaryOf(isDark),
+                    ),
                   ),
               ],
             ),
@@ -885,6 +894,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   }
 
   Widget _buildMatter(BuildContext context) {
+    final isDark = isDarkMode(context);
     final json = _nodeJson ?? const <String, dynamic>{};
     final workItem = AxisWorkItem.fromJson(json);
     // percent 已在模型里按后端状态归一（里程碑 reached 按 100% 展示）。
@@ -924,20 +934,21 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   '${workItem.statusLabel} · 进度 $percent%',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: AppColors.textSecondaryOf(isDark),
                   ),
                 ),
                 if (owner != null) ...[
                   const Divider(height: 22),
                   Row(
                     children: [
-                      const SizedBox(
+                      SizedBox(
                         width: 64,
                         child: Text('责任人',
                             style: TextStyle(
-                                fontSize: 12, color: AppColors.textTertiary)),
+                                fontSize: 12,
+                                color: AppColors.textTertiaryOf(isDark))),
                       ),
                       Expanded(
                         child: Text(
@@ -1073,6 +1084,7 @@ class _PersonTabsState extends State<_PersonTabs> {
                 const SizedBox(height: AppSpacing.sm),
                 Builder(
                   builder: (context) {
+                    final isDark = isDarkMode(context);
                     final items = widget.person.workItems;
                     final avg = items.isEmpty
                         ? 0
@@ -1086,9 +1098,9 @@ class _PersonTabsState extends State<_PersonTabs> {
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           '$avg% · ${items.length} 项责任事项',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary,
+                            color: AppColors.textSecondaryOf(isDark),
                           ),
                         ),
                       ],

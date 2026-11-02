@@ -57,4 +57,9 @@ class AppColors {
       isDark ? darkInfoContainer : infoContainer;
   static Color onInfoContainerOf(bool isDark) =>
       isDark ? darkOnInfoContainer : primary;
+
+  static Color textSecondaryOf(bool isDark) =>
+      isDark ? darkTextSecondary : textSecondary;
+  static Color textTertiaryOf(bool isDark) =>
+      isDark ? darkTextTertiary : textTertiary;
 }

@@ -10,8 +10,8 @@ import 'package:provider/provider.dart';
 
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../../core/auth/project_label.dart';
 import '../../../core/errors/app_error.dart';
-import '../../../core/models/project.dart';
 import '../../../design/design.dart';
 import '../../../router/app_destination.dart';
 import '../data/work_api.dart';
@@ -103,13 +103,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   String? get _scopeProjectName {
     final pid = _scope.projectId;
     if (pid == null) return null;
-    if (_auth?.currentProject?.id == pid) {
-      return _auth?.currentProject?.name;
-    }
-    for (final p in _auth?.projects ?? const <Project>[]) {
-      if (p.id == pid) return p.name;
-    }
-    return '项目 #$pid';
+    return projectLabelFor(_auth, pid);
   }
 
   @override

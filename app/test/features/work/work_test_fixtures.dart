@@ -85,6 +85,11 @@ Map<String, dynamic> buildTaskJson({
   };
 }
 
+String _todayIso() {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day, 10).toUtc().toIso8601String();
+}
+
 /// 预置的代表性任务列表。
 List<WorkTask> sampleWorkTasks() => [
       // 1. 今日截止高优先级待办
@@ -94,7 +99,7 @@ List<WorkTask> sampleWorkTasks() => [
         description: '核实各部门报销单据并出具初步审计意见',
         priority: 2,
         status: 0,
-        dueDate: '2026-11-02T10:00:00Z',
+        dueDate: _todayIso(),
         category: {'id': 1, 'name': '财务', 'color': '#F56C6C'},
         tags: [
           {'id': 11, 'name': '重点', 'color': '#E6A23C'},

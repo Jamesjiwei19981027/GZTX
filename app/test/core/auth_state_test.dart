@@ -534,5 +534,36 @@ void main() {
         expect(authState.companies, isEmpty);
       });
     });
+
+    group('rememberAppLocation 待恢复地址处理', () {
+      test('先记邀请地址再记 /messages，takeAppLocation() 仍返回邀请地址；新邀请地址可覆盖', () {
+        final authState = AuthState();
+        // 1. 先记邀请地址
+        authState.rememberAppLocation('/projects/invite/accept?token=invite_token_123456');
+        // 2. 再记普通地址，邀请地址不被覆盖
+        authState.rememberAppLocation('/messages');
+        expect(
+          authState.takeAppLocation(),
+          '/projects/invite/accept?token=invite_token_123456',
+        );
+
+        // 3. 新邀请地址可覆盖旧邀请地址
+        authState.rememberAppLocation('/projects/invite/accept?token=invite_token_111111');
+        authState.rememberAppLocation('/projects/invite/accept?token=invite_token_222222');
+        expect(
+          authState.takeAppLocation(),
+          '/projects/invite/accept?token=invite_token_222222',
+        );
+      });
+
+      test('/gallery 调试页地址不被记住', () {
+        final authState = AuthState();
+        authState.rememberAppLocation('/gallery');
+        expect(authState.takeAppLocation(), isNull);
+
+        authState.rememberAppLocation('/gallery/components');
+        expect(authState.takeAppLocation(), isNull);
+      });
+    });
   });
 }

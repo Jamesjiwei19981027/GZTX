@@ -21,7 +21,7 @@ void main() {
       final harness = ProjectsTestHarness();
       final auth = await harness.bootstrap();
       harness.helper.whenPost(
-        '/projects/invitations/inv-token-1/accept',
+        '/projects/invitations/inv_token_0000000001/accept',
         {'project_id': 11, 'role': 'member'},
       );
       harness.helper.whenGet('/projects/11', projectJson());
@@ -39,7 +39,7 @@ void main() {
 
       final router = await harness.pumpApp(
         tester,
-        location: '/projects/invite/accept?token=inv-token-1',
+        location: '/projects/invite/accept?token=inv_token_0000000001',
       );
 
       expect(find.text('接受项目协同邀请'), findsOneWidget);
@@ -51,7 +51,7 @@ void main() {
       expect(
         harness.helper.history
             .where((item) => item.method == 'POST' &&
-                item.url.path == '/api/v1/projects/invitations/inv-token-1/accept')
+                item.url.path == '/api/v1/projects/invitations/inv_token_0000000001/accept')
             .length,
         1,
       );
@@ -69,7 +69,7 @@ void main() {
 
       final router = await harness.pumpApp(
         tester,
-        location: '/projects/invite/accept?token=inv-token-1',
+        location: '/projects/invite/accept?token=inv_token_0000000001',
       );
 
       expect(find.byTooltip('返回工作'), findsOneWidget);
@@ -78,7 +78,7 @@ void main() {
       expect(handled, isTrue);
       expect(router.currentLocation, '/work');
 
-      router.go('/projects/invite/accept?token=inv-token-1');
+      router.go('/projects/invite/accept?token=inv_token_0000000001');
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('返回工作'));
       await tester.pumpAndSettle();
@@ -90,7 +90,7 @@ void main() {
       final auth = await harness.bootstrap();
       harness.helper.whenGet('/users/me', '服务暂不可用', statusCode: 500);
       harness.helper.whenPost(
-        '/projects/invitations/inv-token-1/accept',
+        '/projects/invitations/inv_token_0000000001/accept',
         {'project_id': 11, 'role': 'member'},
       );
       harness.helper.whenGet('/projects/11', projectJson());
@@ -101,7 +101,7 @@ void main() {
 
       final router = await harness.pumpApp(
         tester,
-        location: '/projects/invite/accept?token=inv-token-1',
+        location: '/projects/invite/accept?token=inv_token_0000000001',
       );
       await tester.tap(find.text('接受并进入项目'));
       await tester.pumpAndSettle();
@@ -118,7 +118,7 @@ void main() {
       final auth = await harness.bootstrap();
       harness.helper.whenGet('/companies/mine', '服务暂不可用', statusCode: 500);
       harness.helper.whenPost(
-        '/projects/invitations/inv-token-1/accept',
+        '/projects/invitations/inv_token_0000000001/accept',
         {'project_id': 11, 'role': 'member'},
       );
       harness.helper.whenGet('/projects/11', projectJson());
@@ -129,7 +129,7 @@ void main() {
 
       final router = await harness.pumpApp(
         tester,
-        location: '/projects/invite/accept?token=inv-token-1',
+        location: '/projects/invite/accept?token=inv_token_0000000001',
       );
       await tester.tap(find.text('接受并进入项目'));
       await tester.pumpAndSettle();
@@ -159,7 +159,7 @@ void main() {
             .where((item) =>
                 item.method == 'POST' &&
                 item.url.path ==
-                    '/api/v1/projects/invitations/inv-token-1/accept')
+                    '/api/v1/projects/invitations/inv_token_0000000001/accept')
             .length,
         1,
       );
@@ -189,7 +189,7 @@ void main() {
             data = {'items': [companyJson()], 'total': 1};
           case 'GET /projects':
             data = {'items': [projectJson()], 'total': 1};
-          case 'POST /projects/invitations/token-a/accept':
+          case 'POST /projects/invitations/token_aaaaaaaaaaaaa/accept':
             data = {'project_id': 11, 'role': 'member'};
           case 'GET /projects/11':
             data = projectJson();
@@ -214,7 +214,7 @@ void main() {
 
       final router = await harness.pumpApp(
         tester,
-        location: '/projects/invite/accept?token=token-a',
+        location: '/projects/invite/accept?token=token_aaaaaaaaaaaaa',
       );
       await tester.tap(find.text('接受并进入项目'));
       await tester.pumpAndSettle();
@@ -223,7 +223,7 @@ void main() {
       // 点重试后请求挂起，此时打开另一条邀请链接
       await tester.tap(find.text('重试同步工作区'));
       await tester.pump();
-      router.go('/projects/invite/accept?token=token-b');
+      router.go('/projects/invite/accept?token=token_bbbbbbbbbbbbb');
       await tester.pump();
       await tester.pump();
       expect(find.text('接受并进入项目'), findsOneWidget);
@@ -244,7 +244,7 @@ void main() {
       await harness.bootstrap();
       harness.helper.whenGet('/companies/mine', '服务暂不可用', statusCode: 500);
       harness.helper.whenPost(
-        '/projects/invitations/inv-token-2/accept',
+        '/projects/invitations/inv_token_0000000002/accept',
         {'project_id': 11, 'role': 'member'},
       );
       harness.helper.whenGet('/projects/11', projectJson());
@@ -255,7 +255,7 @@ void main() {
 
       final router = await harness.pumpApp(
         tester,
-        location: '/projects/invite/accept?token=inv-token-2',
+        location: '/projects/invite/accept?token=inv_token_0000000002',
       );
       await tester.tap(find.text('接受并进入项目'));
       await tester.pumpAndSettle();
@@ -324,7 +324,7 @@ void main() {
       expect(auth.currentCompany?.id, 1);
 
       harness.helper.whenPost(
-        '/projects/invitations/detail-fail-2/accept',
+        '/projects/invitations/detail_fail_token_02/accept',
         {'project_id': 21, 'role': 'member'},
       );
       harness.helper.whenGet('/companies/mine', {
@@ -356,7 +356,7 @@ void main() {
 
       final router = await harness.pumpApp(
         tester,
-        location: '/projects/invite/accept?token=detail-fail-2',
+        location: '/projects/invite/accept?token=detail_fail_token_02',
       );
       await tester.tap(find.text('接受并进入项目'));
       await tester.pumpAndSettle();
@@ -374,7 +374,7 @@ void main() {
       expect(auth.currentCompany, isNull);
 
       harness.helper.whenPost(
-        '/projects/invitations/first-token/accept',
+        '/projects/invitations/first_token_0000001/accept',
         {'project_id': 11, 'role': 'member'},
       );
       // 接受邀请后后端才建立公司成员关系，此时 /companies/mine 才有数据
@@ -400,7 +400,7 @@ void main() {
 
       final router = await harness.pumpApp(
         tester,
-        location: '/projects/invite/accept?token=first-token',
+        location: '/projects/invite/accept?token=first_token_0000001',
       );
 
       await tester.tap(find.text('接受并进入项目'));
@@ -430,7 +430,7 @@ void main() {
       expect(auth.currentCompany?.id, 1);
 
       harness.helper.whenPost(
-        '/projects/invitations/second-token/accept',
+        '/projects/invitations/second_token_000002/accept',
         {'project_id': 21, 'role': 'member'},
       );
       harness.helper.whenGet('/companies/mine', {
@@ -458,7 +458,7 @@ void main() {
 
       final router = await harness.pumpApp(
         tester,
-        location: '/projects/invite/accept?token=second-token',
+        location: '/projects/invite/accept?token=second_token_000002',
       );
 
       await tester.tap(find.text('接受并进入项目'));
@@ -496,14 +496,14 @@ void main() {
       final harness = ProjectsTestHarness();
       await harness.bootstrap();
       harness.helper.whenPost(
-        '/projects/invitations/bad-token/accept',
+        '/projects/invitations/bad_token_000000001/accept',
         {'code': 42200, 'message': '邀请无效', 'data': null},
         statusCode: 422,
       );
 
       await harness.pumpScreen(
         tester,
-        const InviteAcceptScreen(initialToken: 'bad-token'),
+        const InviteAcceptScreen(initialToken: 'bad_token_000000001'),
       );
       await tester.tap(find.text('接受并进入项目'));
       await tester.pumpAndSettle();
@@ -515,14 +515,14 @@ void main() {
       final harness = ProjectsTestHarness();
       await harness.bootstrap();
       harness.helper.whenPost(
-        '/projects/invitations/old-token/accept',
+        '/projects/invitations/old_token_000000001/accept',
         {'code': 42200, 'message': '邀请已过期', 'data': null},
         statusCode: 422,
       );
 
       await harness.pumpScreen(
         tester,
-        const InviteAcceptScreen(initialToken: 'old-token'),
+        const InviteAcceptScreen(initialToken: 'old_token_000000001'),
       );
       await tester.tap(find.text('接受并进入项目'));
       await tester.pumpAndSettle();
@@ -537,14 +537,14 @@ void main() {
       final harness = ProjectsTestHarness();
       await harness.bootstrap();
       harness.helper.whenPost(
-        '/projects/invitations/other-token/accept',
+        '/projects/invitations/other_token_0000001/accept',
         {'code': 40300, 'message': '邀请不匹配当前用户', 'data': null},
         statusCode: 403,
       );
 
       await harness.pumpScreen(
         tester,
-        const InviteAcceptScreen(initialToken: 'other-token'),
+        const InviteAcceptScreen(initialToken: 'other_token_0000001'),
       );
       await tester.tap(find.text('接受并进入项目'));
       await tester.pumpAndSettle();
@@ -559,7 +559,7 @@ void main() {
       final harness = ProjectsTestHarness();
       await harness.bootstrap();
       harness.helper.whenPost(
-        '/projects/invitations/phone-token/accept',
+        '/projects/invitations/phone_token_0000001/accept',
         {
           'detail': {
             'code': 40320,
@@ -571,13 +571,52 @@ void main() {
 
       await harness.pumpScreen(
         tester,
-        const InviteAcceptScreen(initialToken: 'phone-token'),
+        const InviteAcceptScreen(initialToken: 'phone_token_0000001'),
       );
       await tester.tap(find.text('接受并进入项目'));
       await tester.pumpAndSettle();
 
       expect(find.text('当前项目要求完成手机号实名验证后方可加入'), findsOneWidget);
       expect(find.text('前往验证手机号后继续加入'), findsOneWidget);
+    });
+
+    testWidgets('令牌不合法时直接显示“邀请链接无效”，不发请求', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+
+      // 1. 初始令牌过短
+      await harness.pumpScreen(
+        tester,
+        const InviteAcceptScreen(initialToken: 'short'),
+      );
+      expect(find.text('邀请链接无效'), findsOneWidget);
+      await tester.tap(find.text('接受并进入项目'));
+      await tester.pumpAndSettle();
+      expect(
+        harness.helper.history.where((i) => i.url.path.contains('/accept')),
+        isEmpty,
+      );
+
+      // 2. 初始令牌包含非法字符
+      for (final invalid in [
+        'invalid/token123456',
+        'invalid%2Ftoken123',
+        'invalid token 123456',
+        'invalid?token123456',
+        'invalid#token123456',
+      ]) {
+        await harness.pumpScreen(
+          tester,
+          InviteAcceptScreen(initialToken: invalid),
+        );
+        expect(find.text('邀请链接无效'), findsOneWidget);
+        await tester.tap(find.text('接受并进入项目'));
+        await tester.pumpAndSettle();
+        expect(
+          harness.helper.history.where((i) => i.url.path.contains('/accept')),
+          isEmpty,
+        );
+      }
     });
   });
 }

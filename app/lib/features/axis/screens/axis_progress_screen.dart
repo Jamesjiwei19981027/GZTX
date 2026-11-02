@@ -124,6 +124,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     final snapshot = _snapshot;
     return AppScaffold(
       title: '进度与记录',
@@ -178,9 +179,9 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                             const SizedBox(height: AppSpacing.sm),
                             Text(
                               snapshot?.statusLabel ?? '未开始',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: AppColors.textSecondary,
+                                color: AppColors.textSecondaryOf(isDark),
                               ),
                             ),
                           ],
@@ -189,15 +190,15 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                       const AxisSectionTitle('进度记录'),
                       AxisCard(
                         child: (snapshot?.records.isEmpty ?? true)
-                            ? const Padding(
-                                padding: EdgeInsets.all(AppSpacing.lg),
+                            ? Padding(
+                                padding: const EdgeInsets.all(AppSpacing.lg),
                                 child: Text(
                                   '暂无进度记录。上传材料、评审确认或正式进度录入后，'
                                   '这里会按时间倒序显示。',
                                   style: TextStyle(
                                     fontSize: 12,
                                     height: 1.5,
-                                    color: AppColors.textSecondary,
+                                    color: AppColors.textSecondaryOf(isDark),
                                   ),
                                 ),
                               )
@@ -238,6 +239,7 @@ class _RecordRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     final when =
         record.createdAt == null ? '' : formatRelativeDate(record.createdAt);
     return Padding(
@@ -282,10 +284,10 @@ class _RecordRow extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     record.reason!,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       height: 1.5,
-                      color: AppColors.textSecondary,
+                      color: AppColors.textSecondaryOf(isDark),
                     ),
                   ),
                 ],

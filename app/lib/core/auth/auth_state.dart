@@ -50,7 +50,13 @@ class AuthState extends ChangeNotifier {
         location != '/work' &&
         location != '/offline' &&
         !location.startsWith('/login') &&
-        !location.startsWith('/verify')) {
+        !location.startsWith('/verify') &&
+        !location.startsWith('/gallery')) {
+      if (_pendingAppLocation != null &&
+          _pendingAppLocation!.startsWith('/projects/invite/accept') &&
+          !location.startsWith('/projects/invite/accept')) {
+        return;
+      }
       _pendingAppLocation = location;
     }
   }

@@ -450,7 +450,7 @@ class _AxisCanvasState extends State<AxisCanvas> {
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
                         color:
-                            isSelf ? Colors.white : AppColors.textSecondary,
+                            isSelf ? Colors.white : AppColors.textSecondaryOf(isDark),
                       ),
                     ),
                   ),

@@ -1,4 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../core/auth/auth_state.dart';
+import '../../../core/auth/project_label.dart';
 
 import '../../../core/errors/app_error.dart';
 import '../../../core/time/time_utils.dart';
@@ -169,6 +173,12 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
 
   Widget _buildContent(EvidencePackage package) {
     final isDark = isDarkMode(context);
+    AuthState? auth;
+    try {
+      auth = context.read<AuthState>();
+    } catch (_) {
+      auth = null;
+    }
     final submittedAt =
         formatDisplayDateTime(parseApiDateTime(package.submittedAt));
     final isMine = widget.currentUserId != null &&
@@ -270,7 +280,10 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
                   value: _nodeTitle ?? '责任事项 #${package.nodeId}',
                 ),
                 const EvidenceDivider(),
-                _InfoRow(label: '所属项目', value: '项目 #${package.projectId}'),
+                _InfoRow(
+                  label: '所属项目',
+                  value: projectLabelFor(auth, package.projectId),
+                ),
                 const EvidenceDivider(),
                 _InfoRow(label: '提报人', value: submitterLabel),
               ],

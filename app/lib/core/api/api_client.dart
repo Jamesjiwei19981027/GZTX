@@ -177,22 +177,24 @@ class ApiClient {
     Map<String, String> headers,
     String? body,
   ) {
-    Future<http.Response> req;
-    switch (method) {
-      case 'GET':
-        req = _http.get(uri, headers: headers);
-      case 'POST':
-        req = _http.post(uri, headers: headers, body: body);
-      case 'PUT':
-        req = _http.put(uri, headers: headers, body: body);
-      case 'PATCH':
-        req = _http.patch(uri, headers: headers, body: body);
-      case 'DELETE':
-        req = _http.delete(uri, headers: headers, body: body);
-      default:
-        throw ApiException('不支持的 HTTP 方法: $method');
+    const allowedMethods = {'GET', 'POST', 'PUT', 'PATCH', 'DELETE'};
+    if (!allowedMethods.contains(method)) {
+      throw ApiException('不支持的 HTTP 方法: $method');
     }
 
+    if (uri.origin != Uri.parse(baseUrl).origin) {
+      throw ApiException('拒绝向其他站点发送登录凭据');
+    }
+
+    final request = http.Request(method, uri)
+      ..followRedirects = false
+      ..headers.addAll(headers);
+    if (body != null) {
+      request.body = body;
+      request.headers.addAll(headers);
+    }
+
+    final req = _http.send(request).then(http.Response.fromStream);
     return req.timeout(
       timeout,
       onTimeout: () => throw NetworkException('请求超时，请检查网络连接'),

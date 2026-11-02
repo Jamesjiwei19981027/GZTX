@@ -13,6 +13,7 @@ import 'package:worktodo_app/core/errors/app_error.dart';
 import 'package:worktodo_app/design/design.dart';
 
 import '../data/projects_repository.dart';
+import '../invite_link.dart';
 import '../models/project_models.dart';
 import '../widgets/project_error_view.dart';
 import '../widgets/project_widgets.dart';
@@ -45,6 +46,15 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
   int _acceptSeq = 0;
 
   @override
+  void initState() {
+    super.initState();
+    final initial = widget.initialToken?.trim();
+    if (initial != null && initial.isNotEmpty && !isValidInviteToken(initial)) {
+      _error = '邀请链接无效';
+    }
+  }
+
+  @override
   void dispose() {
     _token.dispose();
     super.dispose();
@@ -59,10 +69,13 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
     // 否则用户会把 A 的结果当成 B 的结果，还会对已消费的邀请重复操作。
     _acceptSeq++;
     _token.text = widget.initialToken ?? '';
+    final initial = widget.initialToken?.trim();
     setState(() {
       _busy = false;
       _needPhoneVerify = false;
-      _error = null;
+      _error = (initial != null && initial.isNotEmpty && !isValidInviteToken(initial))
+          ? '邀请链接无效'
+          : null;
       _joinedProjectId = null;
       _joinedCompanyId = null;
       _syncFailed = false;
@@ -76,6 +89,10 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
     final token = _token.text.trim();
     if (token.isEmpty) {
       setState(() => _error = '请输入或粘贴邀请令牌');
+      return;
+    }
+    if (!isValidInviteToken(token)) {
+      setState(() => _error = '邀请链接无效');
       return;
     }
     setState(() {

@@ -134,21 +134,37 @@ void main() {
 
   group('邀请链接构造', () {
     test('分享链接与原生接受地址保持可解析', () {
-      final link = buildInviteLink('inv-token-1');
-      expect(link, 'worktodo://invite/inv-token-1');
+      const validToken = '4Z7wK9xL2mN5pQ8rT1vX3yA6bC9dE2fG5hJ8kM1nP4s';
+      final link = buildInviteLink(validToken);
+      expect(link, 'worktodo://invite/$validToken');
 
-      final location = inviteAcceptLocation('inv-token-1');
-      expect(location, '/projects/invite/accept?token=inv-token-1');
+      final location = inviteAcceptLocation(validToken);
+      expect(location, '/projects/invite/accept?token=$validToken');
 
       expect(
-        readInviteTokenFromQuery(const {'token': 'inv-token-1'}),
-        'inv-token-1',
+        readInviteTokenFromQuery({'token': validToken}),
+        validToken,
       );
       expect(
-        readInviteTokenFromQuery(const {'invite': 'from-deep-link'}),
-        'from-deep-link',
+        readInviteTokenFromQuery({'invite': validToken}),
+        validToken,
       );
       expect(readInviteTokenFromQuery(const {}), isNull);
+
+      // 含 /、%2F、?、#、空格、过短的令牌一律返回 null
+      for (final invalid in [
+        'short',
+        'inv-token-1',
+        'from-deep-link',
+        'invalid/token123456',
+        'invalid%2Ftoken123',
+        'invalid?token123456',
+        'invalid#token123456',
+        'invalid token 123456',
+      ]) {
+        expect(readInviteTokenFromQuery({'token': invalid}), isNull);
+        expect(readInviteTokenFromQuery({'invite': invalid}), isNull);
+      }
     });
   });
 }

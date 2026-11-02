@@ -472,6 +472,7 @@ class _DelegationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -492,7 +493,7 @@ class _DelegationRow extends StatelessWidget {
                 label: delegation.isActive ? '生效中' : '已撤销',
                 color: delegation.isActive
                     ? AppColors.success
-                    : AppColors.textTertiary,
+                    : AppColors.textTertiaryOf(isDark),
               ),
             ],
           ),
@@ -500,10 +501,10 @@ class _DelegationRow extends StatelessWidget {
           Text(
             '$actionsLabel · 有效至 '
             '${delegation.validTo == null ? '长期' : AxisRules.formatDateOnly(delegation.validTo)}',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 11,
               height: 1.4,
-              color: AppColors.textSecondary,
+              color: AppColors.textSecondaryOf(isDark),
             ),
           ),
           if (delegation.reason != null &&
@@ -511,9 +512,9 @@ class _DelegationRow extends StatelessWidget {
             const SizedBox(height: 3),
             Text(
               '原因：${delegation.reason}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: AppColors.textTertiary,
+                color: AppColors.textTertiaryOf(isDark),
               ),
             ),
           ],
