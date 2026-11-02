@@ -19,15 +19,11 @@ const initialActivities = [
 
 // 2. 模拟随后刷新失败
 const failureError = '网络连接超时';
-const result = handleBootRefreshFailure(initialProjects, failureError);
+const result = handleBootRefreshFailure(failureError);
 
-// 3. 断言：项目列表仍在，没有被清空！
-assert.strictEqual(
-  result.projects.length,
-  initialProjects.length,
-  `项目列表必须保留已有项目，期望 ${initialProjects.length} 个，实际得到 ${result.projects.length} 个`,
-);
-assert.deepStrictEqual(result.projects, initialProjects, '项目列表必须保留原有的真实项目数组');
+// 3. 项目列表不由该函数返回（调用方不动项目列表）
+assert.ok(!('projects' in result), '失败结果不应包含 projects，避免清空项目列表');
+assert.strictEqual(initialProjects.length, 2);
 
 // 4. 断言：任务和动态被清空（避免未经验证的假数据造成误导），且错误提示可见
 assert.strictEqual(result.tasks.length, 0, '任务列表在失败时应清空');

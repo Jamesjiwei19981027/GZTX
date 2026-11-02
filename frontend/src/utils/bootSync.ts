@@ -1,18 +1,15 @@
 /**
  * 项目与工作区刷新失败时的状态合并策略
  */
-export function handleBootRefreshFailure<TProject, TTask, TActivity>(
-  previousProjects: TProject[],
+export function handleBootRefreshFailure<TTask, TActivity>(
   errorMessage: string,
 ): {
-  projects: TProject[];
   tasks: TTask[];
   activities: TActivity[];
   bootError: string;
 } {
-  // 项目列表是导航依据，清空会让用户误以为项目被删了。保留上一次成功拿到的真实项目列表。
+  // 项目列表是导航依据，清空会让用户误以为项目被删了：本函数不返回 projects，调用方不动项目列表。
   return {
-    projects: previousProjects,
     tasks: [],
     activities: [],
     bootError: errorMessage,

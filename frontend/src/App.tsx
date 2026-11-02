@@ -27,6 +27,7 @@ import { MyTasksView } from './components/views/MyTasksView';
 import { NewTaskModal } from './components/modals/NewTaskModal';
 import { QuickAddModal } from './components/modals/QuickAddModal';
 import { WorkspaceSetupModal, WorkspaceSetupMode } from './components/modals/WorkspaceSetupModal';
+import { handleBootRefreshFailure, getInviteNotice } from './utils/bootSync';
 import { GlobalSearchModal } from './components/modals/GlobalSearchModal';
 import { TaskDetailDrawer } from './components/modals/TaskDetailDrawer';
 import { NotificationsModal } from './components/modals/NotificationsModal';
@@ -193,6 +194,7 @@ export default function App() {
   );
   const [phoneVerified, setPhoneVerified] = useState(false);
   const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+  const [inviteRefreshFailed, setInviteRefreshFailed] = useState(false);
   const [workspaceModal, setWorkspaceModal] = useState<WorkspaceSetupMode | null>(null);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
@@ -382,12 +384,13 @@ export default function App() {
       setPrefsHydrated(true);
       return true;
     } catch (e) {
-      setBootError(e instanceof Error ? e.message : '加载失败');
+      const failure = handleBootRefreshFailure<Task, Activity>(e instanceof Error ? e.message : '加载失败');
+      setBootError(failure.bootError);
       // 项目列表是导航依据，清空会让用户误以为项目被删了。保留上一次成功拿到的真实项目列表（首次加载失败时它本来就是空数组）。
       // A failed API request must remain visible as an error/empty state for tasks and activities.
       // Injecting demo records makes authenticated users believe writes worked.
-      setTasks([]);
-      setActivities([]);
+      setTasks(failure.tasks);
+      setActivities(failure.activities);
       return false;
     } finally {
       setLoadingBoot(false);
@@ -484,21 +487,15 @@ export default function App() {
           setCurrentProject(joined);
           switchView('team');
         }
-        if (!refreshOk) {
-          setInviteNotice(
-            settings.language === 'zh'
-              ? '已加入受邀项目，但工作区刷新失败，请点重试'
-              : 'Joined invited project, but workspace refresh failed. Please retry.',
-          );
-        } else {
-          setInviteNotice(settings.language === 'zh' ? '已加入受邀项目' : 'Joined invited project');
-        }
+        setInviteRefreshFailed(!refreshOk);
+        setInviteNotice(getInviteNotice(refreshOk, settings.language));
       } catch (e) {
         if (cancelled) return;
         const message = e instanceof Error ? e.message : '';
         const code = e instanceof ApiError ? e.code : 0;
         if (code === 40320 || /手机/.test(message)) {
           setPhoneGateOpen(true);
+          setInviteRefreshFailed(false);
           setInviteNotice(
             settings.language === 'zh'
               ? '接受邀请需要先完成手机验证'
@@ -507,6 +504,7 @@ export default function App() {
           return;
         }
         clearInviteToken();
+        setInviteRefreshFailed(false);
         setInviteNotice(message || (settings.language === 'zh' ? '邀请无效或已过期' : 'Invitation is invalid or expired'));
       }
     })();
@@ -1084,13 +1082,14 @@ export default function App() {
           ) : inviteNotice ? (
             <span className="inline-flex items-center justify-center gap-2">
               <span>{inviteNotice}</span>
-              {(inviteNotice.includes('重试') || inviteNotice.includes('retry') || inviteNotice.includes('Retry')) && (
+              {inviteRefreshFailed && (
                 <button
                   type="button"
                   onClick={async () => {
                     const ok = await refreshFromBackend();
                     if (ok) {
-                      setInviteNotice(settings.language === 'zh' ? '已加入受邀项目' : 'Joined invited project');
+                      setInviteRefreshFailed(false);
+                      setInviteNotice(getInviteNotice(true, settings.language));
                     }
                   }}
                   className="underline font-semibold cursor-pointer hover:text-amber-950"
