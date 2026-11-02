@@ -116,7 +116,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
                         ),
                       MeCard(
                         title: '主题模式',
-                        footer: '深色模式遵循高对比度规范，切换后立即在整个「我的」模块生效，并跨重启保留。',
+                        footer: '深色模式遵循高对比度规范，切换后立即在整个 APP 生效，并跨重启保留。',
                         children: [
                           Row(
                             children: [
@@ -137,7 +137,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
                       const SizedBox(height: AppSpacing.md),
                       MeCard(
                         title: '字号大小',
-                        footer: '「跟随系统」使用设备字号设置；选择档位后本模块按档位统一缩放，长文案自动换行不截断。',
+                        footer: '「跟随系统」使用设备字号设置；选择档位后整个 APP 按档位统一缩放，长文案自动换行不截断。',
                         children: [
                           for (final option in _scaleOptions)
                             _scaleOption(controller, option),

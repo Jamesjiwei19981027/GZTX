@@ -300,8 +300,27 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 从 worktodo:// 链接直接进入时没有上一页：给出返回入口，系统返回键回工作首页而不是退出 APP
+    final canPop = Navigator.of(context).canPop();
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go('/work');
+      },
+      child: _buildScaffold(context, canPop),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, bool canPop) {
     return AppScaffold(
       title: '接受项目协同邀请',
+      leading: canPop
+          ? null
+          : IconButton(
+              tooltip: '返回工作',
+              icon: const AppIcon('back', size: 22),
+              onPressed: () => context.go('/work'),
+            ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           AppSpacing.xxl,

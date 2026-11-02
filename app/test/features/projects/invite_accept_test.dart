@@ -63,6 +63,28 @@ void main() {
       await tester.pump();
     });
 
+    testWidgets('从链接直接进入（无上一页）时有返回入口，系统返回键回工作首页而不是退出', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+
+      final router = await harness.pumpApp(
+        tester,
+        location: '/projects/invite/accept?token=inv-token-1',
+      );
+
+      expect(find.byTooltip('返回工作'), findsOneWidget);
+      final handled = await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(handled, isTrue);
+      expect(router.currentLocation, '/work');
+
+      router.go('/projects/invite/accept?token=inv-token-1');
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('返回工作'));
+      await tester.pumpAndSettle();
+      expect(router.currentLocation, '/work');
+    });
+
     testWidgets('接受后不再重走启动流程：/users/me 临时 500 不会把会话打成离线', (tester) async {
       final harness = ProjectsTestHarness();
       final auth = await harness.bootstrap();
