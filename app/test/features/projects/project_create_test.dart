@@ -120,6 +120,41 @@ void main() {
       expect(find.text('请输入有效的公司英文代号 (slug)'), findsOneWidget);
     });
 
+    testWidgets('从新建项目切到创建公司后，填写的公司名称写入公司表单而不是项目表单', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      harness.helper.whenPost('/companies', {
+        'id': 2,
+        'name': '未来科技实业有限公司',
+        'slug': 'future-tech',
+        'status': 'active',
+      });
+      harness.helper.whenGet(
+        '/projects',
+        {'items': <Map<String, dynamic>>[], 'total': 0},
+        query: {'company_id': '2', 'as_admin': 'true'},
+      );
+      await _pumpCreate(tester, harness, mode: WorkspaceCreateMode.project);
+
+      await tester.tap(find.text('创建公司'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        '未来科技实业有限公司',
+      );
+      await tester.enterText(find.byType(TextFormField).at(1), 'future-tech');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('确认创建公司'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('请输入公司名称'), findsNothing);
+      final createRequest = harness.helper.history
+          .firstWhere((item) => item.method == 'POST');
+      expect(createRequest.body['name'], '未来科技实业有限公司');
+      resetToastForTesting();
+      await tester.pump();
+    });
+
     testWidgets('创建公司成功后将全局企业切换到新公司', (tester) async {
       final harness = ProjectsTestHarness();
       final auth = await harness.bootstrap();

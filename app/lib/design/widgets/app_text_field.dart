@@ -51,12 +51,27 @@ class AppTextField extends StatefulWidget {
 }
 
 class _AppTextFieldState extends State<AppTextField> {
-  late final TextEditingController _effectiveController;
+  late TextEditingController _effectiveController;
   bool _showClear = false;
 
   @override
   void initState() {
     super.initState();
+    _effectiveController = widget.controller ??
+        TextEditingController(text: widget.initialValue);
+    _effectiveController.addListener(_handleTextChanged);
+    _showClear = _effectiveController.text.isNotEmpty;
+  }
+
+  /// 同一位置复用本组件但换了外部控制器时（如表单切换），必须跟着换，否则输入会写进旧控制器
+  @override
+  void didUpdateWidget(covariant AppTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller == oldWidget.controller) return;
+    _effectiveController.removeListener(_handleTextChanged);
+    if (oldWidget.controller == null) {
+      _effectiveController.dispose();
+    }
     _effectiveController = widget.controller ??
         TextEditingController(text: widget.initialValue);
     _effectiveController.addListener(_handleTextChanged);
