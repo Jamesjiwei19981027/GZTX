@@ -39,7 +39,8 @@ Future<AuthState> _signedInState(
   return authState;
 }
 
-Widget _hostedApp(AuthState authState, GoRouter router, PhoneReminderStorage storage) {
+Widget _hostedApp(
+    AuthState authState, GoRouter router, PhoneReminderStorage storage) {
   return ChangeNotifierProvider<AuthState>.value(
     value: authState,
     child: MaterialApp.router(
@@ -69,6 +70,34 @@ void main() {
   });
 
   group('全局验证门宿主 AuthGateHost', () {
+    testWidgets('邀请页手机补验保留完整邀请目标', (tester) async {
+      final helper = MockApiClientHelper();
+      final auth = await _signedInState(helper,
+          emailVerified: true, phoneVerified: false);
+      final router = GoRouter(
+        initialLocation: '/projects/invite/accept?token=phone-token',
+        routes: [
+          GoRoute(
+              path: '/projects/invite/accept',
+              builder: (context, state) => const Scaffold(body: Text('邀请'))),
+          GoRoute(
+              path: '/verify',
+              builder: (context, state) => const Scaffold(body: Text('手机补验'))),
+        ],
+      );
+      await tester
+          .pumpWidget(_hostedApp(auth, router, InMemoryPhoneReminderStorage()));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('去绑定手机'));
+      await tester.pumpAndSettle();
+      expect(router.routeInformationProvider.value.uri.path, '/verify');
+      expect(
+          auth.takeAppLocation(), '/projects/invite/accept?token=phone-token');
+      await tester.pumpWidget(const SizedBox.shrink());
+      router.dispose();
+      auth.dispose();
+    });
+
     testWidgets('已登录但邮箱未验证：自动跳转验证门', (tester) async {
       final helper = MockApiClientHelper();
       final authState = await _signedInState(
@@ -82,8 +111,7 @@ void main() {
         routes: [
           GoRoute(
             path: '/work',
-            builder: (context, state) =>
-                const Scaffold(body: Text('工作入口占位')),
+            builder: (context, state) => const Scaffold(body: Text('工作入口占位')),
           ),
           GoRoute(
             path: '/verify',
@@ -117,8 +145,7 @@ void main() {
         routes: [
           GoRoute(
             path: '/work',
-            builder: (context, state) =>
-                const Scaffold(body: Text('工作入口占位')),
+            builder: (context, state) => const Scaffold(body: Text('工作入口占位')),
           ),
           GoRoute(
             path: '/verify',
@@ -151,8 +178,7 @@ void main() {
         routes: [
           GoRoute(
             path: '/work',
-            builder: (context, state) =>
-                const Scaffold(body: Text('工作入口占位')),
+            builder: (context, state) => const Scaffold(body: Text('工作入口占位')),
           ),
           GoRoute(
             path: '/verify',

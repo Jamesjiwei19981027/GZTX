@@ -24,7 +24,8 @@ class ApiException extends AppException {
   final dynamic detail;
 
   @override
-  String toString() => 'ApiException(status: $statusCode, code: $code, message: $message)';
+  String toString() =>
+      'ApiException(status: $statusCode, code: $code, message: $message)';
 }
 
 /// 网络异常（断网、超时等）

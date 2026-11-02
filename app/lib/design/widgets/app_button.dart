@@ -6,6 +6,7 @@ import '../tokens/spacing.dart';
 import 'adaptive_base.dart';
 
 enum AppButtonVariant { primary, secondary, danger }
+
 enum AppButtonSize { sm, md, lg }
 
 /// 自适应按钮控件
@@ -63,13 +64,19 @@ class AppButton extends StatelessWidget {
         borderSide = BorderSide.none;
       case AppButtonVariant.secondary:
         bgColor = isIos
-            ? (isDarkMode(context) ? AppColors.darkSurfaceVariant : const Color(0xFFF0F2F5))
+            ? (isDarkMode(context)
+                ? AppColors.darkSurfaceVariant
+                : const Color(0xFFF0F2F5))
             : Colors.transparent;
-        fgColor = isDarkMode(context) ? AppColors.darkTextPrimary : AppColors.textPrimary;
+        fgColor = isDarkMode(context)
+            ? AppColors.darkTextPrimary
+            : AppColors.textPrimary;
         borderSide = isIos
             ? BorderSide.none
             : BorderSide(
-                color: isDarkMode(context) ? AppColors.darkBorder : AppColors.border,
+                color: isDarkMode(context)
+                    ? AppColors.darkBorder
+                    : AppColors.border,
               );
       case AppButtonVariant.danger:
         bgColor = AppColors.danger;
@@ -101,14 +108,16 @@ class AppButton extends StatelessWidget {
           indicator,
           if (label.isNotEmpty) ...[
             const SizedBox(width: AppSpacing.sm),
-            Text(
+            Flexible(
+                child: Text(
               label,
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: fontSize,
                 fontWeight: FontWeight.w600,
                 color: fgColor,
               ),
-            ),
+            )),
           ],
         ],
       );
@@ -121,14 +130,16 @@ class AppButton extends StatelessWidget {
             icon!,
             const SizedBox(width: AppSpacing.sm),
           ],
-          Text(
+          Flexible(
+              child: Text(
             label,
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: fontSize,
               fontWeight: FontWeight.w600,
               color: enabled ? fgColor : fgColor.withValues(alpha: 0.4),
             ),
-          ),
+          )),
         ],
       );
     }
@@ -150,7 +161,8 @@ class AppButton extends StatelessWidget {
         minimumSize: Size(isFullWidth ? double.infinity : 64, height),
         backgroundColor: bgColor,
         foregroundColor: fgColor,
-        disabledBackgroundColor: isLoading ? bgColor.withValues(alpha: 0.7) : null,
+        disabledBackgroundColor:
+            isLoading ? bgColor.withValues(alpha: 0.7) : null,
         disabledForegroundColor: isLoading ? fgColor : null,
         elevation: 0,
         shape: RoundedRectangleBorder(

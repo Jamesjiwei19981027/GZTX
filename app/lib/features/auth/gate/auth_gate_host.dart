@@ -153,6 +153,8 @@ class _AuthGateHostState extends State<AuthGateHost> {
     if (!mounted) return;
 
     if (status.emailVerified != true) {
+      auth.rememberAppLocation(
+          widget.router.routeInformationProvider.value.uri.toString());
       widget.router.go(AuthPaths.verifyLocation());
       return;
     }
@@ -170,6 +172,8 @@ class _AuthGateHostState extends State<AuthGateHost> {
       phoneVerified: false,
       storage: storage,
       now: widget.now,
+      beforeVerify: () => auth.rememberAppLocation(
+          widget.router.routeInformationProvider.value.uri.toString()),
     );
   }
 

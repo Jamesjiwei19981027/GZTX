@@ -8,28 +8,25 @@ import 'config/brand.dart';
 import 'core/auth/auth_state.dart' as core_auth;
 import 'design/tokens/colors.dart';
 import 'features/auth/gate/auth_gate_host.dart';
+import 'features/me/appearance/me_appearance.dart';
 import 'router/app_router.dart';
 import 'screens/web_shell_screen.dart';
-
-// 保留 legacy 界面引用以支持旧模式开关运行
-import 'legacy/agent_chat_screen.dart';
-import 'legacy/company_settings_screen.dart';
-import 'legacy/login_screen.dart';
-import 'legacy/project_detail_screen.dart';
-import 'legacy/report_screen.dart';
-import 'legacy/register_screen.dart';
-import 'legacy/shell_screen.dart';
-import 'legacy/task_detail_screen.dart';
-import 'legacy/verify_screen.dart';
-import 'state/app_state.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const WorkTodoApp());
 }
 
-/// 编译期开关：--dart-define=USE_NATIVE=true 时启用全新 Flutter 原生架构
-const bool kUseNativeApp = bool.fromEnvironment('USE_NATIVE', defaultValue: false);
+/// 默认启用原生；USE_WEB_SHELL=true 或 USE_NATIVE=false 切回网页外壳。
+const bool kUseNativeApp =
+    bool.fromEnvironment('USE_NATIVE', defaultValue: true);
+
+/// Web fallback takes precedence when explicitly enabled.
+bool resolveNativeApp({
+  bool native = kUseNativeApp,
+  bool webShell = ApiConfig.useWebShell,
+}) =>
+    native && !webShell;
 
 class WorkTodoApp extends StatefulWidget {
   const WorkTodoApp({
@@ -51,13 +48,18 @@ class WorkTodoApp extends StatefulWidget {
 class _WorkTodoAppState extends State<WorkTodoApp> {
   core_auth.AuthState? _authState;
   AppRouter? _appRouter;
+  final _appearance = MeAppearanceController.instance;
 
-  bool get _isNative => widget.useNativeOverride ?? kUseNativeApp;
+  bool get _isNative => resolveNativeApp(
+        native: widget.useNativeOverride ?? kUseNativeApp,
+        webShell: widget.useWebShellOverride ?? ApiConfig.useWebShell,
+      );
 
   @override
   void initState() {
     super.initState();
     if (_isNative) {
+      _appearance.ensureLoaded();
       _initNativeAuth();
     }
   }
@@ -81,6 +83,7 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
 
   @override
   void dispose() {
+    _appRouter?.router.dispose();
     _authState?.dispose();
     super.dispose();
   }
@@ -140,7 +143,7 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
 
   @override
   Widget build(BuildContext context) {
-    final useNative = widget.useNativeOverride ?? kUseNativeApp;
+    final useNative = _isNative;
 
     // 模式 1：启用全新原生版架构
     if (useNative) {
@@ -149,181 +152,54 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
       }
       return ChangeNotifierProvider<core_auth.AuthState>.value(
         value: _authState!,
-        child: MaterialApp.router(
-          title: Brand.fullName,
-          theme: _buildAppTheme(context),
-          routerConfig: _appRouter!.router,
-          // 已登录用户启动时检查邮箱/手机验证状态（未验证邮箱进验证门，未验证手机按七天规则提醒）
-          builder: (context, child) => AuthGateHost(
-            router: _appRouter!.router,
-            navigatorKey: AppRouter.rootNavigatorKey,
-            child: child ?? const SizedBox.shrink(),
+        child: MeAppearanceHost(
+          controller: _appearance,
+          builder: (context, appearance) => MaterialApp.router(
+            title: Brand.fullName,
+            theme: _buildAppTheme(context),
+            darkTheme: meThemeDataFor(Brightness.dark),
+            themeMode: appearance.materialThemeMode,
+            routerConfig: _appRouter!.router,
+            // 已登录用户启动时检查邮箱/手机验证状态（未验证邮箱进验证门，未验证手机按七天规则提醒）
+            builder: (context, child) {
+              final media = MediaQuery.of(context);
+              return MediaQuery(
+                data: media.copyWith(
+                  textScaler: appearance.textScale == null
+                      ? media.textScaler
+                      : TextScaler.linear(appearance.textScale!),
+                ),
+                child: AuthGateHost(
+                  router: _appRouter!.router,
+                  navigatorKey: AppRouter.rootNavigatorKey,
+                  child: child ?? const SizedBox.shrink(),
+                ),
+              );
+            },
+            localizationsDelegates: const [
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('zh', 'CN'),
+              Locale('en', 'US'),
+            ],
           ),
-          localizationsDelegates: const [
-            GlobalMaterialLocalizations.delegate,
-            GlobalWidgetsLocalizations.delegate,
-            GlobalCupertinoLocalizations.delegate,
-          ],
-          supportedLocales: const [
-            Locale('zh', 'CN'),
-            Locale('en', 'US'),
-          ],
         ),
       );
     }
 
-    // 模式 2：默认加载 Web 外壳或旧版 Native 门控
-    return ChangeNotifierProvider(
-      create: (_) => AppState()..bootstrap(),
-      child: MaterialApp(
-        title: Brand.fullName,
-        theme: _buildAppTheme(context),
-        localizationsDelegates: const [
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        supportedLocales: const [
-          Locale('zh', 'CN'),
-          Locale('en', 'US'),
-        ],
-        home: _RootGate(useWebShellOverride: widget.useWebShellOverride),
-        onGenerateRoute: (settings) {
-          final name = settings.name ?? '';
-          if (name == '/register') {
-            return MaterialPageRoute(builder: (_) => const RegisterScreen());
-          }
-          if (name == '/verify') {
-            return MaterialPageRoute(builder: (_) => const VerifyScreen());
-          }
-          if (name == '/company') {
-            return MaterialPageRoute(
-              builder: (_) => const CompanySettingsScreen(),
-            );
-          }
-          if (name == '/tasks/new') {
-            return MaterialPageRoute(
-              builder: (_) => const TaskDetailScreen(createMode: true),
-            );
-          }
-          final taskMatch = RegExp(r'^/tasks/(\d+)$').firstMatch(name);
-          if (taskMatch != null) {
-            final id = int.parse(taskMatch.group(1)!);
-            return MaterialPageRoute(
-              builder: (_) => TaskDetailScreen(taskId: id),
-            );
-          }
-          final projectMatch = RegExp(r'^/projects/(\d+)$').firstMatch(name);
-          if (projectMatch != null) {
-            final id = int.parse(projectMatch.group(1)!);
-            final title = settings.arguments is String
-                ? settings.arguments as String
-                : null;
-            return MaterialPageRoute(
-              builder: (_) => ProjectDetailScreen(
-                projectId: id,
-                projectName: title,
-              ),
-            );
-          }
-          if (name == '/agents/chat') {
-            final args = settings.arguments is Map
-                ? Map<String, dynamic>.from(settings.arguments as Map)
-                : <String, dynamic>{};
-            return MaterialPageRoute(
-              builder: (_) => AgentChatScreen(
-                projectId: args['projectId'] as int?,
-                agentId: args['agentId'] as int?,
-                agentName: args['agentName'] as String?,
-              ),
-            );
-          }
-          if (name == '/reports') {
-            final projectId =
-                settings.arguments is int ? settings.arguments as int : null;
-            return MaterialPageRoute(
-                builder: (_) => ReportScreen(projectId: projectId));
-          }
-          final reportMatch = RegExp(r'^/reports/(\d+)$').firstMatch(name);
-          if (reportMatch != null) {
-            return MaterialPageRoute(
-                builder: (_) =>
-                    ReportScreen(reportId: int.parse(reportMatch.group(1)!)));
-          }
-          return null;
-        },
-      ),
-    );
-  }
-}
-
-class _RootGate extends StatelessWidget {
-  const _RootGate({this.useWebShellOverride});
-
-  final bool? useWebShellOverride;
-
-  @override
-  Widget build(BuildContext context) {
-    if (useWebShellOverride ?? ApiConfig.useWebShell) {
-      return const WebShellScreen();
-    }
-
-    final status = context.watch<AppState>().status;
-    switch (status) {
-      case AuthStatus.unknown:
-        return const Scaffold(
-          body: Center(child: CircularProgressIndicator()),
-        );
-      case AuthStatus.signedOut:
-        return const LoginScreen();
-      case AuthStatus.signedIn:
-        return const ShellScreen();
-      case AuthStatus.offline:
-        return const _OfflineGate();
-    }
-  }
-}
-
-class _OfflineGate extends StatelessWidget {
-  const _OfflineGate();
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.cloud_off_outlined, size: 48),
-              const SizedBox(height: 16),
-              Text(
-                state.error ?? '网络不可用',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '登录状态已保留，恢复网络后可直接重试。',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: () => context.read<AppState>().retryBootstrap(),
-                icon: const Icon(Icons.refresh),
-                label: const Text('重试'),
-              ),
-              TextButton(
-                onPressed: () => context.read<AppState>().logout(),
-                child: const Text('退出登录'),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return MaterialApp(
+      title: Brand.fullName,
+      theme: _buildAppTheme(context),
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
+      home: const WebShellScreen(),
     );
   }
 }

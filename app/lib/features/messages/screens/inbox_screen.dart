@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../design/design.dart';
+import '../../../router/app_destination.dart';
 import '../controllers/inbox_controller.dart';
 import '../data/messages_repository.dart';
 import '../models/messages_models.dart';
 import '../widgets/notification_detail_sheet.dart';
 import '../widgets/notification_tile.dart';
+import '../widgets/notification_badge_host.dart';
 import 'external_mail_view.dart';
 
 /// 通知与收件箱：协作通知（已读、全部已读、回复、归档、删除）+ 外部邮件。
@@ -93,6 +95,7 @@ class _InboxScreenState extends State<InboxScreen> {
     if (controller == null) return;
     final updated = await controller.markAllRead();
     if (!mounted) return;
+    NotificationBadgeScope.maybeOf(context)?.refresh();
     if (updated == null) {
       showAppToast(
         context,
@@ -108,17 +111,38 @@ class _InboxScreenState extends State<InboxScreen> {
     );
   }
 
-  Future<void> _openNotification(CollabNotification item) async {
+  Future<void> _openNotification(CollabNotification item,
+      {bool details = false}) async {
     final controller = _inbox;
     if (controller == null) return;
     await controller.markRead(item.id);
     if (!mounted) return;
+    NotificationBadgeScope.maybeOf(context)?.refresh();
+    if (controller.actionError != null) {
+      showAppToast(context, controller.actionError!, type: ToastType.error);
+      controller.clearActionError();
+    }
+    final target = notificationDestination(item);
+    if (target != null && !details) {
+      await target.push(context);
+      return;
+    }
     await showAppBottomSheet<void>(
       context: context,
       title: '通知详情',
       builder: (context) => NotificationDetailSheet(
         controller: controller,
         notification: item,
+        onOpenTarget: target == null
+            ? null
+            : () {
+                Navigator.of(context).pop();
+                target.push(this.context);
+              },
+        onTaskDraft: () {
+          Navigator.of(context).pop();
+          openTaskDraft(this.context, item.bodyText, source: '协作通知');
+        },
       ),
     );
   }
@@ -257,6 +281,8 @@ class _InboxScreenState extends State<InboxScreen> {
                                 NotificationTile(
                                   item: item,
                                   onTap: () => _openNotification(item),
+                                  onDetails: () =>
+                                      _openNotification(item, details: true),
                                 ),
                             ],
                           ),

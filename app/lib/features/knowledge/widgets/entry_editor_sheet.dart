@@ -39,7 +39,7 @@ class EntryEditorSheet extends StatefulWidget {
   State<EntryEditorSheet> createState() => _EntryEditorSheetState();
 }
 
-enum _VoicePhase { idle, recording, transcribing }
+enum _VoicePhase { idle, starting, recording, transcribing }
 
 class _EntryEditorSheetState extends State<EntryEditorSheet> {
   late final TextEditingController _title;
@@ -83,6 +83,9 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
   @override
   void dispose() {
     _timer?.cancel();
+    unawaited(widget.recorder.cancel().catchError((Object error) {
+      debugPrint('关闭笔记录音失败：$error');
+    }));
     _title.dispose();
     _body.dispose();
     _tags.dispose();
@@ -154,7 +157,10 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
   }
 
   Future<void> _toggleVoice() async {
-    if (_voicePhase == _VoicePhase.transcribing) return;
+    if (_voicePhase == _VoicePhase.transcribing ||
+        _voicePhase == _VoicePhase.starting) {
+      return;
+    }
     if (_voicePhase == _VoicePhase.recording) {
       await _stopVoice();
       return;
@@ -162,10 +168,14 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
     setState(() {
       _error = null;
       _voiceStatus = null;
+      _voicePhase = _VoicePhase.starting;
     });
     try {
       await widget.recorder.start();
-      if (!mounted) return;
+      if (!mounted) {
+        await widget.recorder.cancel();
+        return;
+      }
       setState(() {
         _voicePhase = _VoicePhase.recording;
         _seconds = 0;
@@ -177,16 +187,32 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
       });
     } on VoiceInputException catch (error) {
       if (!mounted) return;
-      setState(() => _error = error.message);
+      setState(() {
+        _voicePhase = _VoicePhase.idle;
+        _error = error.message;
+      });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = '无法启动录音，请检查麦克风，或直接输入文字');
+      setState(() {
+        _voicePhase = _VoicePhase.idle;
+        _error = '无法启动录音，请检查麦克风，或直接输入文字';
+      });
     }
   }
 
   Future<void> _stopVoice() async {
     _timer?.cancel();
-    final recording = await widget.recorder.stop();
+    VoiceRecording? recording;
+    try {
+      recording = await widget.recorder.stop();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _voicePhase = _VoicePhase.idle;
+        _error = '录音未完成：$error';
+      });
+      return;
+    }
     if (!mounted) return;
     if (recording == null) {
       setState(() {
@@ -428,7 +454,10 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
             size: AppButtonSize.sm,
             isLoading: transcribing,
             icon: const AppIcon('mic', size: 16),
-            onPressed: busy || transcribing ? null : _toggleVoice,
+            onPressed:
+                busy || transcribing || _voicePhase == _VoicePhase.starting
+                    ? null
+                    : _toggleVoice,
           ),
         ),
         if (recording) ...[

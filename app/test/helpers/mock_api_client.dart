@@ -26,6 +26,7 @@ class _MockRouteRule {
     required this.response,
     this.query,
     this.statusCode = 200,
+    this.delay = Duration.zero,
   });
 
   final String method;
@@ -33,6 +34,7 @@ class _MockRouteRule {
   final Map<String, String>? query;
   final dynamic response;
   final int statusCode;
+  final Duration delay;
 
   bool matches(String reqMethod, String reqPath, Map<String, String> reqQuery) {
     if (method.toUpperCase() != reqMethod.toUpperCase()) {
@@ -73,6 +75,7 @@ class MockApiClientHelper {
     dynamic response, {
     int statusCode = 200,
     Map<String, String>? query,
+    Duration delay = Duration.zero,
   }) {
     _rules.add(_MockRouteRule(
       method: method,
@@ -80,6 +83,7 @@ class MockApiClientHelper {
       query: query,
       response: response,
       statusCode: statusCode,
+      delay: delay,
     ));
   }
 
@@ -88,8 +92,10 @@ class MockApiClientHelper {
     dynamic response, {
     int statusCode = 200,
     Map<String, String>? query,
+    Duration delay = Duration.zero,
   }) =>
-      register('GET', path, response, statusCode: statusCode, query: query);
+      register('GET', path, response,
+          statusCode: statusCode, query: query, delay: delay);
 
   void whenPost(
     String path,
@@ -148,6 +154,9 @@ class MockApiClientHelper {
       // 按注册顺序倒序查找（后注册的规则优先命中）
       for (final rule in _rules.reversed) {
         if (rule.matches(method, reqPath, request.url.queryParameters)) {
+          if (rule.delay != Duration.zero) {
+            await Future<void>.delayed(rule.delay);
+          }
           final bodyData = rule.response;
           if (bodyData is Exception) {
             throw bodyData;
@@ -181,8 +190,8 @@ class MockApiClientHelper {
     });
 
     return ApiClient(
-      tokenStorage: tokenStorage ??
-          InMemoryTokenStorage(access: 'mock-access-token'),
+      tokenStorage:
+          tokenStorage ?? InMemoryTokenStorage(access: 'mock-access-token'),
       httpClient: mockHttp,
       baseUrl: 'http://localhost:8010/api/v1',
     );

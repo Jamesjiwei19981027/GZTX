@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 
 import '../../../core/api/api_client.dart';
@@ -51,52 +49,13 @@ class MeApi {
     required List<int> bytes,
     required String filename,
   }) async {
-    final uri = Uri.parse('${_client.baseUrl}/users/me/avatar');
-    // 后端按文件名后缀校验图片类型（png/jpg/gif/webp），无需显式 contentType
-    final request = http.MultipartRequest('POST', uri)
-      ..files.add(http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: filename,
-      ));
-    if (_client.tokens.hasAccess) {
-      request.headers['Authorization'] = 'Bearer ${_client.tokens.accessToken}';
-    }
-    request.headers['Accept'] = 'application/json';
-
-    final http.Response res;
-    try {
-      final streamed = await _uploadClient
-          .send(request)
-          .timeout(_client.timeout, onTimeout: () {
-        throw NetworkException('请求超时，请检查网络连接');
-      });
-      res = await http.Response.fromStream(streamed);
-    } on AppException {
-      rethrow;
-    } catch (e) {
-      throw NetworkException('网络请求失败: $e', cause: e);
-    }
-
-    dynamic payload;
-    try {
-      payload = jsonDecode(utf8.decode(res.bodyBytes));
-    } catch (_) {
-      payload = null;
-    }
-
-    if (res.statusCode < 200 || res.statusCode >= 300) {
-      throw ApiException(
-        _extractMessage(payload) ?? '头像上传失败，请稍后重试',
-        statusCode: res.statusCode,
-        code: res.statusCode,
-      );
-    }
-
-    final data = payload is Map<String, dynamic> ? payload['data'] : payload;
-    final url = data is Map<String, dynamic>
-        ? (data['avatar_url'] as String?)
-        : null;
+    final data = await _client.postMultipart(
+      '/users/me/avatar',
+      bytes: bytes,
+      filename: filename,
+      sender: _uploadClient,
+    );
+    final url = data is Map ? data['avatar_url'] as String? : null;
     if (url == null || url.isEmpty) {
       throw ApiException('头像上传失败：服务端未返回图片地址');
     }
@@ -510,16 +469,5 @@ class MeApi {
   static Map<String, dynamic> _asMap(dynamic data) {
     if (data is Map<String, dynamic>) return data;
     return const <String, dynamic>{};
-  }
-
-  static String? _extractMessage(dynamic payload) {
-    if (payload is Map<String, dynamic>) {
-      final message = payload['message'] ?? payload['detail'];
-      if (message is String && message.isNotEmpty) return message;
-      if (message is Map && message['message'] is String) {
-        return message['message'] as String;
-      }
-    }
-    return null;
   }
 }

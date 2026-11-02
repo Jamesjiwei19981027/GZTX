@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:go_router/go_router.dart';
 
 import '../../../design/design.dart';
 import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/models/project.dart';
+import '../../../core/media/native_voice_recorder.dart';
 import '../controllers/personal_knowledge_controller.dart';
 import '../controllers/project_knowledge_controller.dart';
 import '../data/knowledge_repository.dart';
@@ -32,6 +34,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
   int? _userId;
   ApiClient? _api;
   ApiVoiceTranscriber? _transcriber;
+  NativeKnowledgeRecorder? _recorder;
 
   @override
   void didChangeDependencies() {
@@ -49,6 +52,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     if (projectId == null || projectId <= 0) return;
     _repository = KnowledgeRepository(api);
     _transcriber = ApiVoiceTranscriber(api: api);
+    _recorder = NativeKnowledgeRecorder();
     _personal = PersonalKnowledgeController(
       repository: _repository!,
       projectId: projectId,
@@ -68,6 +72,13 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
     _repository = null;
     _transcriber?.dispose();
     _transcriber = null;
+    final recorder = _recorder;
+    _recorder = null;
+    if (recorder != null) {
+      unawaited(recorder.dispose().catchError((Object error) {
+        debugPrint('释放知识录音组件失败：$error');
+      }));
+    }
   }
 
   @override
@@ -106,7 +117,8 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
       actions: [
         IconButton(
           tooltip: '问知识助手',
-          onPressed: concrete ? () => context.push('/knowledge/chat') : null,
+          onPressed:
+              concrete ? () => context.pushNamed('knowledge-chat') : null,
           icon: const AppIcon('ai', size: 22),
         ),
       ],
@@ -147,6 +159,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                       controller: _personal!,
                       companyId: auth.currentCompany?.id ?? 0,
                       transcriber: _transcriber,
+                      recorder: _recorder!,
                     )
                   : ProjectKnowledgeView(
                       controller: _project!,

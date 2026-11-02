@@ -25,8 +25,11 @@ flutter pub get
 flutter run -d emulator-5554 --dart-define=WEB_BASE_URL=http://10.0.2.2/
 ```
 
-**正式模式（默认）**：APP 以 WebView 加载与浏览器相同的正式 Web UI。  
-**旧原生壳**：`--dart-define=USE_WEB_SHELL=false`。
+**正式模式（默认，2.0.0+2）**：APP 使用 Flutter 原生界面，直接调用共享后端 API。`USE_NATIVE` 默认 `true`，`USE_WEB_SHELL` 默认 `false`。
+
+**网页外壳回退（保留一个版本）**：`flutter run --dart-define=USE_NATIVE=false --dart-define=USE_WEB_SHELL=true`。打包回退：`flutter build apk --debug --dart-define=USE_NATIVE=false --dart-define=USE_WEB_SHELL=true`；需要时补 `--dart-define=WEB_BASE_URL=http://设备可访问的网页地址/`。显式 `USE_WEB_SHELL=true` 优先；任一回退开关均可切回。旧原生壳已经删除。
+
+应用内跳转使用命名路由，分享邀请默认使用 `worktodo://invite/<token>`。本轮没有正式域名，不启用 Universal Links / App Links 域名验证；通知采用站内通知和前台轮询。
 
 2026-10-21 主导航统一为“工作｜人轴｜知识｜消息｜我的”。AI 汇报与助手归入工作，知识拥有独立 Tab；桌面 Web 使用同名侧栏入口。以后修改产品时必须同步验证 Web 和正式 APP，详见根目录 `AGENTS.md` 与 [双端导航验收](../docs/navigation-web-app-2026-10-21.md)。
 

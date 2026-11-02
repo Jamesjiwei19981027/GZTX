@@ -44,8 +44,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
   int? _projectId;
   bool _bootstrapped = false;
 
-  AxisApi get _api =>
-      widget.api ?? AxisApi(context.read<AuthState>().api);
+  AxisApi get _api => widget.api ?? AxisApi(context.read<AuthState>().api);
 
   @override
   void didChangeDependencies() {
@@ -212,7 +211,8 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                       child: _ChoiceButton(
                         label: value.label,
                         selected: controller.orientation == value,
-                        onTap: () => update(() => controller.setOrientation(value)),
+                        onTap: () =>
+                            update(() => controller.setOrientation(value)),
                       ),
                     ),
                 ],
@@ -308,7 +308,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
             await auth?.bootstrap();
             if (mounted) setState(() {});
           },
-          onCreate: () => context.push('/projects/create'),
+          onCreate: () => context.pushNamed('project-create'),
         ),
       );
     }
@@ -345,119 +345,121 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
     }
 
     return AppScaffold(
-          title: controller.tab == AxisViewTab.mine ? '我的责任链' : '项目全貌',
-          actions: [
-            if (_canAddPerson)
-              IconButton(
-                key: const Key('axis-add-person'),
-                tooltip: '新增主轴人员',
-                onPressed: _openAddPerson,
-                icon: const AppIcon('plus', size: 22),
-              ),
-            IconButton(
-              key: const Key('axis-settings'),
-              tooltip: '画布设置',
-              onPressed: _openSettings,
-              icon: const AppIcon('more-horizontal', size: 22),
-            ),
-          ],
-          body: Column(
-            children: [
-              _ProjectBar(
-                projectName: controller.project?.name ??
-                    _projectById(projects, controller.projectId)?.name ??
-                    '当前项目',
-                onTap: auth == null ? null : () => _pickProject(auth),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AppSpacing.lg,
-                  0,
-                  AppSpacing.lg,
-                  AppSpacing.sm,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _QuickEntry(
-                        icon: Icons.lock_outline,
-                        label: '委托授权',
-                        onTap: () => context.push('/axis/delegations'),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: _QuickEntry(
-                        icon: Icons.auto_awesome,
-                        label: 'AI 责任链审计',
-                        onTap: () => context.push('/axis/audit'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-                child: AppSegmentedControl<AxisViewTab>(
-                  segments: {
-                    AxisViewTab.mine: AxisViewTab.mine.label,
-                    AxisViewTab.overview: AxisViewTab.overview.label,
-                  },
-                  selectedValue: controller.tab,
-                  onValueChanged: _switchTab,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Expanded(
-                child: controller.tab == AxisViewTab.mine
-                    ? _MineView(
-                        controller: controller,
-                        onOpenPerson: (node) => context
-                            .push('/axis/person/${node.id}?projectId=${controller.projectId}')
-                            .then((_) => controller.load()),
-                        onOpenMatter: (item) =>
-                            context.push('/axis/node/${item.id}?projectId=${controller.projectId}'),
-                        onAddSubordinate: () async {
-                          await showAppBottomSheet<void>(
-                            context: context,
-                            title: '新增下级人员',
-                            builder: (ctx) => AxisPersonForm(
-                              api: controller.api,
-                              projectId: controller.projectId,
-                              allNodes: controller.nodes,
-                              members: controller.members,
-                              suggestedParentId: controller.selfNode?.id,
-                              canChangeSupervisor:
-                                  controller.permissions.canManageStructure ||
-                                      controller.permissions.canEditAll,
-                              canManageAssignees: true,
-                              onSaved: () async {
-                                if (!mounted) return;
-                                Navigator.of(ctx).pop();
-                                await controller.load();
-                                _notice('人员信息保存成功');
-                              },
-                              onCancel: () => Navigator.of(ctx).pop(),
-                            ),
-                          );
-                        },
-                        onSwitchOverview: () =>
-                            controller.setTab(AxisViewTab.overview),
-                      )
-                    : _OverviewView(
-                        controller: controller,
-                        viewport: _viewport,
-                        onOpenPerson: (node) => context
-                            .push('/axis/person/${node.id}?projectId=${controller.projectId}')
-                            .then((_) => controller.load()),
-                        onOpenMatter: (item, ownerId) =>
-                            context.push('/axis/node/${item.id}?projectId=${controller.projectId}'),
-                        onError: _errorNotice,
-                        onNotice: _notice,
-                      ),
-              ),
-            ],
+      title: controller.tab == AxisViewTab.mine ? '我的责任链' : '项目全貌',
+      actions: [
+        if (_canAddPerson)
+          IconButton(
+            key: const Key('axis-add-person'),
+            tooltip: '新增主轴人员',
+            onPressed: _openAddPerson,
+            icon: const AppIcon('plus', size: 22),
           ),
+        IconButton(
+          key: const Key('axis-settings'),
+          tooltip: '画布设置',
+          onPressed: _openSettings,
+          icon: const AppIcon('more-horizontal', size: 22),
+        ),
+      ],
+      body: Column(
+        children: [
+          _ProjectBar(
+            projectName: controller.project?.name ??
+                _projectById(projects, controller.projectId)?.name ??
+                '当前项目',
+            onTap: auth == null ? null : () => _pickProject(auth),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppSpacing.lg,
+              0,
+              AppSpacing.lg,
+              AppSpacing.sm,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _QuickEntry(
+                    icon: Icons.lock_outline,
+                    label: '委托授权',
+                    onTap: () => context.push('/axis/delegations'),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
+                  child: _QuickEntry(
+                    icon: Icons.auto_awesome,
+                    label: 'AI 责任链审计',
+                    onTap: () => context.push('/axis/audit'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+            child: AppSegmentedControl<AxisViewTab>(
+              segments: {
+                AxisViewTab.mine: AxisViewTab.mine.label,
+                AxisViewTab.overview: AxisViewTab.overview.label,
+              },
+              selectedValue: controller.tab,
+              onValueChanged: _switchTab,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          Expanded(
+            child: controller.tab == AxisViewTab.mine
+                ? _MineView(
+                    controller: controller,
+                    onOpenPerson: (node) => context
+                        .push(
+                            '/axis/person/${node.id}?projectId=${controller.projectId}')
+                        .then((_) => controller.load()),
+                    onOpenMatter: (item) => context.push(
+                        '/axis/node/${item.id}?projectId=${controller.projectId}'),
+                    onAddSubordinate: () async {
+                      await showAppBottomSheet<void>(
+                        context: context,
+                        title: '新增下级人员',
+                        builder: (ctx) => AxisPersonForm(
+                          api: controller.api,
+                          projectId: controller.projectId,
+                          allNodes: controller.nodes,
+                          members: controller.members,
+                          suggestedParentId: controller.selfNode?.id,
+                          canChangeSupervisor:
+                              controller.permissions.canManageStructure ||
+                                  controller.permissions.canEditAll,
+                          canManageAssignees: true,
+                          onSaved: () async {
+                            if (!mounted) return;
+                            Navigator.of(ctx).pop();
+                            await controller.load();
+                            _notice('人员信息保存成功');
+                          },
+                          onCancel: () => Navigator.of(ctx).pop(),
+                        ),
+                      );
+                    },
+                    onSwitchOverview: () =>
+                        controller.setTab(AxisViewTab.overview),
+                  )
+                : _OverviewView(
+                    controller: controller,
+                    viewport: _viewport,
+                    onOpenPerson: (node) => context
+                        .push(
+                            '/axis/person/${node.id}?projectId=${controller.projectId}')
+                        .then((_) => controller.load()),
+                    onOpenMatter: (item, ownerId) => context.push(
+                        '/axis/node/${item.id}?projectId=${controller.projectId}'),
+                    onError: _errorNotice,
+                    onNotice: _notice,
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -481,7 +483,8 @@ class _NoProjectState extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.xxl),
       children: [
         const SizedBox(height: AppSpacing.xxxl),
-        const Icon(Icons.account_tree_outlined, size: 56, color: AppColors.primary),
+        const Icon(Icons.account_tree_outlined,
+            size: 56, color: AppColors.primary),
         const SizedBox(height: AppSpacing.lg),
         const Text(
           '还没有加入任何项目',
@@ -577,8 +580,9 @@ class _ProjectBar extends StatelessWidget {
               Icon(
                 Icons.unfold_more,
                 size: 18,
-                color:
-                    isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                color: isDark
+                    ? AppColors.darkTextTertiary
+                    : AppColors.textTertiary,
               ),
             ],
           ),
@@ -724,8 +728,7 @@ class _MineView extends StatelessWidget {
                   ),
                 ),
               ),
-              if (controller.permissions
-                  .nodeCan(self, 'can_add_subordinate'))
+              if (controller.permissions.nodeCan(self, 'can_add_subordinate'))
                 TextButton.icon(
                   key: const Key('axis-add-subordinate'),
                   onPressed: () => onAddSubordinate(),

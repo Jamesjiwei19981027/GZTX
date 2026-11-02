@@ -35,6 +35,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
   bool _tasksLoading = true;
   Object? _tasksError;
   List<ProjectTask> _tasks = const [];
+
   /// 任务是否撞到分页安全上限（撞到就必须在界面上说明「仅显示前 N 条」）
   bool _tasksTruncated = false;
   int? _tasksTotal;
@@ -72,8 +73,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
     });
   }
 
-  ProjectsRepository get _repo =>
-      ProjectsRepository(context.authStateRead.api);
+  ProjectsRepository get _repo => ProjectsRepository(context.authStateRead.api);
 
   Future<void> _loadAll() async {
     final seq = ++_loadSeq;
@@ -141,7 +141,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
     }
   }
 
-  void _openProjectScoped(String location) {
+  void _openProjectScoped(String routeName) {
     final project = _project;
     final auth = context.authStateRead;
     if (project != null) {
@@ -149,7 +149,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
           auth.projects.where((item) => item.id == project.id).toList();
       if (matched.isNotEmpty) auth.selectProject(matched.first);
     }
-    context.push(location);
+    context.pushNamed(routeName);
   }
 
   @override
@@ -377,7 +377,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       title: '项目任务待办 · ${_tasks.length}',
       trailing: InlineTextButton(
         label: '管理任务',
-        onPressed: () => _openProjectScoped('/work/tasks'),
+        onPressed: () => _openProjectScoped('work-tasks'),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,7 +445,8 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
             ),
           _TaskRow(
             task: _tasks[index],
-            onTap: () => context.push('/work/task/${_tasks[index].id}'),
+            onTap: () => context.pushNamed('work-task-detail',
+                pathParameters: {'id': '${_tasks[index].id}'}),
           ),
         ],
       ],
@@ -462,7 +463,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       title: '任务看板',
       trailing: InlineTextButton(
         label: '管理看板',
-        onPressed: () => _openProjectScoped('/work/kanban'),
+        onPressed: () => _openProjectScoped('work-kanban'),
       ),
       child: _tasksLoading
           ? const Text(
@@ -534,7 +535,8 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: AppSpacing.xs),
                 child: InkWell(
-                  onTap: () => context.push('/work/task/${task.id}'),
+                  onTap: () => context.pushNamed('work-task-detail',
+                      pathParameters: {'id': '${task.id}'}),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                   child: Container(
                     width: double.infinity,
@@ -546,9 +548,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                       color: isDark ? AppColors.darkSurface : Colors.white,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                       border: Border.all(
-                        color: isDark
-                            ? AppColors.darkBorder
-                            : AppColors.border,
+                        color: isDark ? AppColors.darkBorder : AppColors.border,
                       ),
                     ),
                     child: Text(
@@ -574,25 +574,25 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
           leading: const AppIcon('work', size: 20, color: AppColors.primary),
           title: '任务待办',
           subtitle: '查看与分配当前项目的全部事项',
-          onTap: () => _openProjectScoped('/work/tasks'),
+          onTap: () => _openProjectScoped('work-tasks'),
         ),
         AppListTile(
           leading: const AppIcon('kanban', size: 20, color: AppColors.warning),
           title: '任务看板',
           subtitle: '按状态轻触流转事项进度',
-          onTap: () => _openProjectScoped('/work/kanban'),
+          onTap: () => _openProjectScoped('work-kanban'),
         ),
         AppListTile(
           leading: const AppIcon('axis', size: 20, color: Color(0xFF8B5CF6)),
           title: '人轴责任链',
           subtitle: '直属领导、下属人员责任拓扑与汇报关系',
-          onTap: () => _openProjectScoped('/axis'),
+          onTap: () => _openProjectScoped('axis-root'),
         ),
         AppListTile(
           leading: const AppIcon('file', size: 20, color: Color(0xFF6366F1)),
           title: '项目知识空间',
           subtitle: '共享知识、授权总结与个人知识沉淀',
-          onTap: () => _openProjectScoped('/knowledge'),
+          onTap: () => _openProjectScoped('knowledge-root'),
         ),
       ],
     );
@@ -664,7 +664,8 @@ class _TaskRow extends StatelessWidget {
             const SizedBox(width: AppSpacing.sm),
             Text(
               task.statusLabel,
-              style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textTertiary),
             ),
           ],
         ),

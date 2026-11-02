@@ -72,8 +72,8 @@ class _MeProfileScreenState extends State<MeProfileScreen> {
   MeApi get _api => resolveMeApi(context, widget.api);
   AuthState? get _auth => resolveMeAuthState(context, widget.authState);
 
-  bool get _isDirty => !_loading &&
-      _nicknameController.text.trim() != _initialNickname.trim();
+  bool get _isDirty =>
+      !_loading && _nicknameController.text.trim() != _initialNickname.trim();
 
   Future<void> _load() async {
     setState(() {
@@ -146,7 +146,18 @@ class _MeProfileScreenState extends State<MeProfileScreen> {
       });
       return;
     }
-    final picked = await picker();
+    MePickedImage? picked;
+    try {
+      picked = await picker();
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = '无法选择图片，请检查相机/相册权限：${meErrorMessage(error)}';
+          _successMessage = null;
+        });
+      }
+      return;
+    }
     if (picked == null || !mounted) return;
 
     final name = picked.filename.toLowerCase();
@@ -231,7 +242,8 @@ class _MeProfileScreenState extends State<MeProfileScreen> {
                         MeCard(
                           title: '基本信息',
                           children: [
-                            const MeFieldLabel(label: '姓名 / 昵称', required: true),
+                            const MeFieldLabel(
+                                label: '姓名 / 昵称', required: true),
                             AppTextField(
                               key: const Key('me-profile-nickname'),
                               controller: _nicknameController,
@@ -241,10 +253,9 @@ class _MeProfileScreenState extends State<MeProfileScreen> {
                             const SizedBox(height: AppSpacing.md),
                             const MeFieldLabel(label: '工作邮箱'),
                             _readonlyField(
-                              value: (_verification?.email ??
-                                      _user?.email ??
-                                      '')
-                                  .trim(),
+                              value:
+                                  (_verification?.email ?? _user?.email ?? '')
+                                      .trim(),
                               emptyLabel: '未绑定',
                               badge: _verification?.emailVerified == true
                                   ? const MeBadge(
@@ -256,10 +267,9 @@ class _MeProfileScreenState extends State<MeProfileScreen> {
                             const SizedBox(height: AppSpacing.md),
                             const MeFieldLabel(label: '手机号码'),
                             _readonlyField(
-                              value: (_verification?.phone ??
-                                      _user?.phone ??
-                                      '')
-                                  .trim(),
+                              value:
+                                  (_verification?.phone ?? _user?.phone ?? '')
+                                      .trim(),
                               emptyLabel: '未绑定手机',
                               badge: _verification?.phoneVerified == true
                                   ? const MeBadge(

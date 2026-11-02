@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import '../../router/app_destination.dart';
 
 import 'data/work_scope.dart';
 import 'screens/work_calendar_screen.dart';
@@ -98,6 +99,8 @@ final List<RouteBase> workRoutes = [
           taskId: _queryInt(state, 'id'),
           initialDate: state.uri.queryParameters['date'],
           initialStatus: _queryInt(state, 'status'),
+          initialDraft:
+              state.extra is TaskDraft ? state.extra as TaskDraft : null,
         ),
       ),
       GoRoute(

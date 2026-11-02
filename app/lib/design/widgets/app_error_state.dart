@@ -36,7 +36,7 @@ class AppErrorState extends StatelessWidget {
     final iconColor = isForbidden ? AppColors.warning : AppColors.danger;
 
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.xxxl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -46,19 +46,23 @@ class AppErrorState extends StatelessWidget {
             Text(
               isForbidden ? '暂无访问权限' : title,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: isDarkMode(context)
+                    ? AppColors.darkTextPrimary
+                    : AppColors.textPrimary,
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               isForbidden ? '您暂未获得此页面或资源的访问授权，请联系管理员。' : message,
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
-                color: AppColors.textSecondary,
+                color: isDarkMode(context)
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
                 height: 1.4,
               ),
             ),

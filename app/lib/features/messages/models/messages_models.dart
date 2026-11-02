@@ -364,6 +364,7 @@ class CollabNotification {
     required this.bodyText,
     required this.read,
     this.templateKey = '',
+    this.payload = const {},
     this.senderName,
     this.requiresReply = false,
     this.replyText,
@@ -374,6 +375,7 @@ class CollabNotification {
 
   final int id;
   final String templateKey;
+  final Map<String, dynamic> payload;
   final String bodyText;
   final bool read;
   final String? senderName;
@@ -394,6 +396,7 @@ class CollabNotification {
       CollabNotification(
         id: id,
         templateKey: templateKey,
+        payload: payload,
         bodyText: bodyText,
         read: read ?? this.read,
         senderName: senderName,
@@ -409,6 +412,9 @@ class CollabNotification {
     return CollabNotification(
       id: _asInt(json['id']),
       templateKey: _asString(json['template_key']),
+      payload: json['payload'] is Map
+          ? Map<String, dynamic>.from(json['payload'] as Map)
+          : const {},
       bodyText: _asString(json['body_text']),
       read: _asBool(json['read']),
       senderName: sender is Map ? (sender['name'] as String?) : null,

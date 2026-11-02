@@ -9,7 +9,7 @@ import '../state/me_runtime.dart';
 import '../widgets/me_common.dart';
 
 /// 应用版本号（与 `app/pubspec.yaml` 的 version 保持一致）
-const String meAppVersion = '1.0.0+1';
+const String meAppVersion = '2.0.0+2';
 
 /// 关于与版本（版本号取自后端 `GET /health`）
 class MeAboutScreen extends StatefulWidget {

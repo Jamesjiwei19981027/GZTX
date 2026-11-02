@@ -7,6 +7,7 @@ class Company {
     this.role,
     this.status,
     this.createdAt,
+    this.isSuperAdmin = false,
   });
 
   final int id;
@@ -15,6 +16,7 @@ class Company {
   final String? role;
   final String? status;
   final String? createdAt;
+  final bool isSuperAdmin;
 
   factory Company.fromJson(Map<String, dynamic> json) {
     return Company(
@@ -24,6 +26,7 @@ class Company {
       role: json['role'] as String?,
       status: json['status'] as String?,
       createdAt: json['created_at'] as String?,
+      isSuperAdmin: (json['my_membership'] as Map?)?['is_super_admin'] == true,
     );
   }
 
@@ -34,5 +37,6 @@ class Company {
         'role': role,
         'status': status,
         'created_at': createdAt,
+        'my_membership': {'is_super_admin': isSuperAdmin},
       };
 }

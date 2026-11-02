@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import '../../core/media/system_media.dart';
 
 import 'invite_link.dart';
 import 'screens/invite_accept_screen.dart';
@@ -68,6 +69,7 @@ final List<RouteBase> projectsRoutes = [
         name: projectInviteScreenName,
         builder: (context, state) => ProjectInviteScreen(
           projectId: int.tryParse(state.pathParameters['id'] ?? '') ?? 0,
+          onShare: SystemMedia.shareInvite,
         ),
       ),
       GoRoute(

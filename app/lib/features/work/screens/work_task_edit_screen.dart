@@ -13,6 +13,7 @@ import '../../../core/auth/auth_state.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../core/models/project.dart';
 import '../../../design/design.dart';
+import '../../../router/app_destination.dart';
 import '../data/work_api.dart';
 import '../data/work_models.dart';
 import '../data/work_scope.dart';
@@ -26,6 +27,7 @@ class WorkTaskEditScreen extends StatefulWidget {
     this.initialStatus,
     this.api,
     this.authState,
+    this.initialDraft,
   });
 
   /// 为空表示新建。
@@ -34,6 +36,7 @@ class WorkTaskEditScreen extends StatefulWidget {
   final int? initialStatus;
   final WorkApi? api;
   final AuthState? authState;
+  final TaskDraft? initialDraft;
 
   bool get isEditing => taskId != null;
 
@@ -113,6 +116,11 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   void initState() {
     super.initState();
     _dueDate = widget.initialDate;
+    if (!widget.isEditing && widget.initialDraft != null) {
+      _titleController.text = widget.initialDraft!.title;
+      _descriptionController.text = widget.initialDraft!.description;
+      _dirty = true;
+    }
     if (widget.initialStatus != null) {
       _status = widget.initialStatus!;
     }
@@ -245,8 +253,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
           ..clear()
           ..addAll(task.assignees.map((a) => a.userId));
         _recurring = task.isRecurring;
-        _recurrenceRule =
-            task.recurrenceRule ?? 'daily';
+        _recurrenceRule = task.recurrenceRule ?? 'daily';
         _rawRecurrenceRule = task.rawRecurrenceRule;
         _checklist = List<ChecklistItem>.from(task.checklist);
         _loading = false;
@@ -392,9 +399,8 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
       _formError = null;
     });
 
-    final dueIso = _dueDate == null
-        ? null
-        : TaskTime.toApiDueDate(_dueDate, _dueTime);
+    final dueIso =
+        _dueDate == null ? null : TaskTime.toApiDueDate(_dueDate, _dueTime);
     final body = <String, dynamic>{
       'title': title,
       'description': _descriptionController.text.trim(),
@@ -552,9 +558,8 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                       ),
                       decoration: BoxDecoration(
                         border: Border.all(
-                          color: isDark
-                              ? AppColors.darkBorder
-                              : AppColors.border,
+                          color:
+                              isDark ? AppColors.darkBorder : AppColors.border,
                         ),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusSm),
@@ -587,9 +592,8 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                       ),
                       decoration: BoxDecoration(
                         border: Border.all(
-                          color: isDark
-                              ? AppColors.darkBorder
-                              : AppColors.border,
+                          color:
+                              isDark ? AppColors.darkBorder : AppColors.border,
                         ),
                         borderRadius:
                             BorderRadius.circular(AppSpacing.radiusSm),
@@ -600,7 +604,9 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Text(
-                              _dueTime == null ? '全天（不设具体时刻）' : '截止时刻: $_dueTime',
+                              _dueTime == null
+                                  ? '全天（不设具体时刻）'
+                                  : '截止时刻: $_dueTime',
                               style: const TextStyle(fontSize: 13),
                             ),
                           ),
@@ -672,7 +678,8 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                         const Expanded(
                           child: Text(
                             '成员加载失败',
-                            style: TextStyle(fontSize: 12, color: AppColors.danger),
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.danger),
                           ),
                         ),
                         TextButton(
@@ -687,12 +694,14 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                   else if (_scope.isPersonal)
                     const Text(
                       '个人待办无项目成员可指派',
-                      style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textTertiary),
                     )
                   else if (_members.isEmpty)
                     const Text(
                       '当前项目无可选成员',
-                      style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                      style: TextStyle(
+                          fontSize: 12, color: AppColors.textTertiary),
                     )
                   else ...[
                     Row(
@@ -759,8 +768,9 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                             tooltip: '删除清单项',
                             icon: const Icon(Icons.close, size: 16),
                             onPressed: () => setState(() {
-                              _checklist =
-                                  _checklist.where((e) => e.id != item.id).toList();
+                              _checklist = _checklist
+                                  .where((e) => e.id != item.id)
+                                  .toList();
                               _dirty = true;
                             }),
                           ),
@@ -790,9 +800,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
             AppButton(
-              label: _saving
-                  ? '正在保存…'
-                  : (widget.isEditing ? '确认更新任务' : '创建任务'),
+              label: _saving ? '正在保存…' : (widget.isEditing ? '确认更新任务' : '创建任务'),
               isFullWidth: true,
               size: AppButtonSize.lg,
               isLoading: _saving,

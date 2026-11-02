@@ -181,7 +181,10 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
     for (final member in _members) {
       if (member.userId == userId) {
         final role = (member.role ?? '').toLowerCase();
-        if (role == 'pm' || role == 'owner' || role == 'admin' || role == 'manager') {
+        if (role == 'pm' ||
+            role == 'owner' ||
+            role == 'admin' ||
+            role == 'manager') {
           return true;
         }
       }
@@ -196,9 +199,13 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
         break;
       }
     }
-    currentProj ??= auth.currentProject?.id == projectId ? auth.currentProject : null;
+    currentProj ??=
+        auth.currentProject?.id == projectId ? auth.currentProject : null;
     final projRole = (currentProj?.role ?? '').toLowerCase();
-    if (projRole == 'pm' || projRole == 'owner' || projRole == 'admin' || projRole == 'manager') {
+    if (projRole == 'pm' ||
+        projRole == 'owner' ||
+        projRole == 'admin' ||
+        projRole == 'manager') {
       return true;
     }
 
@@ -299,14 +306,16 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                     SizedBox(width: AppSpacing.sm),
                     Text(
                       '我的项目 AI',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
                   '${ReportScope.userName(context, null)}的汇报助手',
-                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                  style: const TextStyle(
+                      fontSize: 13, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 SizedBox(
@@ -316,8 +325,10 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                     alignment: Alignment.center,
                     child: AppButton(
                       label: '告诉 AI 最新进展',
-                      icon: const AppIcon('messages', size: 17, color: Colors.white),
-                      onPressed: () => context.push('/reports/chat?projectId=$projectId'),
+                      icon: const AppIcon('messages',
+                          size: 17, color: Colors.white),
+                      onPressed: () =>
+                          context.push('/reports/chat?projectId=$projectId'),
                     ),
                   ),
                 ),
@@ -336,7 +347,8 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                   iconColor: AppColors.primary,
                   title: '整理本周汇报',
                   subtitle: _hasDraft ? '已有 1 份草稿待提交' : '基于任务与进展生成',
-                  onTap: () => context.push('/reports/create?projectId=$projectId'),
+                  onTap: () =>
+                      context.push('/reports/create?projectId=$projectId'),
                 ),
                 _divider(context),
                 _HubRow(
@@ -344,7 +356,7 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                   iconColor: AppColors.success,
                   title: '补充材料与任务',
                   subtitle: '完善任务进度、成果材料与证据',
-                  onTap: () => context.go('/work'),
+                  onTap: () => context.goNamed('work-root'),
                 ),
                 _divider(context),
                 _HubRow(
@@ -352,7 +364,8 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                   iconColor: const Color(0xFF7C5CBF),
                   title: '汇报历史与版本',
                   subtitle: '已提交 $_historyCount 份不可变记录',
-                  onTap: () => context.push('/reports/detail?projectId=$projectId'),
+                  onTap: () =>
+                      context.push('/reports/detail?projectId=$projectId'),
                 ),
               ],
             ),
@@ -378,7 +391,8 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                     subtitle:
                         _unreadCount > 0 ? '$_unreadCount 条未读汇报' : '查看下属提交的汇报',
                     badge: _unreadCount > 0 ? _unreadCount : null,
-                    onTap: () => context.push('/reports/inbox?projectId=$projectId'),
+                    onTap: () =>
+                        context.push('/reports/inbox?projectId=$projectId'),
                   ),
                   _divider(context),
                   _HubRow(
@@ -406,7 +420,8 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                     iconColor: AppColors.textSecondary,
                     title: '智能体绑定管理',
                     subtitle: '同步并管理项目内汇报智能体',
-                    onTap: () => context.push('/reports/bindings?projectId=$projectId'),
+                    onTap: () =>
+                        context.push('/reports/bindings?projectId=$projectId'),
                   ),
                   _divider(context),
                   _HubRow(
@@ -428,7 +443,8 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
 
   Widget _divider(BuildContext context) => Divider(
         height: 1,
-        color: isDarkMode(context) ? AppColors.darkBorder : AppColors.borderLight,
+        color:
+            isDarkMode(context) ? AppColors.darkBorder : AppColors.borderLight,
       );
 }
 
@@ -479,7 +495,9 @@ class _HubRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: dark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                      color: dark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 2),

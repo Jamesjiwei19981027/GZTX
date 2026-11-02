@@ -131,7 +131,8 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     }
   }
 
-  int? get _selectedProjectId => (_auth ?? widget.authState)?.currentProject?.id;
+  int? get _selectedProjectId =>
+      (_auth ?? widget.authState)?.currentProject?.id;
 
   List<WorkTask> get _projectTasks =>
       filterTasksByProject(_tasks, _selectedProjectId);
@@ -162,7 +163,8 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      showAppToast(context, describeError(error).message, type: ToastType.error);
+      showAppToast(context, describeError(error).message,
+          type: ToastType.error);
     }
   }
 
@@ -180,7 +182,8 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _busy = false);
-      showAppToast(context, describeError(error).message, type: ToastType.error);
+      showAppToast(context, describeError(error).message,
+          type: ToastType.error);
     }
   }
 
@@ -211,7 +214,8 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _busy = false);
-      showAppToast(context, describeError(error).message, type: ToastType.error);
+      showAppToast(context, describeError(error).message,
+          type: ToastType.error);
     }
   }
 
@@ -268,7 +272,8 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
       });
       return;
     }
-    await context.push('/work/task/${task.id}');
+    await context
+        .pushNamed('work-task-detail', pathParameters: {'id': '${task.id}'});
     if (!mounted) return;
     await _load();
   }
@@ -456,7 +461,8 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
                   AppButton(
                     label: '完成',
                     size: AppButtonSize.sm,
-                    onPressed: _busy || _selected.isEmpty ? null : _batchComplete,
+                    onPressed:
+                        _busy || _selected.isEmpty ? null : _batchComplete,
                   ),
                   AppButton(
                     label: '顺延',

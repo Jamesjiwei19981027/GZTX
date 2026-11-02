@@ -23,6 +23,8 @@ import 'package:worktodo_app/features/work/widgets/work_widgets.dart';
 import 'work_test_fixtures.dart';
 
 class _DelayedTokensStorage implements TokenStorage {
+  @override
+  int sessionGeneration = 0;
   final Completer<void> _ready = Completer<void>();
   String? _access;
   String? _refresh;
@@ -51,13 +53,18 @@ class _DelayedTokensStorage implements TokenStorage {
   }
 
   @override
-  Future<void> save({required String access, String? refresh}) async {
+  Future<void> save(
+      {required String access,
+      String? refresh,
+      bool preserveSession = false}) async {
+    if (!preserveSession) sessionGeneration++;
     _access = access;
     _refresh = refresh;
   }
 
   @override
   Future<void> clear() async {
+    sessionGeneration++;
     clears++;
     _access = null;
     _refresh = null;
@@ -286,7 +293,8 @@ void main() {
     final harness = await WorkTestHarness.create();
     final completerA = Completer<ProjectProgressSummary>();
 
-    harness.api.onProjectProgress = ({required int projectId, String? projectName}) {
+    harness.api.onProjectProgress =
+        ({required int projectId, String? projectName}) {
       if (projectId == 1) {
         return completerA.future;
       }
@@ -306,7 +314,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     // 切换到项目 2
-    harness.authState.selectProject(const Project(id: 2, name: '项目B', companyId: 1));
+    harness.authState
+        .selectProject(const Project(id: 2, name: '项目B', companyId: 1));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 

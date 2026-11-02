@@ -14,6 +14,7 @@ import '../../../core/errors/app_error.dart';
 import '../../../core/models/project.dart';
 import '../../../core/models/user.dart';
 import '../../../design/design.dart';
+import '../../../router/app_destination.dart';
 import '../data/work_api.dart';
 import '../data/work_models.dart';
 import '../data/work_scope.dart';
@@ -205,6 +206,12 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
     });
   }
 
+  Future<void> _navigateTo(AppDestination target) async {
+    await target.push(context);
+    if (!mounted) return;
+    await _loadAll();
+  }
+
   Future<void> _navigate(String path) async {
     await context.push(path);
     if (!mounted) return;
@@ -230,9 +237,8 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
       await _loadTasks();
     } catch (error) {
       if (!mounted) return;
-      final message = error is AuthException
-          ? '登录已过期，请重新登录'
-          : describeError(error).message;
+      final message =
+          error is AuthException ? '登录已过期，请重新登录' : describeError(error).message;
       showAppToast(context, message, type: ToastType.error);
     }
   }
@@ -290,9 +296,11 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = widget.authState == null ? context.currentUser : _auth?.currentUser;
-    final project =
-        widget.authState == null ? context.currentProject : _auth?.currentProject;
+    final user =
+        widget.authState == null ? context.currentUser : _auth?.currentUser;
+    final project = widget.authState == null
+        ? context.currentProject
+        : _auth?.currentProject;
     final scopedTasks = filterTasksByProject(_tasks, project?.id);
     final focus = focusTasks(scopedTasks);
     final counts = summaryCounts(scopedTasks);
@@ -325,7 +333,8 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
             _Header(
               user: user,
               project: project,
-              onSwitchProject: () => _navigate('/projects/switch'),
+              onSwitchProject: () =>
+                  _navigateTo(const AppDestination('project-switch')),
             ),
             const SizedBox(height: AppSpacing.md),
             WorkStateContainer(
@@ -359,8 +368,10 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
                   ),
                   const SizedBox(height: AppSpacing.md),
                   _AssistantEntry(
-                    onProgress: () => _navigate('/reports/chat'),
-                    onReports: () => _navigate('/reports'),
+                    onProgress: () =>
+                        _navigateTo(const AppDestination('ai-chat')),
+                    onReports: () =>
+                        _navigateTo(const AppDestination('ai-root')),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   _SummaryCards(
@@ -402,7 +413,9 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
                     loading: _progressLoading,
                     failures: _progressFailures,
                     onRetry: _loadProgress,
-                    onOpenProject: (id) => _navigate('/projects/$id'),
+                    onOpenProject: (id) => _navigateTo(AppDestination(
+                        'project-overview',
+                        pathParameters: {'id': '$id'})),
                   ),
                   const SizedBox(height: AppSpacing.md),
                   AppButton(
@@ -469,7 +482,9 @@ class _Header extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
                 ),
               ),
               InkWell(
@@ -539,7 +554,9 @@ class _AssistantEntry extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
                 ),
               ),
             ],
@@ -550,7 +567,9 @@ class _AssistantEntry extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               height: 1.4,
-              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),

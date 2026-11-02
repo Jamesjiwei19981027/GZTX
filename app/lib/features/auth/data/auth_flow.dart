@@ -40,6 +40,8 @@ class AuthFlow {
       // 本轮登录的验证门由这里负责，避免全局宿主重复跳转覆盖用户正在输入的表单
       final userId = authState.currentUser?.id.toString() ?? '';
       if (userId.isNotEmpty) AuthGateSession.markHandled(userId);
+      authState.rememberAppLocation(
+          GoRouter.of(context).routeInformationProvider.value.uri.toString());
       context.go(AuthPaths.verifyLocation());
     }
   }

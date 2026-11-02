@@ -143,8 +143,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
 
   Future<PhoneReminderStorage> _reminderStorage() async {
     if (widget.reminderStorage != null) return widget.reminderStorage!;
-    return _storageCache ??=
-        await createDefaultPhoneReminderStorage();
+    return _storageCache ??= await createDefaultPhoneReminderStorage();
   }
 
   void _syncTargets(VerificationStatus status) {
@@ -209,6 +208,11 @@ class _VerifyScreenState extends State<VerifyScreen> {
   void _goWork() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final target = context.read<AuthState?>()?.takeAppLocation();
+      if (target != null) {
+        context.go(target);
+        return;
+      }
       if (context.canPop()) {
         context.pop();
       } else {
@@ -218,10 +222,9 @@ class _VerifyScreenState extends State<VerifyScreen> {
   }
 
   Future<void> _sendBindCode(AuthChannel channel) async {
-    final target = (channel == AuthChannel.email
-            ? _emailTarget.text
-            : _phoneTarget.text)
-        .trim();
+    final target =
+        (channel == AuthChannel.email ? _emailTarget.text : _phoneTarget.text)
+            .trim();
     setState(() {
       _actionError = null;
       _actionHint = null;
@@ -250,8 +253,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
         _phoneCountdown.start(result.resendAfterSeconds);
       }
       setState(() {
-        final prefix =
-            channel == AuthChannel.email ? '验证码已发送至该邮箱' : '短信验证码已发送';
+        final prefix = channel == AuthChannel.email ? '验证码已发送至该邮箱' : '短信验证码已发送';
         _actionHint = result.debugCode != null
             ? '$prefix（调试码: ${result.debugCode}）'
             : prefix;
@@ -265,19 +267,16 @@ class _VerifyScreenState extends State<VerifyScreen> {
   }
 
   Future<void> _confirmBind(AuthChannel channel) async {
-    final target = (channel == AuthChannel.email
-            ? _emailTarget.text
-            : _phoneTarget.text)
-        .trim();
-    final code = (channel == AuthChannel.email
-            ? _emailCode.text
-            : _phoneCode.text)
-        .trim();
+    final target =
+        (channel == AuthChannel.email ? _emailTarget.text : _phoneTarget.text)
+            .trim();
+    final code =
+        (channel == AuthChannel.email ? _emailCode.text : _phoneCode.text)
+            .trim();
 
     if (target.isEmpty) {
       setState(() {
-        _actionError =
-            channel == AuthChannel.email ? '请输入邮箱地址' : '请输入手机号码';
+        _actionError = channel == AuthChannel.email ? '请输入邮箱地址' : '请输入手机号码';
         _actionHint = null;
       });
       return;
@@ -305,8 +304,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
       if (!mounted) return;
       setState(() {
         _status = status;
-        _actionHint =
-            channel == AuthChannel.email ? '邮箱验证成功！' : '手机号验证成功！';
+        _actionHint = channel == AuthChannel.email ? '邮箱验证成功！' : '手机号验证成功！';
       });
       if (status.satisfies(widget.required)) {
         await _onSatisfied();
@@ -331,9 +329,8 @@ class _VerifyScreenState extends State<VerifyScreen> {
     }
   }
 
-  String get _title => widget.required == VerifyRequirement.phone
-      ? '协作功能需要补验手机'
-      : '完成邮箱验证';
+  String get _title =>
+      widget.required == VerifyRequirement.phone ? '协作功能需要补验手机' : '完成邮箱验证';
 
   String get _subtitle => widget.required == VerifyRequirement.phone
       ? '个人待办只需邮箱；创建公司、项目或接受协作邀请需要手机号验证。'
@@ -393,7 +390,9 @@ class _VerifyScreenState extends State<VerifyScreen> {
                 ),
                 child: Center(
                   child: AppIcon(
-                    widget.required == VerifyRequirement.phone ? 'phone' : 'mail',
+                    widget.required == VerifyRequirement.phone
+                        ? 'phone'
+                        : 'mail',
                     size: 24,
                     color: AppColors.primary,
                   ),
@@ -405,8 +404,9 @@ class _VerifyScreenState extends State<VerifyScreen> {
                 style: TextStyle(
                   fontSize: 19,
                   fontWeight: FontWeight.w700,
-                  color:
-                      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: AppSpacing.xs),
@@ -486,9 +486,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: isDarkMode(context)
-            ? AppColors.darkSurface
-            : AppColors.surface,
+        color: isDarkMode(context) ? AppColors.darkSurface : AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         border: Border.all(
           color: isDarkMode(context) ? AppColors.darkBorder : AppColors.border,

@@ -211,7 +211,7 @@ class _MeAccountScreenState extends State<MeAccountScreen> {
                         label: '前往账号与安全',
                         variant: AppButtonVariant.secondary,
                         isFullWidth: true,
-                        onPressed: () => context.push('/me/security'),
+                        onPressed: () => context.pushNamed('me-security'),
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       AppButton(

@@ -3,12 +3,14 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 /// 令牌存储抽象接口
 abstract class TokenStorage {
+  int get sessionGeneration;
   String? get accessToken;
   String? get refreshToken;
   bool get hasAccess => accessToken != null && accessToken!.isNotEmpty;
 
   Future<void> init();
-  Future<void> save({required String access, String? refresh});
+  Future<void> save(
+      {required String access, String? refresh, bool preserveSession = false});
   Future<void> clear();
 }
 
@@ -18,12 +20,15 @@ class SecureTokenStorage implements TokenStorage {
       : _storage = secureStorage ?? const FlutterSecureStorage();
 
   final FlutterSecureStorage _storage;
+  Future<void> _writes = Future<void>.value();
 
   static const _accessKey = 'worktodo_access_token';
   static const _refreshKey = 'worktodo_refresh_token';
 
   String? _accessToken;
   String? _refreshToken;
+  @override
+  int sessionGeneration = 0;
 
   @override
   String? get accessToken => _accessToken;
@@ -48,34 +53,38 @@ class SecureTokenStorage implements TokenStorage {
   }
 
   @override
-  Future<void> save({required String access, String? refresh}) async {
+  Future<void> save(
+      {required String access,
+      String? refresh,
+      bool preserveSession = false}) async {
+    if (!preserveSession) sessionGeneration++;
     _accessToken = access;
-    try {
-      await _storage.write(key: _accessKey, value: access);
-    } catch (e) {
-      debugPrint('SecureTokenStorage.save access_token warning: $e');
-    }
-
-    if (refresh != null) {
-      _refreshToken = refresh;
+    if (refresh != null) _refreshToken = refresh;
+    return _writes = _writes.then((_) async {
       try {
-        await _storage.write(key: _refreshKey, value: refresh);
+        await _storage.write(key: _accessKey, value: access);
+        if (refresh != null) {
+          await _storage.write(key: _refreshKey, value: refresh);
+        }
       } catch (e) {
-        debugPrint('SecureTokenStorage.save refresh_token warning: $e');
+        debugPrint('SecureTokenStorage.save warning: $e');
       }
-    }
+    });
   }
 
   @override
   Future<void> clear() async {
+    sessionGeneration++;
     _accessToken = null;
     _refreshToken = null;
-    try {
-      await _storage.delete(key: _accessKey);
-      await _storage.delete(key: _refreshKey);
-    } catch (e) {
-      debugPrint('SecureTokenStorage.clear warning: $e');
-    }
+    return _writes = _writes.then((_) async {
+      try {
+        await _storage.delete(key: _accessKey);
+        await _storage.delete(key: _refreshKey);
+      } catch (e) {
+        debugPrint('SecureTokenStorage.clear warning: $e');
+      }
+    });
   }
 }
 
@@ -87,6 +96,8 @@ class InMemoryTokenStorage implements TokenStorage {
 
   String? _accessToken;
   String? _refreshToken;
+  @override
+  int sessionGeneration = 0;
 
   @override
   String? get accessToken => _accessToken;
@@ -101,7 +112,11 @@ class InMemoryTokenStorage implements TokenStorage {
   Future<void> init() async {}
 
   @override
-  Future<void> save({required String access, String? refresh}) async {
+  Future<void> save(
+      {required String access,
+      String? refresh,
+      bool preserveSession = false}) async {
+    if (!preserveSession) sessionGeneration++;
     _accessToken = access;
     if (refresh != null) {
       _refreshToken = refresh;
@@ -110,6 +125,7 @@ class InMemoryTokenStorage implements TokenStorage {
 
   @override
   Future<void> clear() async {
+    sessionGeneration++;
     _accessToken = null;
     _refreshToken = null;
   }

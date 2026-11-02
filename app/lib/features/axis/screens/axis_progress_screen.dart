@@ -39,6 +39,8 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
   String _title = '';
   AxisProgressSnapshot? _snapshot;
   int _epoch = 0;
+  int? _nodeProjectId;
+  bool _openingEvidence = false;
 
   @override
   void didChangeDependencies() {
@@ -82,6 +84,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
       if (!mounted || epoch != _epoch) return;
       setState(() {
         _title = (node['title'] ?? '').toString();
+        _nodeProjectId = (node['project_id'] as num?)?.toInt();
         _snapshot = progress;
         _loading = false;
       });
@@ -91,6 +94,31 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
         _error = e;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _openEvidence() async {
+    if (_openingEvidence) return;
+    final nodeId = widget.nodeId;
+    final epoch = _epoch;
+    setState(() => _openingEvidence = true);
+    try {
+      final projectId = widget.projectId ??
+          _nodeProjectId ??
+          await _api!.findProjectIdForNode(nodeId);
+      if (!mounted || epoch != _epoch) return;
+      if (projectId == null || projectId <= 0) {
+        throw StateError('无法确定节点所属项目，请从人轴责任详情重新打开');
+      }
+      await context.pushNamed('axis-evidence-submit', queryParameters: {
+        'nodeId': '$nodeId',
+        'projectId': '$projectId',
+      });
+    } catch (error) {
+      if (!mounted || epoch != _epoch) return;
+      showAppToast(context, axisErrorMessage(error), type: ToastType.error);
+    } finally {
+      if (mounted) setState(() => _openingEvidence = false);
     }
   }
 
@@ -180,8 +208,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                                       i++)
                                     _RecordRow(
                                       record: snapshot.records[i],
-                                      isLast:
-                                          i == snapshot.records.length - 1,
+                                      isLast: i == snapshot.records.length - 1,
                                     ),
                                 ],
                               ),
@@ -194,13 +221,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                       AppButton(
                         label: '提交材料',
                         isFullWidth: true,
-                        onPressed: () {
-                          final projectId = widget.projectId;
-                          context.push(
-                            '/evidence/submit?nodeId=${widget.nodeId}'
-                            '${projectId == null ? '' : '&projectId=$projectId'}',
-                          );
-                        },
+                        onPressed: _openingEvidence ? null : _openEvidence,
                       ),
                     ],
                   ),
@@ -217,9 +238,8 @@ class _RecordRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final when = record.createdAt == null
-        ? ''
-        : formatRelativeDate(record.createdAt);
+    final when =
+        record.createdAt == null ? '' : formatRelativeDate(record.createdAt);
     return Padding(
       padding: EdgeInsets.only(bottom: isLast ? 0 : AppSpacing.md),
       child: Row(

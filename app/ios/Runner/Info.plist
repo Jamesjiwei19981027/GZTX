@@ -50,7 +50,23 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>用于在材料提交时将您主动录入的语音转为可编辑文字。</string>
+	<string>用于在您主动进行材料或知识语音输入时录音，并转写为可编辑文字。</string>
+	<key>FlutterDeepLinkingEnabled</key>
+	<true/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>worktodo.invite</string>
+			<key>CFBundleURLSchemes</key>
+			<array><string>worktodo</string></array>
+		</dict>
+	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>用于在您主动拍照时添加材料照片或更换个人头像。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>用于选择您指定的材料图片或头像，不会读取整个相册。</string>
+	<!-- 通知仅在应用内展示并前台轮询，不申请系统通知授权或注册远程推送。 -->
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

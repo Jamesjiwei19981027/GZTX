@@ -72,8 +72,7 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
     });
   }
 
-  ProjectsRepository get _repo =>
-      ProjectsRepository(context.authStateRead.api);
+  ProjectsRepository get _repo => ProjectsRepository(context.authStateRead.api);
 
   Future<void> _load() async {
     // 每次加载带序号：旧参数/旧一次请求的迟到结果直接丢弃
@@ -280,7 +279,8 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                       ? '无截止日'
                       : '截止: ${apiDateToLocalKey(task.dueDate)}',
                   showChevron: false,
-                  onTap: () => context.push('/work/task/${task.id}'),
+                  onTap: () => context.pushNamed('work-task-detail',
+                      pathParameters: {'id': '${task.id}'}),
                 ),
           ],
         ),

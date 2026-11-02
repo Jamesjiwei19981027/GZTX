@@ -14,7 +14,8 @@ void main() {
     testWidgets('邮箱格式不合法时提示且不发请求', (tester) async {
       final harness = ProjectsTestHarness();
       await harness.bootstrap();
-      await harness.pumpScreen(tester, const ProjectInviteScreen(projectId: 11));
+      await harness.pumpScreen(
+          tester, const ProjectInviteScreen(projectId: 11));
 
       await tester.enterText(find.byType(TextFormField).first, 'not-an-email');
       await tester.pumpAndSettle();
@@ -38,8 +39,10 @@ void main() {
         'expires_at': '2026-11-08T02:00:00Z',
       });
 
-      await harness.pumpScreen(tester, const ProjectInviteScreen(projectId: 11));
-      await tester.enterText(find.byType(TextFormField).first, 'lunyue@example.com');
+      await harness.pumpScreen(
+          tester, const ProjectInviteScreen(projectId: 11));
+      await tester.enterText(
+          find.byType(TextFormField).first, 'lunyue@example.com');
       await tester.pumpAndSettle();
       await tester.tap(find.text('生成邀请凭证'));
       await tester.pumpAndSettle();
@@ -50,7 +53,8 @@ void main() {
       expect(request.body, {'email': 'lunyue@example.com'});
 
       expect(find.text('邀请凭证已生成'), findsOneWidget);
-      expect(find.textContaining('invite=inv-token-1'), findsOneWidget);
+      expect(
+          find.textContaining('worktodo://invite/inv-token-1'), findsOneWidget);
       expect(find.text('复制专属邀请链接'), findsOneWidget);
       expect(find.textContaining('系统不会自动往外部邮箱发送'), findsOneWidget);
     });
@@ -73,8 +77,10 @@ void main() {
         'status': 'pending',
       });
 
-      await harness.pumpScreen(tester, const ProjectInviteScreen(projectId: 11));
-      await tester.enterText(find.byType(TextFormField).first, 'lunyue@example.com');
+      await harness.pumpScreen(
+          tester, const ProjectInviteScreen(projectId: 11));
+      await tester.enterText(
+          find.byType(TextFormField).first, 'lunyue@example.com');
       await tester.pumpAndSettle();
       await tester.tap(find.text('生成邀请凭证'));
       await tester.pumpAndSettle();
@@ -97,8 +103,10 @@ void main() {
         statusCode: 403,
       );
 
-      await harness.pumpScreen(tester, const ProjectInviteScreen(projectId: 11));
-      await tester.enterText(find.byType(TextFormField).first, 'lunyue@example.com');
+      await harness.pumpScreen(
+          tester, const ProjectInviteScreen(projectId: 11));
+      await tester.enterText(
+          find.byType(TextFormField).first, 'lunyue@example.com');
       await tester.pumpAndSettle();
       await tester.tap(find.text('生成邀请凭证'));
       await tester.pumpAndSettle();
@@ -112,8 +120,10 @@ void main() {
       await harness.bootstrap();
       harness.helper.whenPost('/projects/11/invitations', Exception('连接被拒绝'));
 
-      await harness.pumpScreen(tester, const ProjectInviteScreen(projectId: 11));
-      await tester.enterText(find.byType(TextFormField).first, 'lunyue@example.com');
+      await harness.pumpScreen(
+          tester, const ProjectInviteScreen(projectId: 11));
+      await tester.enterText(
+          find.byType(TextFormField).first, 'lunyue@example.com');
       await tester.pumpAndSettle();
       await tester.tap(find.text('生成邀请凭证'));
       await tester.pumpAndSettle();
@@ -125,7 +135,7 @@ void main() {
   group('邀请链接构造', () {
     test('分享链接与原生接受地址保持可解析', () {
       final link = buildInviteLink('inv-token-1');
-      expect(link, 'http://localhost:8010/?invite=inv-token-1');
+      expect(link, 'worktodo://invite/inv-token-1');
 
       final location = inviteAcceptLocation('inv-token-1');
       expect(location, '/projects/invite/accept?token=inv-token-1');

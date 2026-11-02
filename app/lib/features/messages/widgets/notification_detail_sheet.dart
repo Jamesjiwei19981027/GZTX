@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/time/time_utils.dart';
 import '../../../design/design.dart';
+import '../../../router/app_destination.dart';
 import '../controllers/inbox_controller.dart';
 import '../models/messages_models.dart';
 
@@ -11,10 +12,14 @@ class NotificationDetailSheet extends StatefulWidget {
     super.key,
     required this.controller,
     required this.notification,
+    this.onTaskDraft,
+    this.onOpenTarget,
   });
 
   final InboxController controller;
   final CollabNotification notification;
+  final VoidCallback? onTaskDraft;
+  final VoidCallback? onOpenTarget;
 
   @override
   State<NotificationDetailSheet> createState() =>
@@ -154,6 +159,15 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
+              if (notificationDestination(item) != null &&
+                  widget.onOpenTarget != null)
+                AppButton(label: '打开对应页面', onPressed: widget.onOpenTarget),
+              if (widget.onTaskDraft != null)
+                AppButton(
+                  label: '转为任务草稿',
+                  variant: AppButtonVariant.secondary,
+                  onPressed: widget.onTaskDraft,
+                ),
               Container(
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(

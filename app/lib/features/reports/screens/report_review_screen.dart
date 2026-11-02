@@ -89,9 +89,8 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
     _conflicts = const [];
     _error = null;
     _notice = null;
-    _comment.text = widget.mode == ReportReviewMode.conflict
-        ? '已完成员工端，管理者端仍待评审。'
-        : '';
+    _comment.text =
+        widget.mode == ReportReviewMode.conflict ? '已完成员工端，管理者端仍待评审。' : '';
     _load();
   }
 
@@ -170,8 +169,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
 
   void _recordVerification() {
     setState(() {
-      _notice =
-          '核验意见已记录在当前页面，但核验裁决的持久化写入需要后端接口扩展。'
+      _notice = '核验意见已记录在当前页面，但核验裁决的持久化写入需要后端接口扩展。'
           '任务完成状态请在责任事项中单独确认，本页不会把未保存的操作显示为成功。';
     });
   }
@@ -278,7 +276,8 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
           child: Text(
             '成员离开后停用对应项目绑定。变更管理者或调整人轴上下级后，'
             '下次汇报将自动按照最新责任关系路由送达。',
-            style: TextStyle(fontSize: 12, height: 1.5, color: AppColors.textSecondary),
+            style: TextStyle(
+                fontSize: 12, height: 1.5, color: AppColors.textSecondary),
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -322,12 +321,14 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
                   '$name · ${binding.isProjectAgent ? '管理者' : '成员'}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      fontSize: 13.5, fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   binding.roleLabel,
-                  style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+                  style: const TextStyle(
+                      fontSize: 11.5, color: AppColors.textTertiary),
                 ),
               ],
             ),
@@ -358,7 +359,8 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                style: const TextStyle(
+                    fontSize: 11, color: AppColors.textTertiary),
               ),
             ),
           ],
@@ -404,7 +406,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
                 label: '上传材料',
                 variant: AppButtonVariant.secondary,
                 icon: const AppIcon('file', size: 17, color: AppColors.primary),
-                onPressed: () => context.go('/work'),
+                onPressed: () => context.goNamed('work-root'),
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -412,7 +414,8 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
               child: AppButton(
                 label: '更新汇报草稿',
                 icon: const AppIcon('edit', size: 17, color: Colors.white),
-                onPressed: () => context.push('/reports/create?projectId=$projectId'),
+                onPressed: () =>
+                    context.push('/reports/create?projectId=$projectId'),
               ),
             ),
           ],
@@ -439,7 +442,8 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                style: const TextStyle(
+                    fontSize: 11, color: AppColors.textTertiary),
               ),
             ),
           ],
@@ -466,7 +470,8 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
                       Expanded(
                         child: Text(
                           conflict.typeLabel,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w600),
                         ),
                       ),
                       const ReportStatusChip(
@@ -533,7 +538,8 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
         AppButton(
           label: '查看项目资料对照',
           variant: AppButtonVariant.secondary,
-          onPressed: () => context.push('/reports/project/contrast?projectId=$projectId'),
+          onPressed: () =>
+              context.push('/reports/project/contrast?projectId=$projectId'),
         ),
         const SizedBox(height: AppSpacing.xl),
       ],

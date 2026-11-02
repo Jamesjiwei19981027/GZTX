@@ -4,6 +4,8 @@ import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/time/time_utils.dart';
 import '../../../design/design.dart';
+import '../../../router/app_destination.dart';
+import 'package:go_router/go_router.dart';
 import '../controllers/inbox_controller.dart';
 import '../data/messages_repository.dart';
 import '../models/messages_models.dart';
@@ -191,12 +193,22 @@ class ExternalMailView extends StatelessWidget {
   }
 
   Future<void> _openDetail(BuildContext context, ExternalMailItem mail) async {
+    final router = GoRouter.maybeOf(context);
     await showAppBottomSheet<void>(
       context: context,
       title: '邮件详情',
       builder: (sheetContext) => _MailDetailSheet(
         controller: controller,
         mail: mail,
+        onTaskDraft: router == null
+            ? null
+            : (detail) {
+                Navigator.of(sheetContext).pop();
+                router.pushNamed('work-task-edit',
+                    extra: TaskDraft.fromText(
+                        '${detail.subjectLabel}\n${detail.bodyText ?? ''}',
+                        source: '外部邮件 · ${detail.fromAddress}'));
+              },
       ),
     );
   }
@@ -226,10 +238,12 @@ class ExternalMailView extends StatelessWidget {
 }
 
 class _MailDetailSheet extends StatefulWidget {
-  const _MailDetailSheet({required this.controller, required this.mail});
+  const _MailDetailSheet(
+      {required this.controller, required this.mail, this.onTaskDraft});
 
   final ExternalMailController controller;
   final ExternalMailItem mail;
+  final ValueChanged<ExternalMailItem>? onTaskDraft;
 
   @override
   State<_MailDetailSheet> createState() => _MailDetailSheetState();
@@ -331,6 +345,9 @@ class _MailDetailSheetState extends State<_MailDetailSheet> {
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
+          if (widget.onTaskDraft != null)
+            AppButton(
+                label: '转为任务草稿', onPressed: () => widget.onTaskDraft!(detail)),
           AppButton(
             label: '归档这封邮件',
             variant: AppButtonVariant.secondary,

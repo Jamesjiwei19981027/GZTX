@@ -70,8 +70,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
     });
   }
 
-  ProjectsRepository get _repo =>
-      ProjectsRepository(context.authStateRead.api);
+  ProjectsRepository get _repo => ProjectsRepository(context.authStateRead.api);
 
   Future<void> _accept() async {
     final token = _token.text.trim();
@@ -376,7 +375,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
                 size: AppButtonSize.lg,
                 isFullWidth: true,
                 icon: const AppIcon('phone', size: 16),
-                onPressed: () => context.push('/me/security'),
+                onPressed: () => context.pushNamed('me-security'),
               ),
               const SizedBox(height: AppSpacing.md),
             ],

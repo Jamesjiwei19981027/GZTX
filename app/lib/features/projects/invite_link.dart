@@ -11,14 +11,17 @@ library;
 /// 邀请链接基地址，可用 `--dart-define=INVITE_LINK_BASE=https://...` 覆盖
 const String kInviteLinkBase = String.fromEnvironment(
   'INVITE_LINK_BASE',
-  defaultValue: 'http://localhost:8010/',
+  defaultValue: 'worktodo://invite/',
 );
 
 /// 分享给同事的邀请链接（接受方点开后进入网页版或原生深链接）
 String buildInviteLink(String token) {
-  final base = kInviteLinkBase.endsWith('/')
-      ? kInviteLinkBase
-      : '$kInviteLinkBase/';
+  if (Uri.parse(kInviteLinkBase).scheme == 'worktodo') {
+    return Uri(scheme: 'worktodo', host: 'invite', pathSegments: [token])
+        .toString();
+  }
+  final base =
+      kInviteLinkBase.endsWith('/') ? kInviteLinkBase : '$kInviteLinkBase/';
   return Uri.parse(base).replace(
     queryParameters: {'invite': token},
   ).toString();

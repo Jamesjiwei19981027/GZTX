@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -96,34 +95,16 @@ class ApiVoiceTranscriber implements VoiceTranscriber {
     final base = api.baseUrl.endsWith('/')
         ? api.baseUrl.substring(0, api.baseUrl.length - 1)
         : api.baseUrl;
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$base/asr/transcribe'),
-    );
-    final token = api.tokens.accessToken;
-    if (token != null && token.isNotEmpty) {
-      request.headers['Authorization'] = 'Bearer $token';
-    }
-    request.headers['Accept'] = 'application/json';
-    request.fields['company_id'] = '$companyId';
-    request.fields['project_id'] = '$projectId';
-    request.files.add(
-      http.MultipartFile.fromBytes(
-        'file',
-        recording.bytes,
-        filename: recording.filename,
-      ),
-    );
-
-    http.Response response;
-    try {
-      final streamed = await _client.send(request).timeout(timeout);
-      response = await http.Response.fromStream(streamed);
-    } on TimeoutException {
-      throw const VoiceInputException('语音转写超时，请重试或直接输入文字');
-    } catch (_) {
-      throw const VoiceInputException('网络异常，语音未能转成文字，请重试或直接输入文字');
-    }
+    http.MultipartRequest request() => http.MultipartRequest(
+          'POST',
+          Uri.parse('$base/asr/transcribe'),
+        )
+          ..fields
+              .addAll({'company_id': '$companyId', 'project_id': '$projectId'})
+          ..files.add(http.MultipartFile.fromBytes('file', recording.bytes,
+              filename: recording.filename));
+    final response =
+        await api.sendRaw(request, sender: _client, requestTimeout: timeout);
 
     Map<String, dynamic>? payload;
     if (response.body.isNotEmpty) {

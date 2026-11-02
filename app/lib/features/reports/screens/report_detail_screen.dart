@@ -142,7 +142,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       final results = await Future.wait<Object?>([
         _api!.listMyReports(projectId: projectId),
         _api!.listProjectMembers(projectId),
-        reportId != null ? _api!.getReport(reportId) : Future<AgentReport?>.value(),
+        reportId != null
+            ? _api!.getReport(reportId)
+            : Future<AgentReport?>.value(),
       ]);
       if (_disposed || version != _version) return;
       final reports = results[0] as List<AgentReport>;
@@ -258,7 +260,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             description: '您在当前项目中尚未提交任何汇报。可以在项目 AI 入口整理本周进展。',
             icon: const AppIcon('file', size: 44, color: AppColors.primary),
             actionLabel: '整理本周汇报',
-            onAction: () => context.push('/reports/create?projectId=$projectId'),
+            onAction: () =>
+                context.push('/reports/create?projectId=$projectId'),
           )
         else
           ReportCard(
@@ -273,7 +276,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           ? AppColors.darkBorder
                           : AppColors.borderLight,
                     ),
-                  _historyRow(context, filtered[index], filtered.length - index),
+                  _historyRow(
+                      context, filtered[index], filtered.length - index),
                 ],
               ],
             ),
@@ -343,12 +347,15 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             if (submitted)
               ReportStatusChip(
                 label: report.isUnread ? '未读' : '已读',
-                tone: report.isUnread ? ReportBannerTone.warning : ReportBannerTone.success,
+                tone: report.isUnread
+                    ? ReportBannerTone.warning
+                    : ReportBannerTone.success,
               )
             else
               const ReportStatusChip(label: '草稿'),
             const SizedBox(width: AppSpacing.xs),
-            const AppIcon('chevron-right', size: 16, color: AppColors.textTertiary),
+            const AppIcon('chevron-right',
+                size: 16, color: AppColors.textTertiary),
           ],
         ),
       ),
@@ -399,7 +406,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 ],
               ),
               const SizedBox(height: AppSpacing.md),
-              _metaLine('项目归属', ReportScope.projectName(context, widget.projectName)),
+              _metaLine(
+                  '项目归属', ReportScope.projectName(context, widget.projectName)),
               _metaLine('直属接收', '${supervisor.name}（${delivery.leaderStatus}）'),
               _metaLine('不可变版本', '汇报编号 ${report.id}（系统严格归档）'),
             ],
@@ -427,7 +435,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           AppButton(
             label: '返回下属收件箱',
             variant: AppButtonVariant.secondary,
-            onPressed: () => context.push('/reports/inbox?projectId=$projectId'),
+            onPressed: () =>
+                context.push('/reports/inbox?projectId=$projectId'),
           ),
       ],
     );
@@ -441,7 +450,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           children: [
             TextSpan(
               text: '$label：',
-              style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
+              style:
+                  const TextStyle(fontSize: 12, color: AppColors.textTertiary),
             ),
             TextSpan(
               text: value,
@@ -484,7 +494,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           child: Text(
             '${ReportScope.projectName(context, widget.projectName)}'
             ' · ${report?.submittedAt == null ? '刚刚' : formatReportMonthDayTime(report!.submittedAt)}',
-            style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+            style:
+                const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -545,7 +556,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           label: '返回我的责任链',
           variant: AppButtonVariant.secondary,
           icon: const AppIcon('axis', size: 17, color: AppColors.primary),
-          onPressed: () => context.go('/axis'),
+          onPressed: () => context.goNamed('axis-root'),
         ),
         const SizedBox(height: AppSpacing.xl),
       ],
@@ -574,7 +585,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 decoration: BoxDecoration(
                   color: done
                       ? AppColors.success
-                      : (dark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant),
+                      : (dark
+                          ? AppColors.darkSurfaceVariant
+                          : AppColors.surfaceVariant),
                   shape: BoxShape.circle,
                 ),
                 child: Center(
@@ -624,7 +637,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                                   : AppColors.textSecondary),
                         ),
                       ),
-                      if (chip != null) ReportStatusChip(label: chip, tone: chipTone),
+                      if (chip != null)
+                        ReportStatusChip(label: chip, tone: chipTone),
                     ],
                   ),
                   const SizedBox(height: 3),

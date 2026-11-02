@@ -200,15 +200,14 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     int? resolvedParentUserId;
     try {
       final mine = await _api!.listMyReports(projectId: projectId);
-      final drafts = mine
-          .where((report) => report.status == 'draft')
-          .toList()
+      final drafts = mine.where((report) => report.status == 'draft').toList()
         ..sort((a, b) => b.id.compareTo(a.id));
       final nonEmptyDrafts = drafts
           .where((report) => report.summaryText.trim().isNotEmpty)
           .toList();
 
-      targetReportId ??= (nonEmptyDrafts.isNotEmpty ? nonEmptyDrafts.first.id : null);
+      targetReportId ??=
+          (nonEmptyDrafts.isNotEmpty ? nonEmptyDrafts.first.id : null);
 
       if (targetReportId != null) {
         for (final draft in drafts) {
@@ -285,7 +284,9 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   String get _combinedSummary {
     final completed = _completed.text.trim();
     final inProgress = _inProgress.text.trim();
-    return [completed, inProgress].where((part) => part.isNotEmpty).join('\n\n');
+    return [completed, inProgress]
+        .where((part) => part.isNotEmpty)
+        .join('\n\n');
   }
 
   SupervisorResolution get _supervisor => resolveDirectSupervisor(
@@ -314,7 +315,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       setState(() {
         _draftReportId = draft.id;
         _completed.text = parts.isNotEmpty ? parts[0] : '';
-        _inProgress.text = parts.length > 1 ? parts.sublist(1).join('\n\n') : '';
+        _inProgress.text =
+            parts.length > 1 ? parts.sublist(1).join('\n\n') : '';
         _sources = draft.sources;
         _taskSnapshots = draft.taskSnapshots;
         _evidenceSnapshots = draft.evidenceSnapshots;
@@ -474,11 +476,13 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                           ],
                           if (_error != null) ...[
                             const SizedBox(height: AppSpacing.md),
-                            ReportInfoBanner(_error!, tone: ReportBannerTone.error),
+                            ReportInfoBanner(_error!,
+                                tone: ReportBannerTone.error),
                           ],
                           if (_info != null) ...[
                             const SizedBox(height: AppSpacing.md),
-                            ReportInfoBanner(_info!, tone: ReportBannerTone.success),
+                            ReportInfoBanner(_info!,
+                                tone: ReportBannerTone.success),
                           ],
                           const SizedBox(height: AppSpacing.lg),
                           _label(context, '汇报周期'),
@@ -529,7 +533,9 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                             '来源依据',
                             trailing: Text(
                               '严格基于项目事实',
-                              style: TextStyle(fontSize: 10.5, color: AppColors.textTertiary),
+                              style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: AppColors.textTertiary),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.sm),
@@ -542,6 +548,10 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                           const ReportSectionTitle('提交接收人'),
                           const SizedBox(height: AppSpacing.sm),
                           _supervisorCard(context, supervisor),
+                          TextButton(
+                            onPressed: () => context.pushNamed('axis-root'),
+                            child: const Text('在人轴中查看和配置责任链'),
+                          ),
                           if (_parentUserId != null && supervisor.isSelf)
                             const Padding(
                               padding: EdgeInsets.only(top: AppSpacing.sm),
@@ -579,7 +589,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+            style:
+                const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
           ),
         ),
       ],
@@ -599,7 +610,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     );
   }
 
-  Widget _supervisorCard(BuildContext context, SupervisorResolution supervisor) {
+  Widget _supervisorCard(
+      BuildContext context, SupervisorResolution supervisor) {
     final dark = isDarkMode(context);
 
     // 只有当本次编辑的就是某份服务器草稿、且该草稿带 parent_user_id 时，才显示该接收人
@@ -617,11 +629,14 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
           children: [
             CircleAvatar(
               radius: 20,
-              backgroundColor: dark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+              backgroundColor:
+                  dark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
               child: AppIcon(
                 'user',
                 size: 18,
-                color: dark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                color: dark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -643,7 +658,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                     '以人轴最新责任链实时流转，无需手动选择',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+                    style: TextStyle(
+                        fontSize: 11.5, color: AppColors.textTertiary),
                   ),
                 ],
               ),
@@ -676,9 +692,12 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
         children: [
           CircleAvatar(
             radius: 20,
-            backgroundColor: dark ? const Color(0xFF1E3355) : const Color(0xFFDCE8FB),
+            backgroundColor:
+                dark ? const Color(0xFF1E3355) : const Color(0xFFDCE8FB),
             child: Text(
-              supervisor.name.characters.isNotEmpty ? supervisor.name.characters.first : '领',
+              supervisor.name.characters.isNotEmpty
+                  ? supervisor.name.characters.first
+                  : '领',
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
@@ -718,7 +737,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                   '以草稿创建时的人轴关系为准，提交时系统会重新确认',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+                  style:
+                      TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
                 ),
               ],
             ),
@@ -726,7 +746,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
           AppIcon(
             'check-circle',
             size: 18,
-            color: supervisor.isValid ? AppColors.success : AppColors.textDisabled,
+            color:
+                supervisor.isValid ? AppColors.success : AppColors.textDisabled,
           ),
         ],
       ),
@@ -735,13 +756,15 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
 
   Widget _bottomBar(BuildContext context, SupervisorResolution supervisor) {
     final dark = isDarkMode(context);
-    final isBlocked = (_parentUserId != null && supervisor.isSelf) || _generating;
+    final isBlocked =
+        (_parentUserId != null && supervisor.isSelf) || _generating;
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
         color: dark ? AppColors.darkSurface : Colors.white,
         border: Border(
-          top: BorderSide(color: dark ? AppColors.darkBorder : AppColors.border),
+          top:
+              BorderSide(color: dark ? AppColors.darkBorder : AppColors.border),
         ),
       ),
       child: Row(

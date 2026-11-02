@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/media/system_links.dart';
 import '../../../design/design.dart';
+import '../../../router/app_destination.dart';
 import '../controllers/chat_controller.dart';
 import '../data/message_file_transfer.dart';
 import '../data/message_links.dart';
@@ -259,6 +261,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 },
               ),
               const SizedBox(height: AppSpacing.md),
+              AppListTile(
+                title: '转为任务草稿',
+                leading: const AppIcon('work', size: 20),
+                showChevron: false,
+                onTap: () {
+                  Navigator.of(sheetContext).pop();
+                  openTaskDraft(context, message.body,
+                      source: '消息 · ${widget.name}');
+                },
+              ),
             ],
           ),
         );
@@ -274,9 +286,13 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       return;
     }
     final url = resolveMessageLink(repository.api.baseUrl, raw);
-    await Clipboard.setData(ClipboardData(text: url));
-    if (!mounted) return;
-    showAppToast(context, '下载链接已复制，可在浏览器打开');
+    try {
+      await SystemLinks.openDownload(repository.api, url, attachment.name);
+    } catch (error) {
+      if (!mounted) return;
+      showAppToast(context, '打开附件失败：${friendlyMessage(error)}',
+          type: ToastType.error);
+    }
   }
 
   void _openProfile() {

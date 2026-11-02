@@ -86,6 +86,7 @@ Future<void> testAdaptiveGolden({
   required String goldenFileNamePrefix,
   Size iosSize = const Size(390, 844),
   Size androidSize = const Size(412, 915),
+  Future<void> Function(WidgetTester tester)? beforeCapture,
 }) async {
   await loadTestFonts(tester);
 
@@ -116,6 +117,7 @@ Future<void> testAdaptiveGolden({
         textTheme: cupertinoTextTheme,
       ),
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: ThemeData(
           platform: TargetPlatform.iOS,
           fontFamily: testFont,
@@ -143,6 +145,7 @@ Future<void> testAdaptiveGolden({
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
+  await beforeCapture?.call(tester);
 
   await expectLater(
     find.byType(MaterialApp),
@@ -157,6 +160,7 @@ Future<void> testAdaptiveGolden({
 
   await tester.pumpWidget(
     MaterialApp(
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         platform: TargetPlatform.android,
         fontFamily: testFont,
@@ -180,6 +184,7 @@ Future<void> testAdaptiveGolden({
   );
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
+  await beforeCapture?.call(tester);
 
   await expectLater(
     find.byType(MaterialApp),

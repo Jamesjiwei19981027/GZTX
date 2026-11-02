@@ -1,7 +1,7 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/features/messages/data/message_file_transfer.dart';
 import 'package:worktodo_app/features/messages/data/messages_repository.dart';
@@ -406,7 +406,7 @@ void main() {
     await disposeMessagesTree(tester);
   });
 
-  testWidgets('点附件复制的是补全后的下载地址，不出现重复的 /api/v1', (tester) async {
+  testWidgets('点附件请求鉴权下载地址且权限失败可见，不出现重复的 /api/v1', (tester) async {
     final helper = channelHelper(
       messages: [
         MessagesFixtures.channelMessage(
@@ -414,21 +414,8 @@ void main() {
         ),
       ],
     );
-    // 测试环境没有真实剪贴板，这里接管平台通道并记录写入的内容
-    String? copied;
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copied = (call.arguments as Map)['text'] as String?;
-        }
-        return null;
-      },
-    );
-    addTearDown(() {
-      tester.binding.defaultBinaryMessenger
-          .setMockMethodCallHandler(SystemChannels.platform, null);
-    });
+    helper.whenGet('/collab/files/301/download', {'message': '无下载权限'},
+        statusCode: 403);
 
     await pumpMessagesScreen(tester, chatScreen(helper));
     await tester.pumpAndSettle();
@@ -436,9 +423,11 @@ void main() {
     await tester.tap(find.text('需求说明.pdf'));
     await tester.pumpAndSettle();
 
-    expect(copied, 'http://localhost:8010/api/v1/collab/files/301/download');
-    expect(copied, isNot(contains('/api/v1/api/v1')));
-    expect(find.text('下载链接已复制，可在浏览器打开'), findsOneWidget);
+    final downloads = requests(helper, 'GET', '/collab/files/301/download');
+    expect(downloads, hasLength(1));
+    expect(downloads.single.url.toString(),
+        'http://localhost:8010/api/v1/collab/files/301/download');
+    expect(find.textContaining('打开附件失败'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 3));
     await disposeMessagesTree(tester);

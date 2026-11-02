@@ -66,6 +66,7 @@ void main() {
         ),
         GoRoute(
           path: '/evidence/submit',
+          name: 'axis-evidence-submit',
           builder: (context, state) => Scaffold(
             body: Text(
               'submit:${state.uri.queryParameters['projectId']}:'
@@ -119,7 +120,8 @@ void main() {
     // 全局仍选中项目 A，详情页解析出的是 B。
     expect(harness.authState.currentProject?.id, AxisTestHarness.projectId);
 
-    final router = await pumpRouted(tester, harness, projectId: secondProjectId);
+    final router =
+        await pumpRouted(tester, harness, projectId: secondProjectId);
     expect(find.text('林悦 · 责任详情'), findsOneWidget);
 
     await tester.ensureVisible(find.text('提交材料'));
@@ -187,5 +189,28 @@ void main() {
     expect(find.text('事项详情'), findsOneWidget);
     expect(find.text('交互原型设计'), findsOneWidget);
     expect(find.text('林悦 · 责任详情'), findsNothing);
+  });
+
+  testWidgets('只有node_id的通知进度链接提交材料时反查真实项目，不用全局项目', (tester) async {
+    final harness = await AxisTestHarness.create();
+    mockSecondProject(harness);
+    harness.helper.whenGet('/users/me/people-axis', {
+      'projects': [
+        {
+          'project_id': 2,
+          'nodes': [
+            {'id': 102}
+          ]
+        }
+      ],
+    });
+    final router = await pumpRouted(tester, harness, projectId: 2);
+    router.go('/axis/node/102/progress');
+    await tester.pumpAndSettle();
+    expect(harness.authState.currentProject?.id, AxisTestHarness.projectId);
+    await tester.ensureVisible(find.text('提交材料'));
+    await tester.tap(find.text('提交材料'));
+    await tester.pumpAndSettle();
+    expect(find.text('submit:2:102'), findsOneWidget);
   });
 }

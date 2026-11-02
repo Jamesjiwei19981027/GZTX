@@ -31,6 +31,40 @@ class EvidenceApi {
 
   ApiClient get client => _client;
 
+  Future<MultipartResult> _sendAuthenticated(
+    MultipartPayload payload, {
+    required String baseUrl,
+    required Map<String, String> headers,
+    void Function(double)? onProgress,
+    required Duration timeout,
+  }) async {
+    final generation = _client.tokens.sessionGeneration;
+    Future<MultipartResult> send() {
+      _client.requireSession(generation);
+      return _transport.send(payload,
+          baseUrl: baseUrl,
+          headers: _authHeaders,
+          onProgress: onProgress,
+          timeout: timeout);
+    }
+
+    final token = _client.tokens.accessToken;
+    var result = await send();
+    _client.requireSession(generation);
+    if (result.statusCode == 401) {
+      final refreshed =
+          (_client.tokens.hasAccess && _client.tokens.accessToken != token) ||
+              await _client.refreshSession();
+      _client.requireSession(generation);
+      if (refreshed) result = await send();
+      _client.requireSession(generation);
+      if (!refreshed || result.statusCode == 401) {
+        await _client.expireSession(generation);
+      }
+    }
+    return result;
+  }
+
   Map<String, String> get _authHeaders {
     final headers = <String, String>{'Accept': 'application/json'};
     if (_client.tokens.hasAccess) {
@@ -127,14 +161,15 @@ class EvidenceApi {
       },
     );
 
-    final result = await _transport.send(
+    final result = await _sendAuthenticated(
       payload,
       baseUrl: _client.baseUrl,
       headers: _authHeaders,
       onProgress: onProgress,
       timeout: uploadTimeout,
     );
-    final data = _decode(result.statusCode, result.bodyBytes, fallback: '文件上传失败');
+    final data =
+        _decode(result.statusCode, result.bodyBytes, fallback: '文件上传失败');
     if (data is! Map) {
       throw ApiException('文件上传返回格式异常');
     }
@@ -173,14 +208,14 @@ class EvidenceApi {
       },
     );
 
-    final result = await _transport.send(
+    final result = await _sendAuthenticated(
       payload,
       baseUrl: _client.baseUrl,
       headers: _authHeaders,
       timeout: transcribeTimeout,
     );
-    final dynamic data =
-        _decode(result.statusCode, result.bodyBytes, fallback: '语音转写失败，请重试或直接输入文字');
+    final dynamic data = _decode(result.statusCode, result.bodyBytes,
+        fallback: '语音转写失败，请重试或直接输入文字');
     final text = data is Map ? data['text'] as String? : null;
     if (text == null || text.trim().isEmpty) {
       throw ApiException('未识别到有效文字，请重新录音或直接输入。');

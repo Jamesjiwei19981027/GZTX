@@ -14,10 +14,12 @@ class NotificationTile extends StatelessWidget {
     super.key,
     required this.item,
     required this.onTap,
+    this.onDetails,
   });
 
   final CollabNotification item;
   final VoidCallback onTap;
+  final VoidCallback? onDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -141,6 +143,12 @@ class NotificationTile extends StatelessWidget {
           ],
         ),
         onTap: onTap,
+        trailing: onDetails == null
+            ? null
+            : IconButton(
+                tooltip: '通知详情与操作',
+                onPressed: onDetails,
+                icon: const Icon(Icons.more_horiz, size: 20)),
       );
     }
 
@@ -156,6 +164,12 @@ class NotificationTile extends StatelessWidget {
         child: body,
       ),
       onTap: onTap,
+      trailing: onDetails == null
+          ? null
+          : IconButton(
+              tooltip: '通知详情与操作',
+              onPressed: onDetails,
+              icon: const Icon(Icons.more_horiz, size: 20)),
     );
   }
 }

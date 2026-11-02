@@ -29,6 +29,7 @@ void main() {
               routes: [
                 GoRoute(
                   path: 'chat',
+                  name: 'knowledge-chat',
                   builder: (context, state) =>
                       const Scaffold(body: Text('知识助手对话页')),
                 ),

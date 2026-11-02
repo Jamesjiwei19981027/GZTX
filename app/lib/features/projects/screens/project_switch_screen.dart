@@ -27,7 +27,8 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
     if (_refreshing) return;
     setState(() => _refreshing = true);
     final auth = context.authStateRead;
-    final ok = await auth.refreshProjects();
+    final companiesOk = await auth.refreshCompanies();
+    final ok = companiesOk && await auth.refreshProjects();
     if (!mounted) return;
     setState(() => _refreshing = false);
     if (!ok && auth.errorMessage != null) {
@@ -48,6 +49,30 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
     }
   }
 
+  Future<void> _selectCompany() async {
+    final auth = context.authStateRead;
+    await showAppActionSheet(
+      context: context,
+      title: '切换公司',
+      actions: [
+        for (final company in auth.companies)
+          AppActionSheetItem(
+            label: company.name,
+            onPressed: () async {
+              final ok = await auth.selectCompany(company);
+              if (!mounted) return;
+              showAppToast(
+                  context,
+                  ok
+                      ? '已切换到「${company.name}」'
+                      : auth.errorMessage ?? '切换失败，请重试',
+                  type: ok ? ToastType.success : ToastType.error);
+            },
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.authState;
@@ -58,6 +83,12 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
     return AppScaffold(
       title: '切换工作区与项目',
       actions: [
+        if (auth.companies.isNotEmpty)
+          IconButton(
+            tooltip: '切换公司',
+            onPressed: _refreshing ? null : _selectCompany,
+            icon: const AppIcon('team', size: 20),
+          ),
         if (_refreshing)
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: 12),
@@ -99,23 +130,31 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
         description: '新建项目后即可邀请同事一起推进任务。',
         icon: const AppIcon('folder', size: 44, color: AppColors.textTertiary),
         actionLabel: '新建项目',
-        onAction: () => context.push('/projects/create'),
+        onAction: () => context.pushNamed('project-create'),
       );
     }
 
     return ListView(
-      padding: const EdgeInsets.only(top: AppSpacing.md, bottom: AppSpacing.xxl),
+      padding:
+          const EdgeInsets.only(top: AppSpacing.md, bottom: AppSpacing.xxl),
       children: [
-        const AppListSection(
+        AppListSection(
           header: '全局视图',
           footer: '“全部项目”仅作为个人待办与日程汇总，不合并各项目的原始 AI 与人轴上下文。',
           children: [
             AppListTile(
-              leading: AppIcon('work', size: 20, color: AppColors.primary),
+              leading:
+                  const AppIcon('work', size: 20, color: AppColors.primary),
               title: '全部项目',
               subtitle: '个人跨项目待办与日历总览',
               showChevron: false,
-              trailing: ProjectChip(label: '工作台'),
+              trailing: context.authState.allProjectsSelected
+                  ? const AppIcon('check', color: AppColors.primary)
+                  : const ProjectChip(label: '工作台'),
+              onTap: () {
+                context.authStateRead.selectAllProjects();
+                context.goNamed('work-root');
+              },
             ),
           ],
         ),
@@ -149,7 +188,7 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
                 variant: AppButtonVariant.secondary,
                 isFullWidth: true,
                 icon: const AppIcon('plus', size: 18),
-                onPressed: () => context.push('/projects/create'),
+                onPressed: () => context.pushNamed('project-create'),
               ),
               const SizedBox(height: AppSpacing.md),
               AppButton(

@@ -179,8 +179,10 @@ void main() {
     expect(requests(helper, 'GET', '/channels/6/pinned-links'), isNotEmpty);
   });
 
-  testWidgets('复制共享文件链接时补全来源地址，钉选外链保持原样', (tester) async {
+  testWidgets('共享文件下载补全来源地址且失败可见，钉选外链仍可复制', (tester) async {
     final helper = channelHelper();
+    helper.whenGet('/collab/files/301/download', {'message': '无下载权限'},
+        statusCode: 403);
     // 测试环境没有真实剪贴板，这里接管平台通道并记录写入的内容
     final copied = <String>[];
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -202,10 +204,13 @@ void main() {
 
     await tester.tap(find.text('需求说明.pdf'));
     await tester.pumpAndSettle();
-    expect(copied.last, 'http://localhost:8010/api/v1/collab/files/301/download');
-    expect(copied.last, isNot(contains('/api/v1/api/v1')));
+    final downloads = requests(helper, 'GET', '/collab/files/301/download');
+    expect(downloads, hasLength(1));
+    expect(downloads.single.url.toString(),
+        'http://localhost:8010/api/v1/collab/files/301/download');
+    expect(find.textContaining('打开失败'), findsOneWidget);
 
-    await tester.tap(find.text('需求文档'));
+    await tester.tap(find.byTooltip('复制链接').first);
     await tester.pumpAndSettle();
     expect(copied.last, 'https://example.com/spec');
 

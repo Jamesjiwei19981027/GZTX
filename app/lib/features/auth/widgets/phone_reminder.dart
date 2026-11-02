@@ -52,6 +52,7 @@ Future<bool> maybeShowPhoneReminder({
   required bool phoneVerified,
   required PhoneReminderStorage storage,
   DateTime? now,
+  VoidCallback? beforeVerify,
 }) async {
   if (userId.isEmpty || phoneVerified) return false;
   if (PhoneReminderSession.alreadyShown(userId)) return false;
@@ -69,6 +70,7 @@ Future<bool> maybeShowPhoneReminder({
 
   final goBind = await showPhoneVerificationReminderDialog(context);
   if (goBind && context.mounted) {
+    beforeVerify?.call();
     context.go(AuthPaths.verifyLocation(required: VerifyRequirement.phone));
   }
   return goBind;

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -8,34 +7,22 @@ import 'package:worktodo_app/main.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   FlutterSecureStorage.setMockInitialValues({});
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('app boots to loading or login gate (legacy gate) without clearing legacy tokens', (tester) async {
-    SharedPreferences.setMockInitialValues({
-      'access_token': 'legacy_access_token',
-      'refresh_token': 'legacy_refresh_token',
-    });
-
-    await tester.pumpWidget(
-      const WorkTodoApp(
-        useNativeOverride: false,
-        useWebShellOverride: false,
-      ),
-    );
-    expect(find.byType(CircularProgressIndicator), findsWidgets);
-
-    // 验证旧模式启动下，SharedPreferences 里的旧明文令牌绝不被清除
-    final prefs = await SharedPreferences.getInstance();
-    expect(prefs.getString('access_token'), 'legacy_access_token');
-    expect(prefs.getString('refresh_token'), 'legacy_refresh_token');
+  test('默认原生且两个编译期回退开关均生效', () {
+    expect(resolveNativeApp(), isTrue);
+    expect(resolveNativeApp(native: false), isFalse);
+    expect(resolveNativeApp(webShell: true), isFalse);
+    expect(resolveNativeApp(native: false, webShell: true), isFalse);
   });
 
-  testWidgets('app boots with useNativeOverride: true and clears legacy tokens', (tester) async {
+  testWidgets('默认启动真实原生登录页并清理历史明文令牌', (tester) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('access_token', 'legacy_access_token');
     await prefs.setString('refresh_token', 'legacy_refresh_token');
 
     await tester.pumpWidget(
-      const WorkTodoApp(useNativeOverride: true),
+      const WorkTodoApp(),
     );
     await tester.pumpAndSettle();
 

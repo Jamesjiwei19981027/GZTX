@@ -10,25 +10,32 @@ import '../features/evidence/routes.dart';
 import '../features/knowledge/routes.dart';
 import '../features/me/routes.dart';
 import '../features/messages/routes.dart';
+import '../features/messages/widgets/notification_badge_host.dart';
 import '../features/projects/routes.dart';
 import '../features/reports/routes.dart';
 import '../features/work/routes.dart';
 import 'offline_screen.dart';
+import 'app_links.dart';
 
 /// 全局应用路由配置与分 Tab 页面栈
 class AppRouter {
-  AppRouter({required this.authState});
+  AppRouter({required this.authState, this.initialLocation = '/work'});
 
   final AuthState authState;
+  final String initialLocation;
 
   static final GlobalKey<NavigatorState> rootNavigatorKey =
       GlobalKey<NavigatorState>(debugLabel: 'rootNav');
 
   late final GoRouter router = GoRouter(
     navigatorKey: rootNavigatorKey,
-    initialLocation: '/work',
+    initialLocation: initialLocation,
     refreshListenable: authState,
     redirect: (context, state) {
+      final normalized = normalizeAppLink(state.uri);
+      if (normalized != null && normalized != state.uri.toString()) {
+        return normalized;
+      }
       final isGallery = state.matchedLocation == '/gallery';
       // 允许自由访问控件展示页进行组件验证
       if (isGallery) return null;
@@ -38,6 +45,7 @@ class AppRouter {
 
       // 1. 断网或无法连接服务端：重定向至离线兜底页
       if (authState.status == AuthStatus.offline) {
+        authState.rememberAppLocation(state.uri.toString());
         if (!isOfflineRoute) return '/offline';
         return null;
       }
@@ -51,6 +59,7 @@ class AppRouter {
       // 3. 未登录状态：不在认证相关页面则重定向到登录页
       if (authState.status == AuthStatus.unauthenticated) {
         if (!isAuthRoute) {
+          authState.rememberAppLocation(state.uri.toString());
           return '/login';
         }
         return null;
@@ -59,7 +68,7 @@ class AppRouter {
       // 4. 已登录状态：若停留在登录相关页面或离线页，重定向到主工作页
       if (authState.isAuthenticated) {
         if (isAuthRoute || isOfflineRoute) {
-          return '/work';
+          return authState.takeAppLocation() ?? '/work';
         }
       }
 
@@ -69,17 +78,29 @@ class AppRouter {
       // 5 个主导航 Tab 的 StatefulShellRoute（各 Tab 独立导航栈）
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
-          return AppScaffold(
-            body: navigationShell,
-            bottomNavigationBar: AppTabBar(
-              currentIndex: navigationShell.currentIndex,
-              onTap: (index) {
-                // 原生平台习惯：再点一次当前 Tab 回到该 Tab 根页
-                navigationShell.goBranch(
-                  index,
-                  initialLocation: index == navigationShell.currentIndex,
-                );
-              },
+          return NotificationBadgeHost(
+            auth: authState,
+            builder: (context, poller) => AppScaffold(
+              body: navigationShell,
+              bottomNavigationBar:
+                  Column(mainAxisSize: MainAxisSize.min, children: [
+                if (poller.error != null)
+                  TextButton(
+                      onPressed: poller.refresh,
+                      child: Text('${poller.error} · 点此重试',
+                          style: const TextStyle(fontSize: 12))),
+                AppTabBar(
+                  unreadMessagesCount: poller.count,
+                  currentIndex: navigationShell.currentIndex,
+                  onTap: (index) {
+                    // 原生平台习惯：再点一次当前 Tab 回到该 Tab 根页
+                    navigationShell.goBranch(
+                      index,
+                      initialLocation: index == navigationShell.currentIndex,
+                    );
+                  },
+                ),
+              ]),
             ),
           );
         },

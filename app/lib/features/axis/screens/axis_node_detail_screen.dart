@@ -115,8 +115,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
         _nodeJson = nodeJson;
         _tree = AxisTreeMapper.mapTree(
           results[0] as List<Map<String, dynamic>>,
-          finalOwnerUserId:
-              (results[2] as AxisProjectInfo).pmUserId,
+          finalOwnerUserId: (results[2] as AxisProjectInfo).pmUserId,
         );
         _permissions = results[1] as AxisPermissions;
         _projectId = projectId;
@@ -145,7 +144,8 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   }
 
   Future<void> _openEdit(AxisPersonNode person) async {
-    await context.push('/axis/person/${person.id}/edit?projectId=${_projectId ?? ''}');
+    await context
+        .push('/axis/person/${person.id}/edit?projectId=${_projectId ?? ''}');
     if (!mounted) return;
     await _load();
   }
@@ -269,14 +269,19 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                         value: evidenceSubmit,
                         underline: const SizedBox.shrink(),
                         items: const [
-                          DropdownMenuItem(value: 'inherit', child: Text('继承上级')),
-                          DropdownMenuItem(value: 'members', child: Text('项目成员')),
+                          DropdownMenuItem(
+                              value: 'inherit', child: Text('继承上级')),
+                          DropdownMenuItem(
+                              value: 'members', child: Text('项目成员')),
                           DropdownMenuItem(
                               value: 'responsible', child: Text('责任人')),
-                          DropdownMenuItem(value: 'disabled', child: Text('已禁用')),
+                          DropdownMenuItem(
+                              value: 'disabled', child: Text('已禁用')),
                         ],
                         onChanged: (v) {
-                          if (v != null) setSheetState(() => evidenceSubmit = v);
+                          if (v != null) {
+                            setSheetState(() => evidenceSubmit = v);
+                          }
                         },
                       ),
                     ),
@@ -360,7 +365,8 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                     ),
                     for (final candidate in candidates)
                       ListTile(
-                        leading: AxisPersonAvatar(name: candidate.name, size: 30),
+                        leading:
+                            AxisPersonAvatar(name: candidate.name, size: 30),
                         title: Text(candidate.name),
                         subtitle: Text(
                           candidate.roleTitle.isEmpty
@@ -524,8 +530,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                         children: [
                           for (final item in data.descendants)
                             Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(vertical: 4),
+                              padding: const EdgeInsets.symmetric(vertical: 4),
                               child: Text(
                                 '${item.title} · ${item.isPerson ? '人员' : '事项'}',
                                 style: const TextStyle(fontSize: 12),
@@ -560,7 +565,8 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                         ListTile(
                           title: Text(candidate.title),
                           trailing: handoverId == candidate.id
-                              ? const Icon(Icons.check, color: AppColors.primary)
+                              ? const Icon(Icons.check,
+                                  color: AppColors.primary)
                               : null,
                           onTap: () => setSheetState(() {
                             handoverId = candidate.id;
@@ -653,9 +659,8 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   }
 
   Widget _buildPerson(BuildContext context, AxisPersonNode person) {
-    final supervisor = _tree
-        .where((node) => node.id == person.parentId)
-        .toList();
+    final supervisor =
+        _tree.where((node) => node.id == person.parentId).toList();
     final subordinates =
         _tree.where((node) => node.parentId == person.id).toList();
     final canEdit = _permissions.nodeCan(person, 'can_edit_person');
@@ -734,9 +739,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                     ),
                     Expanded(
                       child: Text(
-                        supervisor.isEmpty
-                            ? '无（顶层负责人）'
-                            : supervisor.first.name,
+                        supervisor.isEmpty ? '无（顶层负责人）' : supervisor.first.name,
                         style: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w600),
                       ),
@@ -771,7 +774,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
           AxisWideAction(
             label: '查看 AI 汇报与材料对照',
             icon: const Icon(Icons.auto_awesome),
-            onPressed: () => context.push('/reports'),
+            onPressed: () => context.pushNamed('ai-root'),
           ),
           if (canEdit) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -830,8 +833,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                   Row(
                     children: [
                       const Expanded(
-                        child: Text('允许进入项目频道',
-                            style: TextStyle(fontSize: 13)),
+                        child: Text('允许进入项目频道', style: TextStyle(fontSize: 13)),
                       ),
                       AppSwitch(
                         key: const Key('axis-channel-switch'),
@@ -853,7 +855,8 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                   const Text(
                     '你没有移除该人员的权限。次级人员只能由其主轴负责人移除；'
                     '项目经理可移除所有主轴人员。',
-                    style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                    style:
+                        TextStyle(fontSize: 12, color: AppColors.textTertiary),
                   ),
               ],
             ),
@@ -905,9 +908,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        workItem.title.isEmpty
-                            ? '未命名事项'
-                            : workItem.title,
+                        workItem.title.isEmpty ? '未命名事项' : workItem.title,
                         style: const TextStyle(
                           fontSize: 17,
                           fontWeight: FontWeight.w700,
@@ -1075,9 +1076,7 @@ class _PersonTabsState extends State<_PersonTabs> {
                     final items = widget.person.workItems;
                     final avg = items.isEmpty
                         ? 0
-                        : (items
-                                    .map((e) => e.percent)
-                                    .reduce((a, b) => a + b) /
+                        : (items.map((e) => e.percent).reduce((a, b) => a + b) /
                                 items.length)
                             .round();
                     return Column(

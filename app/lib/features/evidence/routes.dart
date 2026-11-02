@@ -2,15 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/auth/auth_provider.dart';
+import '../../core/media/native_feature_ports.dart';
+import '../../core/media/native_voice_recorder.dart';
 import '../../design/design.dart';
 import 'data/evidence_api.dart';
 import 'screens/evidence_detail_screen.dart';
 import 'screens/evidence_submit_screen.dart';
 import 'screens/wiki_draft_screen.dart';
 import 'screens/wiki_screen.dart';
-import 'services/attachment_picker.dart';
 import 'services/evidence_draft_store.dart';
-import 'services/voice_recorder.dart';
 
 /// T05 材料提交与项目 AI 知识库路由。
 ///
@@ -25,8 +25,8 @@ final List<RouteBase> evidenceRoutes = [
     path: '/evidence/submit',
     name: 'axis-evidence-submit',
     builder: (context, state) {
-      final projectId =
-          _intParam(state, 'projectId') ?? context.authStateRead.currentProject?.id;
+      final projectId = _intParam(state, 'projectId') ??
+          context.authStateRead.currentProject?.id;
       final nodeId = _intParam(state, 'nodeId');
       return _ProjectGate(
         projectId: projectId,
@@ -39,8 +39,8 @@ final List<RouteBase> evidenceRoutes = [
           projectId: resolvedProjectId,
           nodeId: nodeId,
           initialNodeTitle: state.uri.queryParameters['nodeTitle'],
-          attachmentPicker: const UnavailableAttachmentPicker(),
-          voiceRecorder: const UnavailableVoiceRecorder(),
+          attachmentPicker: NativeAttachmentPicker(context),
+          voiceRecorder: NativeVoiceRecorder(),
           draftStore: EvidenceDraftStore(),
         ),
       );
@@ -50,7 +50,8 @@ final List<RouteBase> evidenceRoutes = [
     path: '/evidence/package/:packageId',
     name: 'axis-evidence-detail',
     builder: (context, state) {
-      final packageId = int.tryParse(state.pathParameters['packageId'] ?? '') ?? 0;
+      final packageId =
+          int.tryParse(state.pathParameters['packageId'] ?? '') ?? 0;
       return EvidenceDetailScreen(
         api: EvidenceApi(context.apiClient),
         packageId: packageId,
@@ -62,8 +63,8 @@ final List<RouteBase> evidenceRoutes = [
     path: '/evidence/wiki',
     name: 'axis-wiki',
     builder: (context, state) {
-      final projectId =
-          _intParam(state, 'projectId') ?? context.authStateRead.currentProject?.id;
+      final projectId = _intParam(state, 'projectId') ??
+          context.authStateRead.currentProject?.id;
       return _ProjectGate(
         projectId: projectId,
         title: '项目知识',
@@ -79,8 +80,8 @@ final List<RouteBase> evidenceRoutes = [
     path: '/evidence/wiki/search',
     name: 'axis-wiki-search',
     builder: (context, state) {
-      final projectId =
-          _intParam(state, 'projectId') ?? context.authStateRead.currentProject?.id;
+      final projectId = _intParam(state, 'projectId') ??
+          context.authStateRead.currentProject?.id;
       return _ProjectGate(
         projectId: projectId,
         title: '项目知识',
@@ -97,8 +98,8 @@ final List<RouteBase> evidenceRoutes = [
     path: '/evidence/wiki/draft/:draftId',
     name: 'axis-wiki-draft',
     builder: (context, state) {
-      final projectId =
-          _intParam(state, 'projectId') ?? context.authStateRead.currentProject?.id;
+      final projectId = _intParam(state, 'projectId') ??
+          context.authStateRead.currentProject?.id;
       final draftId = int.tryParse(state.pathParameters['draftId'] ?? '') ?? 0;
       return _ProjectGate(
         projectId: projectId,

@@ -112,8 +112,7 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
   Future<void> _move(WorkTask task, int status) async {
     if (task.status == status) return;
     if (task.isAxisLocked) {
-      showAppToast(context, '该事项由人轴责任节点同步，不能在看板直接改状态',
-          type: ToastType.warning);
+      showAppToast(context, '该事项由人轴责任节点同步，不能在看板直接改状态', type: ToastType.warning);
       return;
     }
     HapticFeedback.lightImpact();
@@ -133,7 +132,8 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      showAppToast(context, describeError(error).message, type: ToastType.error);
+      showAppToast(context, describeError(error).message,
+          type: ToastType.error);
     } finally {
       if (mounted) setState(() => _movingTaskId = null);
     }
@@ -195,7 +195,8 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 11,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -209,7 +210,10 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
                 builder: (context, constraints) {
                   final columnWidth = (constraints.maxWidth < 680)
                       ? 220.0
-                      : ((constraints.maxWidth - AppSpacing.lg * 2 - AppSpacing.sm * 2) / 3)
+                      : ((constraints.maxWidth -
+                                  AppSpacing.lg * 2 -
+                                  AppSpacing.sm * 2) /
+                              3)
                           .clamp(220.0, 360.0);
                   return SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -241,7 +245,8 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
                                 }
                               },
                               onOpenTask: (task) async {
-                                await context.push('/work/task/${task.id}');
+                                await context.pushNamed('work-task-detail',
+                                    pathParameters: {'id': '${task.id}'});
                                 if (!mounted) return;
                                 await _load();
                               },
@@ -345,7 +350,8 @@ class _Column extends StatelessWidget {
                         color: isDark
                             ? AppColors.darkSurfaceVariant
                             : Colors.white,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusFull),
                       ),
                       child: Text(
                         '${tasks.length}',
@@ -495,8 +501,12 @@ class _KanbanCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   height: 1.35,
                   color: task.isDone
-                      ? (isDark ? AppColors.darkTextTertiary : AppColors.textTertiary)
-                      : (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary),
+                      ? (isDark
+                          ? AppColors.darkTextTertiary
+                          : AppColors.textTertiary)
+                      : (isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.textPrimary),
                   decoration: task.isDone ? TextDecoration.lineThrough : null,
                 ),
               ),

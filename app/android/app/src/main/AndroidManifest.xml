@@ -1,7 +1,16 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 麦克风：仅在用户主动进行材料/知识语音输入时录音并转写文字。 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+    <!-- 相机：通过系统相机应用拍照，不直接访问相机，不声明 CAMERA。 -->
+    <!-- 相册：使用系统照片/文件选择器，不读取整个相册，不声明存储/媒体读取权限。 -->
+    <!-- 预览仅使用应用缓存；移除 open_filex 库清单携带的公共存储权限。 -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" tools:node="remove"/>
+    <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove"/>
+    <!-- 通知：仅站内通知和前台轮询，不发系统通知，不声明 POST_NOTIFICATIONS。 -->
     <application
         android:label="WorkTodo"
         android:name="${applicationName}"
@@ -27,6 +36,13 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <meta-data android:name="flutter_deeplinking_enabled" android:value="true"/>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="worktodo" android:host="invite"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

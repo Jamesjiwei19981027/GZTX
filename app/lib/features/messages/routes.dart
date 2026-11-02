@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../design/design.dart';
+import '../../core/media/native_feature_ports.dart';
 import 'screens/call_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/conversation_profile_screen.dart';
@@ -72,6 +73,7 @@ final List<RouteBase> messagesRoutes = [
             scopeType: type,
             scopeId: id,
             name: _nameOf(state, type == 'direct' ? '私聊' : '项目频道'),
+            picker: const NativeMessageFilePicker(),
           );
         },
       ),

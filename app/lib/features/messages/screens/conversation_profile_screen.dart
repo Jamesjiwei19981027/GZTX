@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/media/system_links.dart';
 import '../../../design/design.dart';
 import '../controllers/conversation_profile_controller.dart';
 import '../data/message_links.dart';
@@ -147,6 +148,26 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
     showAppToast(context, '链接已复制，可在浏览器打开');
   }
 
+  Future<void> _openLink(String? rawUrl, {String? filename}) async {
+    final repository = _repository;
+    if (repository == null || rawUrl == null || rawUrl.trim().isEmpty) {
+      showAppToast(context, '该内容暂无链接', type: ToastType.warning);
+      return;
+    }
+    final url = resolveMessageLink(repository.api.baseUrl, rawUrl);
+    try {
+      if (filename == null) {
+        await SystemLinks.openExternal(url);
+      } else {
+        await SystemLinks.openDownload(repository.api, url, filename);
+      }
+    } catch (error) {
+      if (!mounted) return;
+      showAppToast(context, '打开失败：${friendlyMessage(error)}',
+          type: ToastType.error);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = _controller;
@@ -236,7 +257,7 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
                       ),
                     ],
                   ),
-                  onTap: () => _copyLink(link.url),
+                  onTap: () => _openLink(link.url),
                 ),
               Padding(
                 padding: const EdgeInsets.all(AppSpacing.sm),
@@ -294,7 +315,8 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
                     const AppIcon('file', size: 18, color: AppColors.primary),
                 title: file.originalName,
                 subtitle: file.sizeLabel.isEmpty ? null : file.sizeLabel,
-                onTap: () => _copyLink(file.downloadUrl),
+                onTap: () =>
+                    _openLink(file.downloadUrl, filename: file.originalName),
               ),
           ],
         ),

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/media/system_media.dart';
 
 import 'appearance/me_appearance.dart';
 import 'screens/admin/admin_asr_config_screen.dart';
@@ -44,7 +45,14 @@ final List<RouteBase> meRoutes = [
       GoRoute(
         path: 'profile',
         name: 'me-profile',
-        builder: (context, state) => _meAppearance(const MeProfileScreen()),
+        builder: (context, state) => _meAppearance(MeProfileScreen(
+          pickImage: () async {
+            final file = await SystemMedia.pickImage(context);
+            return file == null
+                ? null
+                : MePickedImage(bytes: file.bytes, filename: file.name);
+          },
+        )),
       ),
       GoRoute(
         path: 'security',
@@ -90,7 +98,8 @@ final List<RouteBase> meRoutes = [
       GoRoute(
         path: 'integrations',
         name: 'me-integrations',
-        builder: (context, state) => _meAppearance(const MeIntegrationsScreen()),
+        builder: (context, state) =>
+            _meAppearance(const MeIntegrationsScreen()),
       ),
       GoRoute(
         path: 'account-delete',
@@ -107,12 +116,14 @@ final List<RouteBase> meRoutes = [
       GoRoute(
         path: 'admin/llm',
         name: 'admin-llm-config',
-        builder: (context, state) => _meAppearance(const AdminLlmConfigScreen()),
+        builder: (context, state) =>
+            _meAppearance(const AdminLlmConfigScreen()),
       ),
       GoRoute(
         path: 'admin/model-keys',
         name: 'admin-model-keys',
-        builder: (context, state) => _meAppearance(const AdminModelKeysScreen()),
+        builder: (context, state) =>
+            _meAppearance(const AdminModelKeysScreen()),
       ),
       GoRoute(
         path: 'admin/org-sso',
@@ -122,17 +133,20 @@ final List<RouteBase> meRoutes = [
       GoRoute(
         path: 'admin/push-certs',
         name: 'admin-push-certs',
-        builder: (context, state) => _meAppearance(const AdminPushCertsScreen()),
+        builder: (context, state) =>
+            _meAppearance(const AdminPushCertsScreen()),
       ),
       GoRoute(
         path: 'admin/asr',
         name: 'admin-asr-config',
-        builder: (context, state) => _meAppearance(const AdminAsrConfigScreen()),
+        builder: (context, state) =>
+            _meAppearance(const AdminAsrConfigScreen()),
       ),
       GoRoute(
         path: 'admin/sso',
         name: 'admin-sso-config',
-        builder: (context, state) => _meAppearance(const AdminSsoConfigScreen()),
+        builder: (context, state) =>
+            _meAppearance(const AdminSsoConfigScreen()),
       ),
     ],
   ),
