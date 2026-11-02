@@ -135,7 +135,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
 
   // 刷新人轴核心数据
   const loadData = useCallback(async () => {
-    if (!pid) return;
+    if (!pid) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -202,6 +205,19 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
 
   if (loading) {
     return <MobileLoadingState message="正在加载责任链数据…" fullScreen />;
+  }
+
+  if (!pid) {
+    return (
+      <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e]">
+        <MobileTopBar title={activeTab === 'mine' ? '我的责任链' : '项目全貌'} />
+        <MobileEmptyState
+          iconName="folder"
+          title="请先选择具体项目"
+          description="你还没有加入任何项目，或当前是“全部项目”。加入或选择一个项目后再查看人轴。"
+        />
+      </div>
+    );
   }
 
   if (error) {

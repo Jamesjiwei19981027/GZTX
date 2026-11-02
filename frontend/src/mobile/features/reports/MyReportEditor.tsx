@@ -12,6 +12,7 @@ import {
   submitReportEdit,
   submitAgentReport,
   listReportAgentBindings,
+  getReportDetail,
   AgentReport,
   ReportSource,
 } from '../../../api/reports';
@@ -98,10 +99,27 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
       }
       if (local.draftReportId) {
         setDraftReportId(local.draftReportId);
+        getReportDetail(local.draftReportId)
+          .then((r) => {
+            if (!active.current) return;
+            if (r.parent_user_id != null) {
+              setParentUserId(r.parent_user_id);
+            }
+          })
+          .catch(() => {});
       }
+    } else if (initialDraftReportId) {
+      getReportDetail(initialDraftReportId)
+        .then((r) => {
+          if (!active.current) return;
+          if (r.parent_user_id != null) {
+            setParentUserId(r.parent_user_id);
+          }
+        })
+        .catch(() => {});
     }
 
-    // 2. 加载智能体绑定，确定直属领导与 bindingId
+    // 2. 加载智能体绑定，确定 bindingId（直属领导仅由服务端草稿/人轴确定，前端不猜测）
     listReportAgentBindings(numericProjectId)
       .then((res) => {
         if (!active.current) return;
@@ -112,13 +130,9 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
         if (memberBinding) {
           setMyBindingId(memberBinding.id);
         }
-        const pmBinding = items.find((b) => b.role === 'project');
-        if (pmBinding?.user_id != null) {
-          setParentUserId(pmBinding.user_id);
-        }
       })
       .catch(() => {});
-  }, [numericProjectId, user.id]);
+  }, [numericProjectId, user.id, initialDraftReportId]);
 
   // 编辑内容时实时自动保存到本地隔离存储（防意外丢失）
   useEffect(() => {
@@ -185,8 +199,8 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
   const handleSubmitReport = async () => {
     if (!numericProjectId || submitting || generating) return;
 
-    // 直属领导不能是自己判定
-    if (supervisor.isSelf) {
+    // 直属领导不能是自己判定（仅在服务器明确返回了直属上级且为自己时拦截）
+    if (parentUserId != null && supervisor.isSelf) {
       setErrorMessage('直属领导不能是自己。人轴责任链要求汇报流向明确的上级管理者。');
       return;
     }
@@ -346,37 +360,56 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
           <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
             提交接收人
           </h3>
-          <div
-            className={`p-3.5 rounded-2xl border flex items-center gap-3 bg-white dark:bg-slate-900 ${
-              supervisor.isSelf
-                ? 'border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20'
-                : 'border-slate-200/80 dark:border-slate-800 shadow-2xs'
-            }`}
-          >
-            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/60 text-[#0058BE] dark:text-blue-300 font-bold flex items-center justify-center shrink-0">
-              {supervisor.name ? supervisor.name.slice(0, 1) : '上'}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                  {supervisor.name}
-                </strong>
-                {supervisor.isSelf && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
-                    非法上级
-                  </span>
-                )}
+          {parentUserId == null ? (
+            <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
+                <AppIcon name="user" size={20} />
               </div>
-              <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                {supervisor.role} · 人轴实时判定
-              </p>
+              <div className="flex-1 min-w-0">
+                <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 block truncate">
+                  提交时由系统按人轴确定直属接收人
+                </strong>
+                <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                  以人轴最新责任链实时流转，无需手动选择
+                </p>
+              </div>
+              <AppIcon name="check-circle" size={18} className="text-slate-300 dark:text-slate-600" />
             </div>
-            <AppIcon name="check-circle" size={18} className={supervisor.isValid ? 'text-emerald-500' : 'text-slate-300'} />
-          </div>
-          {supervisor.isSelf && (
-            <p className="text-xs text-red-600 px-1">
-              直属领导不能是自己。请在人轴画布或设置中指定您的直属上级后再提交。
-            </p>
+          ) : (
+            <>
+              <div
+                className={`p-3.5 rounded-2xl border flex items-center gap-3 bg-white dark:bg-slate-900 ${
+                  parentUserId != null && supervisor.isSelf
+                    ? 'border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20'
+                    : 'border-slate-200/80 dark:border-slate-800 shadow-2xs'
+                }`}
+              >
+                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/60 text-[#0058BE] dark:text-blue-300 font-bold flex items-center justify-center shrink-0">
+                  {supervisor.name ? supervisor.name.slice(0, 1) : '上'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                      {supervisor.name}
+                    </strong>
+                    {parentUserId != null && supervisor.isSelf && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
+                        非法上级
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                    {supervisor.role} · 人轴实时判定
+                  </p>
+                </div>
+                <AppIcon name="check-circle" size={18} className={supervisor.isValid ? 'text-emerald-500' : 'text-slate-300'} />
+              </div>
+              {parentUserId != null && supervisor.isSelf && (
+                <p className="text-xs text-red-600 px-1">
+                  直属领导不能是自己。请在人轴画布或设置中指定您的直属上级后再提交。
+                </p>
+              )}
+            </>
           )}
         </section>
       </div>
@@ -399,7 +432,7 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
 
         <button
           type="button"
-          disabled={submitting || generating || supervisor.isSelf}
+          disabled={submitting || generating || (parentUserId != null && supervisor.isSelf)}
           onClick={() => void handleSubmitReport()}
           className="flex-1 min-h-[46px] rounded-xl bg-[#0058BE] text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
         >

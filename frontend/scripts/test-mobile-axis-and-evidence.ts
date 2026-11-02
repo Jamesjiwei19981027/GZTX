@@ -130,4 +130,23 @@ assert.ok(DELEGATION_ACTIONS.some((a) => a.key === 'tree.edit_subtree'));
 assert.ok(DELEGATION_ACTIONS.some((a) => a.key === 'wiki.manual_write'));
 console.log('✓ Delegation actions properly aligned with backend permissions');
 
+console.log('\n=== 4. Testing B2: People Axis Empty State Without Project ===');
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const axisSource = fs.readFileSync(path.resolve(__dirname, '../src/mobile/features/people-axis/MobileAxisScreens.tsx'), 'utf-8');
+assert.ok(
+  /if\s*\(!pid\)\s*\{\s*setLoading\(false\);\s*return;\s*\}/.test(axisSource),
+  'MobileAxisScreens.tsx 必须在 !pid 时设置 setLoading(false) 并 return',
+);
+assert.ok(
+  axisSource.includes('请先选择具体项目') &&
+  axisSource.includes('你还没有加入任何项目，或当前是“全部项目”。加入或选择一个项目后再查看人轴。'),
+  'MobileAxisScreens.tsx 必须在 !pid 时渲染 MobileEmptyState 提示请先选择具体项目',
+);
+console.log('✓ People Axis empty state properly configured without endless loading');
+
 console.log('\n🎉 ALL TESTS PASSED SUCCESSFULLY! 🎉\n');
