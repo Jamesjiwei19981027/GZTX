@@ -4,11 +4,13 @@ import { WorkAssistantEntry } from '../../../components/WorkAssistantEntry';
 import { TaskTrendCard } from '../../../components/TaskTrendCard';
 import type { TaskWorkspaceScope } from '../../../utils/taskWorkspace';
 import {
+  listMyCompanies,
   listTrashTasks,
   restoreTask,
   type BackendTask,
 } from '../../../api/backend';
 import { ApiError } from '../../../api/client';
+import { getMyPermissions } from '../../../api/shell';
 import { mapTask } from '../../../api/mappers';
 import { Task, Project, Activity, UserProfile, Language, Status } from '../../../types';
 import { AppIcon } from '../../ui/AppIcon';
@@ -70,16 +72,38 @@ export const MobileWorkbenchScreen: React.FC<MobileWorkbenchProps> = ({
   lang = 'zh',
 }) => {
   // 角色工作台模式切换：员工工作台 (05) vs 管理者工作台 (06)
-  const isManagerRole =
-    user.role === 'PM' ||
-    user.role === '项目负责人' ||
-    user.role === '管理员' ||
-    user.role === '总领导' ||
-    user.role === '主管';
+  // 管理者口径以服务端为准：具体项目看 /my-permissions（项目 PM 或公司超管）；
+  // 「全部项目」汇总没有单个项目，看公司身份（超管或组织负责人）。
+  // 前端 UserProfile.role 只是展示用占位（mapUser 固定为「成员」），不能拿来判权。
+  const [isManagerRole, setIsManagerRole] = useState(false);
+  const [workbenchMode, setWorkbenchMode] = useState<'employee' | 'manager'>('employee');
 
-  const [workbenchMode, setWorkbenchMode] = useState<'employee' | 'manager'>(
-    isManagerRole ? 'manager' : 'employee',
-  );
+  useEffect(() => {
+    setIsManagerRole(false);
+    setWorkbenchMode('employee');
+    const projectId = Number(currentProject.id);
+    let lookup: Promise<boolean>;
+    if (Number.isInteger(projectId) && projectId > 0) {
+      lookup = getMyPermissions(projectId).then((perms) => Boolean(perms.is_pm || perms.is_superadmin));
+    } else if (currentProject.id === 'all') {
+      lookup = listMyCompanies().then((res) =>
+        (res.items || []).some((c) => Boolean(c.my_membership?.is_super_admin || c.my_membership?.is_org_leader)),
+      );
+    } else {
+      return;
+    }
+    let cancelled = false;
+    void lookup
+      .then((manager) => {
+        if (cancelled) return;
+        setIsManagerRole(manager);
+        setWorkbenchMode(manager ? 'manager' : 'employee');
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProject.id]);
 
   const todayStr = useMemo(() => { const day=new Date(); return `${day.getFullYear()}-${String(day.getMonth()+1).padStart(2,'0')}-${String(day.getDate()).padStart(2,'0')}`; }, []);
 

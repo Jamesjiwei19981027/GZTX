@@ -86,9 +86,9 @@ const SidebarImpl: React.FC<SidebarProps> = ({
                 : 'text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-[#2e3132] hover:text-on-surface'
             }`}
           >
-            <span className="material-symbols-outlined text-[22px]">more_horiz</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[22px]">more_horiz</span>
             <span className="truncate">{lang === 'zh' ? '工作工具与管理' : 'Tools & administration'}</span>
-            <span className="material-symbols-outlined text-[18px] ml-auto">
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px] ml-auto">
               {showMoreGroup || isSecondaryActive ? 'expand_less' : 'expand_more'}
             </span>
           </button>
@@ -107,6 +107,7 @@ const SidebarImpl: React.FC<SidebarProps> = ({
                   }`}
                 >
                   <span
+                    aria-hidden="true"
                     className="material-symbols-outlined text-[20px]"
                     style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
                   >
@@ -124,7 +125,7 @@ const SidebarImpl: React.FC<SidebarProps> = ({
             onClick={onOpenNewTask}
             className="w-full flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-xl font-semibold text-sm shadow-md hover:opacity-90 active:scale-95 transition-all"
           >
-            <span className="material-symbols-outlined text-xl">add</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-xl">add</span>
             <span>{t.newTask}</span>
           </button>
         </div>
@@ -133,7 +134,7 @@ const SidebarImpl: React.FC<SidebarProps> = ({
       <nav aria-label="主要页面导航" className="md:hidden fixed bottom-0 left-0 right-0 flex justify-around bg-surface dark:bg-[#191c1d] border-t z-50 pb-[env(safe-area-inset-bottom)]">
         {primaryNavItems.map(item => <button key={item.id} type="button" onClick={() => onSelectView(item.id)}
           className={`min-h-[56px] flex-1 flex flex-col items-center justify-center gap-1 ${activeView === item.id ? 'text-primary' : 'text-on-surface-variant'}`}>
-          <span className="material-symbols-outlined">{item.icon}</span><span className="text-xs">{item.label}</span>
+          <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span><span className="text-xs">{item.label}</span>
         </button>)}
       </nav>
     </>

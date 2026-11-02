@@ -80,7 +80,7 @@ async function bootLoggedIn(
     res.url().includes('/api/v1/categories'),
   )
   await page.goto('/')
-  await expect(sidebar(page).getByRole('button', { name: '仪表板' })).toBeVisible()
+  await expect(sidebar(page).getByRole('button', { name: '工作', exact: true })).toBeVisible()
   await categoriesLoaded
   return tokens
 }
@@ -90,8 +90,37 @@ function sidebar(page: Page) {
   return page.locator('aside')
 }
 
+/**
+ * 按旧版页面名进入对应视图。2026-10-31 起桌面侧栏只保留「工作 / 人轴 / 知识 / 消息 / 我的」，
+ * 任务列表与回收站收在「工作工具与管理 → 任务管理」，完整日历从工作首页日程卡片进入。
+ */
 async function openView(page: Page, label: string) {
-  await sidebar(page).getByRole('button', { name: label }).click()
+  const aside = sidebar(page)
+  const openTaskManagement = async () => {
+    const item = aside.getByRole('button', { name: '任务管理', exact: true })
+    if (!(await item.isVisible())) await aside.getByRole('button', { name: /工作工具与管理/ }).click()
+    await item.click()
+  }
+  switch (label) {
+    case '我的任务':
+      await openTaskManagement()
+      await page.getByRole('tablist', { name: '任务视图' }).getByRole('tab', { name: '任务列表' }).click()
+      break
+    case '回收站':
+      await openTaskManagement()
+      await page.getByLabel('任务更多操作').click()
+      await page.getByRole('button', { name: '回收站', exact: true }).click()
+      break
+    case '日历视图':
+      await aside.getByRole('button', { name: '工作', exact: true }).click()
+      await page.getByRole('button', { name: '完整日历', exact: true }).click()
+      break
+    case '设置':
+      await aside.getByRole('button', { name: '我的', exact: true }).click()
+      break
+    default:
+      await aside.getByRole('button', { name: label, exact: true }).click()
+  }
 }
 
 test('S1 登录：LoginGate 密码登录后进入仪表盘', async ({ page }) => {
@@ -100,7 +129,7 @@ test('S1 登录：LoginGate 密码登录后进入仪表盘', async ({ page }) =>
   await page.getByPlaceholder('用户名 / 邮箱 / 手机号').fill(E2E_USER)
   await page.locator('input[type="password"]').fill(E2E_PASSWORD)
   await page.locator('form button[type="submit"]').click()
-  await expect(sidebar(page).getByRole('button', { name: '仪表板' })).toBeVisible()
+  await expect(sidebar(page).getByRole('button', { name: '工作', exact: true })).toBeVisible()
   await expect(page.getByRole('heading', { name: '欢迎回来' })).toHaveCount(0)
 })
 
@@ -165,7 +194,8 @@ test('S5 全局搜索：Ctrl+K 命中任务并回车打开详情', async ({ page
   const searchInput = page.getByPlaceholder('搜索任务 / 项目 / 知识…')
   await expect(searchInput).toBeVisible()
   await searchInput.fill(title)
-  await expect(page.getByRole('button', { name: title })).toBeVisible()
+  // 首页日程卡片里也有同名任务按钮（名称带时刻前缀），精确匹配搜索结果
+  await expect(page.getByRole('button', { name: title, exact: true })).toBeVisible()
   await page.keyboard.press('Enter')
   await expect(page.getByText('任务详情 ID:')).toBeVisible()
   await expect(page.getByText(title).first()).toBeVisible()
@@ -228,7 +258,7 @@ test('S8 登出：回到 LoginGate，刷新后仍是未登录态', async ({ page
   await page.getByPlaceholder('用户名 / 邮箱 / 手机号').fill(E2E_USER)
   await page.locator('input[type="password"]').fill(E2E_PASSWORD)
   await page.locator('form button[type="submit"]').click()
-  await expect(sidebar(page).getByRole('button', { name: '仪表板' })).toBeVisible()
+  await expect(sidebar(page).getByRole('button', { name: '工作', exact: true })).toBeVisible()
 
   await page.getByTestId('user-menu-button').click()
   await page.getByRole('button', { name: '退出登录' }).click()
@@ -254,8 +284,6 @@ test('S9 回收站：删除任务 → 回收站可见 → 恢复 → 列表回�
   await page.getByTestId('task-delete').click()
   await expect(row).toHaveCount(0)
 
-  // 次级页面收在「更多」分组：先展开，再进入回收站
-  await sidebar(page).getByRole('button', { name: /更多/ }).click()
   await openView(page, '回收站')
   const trashRow = page.getByTestId('trash-row').filter({ hasText: title })
   await expect(trashRow).toBeVisible()

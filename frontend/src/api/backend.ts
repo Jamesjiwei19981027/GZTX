@@ -357,6 +357,12 @@ export type BackendCompany = {
   name: string
   slug?: string
   status?: string
+  my_membership?: {
+    status?: string
+    is_super_admin?: boolean
+    is_org_leader?: boolean
+    title?: string | null
+  } | null
 }
 
 export async function listMyCompanies() {

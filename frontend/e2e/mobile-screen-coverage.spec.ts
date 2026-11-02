@@ -126,9 +126,16 @@ test('Mobile Screen Coverage: Full Screen Reachability & Action Button Verificat
       };
     } else if (path.includes('/my-permissions')) {
       data = {
-        can_edit_tree: true,
-        can_manage_roles: true,
-        can_audit_materials: true,
+        role: 'superadmin',
+        is_pm: false,
+        is_superadmin: true,
+        can_edit_all: true,
+        owned_node_ids: [],
+        via_delegation: false,
+        can_move: true,
+        can_delete: true,
+        can_submit_evidence: true,
+        can_read_evidence: true,
       };
     } else if (path.includes('/delegations') || path.includes('/wiki')) {
       data = { items: [] };
@@ -203,8 +210,8 @@ test('Mobile Screen Coverage: Full Screen Reachability & Action Button Verificat
   });
   await expect.poll(() => page.evaluate(() => (window as unknown as { __MOBILE_NAV__: { currentTab: string } }).__MOBILE_NAV__.currentTab)).toBe('work');
 
-  // 点击「统计报表」
-  const statsBtn = page.getByRole('button', { name: /统计报表/ });
+  // 管理者工作台的「事项总数」卡片进入统计报表
+  const statsBtn = page.getByRole('button', { name: /事项总数/ });
   await expect(statsBtn).toBeVisible();
   await statsBtn.click();
   await expect(page.locator('text=工作统计报表')).toBeVisible({ timeout: 5000 });
@@ -234,7 +241,8 @@ test('Mobile Screen Coverage: Full Screen Reachability & Action Button Verificat
   await expect(page.locator('text=委托授权').or(page.locator('text=我的授权')).first()).toBeVisible({ timeout: 5000 });
 
   await goToScreen('axis', 'axis-wiki');
-  await expect(page.locator('text=Wiki').or(page.locator('text=知识库')).first()).toBeVisible({ timeout: 5000 });
+  // 当前停在「全部项目」汇总，项目知识按项目隔离，应给出选择具体项目的提示而不是一直加载
+  await expect(page.getByText('请先选择具体项目', { exact: true })).toBeVisible({ timeout: 5000 });
 
   // ==========================================
   // 4. AI 汇报中心多角色视图 (AI Tab)

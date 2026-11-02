@@ -79,6 +79,16 @@ export const MobileWikiScreens: React.FC<MobileWikiScreensProps> = ({
     loadWiki();
   }, [loadWiki]);
 
+  // 「全部项目」汇总等非具体项目时 pid 无效，loadWiki 不会发请求，不能一直停在加载态
+  if (!pid) {
+    return (
+      <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e]">
+        <MobileTopBar title="项目知识" showBack={Boolean(onBack)} onBack={onBack} backLabel="返回" />
+        <MobileEmptyState iconName="folder" title="请先选择具体项目" description="项目知识按项目隔离，全部项目汇总下无法查看。" />
+      </div>
+    );
+  }
+
   if (loading) {
     return <MobileLoadingState message="正在加载项目资料…" fullScreen />;
   }

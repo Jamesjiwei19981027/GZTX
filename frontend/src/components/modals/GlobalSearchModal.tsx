@@ -265,7 +265,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     isActive ? 'bg-primary/10' : ''
                   }`}
                 >
-                  <span className="material-symbols-outlined text-lg text-on-surface-variant mt-0.5">
+                  <span aria-hidden="true" className="material-symbols-outlined text-lg text-on-surface-variant mt-0.5">
                     {item.type === 'task' ? 'task_alt' : item.type === 'project' ? 'hub' : 'description'}
                   </span>
                   <span className="flex-1 min-w-0">
