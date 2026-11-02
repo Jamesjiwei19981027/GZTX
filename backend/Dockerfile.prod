@@ -31,7 +31,11 @@ COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 
 # Create non-root user
-RUN adduser --disabled-password --gecos '' appuser && chown -R appuser:appuser /app
+# 预建数据目录：全新的命名卷首次挂载到 /app/data 时会继承镜像内目录属主，
+# 否则卷为 root 属主，appuser 写不了 uploads/objects，后端启动即崩。
+RUN adduser --disabled-password --gecos '' appuser \
+    && mkdir -p /app/data/uploads /app/data/objects \
+    && chown -R appuser:appuser /app
 USER appuser
 
 # Expose port

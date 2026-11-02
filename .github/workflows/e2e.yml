@@ -101,3 +101,86 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 14
+
+  e2e-prod:
+    name: Playwright production build (@prod)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend deps
+        working-directory: backend
+        run: pip install -r requirements-dev.txt
+
+      - name: Start backend
+        working-directory: backend
+        env:
+          DEBUG: 'true'
+          DATABASE_URL: sqlite+aiosqlite:///./data/e2e-prod.db
+          RATE_LIMIT_ENABLED: 'false'
+        run: |
+          mkdir -p data
+          uvicorn app.main:app --host 127.0.0.1 --port 8000 &
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8000/api/v1/health && break
+            sleep 1
+          done
+
+      - name: Seed E2E user
+        working-directory: backend
+        env:
+          DEBUG: 'true'
+          DATABASE_URL: sqlite+aiosqlite:///./data/e2e-prod.db
+        run: python scripts/seed_e2e_user.py
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build frontend production bundle
+        working-directory: frontend
+        env:
+          DEV_API_TARGET: http://127.0.0.1:8000
+        run: npm run build
+
+      - name: Start frontend production preview
+        working-directory: frontend
+        env:
+          DEV_API_TARGET: http://127.0.0.1:8000
+        run: |
+          npx vite preview --port 5173 --strictPort --host 127.0.0.1 &
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:5173 >/dev/null && break
+            sleep 1
+          done
+
+      - name: Run production E2E
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://127.0.0.1:5173
+          E2E_USER: e2e_user
+          E2E_PASSWORD: e2e-password-123
+        run: npm run test:e2e:prod
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-prod
+          path: frontend/playwright-report/
+          retention-days: 14

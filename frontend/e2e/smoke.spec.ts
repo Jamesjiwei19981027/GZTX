@@ -123,7 +123,7 @@ async function openView(page: Page, label: string) {
   }
 }
 
-test('S1 登录：LoginGate 密码登录后进入仪表盘', async ({ page }) => {
+test('S1 登录：LoginGate 密码登录后进入仪表盘 @prod', async ({ page }) => {
   await page.goto('/')
   await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
   await page.getByPlaceholder('用户名 / 邮箱 / 手机号').fill(E2E_USER)
@@ -133,7 +133,7 @@ test('S1 登录：LoginGate 密码登录后进入仪表盘', async ({ page }) =>
   await expect(page.getByRole('heading', { name: '欢迎回来' })).toHaveCount(0)
 })
 
-test('S2 建任务：新建任务 → 我的任务可见 → 打开详情抽屉', async ({ page, request }) => {
+test('S2 建任务：新建任务 → 我的任务可见 → 打开详情抽屉 @prod', async ({ page, request }) => {
   await bootLoggedIn(page, request)
   const title = `E2E任务S2-${Date.now()}`
 
@@ -152,7 +152,7 @@ test('S2 建任务：新建任务 → 我的任务可见 → 打开详情抽屉'
   await expect(page.getByText('任务详情 ID:')).toBeVisible()
 })
 
-test('S3 日历：切日历视图，今天能看到任务', async ({ page, request }) => {
+test('S3 日历：切日历视图，今天能看到任务 @prod', async ({ page, request }) => {
   const tokens = await apiLogin(request)
   const title = `E2E日历S3-${Date.now()}`
   await apiCreateTask(request, tokens.access_token, title)
@@ -163,7 +163,7 @@ test('S3 日历：切日历视图，今天能看到任务', async ({ page, reque
   await expect(page.getByText(title).first()).toBeVisible()
 })
 
-test('S4 设置：修改昵称可保存并回显', async ({ page, request }) => {
+test('S4 设置：修改昵称可保存并回显 @prod', async ({ page, request }) => {
   const tokens = await bootLoggedIn(page, request)
   await openView(page, '设置')
   await expect(page.getByRole('heading', { name: '个人资料' })).toBeVisible()
@@ -184,7 +184,7 @@ test('S4 设置：修改昵称可保存并回显', async ({ page, request }) => 
   expect(res.ok()).toBeTruthy()
 })
 
-test('S5 全局搜索：Ctrl+K 命中任务并回车打开详情', async ({ page, request }) => {
+test('S5 全局搜索：Ctrl+K 命中任务并回车打开详情 @prod', async ({ page, request }) => {
   const tokens = await apiLogin(request)
   const title = `E2E搜索S5-${Date.now()}`
   await apiCreateTask(request, tokens.access_token, title)
@@ -201,7 +201,7 @@ test('S5 全局搜索：Ctrl+K 命中任务并回车打开详情', async ({ page
   await expect(page.getByText(title).first()).toBeVisible()
 })
 
-test('S6 完成任务：勾选后状态局部更新为已完成', async ({ page, request }) => {
+test('S6 完成任务：勾选后状态局部更新为已完成 @prod', async ({ page, request }) => {
   const tokens = await apiLogin(request)
   const title = `E2E完成S6-${Date.now()}`
   const created = await apiCreateTask(request, tokens.access_token, title)
@@ -233,7 +233,7 @@ test('S6 完成任务：勾选后状态局部更新为已完成', async ({ page,
   expect((await res2.json()).data.status).toBe(0)
 })
 
-test('S7 401 续期：access_token 失效后 API 操作无感恢复', async ({ page, request }) => {
+test('S7 401 续期：access_token 失效后 API 操作无感恢复 @prod', async ({ page, request }) => {
   await bootLoggedIn(page, request)
 
   const garbage = 'expired.invalid.token'
@@ -252,7 +252,7 @@ test('S7 401 续期：access_token 失效后 API 操作无感恢复', async ({ p
     .not.toBe(garbage)
 })
 
-test('S8 登出：回到 LoginGate，刷新后仍是未登录态', async ({ page }) => {
+test('S8 登出：回到 LoginGate，刷新后仍是未登录态 @prod', async ({ page }) => {
   // 走真实 UI 登录（不用 addInitScript，否则刷新会重新注入 token）
   await page.goto('/')
   await page.getByPlaceholder('用户名 / 邮箱 / 手机号').fill(E2E_USER)
@@ -269,7 +269,7 @@ test('S8 登出：回到 LoginGate，刷新后仍是未登录态', async ({ page
   await expect(sidebar(page)).toHaveCount(0)
 })
 
-test('S9 回收站：删除任务 → 回收站可见 → 恢复 → 列表回来', async ({ page, request }) => {
+test('S9 回收站：删除任务 → 回收站可见 → 恢复 → 列表回来 @prod', async ({ page, request }) => {
   const tokens = await apiLogin(request)
   const title = `E2E回收S9-${Date.now()}`
   await apiCreateTask(request, tokens.access_token, title)
@@ -295,7 +295,7 @@ test('S9 回收站：删除任务 → 回收站可见 → 恢复 → 列表回�
   await expect(page.getByTestId('task-row').filter({ hasText: title })).toBeVisible()
 })
 
-test('S10 逾期顺延：昨天到期任务 → 逾期组「全部顺延→明天」→ 日期变明天', async ({ page, request }) => {
+test('S10 逾期顺延：昨天到期任务 → 逾期组「全部顺延→明天」→ 日期变明天 @prod', async ({ page, request }) => {
   const tokens = await apiLogin(request)
   const title = `E2E逾期S10-${Date.now()}`
   await apiCreateTask(request, tokens.access_token, title, localDateWithOffset(-1))

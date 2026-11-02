@@ -24,7 +24,7 @@ _TASK_COLUMNS = [
     ("company_id", "INTEGER"),
     ("project_id", "INTEGER"),
     ("project_node_id", "INTEGER"),
-    ("linked_readonly", "BOOLEAN DEFAULT 1"),
+    ("linked_readonly", "BOOLEAN DEFAULT TRUE"),
 ]
 
 
@@ -37,7 +37,7 @@ def _add_task_compat_columns() -> None:
     for name, type_sql in _TASK_COLUMNS:
         if name in existing:
             continue
-        # SQLite-friendly; PostgreSQL accepts same ALTER — fail loudly if unexpected
+        # SQLite(>=3.23) 与 PostgreSQL 通用：布尔默认值必须写 TRUE，写 1 在 PG 上会报类型错误
         op.execute(text(f"ALTER TABLE tasks ADD COLUMN {name} {type_sql}"))
 
 
