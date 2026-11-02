@@ -39,6 +39,22 @@ void main() {
       expect(find.textContaining('日程调整不会改写已提交的汇报'), findsOneWidget);
     });
 
+    testWidgets('所属项目显示项目名称，而不是项目编号', (tester) async {
+      final harness = await WorkTestHarness.create();
+      // 任务 104：挂在项目 1 下的人轴关联任务
+      await tester.pumpWidget(harness.wrap(
+        WorkTaskDetailScreen(taskId: 104, api: harness.api),
+      ));
+      await tester.pumpAndSettle();
+
+      // 属性区在长页面下方，懒加载列表需先滚到可见
+      await tester.scrollUntilVisible(find.text('所属项目'), 200,
+          scrollable: find.byType(Scrollable).first);
+      expect(harness.authState.currentProject?.id, 1);
+      expect(find.text(harness.authState.currentProject!.name), findsOneWidget);
+      expect(find.text('项目 #1'), findsNothing);
+    });
+
     testWidgets('人轴责任链关联任务展示只读提示，隐藏编辑与勾选操作', (tester) async {
       final harness = await WorkTestHarness.create();
       // 任务 104：人轴只读锁定任务

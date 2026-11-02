@@ -151,15 +151,15 @@ class _WorkChatExtractScreenState extends State<WorkChatExtractScreen> {
               margin: const EdgeInsets.only(bottom: AppSpacing.md),
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: AppColors.dangerLight,
+                color: AppColors.dangerContainerOf(isDarkMode(context)),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
               child: Text(
                 _error!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
                   height: 1.5,
-                  color: AppColors.danger,
+                  color: AppColors.onDangerContainerOf(isDarkMode(context)),
                 ),
               ),
             ),

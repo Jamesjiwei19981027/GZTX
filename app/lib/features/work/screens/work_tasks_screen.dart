@@ -442,7 +442,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
                 vertical: AppSpacing.sm,
               ),
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF2FE),
+                color: AppColors.infoContainerOf(isDarkMode(context)),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
               child: Wrap(

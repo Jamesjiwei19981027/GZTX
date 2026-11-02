@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/auth/auth_state.dart';
+import '../../../core/models/project.dart';
 import '../../../core/time/time_utils.dart';
 import '../../../design/design.dart';
 import '../data/work_api.dart';
@@ -52,6 +53,21 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
     if (_bootstrapped) return;
     _bootstrapped = true;
     _load();
+  }
+
+  /// 任务只带项目 ID：按当前项目、再按已加载项目列表取名称，取不到才退回编号。
+  String _projectLabel(int projectId) {
+    AuthState? auth;
+    try {
+      auth = context.read<AuthState>();
+    } catch (_) {
+      auth = null;
+    }
+    if (auth?.currentProject?.id == projectId) return auth!.currentProject!.name;
+    for (final p in auth?.projects ?? const <Project>[]) {
+      if (p.id == projectId) return p.name;
+    }
+    return '项目 #$projectId';
   }
 
   @override
@@ -321,7 +337,7 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                           _propertyRow('重复规则', _task!.recurrenceRule ?? '周期重复'),
                         _propertyRow('执行人员', _task!.assigneeText),
                         _propertyRow('所属项目',
-                            _task!.projectId == null ? '个人待办' : '项目 #${_task!.projectId}'),
+                            _task!.projectId == null ? '个人待办' : _projectLabel(_task!.projectId!)),
                       ],
                     ),
                   ),

@@ -469,31 +469,31 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                 margin: const EdgeInsets.only(bottom: AppSpacing.md),
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: AppColors.dangerLight,
+                  color: AppColors.dangerContainerOf(isDarkMode(context)),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                 ),
                 child: Text(
                   _formError!,
-                  style: const TextStyle(fontSize: 12, color: AppColors.danger),
+                  style: TextStyle(fontSize: 12, color: AppColors.onDangerContainerOf(isDarkMode(context))),
                 ),
               ),
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF2FE),
+                color: AppColors.infoContainerOf(isDarkMode(context)),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
               child: Row(
                 children: [
-                  const AppIcon('work', size: 16, color: AppColors.primary),
+                  AppIcon('work', size: 16, color: AppColors.onInfoContainerOf(isDarkMode(context))),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
                       _scope.describe(_scopeProjectName),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         height: 1.4,
-                        color: AppColors.primary,
+                        color: AppColors.onInfoContainerOf(isDarkMode(context)),
                       ),
                     ),
                   ),

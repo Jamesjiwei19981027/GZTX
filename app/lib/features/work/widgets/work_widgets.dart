@@ -232,15 +232,15 @@ class WorkPriorityBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.dangerLight,
+        color: AppColors.dangerContainerOf(isDarkMode(context)),
         borderRadius: BorderRadius.circular(4),
       ),
-      child: const Text(
+      child: Text(
         '高优',
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w600,
-          color: AppColors.danger,
+          color: AppColors.onDangerContainerOf(isDarkMode(context)),
         ),
       ),
     );

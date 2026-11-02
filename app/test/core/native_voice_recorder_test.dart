@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/core/media/native_voice_recorder.dart';
 import 'package:worktodo_app/features/evidence/services/voice_recorder.dart';
+import 'package:worktodo_app/features/knowledge/data/voice_input.dart'
+    as knowledge;
 
 class Driver implements RecordingDriver {
   bool allowed = true;
@@ -44,6 +46,18 @@ void main() {
         recorder.start(),
         throwsA(isA<VoiceRecorderException>().having(
             (e) => e.issue, 'issue', VoiceRecorderIssue.permissionDenied)));
+    expect(driver.starts, 0);
+    await recorder.dispose();
+  });
+
+  test('知识笔记端口拒绝麦克风时转成可展示的权限引导，而不是笼统提示', () async {
+    final driver = Driver()..allowed = false;
+    final recorder = NativeKnowledgeRecorder(
+        recorder: NativeVoiceRecorder(driver: driver));
+    await expectLater(
+        recorder.start(),
+        throwsA(isA<knowledge.VoiceInputException>()
+            .having((e) => e.message, 'message', contains('系统设置'))));
     expect(driver.starts, 0);
     await recorder.dispose();
   });

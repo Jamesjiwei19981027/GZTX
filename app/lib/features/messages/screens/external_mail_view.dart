@@ -216,8 +216,8 @@ class ExternalMailView extends StatelessWidget {
   Widget _banner(BuildContext context, String message,
       {required bool isError}) {
     final background =
-        isError ? AppColors.dangerLight : const Color(0xFFE8F1FE);
-    final color = isError ? AppColors.danger : AppColors.primary;
+        isError ? AppColors.dangerContainerOf(isDarkMode(context)) : AppColors.infoContainerOf(isDarkMode(context));
+    final color = isError ? AppColors.onDangerContainerOf(isDarkMode(context)) : AppColors.onInfoContainerOf(isDarkMode(context));
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),

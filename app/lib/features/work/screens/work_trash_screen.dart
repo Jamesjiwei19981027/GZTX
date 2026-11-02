@@ -121,24 +121,24 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
             Container(
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF2FE),
+                color: AppColors.infoContainerOf(isDarkMode(context)),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
-              child: const Row(
+              child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: EdgeInsets.only(top: 2),
-                    child: AppIcon('info', size: 16, color: AppColors.primary),
+                    padding: const EdgeInsets.only(top: 2),
+                    child: AppIcon('info', size: 16, color: AppColors.onInfoContainerOf(isDarkMode(context))),
                   ),
-                  SizedBox(width: AppSpacing.sm),
+                  const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
                       '回收站中的任务将保留 30 天，期间可随时一键恢复到项目待办中；逾期将由系统自动永久清除。',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.5,
-                        color: AppColors.primary,
+                        color: AppColors.onInfoContainerOf(isDarkMode(context)),
                       ),
                     ),
                   ),

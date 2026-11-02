@@ -188,8 +188,19 @@ class NativeKnowledgeRecorder implements knowledge.VoiceRecorder {
   final NativeVoiceRecorder recorder;
   @override
   bool get isRecording => recorder.isRecording;
+  /// 知识笔记只认 [knowledge.VoiceInputException] 的可展示文案，其余异常会退化成
+  /// 笼统的“请检查麦克风”；这里把权限拒绝等具体提示（含去系统设置的指引）原样转过去。
   @override
-  Future<void> start() => recorder.start();
+  Future<void> start() async {
+    try {
+      await recorder.start();
+    } on evidence.VoiceRecorderException catch (error) {
+      throw knowledge.VoiceInputException(error.message);
+    } on StateError catch (error) {
+      throw knowledge.VoiceInputException(error.message);
+    }
+  }
+
   @override
   Future<void> cancel() => recorder.cancel();
   @override

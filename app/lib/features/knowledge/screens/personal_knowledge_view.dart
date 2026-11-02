@@ -301,17 +301,17 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
       child: Container(
         padding: const EdgeInsets.all(AppSpacing.md),
         decoration: BoxDecoration(
-          color: AppColors.dangerLight,
+          color: AppColors.dangerContainerOf(isDarkMode(context)),
           borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         ),
         child: Row(
           children: [
-            const AppIcon('alert', size: 16, color: AppColors.danger),
+            AppIcon('alert', size: 16, color: AppColors.onDangerContainerOf(isDarkMode(context))),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
                 controller.error!,
-                style: const TextStyle(fontSize: 12, color: AppColors.danger),
+                style: TextStyle(fontSize: 12, color: AppColors.onDangerContainerOf(isDarkMode(context))),
               ),
             ),
           ],

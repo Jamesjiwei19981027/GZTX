@@ -351,21 +351,21 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
                     margin: const EdgeInsets.only(bottom: AppSpacing.md),
                     padding: const EdgeInsets.all(AppSpacing.md),
                     decoration: BoxDecoration(
-                      color: AppColors.dangerLight,
+                      color: AppColors.dangerContainerOf(isDarkMode(context)),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const AppIcon('alert',
-                            size: 16, color: AppColors.danger),
+                        AppIcon('alert',
+                            size: 16, color: AppColors.onDangerContainerOf(isDarkMode(context))),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
                             _error!,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.danger,
+                              color: AppColors.onDangerContainerOf(isDarkMode(context)),
                             ),
                           ),
                         ),

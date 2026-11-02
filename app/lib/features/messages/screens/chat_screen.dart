@@ -560,19 +560,19 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   }) {
     return Container(
       width: double.infinity,
-      color: AppColors.dangerLight,
+      color: AppColors.dangerContainerOf(isDarkMode(context)),
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.sm,
       ),
       child: Row(
         children: [
-          const AppIcon('warning', size: 16, color: AppColors.danger),
+          AppIcon('warning', size: 16, color: AppColors.onDangerContainerOf(isDarkMode(context))),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,
-              style: const TextStyle(fontSize: 12, color: AppColors.danger),
+              style: TextStyle(fontSize: 12, color: AppColors.onDangerContainerOf(isDarkMode(context))),
             ),
           ),
           if (actionLabel != null && onAction != null)
@@ -582,10 +582,10 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
                 child: Text(
                   actionLabel,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: AppColors.danger,
+                    color: AppColors.onDangerContainerOf(isDarkMode(context)),
                   ),
                 ),
               ),
@@ -593,9 +593,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           if (onDismiss != null)
             GestureDetector(
               onTap: onDismiss,
-              child: const Padding(
-                padding: EdgeInsets.only(left: AppSpacing.xs),
-                child: AppIcon('close', size: 14, color: AppColors.danger),
+              child: Padding(
+                padding: const EdgeInsets.only(left: AppSpacing.xs),
+                child: AppIcon('close', size: 14, color: AppColors.onDangerContainerOf(isDarkMode(context))),
               ),
             ),
         ],

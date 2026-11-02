@@ -42,4 +42,19 @@ class AppColors {
   static const Color darkTextPrimary = Color(0xFFE1E3E6);
   static const Color darkTextSecondary = Color(0xFFAFB3BA);
   static const Color darkTextTertiary = Color(0xFF80848C);
+
+  // 提示条底色 / 文字色（错误提示、范围说明等）。浅色值直接用会在深色模式下出现刺眼的浅色块。
+  static const Color infoContainer = Color(0xFFEAF2FE);
+  static const Color darkInfoContainer = Color(0xFF23324A);
+  static const Color darkOnInfoContainer = Color(0xFFADC6FF);
+  static const Color darkDangerContainer = Color(0xFF3B1515);
+
+  static Color dangerContainerOf(bool isDark) =>
+      isDark ? darkDangerContainer : dangerLight;
+  static Color onDangerContainerOf(bool isDark) =>
+      isDark ? dangerLight : danger;
+  static Color infoContainerOf(bool isDark) =>
+      isDark ? darkInfoContainer : infoContainer;
+  static Color onInfoContainerOf(bool isDark) =>
+      isDark ? darkOnInfoContainer : primary;
 }

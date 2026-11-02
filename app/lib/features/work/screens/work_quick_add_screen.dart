@@ -117,12 +117,12 @@ class _WorkQuickAddScreenState extends State<WorkQuickAddScreen> {
               margin: const EdgeInsets.only(bottom: AppSpacing.md),
               padding: const EdgeInsets.all(AppSpacing.md),
               decoration: BoxDecoration(
-                color: AppColors.dangerLight,
+                color: AppColors.dangerContainerOf(isDarkMode(context)),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
               child: Text(
                 _error!,
-                style: const TextStyle(fontSize: 12, color: AppColors.danger),
+                style: TextStyle(fontSize: 12, color: AppColors.onDangerContainerOf(isDarkMode(context))),
               ),
             ),
           AppTextField(
