@@ -28,6 +28,7 @@ dependencies:
   url_launcher: ^6.3.3
   flutter_localizations:
     sdk: flutter
+  clock: ^1.1.2
 
 dev_dependencies:
   flutter_test:

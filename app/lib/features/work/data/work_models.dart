@@ -6,6 +6,7 @@
 /// - 状态 0/1/2 = 待办/进行中/已完成，优先级 0/1/2 = 低/中/高。
 library;
 
+import 'package:clock/clock.dart';
 import '../../../core/time/time_utils.dart';
 
 /// 本地日期与后端 UTC 时间的双向换算。
@@ -64,14 +65,14 @@ class TaskTime {
     return DateTime(y, m, d);
   }
 
-  static String todayKey([DateTime? now]) => localDateKey(now ?? DateTime.now());
+  static String todayKey([DateTime? now]) => localDateKey(now ?? clock.now());
 
   static String monthKey(DateTime day) =>
       '${day.year.toString().padLeft(4, '0')}-${_pad(day.month)}';
 
   /// 本地日期键 ± 天数（用于日历翻页、区间判断）。
   static String shiftDay(String key, int days) {
-    final day = parseLocalDay(key) ?? DateTime.now();
+    final day = parseLocalDay(key) ?? clock.now();
     return localDateKey(day.add(Duration(days: days)));
   }
 }
@@ -635,7 +636,7 @@ class ProjectProgressSummary {
         .where((node) => deadlineOf(node) != null)
         .toList()
       ..sort((a, b) => deadlineOf(a)!.compareTo(deadlineOf(b)!));
-    final now = DateTime.now().toUtc();
+    final now = clock.now().toUtc();
     final overdue = pending.where((node) {
       final deadline = parseApiDateTime(deadlineOf(node));
       return deadline != null && deadline.isBefore(now);

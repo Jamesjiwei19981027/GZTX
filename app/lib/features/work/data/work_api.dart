@@ -4,6 +4,7 @@
 /// `projects.py`；所有时间字段收发均为 UTC ISO 串。
 library;
 
+import 'package:clock/clock.dart';
 import '../../../core/api/api_client.dart';
 import 'work_models.dart';
 
@@ -13,7 +14,7 @@ class WorkApi {
   final ApiClient _client;
 
   /// 时间轴统计用的本地时区偏移（分钟，东八区为 480）。
-  static int get timezoneOffsetMinutes => DateTime.now().timeZoneOffset.inMinutes;
+  static int get timezoneOffsetMinutes => clock.now().timeZoneOffset.inMinutes;
 
   Future<WorkTaskPage> listTasks({
     int page = 1,

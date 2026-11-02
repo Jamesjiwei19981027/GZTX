@@ -285,7 +285,7 @@ void main() {
         tester: tester,
         widget: _wrap(
           auth,
-          const InviteAcceptScreen(initialToken: 'inv-token-1'),
+          const InviteAcceptScreen(initialToken: 'Ab3_-xYz9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0LzXcVbN'),
         ),
         goldenFileNamePrefix: 'invite_accept_screen',
       );
@@ -301,7 +301,7 @@ void main() {
       // 邀请已消费，但 /companies/mine 临时不可用：页面停在结果区等重试
       harness.helper.whenGet('/companies/mine', '服务暂不可用', statusCode: 500);
       harness.helper.whenPost(
-        '/projects/invitations/inv-token-1/accept',
+        '/projects/invitations/Ab3_-xYz9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0LzXcVbN/accept',
         {'project_id': 11, 'role': 'member'},
       );
       harness.helper.whenGet('/projects/11', projectJson());
@@ -309,7 +309,7 @@ void main() {
       await _testGoldenAfterAction(
         tester: tester,
         auth: auth,
-        child: const InviteAcceptScreen(initialToken: 'inv-token-1'),
+        child: const InviteAcceptScreen(initialToken: 'Ab3_-xYz9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0LzXcVbN'),
         goldenFileNamePrefix: 'invite_accept_sync_failed_screen',
         action: () async {
           await tester.tap(find.text('接受并进入项目'));

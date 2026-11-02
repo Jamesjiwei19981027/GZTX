@@ -13,7 +13,7 @@ import 'work_test_fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('日历页面正常加载月视图、日期单元格与当天任务', (tester) async {
+  testWidgetsAtFixedDay('日历页面正常加载月视图、日期单元格与当天任务', (tester) async {
     tester.view.physicalSize = const Size(430, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -39,7 +39,7 @@ void main() {
     expect(find.text('编制第三季度财务复核报告'), findsOneWidget);
   });
 
-  testWidgets('月视图与周视图平滑切换', (tester) async {
+  testWidgetsAtFixedDay('月视图与周视图平滑切换', (tester) async {
     final harness = await WorkTestHarness.create();
     await tester.pumpWidget(harness.wrap(
       WorkCalendarScreen(api: harness.api, authState: harness.authState),
@@ -60,7 +60,7 @@ void main() {
     expect(find.text('周视图'), findsOneWidget);
   });
 
-  testWidgets('点击过去日期显示过期排期友好提示条', (tester) async {
+  testWidgetsAtFixedDay('点击过去日期显示过期排期友好提示条', (tester) async {
     final harness = await WorkTestHarness.create();
     // 指定过去日期 2026-10-25
     await tester.pumpWidget(harness.wrap(
@@ -77,7 +77,7 @@ void main() {
     expect(find.text('当天暂无安排事项'), findsOneWidget);
   });
 
-  testWidgets('网络异常时显示错误状态并可点击重试', (tester) async {
+  testWidgetsAtFixedDay('网络异常时显示错误状态并可点击重试', (tester) async {
     final brokenApi = MockWorkApi(shouldThrowNetworkError: true);
     final harness = await WorkTestHarness.create(api: brokenApi);
 
@@ -97,7 +97,7 @@ void main() {
     expect(find.text('日程日历'), findsOneWidget);
   });
 
-  testWidgets('完整日历按当前项目过滤并在切换项目时自动刷新', (tester) async {
+  testWidgetsAtFixedDay('完整日历按当前项目过滤并在切换项目时自动刷新', (tester) async {
     final harness = await WorkTestHarness.create();
     final today = TaskTime.todayKey();
     harness.api.tasks = [

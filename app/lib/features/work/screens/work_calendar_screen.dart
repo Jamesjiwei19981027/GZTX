@@ -4,6 +4,7 @@
 /// 月视图 / 周视图、按本地日期分组、双击日期新建、过去日期可补录。
 library;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -44,7 +45,7 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
   bool _weekMode = false;
   late String _selectedDay = widget.initialDay ?? TaskTime.todayKey();
   late DateTime _cursor =
-      TaskTime.parseLocalDay(_selectedDay) ?? DateTime.now();
+      TaskTime.parseLocalDay(_selectedDay) ?? clock.now();
 
   WorkApi get _api =>
       widget.api ??
@@ -148,7 +149,7 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
   }
 
   void _today() {
-    final now = DateTime.now();
+    final now = clock.now();
     setState(() {
       _cursor = now;
       _selectedDay = TaskTime.localDateKey(now);

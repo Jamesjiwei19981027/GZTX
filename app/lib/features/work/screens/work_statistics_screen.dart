@@ -3,6 +3,7 @@
 /// 对应网页 `mobile/features/work/MobileStatisticsScreen.tsx`。
 library;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -123,7 +124,7 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
   }
 
   DateTime _periodStartDate(String period) {
-    final now = DateTime.now();
+    final now = clock.now();
     final today = DateTime(now.year, now.month, now.day);
     return switch (period) {
       'month' => DateTime(today.year, today.month, 1),

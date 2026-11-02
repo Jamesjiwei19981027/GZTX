@@ -5,6 +5,7 @@
 /// 待办统计卡、任务趋势、日程日历与项目进度简介。
 library;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -49,7 +50,7 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
 
   String _selectedDay = TaskTime.todayKey();
   late DateTime _displayMonth = TaskTime.parseLocalDay(_selectedDay) ??
-      DateTime(DateTime.now().year, DateTime.now().month);
+      DateTime(clock.now().year, clock.now().month);
   int _reloadToken = 0;
   int _progressToken = 0;
 

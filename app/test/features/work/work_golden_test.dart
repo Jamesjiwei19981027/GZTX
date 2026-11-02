@@ -1,6 +1,7 @@
 /// 工作 Tab 全部 11 个页面在 iOS / Android 双平台的视觉 Golden 截图测试。
 library;
 
+import 'package:clock/clock.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -21,6 +22,17 @@ import 'package:worktodo_app/features/work/screens/work_trash_screen.dart';
 import '../../helpers/golden_test_helper.dart';
 import 'work_test_fixtures.dart';
 
+/// 截图基准图是 2026-11-02 生成的：固定时钟，让页面里的“今天/逾期/日历月份”与运行日期无关。
+void goldenAtFixedDay(
+  String description,
+  Future<void> Function(WidgetTester tester) body, {
+  List<String> tags = const [],
+}) {
+  testWidgets(description, tags: tags, (tester) {
+    return withClock(Clock.fixed(DateTime(2026, 11, 2, 9)), () => body(tester));
+  });
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -33,7 +45,7 @@ void main() {
     );
   }
 
-  testWidgets(
+  goldenAtFixedDay(
     '工作根页 (work-root) 双平台 Golden',
     tags: ['golden'],
     (tester) async {
@@ -49,7 +61,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  goldenAtFixedDay(
     '任务列表页 (work-tasks) 双平台 Golden',
     tags: ['golden'],
     (tester) async {
@@ -65,7 +77,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  goldenAtFixedDay(
     '工作看板页 (work-kanban) 双平台 Golden',
     tags: ['golden'],
     (tester) async {
@@ -81,7 +93,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  goldenAtFixedDay(
     '工作日历页 (work-calendar) 双平台 Golden',
     tags: ['golden'],
     (tester) async {
@@ -97,7 +109,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  goldenAtFixedDay(
     '统计报表页 (work-statistics) 双平台 Golden',
     tags: ['golden'],
     (tester) async {
@@ -113,7 +125,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  goldenAtFixedDay(
     '回收站页 (work-trash) 双平台 Golden',
     tags: ['golden'],
     (tester) async {
@@ -129,7 +141,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  goldenAtFixedDay(
     '任务详情页 (work-task-detail) 双平台 Golden',
     tags: ['golden'],
     (tester) async {
@@ -145,7 +157,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  goldenAtFixedDay(
     '新建编辑任务页 (work-task-edit) 双平台 Golden',
     tags: ['golden'],
     (tester) async {
@@ -165,7 +177,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  goldenAtFixedDay(
     '快速新建页 (work-quick-add) 双平台 Golden',
     tags: ['golden'],
     (tester) async {
@@ -181,7 +193,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  goldenAtFixedDay(
     '全局搜索页 (work-search) 双平台 Golden',
     tags: ['golden'],
     (tester) async {
@@ -201,7 +213,7 @@ void main() {
     },
   );
 
-  testWidgets(
+  goldenAtFixedDay(
     '聊天文本提取页 (work-chat-extract) 双平台 Golden',
     tags: ['golden'],
     (tester) async {

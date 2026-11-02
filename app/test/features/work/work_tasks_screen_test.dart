@@ -16,7 +16,7 @@ import 'work_test_fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('任务列表正常加载、显示搜索框、工作区范围与任务项', (tester) async {
+  testWidgetsAtFixedDay('任务列表正常加载、显示搜索框、工作区范围与任务项', (tester) async {
     tester.view.physicalSize = const Size(430, 1200);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
@@ -42,7 +42,7 @@ void main() {
     expect(find.text('人轴一期代码审查与架构验收'), findsOneWidget);
   });
 
-  testWidgets('搜索框过滤任务，清空后恢复全量', (tester) async {
+  testWidgetsAtFixedDay('搜索框过滤任务，清空后恢复全量', (tester) async {
     final harness = await WorkTestHarness.create();
     await tester.pumpWidget(harness.wrap(
       WorkTasksScreen(api: harness.api, authState: harness.authState),
@@ -67,7 +67,7 @@ void main() {
     expect(find.text('服务器跨时区日志备份'), findsOneWidget);
   });
 
-  testWidgets('工作区范围切换：点击「今日到期」只显示今日任务', (tester) async {
+  testWidgetsAtFixedDay('工作区范围切换：点击「今日到期」只显示今日任务', (tester) async {
     final harness = await WorkTestHarness.create();
     await tester.pumpWidget(harness.wrap(
       WorkTasksScreen(api: harness.api, authState: harness.authState),
@@ -86,7 +86,7 @@ void main() {
     expect(find.text('梳理移动端离线缓存方案'), findsNothing); // 已逾期任务被过滤
   });
 
-  testWidgets('批量操作模式：选择任务后批量完成', (tester) async {
+  testWidgetsAtFixedDay('批量操作模式：选择任务后批量完成', (tester) async {
     final harness = await WorkTestHarness.create();
     await tester.pumpWidget(harness.wrap(
       WorkTasksScreen(api: harness.api, authState: harness.authState),
@@ -118,7 +118,7 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('网络异常时显示错误状态并可点击重试', (tester) async {
+  testWidgetsAtFixedDay('网络异常时显示错误状态并可点击重试', (tester) async {
     final brokenApi = MockWorkApi(shouldThrowNetworkError: true);
     final harness = await WorkTestHarness.create(api: brokenApi);
     await tester.pumpWidget(harness.wrap(
@@ -137,7 +137,7 @@ void main() {
     expect(find.text('编制第三季度财务复核报告'), findsOneWidget);
   });
 
-  testWidgets('任务列表分页测试：多页数据通过分页循环拉全，避免超过单页上限时丢失数据', (tester) async {
+  testWidgetsAtFixedDay('任务列表分页测试：多页数据通过分页循环拉全，避免超过单页上限时丢失数据', (tester) async {
     // 构造 120 条任务，超过单页 100/50 的限制
     final manyTasks = List.generate(
       120,
@@ -169,7 +169,7 @@ void main() {
     expect(find.text('分页任务第 120 项'), findsOneWidget);
   });
 
-  testWidgets('项目隔离测试：任务列表仅展示当前选中项目任务及个人任务，切换项目后自动刷新', (tester) async {
+  testWidgetsAtFixedDay('项目隔离测试：任务列表仅展示当前选中项目任务及个人任务，切换项目后自动刷新', (tester) async {
     final harness = await WorkTestHarness.create();
     harness.api.tasks = [
       WorkTask.fromJson(buildTaskJson(id: 801, title: '项目一独有任务', projectId: 1, origin: 'project_link')),
@@ -197,7 +197,7 @@ void main() {
     expect(find.text('项目一独有任务'), findsNothing);
   });
 
-  testWidgets('批量模式下切换项目会清空勾选，不会对隐藏的旧项目任务执行批量完成', (tester) async {
+  testWidgetsAtFixedDay('批量模式下切换项目会清空勾选，不会对隐藏的旧项目任务执行批量完成', (tester) async {
     final harness = await WorkTestHarness.create();
     harness.api.tasks = [
       WorkTask.fromJson(buildTaskJson(id: 801, title: '项目一独有任务', projectId: 1, origin: 'project_link')),
@@ -228,7 +228,7 @@ void main() {
     );
   });
 
-  testWidgets('批量改期准确保留任务原有時刻并在时区转换下维持目标本地日期', (tester) async {
+  testWidgetsAtFixedDay('批量改期准确保留任务原有時刻并在时区转换下维持目标本地日期', (tester) async {
     final harness = await WorkTestHarness.create();
     await tester.pumpWidget(harness.wrap(
       WorkTasksScreen(api: harness.api, authState: harness.authState),
@@ -262,7 +262,7 @@ void main() {
     expect(task102.dueTime, originalTime);
   });
 
-  testWidgets('批量完成处理被跳过的只读任务并弹出未完成明确提示', (tester) async {
+  testWidgetsAtFixedDay('批量完成处理被跳过的只读任务并弹出未完成明确提示', (tester) async {
     final harness = await WorkTestHarness.create();
     harness.api.tasks = [
       WorkTask.fromJson(buildTaskJson(
@@ -309,7 +309,7 @@ void main() {
     expect(harness.api.tasks.firstWhere((t) => t.id == 902).status, 0);
   });
 
-  testWidgets('批量完成时别人分配给我的可编辑任务不会被误报成只读投影', (tester) async {
+  testWidgetsAtFixedDay('批量完成时别人分配给我的可编辑任务不会被误报成只读投影', (tester) async {
     final harness = await WorkTestHarness.create();
     harness.api.tasks = [
       WorkTask.fromJson(buildTaskJson(
@@ -340,7 +340,7 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets('从空列表新建任务并返回后自动重新加载任务列表', (tester) async {
+  testWidgetsAtFixedDay('从空列表新建任务并返回后自动重新加载任务列表', (tester) async {
     final harness = await WorkTestHarness.create();
     harness.api.tasks = [];
 
