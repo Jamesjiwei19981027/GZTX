@@ -1,19 +1,17 @@
 import { defineConfig, devices } from '@playwright/test'
 
 /**
- * E2E 冒烟套件（S1–S8，对应 docs/superpowers/acceptance/2026-07-20-react-rewrite-gates.md §6.11）。
+ * E2E 用例分为两组：
+ * - 开发组：内联 harness 直接 import `/src/...` 或其他 Vite 开发模块。
+ *   用 `npx vite --port 5174 --strictPort` 启动后端配套的开发服务器，再运行 `npx playwright test`。
+ * - 生产组：标记了 `@prod`、不直接加载源码模块的用例。先 `npm run build`，
+ *   再用 `npx vite preview` 提供产物，最后运行 `npm run test:e2e:prod`。
  *
- * 前置条件（本地或 CI 均需先起好）：
- * 1. 后端 uvicorn（DEBUG=true + sqlite e2e 库 + RATE_LIMIT_ENABLED=false）；
- * 2. python scripts/seed_e2e_user.py 种好 E2E_USER / E2E_PASSWORD 账号；
- * 3. 前端 npm run build 后 vite preview（/api 代理需指向上面的后端，
- *    通过 DEV_API_TARGET 环境变量注入，见 vite.config.ts）。
- *
- * PLAYWRIGHT_BASE_URL 指向 preview 地址；CI 用 5173，本地建议 5174（8010/5173 被 Docker 占用）。
+ * 两组都需要先启动后端并按工作流准备 E2E 账号；PLAYWRIGHT_BASE_URL 可覆盖默认地址。
  */
 export default defineConfig({
   testDir: './e2e',
-  // 用例之间共享同一个种子账号与数据库，禁止并发，避免相互踩数据
+  // 用例之间共享同一套种子账号与数据库，禁止并发，避免相互污染数据。
   workers: 1,
   fullyParallel: false,
   timeout: 60_000,

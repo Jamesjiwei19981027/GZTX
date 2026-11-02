@@ -12,7 +12,7 @@ import { expect, test } from '@playwright/test';
  * - 异常与全局适配：窄屏、大字号、深色模式、断网草稿、注销门禁
  */
 
-test('Mobile Screen Coverage: Full Screen Reachability & Action Button Verification', async ({ page }) => {
+test('Mobile Screen Coverage: Full Screen Reachability & Action Button Verification @prod', async ({ page }) => {
   page.on('pageerror', (err) => console.log(`coverage-pageerror: ${err.message}`));
 
   // 统一拦截 API 请求，返回标准数据
@@ -313,7 +313,7 @@ test('Mobile Screen Coverage: Full Screen Reachability & Action Button Verificat
   console.log('Mobile Screen Coverage: All core screens and action buttons verified successfully!');
 });
 
-test('B2: Mobile Axis Screen: shows empty state when account has no projects and bottom nav is clickable', async ({ page }) => {
+test('B2: Mobile Axis Screen: shows empty state when account has no projects and bottom nav is clickable @prod', async ({ page }) => {
   page.on('pageerror', (err) => console.log(`coverage-pageerror: ${err.message}`));
 
   await page.route('**/api/v1/**', async (route) => {

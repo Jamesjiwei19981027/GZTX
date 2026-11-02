@@ -139,6 +139,20 @@ S1–S8 全部勾选时间：_待填_ · 环境：_待填_
 
 **禁止**将本地 `npm run dev` 两天或无起止记录的「周末无人看」计为 soak。
 
+**探针用法**
+
+`scripts/soak-probe.ps1` 会按轮次请求首页和 `/api/v1/health`，记录本地时间、UTC
+时间、状态码和耗时到 CSV；连续 3 次失败会打印醒目告警。正式 soak 必须在 staging
+的生产构建上连续运行满 48 小时，并记录起止时间、同一 Git SHA / 镜像 digest 和故障
+处理结果。下面的本地短测只用于确认探针可运行，不计入 G9：
+
+```powershell
+pwsh -File scripts/soak-probe.ps1 `
+  -BaseUrl http://127.0.0.1:8011 `
+  -IntervalSeconds 5 `
+  -Hours 0.01
+```
+
 ---
 
 ## §7.2 双层门禁
@@ -200,13 +214,13 @@ Playwright E2E 已进 PR 门禁（见 §6.11）。**剩余全部为环境与流�
 
 | 字段 | 值 |
 |------|-----|
-| 演练环境 | _staging / 本地 compose_ |
-| 演练时间 | _待填_ |
-| Vue 镜像 digest / tag | _待填_ |
-| React 镜像 digest / tag | _待填_ |
-| 切到 Vue 后登录验证 | [ ] 通过 · [ ] 失败 |
-| 切回 React 后登录验证 | [ ] 通过 · [ ] 失败 |
-| 备注 | _待填_ |
+| 演练环境 | 本地 compose |
+| 演练时间 | 2026-11-03 03:24:51 – 03:25:39 (+08:00)，全程约 48 秒 |
+| Vue 镜像 digest / tag | `worktodo-frontend:vue-rollback` · `sha256:78314baa98ea716c43950c9d407097e6097c3d282ab4ec28ee84ac537a0a6e2d` |
+| React 镜像 digest / tag | `worktodo-frontend:react-drill` · `sha256:afc974decb9278f8689fb8586abcd6dd4f8bf6e88029320a2b3a56e11f86bd0e` |
+| 切到 Vue 后登录验证 | [x] 通过 · [ ] 失败 |
+| 切回 React 后登录验证 | [x] 通过 · [ ] 失败 |
+| 备注 | 本地演练，staging 演练待做 |
 
 ---
 
@@ -225,3 +239,5 @@ Playwright E2E 已进 PR 门禁（见 §6.11）。**剩余全部为环境与流�
 | 2026-07-20 (晚) | 接手会话完成本地验证轮：§6.7 全过（含 Docker 前端+后端生产镜像本地构建、3.11 容器 import 验证）；§6.9 vitest 9/9；§6.11 本地 7/7 全绿（含 S5/S6 真实数据路径）；后端 pytest 148/148。修复：py3.11 f-string、缺失依赖（asyncpg/psycopg2/dateparser）、categories/reorder 路由顺序、提醒邮件 Reply-To/Message-ID 断链、E2E 选择器。**staging 部署、G6 回滚演练、48h soak、G10 签核仍未做。** |
 | 2026-08-13 | E2E 进 PR 门禁（e2e.yml 加 pull_request 路径触发 + concurrency）；修 ci.yml 前端 job `npm run typecheck` → `npm run lint`（脚本名漂移）；新增「G6–G10 收口现状」小节，明确剩余为环境/流程动作（staging、冒烟、soak、回滚演练、签核），代码侧无缺口。 |
 | 2026-08-13 (晚) | **重建 §6.11 E2E 套件**（前端重写后丢失）：新增 `frontend/playwright.config.ts` + `frontend/e2e/smoke.spec.ts`（S1–S8 现役单壳 UI 等价路径，@playwright/test 入 devDependencies，`test:e2e` 脚本恢复）；`frontend/src` 仅加 3 处 `data-testid`；修 e2e.yml preview 步骤补 `DEV_API_TARGET=http://127.0.0.1:8000`（原先 vite 代理默认打 8010，CI 后端在 8000，E2E 的 API 必然打空）。本地两遍 8/8 全绿（见 §6.11）。`npm run lint` / `npm test` 均保持全绿。**staging 状态无变化。** |
+| 2026-11-03 | FIX2B：E2E 按开发服务器依赖与生产构建分组，新增 `@prod` 过滤脚本和 CI `e2e-prod` job；新增本地 Compose 回滚演练脚本与 soak 探针用法。G6 总勾选仍未完成，G7–G10 保持未勾选。 |
+| 2026-11-03 (晚) | FIX2B：G6 本地回滚演练实跑通过（本地 compose，Vue 与 React 往返各一次，登录与任务列表均验证）；演练暴露并修复三处全新 PostgreSQL 部署缺陷（迁移 BOOLEAN 默认值、数据卷属主、users/tasks 表与模型漂移）。**staging 演练待做，G6 总勾选仍不勾，G7–G10 未勾选。** |
