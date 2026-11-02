@@ -344,16 +344,24 @@ test('B2: Mobile Axis Screen: shows empty state when account has no projects and
       data = { items: [] };
     } else if (path === '/tasks') {
       data = { items: [], total: 0 };
+    } else if (path.includes('/stats') || path.includes('/trend')) {
+      data = { total: 0, completed: 0, pending: 0, in_progress: 0, overdue: 0, items: [], series: [] };
     }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(data),
+      body: JSON.stringify({ code: 200, data, message: 'ok' }),
     });
   });
 
   await page.setViewportSize({ width: 375, height: 667 });
-  await page.goto('/');
+
+  // 建立已登录态（无项目账号：不写 active_project_id）
+  await page.addInitScript(() => {
+    localStorage.setItem('access_token', 'test_access_token_no_project');
+  });
+
+  await page.goto('/?mobile=true');
 
   // 切换到人轴 Tab
   const axisTab = page.locator('nav[role="tablist"]').getByRole('tab', { name: /人轴/ });
