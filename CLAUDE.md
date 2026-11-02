@@ -78,7 +78,7 @@ E2E 单独放 `.github/workflows/e2e.yml`，手动或每日定时触发。
   `EXTRACTION_MODE` 默认 **off**（行为与未引入前一致）；设计文档见
   `docs/superpowers/specs/2026-08-12-rag-knowledge-retrieval-design.md`
 - 前端：React 19 + TypeScript + Vite + Tailwind + Recharts（单壳视图切换，无 React Router / Zustand / Ant Design）
-- APP：Flutter（Android 为主，`app/`）
+- APP：Flutter 原生界面（Android / iOS，`app/`，2.0.0+2 起默认 `USE_NATIVE=true`、`USE_WEB_SHELL=false`），直接调用共享后端 API；网页外壳保留一个版本，使用 `--dart-define=USE_NATIVE=false --dart-define=USE_WEB_SHELL=true` 回退，旧原生壳已删除。邀请使用 `worktodo://`，通知采用站内通知与前台轮询。
 - 小程序：微信小程序原生框架
 - 对照归档：`frontend-vue-archive/`（Vue3 + Pinia + Element Plus；tag `vue-frontend-last`）
 
@@ -107,7 +107,7 @@ E2E 单独放 `.github/workflows/e2e.yml`，手动或每日定时触发。
 - 后端强制：`backend/app/services/tree_service.py` 的 `assert_shape` /
   `assert_type_change_allowed`（`ENFORCE_WORK_TREE_SHAPE=false` 可为存量数据临时关闭）
 - Web：`frontend/src/components/workTree/dropRules.ts`
-- APP：`app/lib/work_tree/work_tree_canvas.dart`
+- APP：`app/lib/features/axis/data/axis_rules.dart`
 
 > 三端客户端拦截只是体验优化，**规则以后端为准**；新增写路径必须走 `TreeService`，
 > 不要绕过形态校验直接写 `TreeNode`。
