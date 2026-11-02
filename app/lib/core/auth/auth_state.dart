@@ -34,7 +34,6 @@ class AuthState extends ChangeNotifier {
     // 作废仍在进行中的项目加载，避免过期后旧请求的成功或回滚结果写回会话
     _projectLoadSeq++;
     _errorMessage = '登录已过期，请重新登录';
-    _api.tokens.clear();
     notifyListeners();
   }
 

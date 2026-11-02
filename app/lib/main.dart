@@ -17,22 +17,37 @@ void main() {
   runApp(const WorkTodoApp());
 }
 
-/// 默认启用原生；USE_WEB_SHELL=true 或 USE_NATIVE=false 切回网页外壳。
+enum AppShellMode { native, webShell }
+
+AppShellMode resolveShellMode({
+  required bool useNative,
+  required bool useWebShell,
+}) {
+  if (useNative && useWebShell) {
+    debugPrint('USE_NATIVE 与 USE_WEB_SHELL 同时为 true，按网页外壳运行');
+  }
+  return useNative && !useWebShell
+      ? AppShellMode.native
+      : AppShellMode.webShell;
+}
+
 const bool kUseNativeApp =
     bool.fromEnvironment('USE_NATIVE', defaultValue: true);
 
-/// Web fallback takes precedence when explicitly enabled.
 bool resolveNativeApp({
   bool native = kUseNativeApp,
   bool webShell = ApiConfig.useWebShell,
 }) =>
-    native && !webShell;
+    resolveShellMode(useNative: native, useWebShell: webShell) ==
+    AppShellMode.native;
 
 class WorkTodoApp extends StatefulWidget {
   const WorkTodoApp({
     super.key,
     this.useWebShellOverride,
     this.useNativeOverride,
+    this.authStateFactory,
+    this.webShellFactory,
   });
 
   /// 测试或调试覆盖：是否使用 Web 外壳
@@ -40,6 +55,9 @@ class WorkTodoApp extends StatefulWidget {
 
   /// 测试或调试覆盖：是否启用原生版本
   final bool? useNativeOverride;
+
+  final core_auth.AuthState Function()? authStateFactory;
+  final Widget Function()? webShellFactory;
 
   @override
   State<WorkTodoApp> createState() => _WorkTodoAppState();
@@ -50,14 +68,20 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
   AppRouter? _appRouter;
   final _appearance = MeAppearanceController.instance;
 
-  bool get _isNative => resolveNativeApp(
-        native: widget.useNativeOverride ?? kUseNativeApp,
-        webShell: widget.useWebShellOverride ?? ApiConfig.useWebShell,
+  AppShellMode _shellModeFor(WorkTodoApp target) => resolveShellMode(
+        useNative: target.useNativeOverride ?? kUseNativeApp,
+        useWebShell: target.useWebShellOverride ?? ApiConfig.useWebShell,
       );
+
+  AppShellMode get _shellMode => _shellModeFor(widget);
+  bool get _isNative => _shellMode == AppShellMode.native;
 
   @override
   void initState() {
     super.initState();
+    debugPrint(
+      '应用模式：${_isNative ? '原生' : '网页外壳'}',
+    );
     if (_isNative) {
       _appearance.ensureLoaded();
       _initNativeAuth();
@@ -66,25 +90,38 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
 
   void _initNativeAuth() {
     if (_authState == null) {
-      final auth = core_auth.AuthState();
+      final auth = widget.authStateFactory?.call() ?? core_auth.AuthState();
       _authState = auth;
       _appRouter = AppRouter(authState: auth);
       auth.bootstrap();
     }
   }
 
+  void _disposeNativeState() {
+    _appRouter?.router.dispose();
+    _authState?.dispose();
+    _appRouter = null;
+    _authState = null;
+  }
+
   @override
   void didUpdateWidget(covariant WorkTodoApp oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_isNative && _authState == null) {
+    final oldMode = _shellModeFor(oldWidget);
+    final newMode = _shellMode;
+    if (oldMode == newMode) return;
+
+    if (newMode == AppShellMode.native) {
+      _appearance.ensureLoaded();
       _initNativeAuth();
+    } else {
+      _disposeNativeState();
     }
   }
 
   @override
   void dispose() {
-    _appRouter?.router.dispose();
-    _authState?.dispose();
+    _disposeNativeState();
     super.dispose();
   }
 
@@ -145,11 +182,7 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
   Widget build(BuildContext context) {
     final useNative = _isNative;
 
-    // 模式 1：启用全新原生版架构
     if (useNative) {
-      if (_authState == null) {
-        _initNativeAuth();
-      }
       return ChangeNotifierProvider<core_auth.AuthState>.value(
         value: _authState!,
         child: MeAppearanceHost(
@@ -199,7 +232,7 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
-      home: const WebShellScreen(),
+      home: widget.webShellFactory?.call() ?? const WebShellScreen(),
     );
   }
 }

@@ -54,6 +54,23 @@ flutter run -d emulator-5554 \
   --dart-define=API_BASE_URL=http://10.0.2.2:8010/api/v1
 ```
 
+## 安卓启动冒烟
+
+先构建 release APK，再在已启动并连接的安卓模拟器或设备上安装、启动并截图：
+
+```powershell
+flutter build apk --release --dart-define=API_BASE_URL=http://10.0.2.2:8011/api/v1
+pwsh -File .\tool\android_launch_smoke.ps1
+```
+
+脚本也支持显式指定 APK 和 `adb` 路径：
+
+```powershell
+pwsh -File .\tool\android_launch_smoke.ps1 `
+  -Apk .\build\app\outputs\flutter-apk\app-release.apk `
+  -Adb "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+```
+
 ## 分支约定
 
 - 在 **`app`** 分支上主要修改 `app/` 目录。

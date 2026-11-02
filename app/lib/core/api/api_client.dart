@@ -32,6 +32,7 @@ class ApiClient {
 
   Future<bool>? _refreshInflight;
   int? _refreshGeneration;
+  int _refreshEpoch = 0;
 
   void requireSession(int generation) {
     if (tokens.sessionGeneration != generation) {
@@ -112,6 +113,7 @@ class ApiClient {
     Duration? requestTimeout,
   }) async {
     final generation = tokens.sessionGeneration;
+    var epochAtSend = _refreshEpoch;
     Future<http.Response> send() async {
       requireSession(generation);
       final request = createRequest();
@@ -123,6 +125,7 @@ class ApiClient {
       if (tokens.hasAccess) {
         request.headers['Authorization'] = 'Bearer ${tokens.accessToken}';
       }
+      epochAtSend = _refreshEpoch;
       try {
         return await (() async {
           final stream = await (sender ?? _http).send(request);
@@ -138,12 +141,12 @@ class ApiClient {
       }
     }
 
-    final sentToken = tokens.accessToken;
     var response = await send();
     requireSession(generation);
     if (response.statusCode == 401) {
-      final refreshed = tokens.hasAccess && tokens.accessToken != sentToken ||
-          await _tryRefresh(sender: sender);
+      final refreshedByOthers = _refreshEpoch != epochAtSend;
+      final refreshed =
+          (refreshedByOthers || await _tryRefresh(sender: sender));
       requireSession(generation);
       if (refreshed) response = await send();
       requireSession(generation);
@@ -210,7 +213,6 @@ class ApiClient {
     bool retry = true,
   }) async {
     final generation = tokens.sessionGeneration;
-    final sentToken = tokens.accessToken;
     final normalizedPath = path.startsWith('/') ? path : '/$path';
     final headers = <String, String>{
       'Accept': 'application/json',
@@ -225,6 +227,7 @@ class ApiClient {
 
     final uri = _buildUri(path, query);
     final encoded = body == null ? null : jsonEncode(body);
+    final epochAtSend = _refreshEpoch;
 
     http.Response res;
     try {
@@ -238,8 +241,8 @@ class ApiClient {
     // 401 续期处理：网页版 client.ts 只排除以 /auth/ 开头的路径，防止自身刷新死循环
     if (res.statusCode == 401 && !normalizedPath.startsWith('/auth/')) {
       if (retry) {
-        final ok = tokens.hasAccess && tokens.accessToken != sentToken ||
-            await _tryRefresh();
+        final refreshedByOthers = _refreshEpoch != epochAtSend;
+        final ok = (refreshedByOthers || await _tryRefresh());
         requireSession(generation);
         if (ok) {
           return _request(
@@ -324,6 +327,7 @@ class ApiClient {
         refresh: (rotated != null && rotated.isNotEmpty) ? rotated : null,
         preserveSession: true,
       );
+      _refreshEpoch++;
       return true;
     } on AppException {
       rethrow;

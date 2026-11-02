@@ -119,7 +119,10 @@ void main() {
 
         if (request.headers['Authorization'] == 'Bearer new-fresh-access') {
           return http.Response(
-            jsonEncode({'code': 200, 'data': {'ok': true}}),
+            jsonEncode({
+              'code': 200,
+              'data': {'ok': true}
+            }),
             200,
             headers: {'content-type': 'application/json'},
           );
@@ -148,6 +151,58 @@ void main() {
       expect((results[1] as Map)['ok'], true);
       expect(tokenStorage.accessToken, 'new-fresh-access');
       expect(tokenStorage.refreshToken, 'new-fresh-refresh');
+    });
+
+    test(
+        'token is replaced before a 401 response, so it still performs one refresh',
+        () async {
+      int refreshCount = 0;
+      final tokenStorage = InMemoryTokenStorage(
+        access: 'token-before-send',
+        refresh: 'valid-refresh-token',
+      );
+
+      final mock = MockClient((request) async {
+        if (request.url.path.endsWith('/auth/refresh')) {
+          refreshCount++;
+          return http.Response(
+            jsonEncode({
+              'code': 200,
+              'data': {'access_token': 'token-after-refresh'},
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+        return http.Response(
+          jsonEncode({'code': 401, 'message': 'expired'}),
+          401,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+
+      final client = ApiClient(
+        httpClient: mock,
+        tokenStorage: tokenStorage,
+      );
+
+      final request = client.get('/tasks/list');
+      await tokenStorage.save(
+        access: 'token-replaced-before-response',
+        preserveSession: true,
+      );
+
+      Object? error;
+      try {
+        await request;
+      } catch (caught) {
+        error = caught;
+      }
+
+      expect(error, isA<AuthException>());
+      expect(refreshCount, 1);
     });
 
     test('401 刷新失败后清空本地令牌、触发 onAuthExpired 并抛出 AuthException', () async {
@@ -240,7 +295,8 @@ void main() {
       expect(getReq.headers['accept'], 'application/json');
 
       // 2. POST 请求
-      final postRes = await client.post('/test/post', body: {'name': '张三', 'count': 42});
+      final postRes =
+          await client.post('/test/post', body: {'name': '张三', 'count': 42});
       expect(postRes, {'success': true});
       expect(recording.recordedRequests.length, 2);
       final postReq = recording.recordedRequests[1];
@@ -248,7 +304,8 @@ void main() {
       expect(postReq.method, 'POST');
       expect(postReq.headers['content-type'], contains('application/json'));
       expect(postReq, isA<http.Request>());
-      expect((postReq as http.Request).body, jsonEncode({'name': '张三', 'count': 42}));
+      expect((postReq as http.Request).body,
+          jsonEncode({'name': '张三', 'count': 42}));
 
       // 3. 服务端返回 302 重定向：不跟随跳转，按非 2xx 抛出 ApiException，不会发起第二次跳转请求
       recording.handler = (req) async {
@@ -287,7 +344,8 @@ class _RecordingHttpClient extends http.BaseClient {
       return handler!(request);
     }
     return http.StreamedResponse(
-      Stream.value(utf8.encode('{"code":200,"message":"ok","data":{"success":true}}')),
+      Stream.value(
+          utf8.encode('{"code":200,"message":"ok","data":{"success":true}}')),
       200,
       headers: {'content-type': 'application/json'},
     );

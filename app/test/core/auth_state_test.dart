@@ -4,6 +4,7 @@ import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/core/models/company.dart';
 import 'package:worktodo_app/core/models/project.dart';
 import 'package:worktodo_app/core/api/token_storage.dart';
+import 'package:worktodo_app/core/errors/app_error.dart';
 import '../helpers/mock_api_client.dart';
 
 void main() {
@@ -122,7 +123,8 @@ void main() {
       final authState = AuthState(apiClient: helper.buildClient());
       await authState.bootstrap();
 
-      final ok = await authState.selectCompany(const Company(id: 2, name: '公司二'));
+      final ok =
+          await authState.selectCompany(const Company(id: 2, name: '公司二'));
 
       expect(ok, isFalse);
       expect(authState.currentCompany?.id, 1);
@@ -157,7 +159,10 @@ void main() {
         '/projects',
         {
           'detail': [
-            {'loc': ['query', 'company_id'], 'msg': '参数不合法'},
+            {
+              'loc': ['query', 'company_id'],
+              'msg': '参数不合法'
+            },
           ],
         },
         statusCode: 422,
@@ -302,7 +307,8 @@ void main() {
     });
 
     test('切换项目 selectProject 正常更新 currentProject', () async {
-      final authState = AuthState(apiClient: MockApiClientHelper().buildClient());
+      final authState =
+          AuthState(apiClient: MockApiClientHelper().buildClient());
       const p = Project(id: 99, name: '新项目');
       authState.selectProject(p);
       expect(authState.currentProject?.id, 99);
@@ -345,6 +351,34 @@ void main() {
       expect(authState.status, AuthStatus.unauthenticated);
       expect(authState.isAuthenticated, false);
       expect(authState.currentUser, isNull);
+    });
+
+    test(
+        'auth expiry clears the token and increments sessionGeneration only once',
+        () async {
+      final helper = MockApiClientHelper();
+      helper.whenGet('/protected', {'detail': 'expired'}, statusCode: 401);
+      helper.whenPost(
+        '/auth/refresh',
+        {'detail': 'refresh expired'},
+        statusCode: 401,
+      );
+      final tokenStorage = InMemoryTokenStorage(
+        access: 'access-token',
+        refresh: 'refresh-token',
+      );
+      final apiClient = helper.buildClient(tokenStorage: tokenStorage);
+      final authState = AuthState(apiClient: apiClient);
+
+      await expectLater(
+        apiClient.get('/protected'),
+        throwsA(isA<AuthException>()),
+      );
+
+      expect(tokenStorage.sessionGeneration, 1);
+      expect(tokenStorage.accessToken, isNull);
+      expect(tokenStorage.refreshToken, isNull);
+      expect(authState.status, AuthStatus.unauthenticated);
     });
 
     test('bootstrap 加载项目列表遇到网络错误（断网）时，转为 offline 状态', () async {
@@ -496,7 +530,9 @@ void main() {
 
       test('成功：拿到新公司，当前公司与项目不变，不重拉 /users/me', () async {
         final (helper, authState) = await boot();
-        final meCalls = helper.history.where((h) => h.url.path.endsWith('/users/me')).length;
+        final meCalls = helper.history
+            .where((h) => h.url.path.endsWith('/users/me'))
+            .length;
         helper.whenGet('/companies/mine', {
           'items': [
             {'id': 1, 'name': '示范集团'},
@@ -539,7 +575,8 @@ void main() {
       test('先记邀请地址再记 /messages，takeAppLocation() 仍返回邀请地址；新邀请地址可覆盖', () {
         final authState = AuthState();
         // 1. 先记邀请地址
-        authState.rememberAppLocation('/projects/invite/accept?token=invite_token_123456');
+        authState.rememberAppLocation(
+            '/projects/invite/accept?token=invite_token_123456');
         // 2. 再记普通地址，邀请地址不被覆盖
         authState.rememberAppLocation('/messages');
         expect(
@@ -548,8 +585,10 @@ void main() {
         );
 
         // 3. 新邀请地址可覆盖旧邀请地址
-        authState.rememberAppLocation('/projects/invite/accept?token=invite_token_111111');
-        authState.rememberAppLocation('/projects/invite/accept?token=invite_token_222222');
+        authState.rememberAppLocation(
+            '/projects/invite/accept?token=invite_token_111111');
+        authState.rememberAppLocation(
+            '/projects/invite/accept?token=invite_token_222222');
         expect(
           authState.takeAppLocation(),
           '/projects/invite/accept?token=invite_token_222222',
