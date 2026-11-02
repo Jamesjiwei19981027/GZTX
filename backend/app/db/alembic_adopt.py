@@ -16,7 +16,7 @@ alembic_version 表，健康检查因此报 migration=not_managed。此模块在
 import logging
 from pathlib import Path
 
-from sqlalchemy import inspect, text
+from sqlalchemy import Column, inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app.core.config import settings
@@ -38,15 +38,81 @@ def get_alembic_head() -> str:
     return ScriptDirectory.from_config(cfg).get_current_head()
 
 
+def _missing_columns(sync_conn) -> list[tuple[str, Column]]:
+    """比较 Base.metadata.sorted_tables 中库里已存在的表的列与实际列，返回缺失列列表 (table_name, Column)。"""
+    import app.models  # noqa: F401
+    from app.db.base import Base
+
+    inspector = inspect(sync_conn)
+    existing_tables = set(inspector.get_table_names())
+    missing: list[tuple[str, Column]] = []
+
+    for table in Base.metadata.sorted_tables:
+        if table.name not in existing_tables:
+            continue
+        actual_cols = {col["name"] for col in inspector.get_columns(table.name)}
+        for column in table.columns:
+            if column.name not in actual_cols:
+                missing.append((table.name, column))
+    return missing
+
+
+def _add_missing_columns(
+    sync_conn, missing: list[tuple[str, Column]]
+) -> tuple[list[str], list[str]]:
+    """为已存在的表补齐缺失列。
+
+    对可空（nullable=True）或带有 server_default 的列执行 ALTER TABLE ADD COLUMN；
+    对 NOT NULL 且无默认值的列不予自动添加，收集至 unsupported 中。
+    """
+    unsupported: list[str] = []
+    supported: list[tuple[str, Column]] = []
+
+    for table_name, column in missing:
+        if column.nullable or column.server_default is not None:
+            supported.append((table_name, column))
+        else:
+            unsupported.append(f"{table_name}.{column.name}")
+
+    if unsupported:
+        return [], unsupported
+
+    added: list[str] = []
+    quote = sync_conn.dialect.identifier_preparer.quote
+    for table_name, column in supported:
+        table_q = quote(table_name)
+        col_q = quote(column.name)
+        col_type = column.type.compile(dialect=sync_conn.dialect)
+        sql = f"ALTER TABLE {table_q} ADD COLUMN {col_q} {col_type}"
+        if column.server_default is not None:
+            arg = column.server_default.arg
+            if hasattr(arg, "text"):
+                default_val = arg.text
+            elif isinstance(arg, str):
+                default_val = (
+                    f"'{arg}'"
+                    if not (arg.startswith("'") and arg.endswith("'"))
+                    else arg
+                )
+            else:
+                default_val = str(arg)
+            sql += f" DEFAULT {default_val}"
+        sync_conn.execute(text(sql))
+        added.append(f"{table_name}.{column.name}")
+
+    return added, []
+
+
 async def adopt_alembic_if_needed(engine: AsyncEngine | None = None) -> str:
     """启动期 Alembic 纳管检查，返回处理结果（用于测试与日志）。
 
     返回值：
     - "already_managed"：已有 alembic_version 且已在迁移头，不动；
-    - "restamped"：DEBUG 下版本落后于头（schema 已被 create_all 推进）已重新 stamp；
+    - "restamped"：DEBUG 下版本落后于头（schema 已被 create_all 推进）已补齐缺列并重新 stamp；
     - "version_behind_production"：生产库版本落后，仅日志指引；
     - "no_tables"：空库（连业务表都没有），交给 create_all / alembic；
-    - "stamped"：DEBUG 下已自动 stamp head；
+    - "stamped"：DEBUG 下已自动补齐缺失列并 stamp head；
+    - "schema_drift"：DEBUG 下检测到存在无法自动补齐的缺失列（NOT NULL 且无默认值），未盖章；
     - "unmanaged_production"：生产库未纳管，仅日志指引；
     - "error"：检查/写入失败（不阻断启动）。
     """
@@ -84,6 +150,20 @@ async def adopt_alembic_if_needed(engine: AsyncEngine | None = None) -> str:
                 )
                 return "version_behind_production"
             async with engine.begin() as conn:
+                def _sync_upgrade(sync_conn):
+                    missing = _missing_columns(sync_conn)
+                    return _add_missing_columns(sync_conn, missing)
+
+                added, unsupported = await conn.run_sync(_sync_upgrade)
+                if unsupported:
+                    logger.error(
+                        "[AlembicAdopt] 检测到无法自动补齐的缺失列（NOT NULL 且无默认值）：%s。请执行 alembic upgrade head 或重建开发库。",
+                        ", ".join(unsupported),
+                    )
+                    return "schema_drift"
+                if added:
+                    logger.info("[AlembicAdopt] 已补齐 %d 个缺失列：%s", len(added), ", ".join(added))
+
                 await conn.execute(text("DELETE FROM alembic_version"))
                 await conn.execute(
                     text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
@@ -108,6 +188,20 @@ async def adopt_alembic_if_needed(engine: AsyncEngine | None = None) -> str:
 
         head = get_alembic_head()
         async with engine.begin() as conn:
+            def _sync_upgrade(sync_conn):
+                missing = _missing_columns(sync_conn)
+                return _add_missing_columns(sync_conn, missing)
+
+            added, unsupported = await conn.run_sync(_sync_upgrade)
+            if unsupported:
+                logger.error(
+                    "[AlembicAdopt] 检测到无法自动补齐的缺失列（NOT NULL 且无默认值）：%s。请执行 alembic upgrade head 或重建开发库。",
+                    ", ".join(unsupported),
+                )
+                return "schema_drift"
+            if added:
+                logger.info("[AlembicAdopt] 已补齐 %d 个缺失列：%s", len(added), ", ".join(added))
+
             await conn.execute(
                 text(
                     "CREATE TABLE alembic_version ("

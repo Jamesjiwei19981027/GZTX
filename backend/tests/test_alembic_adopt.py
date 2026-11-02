@@ -134,3 +134,94 @@ async def test_adopt_never_touches_production_db(monkeypatch):
             assert not (await conn.run_sync(_has_alembic_version))
     finally:
         await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_adopt_adds_missing_nullable_columns_on_debug(monkeypatch):
+    """DEBUG 下存量库缺失可空列：自动补齐列并 stamp head"""
+    monkeypatch.setattr(settings, "DEBUG", True)
+    engine = _memory_engine()
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            # 手工删掉 tree_nodes 的可空列 description
+            await conn.execute(text("ALTER TABLE tree_nodes DROP COLUMN description"))
+
+        async with engine.connect() as conn:
+            def _cols(sync_conn):
+                from sqlalchemy import inspect
+                return {c["name"] for c in inspect(sync_conn).get_columns("tree_nodes")}
+            cols_before = await conn.run_sync(_cols)
+            assert "description" not in cols_before
+
+        result = await adopt_alembic_if_needed(engine)
+        assert result == "stamped"
+
+        async with engine.connect() as conn:
+            cols_after = await conn.run_sync(_cols)
+            assert "description" in cols_after
+            version = (
+                await conn.execute(text("SELECT version_num FROM alembic_version"))
+            ).scalar_one()
+            assert version == get_alembic_head()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_adopt_restamps_and_adds_missing_columns(monkeypatch):
+    """已有 alembic_version 但落后于头、同样缺列：补列后返回 restamped"""
+    monkeypatch.setattr(settings, "DEBUG", True)
+    engine = _memory_engine()
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            await conn.execute(text("ALTER TABLE tree_nodes DROP COLUMN description"))
+            await conn.execute(
+                text(
+                    "CREATE TABLE alembic_version ("
+                    "version_num VARCHAR(32) NOT NULL, "
+                    "CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num))"
+                )
+            )
+            await conn.execute(
+                text("INSERT INTO alembic_version (version_num) VALUES ('stale_head')")
+            )
+
+        assert await adopt_alembic_if_needed(engine) == "restamped"
+
+        async with engine.connect() as conn:
+            def _cols(sync_conn):
+                from sqlalchemy import inspect
+                return {c["name"] for c in inspect(sync_conn).get_columns("tree_nodes")}
+            cols = await conn.run_sync(_cols)
+            assert "description" in cols
+            version = (
+                await conn.execute(text("SELECT version_num FROM alembic_version"))
+            ).scalar_one()
+            assert version == get_alembic_head()
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_adopt_reports_schema_drift_on_non_nullable_missing_column(monkeypatch):
+    """缺一个 NOT NULL 无默认值的列：返回 schema_drift 且不写入 alembic_version"""
+    monkeypatch.setattr(settings, "DEBUG", True)
+    engine = _memory_engine()
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            # tree_nodes.title 是 NOT NULL 且无默认值的列，删掉它
+            await conn.execute(text("ALTER TABLE tree_nodes DROP COLUMN title"))
+
+        result = await adopt_alembic_if_needed(engine)
+        assert result == "schema_drift"
+
+        async with engine.connect() as conn:
+            def _has_alembic_version(sync_conn):
+                from sqlalchemy import inspect
+                return inspect(sync_conn).has_table("alembic_version")
+            assert not (await conn.run_sync(_has_alembic_version))
+    finally:
+        await engine.dispose()

@@ -285,7 +285,7 @@ export default function App() {
     }
   }, [pendingTaskId, tasks]);
 
-  const refreshFromBackend = useCallback(async () => {
+  const refreshFromBackend = useCallback(async (): Promise<boolean> => {
     setLoadingBoot(true);
     setBootError(null);
     try {
@@ -380,13 +380,15 @@ export default function App() {
       }
       // 服务端偏好已灌完（成功或降级用本地值），此后才允许回写
       setPrefsHydrated(true);
+      return true;
     } catch (e) {
       setBootError(e instanceof Error ? e.message : '加载失败');
-      // A failed API request must remain visible as an error/empty state.
+      // 项目列表是导航依据，清空会让用户误以为项目被删了。保留上一次成功拿到的真实项目列表（首次加载失败时它本来就是空数组）。
+      // A failed API request must remain visible as an error/empty state for tasks and activities.
       // Injecting demo records makes authenticated users believe writes worked.
       setTasks([]);
-      setProjects([]);
       setActivities([]);
+      return false;
     } finally {
       setLoadingBoot(false);
     }
@@ -463,7 +465,7 @@ export default function App() {
         const accepted = await acceptProjectInvitation(token);
         if (cancelled) return;
         clearInviteToken();
-        await refreshFromBackend();
+        const refreshOk = await refreshFromBackend();
         if (accepted.project_id) {
           // 取真实项目名：以前直接钉「受邀项目」占位，顶栏会一直显示这个假名字
           let joined: Project = {
@@ -482,7 +484,15 @@ export default function App() {
           setCurrentProject(joined);
           switchView('team');
         }
-        setInviteNotice(settings.language === 'zh' ? '已加入受邀项目' : 'Joined invited project');
+        if (!refreshOk) {
+          setInviteNotice(
+            settings.language === 'zh'
+              ? '已加入受邀项目，但工作区刷新失败，请点重试'
+              : 'Joined invited project, but workspace refresh failed. Please retry.',
+          );
+        } else {
+          setInviteNotice(settings.language === 'zh' ? '已加入受邀项目' : 'Joined invited project');
+        }
       } catch (e) {
         if (cancelled) return;
         const message = e instanceof Error ? e.message : '';
@@ -1069,15 +1079,33 @@ export default function App() {
     <div className="min-h-screen flex flex-col bg-surface dark:bg-[#111314] text-on-surface dark:text-[#e2e2e5] font-sans transition-colors duration-200">
       {(bootError || loadingBoot || inviteNotice || taskTruncated) && (
         <div className="fixed top-16 left-0 right-0 z-[60] px-4 py-2 text-sm text-center bg-amber-50 text-amber-900 border-b border-amber-200 md:pl-[280px]">
-          {loadingBoot
-            ? '正在从后端同步…'
-            : inviteNotice
-              ? inviteNotice
-              : bootError
-                ? `后端同步提示：${bootError}（请检查后端服务后重试）`
-                : settings.language === 'zh'
-                  ? `任务过多，仅载入最近 ${taskTruncated?.loaded} / ${taskTruncated?.total} 条，请用搜索或筛选定位更早的任务`
-                  : `Too many tasks: showing the latest ${taskTruncated?.loaded} of ${taskTruncated?.total}. Use search or filters for older tasks.`}
+          {loadingBoot ? (
+            '正在从后端同步…'
+          ) : inviteNotice ? (
+            <span className="inline-flex items-center justify-center gap-2">
+              <span>{inviteNotice}</span>
+              {(inviteNotice.includes('重试') || inviteNotice.includes('retry') || inviteNotice.includes('Retry')) && (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const ok = await refreshFromBackend();
+                    if (ok) {
+                      setInviteNotice(settings.language === 'zh' ? '已加入受邀项目' : 'Joined invited project');
+                    }
+                  }}
+                  className="underline font-semibold cursor-pointer hover:text-amber-950"
+                >
+                  {settings.language === 'zh' ? '重试' : 'Retry'}
+                </button>
+              )}
+            </span>
+          ) : bootError ? (
+            `后端同步提示：${bootError}（请检查后端服务后重试）`
+          ) : settings.language === 'zh' ? (
+            `任务过多，仅载入最近 ${taskTruncated?.loaded} / ${taskTruncated?.total} 条，请用搜索或筛选定位更早的任务`
+          ) : (
+            `Too many tasks: showing the latest ${taskTruncated?.loaded} of ${taskTruncated?.total}. Use search or filters for older tasks.`
+          )}
         </div>
       )}
 

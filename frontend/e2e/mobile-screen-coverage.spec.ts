@@ -312,3 +312,61 @@ test('Mobile Screen Coverage: Full Screen Reachability & Action Button Verificat
 
   console.log('Mobile Screen Coverage: All core screens and action buttons verified successfully!');
 });
+
+test('B2: Mobile Axis Screen: shows empty state when account has no projects and bottom nav is clickable', async ({ page }) => {
+  page.on('pageerror', (err) => console.log(`coverage-pageerror: ${err.message}`));
+
+  await page.route('**/api/v1/**', async (route) => {
+    const req = route.request();
+    const url = new URL(req.url());
+    const path = url.pathname.replace('/api/v1', '');
+
+    let data: unknown = { items: [], total: 0 };
+    if (path === '/users/me/verification') {
+      data = { email_verified: true, phone_verified: true, is_verified: true };
+    } else if (path === '/categories' || path === '/tags') {
+      data = [];
+    } else if (path === '/users/me') {
+      data = {
+        id: 2,
+        username: 'no_project_user',
+        nickname: '无项目用户',
+        email: 'no_proj@enterprise.com',
+        phone: '13900000001',
+        role: '普通成员',
+        email_verified: true,
+        phone_verified: true,
+        avatar_url: '',
+      };
+    } else if (path === '/companies/mine') {
+      data = { items: [] };
+    } else if (path === '/projects') {
+      data = { items: [] };
+    } else if (path === '/tasks') {
+      data = { items: [], total: 0 };
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(data),
+    });
+  });
+
+  await page.setViewportSize({ width: 375, height: 667 });
+  await page.goto('/');
+
+  // 切换到人轴 Tab
+  const axisTab = page.locator('nav[role="tablist"]').getByRole('tab', { name: /人轴/ });
+  await expect(axisTab).toBeVisible({ timeout: 5000 });
+  await axisTab.click();
+
+  // 应该看到“请先选择具体项目”空状态提示且不是全屏遮罩
+  await expect(page.getByText('请先选择具体项目')).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText('你还没有加入任何项目，或当前是“全部项目”。加入或选择一个项目后再查看人轴。')).toBeVisible({ timeout: 5000 });
+
+  // 底部导航栏没有被遮挡，仍可点击切到“我的” Tab
+  const meTab = page.locator('nav[role="tablist"]').getByRole('tab', { name: /我的/ });
+  await expect(meTab).toBeVisible();
+  await meTab.click();
+  await expect(page.getByRole('tab', { name: /我的/ })).toHaveAttribute('aria-selected', 'true');
+});
