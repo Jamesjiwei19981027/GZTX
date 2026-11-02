@@ -252,10 +252,14 @@ void main() {
     await tester.tap(find.text('确定'));
     await tester.pumpAndSettle();
 
-    // 验证任务 102 的 dueDate 保持为所选的目标本地日期，且时刻仍为 23:30
+    // 验证任务 102 的 dueDate 保持为所选的目标本地日期，且时刻仍为原有本地时刻
+    // （夹具是 UTC 15:30，东八区为 23:30；CI 机器在 UTC，不能写死东八区）
+    final original = DateTime.parse('2026-11-02T15:30:00Z').toLocal();
+    final originalTime =
+        '${original.hour.toString().padLeft(2, '0')}:${original.minute.toString().padLeft(2, '0')}';
     final task102 = harness.api.tasks.firstWhere((t) => t.id == 102);
     expect(task102.dueDate, TaskTime.todayKey());
-    expect(task102.dueTime, '23:30');
+    expect(task102.dueTime, originalTime);
   });
 
   testWidgets('批量完成处理被跳过的只读任务并弹出未完成明确提示', (tester) async {

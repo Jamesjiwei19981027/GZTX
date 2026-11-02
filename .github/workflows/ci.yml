@@ -34,6 +34,17 @@ jobs:
       - name: Install deps
         run: pip install -r requirements-dev.txt
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/wiki-engine/package-lock.json
+
+      - name: Build wiki engine
+        # 项目 Wiki 测试会调用 wiki-engine/dist/wiki.js，与 Dockerfile 的 wiki-build 阶段一致
+        working-directory: backend/wiki-engine
+        run: npm ci && npm run build
+
       - name: Run tests
         run: pytest -q
         env:
@@ -88,6 +99,8 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
+          # 与本地开发版本一致，避免新版 lint 或渲染差异让门禁漂移
+          flutter-version: 3.44.7
           cache: true
 
       - name: Install deps
@@ -98,4 +111,6 @@ jobs:
         run: flutter analyze --no-pub
 
       - name: Unit tests
-        run: flutter test --no-pub
+        # 基准截图在 Windows 上生成，Linux 字体渲染不同必然逐像素不符；
+        # 截图对比以本地 Windows 全量测试为准，CI 只跑非截图测试
+        run: flutter test --no-pub --exclude-tags golden
