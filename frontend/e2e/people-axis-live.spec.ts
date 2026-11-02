@@ -133,7 +133,7 @@ test.describe('live touch phone', () => {
     const detail = page.getByRole('dialog', { name: '节点详情' })
     await detail.locator('.axis-detail-item').filter({ hasText: itemTitle }).getByRole('button', { name: '提交材料' }).tap()
     const evidenceForm = page.getByRole('dialog', { name: '提交材料' })
-    await evidenceForm.getByLabel('材料名称').fill('联合调试交付证明')
+    await evidenceForm.getByLabel('文字材料').fill('联合调试交付证明')
     const evidenceResponse = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/nodes/${item.data.id}/evidence`))
     await evidenceForm.locator('button[type="submit"]').tap()
     expect((await (await evidenceResponse).json()).code).toBe(200)

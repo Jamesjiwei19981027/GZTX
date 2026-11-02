@@ -136,6 +136,8 @@ test('source graph uses explicit package citations and curves follow independent
   const other = page.locator('.project-knowledge .react-flow__node[data-id="page:12"]')
   const otherBefore = await other.getAttribute('style')
   const source = page.locator('.project-knowledge .react-flow__node[data-id="package:9"]')
+  // 关系图在首屏以下，鼠标只能拖到视口内的元素
+  await source.scrollIntoViewIfNeeded()
   const box = (await source.boundingBox())!
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2 + 70, { steps: 10 }); await page.mouse.up()
   await expect.poll(() => curve.getAttribute('d')).not.toBe(before)

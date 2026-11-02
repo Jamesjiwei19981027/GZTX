@@ -213,7 +213,7 @@ test('a member can submit evidence without personnel editing rights', async ({ p
   await expect(detail.getByRole('button',{name:'编辑人员',exact:true})).toHaveCount(0)
   await detail.locator('.axis-detail-item').first().getByRole('button',{name:'提交材料',exact:true}).click()
   const form = page.getByRole('dialog',{name:'提交材料'})
-  await form.getByLabel('材料名称').fill('成员交付材料')
+  await form.getByLabel('文字材料').fill('成员交付材料')
   const submitted = page.waitForRequest(r => r.method()==='POST' && r.url().endsWith('/nodes/21/evidence'))
   await form.getByRole('button',{name:'提交材料',exact:true}).click()
   expect((await submitted).postDataJSON().summary_text).toContain('成员交付材料')

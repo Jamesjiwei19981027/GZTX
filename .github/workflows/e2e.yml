@@ -72,15 +72,16 @@ jobs:
         working-directory: frontend
         run: npx playwright install --with-deps chromium
 
-      - name: Build & preview frontend
+      - name: Start frontend dev server
         working-directory: frontend
         env:
-          # vite preview 的 /api 代理默认打 8010（本机 Docker 后端），
+          # vite 的 /api 代理默认打 8010（本机 Docker 后端），
           # CI 里后端起在 8000，必须显式指过去（见 frontend/vite.config.ts）
           DEV_API_TARGET: http://127.0.0.1:8000
+        # 用例大多直接加载 /src、/@react-refresh、/node_modules/.vite 下的源码模块挂载单个组件，
+        # 只有开发服务器能提供；打包产物由 ci.yml 的前端 job 验证，这里不再 build + preview
         run: |
-          npm run build
-          npx vite preview --port 5173 --host 127.0.0.1 &
+          npx vite --port 5173 --host 127.0.0.1 &
           for i in $(seq 1 60); do
             curl -fsS http://127.0.0.1:5173 >/dev/null && break
             sleep 1

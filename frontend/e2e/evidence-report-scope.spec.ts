@@ -62,7 +62,8 @@ function App(){const [project,setProject]=React.useState(projects[0]);return Rea
 ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));`) }));
   await page.goto('/');
   await page.getByPlaceholder('输入项目进展与工作事实…').fill('项目 A 的事实');
-  await page.getByPlaceholder('输入项目进展与工作事实…').press('Enter');
+  // 输入框 Enter 为换行，Ctrl/Cmd+Enter 或发送按钮才提交
+  await page.getByRole('button', { name: '发送项目进展', exact: true }).click();
   await expect.poll(() => Boolean(finishReply)).toBe(true);
   await page.getByLabel('汇报项目', { exact: true }).selectOption('2');
   await expect(page.getByText('项目 A 的事实', { exact: true })).toHaveCount(0);
