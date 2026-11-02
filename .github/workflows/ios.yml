@@ -1,0 +1,51 @@
+# iOS 云端编译：本地是 Windows，不能编 iOS，这里用 GitHub 的 macOS 机器
+# 做分析、全量测试、模拟器包编译和无签名真机包编译，产物可下载。
+# 没有开发者账号前不做签名和真机安装。
+name: iOS
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, app]
+    paths:
+      - 'app/**'
+      - '.github/workflows/ios.yml'
+
+jobs:
+  ios:
+    name: Flutter iOS (test + build)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install deps
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-pub
+
+      # 基准截图在 Windows 上生成，macOS 字体渲染不同会逐像素失败；截图对比以本机 Windows 全量测试为准
+      - name: Unit tests
+        run: flutter test --no-pub --exclude-tags golden
+
+      - name: Build for iPhone simulator
+        run: flutter build ios --simulator --debug --no-pub
+
+      - name: Build for device (no codesign)
+        run: flutter build ios --release --no-codesign --no-pub
+
+      - name: Upload simulator app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator-app
+          path: app/build/ios/iphonesimulator/Runner.app
+          retention-days: 7
