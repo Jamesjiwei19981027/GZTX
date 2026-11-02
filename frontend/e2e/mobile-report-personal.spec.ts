@@ -192,12 +192,14 @@ test('Mobile personal report flow: AI chat, draft editor, submit & delivery stat
   await expect(page.getByText('编辑我的 AI 汇报')).toBeVisible();
   await expect(page.getByText('草稿 · 仅自己可见')).toBeVisible();
 
-  // 验证直属领导为王宁，非自己
-  await expect(page.getByText('王宁')).toBeVisible();
+  // 没有服务器草稿时，接收人由后端按人轴确定
+  await expect(page.getByText('提交时由系统按人轴确定直属接收人')).toBeVisible();
 
   // 点击 "重新生成" 提取事实草稿
   await page.getByRole('button', { name: '重新生成' }).click();
   await expect(page.getByText('已成功基于当前项目任务与资料生成最新事实汇报草稿')).toBeVisible();
+  // 重新生成返回 parent_user_id 后才显示直属领导王宁
+  await expect(page.getByText('王宁', { exact: true })).toBeVisible();
   await expect(page.getByText('移动端交互原型')).toBeVisible();
 
   // 4. 点击 "确认提交" 进入 ID 38：送达与流转状态
