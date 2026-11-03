@@ -340,25 +340,69 @@ for (const width of [1420, 1099]) {
     for (const direction of ['横向', '纵向']) {
       await page.getByRole('button', { name: direction, exact: true }).click()
       await expectCanvasFits(page)
-      const boxes = await Promise.all(['__terminus__', '1', '2', '3', '4'].map(id => page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()))
-      const [pm, a, b, parent, child] = boxes.map(box => box!)
+      const boxes = await Promise.all(['1', '2', '3', '4'].map(id => page.locator(`.react-flow__node[data-id="${id}"]`).boundingBox()))
+      const [r1, r2, parent, child] = boxes.map(box => box!)
       if (direction === '横向') {
-        expect(Math.abs(a.x - b.x)).toBeLessThan(3)
-        expect(pm.x + pm.width).toBeLessThan(a.x)
+        expect(Math.abs(r1.x - r2.x)).toBeLessThan(3)
         expect(child.x).toBeGreaterThan(parent.x + parent.width)
       } else {
-        expect(Math.abs(a.y - b.y)).toBeLessThan(3)
-        expect(pm.y + pm.height).toBeLessThan(a.y)
+        expect(Math.abs(r1.y - r2.y)).toBeLessThan(3)
         expect(child.y).toBeGreaterThan(parent.y + parent.height)
       }
+      await expect(page.locator('.react-flow__node[data-id="1"] .axis-terminal-badge')).toBeVisible()
       await expect(page.locator('.react-flow__node[data-id="3"]')).toContainText('一级负责人')
       await expect(page.locator('.react-flow__node[data-id="4"]')).toContainText('二级负责人')
-      await expect(page.locator('.react-flow__edge[data-id="project-owner-2"]')).toHaveCount(1)
-      await expect(page.locator('.react-flow__edge[data-id="spine-1"]')).toHaveCount(0)
+      await expect(page.locator('.react-flow__edge[data-id="branch-4"]')).toHaveCount(1)
       await page.screenshot({ path: test.info().outputPath(`hierarchy-${direction}.png`) })
     }
   })
 }
+
+test('straight mode snaps subordinate card within 16px to parent horizontal axis and persists', async ({ page }) => {
+  await page.setViewportSize({ width: 1420, height: 884 })
+  await openWorkspace(page)
+  // Ensure in overview and horizontal orientation
+  await page.getByRole('button', { name: '横向', exact: true }).click()
+  // Switch to straight line mode
+  await page.getByRole('button', { name: '直线', exact: true }).click()
+  await expect(page.getByRole('button', { name: '直线', exact: true })).toHaveAttribute('aria-pressed', 'true')
+
+  const parentNode = page.locator('.react-flow__node[data-id="3"]')
+  const childNode = page.locator('.react-flow__node[data-id="4"]')
+  await expect(parentNode).toBeVisible()
+  await expect(childNode).toBeVisible()
+
+  const parentBox = (await parentNode.boundingBox())!
+  const childBox = (await childNode.boundingBox())!
+
+  // Drag child card to be near parent's horizontal centerline with 10px offset (delta < 16px)
+  const startX = childBox.x + childBox.width / 2
+  const startY = childBox.y + childBox.height / 2
+  const targetY = parentBox.y + 10 + childBox.height / 2
+
+  await page.mouse.move(startX, startY)
+  await page.mouse.down()
+  await page.mouse.move(startX, targetY, { steps: 15 })
+  await page.mouse.move(startX, targetY + 1)
+  await expect(page.locator('.axis-snap-guide')).toBeVisible()
+  await page.mouse.up()
+
+  // Verify snapped position (y aligns with parent.y)
+  await expect.poll(async () => {
+    const p = await parentNode.boundingBox()
+    const c = await childNode.boundingBox()
+    return p && c ? Math.abs(c.y - p.y) < 2 : false
+  }).toBeTruthy()
+
+  // Reload to verify persisted alignment
+  await page.reload()
+  await page.getByRole('button', { name: '横向', exact: true }).click()
+  await expect.poll(async () => {
+    const p = await page.locator('.react-flow__node[data-id="3"]').boundingBox()
+    const c = await page.locator('.react-flow__node[data-id="4"]').boundingBox()
+    return p && c ? Math.abs(c.y - p.y) < 2 : false
+  }).toBeTruthy()
+})
 
 test('member role, reporting path and project-specific responsibility survive switching', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })

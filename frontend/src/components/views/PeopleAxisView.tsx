@@ -11,15 +11,14 @@ import {
   listNodeEvidence,
   listProjectMembers,
   moveNode,
-  setFinalOwnerPosition,
   submitEvidence,
 } from '../../api/backend';
-import { mapMember, mapTreeToPeopleAxis } from '../../api/mappers';
+import { mapMember, mapTreeToPeopleAxis, extraRootIds } from '../../api/mappers';
 import { withAxisPersonMetadata } from '../../api/axisPerson';
 import { getMyPermissions, getPeopleAxisAggregate, putNodeLayout, runAxisAudit, MyProjectPermissions } from '../../api/shell';
 import { fetchMe } from '../../api/auth';
 import { averagePeopleAxisProgress } from './peopleAxisUtils';
-import { AxisFlowNode, PersonNodeData, SpineEdgeData } from './PeopleAxisFlowCanvas';
+import { AxisFlowNode, PersonNodeData } from './PeopleAxisFlowCanvas';
 import { computeAxisLayout, collectHiddenNodeIds, responsibilityScope } from './peopleAxisFlowLayout';
 import { DelegationModal } from '../modals/DelegationModal';
 import { ResponsibilityWorkspace, AxisDialog, useAxisMobile, type AxisProjectSummary } from './ResponsibilityWorkspace';
@@ -27,8 +26,6 @@ import { EditResponsibilityPerson } from './EditResponsibilityPerson';
 import { ResponsibilityPermissionFields, defaultResponsibilityPermissions } from './ResponsibilityPermissionFields';
 import { ProjectWikiPanel } from './ProjectWikiPanel';
 import { uploadEvidenceFile } from '../../api/projectWiki';
-
-const TERMINUS_NODE_ID = '__terminus__';
 
 function asBackendId(id?: string | null): number | null {
   if (!id) return null;
@@ -160,7 +157,22 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const [isAddingWorkItem, setIsAddingWorkItem] = useState<string | null>(null); // nodeId
   const [isAddingEvidence, setIsAddingEvidence] = useState<string | null>(null); // workItemId
   const [syncStatus, setSyncStatus] = useState<'synced' | 'syncing'>('synced');
-  const [alongDelta, setAlongDelta] = useState(0);
+  const [edgeStyle, setEdgeStyle] = useState<'curve' | 'straight'>(() => {
+    try {
+      const stored = localStorage.getItem('people_axis_edge_style');
+      return stored === 'straight' ? 'straight' : 'curve';
+    } catch {
+      return 'curve';
+    }
+  });
+  const handleEdgeStyleChange = useCallback((style: 'curve' | 'straight') => {
+    setEdgeStyle(style);
+    try {
+      localStorage.setItem('people_axis_edge_style', style);
+    } catch {
+      // ignore
+    }
+  }, []);
   const [auditLoading, setAuditLoading] = useState(false);
 
   // Flagship Visual Controls
@@ -282,7 +294,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     setProjectCompanyId(null);
     setProjectMembers([]);
     setPmUserId(null);
-    setAlongDelta(0);
     setFinalOwner({ name: lang === 'zh' ? '待指定' : 'Unassigned', avatar: '' });
     const apply = (loaded: PeopleAxisNode[]) => {
       if (cancelled) return;
@@ -377,7 +388,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           name: proj.final_owner?.nickname || proj.final_owner?.username || ownerMember?.name || (lang === 'zh' ? '待指定' : 'Unassigned'),
           avatar: proj.final_owner?.avatar_url || ownerMember?.avatar || '',
         });
-        setAlongDelta(proj.final_owner_along_delta || 0);
         setPmUserId(proj.pm_user_id ?? null);
         setProjectCompanyId(proj.company_id ?? null);
         apply(withEvidence);
@@ -455,63 +465,56 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       const dueIn = (days: number) =>
         new Date(Date.now() + days * 86400000).toISOString();
 
-      // 主干第一人：能对上项目成员就挂真人，否则只留标题（占位人）
-      const lead = await createNode(backendProjectId, {
-        parent_id: null,
-        node_type_key: 'person',
-        title: primaryMember?.name || (zh ? '负责人 A' : 'Person A'),
-        description: zh ? '示例：模块负责人' : 'Sample: module lead',
-        sort_order: 0,
-        assignees: primaryMember ? [{ user_id: Number(primaryMember.id), role_key: 'primary' }] : [],
-      });
-
-      // 事项只能落在人身上（服务端强制），所以两个事项都挂在 lead 下
-      await createNode(backendProjectId, {
-        parent_id: lead.id,
-        node_type_key: 'work_item',
-        title: zh ? '示例：完成需求评审' : 'Sample: finish requirement review',
-        due_at: dueIn(7),
-        sort_order: 0,
-      });
-      await createNode(backendProjectId, {
-        parent_id: lead.id,
-        node_type_key: 'milestone',
-        title: zh ? '示例：一期验收' : 'Sample: phase-1 acceptance',
-        due_at: dueIn(21),
-        sort_order: 1,
-      });
-
-      // 人挂人 = 下级人员
-      await createNode(backendProjectId, {
-        parent_id: lead.id,
-        node_type_key: 'person',
-        title: memberOptions[1]?.name || (zh ? '下级 B' : 'Subordinate B'),
-        description: zh ? '示例：下级执行人' : 'Sample: subordinate',
-        sort_order: 2,
-        assignees: memberOptions[1]
-          ? [{ user_id: Number(memberOptions[1].id), role_key: 'primary' }]
-          : [],
-      });
-
-      // 终责：优先挂项目 PM 本人，钉在轴终点
+      // 终责人为单根
       const terminalMember =
-        memberOptions.find((m) => Number(m.id) === pmUserId) || memberOptions[2];
-      await createNode(backendProjectId, {
+        memberOptions.find((m) => Number(m.id) === pmUserId) || memberOptions[0];
+      const root = await createNode(backendProjectId, {
         parent_id: null,
         node_type_key: 'person',
-        title: terminalMember?.name || (zh ? '终责 PM' : 'Terminal PM'),
+        title: terminalMember?.name || (zh ? '项目终责' : 'Final Owner'),
         description: zh ? '示例：项目终责' : 'Sample: final owner',
-        sort_order: 1,
+        sort_order: 0,
         assignees: terminalMember
           ? [{ user_id: Number(terminalMember.id), role_key: 'primary' }]
           : [],
       });
 
+      // 事项落在终责人下
+      await createNode(backendProjectId, {
+        parent_id: root.id,
+        node_type_key: 'work_item',
+        title: zh ? '示例：项目总体规划' : 'Sample: project roadmap',
+        due_at: dueIn(7),
+        sort_order: 0,
+      });
+
+      // 人挂人 = 下级人员，挂在终责根下
+      const subMember =
+        memberOptions.find((m) => Number(m.id) !== Number(terminalMember?.id)) || memberOptions[1];
+      const sub = await createNode(backendProjectId, {
+        parent_id: root.id,
+        node_type_key: 'person',
+        title: subMember?.name || (zh ? '模块负责人' : 'Module Lead'),
+        description: zh ? '示例：模块负责人' : 'Sample: module lead',
+        sort_order: 1,
+        assignees: subMember
+          ? [{ user_id: Number(subMember.id), role_key: 'primary' }]
+          : [],
+      });
+
+      await createNode(backendProjectId, {
+        parent_id: sub.id,
+        node_type_key: 'work_item',
+        title: zh ? '示例：完成需求评审' : 'Sample: finish requirement review',
+        due_at: dueIn(14),
+        sort_order: 0,
+      });
+
       await reloadAxisFromBackend();
       showToast(
         zh
-          ? '已生成示例人轴：3 人 + 2 事项 + 终责，可直接改或删'
-          : 'Sample axis created: 3 people, 2 items, terminal owner. Edit or delete freely.',
+          ? '已生成示例人轴：单根终责 + 下属分工，可直接改或删'
+          : 'Sample axis created: single accountable root with team owners.',
       );
     } catch (e) {
       showToast(
@@ -640,8 +643,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   // Automatic hierarchy plus persisted manual positions. Moving a card never
   // changes its reporting relationship; that uses the explicit re-link action.
   const layout = useMemo(
-    () => computeAxisLayout(scopedNodes, treeOrientation, expandedNodes, alongDelta),
-    [scopedNodes, treeOrientation, expandedNodes, alongDelta],
+    () => computeAxisLayout(scopedNodes, treeOrientation, expandedNodes),
+    [scopedNodes, treeOrientation, expandedNodes],
   );
   const layoutRef = useRef(layout);
   layoutRef.current = layout;
@@ -747,15 +750,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         draggable: !linkingSourceNodeId && (canEditAny || editableNodeIds.has(n.id)),
       });
     });
-    if (layout.trunkOrder.length > 0) {
-      list.push({
-        id: TERMINUS_NODE_ID,
-        type: 'terminus',
-        position: layout.terminusPosition,
-        data: { lang, progress: totalProjectProgress, name: finalOwner.name, avatar: finalOwner.avatar },
-        draggable: false,
-      });
-    }
     return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -767,22 +761,27 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
   const rfEdges = useMemo<Edge[]>(() => {
     const edges: Edge[] = [];
-    const spineData: SpineEdgeData = { orientation: treeOrientation, spineCoord: layout.spineCoord };
-    layout.trunkOrder.forEach(id => {
-      edges.push({ id: `project-owner-${id}`, source: TERMINUS_NODE_ID, target: id, type: 'spine', data: spineData });
-    });
     scopedNodes.forEach((n) => {
       if (!n.parentId) return;
       if (hiddenNodeIds.has(n.id) || hiddenNodeIds.has(n.parentId)) return;
-      edges.push({ id: `branch-${n.id}`, source: n.parentId, target: n.id, type: 'branch', data: {...spineData, attachmentKind: n.nodeOrigin || 'project'} });
+      edges.push({
+        id: `branch-${n.id}`,
+        source: n.parentId,
+        target: n.id,
+        type: 'branch',
+        data: {
+          orientation: treeOrientation,
+          attachmentKind: n.nodeOrigin || 'project',
+          edgeStyle,
+        },
+      });
     });
     return edges;
-  }, [scopedNodes, layout, hiddenNodeIds, treeOrientation]);
+  }, [scopedNodes, hiddenNodeIds, treeOrientation, edgeStyle]);
 
   // 拖拽期间位置由画布内部状态驱动（避免每帧重渲染引起闪烁）；
   // 拖拽结束才换算成相对布局基准的偏移量，更新本地状态并落盘后端
   const handleNodeDragStop = useCallback((id: string, position: { x: number; y: number }) => {
-    if (id === TERMINUS_NODE_ID) return;
     if (!isBackendProject || !canEditAny && !editableNodeIds.has(id)) return;
     const base = layoutRef.current.positions.get(id);
     if (!base) return;
@@ -1276,12 +1275,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       .finally(() => setAuditLoading(false));
   }, [isBackendProject, backendProjectId, lang, showToast]);
 
-  const saveAlongDelta = useCallback(() => {
-    if (!isBackendProject) return;
-    void setFinalOwnerPosition(backendProjectId, alongDelta)
-      .then(() => showToast(lang === 'zh' ? '终责偏移已保存' : 'Terminus offset saved'))
-      .catch((err) => showToast(err instanceof Error ? err.message : '保存失败'));
-  }, [isBackendProject, backendProjectId, alongDelta, lang, showToast]);
+  const extraRoots = useMemo(() => extraRootIds(nodes), [nodes]);
 
   return (
     <div className="axis-view-root">
@@ -1295,14 +1289,28 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         progress={averagePeopleAxisProgress(scopedNodes)} syncing={syncStatus === 'syncing'} error={backendLoadError}
         mobile={mobile} finalOwner={finalOwner} canAdd={isBackendProject && canMountSomething}
         onAdd={() => {
+          if (nodes.length === 0 && pmUserId != null) {
+            setNewPersonId(String(pmUserId));
+            const pmMember = memberOptions.find(m => Number(m.id) === pmUserId);
+            if (pmMember) {
+              setNewRoleTitle(lang === 'zh' ? '项目终责' : 'Final Owner');
+            }
+          } else {
+            setNewPersonId('');
+            setNewRoleTitle('');
+          }
           setNewParentId(canMoveNodes ? '' : (nodes.find(n => canAddSubordinate(n.id))?.id || ''));
           setNewNodeOrigin(canMoveNodes ? 'project' : 'subordinate');
           setNewNodePermissions(defaultResponsibilityPermissions);
           setIsAddingNode(true);
         }}
         onOrientation={setTreeOrientation}
+        edgeStyle={edgeStyle}
+        onEdgeStyle={handleEdgeStyleChange}
+        extraRoots={extraRoots}
         canvas={{
           lang, nodes: rfNodes, edges: rfEdges, orientation: treeOrientation,
+          edgeStyle,
           linkingSourceNodeId, onNodeDragStop: handleNodeDragStop, onPaneClick: handlePaneClick,
           onResetLayout: () => { resetAllDragOffsets(); setCanvasResetToken(n => n + 1); },
           resetToken: canvasResetToken,
@@ -1316,8 +1324,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           name: projects?.find(project => project.id === String(backendProjectId))?.name || projectName || `${lang === 'zh' ? '项目' : 'Project'} #${backendProjectId}` })}
         onDelegate={isBackendProject && projectCompanyId != null
           ? () => setIsDelegationOpen(true) : undefined}
-        alongDelta={alongDelta} onAlongChange={setAlongDelta} onAlongSave={saveAlongDelta}
-        canPositionOwner={isBackendProject && meId != null && (meId === pmUserId || meId === projectCreator)}
         onSeed={() => void seedSampleAxis()} seeding={seedingSample} isProject={isBackendProject}
       />
       {isBackendProject && selectedNodeId && nodes.find(node => node.id === selectedNodeId) && <PersonMembershipActions

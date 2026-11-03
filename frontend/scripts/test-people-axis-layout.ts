@@ -33,30 +33,57 @@ const node = (id: string, parentId: string | undefined, orderOnAxis = 0): People
   workItems: [],
 })
 
-// 树：head(主干0) - l1(主干1) - l2(主干2)；l1 下挂 c1、c2；c1 下挂 g1
+// 与 APP 端对齐的样例树期望坐标一致性断言
+const sampleTree = [
+  node('R', undefined, 0),
+  node('A', 'R', 1),
+  node('B', 'R', 2),
+  node('A1', 'A', 0),
+  node('A2', 'A', 1),
+]
+
+const sampleH = computeAxisLayout(sampleTree, 'horizontal', {})
+assert(sampleH.positions.get('R')!.x === 0 && sampleH.positions.get('R')!.y === 216, 'sample tree horizontal: R(0, 216)')
+assert(sampleH.positions.get('A')!.x === 328 && sampleH.positions.get('A')!.y === 108, 'sample tree horizontal: A(328, 108)')
+assert(sampleH.positions.get('B')!.x === 328 && sampleH.positions.get('B')!.y === 432, 'sample tree horizontal: B(328, 432)')
+assert(sampleH.positions.get('A1')!.x === 656 && sampleH.positions.get('A1')!.y === 0, 'sample tree horizontal: A1(656, 0)')
+assert(sampleH.positions.get('A2')!.x === 656 && sampleH.positions.get('A2')!.y === 216, 'sample tree horizontal: A2(656, 216)')
+
+const sampleV = computeAxisLayout(sampleTree, 'vertical', {})
+assert(sampleV.positions.get('R')!.x === 288 && sampleV.positions.get('R')!.y === 0, 'sample tree vertical: R(288, 0)')
+assert(sampleV.positions.get('A')!.x === 144 && sampleV.positions.get('A')!.y === 256, 'sample tree vertical: A(144, 256)')
+assert(sampleV.positions.get('B')!.x === 576 && sampleV.positions.get('B')!.y === 256, 'sample tree vertical: B(576, 256)')
+assert(sampleV.positions.get('A1')!.x === 0 && sampleV.positions.get('A1')!.y === 512, 'sample tree vertical: A1(0, 512)')
+assert(sampleV.positions.get('A2')!.x === 288 && sampleV.positions.get('A2')!.y === 512, 'sample tree vertical: A2(288, 512)')
+
+const singleRootH = computeAxisLayout([node('r0', undefined, 0)], 'horizontal', {})
+assert(singleRootH.positions.get('r0')!.x === 0 && singleRootH.positions.get('r0')!.y === 0, 'single root at origin horizontal')
+const singleRootV = computeAxisLayout([node('r0', undefined, 0)], 'vertical', {})
+assert(singleRootV.positions.get('r0')!.x === 0 && singleRootV.positions.get('r0')!.y === 0, 'single root at origin vertical')
+
+// 单根树：root -> child -> grandchild；child has two siblings.
 const nodes = [
   node('head', undefined, 0),
-  node('l1', undefined, 1),
-  node('l2', undefined, 2),
-  node('c1', 'l1'),
-  node('c2', 'l1'),
-  node('g1', 'c1'),
+  node('l1', 'head', 1),
+  node('l2', 'head', 2),
+  node('c1', 'l1', 0),
+  node('c2', 'l1', 1),
+  node('g1', 'c1', 0),
 ]
 
 // Responsibility depth advances along the chosen orientation. Peers never
 // become each other's managers merely because of their display order.
 for (const orientation of ['horizontal', 'vertical'] as const) {
-  const layout = computeAxisLayout(nodes, orientation, {}, 0)
+  const layout = computeAxisLayout(nodes, orientation, {})
   const main = (id: string) => orientation === 'horizontal' ? layout.positions.get(id)!.x : layout.positions.get(id)!.y
   const cross = (id: string) => orientation === 'horizontal' ? layout.positions.get(id)!.y : layout.positions.get(id)!.x
-  assert(main('head') === main('l1') && main('l1') === main('l2'), `${orientation}: first-level owners share one tier`)
+  assert(main('head') === 0, `${orientation}: single root starts at the origin`)
+  assert(main('l1') - main('head') === (orientation === 'horizontal' ? 328 : 256), `${orientation}: child level step is fixed`)
   assert(main('c1') > main('l1') && main('g1') > main('c1'), `${orientation}: each reporting level advances`)
   assert(main('c1') === main('c2') && cross('c1') !== cross('c2'), `${orientation}: siblings remain peers`)
-  const root = orientation === 'horizontal' ? layout.terminusPosition.x : layout.terminusPosition.y
-  assert(root < main('head'), `${orientation}: project final owner heads the hierarchy`)
-  const spaced = computeAxisLayout(nodes, orientation, {}, 120)
-  const spacedRoot = orientation === 'horizontal' ? spaced.terminusPosition.x : spaced.terminusPosition.y
-  assert(spacedRoot === root - 120, `${orientation}: spacing moves final owner away from the first tier`)
+  const expectedCenter = (cross('c1') + cross('c2')) / 2
+  assert(cross('l1') === expectedCenter,
+    `${orientation}: parent is centered over its child subtree`)
 }
 
 // Wide and deep branches must remain separate in either orientation, including
@@ -68,7 +95,7 @@ const wideTree = [
   node('g2', 'c2'), node('g3', 'c3'), node('l2-child', 'l2'),
 ]
 for (const orientation of ['horizontal', 'vertical'] as const) {
-  const result = computeAxisLayout(wideTree, orientation, {}, 0)
+  const result = computeAxisLayout(wideTree, orientation, {})
   const positions = [...result.positions.entries()]
   for (let a = 0; a < positions.length; a++) {
     for (let b = a + 1; b < positions.length; b++) {
@@ -78,12 +105,13 @@ for (const orientation of ['horizontal', 'vertical'] as const) {
         `${orientation}: cards ${aid}/${bid} have readable separation`)
     }
   }
-  const end = result.terminusPosition
-  assert(positions.every(([, p]) => orientation === 'horizontal'
-    ? end.x < p.x : end.y < p.y), `${orientation}: final owner precedes all branches`)
-  const collapsed = computeAxisLayout(wideTree, orientation, { l1: false }, 0)
-  assert(!collapsed.positions.has('c1') && !collapsed.positions.has('g1'), 'collapsed descendants have no canvas positions')
+  const collapsed = computeAxisLayout(wideTree, orientation, { l1: false })
+  assert(collapsed.positions.has('l1') && !collapsed.positions.has('c1') && !collapsed.positions.has('g1'), 'collapsed descendants do not occupy span')
 }
+
+const multiRoot = computeAxisLayout([node('r1', undefined, 0), node('r2', undefined, 1)], 'horizontal', {})
+assert(multiRoot.roots.map(n => n.id).join(',') === 'r1,r2', 'multiple roots are returned in tree order')
+assert(multiRoot.positions.get('r2')!.y > multiRoot.positions.get('r1')!.y, 'multiple roots are laid out side by side')
 
 // --- 折叠隐藏 ---
 const hiddenAll = collectHiddenNodeIds(nodes, { l1: false })

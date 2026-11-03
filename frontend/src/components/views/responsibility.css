@@ -6,6 +6,17 @@
   color: var(--axis-ink); font-family: -apple-system, BlinkMacSystemFont, 'Inter Variable', 'Noto Sans SC Variable', 'Segoe UI', sans-serif;
   font-size: 14px; line-height: 1.5; -webkit-tap-highlight-color: transparent;
 }
+
+/* People axis card task summary and root emphasis */
+.axis-map-card.is-terminal { border-color: #d99a35; }
+.axis-terminal-badge { color: #a66b00 !important; background: #fff1cc !important; }
+.axis-card-tasks { display: flex; flex-direction: column; gap: 4px; min-height: 28px; font-size: 11px; }
+.axis-card-task { display: flex; justify-content: space-between; gap: 8px; min-width: 0; }
+.axis-card-task time { color: var(--axis-muted); font-variant-numeric: tabular-nums; }
+.axis-card-task time.is-overdue { color: #c43d3d; font-weight: 650; }
+.axis-card-empty { color: var(--axis-muted); }
+.axis-map-card-foot { width: 100%; border: 0; background: transparent; padding: 0; text-align: left; cursor: pointer; }
+.axis-multi-root-notice { margin: 8px 20px; padding: 9px 12px; border-radius: 10px; background: #fff1cc; color: #8a5a00; font-size: 12px; }
 .dark .axis-theme, .axis-theme:where(.dark *) {
   --axis-bg: #14181e; --axis-card: #1d232c; --axis-ink: #eef2f8; --axis-muted: #a0a9b7;
   --axis-line: #303844; --axis-soft: #242c36; --axis-blue: #80b7ff; --axis-tint: #21344e;
@@ -106,7 +117,7 @@
 .axis-preview-management { margin-top: 10px; }
 .axis-control-square.axis-move-mode { padding: 0 10px; gap: 5px; font-size: 11px; }
 .axis-control-square.axis-move-mode.is-active { background: var(--axis-blue); color: var(--axis-card); }
-.axis-move-hint { background: var(--axis-tint); color: var(--axis-blue); padding: 8px 12px; border-radius: 12px; font-size: 11px; white-space: nowrap; }
+.axis-move-hint { background: var(--axis-tint); color: var(--axis-blue); padding: 8px 12px; border-radius: 12px; font-size: 11px; white-space: nowrap; pointer-events: none; }
 .axis-form-error { color: #b34545; font-size: 12px; }
 .axis-person-heading { display: flex; align-items: center; gap: 11px; min-width: 0; }
 .axis-avatar { width: 46px; height: 46px; border-radius: 50%; background: var(--axis-tint); color: var(--axis-blue); display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; font-weight: 600; font-size: 20px; position: relative; overflow: hidden; }

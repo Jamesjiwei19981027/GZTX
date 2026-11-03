@@ -84,16 +84,15 @@ type Props = {
   onAdd: () => void
   canvas: PeopleAxisFlowCanvasProps
   onOrientation: (orientation: 'horizontal' | 'vertical') => void
+  edgeStyle: 'curve' | 'straight'
+  onEdgeStyle: (style: 'curve' | 'straight') => void
+  extraRoots?: string[]
   onAddEvidence: (itemId: string) => void
   onAudit: () => void
   onOpenWiki?: () => void
   auditing: boolean
   onReload: () => void
   onDelegate?: () => void
-  alongDelta: number
-  onAlongChange: (value: number) => void
-  onAlongSave: () => void
-  canPositionOwner: boolean
   onSeed: () => void
   seeding: boolean
   isProject: boolean
@@ -290,16 +289,31 @@ export function ResponsibilityWorkspace(p: Props) {
           <button role="tab" aria-selected={mode === 'chain'} aria-controls="axis-view-panel" onClick={() => { p.canvas.onCancelLinking?.(); setMode('chain'); setDetailOpen(false) }}>{zh ? '责任链' : 'Chain'}</button>
           <button role="tab" aria-selected={mode === 'overview'} aria-controls="axis-view-panel" onClick={() => { setMode('overview'); setDetailOpen(false); p.onSelect(null) }}>{zh ? '总览' : 'Overview'}</button>
         </div>
-          {mode === 'overview' && <div className="axis-orientation" role="group" aria-label={zh ? '主轴方向' : 'Orientation'}>
-            {(['vertical', 'horizontal'] as const).map(direction => <button key={direction} aria-pressed={p.canvas.orientation === direction} onClick={() => p.onOrientation(direction)}>
-              {zh ? direction === 'vertical' ? '纵向' : '横向' : direction === 'vertical' ? 'Vertical' : 'Horizontal'}
-            </button>)}
+          {mode === 'overview' && <div className="flex items-center gap-2">
+            <div className="axis-orientation" role="group" aria-label={zh ? '主轴方向' : 'Orientation'}>
+              {(['vertical', 'horizontal'] as const).map(direction => <button key={direction} aria-pressed={p.canvas.orientation === direction} onClick={() => p.onOrientation(direction)}>
+                {zh ? direction === 'vertical' ? '纵向' : '横向' : direction === 'vertical' ? 'Vertical' : 'Horizontal'}
+              </button>)}
+            </div>
+            <div className="axis-orientation" role="group" aria-label={zh ? '连线样式' : 'Edge style'}>
+              <button aria-pressed={p.edgeStyle !== 'straight'} onClick={() => p.onEdgeStyle('curve')}>
+                {zh ? '曲线' : 'Curve'}
+              </button>
+              <button aria-pressed={p.edgeStyle === 'straight'} onClick={() => p.onEdgeStyle('straight')}>
+                {zh ? '直线' : 'Straight'}
+              </button>
+            </div>
           </div>}
         </div>
         <div className="axis-attachment-legend" aria-label={zh ? '责任结构图例' : 'Structure legend'}><span><i />{zh ? '项目定义' : 'Project definition'}</span><span className="is-subordinate"><i />{zh ? '下辖分支 · 独立挂载' : 'Subordinate attachment'}</span></div>
         <div className="axis-view-panel" role="tabpanel" id="axis-view-panel" aria-label={zh ? mode === 'chain' ? '责任链' : '总览' : mode}>
           {p.nodes.length > 0 ? mode === 'chain' ? renderChain() : <div className="axis-overview" data-testid="axis-overview">
-            <PeopleAxisFlowCanvas {...p.canvas} mobile={p.mobile} hasPreview={hasPreview} focusNodeId={p.selectedId} focusToken={focusToken} />
+            {p.extraRoots && p.extraRoots.length > 0 && (
+              <div className="axis-multi-root-notice" role="alert">
+                {zh ? '该项目存在多个根节点，请联系管理员整理' : '该项目存在多个根节点，请联系管理员整理'}
+              </div>
+            )}
+            <PeopleAxisFlowCanvas {...p.canvas} edgeStyle={p.edgeStyle} mobile={p.mobile} hasPreview={hasPreview} focusNodeId={p.selectedId} focusToken={focusToken} />
             {!p.canvas.linkingSourceNodeId && <p className="axis-canvas-hint">{zh ? p.mobile ? '双指缩放 · 拖动浏览' : '拖动节点调整位置 · 拖动空白浏览' : 'Drag cards to move · drag blank space to pan'}</p>}
             {hasPreview && selected && <div className="axis-node-preview" data-testid="axis-node-preview"><div className="axis-sheet-handle" />
               <button className="axis-preview-close axis-icon-button" aria-label={zh ? '关闭预览' : 'Close preview'} onClick={() => p.onSelect(null)}><X size={17} /></button>
@@ -315,7 +329,7 @@ export function ResponsibilityWorkspace(p: Props) {
           </div> : <div className="axis-empty-state"><span className="axis-empty-icon"><GitBranch size={34} /></span>
             <h2>{p.syncing ? (zh ? '正在加载责任链…' : 'Loading…') : p.error ? (zh ? '暂时无法显示责任链' : 'Unable to load') : p.scope === 'mine' && !p.hasResponsibilities && !p.isProjectPM ? (zh ? '你在此项目尚未分配职责' : 'No assigned responsibilities') : (zh ? '从一位负责人开始' : 'Start with an owner')}</h2>
             <p>{zh ? p.scope === 'mine' && !p.hasResponsibilities && !p.isProjectPM ? '可切换项目全貌查看分工，或联系项目 PM 分配职责。' : '项目终责统筹，负责人逐级分工，事项落实到人。' : 'The project lead oversees a hierarchy of owners and their work.'}</p>
-            {p.canAdd && !p.syncing && !(p.scope === 'mine' && !p.hasResponsibilities && !p.isProjectPM) && <><button className="axis-primary-button" onClick={p.onAdd}><Plus size={18} />{zh ? '添加第一个人' : 'Add first owner'}</button>
+            {p.canAdd && !p.syncing && !(p.scope === 'mine' && !p.hasResponsibilities && !p.isProjectPM) && <><button className="axis-primary-button" onClick={p.onAdd}><Plus size={18} />{zh ? '先添加终责人' : 'Add final owner'}</button>
               <button className="axis-text-button" disabled={p.seeding} onClick={p.onSeed}>{p.seeding ? (zh ? '生成中…' : 'Creating…') : (zh ? '一键生成示例人轴' : 'Create a sample axis')}</button></>}
           </div>}
           {p.mobile && p.canAdd && !detailOpen && p.nodes.length > 0 && <button className={`axis-add-fab ${hasPreview ? 'has-preview' : ''}`} aria-label="添加责任人" onClick={p.onAdd}><Plus size={28} /></button>}
@@ -330,8 +344,6 @@ export function ResponsibilityWorkspace(p: Props) {
     {settingsOpen && <AxisDialog title={zh ? '画布设置' : 'Canvas settings'} onClose={() => setSettingsOpen(false)}><div className="axis-settings"><h2>{zh ? '画布设置' : 'Canvas settings'}</h2>
       <p className="axis-muted">{zh ? '浏览方式随时切换，责任关系保持同步。' : 'Switch views while keeping the same responsibility data.'}</p>
       <button className="axis-settings-row" onClick={() => { p.canvas.onResetLayout(); setSettingsOpen(false) }}><RefreshCw size={19} />{zh ? '重置卡片布局' : 'Reset card layout'}</button>
-      {p.canPositionOwner && <label className="axis-offset-control">{zh ? '终责节点间距' : 'Final owner spacing'} · {p.alongDelta}px<input aria-label="终责节点间距" type="range" min={0} max={800} step={10} value={p.alongDelta}
-        onChange={e => p.onAlongChange(Number(e.target.value))} onPointerUp={p.onAlongSave} onKeyUp={e => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) p.onAlongSave() }} /></label>}
     </div></AxisDialog>}
   </section>
 }

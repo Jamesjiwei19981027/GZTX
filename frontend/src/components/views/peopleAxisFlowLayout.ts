@@ -3,22 +3,19 @@ import { PeopleAxisNode } from '../../types'
 export type AxisOrientation = 'horizontal' | 'vertical'
 export interface AxisLayoutResult {
   positions: Map<string, { x: number; y: number }>
-  trunkOrder: string[]
-  terminusPosition: { x: number; y: number }
-  spineCoord: number
+  roots: PeopleAxisNode[]
   levels: Map<string, number>
 }
 
 export const CARD_W = 240
-export const CARD_H = 224
-export const TERMINUS_W = 180
-export const TERMINUS_H = 72
+export const CARD_H = 168
 
 /** Depth follows the selected direction; peers share a tier. Reserve each
  * subtree's perpendicular span so reporting lines never imply sibling rank. */
 export function computeAxisLayout(
-  nodes: PeopleAxisNode[], orientation: AxisOrientation,
-  expandedNodes: Record<string, boolean>, alongDelta: number,
+  nodes: PeopleAxisNode[],
+  orientation: AxisOrientation,
+  expandedNodes: Record<string, boolean>,
 ): AxisLayoutResult {
   const horizontal = orientation === 'horizontal'
   const alongSize = horizontal ? CARD_W : CARD_H
@@ -35,7 +32,7 @@ export function computeAxisLayout(
       children.set(n.parentId, [...(children.get(n.parentId) || []), n])
     } else roots.push(n)
   }
-  const sort = (a: PeopleAxisNode, b: PeopleAxisNode) => a.orderOnAxis - b.orderOnAxis
+  const sort = (a: PeopleAxisNode, b: PeopleAxisNode) => a.orderOnAxis - b.orderOnAxis || a.id.localeCompare(b.id)
   roots.sort(sort)
   children.forEach(list => list.sort(sort))
   const spans = new Map<string, number>()
@@ -51,16 +48,14 @@ export function computeAxisLayout(
     return span
   }
   roots.forEach(measure)
-  const totalSpan = roots.reduce((sum, n) => sum + measure(n), 0) + Math.max(0, roots.length - 1) * gap
-  const origin = totalSpan / 2
   const place = (n: PeopleAxisNode, start: number, depth: number) => {
     if (positions.has(n.id)) return
-    const cross = start + measure(n) / 2 - origin
+    const cross = start + measure(n) / 2
     const along = depth * levelStep
     levels.set(n.id, depth + 1)
     positions.set(n.id, {
-      x: (horizontal ? along : cross) - CARD_W / 2,
-      y: (horizontal ? cross : along) - CARD_H / 2,
+      x: horizontal ? along : cross - CARD_W / 2,
+      y: horizontal ? cross - CARD_H / 2 : along,
     })
     if (expandedNodes[n.id] === false) return
     const kids = children.get(n.id) || []
@@ -69,16 +64,12 @@ export function computeAxisLayout(
     kids.forEach(k => { place(k, cursor, depth + 1); cursor += measure(k) + gap })
   }
   let cursor = 0
-  roots.forEach(n => { place(n, cursor, 0); cursor += measure(n) + gap })
-  const endSize = horizontal ? TERMINUS_W : TERMINUS_H
-  const end = -alongSize / 2 - 88 - endSize / 2 - Math.max(0, alongDelta)
-  return {
-    positions, trunkOrder: roots.map(n => n.id),
-    terminusPosition: horizontal
-      ? { x: end - TERMINUS_W / 2, y: -TERMINUS_H / 2 }
-      : { x: -TERMINUS_W / 2, y: end - TERMINUS_H / 2 },
-    spineCoord: 0, levels,
-  }
+  roots.forEach(n => {
+    const rootSpan = measure(n)
+    place(n, cursor, 0)
+    cursor += rootSpan + gap * 2
+  })
+  return { positions, roots, levels }
 }
 
 export function collectHiddenNodeIds(nodes: PeopleAxisNode[], expandedNodes: Record<string, boolean>): Set<string> {

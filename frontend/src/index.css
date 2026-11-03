@@ -248,3 +248,13 @@ body {
   content-visibility: auto;
   contain-intrinsic-size: auto 76px;
 }
+
+.axis-edge-flow { stroke-dasharray: 6 6; }
+.axis-snap-guide line { stroke: var(--axis-blue, #0058be); stroke-width: 1; stroke-dasharray: 4 4; }
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes axis-edge-flow {
+    from { stroke-dashoffset: 12; }
+    to { stroke-dashoffset: 0; }
+  }
+  .axis-edge-flow { animation: axis-edge-flow 1.2s linear infinite; }
+}

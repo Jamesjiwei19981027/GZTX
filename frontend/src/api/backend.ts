@@ -519,10 +519,3 @@ export async function submitEvidence(
     }),
   })
 }
-
-export async function setFinalOwnerPosition(projectId: number, alongDelta: number) {
-  return apiRequest(`/projects/${projectId}/final-owner-position`, {
-    method: 'PUT',
-    body: JSON.stringify({ along_delta: Math.max(0, Math.round(alongDelta)) }),
-  })
-}

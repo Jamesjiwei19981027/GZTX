@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { borderAnchor, floatingEdgePath, subordinatePortAnchor, type RectCoords } from '../src/components/views/peopleAxisUtils'
+import { borderAnchor, floatingEdgePath, straightEdgePath, subordinatePortAnchor, highlightEdgeIds, snapToParentAxis, type RectCoords } from '../src/components/views/peopleAxisUtils'
 
 function rect(centerX: number, centerY: number, width = 200, height = 100): RectCoords {
   return {
@@ -96,3 +96,42 @@ function rect(centerX: number, centerY: number, width = 200, height = 100): Rect
 }
 
 console.log('people-axis floating edges: 10 cases passed')
+
+assert.equal(straightEdgePath(rect(0, 0), rect(600, 0)), 'M 100 0 L 500 0')
+assert.equal(straightEdgePath(rect(0, 0), rect(600, 300)), 'M 100 50 L 500 250')
+
+// 三层树：focus 中间层时高亮到根两条 + 到两个下属两条，共 4 条；focus 为 null 返回空集
+const tree = [
+  { id: 'root', parentId: null },
+  { id: 'l1', parentId: 'root' },
+  { id: 'middle', parentId: 'l1' },
+  { id: 'leaf-a', parentId: 'middle' },
+  { id: 'leaf-b', parentId: 'middle' },
+]
+assert.deepEqual(
+  highlightEdgeIds(tree, 'middle'),
+  new Set(['branch-middle', 'branch-l1', 'branch-leaf-a', 'branch-leaf-b']),
+)
+assert.deepEqual(highlightEdgeIds(tree, null), new Set())
+
+// 横向：15px 吸附、17px 不吸附
+const hSnap15 = snapToParentAxis({ x: 300, y: 15 }, { width: 240, height: 168 }, { x: 0, y: 0 }, 'horizontal', 16)
+assert.equal(hSnap15.snapped, true)
+assert.equal(hSnap15.pos.y, 0)
+assert.ok(hSnap15.guide)
+const hSnap17 = snapToParentAxis({ x: 300, y: 17 }, { width: 240, height: 168 }, { x: 0, y: 0 }, 'horizontal', 16)
+assert.equal(hSnap17.snapped, false)
+assert.equal(hSnap17.pos.y, 17)
+assert.equal(hSnap17.guide, null)
+
+// 纵向：15px 吸附、17px 不吸附
+const vSnap15 = snapToParentAxis({ x: 15, y: 300 }, { width: 240, height: 168 }, { x: 0, y: 0 }, 'vertical', 16)
+assert.equal(vSnap15.snapped, true)
+assert.equal(vSnap15.pos.x, 0)
+assert.ok(vSnap15.guide)
+const vSnap17 = snapToParentAxis({ x: 17, y: 300 }, { width: 240, height: 168 }, { x: 0, y: 0 }, 'vertical', 16)
+assert.equal(vSnap17.snapped, false)
+assert.equal(vSnap17.pos.x, 17)
+assert.equal(vSnap17.guide, null)
+
+console.log('people-axis edge helpers: straight/highlight/snap cases passed')
