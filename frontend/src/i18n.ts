@@ -2,7 +2,7 @@ import { Language } from './types';
 
 export const i18n = {
   zh: {
-    appTitle: '烂笔头PM',
+    appTitle: '烂笔头',
     appSubtitle: '好记性不如烂笔头',
     dashboard: '仪表板',
     myTasks: '我的任务',

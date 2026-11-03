@@ -1,6 +1,6 @@
 <view class="login-container">
   <view class="logo-section">
-    <text class="app-name">烂笔头PM</text>
+    <text class="app-name">烂笔头</text>
     <text class="app-desc">好记性不如烂笔头</text>
   </view>
   <!-- 登录只需 wx.login 的 code，不涉及手机号授权，不能挂 open-type="getPhoneNumber" -->

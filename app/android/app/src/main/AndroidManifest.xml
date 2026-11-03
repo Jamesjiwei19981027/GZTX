@@ -12,7 +12,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" tools:node="remove"/>
     <!-- 通知：仅站内通知和前台轮询，不发系统通知，不声明 POST_NOTIFICATIONS。 -->
     <application
-        android:label="WorkTodo"
+        android:label="烂笔头"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true">
