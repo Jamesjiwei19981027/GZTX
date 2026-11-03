@@ -144,22 +144,6 @@ class AxisApi {
     );
   }
 
-  /// 保存终责卡沿主干偏移（仅 PM/创建者，后端强制）。
-  ///
-  /// 后端 `FinalOwnerPositionBody.along_delta` 是整数字段：画布在非 1 倍缩放下
-  /// 拖出的偏移带小数，直接提交会被 Pydantic 判 422，所以序列化前取整，
-  /// 与网页版 `Math.round(alongDelta)` 一致。
-  Future<double> saveFinalOwnerDelta(int projectId, double alongDelta) async {
-    final rounded = alongDelta.round();
-    final data = await _client.put(
-      '/projects/$projectId/final-owner-position',
-      body: {'along_delta': rounded},
-    );
-    final map = _map(data);
-    final value = map['final_owner_along_delta'];
-    return value is num ? value.toDouble() : rounded.toDouble();
-  }
-
   /// 删除预览（`GET /nodes/{id}/deletion-preview`）。
   Future<AxisDeletionPreview> previewDeletion(int nodeId) async {
     final data = await _client.get('/nodes/$nodeId/deletion-preview');

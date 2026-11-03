@@ -9,6 +9,7 @@ import '../../../design/design.dart';
 import '../data/axis_api.dart';
 import '../data/axis_models.dart';
 import '../data/axis_rules.dart';
+import '../data/axis_tree_mapper.dart';
 import '../data/axis_view_models.dart';
 import '../state/axis_controller.dart';
 import '../widgets/axis_canvas.dart';
@@ -137,7 +138,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
       _controller?.permissions.isPm == true ||
       _controller?.permissions.isSuperAdmin == true;
 
-  Future<void> _openAddPerson() async {
+  Future<void> _openAddPerson({bool asRoot = false}) async {
     final controller = _controller;
     if (controller == null) return;
     await showAppBottomSheet<void>(
@@ -148,6 +149,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
         projectId: controller.projectId,
         allNodes: controller.nodes,
         members: controller.members,
+        suggestedUserId: asRoot ? controller.project?.pmUserId : null,
         canChangeSupervisor: controller.permissions.canManageStructure ||
             controller.permissions.canEditAll,
         canManageAssignees:
@@ -418,10 +420,12 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                     controller: controller,
                     onOpenPerson: (node) => context
                         .push(
-                            '/axis/person/${node.id}?projectId=${controller.projectId}')
+                          '/axis/person/${node.id}?projectId=${controller.projectId}',
+                        )
                         .then((_) => controller.load()),
                     onOpenMatter: (item) => context.push(
-                        '/axis/node/${item.id}?projectId=${controller.projectId}'),
+                      '/axis/node/${item.id}?projectId=${controller.projectId}',
+                    ),
                     onAddSubordinate: () async {
                       await showAppBottomSheet<void>(
                         context: context,
@@ -452,12 +456,17 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                 : _OverviewView(
                     controller: controller,
                     viewport: _viewport,
+                    onAddRoot: _canAddPerson
+                        ? () => _openAddPerson(asRoot: true)
+                        : null,
                     onOpenPerson: (node) => context
                         .push(
-                            '/axis/person/${node.id}?projectId=${controller.projectId}')
+                          '/axis/person/${node.id}?projectId=${controller.projectId}',
+                        )
                         .then((_) => controller.load()),
                     onOpenMatter: (item, ownerId) => context.push(
-                        '/axis/node/${item.id}?projectId=${controller.projectId}'),
+                      '/axis/node/${item.id}?projectId=${controller.projectId}',
+                    ),
                     onError: _errorNotice,
                     onNotice: _notice,
                   ),
@@ -488,8 +497,11 @@ class _NoProjectState extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.xxl),
       children: [
         const SizedBox(height: AppSpacing.xxxl),
-        const Icon(Icons.account_tree_outlined,
-            size: 56, color: AppColors.primary),
+        const Icon(
+          Icons.account_tree_outlined,
+          size: 56,
+          color: AppColors.primary,
+        ),
         const SizedBox(height: AppSpacing.lg),
         const Text(
           '还没有加入任何项目',
@@ -507,11 +519,7 @@ class _NoProjectState extends StatelessWidget {
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
-        AppButton(
-          label: '新建项目',
-          isFullWidth: true,
-          onPressed: onCreate,
-        ),
+        AppButton(label: '新建项目', isFullWidth: true, onPressed: onCreate),
         const SizedBox(height: AppSpacing.sm),
         AppButton(
           label: '刷新项目列表',
@@ -520,9 +528,7 @@ class _NoProjectState extends StatelessWidget {
           onPressed: () => onReload(),
         ),
         const SizedBox(height: AppSpacing.lg),
-        const AxisInfoBanner(
-          text: '加入项目需要项目经理在「项目与团队」中发出邀请，邀请链接在消息中心领取。',
-        ),
+        const AxisInfoBanner(text: '加入项目需要项目经理在「项目与团队」中发出邀请，邀请链接在消息中心领取。'),
       ],
     );
   }
@@ -756,8 +762,10 @@ class _MineView extends StatelessWidget {
                           : AppColors.textTertiary,
                     ),
                   ),
-                  if (controller.permissions
-                      .nodeCan(self, 'can_add_subordinate')) ...[
+                  if (controller.permissions.nodeCan(
+                    self,
+                    'can_add_subordinate',
+                  )) ...[
                     const SizedBox(height: AppSpacing.sm),
                     AppButton(
                       label: '添加下级人员',
@@ -818,9 +826,7 @@ class _MineView extends StatelessWidget {
                             : AppColors.textTertiaryOf(isDark),
                       ),
                       title: Text(item.title),
-                      subtitle: Text(
-                        '${item.statusLabel} · ${item.percent}%',
-                      ),
+                      subtitle: Text('${item.statusLabel} · ${item.percent}%'),
                       trailing: const Icon(Icons.chevron_right, size: 18),
                       onTap: () => onOpenMatter(item),
                     ),
@@ -905,8 +911,11 @@ class _SelfCard extends StatelessWidget {
               const Divider(height: 20),
               const Row(
                 children: [
-                  Icon(Icons.description_outlined,
-                      size: 14, color: AppColors.primary),
+                  Icon(
+                    Icons.description_outlined,
+                    size: 14,
+                    color: AppColors.primary,
+                  ),
                   SizedBox(width: 5),
                   Expanded(
                     child: Text(
@@ -1020,10 +1029,12 @@ class _OverviewView extends StatelessWidget {
     required this.onOpenMatter,
     required this.onError,
     required this.onNotice,
+    this.onAddRoot,
   });
 
   final AxisController controller;
   final AxisViewportController viewport;
+  final VoidCallback? onAddRoot;
   final ValueChanged<AxisPersonNode> onOpenPerson;
   final void Function(AxisWorkItem item, int ownerId) onOpenMatter;
   final ValueChanged<Object> onError;
@@ -1042,8 +1053,10 @@ class _OverviewView extends StatelessWidget {
       ),
       target: AxisDragSubject(id: target.id, isPerson: true),
       nodes: controller.nodes,
-      canAddUnderTarget:
-          controller.permissions.nodeCan(target, 'can_add_subordinate'),
+      canAddUnderTarget: controller.permissions.nodeCan(
+        target,
+        'can_add_subordinate',
+      ),
     );
     if (!check.allowed) {
       onNotice(check.reason ?? '该位置不可放置');
@@ -1064,36 +1077,6 @@ class _OverviewView extends StatelessWidget {
     }
   }
 
-  Future<void> _confirmMatterReparent(
-    BuildContext context,
-    AxisWorkItem item,
-    AxisPersonNode target,
-  ) async {
-    final check = AxisRules.validateDrop(
-      dragged: AxisDragSubject(id: item.id, isPerson: false),
-      target: AxisDragSubject(id: target.id, isPerson: true),
-      nodes: controller.nodes,
-      canAddUnderTarget:
-          controller.permissions.nodeCan(target, 'can_add_work_item'),
-    );
-    if (!check.allowed) {
-      onNotice(check.reason ?? '该位置不可放置');
-      return;
-    }
-    final confirmed = await showAppConfirmDialog(
-      context: context,
-      title: '移动责任事项',
-      message: '将「${item.title}」挂到「${target.name}」下面？',
-      confirmLabel: '确认移动',
-    );
-    if (confirmed != true) return;
-    try {
-      await controller.moveNode(item.id, target.id);
-    } catch (e) {
-      onError(e);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     if (controller.visibleNodes.isEmpty) {
@@ -1103,8 +1086,11 @@ class _OverviewView extends StatelessWidget {
           AxisCard(
             child: Column(
               children: [
-                const Icon(Icons.account_tree_outlined,
-                    size: 42, color: AppColors.primary),
+                const Icon(
+                  Icons.account_tree_outlined,
+                  size: 42,
+                  color: AppColors.primary,
+                ),
                 const SizedBox(height: AppSpacing.md),
                 const Text(
                   '人轴还没有人员',
@@ -1112,7 +1098,7 @@ class _OverviewView extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '主干只排人；工作项、里程碑和范围挂在人员下面。',
+                  '终责人是人轴的根，下属和任务都挂在人员下面。',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -1121,6 +1107,14 @@ class _OverviewView extends StatelessWidget {
                         : AppColors.textTertiary,
                   ),
                 ),
+                if (onAddRoot != null) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  AppButton(
+                    key: const Key('axis-add-root'),
+                    label: '先添加终责人',
+                    onPressed: onAddRoot,
+                  ),
+                ],
               ],
             ),
           ),
@@ -1149,6 +1143,14 @@ class _OverviewView extends StatelessWidget {
                   selected: controller.sort == value,
                   onTap: () => controller.setSort(value),
                 ),
+              for (final value in AxisEdgeStyle.values)
+                _ChoiceButton(
+                  label: value == AxisEdgeStyle.curve
+                      ? '\u66f2\u7ebf'
+                      : '\u76f4\u7ebf',
+                  selected: controller.edgeStyle == value,
+                  onTap: () => controller.setEdgeStyle(value),
+                ),
               TextButton.icon(
                 key: const Key('axis-locate-me'),
                 onPressed: controller.selfNode == null
@@ -1173,13 +1175,11 @@ class _OverviewView extends StatelessWidget {
                     orientation: controller.orientation,
                     spacing: controller.spacing,
                     sort: controller.sort,
+                    edgeStyle: controller.edgeStyle,
                     offsets: {
                       for (final node in controller.visibleNodes)
                         node.id: controller.offsetFor(node.id),
                     },
-                    finalOwnerAlongDelta:
-                        controller.project?.finalOwnerAlongDelta ?? 0,
-                    canAdjustFinalOwner: controller.canAdjustFinalOwner,
                     resetLayout: controller.resetLayoutRequested,
                     permissions: controller.permissions,
                     selfNodeId: controller.selfNode?.id,
@@ -1187,21 +1187,13 @@ class _OverviewView extends StatelessWidget {
                     showAiStatus: controller.showAiStatus,
                     viewportController: viewport,
                     onOpenPerson: onOpenPerson,
+                    onSelectPerson: controller.select,
                     onOpenMatter: onOpenMatter,
                     onReparentPerson: (dragged, target) =>
                         _confirmReparent(context, dragged, target),
-                    onReparentMatter: (item, target) =>
-                        _confirmMatterReparent(context, item, target),
                     onLayoutChanged: (node, offset) async {
                       try {
                         await controller.saveLayout(node.id, offset);
-                      } catch (e) {
-                        onError(e);
-                      }
-                    },
-                    onFinalOwnerChanged: (delta) async {
-                      try {
-                        await controller.saveFinalOwnerDelta(delta);
                       } catch (e) {
                         onError(e);
                       }
@@ -1210,6 +1202,35 @@ class _OverviewView extends StatelessWidget {
                   ),
                 ),
               ),
+              if (AxisTreeMapper.extraRootIds(controller.visibleNodes)
+                  .isNotEmpty)
+                const Positioned(
+                  top: AppSpacing.sm,
+                  left: AppSpacing.lg,
+                  right: AppSpacing.lg,
+                  child: DecoratedBox(
+                    key: Key('axis-multi-root-banner'),
+                    decoration: BoxDecoration(
+                      color: AppColors.warningLight,
+                      borderRadius: BorderRadius.all(
+                        Radius.circular(AppSpacing.radiusMd),
+                      ),
+                      border: Border.fromBorderSide(
+                        BorderSide(color: AppColors.warning),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.all(AppSpacing.sm),
+                      child: Text(
+                        '该项目存在多个根节点，请联系管理员整理',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               Positioned(
                 left: AppSpacing.lg,
                 right: AppSpacing.lg,
@@ -1218,12 +1239,12 @@ class _OverviewView extends StatelessWidget {
                   children: [
                     Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context)
-                            .colorScheme
-                            .surface
-                            .withValues(alpha: 0.95),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusLg),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.surface.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(
+                          AppSpacing.radiusLg,
+                        ),
                         border: Border.all(color: AppColors.border),
                       ),
                       padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -1261,8 +1282,9 @@ class _OverviewView extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: Colors.black.withValues(alpha: 0.6),
-                          borderRadius:
-                              BorderRadius.circular(AppSpacing.radiusFull),
+                          borderRadius: BorderRadius.circular(
+                            AppSpacing.radiusFull,
+                          ),
                         ),
                         child: const Text(
                           '拖动卡片调整位置 · 双指缩放',

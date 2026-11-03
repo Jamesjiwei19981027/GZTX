@@ -17,6 +17,16 @@ import 'axis_test_harness.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUp(() {
+    // 画布连线有持续的流动动画；这些用例按“减少动态效果”渲染，
+    // 否则 pumpAndSettle 永远等不到静止，截图也会随动画帧漂移。
+    final dispatcher = TestWidgetsFlutterBinding.instance.platformDispatcher;
+    dispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+      disableAnimations: true,
+    );
+    addTearDown(dispatcher.clearAccessibilityFeaturesTestValue);
+  });
+
   testWidgets(
     '人轴根页（我的职责）双平台截图',
     tags: ['golden'],

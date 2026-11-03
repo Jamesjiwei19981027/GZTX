@@ -340,11 +340,9 @@ class AxisProjectInfo {
   final String name;
   final int? pmUserId;
   final int? createdBy;
+  /// 已停用：终责轴向位置不再使用，仅为兼容服务端字段保留解析。
   final double finalOwnerAlongDelta;
   final String? status;
-
-  bool canAdjustFinalOwner(int? userId) =>
-      userId != null && (userId == pmUserId || userId == createdBy);
 
   factory AxisProjectInfo.fromJson(Map<String, dynamic> json) {
     return AxisProjectInfo(

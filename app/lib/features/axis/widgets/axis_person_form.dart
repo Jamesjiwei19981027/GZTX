@@ -17,6 +17,7 @@ class AxisPersonForm extends StatefulWidget {
     required this.members,
     this.node,
     this.suggestedParentId,
+    this.suggestedUserId,
     this.canChangeSupervisor = true,
     this.canManageAssignees = true,
     this.onSaved,
@@ -30,6 +31,9 @@ class AxisPersonForm extends StatefulWidget {
   final List<AxisMember> members;
   final AxisPersonNode? node;
   final int? suggestedParentId;
+
+  /// 新增时预选的关联成员（例如首次添加终责人时预填项目负责人）。
+  final int? suggestedUserId;
   final bool canChangeSupervisor;
   final bool canManageAssignees;
   final Future<void> Function()? onSaved;
@@ -60,8 +64,19 @@ class _AxisPersonFormState extends State<AxisPersonForm> {
     _role = TextEditingController(text: node?.roleTitle ?? '');
     _department = TextEditingController(text: node?.department ?? '');
     _selectedUserId = node?.primaryAssignee?.userId ??
-        (node?.ownerUserIds.isNotEmpty == true ? node!.ownerUserIds.first : null);
+        (node?.ownerUserIds.isNotEmpty == true
+            ? node!.ownerUserIds.first
+            : null);
     _parentId = isEdit ? node!.parentId : widget.suggestedParentId;
+    if (!isEdit && _selectedUserId == null && widget.suggestedUserId != null) {
+      for (final member in widget.members) {
+        if (member.userId == widget.suggestedUserId) {
+          _selectedUserId = member.userId;
+          if (_name.text.trim().isEmpty) _name.text = member.displayName;
+          break;
+        }
+      }
+    }
   }
 
   @override
@@ -395,7 +410,9 @@ class _SelectTile extends StatelessWidget {
         decoration: BoxDecoration(
           color: enabled
               ? (isDark ? AppColors.darkSurface : AppColors.surface)
-              : (isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant),
+              : (isDark
+                  ? AppColors.darkSurfaceVariant
+                  : AppColors.surfaceVariant),
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           border: Border.all(
             color: isDark ? AppColors.darkBorder : AppColors.border,
@@ -421,7 +438,8 @@ class _SelectTile extends StatelessWidget {
             Icon(
               Icons.keyboard_arrow_down,
               size: 18,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ],
         ),
