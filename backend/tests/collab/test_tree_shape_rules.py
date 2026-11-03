@@ -2,17 +2,20 @@
 
 产品已锁定的规则：
 - 主干只排 person；空白处只收人 → 根节点必须是「人」
-- 工作项 / 里程碑 / 范围只能挂在人身上
+- 每个项目只能有一个终责根节点
+- 终责根节点必须是项目负责人
+- 事项只能挂在人身上
 - 人挂人 = 下级人员
-
-历史缺陷：这些只在 Web 的 dropRules.ts 与 APP 画布里拦，后端 create/move/patch
-零校验。任何项目成员直接调 API 就能造出 work_item 当根、person 挂在 milestone 下
-的树；三端共用同一份数据，人轴布局的前提被打破——不挂在人下面的事项会直接从
-画布上消失（layout 只收集 person 的直接子事项）。
+- 人员最多四层（终责人 + 三层下属）
+- 终责根节点下还有人员或任务，不能删除
 """
 import pytest
+from sqlalchemy import select
 
 from app.core.config import settings
+from app.models.project import Project, ProjectMember
+from app.models.tree import TreeNode
+from app.services.tree_service import TreeService
 
 
 def _code(resp):
@@ -31,16 +34,6 @@ async def test_root_must_be_person(async_client, seed_ids, type_key):
     )
     assert r.status_code == 422, r.text
     assert "主干只能排人" in r.text
-
-
-@pytest.mark.asyncio
-async def test_person_root_allowed(async_client, seed_ids):
-    r = await async_client.post(
-        f"/api/v1/projects/{seed_ids['project_id']}/nodes",
-        json={"parent_id": None, "node_type_key": "person", "title": "另一位负责人"},
-        headers=seed_ids["pm_headers"],
-    )
-    assert r.status_code == 200, r.text
 
 
 @pytest.mark.asyncio
@@ -119,7 +112,6 @@ async def test_patch_cannot_turn_populated_person_into_matter(async_client, seed
         headers=seed_ids["pm_headers"],
     )
     assert r.status_code == 422, r.text
-    # 根 + 有子节点，两条都踩：报哪条都算拦住了
     assert ("主干只能排人" in r.text) or ("失去挂载点" in r.text)
 
 
@@ -140,8 +132,6 @@ async def test_patch_same_type_is_noop_and_keeps_progress(
     async_client, seed_ids, db_session
 ):
     """把类型"改"成原值不应触发进度重置——否则前端一次无谓的 PATCH 就清空进度"""
-    from app.models.tree import TreeNode
-
     node = await db_session.get(TreeNode, seed_ids["node_id"])
     node.progress_json = {"template": "work_item", "percent": 42}
     await db_session.commit()
@@ -229,15 +219,242 @@ async def test_import_under_matter_rejected_not_500(
     assert "只能挂在" in r.text
 
 
+# ---------------------------------------------------------------------------
+# B1 任务单新增规则测试
+# ---------------------------------------------------------------------------
+
 @pytest.mark.asyncio
-async def test_enforcement_can_be_disabled_for_legacy_data(
-    async_client, seed_ids, monkeypatch
-):
-    """存量非人轴数据的过渡开关"""
-    monkeypatch.setattr(settings, "ENFORCE_WORK_TREE_SHAPE", False)
+async def test_cannot_create_second_root(async_client, seed_ids):
+    """1. 已有根时再建根被拒"""
+    pid = seed_ids["project_id"]
     r = await async_client.post(
-        f"/api/v1/projects/{seed_ids['project_id']}/nodes",
-        json={"parent_id": None, "node_type_key": "scope", "title": "遗留根范围"},
+        f"/api/v1/projects/{pid}/nodes",
+        json={"parent_id": None, "node_type_key": "person", "title": "第二个根", "assignees": [{"user_id": seed_ids["pm_user_id"]}]},
         headers=seed_ids["pm_headers"],
     )
-    assert r.status_code == 200, r.text
+    assert r.status_code == 422, r.text
+    assert "每个项目只能有一个终责根节点" in r.text
+
+
+@pytest.mark.asyncio
+async def test_root_owner_rule_with_pm(async_client, seed_ids, db_session):
+    """2. pm 不为空时根的 primary 不是 pm 被拒、是 pm 通过"""
+    p = Project(
+        company_id=seed_ids["company_id"],
+        name="PM规则测试项目",
+        pm_user_id=seed_ids["pm_user_id"],
+        created_by=seed_ids["admin_user_id"],
+    )
+    db_session.add(p)
+    await db_session.flush()
+    db_session.add_all([
+        ProjectMember(project_id=p.id, user_id=seed_ids["pm_user_id"], role="pm"),
+        ProjectMember(project_id=p.id, user_id=seed_ids["member_user_id"], role="member"),
+    ])
+    await db_session.commit()
+
+    # primary 不是 pm → 被拒
+    denied = await async_client.post(
+        f"/api/v1/projects/{p.id}/nodes",
+        json={"parent_id": None, "node_type_key": "person", "title": "非PM根", "assignees": [{"user_id": seed_ids["member_user_id"], "role_key": "primary"}]},
+        headers=seed_ids["pm_headers"],
+    )
+    assert denied.status_code == 422, denied.text
+    assert "终责根节点必须是项目负责人" in denied.text
+
+    # primary 是 pm → 通过
+    allowed = await async_client.post(
+        f"/api/v1/projects/{p.id}/nodes",
+        json={"parent_id": None, "node_type_key": "person", "title": "PM终责根", "assignees": [{"user_id": seed_ids["pm_user_id"], "role_key": "primary"}]},
+        headers=seed_ids["pm_headers"],
+    )
+    assert allowed.status_code == 200, allowed.text
+
+
+@pytest.mark.asyncio
+async def test_root_owner_rule_without_pm(async_client, seed_ids, db_session):
+    """3. pm 为空时任意人可当根"""
+    p = Project(
+        company_id=seed_ids["company_id"],
+        name="无PM项目",
+        pm_user_id=None,
+        created_by=seed_ids["admin_user_id"],
+    )
+    db_session.add(p)
+    await db_session.flush()
+    db_session.add(ProjectMember(project_id=p.id, user_id=seed_ids["member_user_id"], role="member"))
+    await db_session.commit()
+
+    # 任意在职成员皆可建根
+    r = await TreeService().create_node(
+        db_session,
+        p,
+        parent_id=None,
+        node_type_key="person",
+        title="任意根",
+        assignees=[{"user_id": seed_ids["member_user_id"], "role_key": "primary"}],
+    )
+    assert r.id is not None
+    assert r.parent_id is None
+
+
+@pytest.mark.asyncio
+async def test_move_non_root_to_root_rejected(async_client, seed_ids):
+    """4. 把非根移到根位置被拒"""
+    # 先在已有根下建一个人员
+    child = await async_client.post(
+        f"/api/v1/projects/{seed_ids['project_id']}/nodes",
+        json={"parent_id": seed_ids["root_node_id"], "node_type_key": "person", "title": "下属"},
+        headers=seed_ids["pm_headers"],
+    )
+    assert child.status_code == 200, child.text
+    child_id = child.json()["data"]["id"]
+
+    # 试图把 child 移到根（new_parent_id=None），因为已有 root_node_id，被单根规则拒绝
+    r = await async_client.post(
+        f"/api/v1/nodes/{child_id}/move",
+        json={"new_parent_id": None, "sort_order": 0},
+        headers=seed_ids["pm_headers"],
+    )
+    assert r.status_code == 422, r.text
+    assert "每个项目只能有一个终责根节点" in r.text
+
+
+@pytest.mark.asyncio
+async def test_move_root_under_another_rejected(async_client, seed_ids):
+    """5. 把根挂到别人下面被拒"""
+    child = await async_client.post(
+        f"/api/v1/projects/{seed_ids['project_id']}/nodes",
+        json={"parent_id": seed_ids["root_node_id"], "node_type_key": "person", "title": "下属"},
+        headers=seed_ids["pm_headers"],
+    )
+    assert child.status_code == 200, child.text
+    child_id = child.json()["data"]["id"]
+
+    # 试图把终责根移到 child 下面
+    r = await async_client.post(
+        f"/api/v1/nodes/{seed_ids['root_node_id']}/move",
+        json={"new_parent_id": child_id, "sort_order": 0},
+        headers=seed_ids["pm_headers"],
+    )
+    assert r.status_code == 422, r.text
+    assert "终责根节点不能挂到别人下面" in r.text
+
+
+@pytest.mark.asyncio
+async def test_person_limit_four_levels(async_client, seed_ids):
+    """6. 四层人员通过、五层被拒（根算第 1 层）"""
+    pid = seed_ids["project_id"]
+    root = seed_ids["root_node_id"]
+    # 第 2 层
+    l2 = await async_client.post(
+        f"/api/v1/projects/{pid}/nodes",
+        json={"parent_id": root, "node_type_key": "person", "title": "第二层"},
+        headers=seed_ids["pm_headers"],
+    )
+    assert l2.status_code == 200, l2.text
+    l2_id = l2.json()["data"]["id"]
+
+    # 第 3 层
+    l3 = await async_client.post(
+        f"/api/v1/projects/{pid}/nodes",
+        json={"parent_id": l2_id, "node_type_key": "person", "title": "第三层"},
+        headers=seed_ids["pm_headers"],
+    )
+    assert l3.status_code == 200, l3.text
+    l3_id = l3.json()["data"]["id"]
+
+    # 第 4 层：允许
+    l4 = await async_client.post(
+        f"/api/v1/projects/{pid}/nodes",
+        json={"parent_id": l3_id, "node_type_key": "person", "title": "第四层"},
+        headers=seed_ids["pm_headers"],
+    )
+    assert l4.status_code == 200, l4.text
+    l4_id = l4.json()["data"]["id"]
+
+    # 第 5 层：被拒
+    l5 = await async_client.post(
+        f"/api/v1/projects/{pid}/nodes",
+        json={"parent_id": l4_id, "node_type_key": "person", "title": "第五层"},
+        headers=seed_ids["pm_headers"],
+    )
+    assert l5.status_code == 422, l5.text
+    assert "人员最多四层" in l5.text
+
+
+@pytest.mark.asyncio
+async def test_delete_root_with_children_rejected(async_client, seed_ids):
+    """7. 根有子节点时删除被拒，无子节点时允许"""
+    root = seed_ids["root_node_id"]
+    # 根节点下有工作项 node_id，删除必被拒
+    preview = (await async_client.get(f"/api/v1/nodes/{root}/deletion-preview", headers=seed_ids["pm_headers"])).json()["data"]
+    r = await async_client.delete(
+        f"/api/v1/nodes/{root}?cascade=true&preview_token={preview['preview_token']}",
+        headers=seed_ids["pm_headers"],
+    )
+    assert r.status_code == 422, r.text
+    assert "终责根节点下还有人员或任务，不能删除" in r.text
+
+    # 先删除根下面的子节点 node_id
+    del_child = await async_client.delete(f"/api/v1/nodes/{seed_ids['node_id']}", headers=seed_ids["pm_headers"])
+    assert del_child.status_code == 200, del_child.text
+
+    # 没有子节点时允许删除根节点
+    preview2 = (await async_client.get(f"/api/v1/nodes/{root}/deletion-preview", headers=seed_ids["pm_headers"])).json()["data"]
+    del_root = await async_client.delete(
+        f"/api/v1/nodes/{root}?preview_token={preview2['preview_token']}",
+        headers=seed_ids["pm_headers"],
+    )
+    assert del_root.status_code == 200, del_root.text
+
+
+@pytest.mark.asyncio
+async def test_all_single_root_rules_bypassed_when_disabled(
+    async_client, seed_ids, monkeypatch, db_session
+):
+    """8. ENFORCE_WORK_TREE_SHAPE=false 时以上全部放行"""
+    monkeypatch.setattr(settings, "ENFORCE_WORK_TREE_SHAPE", False)
+    pid = seed_ids["project_id"]
+    root = seed_ids["root_node_id"]
+
+    # 1. 允许建第二个根
+    r_root2 = await async_client.post(
+        f"/api/v1/projects/{pid}/nodes",
+        json={"parent_id": None, "node_type_key": "person", "title": "第二根（放行）"},
+        headers=seed_ids["pm_headers"],
+    )
+    assert r_root2.status_code == 200, r_root2.text
+    root2_id = r_root2.json()["data"]["id"]
+
+    # 2. PM不为空时根非PM也放行
+    r_non_pm = await async_client.post(
+        f"/api/v1/projects/{pid}/nodes",
+        json={"parent_id": None, "node_type_key": "person", "title": "非PM根（放行）", "assignees": [{"user_id": seed_ids["member_user_id"]}]},
+        headers=seed_ids["pm_headers"],
+    )
+    assert r_non_pm.status_code == 200, r_non_pm.text
+
+    # 3. 把根挂到别人下面放行
+    r_move = await async_client.post(
+        f"/api/v1/nodes/{root2_id}/move",
+        json={"new_parent_id": root, "sort_order": 0},
+        headers=seed_ids["pm_headers"],
+    )
+    assert r_move.status_code == 200, r_move.text
+
+    # 4. 把非根移到根放行
+    r_to_root = await async_client.post(
+        f"/api/v1/nodes/{root2_id}/move",
+        json={"new_parent_id": None, "sort_order": 0},
+        headers=seed_ids["pm_headers"],
+    )
+    assert r_to_root.status_code == 200, r_to_root.text
+
+    # 5. 根下有子节点时删除放行
+    preview = (await async_client.get(f"/api/v1/nodes/{root}/deletion-preview", headers=seed_ids["pm_headers"])).json()["data"]
+    del_r = await async_client.delete(
+        f"/api/v1/nodes/{root}?cascade=true&preview_token={preview['preview_token']}",
+        headers=seed_ids["pm_headers"],
+    )
+    assert del_r.status_code == 200, del_r.text

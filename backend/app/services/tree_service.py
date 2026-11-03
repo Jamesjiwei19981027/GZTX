@@ -20,6 +20,7 @@ BUILTIN_TYPES = {
 PERSON_TYPE_KEY = "person"
 # 事项类型：工作项 / 里程碑 / 范围，只能挂在人下面
 MATTER_TYPE_KEYS = frozenset({"work_item", "milestone", "scope"})
+MAX_PERSON_LEVELS = 4
 
 
 class TreeShapeError(ValueError):
@@ -61,6 +62,9 @@ class TreeService:
 
     async def assert_person_limit(self, db, *, parent, subtree=None):
         """Count person nodes, independently of item depth, including moved descendants."""
+        from app.core.config import settings
+        if not settings.ENFORCE_WORK_TREE_SHAPE:
+            return
         ancestors = 0
         current, seen = parent, set()
         while current and current.id not in seen:
@@ -73,8 +77,8 @@ class TreeService:
                 TreeNode.path.like(f'{subtree.path}%'), TreeNode.is_deleted.is_(False)))).scalars().all()
             person_paths = [n.path for n in rows if await self.type_key_of(db, n) == PERSON_TYPE_KEY]
             height = max((sum(path.startswith(ancestor) for ancestor in person_paths) for path in person_paths), default=1)
-        if ancestors + height > 3:
-            raise TreeShapeError('人员管理最多允许三层，请调整上级或移交到其他人员')
+        if ancestors + height > MAX_PERSON_LEVELS:
+            raise TreeShapeError("人员最多四层（终责人 + 三层下属）")
 
     async def assert_distinct_supervisor(self, db, node_type_key, parent, assignees):
         if node_type_key != PERSON_TYPE_KEY or not parent:
@@ -128,12 +132,19 @@ class TreeService:
         nt = await db.get(NodeType, node.node_type_id)
         return nt.key if nt else ""
 
+    async def project_root(self, db: AsyncSession, project_id: int) -> TreeNode | None:
+        return (await db.execute(select(TreeNode).where(
+            TreeNode.project_id == project_id, TreeNode.parent_id.is_(None), TreeNode.is_deleted.is_(False)
+        ).order_by(TreeNode.sort_order, TreeNode.id).limit(1))).scalar_one_or_none()
+
     async def assert_shape(
-        self, db: AsyncSession, *, node_type_key: str, parent: TreeNode | None
+        self, db: AsyncSession, *, node_type_key: str, parent: TreeNode | None,
+        project_id: int, exclude_node_id: int | None = None
     ) -> None:
         """强制人轴形态规则（产品已锁定）：
 
         - 主干只排人：根节点（parent_id=None）必须是 person；
+        - 单根：每个项目只能有一个终责根节点；
         - 事项只能落到人身上：work_item / milestone / scope 的父节点必须是 person；
         - 人挂人 = 下级人员，允许。
 
@@ -152,11 +163,34 @@ class TreeService:
         if parent is None:
             if node_type_key != PERSON_TYPE_KEY:
                 raise TreeShapeError("主干只能排人：根节点必须是「人」")
+            q = select(TreeNode.id).where(
+                TreeNode.project_id == project_id,
+                TreeNode.parent_id.is_(None),
+                TreeNode.is_deleted.is_(False),
+            )
+            if exclude_node_id is not None:
+                q = q.where(TreeNode.id != exclude_node_id)
+            if (await db.execute(q.limit(1))).scalar_one_or_none() is not None:
+                raise TreeShapeError("每个项目只能有一个终责根节点，请把此人挂到终责人或其下属下面")
             return
 
         parent_key = await self.type_key_of(db, parent)
         if parent_key != PERSON_TYPE_KEY:
             raise TreeShapeError("事项只能挂在「人」下面，不能挂到其它事项上")
+
+    async def assert_root_owner(self, db: AsyncSession, project: Project, assignees: list[dict] | None) -> None:
+        from app.core.config import settings
+        if not settings.ENFORCE_WORK_TREE_SHAPE:
+            return
+        if project.pm_user_id is None:
+            return
+        owners = [
+            int(a["user_id"])
+            for a in (assignees or [])
+            if a.get("role_key", "primary") == "primary" and a.get("user_id") is not None
+        ]
+        if project.pm_user_id not in owners:
+            raise TreeShapeError("终责根节点必须是项目负责人")
 
     async def assert_type_change_allowed(
         self, db: AsyncSession, node: TreeNode, new_type_key: str
@@ -176,7 +210,7 @@ class TreeService:
             return
 
         parent = await db.get(TreeNode, node.parent_id) if node.parent_id else None
-        await self.assert_shape(db, node_type_key=new_type_key, parent=parent)
+        await self.assert_shape(db, node_type_key=new_type_key, parent=parent, project_id=node.project_id, exclude_node_id=node.id)
         if new_type_key == PERSON_TYPE_KEY:
             await self.assert_person_limit(db, parent=parent, subtree=node)
 
@@ -224,7 +258,9 @@ class TreeService:
             if not parent or parent.project_id != project.id or parent.is_deleted:
                 raise ValueError("父节点不存在")
             depth = parent.depth + 1
-        await self.assert_shape(db, node_type_key=node_type_key, parent=parent)
+        await self.assert_shape(db, node_type_key=node_type_key, parent=parent, project_id=project.id)
+        if parent is None:
+            await self.assert_root_owner(db, project, assignees)
         await self.assert_distinct_supervisor(db, node_type_key, parent, assignees)
         if node_type_key == PERSON_TYPE_KEY:
             self.assert_origin_attachment(node_origin, parent)
@@ -281,6 +317,10 @@ class TreeService:
         if not node or node.is_deleted:
             raise ValueError("节点不存在")
 
+        from app.core.config import settings
+        if settings.ENFORCE_WORK_TREE_SHAPE and node.parent_id is None and new_parent_id is not None:
+            raise TreeShapeError("终责根节点不能挂到别人下面")
+
         if new_parent_id is not None:
             if new_parent_id == node.id:
                 raise ValueError("树操作成环")
@@ -296,9 +336,8 @@ class TreeService:
             new_path_prefix = f"/{node.id}/"
             new_depth = 0
 
-        await self.assert_shape(
-            db, node_type_key=await self.type_key_of(db, node), parent=parent
-        )
+        await self.assert_shape(db, node_type_key=await self.type_key_of(db, node), parent=parent,
+            project_id=node.project_id, exclude_node_id=node.id if parent is None else None)
         await self.assert_distinct_supervisor(db, await self.type_key_of(db, node), parent,
             await self.list_assignees(db, node.id))
         if await self.type_key_of(db, node) == PERSON_TYPE_KEY:

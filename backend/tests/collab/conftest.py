@@ -160,7 +160,10 @@ async def seed_ids(db_session: AsyncSession):
         parent_id=None,
         node_type_key="person",
         title="负责人",
-        assignees=[{"user_id": member.id, "role_key": "primary"}],
+        assignees=[
+            {"user_id": member.id, "role_key": "primary"},
+            {"user_id": pm.id, "role_key": "primary"},
+        ],
     )
     node = await tsvc.create_node(
         db_session,

@@ -48,7 +48,7 @@ async def test_personal_agent_reads_private_file_body_in_own_project_only(async_
     await db_session.flush()
     db_session.add_all([ProjectMember(project_id=foreign.id, user_id=ids['pm_user_id'], role='pm'), ProjectMember(project_id=foreign.id, user_id=ids['member_user_id'], role='member')])
     await db_session.flush()
-    node = await TreeService().create_node(db_session, foreign, parent_id=None, node_type_key='person', title='外项目责任人', assignees=[{'user_id': ids['member_user_id'], 'role_key': 'primary'}])
+    node = await TreeService().create_node(db_session, foreign, parent_id=None, node_type_key='person', title='外项目责任人', assignees=[{'user_id': ids['pm_user_id'], 'role_key': 'primary'}, {'user_id': ids['member_user_id'], 'role_key': 'primary'}])
     await db_session.commit()
     await _upload(async_client, db_session, ids, headers=ids['member_headers'], project_id=foreign.id, node_id=node.id, text=other_project_fact)
 
