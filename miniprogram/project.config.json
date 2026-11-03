@@ -1,5 +1,5 @@
 {
-  "description": "烂笔头PM 小程序。appid 现为 touristappid（游客预览）；正式发布换成公众平台 AppID。",
+  "description": "烂笔头 小程序。appid 现为 touristappid（游客预览）；正式发布换成公众平台 AppID。",
   "packOptions": {
     "ignore": [],
     "include": []

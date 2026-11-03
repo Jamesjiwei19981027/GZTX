@@ -276,7 +276,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     return AppScaffold(
       // 登录页不显示导航栏标题：页面中部已有品牌大标题，顶部再放一个
-      // “烂笔头PM” 会重复。不传 title 即不渲染导航栏（AppScaffold 的约定）。
+      // “烂笔头” 会重复。不传 title 即不渲染导航栏（AppScaffold 的约定）。
       body: SingleChildScrollView(
         // 键盘弹出时把内容顶起来，保证输入框不被遮挡
         padding: EdgeInsets.fromLTRB(

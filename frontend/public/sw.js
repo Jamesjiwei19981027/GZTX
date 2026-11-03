@@ -1,7 +1,7 @@
 self.addEventListener('push', (event) => {
   let data = {}
   try { data = event.data ? event.data.json() : {} } catch (_) { data = { body: event.data ? event.data.text() : '' } }
-  const title = data.title || 'WorkTodo'
+  const title = data.title || '烂笔头'
   const options = {
     body: data.body || '',
     icon: data.icon || '/favicon.ico',

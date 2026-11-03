@@ -139,7 +139,7 @@ async def test_push_notification(
     result = await asyncio.to_thread(
         send_web_push,
         current_user,
-        "🔔 烂笔头PM - 通知测试",
+        "🔔 烂笔头 - 通知测试",
         "网页弹窗提醒功能已正常工作！您将在任务提醒时收到此类通知。",
         "/tasks",
         1,

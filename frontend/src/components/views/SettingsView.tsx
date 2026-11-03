@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppSettings, UserProfile, Language, AccentColor } from '../../types';
 import { getT } from '../../i18n';
+import { getBrandName } from '../../constants/brand';
 import { changePassword, deleteMyAccount, getBillingSummary, getPrivacySummary } from '../../api/auth';
 import { getEmailStatus, getLlmConfig, getWechatSubscribeStatus, putWechatSubscribePreference, sendNotifyTest, listNotifyRecords, NotifyRecord } from '../../api/notifications';
 import { getHealth } from '../../api/backend';
@@ -820,7 +821,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="border-t border-surface-variant pt-6">
                 <h3 className="font-bold text-on-surface dark:text-[#f0f1f2]">{t.account}</h3>
                 <p className="text-xs text-on-surface-variant mt-1">
-                  {lang === 'zh' ? '退出当前设备上的 WorkTodo 会话。' : 'Sign out of the current WorkTodo session.'}
+                  {lang === 'zh' ? `退出当前设备上的 ${getBrandName(lang)} 会话。` : `Sign out of the current ${getBrandName(lang)} session.`}
                 </p>
                 {onLogout && (
                   <button type="button" onClick={() => void onLogout()} className="mt-3 px-4 py-2 rounded-xl border border-error/40 text-error text-xs font-bold hover:bg-error/10">
@@ -853,7 +854,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* 版本号（来自 /health 的 APP_VERSION，构建注入）：自托管升级确认用 */}
       <p className="mt-8 text-center text-[11px] text-on-surface-variant" data-testid="app-version">
-        WorkTodo {appVersion ? `v${appVersion.replace(/^v/, '')}` : (lang === 'zh' ? '版本未知' : 'version unknown')}
+        {getBrandName(lang)} {appVersion ? `v${appVersion.replace(/^v/, '')}` : (lang === 'zh' ? '版本未知' : 'version unknown')}
       </p>
     </div>
   );
