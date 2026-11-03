@@ -10,7 +10,7 @@ from app.models.project import Project, ProjectMember
 from app.models.shell import DirectConversation, DirectConversationMember
 from app.models.task import Task
 from app.models.tree import NodeAssignment, NodeType, TreeNode
-from app.services.tree_service import TreeService
+from app.services.tree_service import TreeService, TreeShapeError
 
 
 async def deletion_preview(db, node, access):
@@ -65,6 +65,13 @@ async def revoke_unassigned_project_members(db, project_id, user_ids):
 async def execute_deletion(db, node, preview, *, handover_to=None):
     service = TreeService()
     subtree_ids = [node.id, *[n['id'] for n in preview['descendants']]]
+    from app.core.config import settings
+    if settings.ENFORCE_WORK_TREE_SHAPE and node.parent_id is None:
+        children = (await db.execute(select(TreeNode).where(
+            TreeNode.parent_id == node.id, TreeNode.is_deleted.is_(False)
+        ))).scalars().all()
+        if children:
+            raise TreeShapeError("终责根节点下还有人员或任务，不能删除")
     tasks = (await db.execute(select(Task).where(Task.project_id == node.project_id,
         Task.project_node_id.in_(subtree_ids), Task.is_deleted.is_(False)))).scalars().all()
     if handover_to:
@@ -76,7 +83,7 @@ async def execute_deletion(db, node, preview, *, handover_to=None):
             raise ValueError('移交目标必须是仍在项目中的人员')
         for child in children:
             key = await service.type_key_of(db, child)
-            await service.assert_shape(db, node_type_key=key, parent=handover_to)
+            await service.assert_shape(db, node_type_key=key, parent=handover_to, project_id=node.project_id)
             if key == 'person':
                 service.assert_origin_attachment(child.node_origin, handover_to)
                 await service.assert_person_limit(db, parent=handover_to, subtree=child)

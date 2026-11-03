@@ -55,17 +55,29 @@ async def test_member_subtree_permissions(async_client, seed_ids):
     )
     assert r.status_code == 403, r.text
 
-    # 3) PM 建一个不指派给 member 的主干人 → member 往它下面挂 → 403（不拥有该路径）
+    # 3) PM/管理员在另一个项目中建主干人（不指派给 member）→ member 往它下面挂 → 403（不拥有该路径）
+    p2_resp = await async_client.post(
+        "/api/v1/projects",
+        json={"company_id": seed_ids["company_id"], "name": "第二个项目"},
+        headers=seed_ids["org_leader_headers"],
+    )
+    assert p2_resp.status_code == 200, p2_resp.text
+    p2_id = p2_resp.json()["data"]["id"]
+    await async_client.post(
+        f"/api/v1/projects/{p2_id}/members",
+        json={"user_id": seed_ids["member_user_id"], "role": "member"},
+        headers=seed_ids["org_leader_headers"],
+    )
     r = await async_client.post(
-        f"/api/v1/projects/{pid}/nodes",
-        json={"parent_id": None, "node_type_key": "person", "title": "别人的主干"},
-        headers=seed_ids["pm_headers"],
+        f"/api/v1/projects/{p2_id}/nodes",
+        json={"parent_id": None, "node_type_key": "person", "title": "项目2终责根", "assignees": [{"user_id": seed_ids["admin_user_id"], "role_key": "primary"}]},
+        headers=seed_ids["org_leader_headers"],
     )
     assert r.status_code == 200, r.text
     other_trunk = r.json()["data"]["id"]
 
     r = await async_client.post(
-        f"/api/v1/projects/{pid}/nodes",
+        f"/api/v1/projects/{p2_id}/nodes",
         json={"parent_id": other_trunk, "node_type_key": "person", "title": "越权挂载"},
         headers=seed_ids["member_headers"],
     )

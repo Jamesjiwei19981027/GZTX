@@ -318,7 +318,8 @@ async def get_my_permissions(project_id: int, db: DbSession, user: CurrentUser):
 async def set_final_owner_position(
     project_id: int, body: FinalOwnerPositionBody, db: DbSession, user: CurrentUser
 ):
-    """保存终责卡片沿主干的偏移量。
+    """已停用：人轴改为单根树后客户端不再使用，仅为旧客户端兼容保留。
+    保存终责卡片沿主干的偏移量。
 
     产品规则：**仅项目 PM 或项目创建者可拖**。此前这条规则只在两端客户端里判断，
     偏移量也只存在本机（localStorage / SharedPreferences），既不跨端同步，

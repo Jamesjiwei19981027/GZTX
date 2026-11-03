@@ -77,7 +77,7 @@ async def test_extension_attachment_keeps_project_definition_separate(async_clie
     promoted = await async_client.post(f'/api/v1/nodes/{extension_id}/move', headers=seed_ids['member_headers'], json={'new_parent_id': None})
     assert promoted.status_code == 422, promoted.text
     core = await async_client.post(f'/api/v1/projects/{pid}/nodes', headers=seed_ids['pm_headers'], json={
-        'node_type_key': 'person', 'title': '项目定义负责人', 'node_origin': 'project',
+        'parent_id': root, 'node_type_key': 'person', 'title': '项目定义负责人', 'node_origin': 'project',
     })
     assert core.status_code == 200, core.text
     invalid = await async_client.post(f"/api/v1/nodes/{core.json()['data']['id']}/move", headers=seed_ids['pm_headers'], json={'new_parent_id': extension_id})
@@ -170,19 +170,32 @@ async def test_subordinate_origin_survives_type_roundtrip_and_item_move(async_cl
 
 @pytest.mark.asyncio
 async def test_responsible_scope_honors_item_assignment_and_project_membership(async_client, seed_ids):
-    pid = seed_ids['project_id']
-    root = await async_client.post(f'/api/v1/projects/{pid}/nodes', headers=seed_ids['pm_headers'], json={
-        'node_type_key': 'person', 'title': '另一个责任域',
+    p2_resp = await async_client.post(
+        "/api/v1/projects",
+        json={"company_id": seed_ids["company_id"], "name": "责任域测试项目"},
+        headers=seed_ids["org_leader_headers"],
+    )
+    assert p2_resp.status_code == 200, p2_resp.text
+    pid = p2_resp.json()["data"]["id"]
+    await async_client.post(
+        f"/api/v1/projects/{pid}/members",
+        json={"user_id": seed_ids["member_user_id"], "role": "member"},
+        headers=seed_ids["org_leader_headers"],
+    )
+    root = await async_client.post(f'/api/v1/projects/{pid}/nodes', headers=seed_ids['org_leader_headers'], json={
+        'parent_id': None, 'node_type_key': 'person', 'title': '终责责任域',
+        'assignees': [{'user_id': seed_ids['admin_user_id'], 'role_key': 'primary'}],
         'responsibility_permissions': {'evidence_submit': 'responsible'},
     })
+    assert root.status_code == 200, root.text
     root_id = root.json()['data']['id']
-    item = await async_client.post(f'/api/v1/projects/{pid}/nodes', headers=seed_ids['pm_headers'], json={
+    item = await async_client.post(f'/api/v1/projects/{pid}/nodes', headers=seed_ids['org_leader_headers'], json={
         'parent_id': root_id, 'node_type_key': 'work_item', 'title': '独立指派事项',
     })
     item_id = item.json()['data']['id']
     denied = await async_client.post(f'/api/v1/nodes/{item_id}/evidence', headers=seed_ids['member_headers'], json={'summary_text':'未指派时不可提交'})
     assert denied.status_code == 403, denied.text
-    assigned = await async_client.patch(f'/api/v1/nodes/{item_id}', headers=seed_ids['pm_headers'], json={
+    assigned = await async_client.patch(f'/api/v1/nodes/{item_id}', headers=seed_ids['org_leader_headers'], json={
         'assignees': [{'user_id':seed_ids['member_user_id'],'role_key':'primary'}],
     })
     assert assigned.status_code == 200, assigned.text

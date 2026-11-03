@@ -70,23 +70,34 @@ async def test_reassigning_node_cannot_make_own_supervisor(async_client, seed_id
 async def test_private_chat_cannot_skip_reporting_levels(async_client, seed_ids, db_session):
     from app.models.user import User
     from app.models.project import ProjectMember
+    from tests.collab.conftest import _headers
     leader = User(username='branch_manager', email='branch@example.com', password_hash='unused', is_active=True)
-    db_session.add(leader)
+    staff = User(username='staff_member', email='staff@example.com', password_hash='unused', is_active=True)
+    db_session.add_all([leader, staff])
     await db_session.flush()
-    db_session.add(CompanyMembership(company_id=seed_ids['company_id'],user_id=leader.id,status='active',employment_status='active'))
-    db_session.add(ProjectMember(project_id=seed_ids['project_id'],user_id=leader.id))
+    db_session.add_all([
+        CompanyMembership(company_id=seed_ids['company_id'], user_id=leader.id, status='active', employment_status='active'),
+        CompanyMembership(company_id=seed_ids['company_id'], user_id=staff.id, status='active', employment_status='active'),
+        ProjectMember(project_id=seed_ids['project_id'], user_id=leader.id),
+        ProjectMember(project_id=seed_ids['project_id'], user_id=staff.id),
+    ])
     await db_session.commit()
     pid = seed_ids['project_id']
     branch = await async_client.post(f'/api/v1/projects/{pid}/nodes', headers=seed_ids['pm_headers'],
-        json={'node_type_key':'person','title':'Branch','assignees':[{'user_id':leader.id,'role_key':'primary'}]})
-    moved = await async_client.post(f"/api/v1/nodes/{seed_ids['root_node_id']}/move", headers=seed_ids['pm_headers'],
-        json={'new_parent_id':branch.json()['data']['id']})
-    assert moved.status_code == 200, moved.text
-    denied = await async_client.post(f"/api/v1/companies/{seed_ids['company_id']}/conversations", headers=seed_ids['member_headers'],
-        json={'member_user_ids':[seed_ids['pm_user_id']]})
+        json={'parent_id': seed_ids['root_node_id'], 'node_type_key': 'person', 'title': 'Branch', 'assignees': [{'user_id': leader.id, 'role_key': 'primary'}]})
+    assert branch.status_code == 200, branch.text
+    branch_id = branch.json()['data']['id']
+
+    leaf = await async_client.post(f'/api/v1/projects/{pid}/nodes', headers=seed_ids['pm_headers'],
+        json={'parent_id': branch_id, 'node_type_key': 'person', 'title': 'Staff', 'assignees': [{'user_id': staff.id, 'role_key': 'primary'}]})
+    assert leaf.status_code == 200, leaf.text
+
+    staff_headers = _headers(staff.id)
+    denied = await async_client.post(f"/api/v1/companies/{seed_ids['company_id']}/conversations", headers=staff_headers,
+        json={'member_user_ids': [seed_ids['pm_user_id']]})
     assert denied.status_code == 403, denied.text
-    allowed = await async_client.post(f"/api/v1/companies/{seed_ids['company_id']}/conversations", headers=seed_ids['member_headers'],
-        json={'member_user_ids':[leader.id]})
+    allowed = await async_client.post(f"/api/v1/companies/{seed_ids['company_id']}/conversations", headers=staff_headers,
+        json={'member_user_ids': [leader.id]})
     assert allowed.status_code == 200, allowed.text
 
 

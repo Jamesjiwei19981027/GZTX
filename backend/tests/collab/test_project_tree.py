@@ -70,7 +70,7 @@ async def test_create_project_tree_and_evidence_flow(async_client, seed_ids):
 
 @pytest.mark.asyncio
 async def test_move_rejects_cycle(async_client, seed_ids):
-    # 人挂人 = 下级，是合法链路；用它构造 root → A → B 再把 root 移到 B 下
+    # 人挂人 = 下级，是合法链路；构造 root → A → B，再把 A 移到 B 下触发成环
     r_a = await async_client.post(
         f"/api/v1/projects/{seed_ids['project_id']}/nodes",
         json={"parent_id": seed_ids["root_node_id"], "node_type_key": "person", "title": "下级A"},
@@ -84,7 +84,7 @@ async def test_move_rejects_cycle(async_client, seed_ids):
     )
     b_id = r_b.json()["data"]["id"]
     r = await async_client.post(
-        f"/api/v1/nodes/{seed_ids['root_node_id']}/move",
+        f"/api/v1/nodes/{a_id}/move",
         json={"new_parent_id": b_id, "sort_order": 0},
         headers=seed_ids["pm_headers"],
     )
