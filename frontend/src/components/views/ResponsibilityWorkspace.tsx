@@ -310,7 +310,7 @@ export function ResponsibilityWorkspace(p: Props) {
           {p.nodes.length > 0 ? mode === 'chain' ? renderChain() : <div className="axis-overview" data-testid="axis-overview">
             {p.extraRoots && p.extraRoots.length > 0 && (
               <div className="axis-multi-root-notice" role="alert">
-                {zh ? '该项目存在多个根节点，请联系管理员整理' : '该项目存在多个根节点，请联系管理员整理'}
+                {zh ? '该项目存在多个根节点，请联系管理员整理' : 'This project has multiple root nodes. Please ask an administrator to tidy it up.'}
               </div>
             )}
             <PeopleAxisFlowCanvas {...p.canvas} edgeStyle={p.edgeStyle} mobile={p.mobile} hasPreview={hasPreview} focusNodeId={p.selectedId} focusToken={focusToken} />

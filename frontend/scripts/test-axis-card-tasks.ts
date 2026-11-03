@@ -44,5 +44,11 @@ const pNode = (id: string, parentId?: string, orderOnAxis = 0): PeopleAxisNode =
 assert.deepEqual(extraRootIds([pNode('r1', undefined, 0), pNode('r2', undefined, 1), pNode('c1', 'r1', 2)]), ['r2'])
 assert.deepEqual(extraRootIds([pNode('r1', undefined, 0)]), [])
 
+// 同截止日期时 id 按数值比较："9" 在 "10" 前
+assert.deepEqual(
+  sortCardTasks([item('10', '2026-11-10'), item('9', '2026-11-10')], today).map(x => x.id),
+  ['9', '10'],
+)
+
 console.log('axis card tasks: sorting and summary cases passed')
 

@@ -297,6 +297,16 @@ function isCompleted(item: AxisWorkItem): boolean {
   )
 }
 
+/** id 都是纯数字时按数值比较（"9" 在 "10" 前，与 APP 一致），否则退回文字比较。 */
+function compareIds(a: string, b: string): number {
+  if (/^\d+$/.test(a) && /^\d+$/.test(b)) {
+    const diff = Number(a) - Number(b)
+    if (diff !== 0) return diff < 0 ? -1 : 1
+    return 0
+  }
+  return a.localeCompare(b)
+}
+
 /** Stable card ordering: overdue, upcoming, undated, then completed. */
 export function sortCardTasks(items: AxisWorkItem[], today: Date): AxisWorkItem[] {
   const now = todayKey(today)
@@ -312,7 +322,7 @@ export function sortCardTasks(items: AxisWorkItem[], today: Date): AxisWorkItem[
     if (!ad && bd) return 1
     if (ad && !bd) return -1
     if (ad !== bd) return ad.localeCompare(bd)
-    return a.id.localeCompare(b.id)
+    return compareIds(a.id, b.id)
   })
 }
 
