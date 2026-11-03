@@ -196,9 +196,26 @@ export function mapTreeToPeopleAxis(
   const out: PeopleAxisNode[] = []
   let order = 0
 
+  // The compatibility parameter is intentionally retained for callers that
+  // still pass the project owner id. Terminal status now follows the first
+  // root in tree order and never depends on assignee matching.
+  void finalOwnerUserId
+  const treeOrder = (a: BackendTreeNode, b: BackendTreeNode) =>
+    (a.sort_order ?? 0) - (b.sort_order ?? 0) || a.id - b.id
+  const orderedRoots = [...roots].sort(treeOrder)
+  const firstPersonRoot = (items: BackendTreeNode[]): BackendTreeNode | undefined => {
+    for (const item of [...items].sort(treeOrder)) {
+      if (item.node_type_key === 'person') return item
+      const nested = firstPersonRoot(item.children || [])
+      if (nested) return nested
+    }
+    return undefined
+  }
+  const firstRootId = firstPersonRoot(orderedRoots)?.id
+
   const walkPerson = (n: BackendTreeNode, parentPersonId?: string) => {
     if (n.node_type_key !== 'person') {
-      for (const c of n.children || []) walkPerson(c, parentPersonId)
+      for (const c of [...(n.children || [])].sort(treeOrder)) walkPerson(c, parentPersonId)
       return
     }
     const primary = n.assignees?.find(a => a.role_key === 'primary') || n.assignees?.[0]
@@ -223,9 +240,7 @@ export function mapTreeToPeopleAxis(
       if (c.node_type_key === 'person') continue
       matters.push(mapMatter(c))
     }
-    const isTerminal =
-      finalOwnerUserId != null &&
-      (n.assignees || []).some((a) => a.user_id === finalOwnerUserId)
+    const isTerminal = n.id === firstRootId
 
     const offset = n.ui_offset || n.progress_json?.ui_offset
     // 与服务端 acl._owns_path 同口径：只有 primary/collaborator 指派才拥有该子树的编辑权
@@ -252,20 +267,84 @@ export function mapTreeToPeopleAxis(
       ...(offset ? { layoutOffset: offset } : {}),
     } as PeopleAxisNode & { layoutOffset?: { x: number; y: number } })
 
-    for (const c of n.children || []) {
+    for (const c of [...(n.children || [])].sort(treeOrder)) {
       if (c.node_type_key === 'person') walkPerson(c, String(n.id))
     }
   }
 
-  for (const r of roots) walkPerson(r)
-  // 终责排到轴末（与产品口径一致）
-  out.sort((a, b) => {
-    if (a.isTerminalPM && !b.isTerminalPM) return 1
-    if (!a.isTerminalPM && b.isTerminalPM) return -1
-    return a.orderOnAxis - b.orderOnAxis
-  })
-  out.forEach((n, i) => {
-    n.orderOnAxis = i
-  })
+  for (const r of orderedRoots) walkPerson(r)
   return out
+}
+
+function dateKey(value: string): string {
+  return value ? value.slice(0, 10) : ''
+}
+
+function todayKey(today: Date): string {
+  const y = today.getFullYear()
+  const m = String(today.getMonth() + 1).padStart(2, '0')
+  const d = String(today.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function isCompleted(item: AxisWorkItem): boolean {
+  const st = String(item.status || '').toLowerCase()
+  return (
+    item.status === 'Done' ||
+    st === 'done' ||
+    st === 'completed' ||
+    (typeof item.progress === 'number' && item.progress >= 100)
+  )
+}
+
+/** id 都是纯数字时按数值比较（"9" 在 "10" 前，与 APP 一致），否则退回文字比较。 */
+function compareIds(a: string, b: string): number {
+  if (/^\d+$/.test(a) && /^\d+$/.test(b)) {
+    const diff = Number(a) - Number(b)
+    if (diff !== 0) return diff < 0 ? -1 : 1
+    return 0
+  }
+  return a.localeCompare(b)
+}
+
+/** Stable card ordering: overdue, upcoming, undated, then completed. */
+export function sortCardTasks(items: AxisWorkItem[], today: Date): AxisWorkItem[] {
+  const now = todayKey(today)
+  return [...items].sort((a, b) => {
+    const aDone = isCompleted(a)
+    const bDone = isCompleted(b)
+    if (aDone !== bDone) return aDone ? 1 : -1
+    const ad = dateKey(a.dueDate)
+    const bd = dateKey(b.dueDate)
+    const aOverdue = Boolean(ad && ad < now && !aDone)
+    const bOverdue = Boolean(bd && bd < now && !bDone)
+    if (aOverdue !== bOverdue) return aOverdue ? -1 : 1
+    if (!ad && bd) return 1
+    if (ad && !bd) return -1
+    if (ad !== bd) return ad.localeCompare(bd)
+    return compareIds(a.id, b.id)
+  })
+}
+
+export function summarizeCardTasks(items: AxisWorkItem[], today: Date): {
+  visible: AxisWorkItem[]
+  total: number
+  hiddenCount: number
+  overdueIds: Set<string>
+} {
+  const sorted = sortCardTasks(items, today)
+  const now = todayKey(today)
+  const overdueIds = new Set(
+    sorted
+      .filter(item => !isCompleted(item) && Boolean(dateKey(item.dueDate) && dateKey(item.dueDate) < now))
+      .map(item => item.id),
+  )
+  return { visible: sorted.slice(0, 2), total: sorted.length, hiddenCount: Math.max(0, sorted.length - 2), overdueIds }
+}
+
+export function extraRootIds(nodes: PeopleAxisNode[]): string[] {
+  const ids = new Set(nodes.map(node => node.id))
+  const roots = nodes.filter(node => !node.parentId || !ids.has(node.parentId))
+    .sort((a, b) => a.orderOnAxis - b.orderOnAxis || a.id.localeCompare(b.id))
+  return roots.slice(1).map(node => node.id)
 }

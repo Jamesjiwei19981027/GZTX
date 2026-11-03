@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { ReactFlow, applyNodeChanges, Background, Handle, Position, type Node, type NodeProps, type ReactFlowInstance } from '@xyflow/react';
 import type { PeopleAxisNode } from '../../../types';
+import { computeAxisLayout } from '../../../components/views/peopleAxisFlowLayout';
+import { highlightEdgeIds } from '../../../components/views/peopleAxisUtils';
 
 type CardNode = Node<{ card: React.ReactNode; horizontal: boolean }, 'person'>;
 function PersonNode({ data, id }: NodeProps<CardNode>) {
@@ -16,57 +18,69 @@ export const MobileAxisGraph: React.FC<{
   nodes: PeopleAxisNode[]; orientation: 'vertical' | 'horizontal'; spacing: string;
   renderCard: (node: PeopleAxisNode) => React.ReactNode; onSelect: (node: PeopleAxisNode) => void;
   onReady: (instance: ReactFlowInstance) => void; onZoomChange: (zoom: number) => void;
-}> = ({ nodes: people, orientation, spacing, renderCard, onSelect, onReady, onZoomChange }) => {
+}> = ({ nodes: people, orientation, renderCard, onSelect, onReady, onZoomChange }) => {
   const horizontal = orientation === 'horizontal';
-  const gap = spacing === 'compact' ? 150 : spacing === 'loose' ? 220 : 180;
+  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
+
   const layout = useMemo(() => {
-    const ids = new Set(people.map(p => p.id));
-    const roots = people.filter(p => !p.parentId || !ids.has(p.parentId));
-    const positions = new Map<string, { x: number; y: number }>();
-    let leaf = 0;
-    let deepest = 0;
-    const place = (person: PeopleAxisNode, depth: number, seen = new Set<string>()): number => {
-      if (seen.has(person.id)) return leaf;
-      deepest = Math.max(deepest, depth);
-      seen.add(person.id);
-      const children = people.filter(p => p.parentId === person.id && !seen.has(p.id));
-      const childLanes = children.map(c => place(c, depth + 1, seen));
-      const lane = childLanes.length ? (childLanes[0] + childLanes[childLanes.length - 1]) / 2 : leaf++;
-      positions.set(person.id, horizontal ? { x: depth * (gap + 130), y: lane * 150 } : { x: lane * 260, y: depth * gap });
-      return lane;
-    };
-    let nextDepth = 0;
-    for (const root of roots) {
-      leaf = 0;
-      const subtree = new Set<string>();
-      const lane = place(root, nextDepth, subtree);
-      // Project-spine roots align on the main axis; children occupy their own branches.
-      for (const id of subtree) {
-        const position = positions.get(id)!;
-        if (horizontal) position.y -= lane * 150;
-        else position.x -= lane * 260;
-      }
-      nextDepth = deepest + 1;
-    }
-    return positions;
-  }, [people, horizontal, gap]);
-  const [flowNodes, setFlowNodes] = useState<CardNode[]>(() => people.map(person => ({ id: person.id, type: 'person',
-    position: layout.get(person.id) || { x: 0, y: 0 },
+    return computeAxisLayout(people, orientation, {});
+  }, [people, orientation]);
+
+  const [flowNodes, setFlowNodes] = useState<CardNode[]>(() => people.map(person => ({
+    id: person.id,
+    type: 'person',
+    position: layout.positions.get(person.id) || { x: 0, y: 0 },
     data: { card: renderCard(person), horizontal },
     sourcePosition: horizontal ? Position.Right : Position.Bottom,
     targetPosition: horizontal ? Position.Left : Position.Top,
   })));
-  const nodes = flowNodes.map(node => ({ ...node, data: { ...node.data,
-    card: renderCard(people.find(p => p.id === node.id)!),
-  } }));
-  const edges = people.filter(p => p.parentId && layout.has(p.parentId)).map(person => ({
-    id: `${person.parentId}-${person.id}`, source: person.parentId!, target: person.id,
-    type: 'default', style: { stroke: '#6d93be', strokeWidth: 2.5 },
+
+  // Sync positions when layout changes
+  React.useEffect(() => {
+    setFlowNodes(people.map(person => ({
+      id: person.id,
+      type: 'person',
+      position: layout.positions.get(person.id) || { x: 0, y: 0 },
+      data: { card: renderCard(person), horizontal },
+      sourcePosition: horizontal ? Position.Right : Position.Bottom,
+      targetPosition: horizontal ? Position.Left : Position.Top,
+    })));
+  }, [people, layout.positions, renderCard, horizontal]);
+
+  const nodes = flowNodes.map(node => ({
+    ...node,
+    data: {
+      ...node.data,
+      card: renderCard(people.find(p => p.id === node.id) || people[0]),
+    },
   }));
-  // Independent project responsibilities are connected on the project spine.
-  const roots = people.filter(p => !p.parentId || !layout.has(p.parentId));
-  roots.slice(1).forEach((person, i) => edges.push({ id: `spine-${person.id}`, source: roots[i].id, target: person.id,
-    type: 'default', style: { stroke: '#6d93be', strokeWidth: 2.5 } }));
+
+  const highlightedEdges = useMemo(() => {
+    return highlightEdgeIds(people.map(p => ({ id: p.id, parentId: p.parentId })), selectedPersonId);
+  }, [people, selectedPersonId]);
+
+  const edges = useMemo(() => {
+    return people
+      .filter(p => p.parentId && layout.positions.has(p.parentId))
+      .map(person => {
+        const edgeId = `branch-${person.id}`;
+        const isHighlighted = selectedPersonId ? highlightedEdges.has(edgeId) : false;
+        const isDim = selectedPersonId ? !isHighlighted : false;
+        return {
+          id: edgeId,
+          source: person.parentId!,
+          target: person.id,
+          type: 'default',
+          className: 'axis-edge-flow',
+          style: {
+            stroke: isHighlighted ? '#0058be' : '#6d93be',
+            strokeWidth: isHighlighted ? 2.4 : 1.6,
+            opacity: isDim ? 0.25 : 1,
+          },
+        };
+      });
+  }, [people, layout.positions, selectedPersonId, highlightedEdges]);
+
   return <div data-testid="mobile-axis-graph" className="w-full h-full min-h-[260px] pb-24">
     <ReactFlow<CardNode> nodes={nodes} edges={edges} nodeTypes={nodeTypes}
       onInit={instance => onReady(instance as unknown as ReactFlowInstance)}
@@ -74,11 +88,20 @@ export const MobileAxisGraph: React.FC<{
       onNodesChange={changes => {
         setFlowNodes(previous => applyNodeChanges(changes, previous));
       }}
-      onNodeClick={(_, node) => { const person = people.find(p => p.id === node.id); if (person) onSelect(person); }}
+      onNodeClick={(_, node) => {
+        const person = people.find(p => p.id === node.id);
+        if (person) {
+          setSelectedPersonId(prev => prev === person.id ? null : person.id);
+          onSelect(person);
+        }
+      }}
+      onPaneClick={() => {
+        setSelectedPersonId(null);
+      }}
       nodesDraggable nodesConnectable={false} elementsSelectable={false} fitView fitViewOptions={{ padding: 0.2, maxZoom: 1 }}
       minZoom={0.25} maxZoom={2} nodeDragThreshold={5} zoomOnDoubleClick={false}
       proOptions={{ hideAttribution: true }}>
       <Background color="#b9c9da" gap={24} size={1} />
     </ReactFlow>
   </div>;
-}
+};

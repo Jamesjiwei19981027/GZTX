@@ -200,7 +200,8 @@ test('live desktop overview and inspector persist across both orientations', asy
     await page.getByRole('button', { name, exact: true }).click()
     await expect(page.getByRole('button', { name, exact: true })).toHaveAttribute('aria-pressed', 'true')
     await page.getByRole('button', { name: '适配全部节点' }).click()
-    await expect(page.locator('.react-flow__node[data-id="__terminus__"]')).toBeVisible()
+    await expect(page.locator('.axis-map-card.is-terminal')).toBeVisible()
+    await expect(page.locator('.axis-terminal-badge')).toBeVisible()
   }
   await page.screenshot({ path: test.info().outputPath('live-desktop-overview.png') })
 })

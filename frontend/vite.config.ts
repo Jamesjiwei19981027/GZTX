@@ -42,6 +42,9 @@ export default defineConfig({
     host: '0.0.0.0',
     hmr: process.env.DISABLE_HMR === 'true' ? false : true,
     proxy: apiProxy,
+    watch: {
+      ignored: ['**/playwright-report/**', '**/test-results/**'],
+    },
   },
   preview: {
     port: 5173,

@@ -15,7 +15,7 @@ import {
   BackendTreeNode,
   BackendMember,
 } from '../../../api/backend';
-import { mapTreeToPeopleAxis } from '../../../api/mappers';
+import { mapTreeToPeopleAxis, summarizeCardTasks } from '../../../api/mappers';
 import { getMyPermissions, MyProjectPermissions } from '../../../api/shell';
 import { AppIcon } from '../../ui/AppIcon';
 import { MobileTopBar } from '../../ui/MobileTopBar';
@@ -1063,11 +1063,20 @@ const CanvasPersonCard: React.FC<CanvasPersonCardProps> = ({
   showAiStatus,
   onClick,
 }) => {
+  const summary = useMemo(() => summarizeCardTasks(node.workItems || [], new Date()), [node.workItems]);
+  const footText = useMemo(() => {
+    if (summary.total === 0) return '暂无任务';
+    if (summary.total <= 2) return `共 ${summary.total} 项`;
+    return `还有 ${summary.hiddenCount} 项，点开查看`;
+  }, [summary]);
+
   return (
     <div
       onClick={onClick}
-      className={`w-[220px] rounded-2xl p-3 border text-left shadow-sm transition-all cursor-pointer select-none ${
-        isSelf
+      className={`w-[240px] rounded-2xl p-3 border text-left shadow-sm transition-all cursor-pointer select-none ${
+        node.isTerminalPM
+          ? 'border-amber-400 bg-amber-50/30 dark:bg-amber-950/20'
+          : isSelf
           ? 'bg-blue-50/90 dark:bg-blue-950/80 border-blue-400 dark:border-blue-600 ring-2 ring-blue-300 dark:ring-blue-800'
           : isSelected
           ? 'bg-white dark:bg-slate-900 border-[#0058BE] ring-2 ring-blue-200'
@@ -1077,7 +1086,9 @@ const CanvasPersonCard: React.FC<CanvasPersonCardProps> = ({
       <div className="flex items-center gap-2.5">
         <div
           className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-            isSelf
+            node.isTerminalPM
+              ? 'bg-amber-500 text-white'
+              : isSelf
               ? 'bg-[#0058BE] text-white'
               : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
           }`}
@@ -1089,7 +1100,12 @@ const CanvasPersonCard: React.FC<CanvasPersonCardProps> = ({
             <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
               {node.person.name}
             </strong>
-            {isSelf && (
+            {node.isTerminalPM && (
+              <span className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 rounded font-bold">
+                终责
+              </span>
+            )}
+            {isSelf && !node.isTerminalPM && (
               <span className="text-[10px] text-[#0058BE] dark:text-blue-400 font-bold">我</span>
             )}
           </div>
@@ -1099,15 +1115,32 @@ const CanvasPersonCard: React.FC<CanvasPersonCardProps> = ({
         </div>
       </div>
 
-      {showAiStatus && (
-        <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] text-[#0058BE] dark:text-blue-400 font-medium">
-          <span className="truncate flex items-center gap-1">
-            <AppIcon name="file" size={11} />
+      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-1 text-[11px]">
+        {summary.visible.length === 0 ? (
+          <div className="text-slate-400 text-[10px]">暂无任务</div>
+        ) : (
+          summary.visible.map(item => (
+            <div key={item.id} className="flex items-center justify-between gap-1 text-slate-700 dark:text-slate-300">
+              <span className="truncate">{item.title}</span>
+              {item.dueDate ? (
+                <span className={`tabular-nums shrink-0 text-[10px] ${summary.overdueIds.has(item.id) ? 'text-red-500 font-semibold' : 'text-slate-400'}`}>
+                  {item.dueDate.slice(5, 10).replace('-', '/')}
+                </span>
+              ) : null}
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="mt-2 pt-1 border-t border-slate-100/60 dark:border-slate-800/50 text-[10px] text-slate-400 flex items-center justify-between">
+        <span>{footText}</span>
+        {showAiStatus && (
+          <span className="text-[#0058BE] dark:text-blue-400 flex items-center gap-0.5">
+            <AppIcon name="file" size={10} />
             {isSelf ? '草稿待提交' : '已收到汇报'}
           </span>
-          <AppIcon name="chevron-right" size={11} />
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

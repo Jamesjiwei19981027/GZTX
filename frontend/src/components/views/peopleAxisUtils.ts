@@ -84,6 +84,54 @@ export function floatingEdgePath(source: RectCoords, target: RectCoords, sourceA
   return `M ${from.x} ${from.y} C ${round2(c1x)} ${round2(c1y)}, ${round2(c2x)} ${round2(c2y)}, ${to.x} ${to.y}`
 }
 
+/** Straight segment between the same floating card anchors used by curves. */
+export function straightEdgePath(source: RectCoords, target: RectCoords): string {
+  const from = borderAnchor(source, target.centerX, target.centerY)
+  const to = borderAnchor(target, source.centerX, source.centerY)
+  return `M ${from.x} ${from.y} L ${to.x} ${to.y}`
+}
+
+export function branchEdgeId(parentId: string, childId: string): string {
+  // Keep the existing public id contract: branch ids are keyed by child id.
+  void parentId
+  return `branch-${childId}`
+}
+
+export function highlightEdgeIds(nodes: { id: string; parentId: string | null | undefined }[], focusId: string | null): Set<string> {
+  const result = new Set<string>()
+  if (!focusId) return result
+  const byId = new Map(nodes.map(node => [node.id, node]))
+  let current = byId.get(focusId)
+  while (current?.parentId && byId.has(current.parentId)) {
+    result.add(branchEdgeId(current.parentId, current.id))
+    current = byId.get(current.parentId)
+  }
+  for (const node of nodes) {
+    if (node.parentId === focusId) result.add(branchEdgeId(focusId, node.id))
+  }
+  return result
+}
+
+export function snapToParentAxis(
+  childPos: { x: number; y: number },
+  cardSize: { width: number; height: number },
+  parentPos: { x: number; y: number },
+  orientation: 'horizontal' | 'vertical',
+  threshold = 16,
+): { pos: { x: number; y: number }; snapped: boolean; guide: { from: { x: number; y: number }; to: { x: number; y: number } } | null } {
+  const childCenter = { x: childPos.x + cardSize.width / 2, y: childPos.y + cardSize.height / 2 }
+  const parentCenter = { x: parentPos.x + cardSize.width / 2, y: parentPos.y + cardSize.height / 2 }
+  const delta = orientation === 'horizontal' ? childCenter.y - parentCenter.y : childCenter.x - parentCenter.x
+  if (Math.abs(delta) >= threshold) return { pos: childPos, snapped: false, guide: null }
+  const pos = orientation === 'horizontal'
+    ? { x: childPos.x, y: parentPos.y }
+    : { x: parentPos.x, y: childPos.y }
+  const guide = orientation === 'horizontal'
+    ? { from: { x: parentCenter.x, y: parentCenter.y }, to: { x: childCenter.x, y: parentCenter.y } }
+    : { from: { x: parentCenter.x, y: parentCenter.y }, to: { x: parentCenter.x, y: childCenter.y } }
+  return { pos, snapped: true, guide }
+}
+
 /** A shared, separate port faces the visible subordinate group as it moves. */
 export function subordinatePortAnchor(source: RectCoords, targets: RectCoords[], orientation: 'horizontal' | 'vertical'): BorderAnchor {
   const tx = targets.length ? targets.reduce((sum, t) => sum + t.centerX, 0) / targets.length
