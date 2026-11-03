@@ -18,6 +18,16 @@ import 'axis_test_harness.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  setUp(() {
+    // 画布连线有持续的流动动画；这些用例按“减少动态效果”渲染，
+    // 否则 pumpAndSettle 永远等不到静止，截图也会随动画帧漂移。
+    final dispatcher = TestWidgetsFlutterBinding.instance.platformDispatcher;
+    dispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+      disableAnimations: true,
+    );
+    addTearDown(dispatcher.clearAccessibilityFeaturesTestValue);
+  });
+
   const cases = [
     (Size(320, 600), 1.0, Brightness.light, '320窄屏'),
     (Size(430, 932), 1.0, Brightness.light, '430宽屏'),
@@ -80,6 +90,7 @@ void main() {
                 size: size,
                 textScaler: TextScaler.linear(scale),
                 platformBrightness: brightness,
+                disableAnimations: true,
               ),
               child: page,
             ),

@@ -32,12 +32,14 @@ void main() {
       person(1, name: '一层'),
       person(2, parentId: 1, name: '二层'),
       person(3, parentId: 2, name: '三层'),
+      person(5, parentId: 3, name: '四层'),
+      person(6, parentId: 1, name: '另一位二层'),
       person(4, name: '另一位一层'),
     ];
 
-    test('人挂人可以：一层人员下挂另一个人员', () {
+    test('人挂人可以：二层人员改挂到另一位人员下', () {
       final result = AxisRules.validateDrop(
-        dragged: const AxisDragSubject(id: 4, isPerson: true),
+        dragged: const AxisDragSubject(id: 6, isPerson: true, parentId: 1),
         target: const AxisDragSubject(id: 1, isPerson: true),
         nodes: nodes,
       );
@@ -47,7 +49,7 @@ void main() {
     test('事项挂人可以：工作项可以挂到人员下', () {
       final result = AxisRules.validateDrop(
         dragged: const AxisDragSubject(id: 201, isPerson: false, parentId: 2),
-        target: const AxisDragSubject(id: 4, isPerson: true),
+        target: const AxisDragSubject(id: 6, isPerson: true),
         nodes: nodes,
       );
       expect(result.allowed, isTrue);
@@ -55,7 +57,7 @@ void main() {
 
     test('事项下挂人不行：人员不能挂到事项下面', () {
       final result = AxisRules.validateDrop(
-        dragged: const AxisDragSubject(id: 4, isPerson: true),
+        dragged: const AxisDragSubject(id: 6, isPerson: true, parentId: 1),
         target: const AxisDragSubject(id: 201, isPerson: false),
         nodes: nodes,
       );
@@ -73,15 +75,52 @@ void main() {
       expect(result.reason, contains('事项只能挂在「人」下面'));
     });
 
-    test('第四级被拒：把人员拖到第三层人员下得到第四层', () {
-      final result = AxisRules.validateDrop(
-        dragged: const AxisDragSubject(id: 4, isPerson: true),
+    test('层数上限为四层：第四层允许，第五层被拒', () {
+      expect(axisMaxPersonLevels, 4);
+      expect(AxisRules.personLevel(5, nodes), 4);
+      // 6 挂到第三层人员 3 下面 = 第四层，允许。
+      final fourth = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 6, isPerson: true, parentId: 1),
         target: const AxisDragSubject(id: 3, isPerson: true),
         nodes: nodes,
       );
+      expect(fourth.allowed, isTrue);
+      // 6 挂到第四层人员 5 下面 = 第五层，被拒。
+      final fifth = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 6, isPerson: true, parentId: 1),
+        target: const AxisDragSubject(id: 5, isPerson: true),
+        nodes: nodes,
+      );
+      expect(fifth.allowed, isFalse);
+      expect(fifth.reason, contains('最多四层'));
+    });
+
+    test('根（终责人）不能拖到别人下面', () {
+      final result = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 1, isPerson: true),
+        target: const AxisDragSubject(id: 4, isPerson: true),
+        nodes: nodes,
+      );
       expect(result.allowed, isFalse);
-      expect(result.reason, contains('最多允许三层'));
-      expect(AxisRules.personLevel(3, nodes), 3);
+      expect(result.reason, contains('根'));
+    });
+
+    test('已有根时，不能把人员拖到根位置；没有根时可以', () {
+      final result = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 6, isPerson: true, parentId: 1),
+        target: null,
+        allowRootTarget: true,
+        nodes: nodes,
+      );
+      expect(result.allowed, isFalse);
+      expect(result.reason, contains('已有终责人'));
+      final noRoot = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 6, isPerson: true, parentId: 1),
+        target: null,
+        allowRootTarget: true,
+        nodes: [person(6, parentId: 99)],
+      );
+      expect(noRoot.allowed, isTrue);
     });
 
     test('不能拖到自己身上，也不能拖进自己的后代', () {
@@ -103,8 +142,8 @@ void main() {
 
     test('目标人员未开放新增下属时拒绝', () {
       final result = AxisRules.validateDrop(
-        dragged: const AxisDragSubject(id: 4, isPerson: true),
-        target: const AxisDragSubject(id: 1, isPerson: true),
+        dragged: const AxisDragSubject(id: 6, isPerson: true, parentId: 1),
+        target: const AxisDragSubject(id: 2, isPerson: true),
         nodes: nodes,
         canAddUnderTarget: false,
       );
@@ -119,38 +158,6 @@ void main() {
         nodes: nodes,
       );
       expect(result.allowed, isTrue);
-    });
-  });
-
-  group('终责卡位置权限', () {
-    const project = AxisProjectInfo(
-      id: 1,
-      name: '项目',
-      pmUserId: 12,
-      createdBy: 15,
-      finalOwnerAlongDelta: 0,
-    );
-
-    test('项目经理与项目创建者可调', () {
-      expect(
-        AxisRules.canAdjustFinalOwner(project: project, userId: 12),
-        isTrue,
-      );
-      expect(
-        AxisRules.canAdjustFinalOwner(project: project, userId: 15),
-        isTrue,
-      );
-    });
-
-    test('普通成员不可调', () {
-      expect(
-        AxisRules.canAdjustFinalOwner(project: project, userId: 11),
-        isFalse,
-      );
-      expect(
-        AxisRules.canAdjustFinalOwner(project: null, userId: 12),
-        isFalse,
-      );
     });
   });
 

@@ -1,4 +1,4 @@
-/// 人轴视图枚举。数值只影响画布排版，不写回服务端。
+/// Axis view state shared by the APP canvas and controls.
 library;
 
 enum AxisViewTab {
@@ -26,13 +26,16 @@ enum AxisSort {
 }
 
 enum AxisSpacing {
-  compact('紧凑', 148),
-  standard('标准', 196),
-  loose('宽松', 248);
+  compact('紧凑', 0.75),
+  standard('标准', 1.0),
+  loose('宽松', 1.5);
 
-  const AxisSpacing(this.label, this.stationGap);
+  const AxisSpacing(this.label, this.siblingFactor);
   final String label;
+  final double siblingFactor;
 
-  /// 相邻人员站点沿主干方向的间距。
-  final double stationGap;
+  // Kept as a source compatibility getter for older screens.
+  double get stationGap => 48 * siblingFactor;
 }
+
+enum AxisEdgeStyle { curve, straight }

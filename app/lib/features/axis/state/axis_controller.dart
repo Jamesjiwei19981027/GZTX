@@ -1,10 +1,11 @@
+import 'dart:async';
 import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/axis_api.dart';
 import '../data/axis_models.dart';
-import '../data/axis_rules.dart';
 import '../data/axis_tree_mapper.dart';
 import '../data/axis_view_models.dart';
 
@@ -18,7 +19,13 @@ class AxisController extends ChangeNotifier {
     required int projectId,
     required this.currentUserId,
     this.companyId,
-  }) : _projectId = projectId;
+    Future<SharedPreferences> Function()? prefsLoader,
+  }) : _projectId = projectId,
+       _prefsLoader = prefsLoader ?? SharedPreferences.getInstance;
+
+  /// 读写线型偏好的入口，测试可注入失败的实现。
+  final Future<SharedPreferences> Function() _prefsLoader;
+  static const String edgeStyleKey = 'axis_edge_style';
 
   final AxisApi api;
   final int? currentUserId;
@@ -41,6 +48,7 @@ class AxisController extends ChangeNotifier {
   AxisOrientation orientation = AxisOrientation.vertical;
   AxisSort sort = AxisSort.tree;
   AxisSpacing spacing = AxisSpacing.standard;
+  AxisEdgeStyle edgeStyle = AxisEdgeStyle.curve;
   bool showAiStatus = true;
   bool expandSubordinates = true;
 
@@ -92,11 +100,7 @@ class AxisController extends ChangeNotifier {
     return nodes.where((node) => node.parentId == null).toList();
   }
 
-  Offset offsetFor(int nodeId) =>
-      _layoutOffsets[nodeId] ?? Offset.zero;
-
-  bool get canAdjustFinalOwner =>
-      AxisRules.canAdjustFinalOwner(project: project, userId: currentUserId);
+  Offset offsetFor(int nodeId) => _layoutOffsets[nodeId] ?? Offset.zero;
 
   void select(int? nodeId) {
     if (selectedNodeId == nodeId) return;
@@ -128,6 +132,43 @@ class AxisController extends ChangeNotifier {
     notifyListeners();
   }
 
+  bool _edgeStyleRestored = false;
+  bool _edgeStyleTouched = false;
+
+  /// 切换连线线型（曲线 / 直线）并记住；写入失败只影响“下次启动是否记得”，不崩。
+  void setEdgeStyle(AxisEdgeStyle value) {
+    _edgeStyleTouched = true;
+    if (edgeStyle == value) return;
+    edgeStyle = value;
+    notifyListeners();
+    unawaited(_persistEdgeStyle(value));
+  }
+
+  Future<void> _persistEdgeStyle(AxisEdgeStyle value) async {
+    try {
+      final prefs = await _prefsLoader();
+      await prefs.setString(edgeStyleKey, value.name);
+    } catch (_) {
+      // 记不住就算了，当前会话内仍然生效。
+    }
+  }
+
+  /// 首次加载时读取已保存的线型；读取失败或值无效时保持默认曲线。
+  Future<void> _restoreEdgeStyle() async {
+    if (_edgeStyleRestored) return;
+    _edgeStyleRestored = true;
+    try {
+      final prefs = await _prefsLoader();
+      final stored = prefs.getString(edgeStyleKey);
+      if (_disposed || _edgeStyleTouched) return;
+      for (final value in AxisEdgeStyle.values) {
+        if (value.name == stored) edgeStyle = value;
+      }
+    } catch (_) {
+      edgeStyle = AxisEdgeStyle.curve;
+    }
+  }
+
   void setShowAiStatus(bool value) {
     showAiStatus = value;
     notifyListeners();
@@ -157,6 +198,7 @@ class AxisController extends ChangeNotifier {
         api.fetchMembers(_projectId),
         api.fetchPermissions(_projectId),
         api.fetchProject(_projectId),
+        _restoreEdgeStyle(),
       ]);
       if (!_isFresh(epoch)) return;
 
@@ -165,10 +207,7 @@ class AxisController extends ChangeNotifier {
       final permissions = results[2] as AxisPermissions;
       final project = results[3] as AxisProjectInfo;
 
-      final mapped = AxisTreeMapper.mapTree(
-        tree,
-        finalOwnerUserId: project.pmUserId,
-      );
+      final mapped = AxisTreeMapper.mapTree(tree);
       nodes = mapped;
       this.members = members;
       this.permissions = permissions;
@@ -180,9 +219,11 @@ class AxisController extends ChangeNotifier {
       } else {
         _layoutOffsets
           ..clear()
-          ..addEntries(mapped
-              .where((node) => node.layoutOffset != null)
-              .map((node) => MapEntry(node.id, node.layoutOffset!)));
+          ..addEntries(
+            mapped
+                .where((node) => node.layoutOffset != null)
+                .map((node) => MapEntry(node.id, node.layoutOffset!)),
+          );
       }
       if (selectedNodeId != null && nodeById(selectedNodeId) == null) {
         selectedNodeId = null;
@@ -228,11 +269,7 @@ class AxisController extends ChangeNotifier {
     _layoutOffsets[nodeId] = offset;
     notifyListeners();
     try {
-      await api.saveNodeLayout(
-        nodeId,
-        offsetX: offset.dx,
-        offsetY: offset.dy,
-      );
+      await api.saveNodeLayout(nodeId, offsetX: offset.dx, offsetY: offset.dy);
     } catch (e) {
       _layoutOffsets[nodeId] = previous;
       notifyListeners();
@@ -240,56 +277,13 @@ class AxisController extends ChangeNotifier {
     }
   }
 
-  /// 保存终责卡沿主干偏移。仅 PM/创建者可调，后端二次强制。
-  ///
-  /// 请求期间用户可能已经切到别的项目：成功/失败回调都必须先确认当前项目仍是
-  /// 发起请求的那个，否则会把旧项目的名称、位置和权限写回新项目（返工 #6）。
-  Future<void> saveFinalOwnerDelta(double delta) async {
-    final currentProject = project;
-    if (currentProject == null) return;
-    final projectId = currentProject.id;
-    final previous = currentProject.finalOwnerAlongDelta;
-    // 后端 `along_delta` 是整数字段，本地先按同一取整规则显示，避免回填时跳变。
-    final target = delta.roundToDouble();
-    project = _withFinalOwnerOffset(currentProject, target);
-    notifyListeners();
-    try {
-      final saved = await api.saveFinalOwnerDelta(projectId, target);
-      if (!_belongsToCurrentProject(projectId)) return;
-      project = _withFinalOwnerOffset(project!, saved);
-      notifyListeners();
-    } catch (e) {
-      if (!_belongsToCurrentProject(projectId)) return;
-      project = _withFinalOwnerOffset(project!, previous);
-      notifyListeners();
-      rethrow;
-    }
-  }
-
-  /// 当前展示的项目是否仍是 [projectId]；切换项目或销毁后为 false。
-  bool _belongsToCurrentProject(int projectId) =>
-      !_disposed && project?.id == projectId;
-
-  AxisProjectInfo _withFinalOwnerOffset(AxisProjectInfo base, double delta) =>
-      AxisProjectInfo(
-        id: base.id,
-        name: base.name,
-        pmUserId: base.pmUserId,
-        createdBy: base.createdBy,
-        finalOwnerAlongDelta: delta,
-        status: base.status,
-      );
-
   /// 人员权限与交接：次级人员的频道访问开关写 `responsibility_permissions`。
   Future<void> updateChannelAccess(AxisPersonNode node, bool allowed) async {
     final merged = <String, dynamic>{
       ...node.responsibilityPermissions,
       'channel_access': allowed,
     };
-    await api.updateNode(
-      node.id,
-      responsibilityPermissions: merged,
-    );
+    await api.updateNode(node.id, responsibilityPermissions: merged);
     await load();
   }
 
