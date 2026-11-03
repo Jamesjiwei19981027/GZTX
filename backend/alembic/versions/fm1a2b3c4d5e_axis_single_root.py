@@ -52,7 +52,7 @@ def upgrade():
             new_prefix = f"{chosen['path']}{root['id']}/"
             depth_delta = chosen["depth"] + 1 - root["depth"]
             descendants = conn.execute(sa.select(nodes.c.id, nodes.c.path, nodes.c.depth).where(
-                nodes.c.project_id == project_id, nodes.c.path.like(old_path + "%"), nodes.c.is_deleted.is_(False)
+                nodes.c.project_id == project_id, nodes.c.path.like(old_path + "%")
             )).all()
             for row in descendants:
                 suffix = row.path[len(old_path):]

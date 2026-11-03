@@ -81,9 +81,6 @@ class TreeService:
             raise TreeShapeError("人员最多四层（终责人 + 三层下属）")
 
     async def assert_distinct_supervisor(self, db, node_type_key, parent, assignees):
-        from app.core.config import settings
-        if not settings.ENFORCE_WORK_TREE_SHAPE:
-            return
         if node_type_key != PERSON_TYPE_KEY or not parent:
             return
         parent_owners = set((await db.execute(select(NodeAssignment.user_id).where(
@@ -266,9 +263,7 @@ class TreeService:
             await self.assert_root_owner(db, project, assignees)
         await self.assert_distinct_supervisor(db, node_type_key, parent, assignees)
         if node_type_key == PERSON_TYPE_KEY:
-            from app.core.config import settings
-            if settings.ENFORCE_WORK_TREE_SHAPE:
-                self.assert_origin_attachment(node_origin, parent)
+            self.assert_origin_attachment(node_origin, parent)
             await self.assert_person_limit(db, parent=parent)
         elif parent:
             node_origin = parent.node_origin
@@ -346,8 +341,7 @@ class TreeService:
         await self.assert_distinct_supervisor(db, await self.type_key_of(db, node), parent,
             await self.list_assignees(db, node.id))
         if await self.type_key_of(db, node) == PERSON_TYPE_KEY:
-            if settings.ENFORCE_WORK_TREE_SHAPE:
-                self.assert_origin_attachment(node.node_origin, parent)
+            self.assert_origin_attachment(node.node_origin, parent)
             await self.assert_person_limit(db, parent=parent, subtree=node)
         elif parent and node.node_origin != 'subordinate':
             node.node_origin = parent.node_origin

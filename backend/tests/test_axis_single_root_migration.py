@@ -68,6 +68,9 @@ def test_axis_single_root_migration(monkeypatch):
         conn.execute(sa.text("INSERT INTO tree_nodes (id, project_id, parent_id, node_type_id, sort_order, path, depth, is_deleted) VALUES (4, 1, 1, 1, 0, '/1/4/', 1, 0)"))
         conn.execute(sa.text("INSERT INTO tree_nodes (id, project_id, parent_id, node_type_id, sort_order, path, depth, is_deleted) VALUES (5, 1, 4, 2, 0, '/1/4/5/', 2, 0)"))
 
+        # 已删除的后代 (id=6)：path/depth 也必须被改写
+        conn.execute(sa.text("INSERT INTO tree_nodes (id, project_id, parent_id, node_type_id, sort_order, path, depth, is_deleted) VALUES (6, 1, 4, 2, 1, '/1/4/6/', 2, 1)"))
+
         # 根 2 (id=2, person, primary=pm=100) -> 终责根
         conn.execute(sa.text("INSERT INTO tree_nodes (id, project_id, parent_id, node_type_id, sort_order, path, depth, is_deleted) VALUES (2, 1, NULL, 1, 1, '/2/', 0, 0)"))
         conn.execute(sa.text("INSERT INTO node_assignments (node_id, user_id, role_key) VALUES (2, 100, 'primary')"))
@@ -111,6 +114,10 @@ def test_axis_single_root_migration(monkeypatch):
         assert nodes_by_id[5].path == "/2/1/4/5/"
         assert nodes_by_id[5].depth == 3
 
+        # 已删除的后代 6 的 path/depth 同样被改写
+        assert nodes_by_id[6].path == "/2/1/4/6/"
+        assert nodes_by_id[6].depth == 3
+
         # 节点 3 成为节点 2 的子节点
         assert nodes_by_id[3].parent_id == 2
         assert nodes_by_id[3].path == "/2/3/"
@@ -137,6 +144,8 @@ def test_axis_single_root_migration(monkeypatch):
         assert nodes_by_id_after[1].path == "/2/1/"
         assert nodes_by_id_after[5].path == "/2/1/4/5/"
         assert nodes_by_id_after[5].depth == 3
+        assert nodes_by_id_after[6].path == "/2/1/4/6/"
+        assert nodes_by_id_after[6].depth == 3
 
         # downgrade 应为 no-op
         migration.downgrade()
