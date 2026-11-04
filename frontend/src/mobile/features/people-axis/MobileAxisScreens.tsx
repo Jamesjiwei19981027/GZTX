@@ -27,6 +27,7 @@ import { MobileEmptyState, MobileLoadingState } from '../../ui/MobileState';
 import { MobileConfirm } from '../../ui/MobileConfirm';
 import { PeopleAxisFlowCanvas } from '../../../components/views/PeopleAxisFlowCanvas';
 import { usePeopleAxisCanvas, ReparentConfirmDialog } from '../../../components/views/usePeopleAxisCanvas';
+import { getDescendantNodeIds } from '../../../components/views/peopleAxisUtils';
 import { PersonMembershipActions } from '../../../components/PersonMembershipActions';
 
 // ==========================================
@@ -37,20 +38,6 @@ import { PersonMembershipActions } from '../../../components/PersonMembershipAct
  * 递归计算指定节点的所有后代节点 ID 集合。
  * 用于调整上级和新增下级时排除自身及后代，从根本上防止闭环产生。
  */
-export function getDescendantNodeIds(nodeId: string, nodes: PeopleAxisNode[]): Set<string> {
-  const descendants = new Set<string>();
-  const queue = [nodeId];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    for (const n of nodes) {
-      if (n.parentId === current && !descendants.has(n.id)) {
-        descendants.add(n.id);
-        queue.push(n.id);
-      }
-    }
-  }
-  return descendants;
-}
 
 // ==========================================
 // 组件 Props 契约
@@ -236,8 +223,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     serverPerms: permissions,
     currentUserId: currentUserIdNum,
     selectedNodeId,
+    // 点卡片：选中（出现＋、⋯）并打开详情面板；点空白处取消选中。已选中的卡片再点会重新打开详情
     onSelectNode: (id) => {
-      setSelectedNodeId(prev => (prev === id ? null : id));
+      setSelectedNodeId(id);
+      setPreviewNode(id ? axisNodes.find(n => n.id === id) || null : null);
     },
     onAddChild: (parentId) => {
       setEditPersonTarget({ mode: 'add', parentSuggestedId: parentId });
@@ -636,7 +625,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
           <div className="h-full flex flex-col relative select-none">
             {/* 顶部工具栏（只占一行） */}
             <div className="flex items-center justify-between px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200/80 dark:border-slate-800 z-10 shrink-0 gap-2">
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              <div className="flex items-center gap-1.5 min-w-0">
                 {/* 方向切换（两段式） */}
                 <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-0.5 shrink-0">
                   <button
@@ -667,10 +656,11 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 <button
                   type="button"
                   onClick={handleLocateMe}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-[#0058BE] dark:text-blue-400 flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
+                  aria-label="定位我"
+                  className="px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-[#0058BE] dark:text-blue-400 flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
                 >
                   <AppIcon name="user" size={13} />
-                  <span>定位我</span>
+                  <span className="hidden min-[360px]:inline">定位我</span>
                 </button>
 
                 {/* 适应屏幕 */}
@@ -678,11 +668,11 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   type="button"
                   data-testid="toolbar-fit-screen"
                   onClick={handleFitScreen}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
+                  className="px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
                   aria-label="适应屏幕"
                 >
                   <AppIcon name="maximize" size={13} />
-                  <span>适应屏幕</span>
+                  <span className="hidden min-[360px]:inline">适应屏幕</span>
                 </button>
               </div>
 

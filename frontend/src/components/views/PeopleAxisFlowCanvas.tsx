@@ -6,6 +6,8 @@ import {
 } from '@xyflow/react'
 import { ChevronDown, ChevronRight, Minus, Plus, Maximize, LocateFixed, Move, Pencil, GitBranch, X } from 'lucide-react'
 import type { PeopleAxisNode, Language } from '../../types'
+// 样式跟着画布走：手机网页路径不经过 ResponsibilityWorkspace，不能依赖它去加载
+import './responsibility.css'
 import {
   borderAnchor, floatingEdgePath, straightEdgePath, highlightEdgeIds,
   snapToParentAxis, reparentVerdict, calculateCanvasDefaultCenter, type RectCoords, type BorderAnchor,
@@ -758,7 +760,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       zoomOnPinch
       zoomOnDoubleClick={false}
       nodeDragThreshold={8}
-      className="axis-flow"
+      className={`axis-flow${mobile ? ' axis-theme' : ''}`}
       data-testid={mobile ? 'mobile-axis-graph' : undefined}
     >
       <Background color="var(--axis-dot, #dce2eb)" gap={22} size={1} />

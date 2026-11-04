@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { getDescendantNodeIds } from '../src/mobile/features/people-axis/MobileAxisScreens';
+import { getDescendantNodeIds } from '../src/components/views/peopleAxisUtils';
 import { PeopleAxisNode } from '../src/types';
 import {
   isValidScreenForTab,

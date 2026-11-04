@@ -1062,9 +1062,9 @@ test('mobile web 5: horizontal drag saves with orientation: horizontal, switchin
   const layoutSave = page.waitForRequest(r => r.method() === 'PUT' && r.url().includes('/nodes/2/layout'))
   const c2 = await page.locator('.react-flow__node[data-id="2"]').boundingBox()
   expect(c2).toBeTruthy()
-  await page.mouse.move(c2!.x + c2!.width / 2, c2!.y + c2!.height / 2)
+  await page.mouse.move(c2!.x + 15, c2!.y + 15)
   await page.mouse.down()
-  await page.mouse.move(c2!.x + c2!.width / 2, c2!.y + c2!.height / 2 + 60, { steps: 5 })
+  await page.mouse.move(c2!.x + 15, c2!.y + 75, { steps: 5 })
   await page.mouse.up()
   const req = await layoutSave
   expect(req.postDataJSON().orientation).toBe('horizontal')
@@ -1113,9 +1113,9 @@ test('mobile web 8: locate-me runs once and later saves do not pull the viewport
   const card = page.locator('.react-flow__node[data-id="1"]')
   const box = (await card.boundingBox())!
   const saved = page.waitForRequest(r => r.method() === 'PUT' && r.url().includes('/nodes/1/layout'))
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.move(box.x + 15, box.y + 15)
   await page.mouse.down()
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 40, { steps: 6 })
+  await page.mouse.move(box.x + 15, box.y + 55, { steps: 6 })
   await page.mouse.up()
   await saved
   await page.waitForTimeout(800)
@@ -1172,3 +1172,71 @@ test('desktop: drag horizontally, reset, switch to vertical and back keeps the b
   await page.waitForTimeout(300)
   expect(await position()).toEqual(base)
 })
+
+const alphaOf = (color: string) => {
+  const m = color.match(/rgba?\(([^)]+)\)/)
+  if (!m) return 0
+  const parts = m[1].split(/[ ,/]+/).filter(Boolean)
+  return parts.length >= 4 ? Number(parts[3]) : 1
+}
+
+test('mobile web appearance: cards, hint bubble and zoom controls are styled', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openMobileWorkspace(page, true, 1, false)
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  const card = page.locator('.react-flow__node[data-id="1"] .axis-map-card')
+  await expect(card).toBeVisible()
+  const style = await card.evaluate(el => {
+    const cs = getComputedStyle(el)
+    return { bg: cs.backgroundColor, border: cs.borderTopWidth, borderStyle: cs.borderTopStyle, w: cs.width, h: cs.height }
+  })
+  expect(alphaOf(style.bg)).toBe(1)
+  expect(parseFloat(style.border)).toBeGreaterThan(0)
+  expect(style.borderStyle).toBe('solid')
+  expect(style.w).toBe('240px')
+  expect(style.h).toBe('168px')
+
+  const hint = page.getByTestId('axis-canvas-hint')
+  await expect(hint).toBeVisible()
+  const hintStyle = await hint.evaluate(el => ({ bg: getComputedStyle(el).backgroundColor }))
+  expect(alphaOf(hintStyle.bg)).toBeGreaterThanOrEqual(0.85)
+  const hb = (await hint.boundingBox())!
+  expect(hb.x).toBeGreaterThanOrEqual(0)
+  expect(hb.x + hb.width).toBeLessThanOrEqual(390)
+
+  const pill = await page.locator('.axis-control-pill').evaluate(el => {
+    const cs = getComputedStyle(el)
+    return { bg: cs.backgroundColor, border: cs.borderTopWidth, radius: cs.borderTopLeftRadius }
+  })
+  expect(alphaOf(pill.bg)).toBe(1)
+  expect(parseFloat(pill.border)).toBeGreaterThan(0)
+  expect(parseFloat(pill.radius)).toBeGreaterThan(0)
+})
+
+for (const width of [320, 360]) {
+  test(`mobile web toolbar fits on one row at ${width}px without scrolling`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 640 })
+    await openMobileWorkspace(page, true, 1, true)
+    await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+    const fit = page.getByTestId('toolbar-fit-screen')
+    await expect(fit).toBeVisible()
+    const result = await fit.evaluate(el => {
+      const bar = el.parentElement!.parentElement!
+      const buttons = [...bar.querySelectorAll('button')].map(b => b.getBoundingClientRect())
+      return {
+        maxRight: Math.max(...buttons.map(b => b.right)),
+        minLeft: Math.min(...buttons.map(b => b.left)),
+        rows: Math.max(...buttons.map(b => b.top + b.height / 2)) - Math.min(...buttons.map(b => b.top + b.height / 2)),
+        barScroll: [bar.scrollWidth, bar.clientWidth],
+        innerScroll: [el.parentElement!.scrollWidth, el.parentElement!.clientWidth],
+      }
+    })
+    expect(result.maxRight).toBeLessThanOrEqual(width)
+    expect(result.minLeft).toBeGreaterThanOrEqual(0)
+    expect(result.barScroll[0]).toBeLessThanOrEqual(result.barScroll[1])
+    expect(result.innerScroll[0]).toBeLessThanOrEqual(result.innerScroll[1])
+    expect(result.rows).toBeLessThan(8)
+    await expect(page.getByRole('button', { name: '定位我', exact: true })).toBeVisible()
+    await expect(fit).toHaveAttribute('aria-label', '适应屏幕')
+  })
+}
