@@ -406,4 +406,78 @@ void main() {
       expect(reset.personById(1)!.rect.left, reset.autoRects[1]!.left);
     });
   });
+
+  group('岗位取值（与网页 mappers.ts 同口径）', () {
+    Map<String, dynamic> raw({
+      required String title,
+      String? description,
+      String? displayName,
+    }) => {
+      'id': 1,
+      'parent_id': null,
+      'node_type_key': 'person',
+      'title': title,
+      'description': description,
+      'node_origin': 'project',
+      'sort_order': 0,
+      'assignees': [
+        if (displayName != null)
+          {'user_id': 9, 'role_key': 'primary', 'display_name': displayName},
+      ],
+      'children': <Map<String, dynamic>>[],
+    };
+
+    test('标题是岗位（种子数据形式）：岗位取标题，姓名取责任人', () {
+      final node = AxisTreeMapper.mapTree([
+        raw(title: '研发负责人', displayName: '陈宇'),
+      ]).single;
+      expect(node.name, '陈宇');
+      expect(node.roleTitle, '研发负责人');
+    });
+
+    test('标题是姓名且说明里没有岗位：岗位退回标题，与姓名相同（界面只显示一次）', () {
+      final node = AxisTreeMapper.mapTree([
+        raw(title: '陈宇', displayName: '陈宇'),
+      ]).single;
+      expect(node.roleTitle, '陈宇');
+      expect(node.roleTitle, node.name);
+    });
+
+    test('说明里有岗位元数据：元数据优先于标题', () {
+      final node = AxisTreeMapper.mapTree([
+        AxisTestHarness.personNode(
+          id: 1,
+          parentId: null,
+          name: '王宁',
+          role: '项目负责人',
+          department: '项目部',
+          userId: 10,
+        ),
+      ]).single;
+      expect(node.name, '王宁');
+      expect(node.title, '王宁');
+      expect(node.roleTitle, '项目负责人');
+      expect(node.department, '项目部');
+    });
+
+    test('resolveRoleTitle：空白跳过，全空退回姓名', () {
+      expect(
+        AxisTreeMapper.resolveRoleTitle(
+          metadataRole: '  ',
+          legacyFirstPart: null,
+          nodeTitle: ' ',
+          name: '林悦',
+        ),
+        '林悦',
+      );
+      expect(
+        AxisTreeMapper.resolveRoleTitle(
+          legacyFirstPart: ' 设计负责人 ',
+          nodeTitle: '林悦',
+          name: '林悦',
+        ),
+        '设计负责人',
+      );
+    });
+  });
 }

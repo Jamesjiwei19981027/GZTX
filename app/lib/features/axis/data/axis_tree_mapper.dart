@@ -157,9 +157,12 @@ class AxisTreeMapper {
           title: (node['title'] ?? '').toString(),
           description: description,
           name: name,
-          roleTitle: metadata['roleTitle']?.trim().isNotEmpty == true
-              ? metadata['roleTitle']!.trim()
-              : (legacy.isNotEmpty ? legacy[0].trim() : name),
+          roleTitle: resolveRoleTitle(
+            metadataRole: metadata['roleTitle'],
+            legacyFirstPart: legacy.isNotEmpty ? legacy[0] : null,
+            nodeTitle: (node['title'] ?? '').toString(),
+            name: name,
+          ),
           department:
               metadata['department'] ??
               (legacy.length >= 2 ? legacy[1].trim() : ''),
@@ -201,6 +204,22 @@ class AxisTreeMapper {
         return o != 0 ? o : a.id.compareTo(b.id);
       });
     return roots.skip(1).map((n) => n.id).toList(growable: false);
+  }
+
+  /// 岗位取值，与网页 `mappers.ts` 同口径：
+  /// 说明里的岗位 -> 旧格式第一段 -> 节点标题（表单与种子数据里 person 节点的
+  /// 标题就是岗位）。都没有时才退回姓名。
+  static String resolveRoleTitle({
+    String? metadataRole,
+    String? legacyFirstPart,
+    String? nodeTitle,
+    required String name,
+  }) {
+    for (final candidate in [metadataRole, legacyFirstPart, nodeTitle]) {
+      final text = candidate?.trim() ?? '';
+      if (text.isNotEmpty) return text;
+    }
+    return name;
   }
 
   static List<String> _legacyDescriptionParts(String? description) {
