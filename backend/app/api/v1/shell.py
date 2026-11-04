@@ -7,7 +7,7 @@ import mimetypes
 import os
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
@@ -85,6 +85,7 @@ class PinnedLinkBody(BaseModel):
 class LayoutBody(BaseModel):
     offset_x: float = 0
     offset_y: float = 0
+    orientation: Literal["horizontal", "vertical"] | None = None
 
 
 class UiPrefsBody(BaseModel):
@@ -1179,6 +1180,7 @@ async def aggregate_people_axis(
                 "depth": node.depth,
                 "progress_json": node.progress_json,
                 "ui_offset": (node.progress_json or {}).get("ui_offset") if isinstance(node.progress_json, dict) else None,
+                "ui_offsets": (node.progress_json or {}).get("ui_offsets") or {} if isinstance(node.progress_json, dict) else {},
                 "assignees": await tsvc.list_assignees(db, node.id),
             })
         output.append({
@@ -1306,11 +1308,23 @@ async def put_node_layout(
         ):
             return fail(403, 40300, "无权编辑布局")
     pj = dict(node.progress_json or {})
-    pj["ui_offset"] = {"x": float(body.offset_x), "y": float(body.offset_y)}
+    offset = {"x": float(body.offset_x), "y": float(body.offset_y)}
+    if body.orientation is not None:
+        offsets = dict(pj.get("ui_offsets") or {})
+        offsets[body.orientation] = offset
+        pj["ui_offsets"] = offsets
+    else:
+        pj["ui_offset"] = offset
     node.progress_json = pj
     flag_modified(node, "progress_json")
     await db.commit()
-    return ResponseData(data={"id": node.id, "ui_offset": pj["ui_offset"]})
+    return ResponseData(
+        data={
+            "id": node.id,
+            "ui_offset": pj.get("ui_offset"),
+            "ui_offsets": pj.get("ui_offsets") or {},
+        }
+    )
 
 
 @router.get("/tasks/stats/trend", response_model=ResponseData)

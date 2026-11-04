@@ -525,6 +525,9 @@ async def _node_dto(db, node: TreeNode, with_children: bool = False) -> dict:
         "ui_offset": (node.progress_json or {}).get("ui_offset")
         if isinstance(node.progress_json, dict)
         else None,
+        "ui_offsets": (node.progress_json or {}).get("ui_offsets") or {}
+        if isinstance(node.progress_json, dict)
+        else {},
     }
     return d
 
@@ -588,6 +591,7 @@ async def _node_dtos_batched(db, nodes: list[TreeNode]) -> list[dict]:
                 "progress_json": node.progress_json,
                 "assignees": assignees_by_node[node.id],
                 "ui_offset": progress.get("ui_offset") if isinstance(progress, dict) else None,
+                "ui_offsets": progress.get("ui_offsets") or {} if isinstance(progress, dict) else {},
             }
         )
     return dtos

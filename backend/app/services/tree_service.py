@@ -4,6 +4,7 @@ from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.models.project import Project, ProjectMember
 from app.models.tree import NodeAssignment, NodeType, TreeNode, default_progress_json
@@ -348,6 +349,7 @@ class TreeService:
 
         old_path = node.path
         old_depth = node.depth
+        old_parent_id = node.parent_id
         depth_delta = new_depth - old_depth
 
         # rewrite descendants
@@ -362,6 +364,13 @@ class TreeService:
             suffix = n.path[len(old_path) :]
             n.path = new_path_prefix + suffix
             n.depth = n.depth + depth_delta
+
+        if old_parent_id != new_parent_id:
+            pj = dict(node.progress_json or {})
+            pj.pop("ui_offset", None)
+            pj.pop("ui_offsets", None)
+            node.progress_json = pj
+            flag_modified(node, "progress_json")
 
         node.parent_id = new_parent_id
         node.sort_order = sort_order
