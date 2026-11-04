@@ -20,6 +20,7 @@ import { listAgentReports, latestReportByUser, reportStatusLabel, reportStatusTo
 import { averagePeopleAxisProgress } from '../../../components/views/peopleAxisUtils';
 import { getMyPermissions, MyProjectPermissions } from '../../../api/shell';
 import { AppIcon } from '../../ui/AppIcon';
+import { Maximize } from 'lucide-react';
 import { MobileTopBar } from '../../ui/MobileTopBar';
 import { MobileSheet } from '../../ui/MobileSheet';
 import { MobileField, MobileInput, MobileSwitch } from '../../ui/MobileField';
@@ -305,7 +306,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
 
       <div className="px-4 py-2 bg-white dark:bg-slate-900 shrink-0">
             {projects.length > 0 && onSelectProject && (
-              <label className="axis-project-picker flex items-center w-full">
+              <label className="mobile-axis-project-picker flex items-center w-full">
                 <span className="shrink-0 text-xs text-slate-500 mr-3">当前项目</span>
                 <select
                   aria-label="选择项目"
@@ -671,7 +672,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   className="px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
                   aria-label="适应屏幕"
                 >
-                  <AppIcon name="maximize" size={13} />
+                  <Maximize size={13} aria-hidden="true" />
                   <span className="hidden min-[360px]:inline">适应屏幕</span>
                 </button>
               </div>
