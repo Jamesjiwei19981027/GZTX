@@ -97,7 +97,7 @@ void main() {
     sort: AxisSort.tree,
   );
 
-  testWidgets('拖动人员卡片到另一位人员上：停留 400ms 触发调整上级（人挂人）', (tester) async {
+  testWidgets('拖动人员卡片到另一位人员上：停留 300ms 触发调整上级（人挂人）', (tester) async {
     bigView(tester);
     AxisPersonNode? dragged;
     AxisPersonNode? target;
@@ -142,6 +142,7 @@ void main() {
     AxisPersonNode? moved;
     Offset? offset;
     var reparent = 0;
+    final viewport = AxisViewportController();
     await tester.pumpWidget(
       host(
         AxisCanvas(
@@ -149,6 +150,7 @@ void main() {
           orientation: AxisOrientation.vertical,
           spacing: AxisSpacing.standard,
           sort: AxisSort.tree,
+          viewportController: viewport,
           onReparentPerson: (_, __) => reparent++,
           onLayoutChanged: (node, value) async {
             moved = node;
@@ -157,6 +159,8 @@ void main() {
         ),
       ),
     );
+    await tester.pump(const Duration(milliseconds: 100));
+    viewport.setScale(1.0);
     await tester.pump(const Duration(milliseconds: 100));
 
     await tester.drag(
@@ -171,8 +175,96 @@ void main() {
     expect(offset?.dy, closeTo(60, 0.5));
   });
 
+  for (final scale in [0.5, 0.75]) {
+    testWidgets('缩放 $scale 下拖动：卡片跟手，画布偏移 = 屏幕距离 / 缩放', (tester) async {
+      bigView(tester);
+      Offset? offset;
+      final viewport = AxisViewportController();
+      await tester.pumpWidget(
+        host(
+          AxisCanvas(
+            nodes: defaultNodes,
+            orientation: AxisOrientation.vertical,
+            spacing: AxisSpacing.standard,
+            sort: AxisSort.tree,
+            viewportController: viewport,
+            onLayoutChanged: (node, value) async => offset = value,
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      viewport.setScale(scale);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final card = find.byKey(const Key('axis-person-101'));
+      final before = tester.getTopLeft(card);
+      const screen = Offset(60, 40);
+      final gesture = await tester.startGesture(tester.getCenter(card));
+      await tester.pump();
+      await gesture.moveBy(const Offset(30, 20));
+      await tester.pump();
+      await gesture.moveBy(const Offset(30, 20));
+      await tester.pump();
+      // 拖动中卡片屏幕位移应等于手指位移（跟手）。
+      final during = tester.getTopLeft(card);
+      expect(during.dx - before.dx, closeTo(screen.dx, 1.0));
+      expect(during.dy - before.dy, closeTo(screen.dy, 1.0));
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(offset, isNotNull);
+      expect(offset!.dx, closeTo(screen.dx / scale, 1.0));
+      expect(offset!.dy, closeTo(screen.dy / scale, 1.0));
+    });
+
+    testWidgets('缩放 $scale 下拖到另一人员上：悬停目标判定正确', (tester) async {
+      bigView(tester);
+      AxisPersonNode? dragged;
+      AxisPersonNode? target;
+      final viewport = AxisViewportController();
+      await tester.pumpWidget(
+        host(
+          AxisCanvas(
+            nodes: defaultNodes,
+            orientation: AxisOrientation.vertical,
+            spacing: AxisSpacing.standard,
+            sort: AxisSort.tree,
+            viewportController: viewport,
+            permissions: const AxisPermissions(
+              canEditAll: true,
+              nodePermissions: {
+                '104': {'can_add_subordinate': true},
+                '102': {'can_change_supervisor': true},
+              },
+            ),
+            onReparentPerson: (d, t) {
+              dragged = d;
+              target = t;
+            },
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      viewport.setScale(scale);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final from = tester.getCenter(find.byKey(const Key('axis-person-102')));
+      final to = tester.getCenter(find.byKey(const Key('axis-person-104')));
+      final gesture = await tester.startGesture(from);
+      await tester.pump();
+      await gesture.moveTo(to);
+      await tester.pump(const Duration(milliseconds: 400));
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(dragged?.id, 102);
+      expect(target?.id, 104);
+    });
+  }
+
   testWidgets('拖动过程中连线实时跟随：画布拿到实时的拖拽位移', (tester) async {
     bigView(tester);
+    final viewport = AxisViewportController();
     await tester.pumpWidget(
       host(
         AxisCanvas(
@@ -180,9 +272,12 @@ void main() {
           orientation: AxisOrientation.vertical,
           spacing: AxisSpacing.standard,
           sort: AxisSort.tree,
+          viewportController: viewport,
         ),
       ),
     );
+    await tester.pump(const Duration(milliseconds: 100));
+    viewport.setScale(1.0);
     await tester.pump(const Duration(milliseconds: 100));
 
     final gesture = await tester.startGesture(
@@ -210,6 +305,7 @@ void main() {
       bigView(tester);
       Offset? saved;
       final nodes = [person(1, null), person(2, 1), person(3, 1)];
+      final viewport = AxisViewportController();
       await tester.pumpWidget(
         host(
           AxisCanvas(
@@ -218,12 +314,15 @@ void main() {
             spacing: AxisSpacing.standard,
             sort: AxisSort.tree,
             edgeStyle: style,
+            viewportController: viewport,
             onLayoutChanged: (node, value) async {
               if (node.id == 2) saved = value;
             },
           ),
         ),
       );
+      await tester.pump(const Duration(milliseconds: 100));
+      viewport.setScale(1.0);
       await tester.pump(const Duration(milliseconds: 100));
       await tester.drag(find.byKey(const Key('axis-person-2')), Offset(dx, 0));
       await tester.pump(const Duration(milliseconds: 100));
@@ -262,6 +361,7 @@ void main() {
     testWidgets('吸附时画出对齐参考线，松手后消失', (tester) async {
       bigView(tester);
       final nodes = [person(1, null), person(2, 1), person(3, 1)];
+      final viewport = AxisViewportController();
       await tester.pumpWidget(
         host(
           AxisCanvas(
@@ -270,9 +370,12 @@ void main() {
             spacing: AxisSpacing.standard,
             sort: AxisSort.tree,
             edgeStyle: AxisEdgeStyle.straight,
+            viewportController: viewport,
           ),
         ),
       );
+      await tester.pump(const Duration(milliseconds: 100));
+      viewport.setScale(1.0);
       await tester.pump(const Duration(milliseconds: 100));
       expect(painterOf(tester).referenceLineStart, isNull);
       final gesture = await tester.startGesture(
@@ -818,6 +921,139 @@ void main() {
         expect(find.text('暂无任务'), findsOneWidget);
         expect(find.textContaining('共 0 项'), findsNothing);
       });
+    });
+
+    testWidgets('A2-1. 初始缩放 0.75 且"我"居中', (tester) async {
+      // 树：1 是根，2 是下属（"我"）
+      tester.view.physicalSize = const Size(1000, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final viewport = AxisViewportController();
+      final nodes = [person(1, null), person(2, 1)];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 1000,
+              height: 800,
+              child: AxisCanvas(
+                nodes: nodes,
+                selfNodeId: 2,
+                orientation: AxisOrientation.vertical,
+                spacing: AxisSpacing.standard,
+                sort: AxisSort.tree,
+                viewportController: viewport,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 缩放初始为 0.75
+      expect(viewport.scale.value, closeTo(0.75, 0.01));
+
+      // 验证"我"（person 2）的卡片中心居中在视口 (500, 400) 附近
+      final meCard = find.byKey(const Key('axis-person-2'));
+      expect(meCard, findsOneWidget);
+      final center = tester.getCenter(meCard);
+      expect(center.dx, closeTo(500, 5.0));
+      expect(center.dy, closeTo(400, 5.0));
+    });
+
+    testWidgets('A2-2. 树较大时，适应屏幕后缩放 < 0.75', (tester) async {
+      tester.view.physicalSize = const Size(800, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final viewport = AxisViewportController();
+      // 构建一个较宽的树
+      final nodes = [
+        person(1, null),
+        person(2, 1),
+        person(3, 1),
+        person(4, 1),
+        person(5, 1),
+        person(6, 1),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 600,
+              child: AxisCanvas(
+                nodes: nodes,
+                selfNodeId: 1,
+                orientation: AxisOrientation.vertical,
+                spacing: AxisSpacing.standard,
+                sort: AxisSort.tree,
+                viewportController: viewport,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(viewport.scale.value, closeTo(0.75, 0.01));
+
+      // 点击或调用适应屏幕
+      viewport.fitToScreen();
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 树宽度超过 800，缩放后应该小于 0.75
+      expect(viewport.scale.value < 0.75, isTrue);
+      expect(viewport.scale.value >= 0.25, isTrue);
+    });
+
+    testWidgets('A3-1. 横向保存偏移后切纵向不带该偏移', (tester) async {
+      bigView(tester);
+      final nodes = [person(1, null), person(2, 1)];
+
+      // 1. 横向渲染，带偏移 (100, 50)
+      await tester.pumpWidget(
+        host(
+          AxisCanvas(
+            nodes: nodes,
+            orientation: AxisOrientation.horizontal,
+            spacing: AxisSpacing.standard,
+            sort: AxisSort.tree,
+            offsets: const {2: Offset(100, 50)},
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 2. 切纵向，纵向 offsets 为空
+      await tester.pumpWidget(
+        host(
+          AxisCanvas(
+            nodes: nodes,
+            orientation: AxisOrientation.vertical,
+            spacing: AxisSpacing.standard,
+            sort: AxisSort.tree,
+            offsets: const {},
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 纵向无偏移时，子卡片 x 坐标应与根节点对齐（水平居中对齐）
+      final rootPos =
+          tester.getCenter(find.byKey(const Key('axis-person-1')));
+      final vCardPos =
+          tester.getCenter(find.byKey(const Key('axis-person-2')));
+      expect(vCardPos.dx, closeTo(rootPos.dx, 1.0));
+      expect(vCardPos.dy > rootPos.dy, isTrue);
     });
   });
 }

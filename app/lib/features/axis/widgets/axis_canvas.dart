@@ -25,6 +25,7 @@ class AxisViewportController {
   void zoomOut() => _state?.zoomBy(0.8);
   void reset() => _state?.resetView();
   void setScale(double s) => _state?.setScale(s);
+  void fitToScreen() => _state?.fitToScreen();
   void focusNode(int nodeId) => _state?.focusNode(nodeId);
   void dispose() => scale.dispose();
 }
@@ -145,6 +146,11 @@ class _AxisCanvasState extends State<AxisCanvas>
     if (widget.selectedNodeId != oldWidget.selectedNodeId) {
       _selectedId = widget.selectedNodeId;
     }
+    if (widget.orientation != oldWidget.orientation) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _fitInitial();
+      });
+    }
   }
 
   @override
@@ -188,7 +194,7 @@ class _AxisCanvasState extends State<AxisCanvas>
       ..scaleByDouble(clamped, clamped, clamped, 1);
   }
 
-  void _fitInitial() {
+  void fitToScreen() {
     if (_viewport == Size.zero) return;
     final layout = _layout;
     final scale = math
@@ -206,6 +212,34 @@ class _AxisCanvasState extends State<AxisCanvas>
     _transform.value = Matrix4.identity()
       ..translateByDouble(dx, dy, 0, 1)
       ..scaleByDouble(scale, scale, scale, 1);
+  }
+
+  void _fitInitial() {
+    if (_viewport == Size.zero) return;
+    const initialScale = 0.75;
+    AxisPlacedPerson? targetPerson;
+    if (widget.selfNodeId != null) {
+      targetPerson = _layout.personById(widget.selfNodeId!);
+    }
+    targetPerson ??= _layout.people.cast<AxisPlacedPerson?>().firstWhere(
+      (p) => p?.node.parentId == null,
+      orElse: () => _layout.people.isNotEmpty ? _layout.people.first : null,
+    );
+
+    if (targetPerson != null) {
+      final center = targetPerson.center;
+      _transform.value = Matrix4.identity()
+        ..translateByDouble(
+          _viewport.width / 2 - center.dx * initialScale,
+          _viewport.height / 2 - center.dy * initialScale,
+          0,
+          1,
+        )
+        ..scaleByDouble(initialScale, initialScale, initialScale, 1);
+    } else {
+      _transform.value = Matrix4.identity()
+        ..scaleByDouble(initialScale, initialScale, initialScale, 1);
+    }
   }
 
   void focusNode(int nodeId) {
@@ -355,7 +389,7 @@ class _AxisCanvasState extends State<AxisCanvas>
     final layout = _layout;
     final placed = layout.personById(_dragPersonId!);
     if (placed == null) return;
-    _rawDelta += delta / _currentScale;
+    _rawDelta += delta;
     var nextDelta = _rawDelta;
     Offset? lineStart;
     Offset? lineEnd;
@@ -1273,21 +1307,27 @@ class AxisCurvePainter extends CustomPainter {
   Offset _deltaFor(int id) => liveDeltas[id] ?? Offset.zero;
 
   Path _pathFor(AxisConnection connection) {
-    final start = connection.start + _deltaFor(connection.fromId);
-    final end = connection.end + _deltaFor(connection.toId);
-    final path = Path()..moveTo(start.dx, start.dy);
+    final fromPerson = layout.personById(connection.fromId);
+    final toPerson = layout.personById(connection.toId);
+    final fromRect = (fromPerson?.rect ??
+            Rect.fromCenter(
+              center: connection.fromCenter,
+              width: AxisFlowLayout.personCardSize.width,
+              height: AxisFlowLayout.personCardSize.height,
+            ))
+        .shift(_deltaFor(connection.fromId));
+    final toRect = (toPerson?.rect ??
+            Rect.fromCenter(
+              center: connection.toCenter,
+              width: AxisFlowLayout.personCardSize.width,
+              height: AxisFlowLayout.personCardSize.height,
+            ))
+        .shift(_deltaFor(connection.toId));
+
     if (edgeStyle == AxisEdgeStyle.straight) {
-      path.lineTo(end.dx, end.dy);
-      return path;
+      return straightEdgeToPath(fromRect, toRect);
     }
-    if (orientation == AxisOrientation.horizontal) {
-      final midX = (start.dx + end.dx) / 2;
-      path.cubicTo(midX, start.dy, midX, end.dy, end.dx, end.dy);
-    } else {
-      final midY = (start.dy + end.dy) / 2;
-      path.cubicTo(start.dx, midY, end.dx, midY, end.dx, end.dy);
-    }
-    return path;
+    return floatingEdgeToPath(fromRect, toRect);
   }
 
   void _drawDashed(Canvas canvas, Path path, Paint paint) {
