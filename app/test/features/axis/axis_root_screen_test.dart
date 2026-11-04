@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/design/design.dart';
 import 'package:worktodo_app/features/axis/data/axis_view_models.dart';
 import 'package:worktodo_app/features/axis/screens/axis_root_screen.dart';
@@ -77,8 +78,8 @@ void main() {
     expect(find.text('定位我'), findsOneWidget);
     expect(find.text('纵向'), findsOneWidget);
     expect(find.text('横向'), findsOneWidget);
-    expect(find.text('曲线'), findsOneWidget);
-    expect(find.text('直线'), findsOneWidget);
+    expect(find.text('适应屏幕'), findsOneWidget);
+    expect(find.byKey(const Key('axis-more-menu')), findsOneWidget);
   });
 
   testWidgets('多个根时画布顶部显示提示条；单根时不显示', (tester) async {
@@ -124,10 +125,14 @@ void main() {
         .whereType<AxisCurvePainter>()
         .single;
     expect(painter().edgeStyle, AxisEdgeStyle.curve);
-    await tester.tap(find.text('直线'));
+    await tester.tap(find.byKey(const Key('axis-more-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('直线连线'));
     await tester.pump(const Duration(milliseconds: 100));
     expect(painter().edgeStyle, AxisEdgeStyle.straight);
-    await tester.tap(find.text('曲线'));
+    await tester.tap(find.byKey(const Key('axis-more-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('曲线连线'));
     await tester.pump(const Duration(milliseconds: 100));
     expect(painter().edgeStyle, AxisEdgeStyle.curve);
   });
@@ -368,5 +373,143 @@ void main() {
     await tester.tap(find.text('项目全貌'));
     await tester.pumpAndSettle();
     expect(find.text('周然'), findsOneWidget);
+  });
+
+  testWidgets('工具条单行显示，320 宽屏无溢出', (tester) async {
+    tester.view.physicalSize = const Size(320, 640);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final harness = await AxisTestHarness.create();
+    await tester.pumpWidget(harness.wrap(
+      AxisRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('项目全貌'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('纵向'), findsOneWidget);
+    expect(find.text('横向'), findsOneWidget);
+    expect(find.text('定位我'), findsOneWidget);
+    expect(find.text('适应屏幕'), findsOneWidget);
+    expect(find.byKey(const Key('axis-more-menu')), findsOneWidget);
+
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('画布提示首次显示、点击消失，已看过后再次进入不显示', (tester) async {
+    SharedPreferences.setMockInitialValues({'axis_canvas_hint_seen': false});
+    final harness = await AxisTestHarness.create();
+    await tester.pumpWidget(harness.wrap(
+      AxisRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('项目全貌'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+
+    final hintFinder = find.byKey(const Key('axis-drag-hint'));
+    expect(hintFinder, findsOneWidget);
+    expect(find.textContaining('换上级'), findsOneWidget);
+
+    // 点击提示后消失
+    await tester.tap(hintFinder);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(hintFinder, findsNothing);
+
+    // 重新进入，不再显示（复用相同 harness，避免重复 create 重置 SharedPreferences）
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(harness.wrap(
+      AxisRootScreen(
+        key: const ValueKey('second-entry'),
+        api: harness.api,
+        authState: harness.authState,
+      ),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('项目全貌'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(hintFinder, findsNothing);
+  });
+
+  testWidgets('我的职责页无写死假汇报数据，无汇报显示暂无汇报，下属卡片第二行显示岗位', (tester) async {
+    tester.view.physicalSize = const Size(430, 1200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final customTree = [
+      AxisTestHarness.personNode(
+        id: 101,
+        parentId: null,
+        name: '王宁',
+        role: '终责领导',
+        department: '管理部',
+        userId: 10,
+        children: [
+          AxisTestHarness.personNode(
+            id: 102,
+            parentId: 101,
+            name: '林悦',
+            role: '设计负责人',
+            department: '设计部',
+            userId: AxisTestHarness.memberUserId,
+            children: [
+              AxisTestHarness.personNode(
+                id: 105,
+                parentId: 102,
+                name: '苏菲',
+                role: 'UI 设计师',
+                department: '设计部',
+                userId: 35,
+              ),
+              AxisTestHarness.workItem(
+                id: 201,
+                parentId: 102,
+                title: '交互原型设计',
+              ),
+            ],
+          ),
+        ],
+      ),
+    ];
+
+    final harness = await AxisTestHarness.create(tree: customTree);
+    harness.helper.whenGet(
+      '/projects/${AxisTestHarness.projectId}/agent-reports',
+      [
+        {
+          'id': 1,
+          'project_id': AxisTestHarness.projectId,
+          'author_user_id': 35,
+          'status': 'submitted',
+          'source_count': 2,
+          'submitted_at': '2026-11-04T10:30:00Z',
+        },
+      ],
+    );
+
+    await tester.pumpWidget(harness.wrap(
+      AxisRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+
+    // 绝不出现写死的假汇报文案
+    expect(find.text('已收到汇报 · 未读'), findsNothing);
+
+    // 无汇报的卡片（王宁、林悦）显示「暂无汇报」
+    expect(find.text('暂无汇报'), findsNWidgets(2));
+
+    // 下属（苏菲）卡片第二行显示岗位「UI 设计师 · 我的直属下属」，不重复姓名
+    expect(find.text('UI 设计师 · 我的直属下属'), findsOneWidget);
+    expect(find.text('苏菲 · 我的直属下属'), findsNothing);
+    expect(find.text('苏菲 · 苏菲'), findsNothing);
+
+    // 苏菲卡片显示真实汇报时间及状态
+    expect(find.textContaining('已提交'), findsOneWidget);
   });
 }

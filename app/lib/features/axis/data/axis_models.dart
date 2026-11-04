@@ -8,6 +8,8 @@ library;
 
 import 'dart:ui' show Offset;
 
+import 'axis_view_models.dart' show AxisOrientation;
+
 Map<String, dynamic> _asMap(Object? value) =>
     value is Map<String, dynamic> ? value : <String, dynamic>{};
 
@@ -159,6 +161,8 @@ class AxisPersonNode {
     required this.responsibilityPermissions,
     this.assignees = const [],
     this.layoutOffset,
+    this.horizontalOffset,
+    this.verticalOffset,
     this.startAt,
     this.dueAt,
     this.sortOrder = 0,
@@ -186,9 +190,17 @@ class AxisPersonNode {
   final List<AxisWorkItem> workItems;
   final Map<String, dynamic> responsibilityPermissions;
   final Offset? layoutOffset;
+  final Offset? horizontalOffset;
+  final Offset? verticalOffset;
   final DateTime? startAt;
   final DateTime? dueAt;
   final int sortOrder;
+
+  Offset offsetFor(AxisOrientation orientation) =>
+      (orientation == AxisOrientation.horizontal
+          ? (horizontalOffset ?? layoutOffset)
+          : verticalOffset) ??
+      Offset.zero;
 
   bool get isPrimary => nodeOrigin == 'project';
 
@@ -203,7 +215,12 @@ class AxisPersonNode {
   bool get allowChannelAccess =>
       responsibilityPermissions['channel_access'] == true;
 
-  AxisPersonNode copyWith({Offset? layoutOffset}) => AxisPersonNode(
+  AxisPersonNode copyWith({
+    Offset? layoutOffset,
+    Offset? horizontalOffset,
+    Offset? verticalOffset,
+  }) =>
+      AxisPersonNode(
         id: id,
         parentId: parentId,
         title: title,
@@ -217,7 +234,10 @@ class AxisPersonNode {
         assignees: assignees,
         workItems: workItems,
         responsibilityPermissions: responsibilityPermissions,
-        layoutOffset: layoutOffset ?? this.layoutOffset,
+        layoutOffset: layoutOffset ?? horizontalOffset ?? this.layoutOffset,
+        horizontalOffset:
+            horizontalOffset ?? layoutOffset ?? this.horizontalOffset,
+        verticalOffset: verticalOffset ?? this.verticalOffset,
         startAt: startAt,
         dueAt: dueAt,
         sortOrder: sortOrder,

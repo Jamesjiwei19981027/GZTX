@@ -34,7 +34,10 @@ ApiClient _client(MockClient mock) => ApiClient(
     );
 
 /// 只挂画布，等价于项目全貌页把控制器状态喂给 [AxisCanvas] 的方式。
-Widget _canvasHost(AxisController controller) {
+Widget _canvasHost(
+  AxisController controller, {
+  AxisViewportController? viewportController,
+}) {
   return AnimatedBuilder(
     animation: controller,
     builder: (context, _) => MaterialApp(
@@ -52,7 +55,7 @@ Widget _canvasHost(AxisController controller) {
                 node.id: controller.offsetFor(node.id),
             },
             edgeStyle: controller.edgeStyle,
-            resetLayout: controller.resetLayoutRequested,
+            viewportController: viewportController,
             onLayoutChanged: (node, offset) =>
                 controller.saveLayout(node.id, offset),
           ),
@@ -229,7 +232,12 @@ void main() {
       currentUserId: AxisTestHarness.memberUserId,
     );
     await controller.load();
-    await tester.pumpWidget(_canvasHost(controller));
+    final viewport = AxisViewportController();
+    await tester.pumpWidget(
+      _canvasHost(controller, viewportController: viewport),
+    );
+    await tester.pumpAndSettle();
+    viewport.setScale(1.0);
     await tester.pumpAndSettle();
 
     final card = find.byKey(const Key('axis-person-101'));
@@ -253,6 +261,158 @@ void main() {
     );
     expect(after.dy - before.dy, closeTo(60, 1));
     controller.dispose();
+  });
+
+  group('重置布局落盘', () {
+    // 模拟后端：记录每个节点两个方向的偏移，PUT /layout 会改写它。
+    ({AxisController controller, List<Map<String, dynamic>> puts}) build({
+      Set<int> failIds = const {},
+    }) {
+      final server = <int, Map<String, Map<String, double>>>{
+        101: {
+          'horizontal': {'x': 10, 'y': 20},
+          'vertical': {'x': 30, 'y': 40},
+        },
+        102: {
+          'horizontal': {'x': 0, 'y': 0},
+          'vertical': {'x': 0, 'y': 0},
+        },
+        104: {
+          'horizontal': {'x': 5, 'y': 6},
+          'vertical': {'x': 7, 'y': 8},
+        },
+        103: {
+          'horizontal': {'x': 1, 'y': 2},
+          'vertical': {'x': 3, 'y': 4},
+        },
+      };
+      final puts = <Map<String, dynamic>>[];
+      List<Map<String, dynamic>> tree() {
+        final nodes = AxisTestHarness.defaultTree();
+        void inject(List<Map<String, dynamic>> list) {
+          for (final n in list) {
+            final id = n['id'] as int;
+            if (server.containsKey(id)) n['ui_offsets'] = server[id];
+            inject((n['children'] as List).cast<Map<String, dynamic>>());
+          }
+        }
+
+        inject(nodes);
+        return nodes;
+      }
+
+      final perms = AxisTestHarness.defaultPermissions(isPm: false);
+      // 104、103 无权编辑；101、102 有权。
+      final np = perms['node_permissions'] as Map<String, dynamic>;
+      np['104'] = {'can_edit_person': false};
+      np['103'] = {'can_edit_person': false};
+
+      final mock = MockClient((request) async {
+        final path = request.url.path.replaceFirst('/api/v1', '');
+        if (path == '/projects/1/tree') {
+          return ok({'project_id': 1, 'nodes': tree()});
+        }
+        if (path == '/projects/1/members') {
+          return ok(AxisTestHarness.membersPayload());
+        }
+        if (path == '/projects/1/my-permissions') return ok(perms);
+        if (path == '/projects/1') return ok(AxisTestHarness.projectJson());
+        final m = RegExp(r'^/nodes/(\d+)/layout$').firstMatch(path);
+        if (m != null && request.method == 'PUT') {
+          final id = int.parse(m.group(1)!);
+          final body = jsonDecode(request.body) as Map<String, dynamic>;
+          puts.add({'id': id, ...body});
+          if (failIds.contains(id)) {
+            return http.Response(
+              jsonEncode({'code': 403, 'message': '无权编辑布局', 'data': null}),
+              403,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            );
+          }
+          server[id]![body['orientation'] as String] = {
+            'x': (body['offset_x'] as num).toDouble(),
+            'y': (body['offset_y'] as num).toDouble(),
+          };
+          return ok({'id': id});
+        }
+        return http.Response(
+          jsonEncode({'code': 404, 'message': '未配置: $path', 'data': null}),
+          404,
+        );
+      });
+      final controller = AxisController(
+        api: AxisApi(_client(mock)),
+        projectId: 1,
+        currentUserId: AxisTestHarness.memberUserId,
+      );
+      return (controller: controller, puts: puts);
+    }
+
+    test('带当前方向发出清零请求；零偏移与无权节点不发；无权节点保留', () async {
+      final h = build();
+      final c = h.controller;
+      await c.load();
+      c.orientation = AxisOrientation.vertical;
+      expect(c.offsetFor(101), const Offset(30, 40));
+      expect(c.offsetFor(104), const Offset(7, 8));
+
+      await c.resetLayout();
+
+      expect(h.puts, hasLength(1), reason: '102 本就为零、104/103 无权，只剩 101');
+      expect(h.puts.single, {
+        'id': 101,
+        'offset_x': 0.0,
+        'offset_y': 0.0,
+        'orientation': 'vertical',
+      });
+      expect(c.offsetFor(101), Offset.zero);
+      expect(c.offsetFor(104), const Offset(7, 8));
+      expect(c.offsetFor(103), const Offset(3, 4));
+
+      // 重置后再加载：后端已清零，旧值不会回来；无权节点仍是后端值。
+      await c.load();
+      expect(c.offsetFor(101), Offset.zero);
+      expect(c.offsetFor(104), const Offset(7, 8));
+      c.dispose();
+    });
+
+    test('只影响当前方向，另一方向的偏移（含加载后）不动', () async {
+      final h = build();
+      final c = h.controller;
+      await c.load();
+      c.orientation = AxisOrientation.vertical;
+      await c.resetLayout();
+      expect(h.puts.every((p) => p['orientation'] == 'vertical'), isTrue);
+
+      c.orientation = AxisOrientation.horizontal;
+      expect(c.offsetFor(101), const Offset(10, 20));
+      await c.load();
+      expect(c.offsetFor(101), const Offset(10, 20));
+
+      await c.resetLayout();
+      expect(h.puts.last['orientation'], 'horizontal');
+      c.orientation = AxisOrientation.vertical;
+      expect(c.offsetFor(101), Offset.zero);
+      c.dispose();
+    });
+
+    test('单个失败：恢复该节点偏移并抛出后端中文原因', () async {
+      final h = build(failIds: {101});
+      final c = h.controller;
+      await c.load();
+      c.orientation = AxisOrientation.vertical;
+
+      Object? error;
+      try {
+        await c.resetLayout();
+      } catch (e) {
+        error = e;
+      }
+      expect(error, isNotNull);
+      expect(error.toString(), contains('无权编辑布局'));
+      expect(c.offsetFor(101), const Offset(30, 40));
+      c.dispose();
+    });
   });
 
   group('连线线型偏好', () {

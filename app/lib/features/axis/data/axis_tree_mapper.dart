@@ -1,6 +1,10 @@
 import 'dart:convert';
 import 'dart:ui' show Offset;
 import 'axis_models.dart';
+import 'axis_view_models.dart' show AxisOrientation;
+
+Offset pickUiOffset(Map node, AxisOrientation o) =>
+    AxisTreeMapper.pickUiOffset(node, o);
 
 const String axisPersonMetadataPrefix = '@axis-person ';
 Map<String, String> readAxisPersonMetadata(String? description) {
@@ -42,6 +46,37 @@ String withAxisPersonMetadata(
 
 class AxisTreeMapper {
   const AxisTreeMapper._();
+
+  static Offset pickUiOffset(Map node, AxisOrientation o) {
+    Map? uiOffsets;
+    if (node['ui_offsets'] is Map) {
+      uiOffsets = node['ui_offsets'] as Map;
+    } else if (node['progress_json'] is Map &&
+        (node['progress_json'] as Map)['ui_offsets'] is Map) {
+      uiOffsets = (node['progress_json'] as Map)['ui_offsets'] as Map;
+    }
+
+    final orientationKey =
+        o == AxisOrientation.horizontal ? 'horizontal' : 'vertical';
+
+    if (uiOffsets != null && uiOffsets.containsKey(orientationKey)) {
+      final offset = _readOffset(uiOffsets[orientationKey]);
+      if (offset != null) return offset;
+    }
+
+    if (o == AxisOrientation.horizontal) {
+      final direct = _readOffset(node['ui_offset']);
+      if (direct != null) return direct;
+      if (node['progress_json'] is Map) {
+        final nested =
+            _readOffset((node['progress_json'] as Map)['ui_offset']);
+        if (nested != null) return nested;
+      }
+    }
+
+    return Offset.zero;
+  }
+
   static List<AxisPersonNode> mapTree(
     List<Map<String, dynamic>> roots, {
     // 已停用：终责人 = 唯一的根（第一个根），不再按指派人匹配；保留参数仅为兼容旧调用。
@@ -113,6 +148,8 @@ class AxisTreeMapper {
           .where((c) => (c['node_type_key'] ?? '').toString() != 'person')
           .map(AxisWorkItem.fromJson)
           .toList();
+      final hOffset = pickUiOffset(node, AxisOrientation.horizontal);
+      final vOffset = pickUiOffset(node, AxisOrientation.vertical);
       out.add(
         AxisPersonNode(
           id: id,
@@ -136,7 +173,9 @@ class AxisTreeMapper {
                   node['responsibility_permissions'] as Map,
                 )
               : const {},
-          layoutOffset: _readOffset(node['ui_offset']),
+          layoutOffset: hOffset == Offset.zero ? null : hOffset,
+          horizontalOffset: hOffset == Offset.zero ? null : hOffset,
+          verticalOffset: vOffset == Offset.zero ? null : vOffset,
           startAt: _parseLocal(node['start_at']),
           dueAt: _parseLocal(node['due_at'] ?? node['milestone_at']),
           sortOrder: (node['sort_order'] as num?)?.toInt() ?? 0,
@@ -174,8 +213,14 @@ class AxisTreeMapper {
 
   static Offset? _readOffset(Object? raw) {
     if (raw is! Map) return null;
-    final x = (raw['x'] as num?)?.toDouble();
-    final y = (raw['y'] as num?)?.toDouble();
+    final rawX = raw['x'];
+    final rawY = raw['y'];
+    final x = rawX is num
+        ? rawX.toDouble()
+        : (rawX is String ? double.tryParse(rawX) : null);
+    final y = rawY is num
+        ? rawY.toDouble()
+        : (rawY is String ? double.tryParse(rawY) : null);
     if (x == null || y == null) return null;
     return Offset(x, y);
   }

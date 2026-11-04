@@ -1,13 +1,17 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/auth/auth_provider.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../core/models/project.dart';
 import '../../../design/design.dart';
+import '../../reports/models/report_models.dart';
 import '../data/axis_api.dart';
 import '../data/axis_models.dart';
+import '../data/axis_report_helpers.dart';
 import '../data/axis_rules.dart';
 import '../data/axis_tree_mapper.dart';
 import '../data/axis_view_models.dart';
@@ -250,9 +254,13 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                       confirmLabel: '确认重置',
                     );
                     if (confirmed != true) return;
-                    update(controller.resetLayout);
                     if (ctx.mounted) Navigator.of(ctx).pop();
-                    _notice('卡片布局已重置');
+                    try {
+                      await controller.resetLayout();
+                      _notice('卡片布局已重置');
+                    } catch (e) {
+                      _errorNotice(e);
+                    }
                   },
                 ),
               ),
@@ -725,7 +733,12 @@ class _MineView extends StatelessWidget {
           const _VerticalConnector(),
           _SelfCard(
             node: self,
-            showAiStatus: controller.showAiStatus,
+            showAiStatus: controller.showAiStatus && !controller.reportsError,
+            report: (controller.currentUserId != null
+                ? controller.latestReports[controller.currentUserId]
+                : (self.primaryAssignee != null
+                    ? controller.latestReports[self.primaryAssignee!.userId]
+                    : null)),
             onTap: () => onOpenPerson(self),
           ),
           const _VerticalConnector(),
@@ -778,17 +791,34 @@ class _MineView extends StatelessWidget {
             )
           else
             ...subordinates.map(
-              (sub) => Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: _MiniPersonCard(
-                  key: Key('axis-subordinate-${sub.id}'),
-                  title: sub.name,
-                  subtitle:
-                      '${sub.roleTitle.isEmpty ? '团队成员' : sub.roleTitle} · 我的直属下属',
-                  onTap: () => onOpenPerson(sub),
-                  showAiStatus: controller.showAiStatus,
-                ),
-              ),
+              (sub) {
+                final role = sub.roleTitle.trim().isNotEmpty &&
+                        sub.roleTitle.trim() != sub.name.trim()
+                    ? sub.roleTitle.trim()
+                    : (sub.title.trim().isNotEmpty &&
+                            sub.title.trim() != sub.name.trim()
+                        ? sub.title.trim()
+                        : '团队成员');
+                final subUserId = sub.primaryAssignee?.userId ??
+                    (sub.ownerUserIds.isNotEmpty
+                        ? sub.ownerUserIds.first
+                        : null);
+                final subReport = subUserId != null
+                    ? controller.latestReports[subUserId]
+                    : null;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+                  child: _MiniPersonCard(
+                    key: Key('axis-subordinate-${sub.id}'),
+                    title: sub.name,
+                    subtitle: '$role · 我的直属下属',
+                    onTap: () => onOpenPerson(sub),
+                    showAiStatus:
+                        controller.showAiStatus && !controller.reportsError,
+                    report: subReport,
+                  ),
+                );
+              },
             ),
           const SizedBox(height: AppSpacing.lg),
           Row(
@@ -845,15 +875,18 @@ class _SelfCard extends StatelessWidget {
     required this.node,
     required this.onTap,
     required this.showAiStatus,
+    this.report,
   });
 
   final AxisPersonNode node;
   final VoidCallback onTap;
   final bool showAiStatus;
+  final AgentReport? report;
 
   @override
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
+    final pres = formatReportPresentation(report, isDark: isDark);
     return InkWell(
       key: const Key('axis-self-card'),
       onTap: onTap,
@@ -909,25 +942,27 @@ class _SelfCard extends StatelessWidget {
             ),
             if (showAiStatus) ...[
               const Divider(height: 20),
-              const Row(
+              Row(
                 children: [
-                  Icon(
-                    Icons.description_outlined,
-                    size: 14,
-                    color: AppColors.primary,
-                  ),
-                  SizedBox(width: 5),
+                  if (pres.icon != null) ...[
+                    Icon(
+                      pres.icon,
+                      size: 14,
+                      color: pres.iconColor ?? pres.textColor,
+                    ),
+                    const SizedBox(width: 5),
+                  ],
                   Expanded(
                     child: Text(
-                      '草稿待提交 · AI 汇报入口在「工作」',
+                      pres.text,
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
+                        color: pres.textColor,
                       ),
                     ),
                   ),
-                  Icon(Icons.chevron_right, size: 16, color: AppColors.primary),
+                  Icon(Icons.chevron_right, size: 16, color: pres.textColor),
                 ],
               ),
             ],
@@ -945,16 +980,19 @@ class _MiniPersonCard extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     required this.showAiStatus,
+    this.report,
   });
 
   final String title;
   final String subtitle;
   final VoidCallback onTap;
   final bool showAiStatus;
+  final AgentReport? report;
 
   @override
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
+    final pres = formatReportPresentation(report, isDark: isDark);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -987,13 +1025,26 @@ class _MiniPersonCard extends StatelessWidget {
                   ),
                   if (showAiStatus) ...[
                     const SizedBox(height: 4),
-                    const Text(
-                      '已收到汇报 · 未读',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (pres.icon != null) ...[
+                          Icon(
+                            pres.icon,
+                            size: 14,
+                            color: pres.iconColor ?? pres.textColor,
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                        Text(
+                          pres.text,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: pres.textColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ],
@@ -1180,44 +1231,76 @@ class _OverviewView extends StatelessWidget {
       );
     }
 
+    final media = MediaQuery.of(context);
     return Column(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          child: Wrap(
-            spacing: AppSpacing.sm,
-            runSpacing: AppSpacing.xs,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              for (final value in AxisOrientation.values)
-                _ChoiceButton(
-                  label: value.label == '纵向树状' ? '纵向' : '横向',
-                  selected: controller.orientation == value,
-                  onTap: () => controller.setOrientation(value),
-                ),
-              for (final value in AxisSort.values)
-                _ChoiceButton(
-                  label: value.label,
-                  selected: controller.sort == value,
-                  onTap: () => controller.setSort(value),
-                ),
-              for (final value in AxisEdgeStyle.values)
-                _ChoiceButton(
-                  label: value == AxisEdgeStyle.curve
-                      ? '\u66f2\u7ebf'
-                      : '\u76f4\u7ebf',
-                  selected: controller.edgeStyle == value,
-                  onTap: () => controller.setEdgeStyle(value),
-                ),
-              TextButton.icon(
-                key: const Key('axis-locate-me'),
-                onPressed: controller.selfNode == null
-                    ? null
-                    : () => viewport.focusNode(controller.selfNode!.id),
-                icon: const Icon(Icons.my_location, size: 15),
-                label: const Text('定位我'),
+        MediaQuery(
+          data: media.copyWith(
+            textScaler: media.textScaler.clamp(maxScaleFactor: 1.0),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
+            child: SizedBox(
+              height: 34,
+              child: Row(
+                children: [
+                  _OrientationSegment(
+                    orientation: controller.orientation,
+                    onChanged: controller.setOrientation,
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton.icon(
+                    key: const Key('axis-locate-me'),
+                    style: TextButton.styleFrom(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: controller.selfNode == null
+                        ? null
+                        : () => viewport.focusNode(controller.selfNode!.id),
+                    icon: const Icon(Icons.my_location, size: 14),
+                    label: const Text('定位我', style: TextStyle(fontSize: 12)),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton.icon(
+                    key: const Key('axis-fit-screen'),
+                    style: TextButton.styleFrom(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: viewport.fitToScreen,
+                    icon: const Icon(Icons.aspect_ratio, size: 14),
+                    label: const Text('适应屏幕', style: TextStyle(fontSize: 12)),
+                  ),
+                  const Spacer(),
+                  _AxisMoreMenu(
+                    controller: controller,
+                    viewport: viewport,
+                    onResetLayout: () async {
+                      final confirmed = await showAppConfirmDialog(
+                        context: context,
+                        title: '重置卡片布局',
+                        message: '重置布局仅将所有卡片恢复到自动对齐位置，'
+                            '不会删除任何人员和责任事项。确认重置？',
+                        confirmLabel: '确认重置',
+                      );
+                      if (confirmed != true) return;
+                      viewport.fitToScreen();
+                      try {
+                        await controller.resetLayout();
+                        onNotice('卡片布局已重置');
+                      } catch (e) {
+                        onError(e);
+                      }
+                    },
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
         Expanded(
@@ -1238,7 +1321,6 @@ class _OverviewView extends StatelessWidget {
                       for (final node in controller.visibleNodes)
                         node.id: controller.offsetFor(node.id),
                     },
-                    resetLayout: controller.resetLayoutRequested,
                     permissions: controller.permissions,
                     selfNodeId: controller.selfNode?.id,
                     selectedNodeId: controller.selectedNodeId,
@@ -1293,30 +1375,10 @@ class _OverviewView extends StatelessWidget {
                     ),
                   ),
                 ),
-              Positioned(
+              const Positioned(
                 left: AppSpacing.lg,
-                right: AppSpacing.lg,
                 bottom: AppSpacing.lg + 52,
-                child: IgnorePointer(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.md,
-                        vertical: AppSpacing.xs,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-                      ),
-                      child: const Text(
-                        '拖到别人卡片上停一下＝换上级\n拖到空白处＝挪位置',
-                        key: Key('axis-drag-hint'),
-                        style: TextStyle(fontSize: 11, color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ),
+                child: _AxisCanvasHint(),
               ),
               Positioned(
                 left: AppSpacing.lg,
@@ -1408,6 +1470,346 @@ class _ChoiceButton extends StatelessWidget {
                 ? AppColors.primary
                 : AppColors.textSecondaryOf(isDark),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrientationSegment extends StatelessWidget {
+  const _OrientationSegment({
+    required this.orientation,
+    required this.onChanged,
+  });
+
+  final AxisOrientation orientation;
+  final ValueChanged<AxisOrientation> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
+    return Container(
+      height: 28,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF1F3F6),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      padding: const EdgeInsets.all(2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildItem(
+            context: context,
+            label: '纵向',
+            selected: orientation == AxisOrientation.vertical,
+            onTap: () => onChanged(AxisOrientation.vertical),
+          ),
+          _buildItem(
+            context: context,
+            label: '横向',
+            selected: orientation == AxisOrientation.horizontal,
+            onTap: () => onChanged(AxisOrientation.horizontal),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItem({
+    required BuildContext context,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    final isDark = isDarkMode(context);
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: selected
+              ? (isDark ? AppColors.darkSurface : Colors.white)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: selected
+              ? const [
+                  BoxShadow(
+                    color: Color(0x14000000),
+                    blurRadius: 2,
+                    offset: Offset(0, 1),
+                  )
+                ]
+              : null,
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            color: selected
+                ? AppColors.primary
+                : (isDark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AxisMoreMenu extends StatelessWidget {
+  const _AxisMoreMenu({
+    required this.controller,
+    required this.viewport,
+    required this.onResetLayout,
+  });
+
+  final AxisController controller;
+  final AxisViewportController viewport;
+  final VoidCallback onResetLayout;
+
+  @override
+  Widget build(BuildContext context) {
+    return PopupMenuButton<String>(
+      key: const Key('axis-more-menu'),
+      icon: const Icon(Icons.more_horiz, size: 20),
+      tooltip: '更多设置',
+      padding: EdgeInsets.zero,
+      itemBuilder: (ctx) => [
+        PopupMenuItem<String>(
+          enabled: false,
+          height: 24,
+          child: Text(
+            '连线线型',
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(ctx).colorScheme.outline,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'edge_curve',
+          height: 36,
+          child: Row(
+            children: [
+              Icon(
+                controller.edgeStyle == AxisEdgeStyle.curve ? Icons.check : null,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              const Text('曲线连线', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'edge_straight',
+          height: 36,
+          child: Row(
+            children: [
+              Icon(
+                controller.edgeStyle == AxisEdgeStyle.straight
+                    ? Icons.check
+                    : null,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              const Text('直线连线', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(height: 8),
+        PopupMenuItem<String>(
+          enabled: false,
+          height: 24,
+          child: Text(
+            '排序规则',
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(ctx).colorScheme.outline,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'sort_tree',
+          height: 36,
+          child: Row(
+            children: [
+              Icon(
+                controller.sort == AxisSort.tree ? Icons.check : null,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              const Text('树状序', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'sort_time',
+          height: 36,
+          child: Row(
+            children: [
+              Icon(
+                controller.sort == AxisSort.time ? Icons.check : null,
+                size: 16,
+                color: AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              const Text('时间序', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(height: 8),
+        PopupMenuItem<String>(
+          enabled: false,
+          height: 24,
+          child: Text(
+            '节点间距',
+            style: TextStyle(
+              fontSize: 11,
+              color: Theme.of(ctx).colorScheme.outline,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        for (final sp in AxisSpacing.values)
+          PopupMenuItem<String>(
+            value: 'spacing_${sp.name}',
+            height: 36,
+            child: Row(
+              children: [
+                Icon(
+                  controller.spacing == sp ? Icons.check : null,
+                  size: 16,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Text(sp.label, style: const TextStyle(fontSize: 13)),
+              ],
+            ),
+          ),
+        const PopupMenuDivider(height: 8),
+        const PopupMenuItem<String>(
+          value: 'reset_layout',
+          height: 36,
+          child: Row(
+            children: [
+              Icon(Icons.refresh, size: 16),
+              SizedBox(width: 8),
+              Text('重置卡片布局', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+      ],
+      onSelected: (val) {
+        switch (val) {
+          case 'edge_curve':
+            controller.setEdgeStyle(AxisEdgeStyle.curve);
+            break;
+          case 'edge_straight':
+            controller.setEdgeStyle(AxisEdgeStyle.straight);
+            break;
+          case 'sort_tree':
+            controller.setSort(AxisSort.tree);
+            break;
+          case 'sort_time':
+            controller.setSort(AxisSort.time);
+            break;
+          case 'spacing_compact':
+            controller.setSpacing(AxisSpacing.compact);
+            break;
+          case 'spacing_standard':
+            controller.setSpacing(AxisSpacing.standard);
+            break;
+          case 'spacing_loose':
+            controller.setSpacing(AxisSpacing.loose);
+            break;
+          case 'reset_layout':
+            onResetLayout();
+            break;
+        }
+      },
+    );
+  }
+}
+
+class _AxisCanvasHint extends StatefulWidget {
+  const _AxisCanvasHint();
+
+  @override
+  State<_AxisCanvasHint> createState() => _AxisCanvasHintState();
+}
+
+class _AxisCanvasHintState extends State<_AxisCanvasHint> {
+  bool _visible = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkHint();
+  }
+
+  Future<void> _checkHint() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final seen = prefs.getBool('axis_canvas_hint_seen') ?? false;
+      if (!seen && mounted) {
+        setState(() => _visible = true);
+        _timer = Timer(const Duration(seconds: 5), _dismiss);
+      }
+    } catch (_) {
+      if (mounted) setState(() => _visible = false);
+    }
+  }
+
+  void _dismiss() {
+    _timer?.cancel();
+    _timer = null;
+    if (_visible && mounted) {
+      setState(() => _visible = false);
+    }
+    _markSeen();
+  }
+
+  Future<void> _markSeen() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('axis_canvas_hint_seen', true);
+    } catch (_) {
+      // 忽略
+    }
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_visible) return const SizedBox.shrink();
+    return GestureDetector(
+      onTap: _dismiss,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.xs,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.75),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        ),
+        child: const Text(
+          '拖到别人卡片上停一下＝换上级\n拖到空白处＝挪位置',
+          key: Key('axis-drag-hint'),
+          style: TextStyle(fontSize: 11, color: Colors.white),
         ),
       ),
     );

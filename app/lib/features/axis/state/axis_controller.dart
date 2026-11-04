@@ -4,8 +4,10 @@ import 'dart:ui' show Offset;
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../reports/models/report_models.dart';
 import '../data/axis_api.dart';
 import '../data/axis_models.dart';
+import '../data/axis_report_helpers.dart';
 import '../data/axis_tree_mapper.dart';
 import '../data/axis_view_models.dart';
 
@@ -52,13 +54,17 @@ class AxisController extends ChangeNotifier {
   bool showAiStatus = true;
   bool expandSubordinates = true;
 
-  /// 重置布局标记：画布忽略手动偏移，且本次加载不从后端回填位置。
-  ///
-  /// 只在重置后生效一次。用户重新拖动卡片（[saveLayout]）或下一次加载应用完
-  /// 重置后必须清掉，否则之后保存成功的偏移会被画布一直忽略（返工 #5）。
-  bool resetLayoutRequested = false;
+  /// 重置布局进行中、尚未落盘完成的节点；加载不得用后端旧值把它们改回去。
+  final Set<int> _pendingResetIds = {};
 
-  final Map<int, Offset> _layoutOffsets = {};
+  final Map<AxisOrientation, Map<int, Offset>> _offsetsByOrientation = {
+    AxisOrientation.horizontal: {},
+    AxisOrientation.vertical: {},
+  };
+
+  Map<int, AgentReport> latestReports = const {};
+  bool reportsLoaded = false;
+  bool reportsError = false;
 
   int? selectedNodeId;
 
@@ -100,7 +106,8 @@ class AxisController extends ChangeNotifier {
     return nodes.where((node) => node.parentId == null).toList();
   }
 
-  Offset offsetFor(int nodeId) => _layoutOffsets[nodeId] ?? Offset.zero;
+  Offset offsetFor(int nodeId) =>
+      _offsetsByOrientation[orientation]?[nodeId] ?? Offset.zero;
 
   void select(int? nodeId) {
     if (selectedNodeId == nodeId) return;
@@ -179,10 +186,45 @@ class AxisController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void resetLayout() {
-    resetLayoutRequested = true;
-    _layoutOffsets.clear();
+  /// 重置当前方向的卡片布局：本地立即清零，并把每个非零偏移带方向写回后端。
+  ///
+  /// 无权编辑的节点保留原偏移、不发请求；单个失败时恢复该节点偏移，
+  /// 全部处理完后把第一个失败原因抛出，由页面提示。另一方向不受影响。
+  Future<void> resetLayout() async {
+    final dir = orientation;
+    final map = _offsetsByOrientation.putIfAbsent(dir, () => <int, Offset>{});
+    final targets = <int, Offset>{};
+    for (final entry in map.entries.toList()) {
+      if (entry.value == Offset.zero) continue;
+      final node = nodeById(entry.key);
+      if (node == null || !permissions.nodeCan(node, 'can_edit_person')) continue;
+      targets[entry.key] = entry.value;
+    }
+    for (final id in targets.keys) {
+      map.remove(id);
+    }
+    _pendingResetIds.addAll(targets.keys);
     notifyListeners();
+
+    Object? firstError;
+    await Future.wait(targets.entries.map((entry) async {
+      try {
+        await api.saveNodeLayout(
+          entry.key,
+          offsetX: 0,
+          offsetY: 0,
+          orientation: dir,
+        );
+      } catch (e) {
+        firstError ??= e;
+        // 只在用户没有重新摆放过该卡片时恢复旧值。
+        if (!_disposed) map.putIfAbsent(entry.key, () => entry.value);
+      } finally {
+        _pendingResetIds.remove(entry.key);
+      }
+    }));
+    if (!_disposed) notifyListeners();
+    if (firstError != null) throw firstError!;
   }
 
   bool _isFresh(int epoch) => !_disposed && epoch == _epoch;
@@ -212,18 +254,34 @@ class AxisController extends ChangeNotifier {
       this.members = members;
       this.permissions = permissions;
       this.project = project;
-      if (resetLayoutRequested) {
-        // 本次加载已按重置后的自动对齐展示，标记立即失效，
-        // 之后拖动的偏移照常生效。
-        resetLayoutRequested = false;
-      } else {
-        _layoutOffsets
-          ..clear()
-          ..addEntries(
-            mapped
-                .where((node) => node.layoutOffset != null)
-                .map((node) => MapEntry(node.id, node.layoutOffset!)),
-          );
+      // 两个方向都以后端为准；重置尚未落盘的节点保持本地已清零。
+      _offsetsByOrientation[AxisOrientation.horizontal] = {
+        for (final node in mapped)
+          if (node.horizontalOffset != null &&
+              node.horizontalOffset != Offset.zero &&
+              !_pendingResetIds.contains(node.id))
+            node.id: node.horizontalOffset!,
+      };
+      _offsetsByOrientation[AxisOrientation.vertical] = {
+        for (final node in mapped)
+          if (node.verticalOffset != null &&
+              node.verticalOffset != Offset.zero &&
+              !_pendingResetIds.contains(node.id))
+            node.id: node.verticalOffset!,
+      };
+      try {
+        final reports = await api.fetchProjectReports(_projectId);
+        if (_isFresh(epoch)) {
+          latestReports = latestReportByUser(reports);
+          reportsLoaded = true;
+          reportsError = false;
+        }
+      } catch (_) {
+        if (_isFresh(epoch)) {
+          latestReports = const {};
+          reportsLoaded = false;
+          reportsError = true;
+        }
       }
       if (selectedNodeId != null && nodeById(selectedNodeId) == null) {
         selectedNodeId = null;
@@ -249,8 +307,12 @@ class AxisController extends ChangeNotifier {
     permissions = AxisPermissions.empty;
     project = null;
     selectedNodeId = null;
-    _layoutOffsets.clear();
-    resetLayoutRequested = false;
+    _offsetsByOrientation[AxisOrientation.horizontal]?.clear();
+    _offsetsByOrientation[AxisOrientation.vertical]?.clear();
+    latestReports = const {};
+    reportsLoaded = false;
+    reportsError = false;
+    _pendingResetIds.clear();
     notifyListeners();
     await load();
   }
@@ -258,20 +320,30 @@ class AxisController extends ChangeNotifier {
   /// 拖动卡片改变上级。失败时把后端中文原因抛给页面展示。
   Future<void> moveNode(int nodeId, int? newParentId) async {
     await api.moveNode(nodeId, newParentId: newParentId);
+    _offsetsByOrientation[AxisOrientation.horizontal]?.remove(nodeId);
+    _offsetsByOrientation[AxisOrientation.vertical]?.remove(nodeId);
     await load();
   }
 
   /// 保存卡片位置：先本地生效，失败回滚并抛出，由页面提示。
   Future<void> saveLayout(int nodeId, Offset offset) async {
-    final previous = offsetFor(nodeId);
-    // 用户重新摆放卡片，重置态到此为止；否则这次偏移会被画布忽略。
-    resetLayoutRequested = false;
-    _layoutOffsets[nodeId] = offset;
+    final currentMap = _offsetsByOrientation.putIfAbsent(
+      orientation,
+      () => <int, Offset>{},
+    );
+    final previous = currentMap[nodeId] ?? Offset.zero;
+    _pendingResetIds.remove(nodeId);
+    currentMap[nodeId] = offset;
     notifyListeners();
     try {
-      await api.saveNodeLayout(nodeId, offsetX: offset.dx, offsetY: offset.dy);
+      await api.saveNodeLayout(
+        nodeId,
+        offsetX: offset.dx,
+        offsetY: offset.dy,
+        orientation: orientation,
+      );
     } catch (e) {
-      _layoutOffsets[nodeId] = previous;
+      currentMap[nodeId] = previous;
       notifyListeners();
       rethrow;
     }

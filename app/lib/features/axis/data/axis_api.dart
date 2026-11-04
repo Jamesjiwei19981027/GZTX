@@ -1,6 +1,8 @@
 import '../../../core/api/api_client.dart';
 import '../../../core/errors/app_error.dart';
+import '../../reports/models/report_models.dart';
 import 'axis_models.dart';
+import 'axis_view_models.dart' show AxisOrientation;
 
 /// T04 人轴接口层。
 ///
@@ -31,6 +33,18 @@ class AxisApi {
       query: {'format': 'nested'},
     );
     return _list(data, 'nodes');
+  }
+
+  /// 获取项目汇报列表（`GET /projects/{id}/agent-reports`）。
+  Future<List<AgentReport>> fetchProjectReports(int projectId) async {
+    final data = await _client.get('/projects/$projectId/agent-reports');
+    if (data is List) {
+      return data
+          .whereType<Map>()
+          .map((e) => AgentReport.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    }
+    return _list(data, 'items').map(AgentReport.fromJson).toList();
   }
 
   /// 项目成员（`GET /projects/{id}/members`）。
@@ -137,10 +151,17 @@ class AxisApi {
     int nodeId, {
     required double offsetX,
     required double offsetY,
+    AxisOrientation? orientation,
   }) {
+    final body = <String, dynamic>{'offset_x': offsetX, 'offset_y': offsetY};
+    if (orientation != null) {
+      body['orientation'] = orientation == AxisOrientation.horizontal
+          ? 'horizontal'
+          : 'vertical';
+    }
     return _client.put(
       '/nodes/$nodeId/layout',
-      body: {'offset_x': offsetX, 'offset_y': offsetY},
+      body: body,
     );
   }
 
