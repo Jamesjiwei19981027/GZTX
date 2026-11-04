@@ -763,6 +763,43 @@ void main() {
       });
     });
 
+    testWidgets('4b. 缩放 0.5 时根卡片显示姓名与「终责」标签', (tester) async {
+      await withClock(Clock.fixed(today), () async {
+        bigView(tester);
+        final viewport = AxisViewportController();
+        await tester.pumpWidget(
+          host(
+            AxisCanvas(
+              nodes: [person(1, null), person(2, 1)],
+              orientation: AxisOrientation.vertical,
+              spacing: AxisSpacing.standard,
+              sort: AxisSort.tree,
+              viewportController: viewport,
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        viewport.setScale(0.5);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final root = find.byKey(const Key('axis-person-1'));
+        expect(
+          find.descendant(of: root, matching: find.text('人员1')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: root, matching: find.text('终责')),
+          findsOneWidget,
+        );
+        final child = find.byKey(const Key('axis-person-2'));
+        expect(
+          find.descendant(of: child, matching: find.text('人员2')),
+          findsOneWidget,
+        );
+      });
+    });
+
     testWidgets('5. 卡片「暂无任务」只出现一次', (tester) async {
       await withClock(Clock.fixed(today), () async {
         bigView(tester);

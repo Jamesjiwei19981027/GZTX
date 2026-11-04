@@ -777,28 +777,28 @@ class _AxisCanvasState extends State<AxisCanvas>
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Flexible(
-                    child: Text(
-                      node.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 30,
-                        fontWeight: FontWeight.w600,
-                        color: isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.textPrimary,
-                      ),
+                  Text(
+                    node.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
+                      color: isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.textPrimary,
                     ),
                   ),
-                  if (isRoot) ...[
-                    const SizedBox(width: 8),
+                  if (isRoot)
                     Container(
+                      margin: const EdgeInsets.only(top: 2),
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 2,
+                        horizontal: 8,
+                        vertical: 1,
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.warningLight,
@@ -807,13 +807,12 @@ class _AxisCanvasState extends State<AxisCanvas>
                       child: const Text(
                         '终责',
                         style: TextStyle(
-                          fontSize: 20,
+                          fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: AppColors.warning,
                         ),
                       ),
                     ),
-                  ],
                 ],
               ),
             ),

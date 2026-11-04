@@ -1296,6 +1296,31 @@ class _OverviewView extends StatelessWidget {
               Positioned(
                 left: AppSpacing.lg,
                 right: AppSpacing.lg,
+                bottom: AppSpacing.lg + 52,
+                child: IgnorePointer(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpacing.md,
+                        vertical: AppSpacing.xs,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                      ),
+                      child: const Text(
+                        '拖到别人卡片上停一下＝换上级\n拖到空白处＝挪位置',
+                        key: Key('axis-drag-hint'),
+                        style: TextStyle(fontSize: 11, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: AppSpacing.lg,
+                right: AppSpacing.lg,
                 bottom: AppSpacing.lg,
                 child: Row(
                   children: [
@@ -1333,26 +1358,6 @@ class _OverviewView extends StatelessWidget {
                             icon: const Icon(Icons.add, size: 18),
                           ),
                         ],
-                      ),
-                    ),
-                    const Spacer(),
-                    Flexible(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppSpacing.md,
-                          vertical: AppSpacing.xs,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.6),
-                          borderRadius: BorderRadius.circular(
-                            AppSpacing.radiusFull,
-                          ),
-                        ),
-                        child: const Text(
-                          '拖到别人卡片上停一下＝换上级 · 拖到空白处＝挪位置',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 10, color: Colors.white),
-                        ),
                       ),
                     ),
                   ],
