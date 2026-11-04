@@ -45,7 +45,7 @@ const login = async (username: string) => {
 
 const chooseProject = async () => {
   await tap(page.getByRole('tab', { name: '人轴', exact: true }))
-  const picker = page.locator('.axis-project-picker select')
+  const picker = page.locator('.axis-project-picker select, .mobile-axis-project-picker select')
   await expect(picker).toBeVisible()
   await picker.selectOption('1')
   await expect(picker).toHaveValue('1')

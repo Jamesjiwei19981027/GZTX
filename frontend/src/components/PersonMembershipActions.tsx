@@ -16,7 +16,7 @@ export function PersonMembershipActions({node,capabilities,onChanged}: {
   const run=async(action:()=>Promise<void>)=>{setBusy(true);setError('');try{await action();}catch(e){setError(e instanceof Error?e.message:'操作失败，请刷新后重试');}finally{setBusy(false);}};
   return <section aria-label="人员权限与交接" className="p-4 space-y-3 rounded-xl bg-slate-50 dark:bg-slate-900 text-sm text-slate-800 dark:text-slate-200">
     <h3 className="font-semibold">人员权限与交接</h3>
-    <p className="text-xs text-slate-500">{node.nodeOrigin==='subordinate'?'次级人员：仅所属主轴负责人可以移除。默认不开放项目频道。':'主轴人员：由项目经理管理。'} 人轴最多三级。</p>
+    <p className="text-xs text-slate-500">{node.nodeOrigin==='subordinate'?'次级人员：仅所属主轴负责人可以移除。默认不开放项目频道。':'主轴人员：由项目经理管理。'} 人轴最多四级。</p>
     {capabilities?.can_manage_channel_access && node.nodeOrigin==='subordinate' && <label className="flex gap-2 items-center">
       <input type="checkbox" checked={access} disabled={busy} onChange={e=>{const next=e.target.checked;void run(async()=>{await updateTreeNode(Number(node.id),{responsibility_permissions:{...node.responsibilityPermissions,channel_access:next}});setAccess(next);await onChanged();});}} />
       允许进入项目频道

@@ -117,7 +117,7 @@ async function openWorkspace(page: Page, editable = true, userId?: number, dense
   await page.goto('/')
 }
 
-async function openMobileWorkspace(page: Page, editable = true, userId = 1, hintSeen = false) {
+async function openMobileWorkspace(page: Page, editable = true, userId = 1, hintSeen = false, picker?: { name: string }) {
   const currentTree = structuredClone(tree)
   const findNode = (id: number, list: any[] = currentTree): any => {
     for (const node of list) { if (node.id === id) return node; const child = findNode(id, node.children || []); if (child) return child }
@@ -186,13 +186,14 @@ async function openMobileWorkspace(page: Page, editable = true, userId = 1, hint
       import { MobileAxisScreens } from '/src/mobile/features/people-axis/MobileAxisScreens.tsx';
       localStorage.setItem('access_token', 'test-token');
       ${hintSeen ? "localStorage.setItem('axis_canvas_hint_seen', 'true');" : "localStorage.removeItem('axis_canvas_hint_seen');"}
-      const project = { id: 1, name: '产品体验升级', color: '#0058BE' };
+      const project = { id: 1, name: '${picker ? picker.name : '产品体验升级'}', color: '#0058BE' };
       const user = { id: '${userId}', name: '${userId === 1 ? '赵晨' : '当前用户'}', role: 'pm' };
       function App() {
         return React.createElement(MobileAxisScreens, {
           projectId: 1,
           currentProject: project,
           projects: [project],
+          ${picker ? 'onSelectProject: () => {},' : ''}
           currentUser: user,
           companyId: 1,
         });
@@ -1238,5 +1239,33 @@ for (const width of [320, 360]) {
     expect(result.rows).toBeLessThan(8)
     await expect(page.getByRole('button', { name: '定位我', exact: true })).toBeVisible()
     await expect(fit).toHaveAttribute('aria-label', '适应屏幕')
+  })
+}
+
+for (const width of [390, 320]) {
+  test(`mobile web appearance: project picker keeps its border and full name at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 700 })
+    await openMobileWorkspace(page, true, 1, true, { name: '烂笔头人轴演示' })
+    const select = page.getByLabel('选择项目', { exact: true })
+    await expect(select).toBeVisible()
+    const info = await select.evaluate(el => {
+      const cs = getComputedStyle(el)
+      const box = el.getBoundingClientRect()
+      const container = el.closest('label')!.parentElement!.getBoundingClientRect()
+      const opt = (el as HTMLSelectElement).selectedOptions[0].textContent
+      // 文本是否被截断：用相同字体量一遍名称宽度，与可用内容宽度比较
+      const probe = document.createElement('span')
+      probe.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font:${cs.font}`
+      probe.textContent = opt
+      document.body.appendChild(probe)
+      const textWidth = probe.getBoundingClientRect().width
+      probe.remove()
+      const available = box.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 20
+      return { border: cs.borderTopWidth, borderStyle: cs.borderTopStyle, width: box.width, container: container.width, textWidth, available }
+    })
+    expect(info.border).toBe('1px')
+    expect(info.borderStyle).toBe('solid')
+    expect(info.width).toBeGreaterThanOrEqual(info.container * 0.6)
+    if (width === 390) expect(info.textWidth).toBeLessThanOrEqual(info.available)
   })
 }

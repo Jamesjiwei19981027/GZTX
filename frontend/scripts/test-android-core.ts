@@ -67,7 +67,7 @@ try {
   }
   const reportPage = async (id = projectId) => {
     await tap(nav.getByRole('button', { name: /人轴$/ }))
-    await page.locator('.axis-project-picker select').selectOption(id!)
+    await page.locator('.axis-project-picker select, .mobile-axis-project-picker select').selectOption(id!)
     await more('统计报告')
     await expect(page.getByTestId('project-ai-report-center')).toContainText('人轴智能体汇报链')
   }
@@ -80,7 +80,7 @@ try {
   // Personal task completion is tested outside the selected project's
   // read-only linked-task projection.
   await tap(nav.getByRole('button', { name: /人轴$/ }))
-  await page.locator('.axis-project-picker select').selectOption('all')
+  await page.locator('.axis-project-picker select, .mobile-axis-project-picker select').selectOption('all')
   await tap(nav.getByRole('button', { name: /我的任务$/ }))
   const title = `Android APK任务-${Date.now()}`
   await tap(nav.getByRole('button', { name: 'add', exact: true }))
