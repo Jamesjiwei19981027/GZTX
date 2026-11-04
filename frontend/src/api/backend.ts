@@ -531,18 +531,3 @@ export async function submitEvidence(
     }),
   })
 }
-
-export async function putNodeLayout(
-  nodeId: number,
-  offset: { x: number; y: number },
-  orientation?: 'horizontal' | 'vertical',
-) {
-  return apiRequest(`/nodes/${nodeId}/layout`, {
-    method: 'PUT',
-    body: JSON.stringify({
-      offset_x: offset.x,
-      offset_y: offset.y,
-      ...(orientation ? { orientation } : {}),
-    }),
-  })
-}

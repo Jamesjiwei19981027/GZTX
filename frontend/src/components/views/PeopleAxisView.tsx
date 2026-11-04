@@ -1,9 +1,7 @@
-import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PersonMembershipActions } from '../PersonMembershipActions';
 import { MaterialTextInput } from '../MaterialTextInput';
 import { inferEvidenceKind } from '../../utils/evidenceFiles';
-import type { Edge } from '@xyflow/react';
 import { PeopleAxisNode, AxisWorkItem, AxisEvidence, Language, TeamMember, Project } from '../../types';
 import {
   createNode,
@@ -11,16 +9,17 @@ import {
   getProjectTree,
   listNodeEvidence,
   listProjectMembers,
-  moveNode,
   submitEvidence,
 } from '../../api/backend';
-import { mapMember, mapTreeToPeopleAxis, extraRootIds, pickUiOffset } from '../../api/mappers';
+import { mapMember, mapTreeToPeopleAxis, extraRootIds } from '../../api/mappers';
 import { withAxisPersonMetadata } from '../../api/axisPerson';
-import { getMyPermissions, getPeopleAxisAggregate, putNodeLayout, runAxisAudit, MyProjectPermissions } from '../../api/shell';
+import { getMyPermissions, getPeopleAxisAggregate, runAxisAudit, MyProjectPermissions } from '../../api/shell';
 import { fetchMe } from '../../api/auth';
 import { averagePeopleAxisProgress } from './peopleAxisUtils';
-import { AxisFlowNode, PersonNodeData } from './PeopleAxisFlowCanvas';
-import { computeAxisLayout, collectHiddenNodeIds, responsibilityScope } from './peopleAxisFlowLayout';
+import { responsibilityScope } from './peopleAxisFlowLayout';
+import {
+  usePeopleAxisCanvas, ReparentConfirmDialog, computeEditableNodeIds, makeNodeCapabilityCheckers,
+} from './usePeopleAxisCanvas';
 import { DelegationModal } from '../modals/DelegationModal';
 import { ResponsibilityWorkspace, AxisDialog, useAxisMobile, type AxisProjectSummary } from './ResponsibilityWorkspace';
 import { EditResponsibilityPerson } from './EditResponsibilityPerson';
@@ -180,33 +179,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const [treeOrientation, setTreeOrientation] = useState<'horizontal' | 'vertical'>(() => mobile ? 'vertical' : 'horizontal');
   const treeOrientationRef = useRef(treeOrientation);
   treeOrientationRef.current = treeOrientation;
-  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
-  // 用户拖拽产生的偏移（叠加在布局基准位置上，落盘到后端 layout）
-  const [dragOffsets, setDragOffsets] = useState<Record<string, { x: number; y: number }>>({});
-  const dragOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
-  const layoutSavesRef = useRef(new Map<number, Promise<unknown>>());
-  const savedOffsetsRef = useRef(new Map<number, {x: number; y: number}>());
-  const saveNodeOffset = useCallback((nodeId: number, offset: { x: number; y: number }, orientation = treeOrientation) => {
-    // Preserve drag/reset order even when an earlier request is slow or fails.
-    const pending = (layoutSavesRef.current.get(nodeId) || Promise.resolve())
-      .catch(() => undefined).then(() => putNodeLayout(nodeId, offset, orientation))
-      .then(result => { savedOffsetsRef.current.set(nodeId, offset); return result; });
-    layoutSavesRef.current.set(nodeId, pending);
-    const clear = () => { if (layoutSavesRef.current.get(nodeId) === pending) layoutSavesRef.current.delete(nodeId); };
-    void pending.then(clear, clear);
-    return pending;
-  }, [treeOrientation]);
-
-  const handleOrientationChange = useCallback((nextDir: 'horizontal' | 'vertical') => {
-    setTreeOrientation(nextDir);
-    const nextOffsets: Record<string, { x: number; y: number }> = {};
-    nodes.forEach(n => {
-      const off = pickUiOffset(n, nextDir);
-      if (off.x !== 0 || off.y !== 0) nextOffsets[n.id] = off;
-    });
-    dragOffsetsRef.current = nextOffsets;
-    setDragOffsets(nextOffsets);
-  }, [nodes]);
+  // 数据每次整体载入（切项目 / 手动刷新）时递增，画布据此重新读取节点里的位置偏移
+  const [axisLoadSeq, setAxisLoadSeq] = useState(0);
 
   // Mobile bottom sheet with the description / progress / controls that the
   // desktop layout shows above the canvas.
@@ -230,15 +204,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   useEffect(() => { setWikiProject(null); setNewEvDescription(''); setNewEvFiles([]); }, [projectId]);
   useEffect(() => { setNewEvDescription(''); setNewEvFiles([]); }, [isAddingEvidence]);
 
-  // Draw.io Interactive Re-linking & Mounting States
-  const [linkingSourceNodeId, setLinkingSourceNodeId] = useState<string | null>(null);
-  const [reparentConfirm, setReparentConfirm] = useState<{
-    sourceId: string;
-    targetId: string;
-    sourceName: string;
-    targetName: string;
-  } | null>(null);
-  const [linkingHoveredTargetId, setLinkingHoveredTargetId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Custom Member Form Fields
@@ -255,19 +220,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       setToastMessage(prev => (prev === msg ? null : prev));
     }, 3500);
   }, []);
-
-  // ESC 取消连线模式（连线预览曲线由画布内部的 LinkingPreview 处理）
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && linkingSourceNodeId) {
-        setLinkingSourceNodeId(null);
-        setLinkingHoveredTargetId(null);
-        showToast(lang === 'zh' ? '已取消 Draw.io 连线重新挂载操作' : 'Cancelled re-linking');
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [linkingSourceNodeId, lang, showToast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -318,19 +270,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     const apply = (loaded: PeopleAxisNode[]) => {
       if (cancelled) return;
       setNodes(loaded);
-      const initialExpanded: Record<string, boolean> = {};
-      const offsets: Record<string, { x: number; y: number }> = {};
-      loaded.forEach((n) => {
-        initialExpanded[n.id] = true;
-        const lo = (n as PeopleAxisNode & { layoutOffset?: { x: number; y: number } }).layoutOffset;
-        if (lo) offsets[n.id] = { x: lo.x, y: lo.y };
-        const backendId = asBackendId(n.id);
-        if (backendId != null && !layoutSavesRef.current.has(backendId)) savedOffsetsRef.current.set(backendId, lo || {x:0,y:0});
-      });
-      setExpandedNodes(initialExpanded);
-      // ref 需与加载的偏移同步，否则「重置布局」会漏掉本会话未拖动过的后端旧偏移
-      dragOffsetsRef.current = offsets;
-      setDragOffsets(offsets);
+      setExpandedNodes({});
+      setAxisLoadSeq(n => n + 1);
       setSelectedNodeId(null);
     };
 
@@ -454,13 +395,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       setProjectCompanyId(proj.company_id ?? null);
       setNodes(withEvidence);
       setServerPerms(permissions);
-      setExpandedNodes((prev) => {
-        const next = { ...prev };
-        withEvidence.forEach((n) => {
-          if (next[n.id] === undefined) next[n.id] = true;
-        });
-        return next;
-      });
       setBackendLoadError(null);
     } catch (e) {
       if (isCurrent()) showToast(e instanceof Error ? e.message : '刷新失败');
@@ -588,44 +522,16 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
   // tree.edit_subtree：自己是 primary/collaborator 责任人的节点及其全部后代。
   // 锚点优先取服务端 owned_node_ids，向下传递仍由前端沿树展开（与 _owns_path 同口径）
-  const editableNodeIds = useMemo(() => {
-    const set = new Set<string>();
-    if (!isBackendProject) return set;
-    const ownedFromServer = serverPerms
-      ? new Set(serverPerms.owned_node_ids.map(String))
-      : null;
-    if (!ownedFromServer && meId == null) return set;
-    const childrenMap = new Map<string, string[]>();
-    nodes.forEach((n) => {
-      if (!n.parentId) return;
-      childrenMap.set(n.parentId, [...(childrenMap.get(n.parentId) || []), n.id]);
-    });
-    const queue = nodes
-      .filter((n) =>
-        ownedFromServer
-          ? ownedFromServer.has(n.id)
-          : (n.ownerUserIds || []).includes(meId!),
-      )
-      .map((n) => n.id);
-    while (queue.length) {
-      const id = queue.pop()!;
-      if (set.has(id)) continue;
-      set.add(id);
-      (childrenMap.get(id) || []).forEach((c) => queue.push(c));
-    }
-    return set;
-  }, [isBackendProject, serverPerms, meId, nodes]);
+  const editableNodeIds = useMemo(
+    () => computeEditableNodeIds(nodes, isBackendProject, serverPerms, meId),
+    [isBackendProject, serverPerms, meId, nodes],
+  );
 
   /** 至少拥有一个可挂载位置（PM 任意；成员需名下有节点） */
-  const canAddSubordinate = (id: string) => serverPerms?.node_permissions
-    ? !!serverPerms.node_permissions[id]?.can_add_subordinate
-    : canEditAny || editableNodeIds.has(id);
-  const canAddWorkItem = (id: string) => serverPerms?.node_permissions
-    ? !!serverPerms.node_permissions[id]?.can_add_work_item
-    : canEditAny || editableNodeIds.has(id);
-  const canSubmitEvidence = (id: string) => serverPerms?.node_permissions
-    ? !!serverPerms.node_permissions[id]?.can_submit_evidence
-    : !!serverPerms?.can_submit_evidence;
+  const { canAddSubordinate, canAddWorkItem, canSubmitEvidence } = useMemo(
+    () => makeNodeCapabilityCheckers(serverPerms, canEditAny, editableNodeIds),
+    [serverPerms, canEditAny, editableNodeIds],
+  );
   const canMountSomething = canMoveNodes || nodes.some(node => canAddSubordinate(node.id));
 
   const myScope = useMemo(() => responsibilityScope(nodes,
@@ -641,347 +547,71 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     : serverPerms?.is_superadmin ? (lang === 'zh' ? '公司管理员' : 'Company admin')
     : (lang === 'zh' ? '项目成员 · 尚未分配职责' : 'Member · no assigned responsibility');
 
-  // Overall Project Director (Station 0, Head of the Subway Trunk Line)
-  const headLeaderNode = useMemo(() => {
-    return mainTrunkNodes[0] || null;
-  }, [mainTrunkNodes]);
+  /* ---------------- React Flow 画布数据装配（与手机网页共用同一份实现） ---------------- */
 
-  const getChildNodes = useCallback((parentId: string) => {
-    return nodes.filter(n => n.parentId === parentId);
-  }, [nodes]);
-
-  // Overall project progress percentage
-  const totalProjectProgress = useMemo(() => averagePeopleAxisProgress(nodes), [nodes]);
-
-  const toggleExpandNode = (nodeId: string) => {
-    setExpandedNodes(prev => ({
-      ...prev,
-      [nodeId]: prev[nodeId] === false
-    }));
-  };
-
-  /* ---------------- React Flow 画布数据装配 ---------------- */
-
-  // Automatic hierarchy plus persisted manual positions. Moving a card never
-  // changes its reporting relationship; that uses the explicit re-link action.
-  const layout = useMemo(
-    () => computeAxisLayout(scopedNodes, treeOrientation, expandedNodes),
-    [scopedNodes, treeOrientation, expandedNodes],
-  );
-  const layoutRef = useRef(layout);
-  layoutRef.current = layout;
-
-  const hiddenNodeIds = useMemo(
-    () => collectHiddenNodeIds(nodes, expandedNodes),
-    [nodes, expandedNodes],
+  const scopeContextNodeIds = useMemo(
+    () => scope === 'mine' && !isProjectPM
+      ? new Set(nodes.filter(n => !myScope.mine.has(n.id)).map(n => n.id))
+      : new Set<string>(),
+    [nodes, scope, isProjectPM, myScope],
   );
 
-  const rfNodes = useMemo<AxisFlowNode[]>(() => {
-    const list: AxisFlowNode[] = [];
-    nodes.forEach((n) => {
-      const hidden = hiddenNodeIds.has(n.id) || !layout.positions.has(n.id);
-      const base = layout.positions.get(n.id) || { x: 0, y: 0 };
-      const off = dragOffsets[n.id] || { x: 0, y: 0 };
-      const data: PersonNodeData = {
-        node: n,
-        lang,
-        level: layout.levels.get(n.id) || 1,
-        isMine: myScope.direct.has(n.id),
-        isScopeContext: scope === 'mine' && !isProjectPM && !myScope.mine.has(n.id),
-        isOverallLeader: headLeaderNode?.id === n.id,
-        isMainAxisLeader: !n.parentId,
-        isSelected: selectedNodeId === n.id,
-        isExpanded: expandedNodes[n.id] ?? true,
-        childCount: getChildNodes(n.id).length,
-        linkingActive: linkingSourceNodeId !== null,
-        isLinkingSource: linkingSourceNodeId === n.id,
-        isLinkingTarget:
-          linkingSourceNodeId !== null &&
-          linkingHoveredTargetId === n.id &&
-          linkingSourceNodeId !== n.id,
-        canEdit: canEditAny || editableNodeIds.has(n.id),
-        canAddSubordinate: canAddSubordinate(n.id),
-        canAddWorkItem: canAddWorkItem(n.id),
-        canSubmitEvidence: canSubmitEvidence(n.id) || n.workItems.some(item => canSubmitEvidence(item.id)),
-        evidenceItemPermissions: Object.fromEntries(n.workItems.map(item => [item.id, canSubmitEvidence(item.id)])),
-        canReadEvidence: !!serverPerms?.can_read_evidence,
-        orientation: treeOrientation,
-        mobile,
-        canRelink: canMoveNodes,
-        onCardClick: (id) => {
-          if (linkingSourceNodeId) {
-            if (id !== linkingSourceNodeId) handleConnectToTarget(id);
-          } else {
-            setSelectedNodeId(id);
-          }
-        },
-        onToggleExpand: toggleExpandNode,
-        onAddWorkItem: (id) => {
-          if (!canAddWorkItem(id)) {
-            showToast(lang === 'zh' ? '只能给自己负责的节点挂载事项' : 'You can only attach items under nodes you own');
-            return;
-          }
-          setIsAddingWorkItem(id);
-        },
-        onAddChild: (id) => {
-          if (!isBackendProject) {
-            showToast(lang === 'zh' ? '聚合视图只读：请先在上方横幅选择要编辑的项目' : 'Select a concrete project first');
-            return;
-          }
-          if (!canAddSubordinate(id)) {
-            showToast(lang === 'zh' ? '只能在自己负责的节点下挂载下属' : 'You can only mount under nodes you own');
-            return;
-          }
-          setNewParentId(id);
-          setNewNodeOrigin('subordinate');
-          setNewNodePermissions(defaultResponsibilityPermissions);
-          setIsAddingNode(true);
-        },
-        onEditPerson: (id) => {
-          if (!isBackendProject || !canEditAny && !editableNodeIds.has(id)) return;
-          const nodeId = asBackendId(id);
-          if (nodeId != null) setEditingPerson({ nodeId, projectId: String(backendProjectId) });
-        },
-        onToggleLinking: (id) => {
-          if (!canMoveNodes) {
-            showToast(lang === 'zh' ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM');
-            return;
-          }
-          if (linkingSourceNodeId === id) {
-            setLinkingSourceNodeId(null);
-            setLinkingHoveredTargetId(null);
-            showToast(lang === 'zh' ? '已取消连线操作' : 'Cancelled linking');
-          } else {
-            setLinkingSourceNodeId(id);
-            showToast(
-              lang === 'zh'
-                ? `🔗 连线模式已激活：点击目标卡片将【${n.person.name}】挂载过去`
-                : 'Linking active: click a target card',
-            );
-          }
-        },
-        onHoverTarget: setLinkingHoveredTargetId,
-      };
-      list.push({
-        id: n.id,
-        type: 'person',
-        hidden,
-        position: { x: base.x + off.x, y: base.y + off.y },
-        data,
-        // 布局偏移的持久化接口同样要求编辑权限，无权节点不可拖，避免 403
-        draggable: !linkingSourceNodeId && (canEditAny || editableNodeIds.has(n.id)),
-      });
-    });
-    return list;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    nodes, hiddenNodeIds, layout, dragOffsets, headLeaderNode, lang,
-    selectedNodeId, expandedNodes, linkingSourceNodeId, linkingHoveredTargetId,
-    getChildNodes, totalProjectProgress, showToast, isBackendProject,
-    canEditAny, canMoveNodes, editableNodeIds, mobile, finalOwner, myScope, scope, isProjectPM, serverPerms, treeOrientation,
-  ]);
+  const {
+    rfNodes, rfEdges, expandedNodes, setExpandedNodes, toggleExpandNode,
+    handleNodeDragStop, resetAllDragOffsets,
+    reparentConfirm, handleRequestReparent, handleConfirmReparent, handleCancelReparent,
+    linkingSourceNodeId, setLinkingSourceNodeId, setLinkingHoveredTargetId,
+  } = usePeopleAxisCanvas({
+    nodes,
+    scopedNodes,
+    orientation: treeOrientation,
+    edgeStyle,
+    lang,
+    mobile,
+    isBackendProject,
+    backendProjectId,
+    serverPerms,
+    currentUserId: meId,
+    seedKey: axisLoadSeq,
+    selectedNodeId,
+    mineNodeIds: myScope.direct,
+    scopeContextNodeIds,
+    canEditAny,
+    canMoveNodes,
+    editableNodeIds,
+    onSelectNode: setSelectedNodeId,
+    onShowToast: showToast,
+    onSyncStatus: setSyncStatus,
+    onReloadAxis: reloadAxisFromBackend,
+    onAddWorkItem: setIsAddingWorkItem,
+    onAddChild: (id) => {
+      setNewParentId(id);
+      setNewNodeOrigin('subordinate');
+      setNewNodePermissions(defaultResponsibilityPermissions);
+      setIsAddingNode(true);
+    },
+    onEditPerson: (id) => {
+      const nodeId = asBackendId(id);
+      if (nodeId != null) setEditingPerson({ nodeId, projectId: String(backendProjectId) });
+    },
+  });
 
-  const rfEdges = useMemo<Edge[]>(() => {
-    const edges: Edge[] = [];
-    scopedNodes.forEach((n) => {
-      if (!n.parentId) return;
-      if (hiddenNodeIds.has(n.id) || hiddenNodeIds.has(n.parentId)) return;
-      edges.push({
-        id: `branch-${n.id}`,
-        source: n.parentId,
-        target: n.id,
-        type: 'branch',
-        data: {
-          orientation: treeOrientation,
-          attachmentKind: n.nodeOrigin || 'project',
-          edgeStyle,
-        },
-      });
-    });
-    return edges;
-  }, [scopedNodes, hiddenNodeIds, treeOrientation, edgeStyle]);
-
-  // 拖拽期间位置由画布内部状态驱动（避免每帧重渲染引起闪烁）；
-  // 拖拽结束才换算成相对布局基准的偏移量，更新本地状态并落盘后端
-  const handleNodeDragStop = useCallback((id: string, position: { x: number; y: number }) => {
-    if (!isBackendProject || !canEditAny && !editableNodeIds.has(id)) return;
-    const base = layoutRef.current.positions.get(id);
-    if (!base) return;
-    const off = { x: position.x - base.x, y: position.y - base.y };
-    setDragOffsets((prev) => {
-      const next = { ...prev, [id]: off };
-      dragOffsetsRef.current = next;
-      return next;
-    });
-
-    const targetNode = nodes.find(n => n.id === id);
-    if (targetNode) {
-      targetNode.uiOffsets = { ...(targetNode.uiOffsets || {}), [treeOrientation]: off };
-      if (treeOrientation === 'horizontal') targetNode.uiOffset = off;
-      targetNode.layoutOffset = off;
-    }
-
-    if (isBackendProject) {
-      const backendId = asBackendId(id);
-      if (backendId != null) void saveNodeOffset(backendId, off, treeOrientation).catch(error => {
-        if (activeProjectRef.current !== String(backendProjectId)) return;
-        setDragOffsets(current => {
-          // Do not roll back a newer drag while an older request is failing.
-          if (current[id]?.x !== off.x || current[id]?.y !== off.y) return current;
-          const next = { ...current, [id]: savedOffsetsRef.current.get(backendId) || {x:0,y:0} }; dragOffsetsRef.current = next; return next;
-        });
-        showToast(error instanceof Error ? error.message : (lang === 'zh' ? '位置保存失败' : 'Position could not be saved'));
-      });
-    }
-  }, [isBackendProject, backendProjectId, canEditAny, editableNodeIds, lang, showToast, saveNodeOffset, treeOrientation, nodes]);
+  // ESC 取消连线模式（连线预览曲线由画布内部的 LinkingPreview 处理）
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && linkingSourceNodeId) {
+        setLinkingSourceNodeId(null);
+        setLinkingHoveredTargetId(null);
+        showToast(lang === 'zh' ? '已取消 Draw.io 连线重新挂载操作' : 'Cancelled re-linking');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [linkingSourceNodeId, lang, showToast]);
 
   const handlePaneClick = () => {
     // 连线模式下点空白不动作（防误触）；提升主干走 banner 上的显式按钮
     if (!linkingSourceNodeId) setSelectedNodeId(null);
-  };
-
-  const resetAllDragOffsets = () => {
-    // 只清本地的话，刷新后旧偏移又会从后端 layoutOffset 加载回来；
-    // 具体项目下把偏移清零落盘，聚合只读视图保持只清本地
-    const retained: Record<string, {x: number; y: number}> = {};
-    if (isBackendProject) {
-      Object.keys(dragOffsetsRef.current).forEach((id) => {
-        const off = dragOffsetsRef.current[id];
-        if (!canEditAny && !editableNodeIds.has(id)) { retained[id] = off; return; }
-        if (!off || (off.x === 0 && off.y === 0)) return;
-        const backendId = asBackendId(id);
-        if (backendId != null) void saveNodeOffset(backendId, { x: 0, y: 0 }, treeOrientation).catch(error => {
-          if (activeProjectRef.current !== String(backendProjectId)) return;
-          setDragOffsets(current => {
-            if (current[id]) return current;
-            const next = { ...current, [id]: savedOffsetsRef.current.get(backendId) || {x:0,y:0} }; dragOffsetsRef.current = next; return next;
-          });
-          showToast(error instanceof Error ? error.message : (lang === 'zh' ? '位置重置失败' : 'Layout reset failed'));
-        });
-      });
-    }
-    dragOffsetsRef.current = retained;
-    setDragOffsets(retained);
-  };
-
-  // Helper to check circular parent-child dependency
-  const isDescendantNode = (allNodes: PeopleAxisNode[], ancestorId: string, targetId: string): boolean => {
-    if (ancestorId === targetId) return true;
-    const directChildren = allNodes.filter(n => n.parentId === ancestorId);
-    return directChildren.some(child => isDescendantNode(allNodes, child.id, targetId));
-  };
-
-  const executeReparent = async (sourceNodeId: string, targetNodeId: string) => {
-    const sourceNode = nodes.find(n => n.id === sourceNodeId);
-    const targetNode = nodes.find(n => n.id === targetNodeId);
-    const sourceId = asBackendId(sourceNodeId);
-    const targetId = asBackendId(targetNodeId);
-
-    if (isBackendProject) {
-      if (sourceId == null || targetId == null) {
-        showToast(lang === 'zh' ? '节点尚未同步到后端，无法挂载' : 'Node not on backend');
-        return;
-      }
-      try {
-        setSyncStatus('syncing');
-        await moveNode(sourceId, { new_parent_id: targetId, sort_order: 0 });
-        setDragOffsets(prev => {
-          const next = { ...prev };
-          delete next[sourceNodeId];
-          dragOffsetsRef.current = next;
-          return next;
-        });
-        if (sourceNode) {
-          sourceNode.uiOffsets = null;
-          sourceNode.uiOffset = null;
-          sourceNode.layoutOffset = { x: 0, y: 0 };
-        }
-        void saveNodeOffset(sourceId, { x: 0, y: 0 }, 'horizontal').catch(() => {});
-        void saveNodeOffset(sourceId, { x: 0, y: 0 }, 'vertical').catch(() => {});
-        setExpandedNodes((prev) => ({ ...prev, [targetNodeId]: true }));
-        setLinkingSourceNodeId(null);
-        setLinkingHoveredTargetId(null);
-        await reloadAxisFromBackend();
-        showToast(
-          lang === 'zh'
-            ? `已将【${sourceNode?.person.name || ''}】挂载到【${targetNode?.person.name || ''}】`
-            : `Attached ${sourceNode?.person.name} under ${targetNode?.person.name}`,
-        );
-      } catch (err) {
-        showToast(err instanceof Error ? err.message : '挂载失败');
-        setSyncStatus('synced');
-      }
-      return;
-    }
-
-    const updated = nodes.map(n => {
-      if (n.id === sourceNodeId) {
-        return {
-          ...n,
-          parentId: targetNodeId,
-        };
-      }
-      return n;
-    });
-
-    setDragOffsets(prev => {
-      const next = { ...prev };
-      delete next[sourceNodeId];
-      dragOffsetsRef.current = next;
-      return next;
-    });
-    handleSaveNodes(updated);
-    setExpandedNodes(prev => ({ ...prev, [targetNodeId]: true }));
-    setLinkingSourceNodeId(null);
-    setLinkingHoveredTargetId(null);
-    showToast(
-      lang === 'zh'
-        ? `已将【${sourceNode?.person.name || ''}】挂载到【${targetNode?.person.name || ''}】`
-        : `Attached ${sourceNode?.person.name} under ${targetNode?.person.name}`,
-    );
-  };
-
-  const handleRequestReparent = (sourceId: string, targetId: string) => {
-    const sourceNode = nodes.find(n => n.id === sourceId);
-    const targetNode = nodes.find(n => n.id === targetId);
-    if (!sourceNode || !targetNode) return;
-    setReparentConfirm({
-      sourceId,
-      targetId,
-      sourceName: sourceNode.person.name,
-      targetName: targetNode.person.name,
-    });
-  };
-
-  const handleConfirmReparent = async () => {
-    if (!reparentConfirm) return;
-    const { sourceId, targetId } = reparentConfirm;
-    setReparentConfirm(null);
-    await executeReparent(sourceId, targetId);
-  };
-
-  // Re-linking target handlers (fallback for keyboard and menu)
-  const handleConnectToTarget = (targetNodeId: string) => {
-    if (!linkingSourceNodeId) return;
-    if (linkingSourceNodeId === targetNodeId) return;
-    if (isBackendProject && !canMoveNodes) {
-      showToast(lang === 'zh' ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM');
-      return;
-    }
-
-    if (isDescendantNode(nodes, linkingSourceNodeId, targetNodeId)) {
-      showToast(lang === 'zh' ? '⚠️ 不能挂载到自己的下属节点上（防止死循环）！' : 'Cannot attach to descendant node!');
-      return;
-    }
-
-    const sourceNode = nodes.find(n => n.id === linkingSourceNodeId);
-    const targetNode = nodes.find(n => n.id === targetNodeId);
-    if (sourceNode?.nodeOrigin !== 'subordinate' && targetNode?.nodeOrigin === 'subordinate') {
-      showToast(lang === 'zh' ? '项目成员不能挂到下级自建人员下面' : 'Project members cannot be assigned under self-added personnel');
-      return;
-    }
-
-    void executeReparent(linkingSourceNodeId, targetNodeId);
   };
 
   // Handlers for adding Node, WorkItem, Evidence
@@ -1315,7 +945,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           setNewNodePermissions(defaultResponsibilityPermissions);
           setIsAddingNode(true);
         }}
-        onOrientation={handleOrientationChange}
+        onOrientation={setTreeOrientation}
         edgeStyle={edgeStyle}
         onEdgeStyle={handleEdgeStyleChange}
         extraRoots={extraRoots}
@@ -1653,37 +1283,12 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         </AxisDialog>
       )}
 
-      {reparentConfirm && createPortal(
-        <div className="axis-theme axis-dialog-mask" role="dialog" aria-modal="true" data-testid="reparent-confirm-dialog">
-          <div className="axis-reparent-dialog">
-            <h3>{lang === 'zh' ? '调整上级' : 'Change manager'}</h3>
-            <p>
-              {lang === 'zh'
-                ? `把「${reparentConfirm.sourceName}」（连同他的下属和任务）调到「${reparentConfirm.targetName}」下面？`
-                : `Move "${reparentConfirm.sourceName}" (along with subordinates and tasks) under "${reparentConfirm.targetName}"?`}
-            </p>
-            <div className="axis-reparent-dialog-actions">
-              <button
-                type="button"
-                className="axis-secondary-button"
-                data-testid="reparent-confirm-no"
-                onClick={() => setReparentConfirm(null)}
-              >
-                {lang === 'zh' ? '取消' : 'Cancel'}
-              </button>
-              <button
-                type="button"
-                className="axis-primary-button"
-                data-testid="reparent-confirm-yes"
-                onClick={handleConfirmReparent}
-              >
-                {lang === 'zh' ? '确定' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      <ReparentConfirmDialog
+        confirm={reparentConfirm}
+        lang={lang}
+        onConfirm={() => void handleConfirmReparent()}
+        onCancel={handleCancelReparent}
+      />
 
       {/* FLOATING TOAST FEEDBACK BANNER */}
       {toastMessage && (

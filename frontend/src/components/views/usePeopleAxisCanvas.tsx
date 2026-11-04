@@ -8,13 +8,82 @@ import {
   type AxisOrientation,
 } from './peopleAxisFlowLayout'
 import { pickUiOffset } from '../../api/mappers'
-import { putNodeLayout, moveNode } from '../../api/backend'
-import { MyProjectPermissions } from '../../api/shell'
-import { reparentVerdict } from './peopleAxisUtils'
+import { moveNode } from '../../api/backend'
+import { putNodeLayout, type MyProjectPermissions } from '../../api/shell'
 import type { AxisFlowNode, PersonNodeData } from './PeopleAxisFlowCanvas'
+
+type Offset = { x: number; y: number }
+type OffsetMap = Record<string, Offset>
+/** 两个方向各存一份偏移；这是偏移的唯一来源（不再就地改 nodes 里的对象） */
+type OffsetsByDir = Record<AxisOrientation, OffsetMap>
+
+const EMPTY_OFFSETS: OffsetsByDir = { horizontal: {}, vertical: {} }
+const ZERO: Offset = { x: 0, y: 0 }
+
+function asBackendId(id: string): number | null {
+  const n = Number(id)
+  return Number.isFinite(n) && n > 0 ? n : null
+}
+
+/** 自己是 primary/collaborator 责任人的节点及其全部后代（与服务端 _owns_path 同口径） */
+export function computeEditableNodeIds(
+  nodes: PeopleAxisNode[],
+  isBackendProject: boolean,
+  serverPerms: MyProjectPermissions | null | undefined,
+  userId: number | null | undefined,
+): Set<string> {
+  const set = new Set<string>()
+  if (!isBackendProject) return set
+  const ownedFromServer = serverPerms ? new Set(serverPerms.owned_node_ids.map(String)) : null
+  if (!ownedFromServer && userId == null) return set
+  const childrenMap = new Map<string, string[]>()
+  nodes.forEach(n => {
+    if (!n.parentId) return
+    childrenMap.set(n.parentId, [...(childrenMap.get(n.parentId) || []), n.id])
+  })
+  const queue = nodes
+    .filter(n => (ownedFromServer ? ownedFromServer.has(n.id) : (n.ownerUserIds || []).includes(userId!)))
+    .map(n => n.id)
+  while (queue.length) {
+    const id = queue.pop()!
+    if (set.has(id)) continue
+    set.add(id)
+    ;(childrenMap.get(id) || []).forEach(c => queue.push(c))
+  }
+  return set
+}
+
+/** 按节点判定「加下级 / 加事项 / 交材料」权限；服务端 node_permissions 优先，回退客户端推断 */
+export function makeNodeCapabilityCheckers(
+  serverPerms: MyProjectPermissions | null | undefined,
+  canEditAny: boolean,
+  editableNodeIds: Set<string>,
+) {
+  return {
+    canAddSubordinate: (id: string) =>
+      serverPerms?.node_permissions
+        ? !!serverPerms.node_permissions[id]?.can_add_subordinate
+        : canEditAny || editableNodeIds.has(id),
+    canAddWorkItem: (id: string) =>
+      serverPerms?.node_permissions
+        ? !!serverPerms.node_permissions[id]?.can_add_work_item
+        : canEditAny || editableNodeIds.has(id),
+    canSubmitEvidence: (id: string) =>
+      serverPerms?.node_permissions
+        ? !!serverPerms.node_permissions[id]?.can_submit_evidence
+        : !!serverPerms?.can_submit_evidence,
+  }
+}
+
+function isDescendantNode(all: PeopleAxisNode[], ancestorId: string, targetId: string): boolean {
+  if (ancestorId === targetId) return true
+  return all.filter(n => n.parentId === ancestorId).some(c => isDescendantNode(all, c.id, targetId))
+}
 
 export interface UsePeopleAxisCanvasOptions {
   nodes: PeopleAxisNode[]
+  /** 参与布局与连线的节点（缺省等于 nodes）；「只看我的」范围时为 nodes 的子集 */
+  scopedNodes?: PeopleAxisNode[]
   orientation: AxisOrientation
   edgeStyle?: 'curve' | 'straight'
   lang?: Language
@@ -23,20 +92,30 @@ export interface UsePeopleAxisCanvasOptions {
   backendProjectId?: number | null
   serverPerms?: MyProjectPermissions | null
   currentUserId?: number | null
-  pmUserId?: number | null
+  /** 数据重新载入的版本号：变化时重新读取节点里的偏移；缺省则 nodes 引用变化时读取 */
+  seedKey?: unknown
   selectedNodeId?: string | null
+  /** 「我」的节点集合；缺省按 currentUserId 与 ownerUserIds 推断 */
+  mineNodeIds?: Set<string>
+  /** 范围之外、只作上下文显示的节点集合 */
+  scopeContextNodeIds?: Set<string>
   onSelectNode?: (nodeId: string | null) => void
-  onCardClick?: (nodeId: string) => void
   onAddChild?: (parentId: string) => void
+  onAddWorkItem?: (nodeId: string) => void
   onEditPerson?: (nodeId: string) => void
   onReloadAxis?: () => Promise<void>
   onShowToast?: (message: string) => void
+  onSyncStatus?: (status: 'syncing' | 'synced') => void
   canEditAny?: boolean
   canMoveNodes?: boolean
   editableNodeIds?: Set<string>
-  scope?: 'all' | 'mine' | 'project'
 }
 
+/**
+ * 人轴画布的唯一实现：电脑网页（PeopleAxisView）与手机网页（MobileAxisScreens）共用。
+ * 负责布局、节点/连线构建、按方向独立的拖动偏移（保存串行化、失败回滚、重置）、
+ * 拖放/连线换上级及确认。
+ */
 export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
   const {
     nodes,
@@ -48,34 +127,26 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     backendProjectId,
     serverPerms,
     currentUserId,
-    pmUserId,
+    seedKey,
     selectedNodeId,
-    onSelectNode,
-    onCardClick,
-    onAddChild,
-    onEditPerson,
-    onReloadAxis,
-    onShowToast,
     canEditAny: canEditAnyProp,
     canMoveNodes: canMoveNodesProp,
     editableNodeIds: editableNodeIdsProp,
   } = options
+  const scopedNodes = options.scopedNodes ?? nodes
+  const zh = lang === 'zh'
 
-  // 双向偏移字典管理：每个方向独立保存一份
-  const offsetsByDirRef = useRef<{
-    horizontal: Record<string, { x: number; y: number }>
-    vertical: Record<string, { x: number; y: number }>
-  }>({
-    horizontal: {},
-    vertical: {},
-  })
+  // 回调类选项走 ref，避免调用方每次渲染传新函数导致节点数据反复重建
+  const cb = useRef(options)
+  cb.current = options
+  const toast = useCallback((m: string) => cb.current.onShowToast?.(m), [])
 
-  const [dragOffsets, setDragOffsets] = useState<Record<string, { x: number; y: number }>>({})
+  const activeProjectRef = useRef<number | null>(backendProjectId ?? null)
+  activeProjectRef.current = backendProjectId ?? null
+
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({})
   const [linkingSourceNodeId, setLinkingSourceNodeId] = useState<string | null>(null)
   const [linkingHoveredTargetId, setLinkingHoveredTargetId] = useState<string | null>(null)
-
-  // 换上级确认对话框状态
   const [reparentConfirm, setReparentConfirm] = useState<{
     sourceId: string
     targetId: string
@@ -83,122 +154,87 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     targetName: string
   } | null>(null)
 
-  const activeProjectRef = useRef<number | null>(backendProjectId ?? null)
-  activeProjectRef.current = backendProjectId ?? null
+  // ===== 偏移：唯一来源 =====
+  const [offsetsByDir, setOffsetsByDirState] = useState<OffsetsByDir>(EMPTY_OFFSETS)
+  const offsetsRef = useRef<OffsetsByDir>(EMPTY_OFFSETS)
+  const commitOffsets = useCallback((update: (prev: OffsetsByDir) => OffsetsByDir) => {
+    const next = update(offsetsRef.current)
+    offsetsRef.current = next
+    setOffsetsByDirState(next)
+  }, [])
+  const setOffset = useCallback((dir: AxisOrientation, id: string, off: Offset | null) => {
+    commitOffsets(prev => {
+      const map = { ...prev[dir] }
+      if (off) map[id] = off
+      else delete map[id]
+      return { ...prev, [dir]: map }
+    })
+  }, [commitOffsets])
 
   const layoutSavesRef = useRef(new Map<number, Promise<unknown>>())
-  const savedOffsetsRef = useRef(new Map<number, { x: number; y: number }>())
+  /** 最近一次保存成功（或载入）的偏移，按「节点|方向」记，失败回滚用 */
+  const savedOffsetsRef = useRef(new Map<string, Offset>())
+  const savedKey = (backendId: number, dir: AxisOrientation) => `${backendId}|${dir}`
 
-  // 初始化 / 刷新节点偏移
+  const seedDep = seedKey === undefined ? nodes : seedKey
   useEffect(() => {
-    const hMap: Record<string, { x: number; y: number }> = {}
-    const vMap: Record<string, { x: number; y: number }> = {}
-    const initialExpanded: Record<string, boolean> = {}
-
-    nodes.forEach((n) => {
-      initialExpanded[n.id] = true
+    const h: OffsetMap = {}
+    const v: OffsetMap = {}
+    nodes.forEach(n => {
+      const backendId = asBackendId(n.id)
+      // 有保存请求在途的节点保留本地值，避免被旧数据覆盖
+      if (backendId != null && layoutSavesRef.current.has(backendId)) {
+        if (offsetsRef.current.horizontal[n.id]) h[n.id] = offsetsRef.current.horizontal[n.id]
+        if (offsetsRef.current.vertical[n.id]) v[n.id] = offsetsRef.current.vertical[n.id]
+        return
+      }
       const hOff = pickUiOffset(n, 'horizontal')
       const vOff = pickUiOffset(n, 'vertical')
-      if (hOff.x !== 0 || hOff.y !== 0) hMap[n.id] = hOff
-      if (vOff.x !== 0 || vOff.y !== 0) vMap[n.id] = vOff
-
-      const backendId = Number(n.id)
-      if (!Number.isNaN(backendId) && !layoutSavesRef.current.has(backendId)) {
-        savedOffsetsRef.current.set(backendId, orientation === 'horizontal' ? hOff : vOff)
+      if (hOff.x !== 0 || hOff.y !== 0) h[n.id] = hOff
+      if (vOff.x !== 0 || vOff.y !== 0) v[n.id] = vOff
+      if (backendId != null) {
+        savedOffsetsRef.current.set(savedKey(backendId, 'horizontal'), hOff)
+        savedOffsetsRef.current.set(savedKey(backendId, 'vertical'), vOff)
       }
     })
+    commitOffsets(() => ({ horizontal: h, vertical: v }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seedDep])
 
-    offsetsByDirRef.current = { horizontal: hMap, vertical: vMap }
-    setDragOffsets(orientation === 'horizontal' ? hMap : vMap)
-    setExpandedNodes(prev => ({ ...initialExpanded, ...prev }))
-  }, [nodes, orientation])
-
-  // 切换方向时：无缝切换为新方向的偏移
-  useEffect(() => {
-    const currentOffsets = offsetsByDirRef.current[orientation] || {}
-    setDragOffsets({ ...currentOffsets })
-  }, [orientation])
+  const dragOffsets = offsetsByDir[orientation]
 
   const toggleExpandNode = useCallback((nodeId: string) => {
-    setExpandedNodes(prev => ({
-      ...prev,
-      [nodeId]: prev[nodeId] === false,
-    }))
+    setExpandedNodes(prev => ({ ...prev, [nodeId]: prev[nodeId] === false }))
   }, [])
 
-  // 权限计算
+  // ===== 权限 =====
   const canEditAny = useMemo(() => {
     if (canEditAnyProp !== undefined) return canEditAnyProp
     if (!isBackendProject) return false
-    if (serverPerms) return Boolean(serverPerms.can_edit_all)
-    if (currentUserId == null) return false
-    return pmUserId != null && pmUserId === currentUserId
-  }, [canEditAnyProp, isBackendProject, serverPerms, currentUserId, pmUserId])
+    return serverPerms ? Boolean(serverPerms.can_edit_all) : false
+  }, [canEditAnyProp, isBackendProject, serverPerms])
 
-  const canMoveNodes = useMemo(() => {
-    if (canMoveNodesProp !== undefined) return canMoveNodesProp
-    if (serverPerms) return Boolean(serverPerms.can_move)
-    return canEditAny
-  }, [canMoveNodesProp, serverPerms, canEditAny])
+  const canMoveNodes = canMoveNodesProp !== undefined
+    ? canMoveNodesProp
+    : serverPerms ? Boolean(serverPerms.can_move) : canEditAny
 
-  const editableNodeIds = useMemo(() => {
-    if (editableNodeIdsProp !== undefined) return editableNodeIdsProp
-    const set = new Set<string>()
-    if (!isBackendProject) return set
-    const ownedFromServer = serverPerms ? new Set(serverPerms.owned_node_ids.map(String)) : null
-    if (!ownedFromServer && currentUserId == null) return set
+  const editableNodeIds = useMemo(
+    () => editableNodeIdsProp ?? computeEditableNodeIds(nodes, isBackendProject, serverPerms, currentUserId),
+    [editableNodeIdsProp, nodes, isBackendProject, serverPerms, currentUserId],
+  )
 
-    const childrenMap = new Map<string, string[]>()
-    nodes.forEach(n => {
-      if (!n.parentId) return
-      childrenMap.set(n.parentId, [...(childrenMap.get(n.parentId) || []), n.id])
-    })
+  const caps = useMemo(
+    () => makeNodeCapabilityCheckers(serverPerms, canEditAny, editableNodeIds),
+    [serverPerms, canEditAny, editableNodeIds],
+  )
 
-    const queue = nodes
-      .filter(n =>
-        ownedFromServer
-          ? ownedFromServer.has(n.id)
-          : (n.ownerUserIds || []).includes(currentUserId!),
-      )
-      .map(n => n.id)
-
-    while (queue.length) {
-      const id = queue.pop()!
-      if (set.has(id)) continue
-      set.add(id)
-      ;(childrenMap.get(id) || []).forEach(c => queue.push(c))
-    }
-    return set
-  }, [editableNodeIdsProp, isBackendProject, serverPerms, currentUserId, nodes])
-
-  const canAddSubordinateCheck = useCallback((id: string) => {
-    if (serverPerms?.node_permissions) {
-      return Boolean(serverPerms.node_permissions[id]?.can_add_subordinate)
-    }
-    return canEditAny || editableNodeIds.has(id)
-  }, [serverPerms, canEditAny, editableNodeIds])
-
-  const canAddWorkItemCheck = useCallback((id: string) => {
-    if (serverPerms?.node_permissions) {
-      return Boolean(serverPerms.node_permissions[id]?.can_add_work_item)
-    }
-    return canEditAny || editableNodeIds.has(id)
-  }, [serverPerms, canEditAny, editableNodeIds])
-
-  const canSubmitEvidenceCheck = useCallback((id: string) => {
-    if (serverPerms?.node_permissions) {
-      return Boolean(serverPerms.node_permissions[id]?.can_submit_evidence)
-    }
-    return Boolean(serverPerms?.can_submit_evidence)
-  }, [serverPerms])
-
-  // 保存节点布局偏移到后端（携带当前 orientation）
-  const saveNodeOffset = useCallback((nodeId: number, offset: { x: number; y: number }, targetDir = orientation) => {
+  // ===== 保存（同一节点串行，前一个失败不影响后一个） =====
+  const saveNodeOffset = useCallback((nodeId: number, offset: Offset, dir: AxisOrientation) => {
     const pending = (layoutSavesRef.current.get(nodeId) || Promise.resolve())
       .catch(() => undefined)
-      .then(() => putNodeLayout(nodeId, offset, targetDir))
+      .then(() => putNodeLayout(nodeId, offset, dir))
       .then(result => {
-        savedOffsetsRef.current.set(nodeId, offset)
+        savedOffsetsRef.current.set(savedKey(nodeId, dir), offset)
         return result
       })
     layoutSavesRef.current.set(nodeId, pending)
@@ -207,120 +243,113 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     }
     void pending.then(clear, clear)
     return pending
-  }, [orientation])
+  }, [])
 
-  // 布局计算
+  // ===== 布局 =====
   const layout = useMemo(
-    () => computeAxisLayout(nodes, orientation, expandedNodes),
-    [nodes, orientation, expandedNodes],
+    () => computeAxisLayout(scopedNodes, orientation, expandedNodes),
+    [scopedNodes, orientation, expandedNodes],
   )
   const layoutRef = useRef(layout)
   layoutRef.current = layout
 
-  const hiddenNodeIds = useMemo(
-    () => collectHiddenNodeIds(nodes, expandedNodes),
-    [nodes, expandedNodes],
+  const hiddenNodeIds = useMemo(() => collectHiddenNodeIds(nodes, expandedNodes), [nodes, expandedNodes])
+
+  const headLeaderId = useMemo(
+    () => nodes.filter(n => !n.parentId).sort((a, b) => a.orderOnAxis - b.orderOnAxis)[0]?.id ?? null,
+    [nodes],
   )
 
-  // 拖动结束：计算偏移、更新当前方向状态并落盘
-  const handleNodeDragStop = useCallback((id: string, position: { x: number; y: number }) => {
+  // ===== 拖动结束：换算偏移、写入当前方向、落盘 =====
+  const handleNodeDragStop = useCallback((id: string, position: Offset) => {
     if (!isBackendProject || (!canEditAny && !editableNodeIds.has(id))) return
     const base = layoutRef.current.positions.get(id)
     if (!base) return
+    const dir = orientation
     const off = { x: position.x - base.x, y: position.y - base.y }
+    setOffset(dir, id, off)
 
-    offsetsByDirRef.current[orientation][id] = off
-    setDragOffsets(prev => {
-      const next = { ...prev, [id]: off }
-      return next
+    const backendId = asBackendId(id)
+    if (backendId == null) return
+    const projectAtSave = activeProjectRef.current
+    void saveNodeOffset(backendId, off, dir).catch(error => {
+      if (activeProjectRef.current !== projectAtSave) return
+      const cur = offsetsRef.current[dir][id]
+      // 已有更新的拖动时不回滚
+      if (!cur || cur.x !== off.x || cur.y !== off.y) return
+      setOffset(dir, id, savedOffsetsRef.current.get(savedKey(backendId, dir)) || ZERO)
+      toast(error instanceof Error ? error.message : zh ? '位置保存失败' : 'Position could not be saved')
     })
+  }, [isBackendProject, canEditAny, editableNodeIds, orientation, setOffset, saveNodeOffset, toast, zh])
 
-    // 同步更新节点本身的 uiOffsets
-    const targetNode = nodes.find(n => n.id === id)
-    if (targetNode) {
-      targetNode.uiOffsets = {
-        ...(targetNode.uiOffsets || {}),
-        [orientation]: off,
-      }
-      if (orientation === 'horizontal') targetNode.uiOffset = off
-      targetNode.layoutOffset = off
-    }
-
-    const backendId = Number(id)
-    if (!Number.isNaN(backendId)) {
-      void saveNodeOffset(backendId, off, orientation).catch(error => {
-        if (activeProjectRef.current !== backendProjectId) return
-        setDragOffsets(current => {
-          if (current[id]?.x !== off.x || current[id]?.y !== off.y) return current
-          const next = {
-            ...current,
-            [id]: savedOffsetsRef.current.get(backendId) || { x: 0, y: 0 },
-          }
-          offsetsByDirRef.current[orientation][id] = next[id]
-          return next
-        })
-        onShowToast?.(
-          error instanceof Error
-            ? error.message
-            : lang === 'zh'
-              ? '位置保存失败'
-              : 'Position could not be saved',
-        )
-      })
-    }
-  }, [
-    isBackendProject,
-    canEditAny,
-    editableNodeIds,
-    orientation,
-    nodes,
-    backendProjectId,
-    saveNodeOffset,
-    onShowToast,
-    lang,
-  ])
-
-  // 重置布局：清空当前方向偏移
+  // ===== 重置当前方向的偏移 =====
   const resetAllDragOffsets = useCallback(() => {
-    const retained: Record<string, { x: number; y: number }> = {}
+    const dir = orientation
+    const retained: OffsetMap = {}
     if (isBackendProject) {
-      const currentDirOffsets = offsetsByDirRef.current[orientation]
-      Object.keys(currentDirOffsets).forEach(id => {
-        const off = currentDirOffsets[id]
+      const current = offsetsRef.current[dir]
+      Object.keys(current).forEach(id => {
+        const off = current[id]
+        // 无权节点保留，避免 403 后界面与服务端不一致
         if (!canEditAny && !editableNodeIds.has(id)) {
           retained[id] = off
           return
         }
         if (!off || (off.x === 0 && off.y === 0)) return
-        const backendId = Number(id)
-        if (!Number.isNaN(backendId)) {
-          void saveNodeOffset(backendId, { x: 0, y: 0 }, orientation).catch(error => {
-            if (activeProjectRef.current !== backendProjectId) return
-            setDragOffsets(current => {
-              if (current[id]) return current
-              const next = {
-                ...current,
-                [id]: savedOffsetsRef.current.get(backendId) || { x: 0, y: 0 },
-              }
-              offsetsByDirRef.current[orientation][id] = next[id]
-              return next
-            })
-            onShowToast?.(
-              error instanceof Error
-                ? error.message
-                : lang === 'zh'
-                  ? '位置重置失败'
-                  : 'Layout reset failed',
-            )
-          })
-        }
+        const backendId = asBackendId(id)
+        if (backendId == null) return
+        const projectAtSave = activeProjectRef.current
+        void saveNodeOffset(backendId, ZERO, dir).catch(error => {
+          if (activeProjectRef.current !== projectAtSave) return
+          if (offsetsRef.current[dir][id]) return
+          setOffset(dir, id, savedOffsetsRef.current.get(savedKey(backendId, dir)) || ZERO)
+          toast(error instanceof Error ? error.message : zh ? '位置重置失败' : 'Layout reset failed')
+        })
       })
     }
-    offsetsByDirRef.current[orientation] = retained
-    setDragOffsets(retained)
-  }, [isBackendProject, orientation, canEditAny, editableNodeIds, backendProjectId, saveNodeOffset, onShowToast, lang])
+    // 聚合只读视图只清本地
+    commitOffsets(prev => ({ ...prev, [dir]: retained }))
+  }, [isBackendProject, orientation, canEditAny, editableNodeIds, saveNodeOffset, setOffset, commitOffsets, toast, zh])
 
-  // 换上级拖放请求与确认处理
+  // ===== 换上级 =====
+  const executeReparent = useCallback(async (sourceId: string, targetId: string) => {
+    if (!isBackendProject) return
+    const sourceNode = nodes.find(n => n.id === sourceId)
+    const targetNode = nodes.find(n => n.id === targetId)
+    const src = asBackendId(sourceId)
+    const tgt = asBackendId(targetId)
+    if (src == null || tgt == null) {
+      toast(zh ? '节点尚未同步到后端，无法挂载' : 'Node not on backend')
+      return
+    }
+    try {
+      cb.current.onSyncStatus?.('syncing')
+      await moveNode(src, { new_parent_id: tgt, sort_order: 0 })
+      // 后端 move_node 已清掉两个方向的偏移，前端只清本地，不再回写
+      commitOffsets(prev => {
+        const horizontal = { ...prev.horizontal }
+        const vertical = { ...prev.vertical }
+        delete horizontal[sourceId]
+        delete vertical[sourceId]
+        return { horizontal, vertical }
+      })
+      savedOffsetsRef.current.set(savedKey(src, 'horizontal'), ZERO)
+      savedOffsetsRef.current.set(savedKey(src, 'vertical'), ZERO)
+      setExpandedNodes(prev => ({ ...prev, [targetId]: true }))
+      setLinkingSourceNodeId(null)
+      setLinkingHoveredTargetId(null)
+      await cb.current.onReloadAxis?.()
+      toast(
+        zh
+          ? `已将【${sourceNode?.person.name || ''}】挂载到【${targetNode?.person.name || ''}】`
+          : `Attached ${sourceNode?.person.name} under ${targetNode?.person.name}`,
+      )
+    } catch (err) {
+      toast(err instanceof Error ? err.message : zh ? '挂载失败' : 'Failed to move node')
+      cb.current.onSyncStatus?.('synced')
+    }
+  }, [isBackendProject, nodes, commitOffsets, toast, zh])
+
   const handleRequestReparent = useCallback((sourceId: string, targetId: string) => {
     const sourceNode = nodes.find(n => n.id === sourceId)
     const targetNode = nodes.find(n => n.id === targetId)
@@ -333,55 +362,6 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     })
   }, [nodes])
 
-  // 执行换上级
-  const executeReparent = useCallback(async (sourceId: string, targetId: string) => {
-    const sourceNode = nodes.find(n => n.id === sourceId)
-    const targetNode = nodes.find(n => n.id === targetId)
-    const srcBackendId = Number(sourceId)
-    const tgtBackendId = Number(targetId)
-
-    if (isBackendProject) {
-      if (Number.isNaN(srcBackendId) || Number.isNaN(tgtBackendId)) {
-        onShowToast?.(lang === 'zh' ? '节点尚未同步到后端，无法挂载' : 'Node not on backend')
-        return
-      }
-      try {
-        await moveNode(srcBackendId, { new_parent_id: tgtBackendId, sort_order: 0 })
-
-        // 成功后清除被移动节点在两个方向上的偏移
-        delete offsetsByDirRef.current.horizontal[sourceId]
-        delete offsetsByDirRef.current.vertical[sourceId]
-        if (sourceNode) {
-          sourceNode.uiOffsets = null
-          sourceNode.uiOffset = null
-          sourceNode.layoutOffset = { x: 0, y: 0 }
-        }
-        setDragOffsets(prev => {
-          const next = { ...prev }
-          delete next[sourceId]
-          return next
-        })
-
-        // 向后端防御性清空位置
-        void saveNodeOffset(srcBackendId, { x: 0, y: 0 }, 'horizontal').catch(() => {})
-        void saveNodeOffset(srcBackendId, { x: 0, y: 0 }, 'vertical').catch(() => {})
-
-        setExpandedNodes(prev => ({ ...prev, [targetId]: true }))
-        setLinkingSourceNodeId(null)
-        setLinkingHoveredTargetId(null)
-
-        await onReloadAxis?.()
-        onShowToast?.(
-          lang === 'zh'
-            ? `已将【${sourceNode?.person.name || ''}】挂载到【${targetNode?.person.name || ''}】`
-            : `Attached ${sourceNode?.person.name} under ${targetNode?.person.name}`,
-        )
-      } catch (err) {
-        onShowToast?.(err instanceof Error ? err.message : lang === 'zh' ? '挂载失败' : 'Failed to move node')
-      }
-    }
-  }, [nodes, isBackendProject, onShowToast, lang, saveNodeOffset, onReloadAxis])
-
   const handleConfirmReparent = useCallback(async () => {
     if (!reparentConfirm) return
     const { sourceId, targetId } = reparentConfirm
@@ -389,57 +369,54 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     await executeReparent(sourceId, targetId)
   }, [reparentConfirm, executeReparent])
 
-  const handleCancelReparent = useCallback(() => {
-    setReparentConfirm(null)
-  }, [])
+  const handleCancelReparent = useCallback(() => setReparentConfirm(null), [])
 
-  // 连线目标点击备用操作
+  // 连线模式下点目标卡片（拖放之外的备用路径）
   const handleConnectToTarget = useCallback((targetNodeId: string) => {
     if (!linkingSourceNodeId || linkingSourceNodeId === targetNodeId) return
     if (isBackendProject && !canMoveNodes) {
-      onShowToast?.(lang === 'zh' ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM')
+      toast(zh ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM')
       return
     }
-
-    const allPeopleNodes = nodes.map(n => ({
-      ...n,
-      isTerminal: Boolean(n.isTerminalPM),
-    }))
-    const verdict = reparentVerdict(allPeopleNodes, linkingSourceNodeId, targetNodeId, {
-      canRelink: id => canMoveNodes || editableNodeIds.has(id),
-      lang,
-    })
-
-    if (!verdict.ok) {
-      onShowToast?.(verdict.reason)
+    if (isDescendantNode(nodes, linkingSourceNodeId, targetNodeId)) {
+      toast(zh ? '⚠️ 不能挂载到自己的下属节点上（防止死循环）！' : 'Cannot attach to descendant node!')
       return
     }
-    handleRequestReparent(linkingSourceNodeId, targetNodeId)
-  }, [linkingSourceNodeId, isBackendProject, canMoveNodes, nodes, editableNodeIds, lang, onShowToast, handleRequestReparent])
+    const sourceNode = nodes.find(n => n.id === linkingSourceNodeId)
+    const targetNode = nodes.find(n => n.id === targetNodeId)
+    if (sourceNode?.nodeOrigin !== 'subordinate' && targetNode?.nodeOrigin === 'subordinate') {
+      toast(zh ? '项目成员不能挂到下级自建人员下面' : 'Project members cannot be assigned under self-added personnel')
+      return
+    }
+    void executeReparent(linkingSourceNodeId, targetNodeId)
+  }, [linkingSourceNodeId, isBackendProject, canMoveNodes, nodes, executeReparent, toast, zh])
 
-  // 构建 rfNodes
+  // ===== 构建画布节点 =====
   const rfNodes = useMemo<AxisFlowNode[]>(() => {
+    const mineIds = options.mineNodeIds
+    const contextIds = options.scopeContextNodeIds
+    const childCounts = new Map<string, number>()
+    nodes.forEach(n => {
+      if (n.parentId) childCounts.set(n.parentId, (childCounts.get(n.parentId) || 0) + 1)
+    })
     const list: AxisFlowNode[] = []
-    const headLeader = nodes.find(n => !n.parentId) || null
-
     nodes.forEach(n => {
       const hidden = hiddenNodeIds.has(n.id) || !layout.positions.has(n.id)
-      const base = layout.positions.get(n.id) || { x: 0, y: 0 }
-      const off = dragOffsets[n.id] || { x: 0, y: 0 }
-      const isMine = currentUserId != null && (n.ownerUserIds || []).includes(currentUserId)
-      const childCount = nodes.filter(c => c.parentId === n.id).length
-
+      const base = layout.positions.get(n.id) || ZERO
+      const off = dragOffsets[n.id] || ZERO
       const data: PersonNodeData = {
         node: n,
         lang,
         level: layout.levels.get(n.id) || 1,
-        isMine,
-        isScopeContext: false,
-        isOverallLeader: headLeader?.id === n.id || Boolean(n.isTerminalPM),
+        isMine: mineIds
+          ? mineIds.has(n.id)
+          : currentUserId != null && (n.ownerUserIds || []).includes(currentUserId),
+        isScopeContext: contextIds ? contextIds.has(n.id) : false,
+        isOverallLeader: headLeaderId === n.id,
         isMainAxisLeader: !n.parentId,
         isSelected: selectedNodeId === n.id,
         isExpanded: expandedNodes[n.id] ?? true,
-        childCount,
+        childCount: childCounts.get(n.id) || 0,
         linkingActive: linkingSourceNodeId !== null,
         isLinkingSource: linkingSourceNodeId === n.id,
         isLinkingTarget:
@@ -447,13 +424,11 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
           linkingHoveredTargetId === n.id &&
           linkingSourceNodeId !== n.id,
         canEdit: canEditAny || editableNodeIds.has(n.id),
-        canAddSubordinate: canAddSubordinateCheck(n.id),
-        canAddWorkItem: canAddWorkItemCheck(n.id),
-        canSubmitEvidence: canSubmitEvidenceCheck(n.id),
-        evidenceItemPermissions: Object.fromEntries(
-          (n.workItems || []).map(item => [item.id, canSubmitEvidenceCheck(item.id)]),
-        ),
-        canReadEvidence: Boolean(serverPerms?.can_read_evidence),
+        canAddSubordinate: caps.canAddSubordinate(n.id),
+        canAddWorkItem: caps.canAddWorkItem(n.id),
+        canSubmitEvidence: caps.canSubmitEvidence(n.id) || n.workItems.some(item => caps.canSubmitEvidence(item.id)),
+        evidenceItemPermissions: Object.fromEntries(n.workItems.map(item => [item.id, caps.canSubmitEvidence(item.id)])),
+        canReadEvidence: !!serverPerms?.can_read_evidence,
         orientation,
         mobile,
         canRelink: canMoveNodes,
@@ -461,45 +436,45 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
           if (linkingSourceNodeId) {
             if (id !== linkingSourceNodeId) handleConnectToTarget(id)
           } else {
-            onSelectNode?.(id)
-            onCardClick?.(id)
+            cb.current.onSelectNode?.(id)
           }
         },
         onToggleExpand: toggleExpandNode,
         onAddWorkItem: id => {
-          if (!canAddWorkItemCheck(id)) {
-            onShowToast?.(lang === 'zh' ? '只能给自己负责的节点挂载事项' : 'You can only attach items under nodes you own')
+          if (!caps.canAddWorkItem(id)) {
+            toast(zh ? '只能给自己负责的节点挂载事项' : 'You can only attach items under nodes you own')
             return
           }
+          cb.current.onAddWorkItem?.(id)
         },
         onAddChild: id => {
           if (!isBackendProject) {
-            onShowToast?.(lang === 'zh' ? '聚合视图只读' : 'Readonly')
+            toast(zh ? '聚合视图只读：请先在上方横幅选择要编辑的项目' : 'Select a concrete project first')
             return
           }
-          if (!canAddSubordinateCheck(id)) {
-            onShowToast?.(lang === 'zh' ? '只能在自己负责的节点下挂载下属' : 'You can only mount under nodes you own')
+          if (!caps.canAddSubordinate(id)) {
+            toast(zh ? '只能在自己负责的节点下挂载下属' : 'You can only mount under nodes you own')
             return
           }
-          onAddChild?.(id)
+          cb.current.onAddChild?.(id)
         },
         onEditPerson: id => {
           if (!isBackendProject || (!canEditAny && !editableNodeIds.has(id))) return
-          onEditPerson?.(id)
+          cb.current.onEditPerson?.(id)
         },
         onToggleLinking: id => {
           if (!canMoveNodes) {
-            onShowToast?.(lang === 'zh' ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM')
+            toast(zh ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM')
             return
           }
           if (linkingSourceNodeId === id) {
             setLinkingSourceNodeId(null)
             setLinkingHoveredTargetId(null)
-            onShowToast?.(lang === 'zh' ? '已取消连线操作' : 'Cancelled linking')
+            toast(zh ? '已取消连线操作' : 'Cancelled linking')
           } else {
             setLinkingSourceNodeId(id)
-            onShowToast?.(
-              lang === 'zh'
+            toast(
+              zh
                 ? `🔗 连线模式已激活：点击目标卡片将【${n.person.name}】挂载过去`
                 : 'Linking active: click a target card',
             )
@@ -507,51 +482,29 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
         },
         onHoverTarget: setLinkingHoveredTargetId,
       }
-
       list.push({
         id: n.id,
         type: 'person',
         hidden,
         position: { x: base.x + off.x, y: base.y + off.y },
         data,
+        // 布局偏移的持久化接口同样要求编辑权限，无权节点不可拖，避免 403
         draggable: !linkingSourceNodeId && (canEditAny || editableNodeIds.has(n.id)),
       })
     })
     return list
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    nodes,
-    hiddenNodeIds,
-    layout,
-    dragOffsets,
-    currentUserId,
-    selectedNodeId,
-    expandedNodes,
-    linkingSourceNodeId,
-    linkingHoveredTargetId,
-    canEditAny,
-    editableNodeIds,
-    canAddSubordinateCheck,
-    canAddWorkItemCheck,
-    canSubmitEvidenceCheck,
-    serverPerms,
-    orientation,
-    mobile,
-    canMoveNodes,
-    lang,
-    isBackendProject,
-    onSelectNode,
-    onCardClick,
-    handleConnectToTarget,
-    toggleExpandNode,
-    onShowToast,
-    onAddChild,
-    onEditPerson,
+    nodes, hiddenNodeIds, layout, dragOffsets, headLeaderId, lang, selectedNodeId, expandedNodes,
+    linkingSourceNodeId, linkingHoveredTargetId, canEditAny, canMoveNodes, editableNodeIds, caps,
+    serverPerms, orientation, mobile, isBackendProject, currentUserId,
+    options.mineNodeIds, options.scopeContextNodeIds, handleConnectToTarget, toggleExpandNode, toast,
   ])
 
-  // 构建 rfEdges
+  // ===== 构建连线 =====
   const rfEdges = useMemo<Edge[]>(() => {
     const edges: Edge[] = []
-    nodes.forEach(n => {
+    scopedNodes.forEach(n => {
       if (!n.parentId) return
       if (hiddenNodeIds.has(n.id) || hiddenNodeIds.has(n.parentId)) return
       edges.push({
@@ -567,27 +520,28 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
       })
     })
     return edges
-  }, [nodes, hiddenNodeIds, orientation, edgeStyle])
+  }, [scopedNodes, hiddenNodeIds, orientation, edgeStyle])
 
   return {
     rfNodes,
     rfEdges,
     layout,
-    dragOffsets,
     expandedNodes,
+    setExpandedNodes,
     toggleExpandNode,
     handleNodeDragStop,
     resetAllDragOffsets,
-    saveNodeOffset,
     reparentConfirm,
     handleRequestReparent,
     handleConfirmReparent,
     handleCancelReparent,
     linkingSourceNodeId,
     setLinkingSourceNodeId,
+    setLinkingHoveredTargetId,
     canEditAny,
     canMoveNodes,
     editableNodeIds,
+    ...caps,
   }
 }
 

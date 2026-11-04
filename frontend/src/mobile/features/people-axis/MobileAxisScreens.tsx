@@ -221,8 +221,12 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     setFitToken(t => t + 1);
   }, []);
 
+  const canvasNodes = useMemo(
+    () => (expandSubordinates ? axisNodes : axisNodes.filter(node => !node.parentId)),
+    [expandSubordinates, axisNodes],
+  );
   const flowCanvas = usePeopleAxisCanvas({
-    nodes: expandSubordinates ? axisNodes : axisNodes.filter(node => !node.parentId),
+    nodes: canvasNodes,
     orientation,
     edgeStyle,
     lang: 'zh',

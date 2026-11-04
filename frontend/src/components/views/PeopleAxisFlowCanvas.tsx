@@ -95,12 +95,8 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
     <div
       data-node-anchor={n.id}
       data-node-origin={n.nodeOrigin || 'project'}
-      data-testid={`mobile-axis-node-${n.id}`}
+      data-testid={d.mobile ? `mobile-axis-node-${n.id}` : undefined}
       className={`axis-map-card${isTerminal ? ' is-terminal' : ''}${isCompact ? ' is-compact' : ''}${d.isSelected ? ' is-selected' : ''}${d.isLinkingSource ? ' is-link-source' : ''}${d.linkingActive ? ' nopan' : ''}${d.linkingActive && !d.isLinkingSource ? ' is-link-target' : ''}${d.dropState === 'ok' ? ' drop-ok' : d.dropState === 'bad' ? ' drop-bad' : ''}`}
-      onClick={e => {
-        e.stopPropagation()
-        d.onCardClick(n.id)
-      }}
       onMouseEnter={() => d.linkingActive && !d.isLinkingSource && d.onHoverTarget(n.id)}
       onMouseLeave={() => d.linkingActive && d.onHoverTarget(null)}
     >
@@ -475,6 +471,12 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
     void setCenter(center.x, center.y, { zoom: 0.75, duration: 0 })
   }, [nodes, setCenter])
 
+  // 外部动作（定位我 / 适应屏幕）只在令牌变化时执行一次；回调走 ref，节点变化不会重复触发
+  const centerOnTargetRef = useRef(centerOnTarget)
+  centerOnTargetRef.current = centerOnTarget
+  const fitRef = useRef(fit)
+  fitRef.current = fit
+
   // 手机模式进入画布：以"我"为中心、缩放 0.75；找不到"我"以根为中心。切换方向后同样处理。
   const lastOrientKey = useRef<string | null>(null)
   useEffect(() => {
@@ -484,11 +486,11 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
     lastOrientKey.current = key
 
     if (mobile) {
-      centerOnTarget()
+      centerOnTargetRef.current()
     } else {
       void fitView({ duration: 0, padding, minZoom: 0.05, maxZoom: 1 })
     }
-  }, [orientation, initialized, width, height, mobile, centerOnTarget, fitView, padding])
+  }, [orientation, initialized, width, height, mobile, fitView, padding])
 
   // 电脑端在增删节点或重置时自适应
   const lastAutoFit = useRef('')
@@ -502,15 +504,19 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   }, [mobile, orientation, visibleKey, resetToken, width, height, initialized, fitView, padding])
 
   // 响应外部工具条动作
+  const lastFitToken = useRef(fitToken ?? 0)
   useEffect(() => {
-    if (!fitToken) return
-    fit()
-  }, [fitToken, fit])
+    if (!fitToken || lastFitToken.current === fitToken) return
+    lastFitToken.current = fitToken
+    fitRef.current()
+  }, [fitToken])
 
+  const lastCenterMeToken = useRef(centerMeToken ?? 0)
   useEffect(() => {
-    if (!centerMeToken) return
-    centerOnTarget()
-  }, [centerMeToken, centerOnTarget])
+    if (!centerMeToken || lastCenterMeToken.current === centerMeToken) return
+    lastCenterMeToken.current = centerMeToken
+    centerOnTargetRef.current()
+  }, [centerMeToken])
 
   useEffect(() => {
     if (!focusToken || !focusNodeId) return
@@ -796,7 +802,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
             role="button"
             tabIndex={0}
           >
-            <span>拖到别人卡片上停一下＝换上级 · 拖到空白处＝挪位置</span>
+            <span>{lang === 'zh' ? '拖到别人卡片上停一下＝换上级 · 拖到空白处＝挪位置' : 'Drag onto a card and hold = change manager · drag to empty space = move'}</span>
           </div>
         </Panel>
       )}

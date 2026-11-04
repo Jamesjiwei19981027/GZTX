@@ -412,12 +412,13 @@ test.describe('touch phone', () => {
     const box = (await node.boundingBox())!
     const saved = page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith('/nodes/4/layout'), { timeout: 7000 })
     const start = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-    await page.mouse.move(start.x, start.y)
-    await page.mouse.down()
-    for (let i = 1; i <= 12; i++) await page.mouse.move(start.x - i * 3, start.y - i * 4, { steps: 2 })
-    await page.mouse.up()
+    // 真实触摸事件（与旧用例同口径），不是鼠标模拟
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] })
+    for (let i = 1; i <= 12; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: start.x - i * 3, y: start.y - i * 4 }] })
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
     const req = await saved
-    expect(req).toBeTruthy()
+    expect(req.postDataJSON().orientation).toBeTruthy()
     const position = () => node.evaluate(el => { const m = new DOMMatrixReadOnly((el as HTMLElement).style.transform); return {x:m.m41,y:m.m42} })
     const after = await position()
     await page.screenshot({path:test.info().outputPath('mobile-adjustment.png')})
@@ -1043,9 +1044,14 @@ test('mobile web 4: drag card over another with 400ms dwell shows bubble, topmos
   await expect(dialog).toBeVisible()
   const confirmBtn = page.getByTestId('reparent-confirm-yes')
   await expect(confirmBtn).toBeVisible()
+  const layoutPuts: string[] = []
+  page.on('request', r => { if (r.method() === 'PUT' && r.url().includes('/layout')) layoutPuts.push(r.url()) })
   await confirmBtn.click()
   const req = await movePromise
   expect(req.postDataJSON().new_parent_id).toBe(1)
+  // 后端 move 已清掉偏移，前端换上级成功后不得再回写布局
+  await page.waitForTimeout(600)
+  expect(layoutPuts).toEqual([])
 })
 
 test('mobile web 5: horizontal drag saves with orientation: horizontal, switching to vertical does not inherit offset', async ({ page }) => {
@@ -1094,4 +1100,75 @@ test('mobile web 7: fit screen button reduces zoom readout below 75%', async ({ 
     const text = await page.locator('.axis-zoom-readout').textContent()
     return parseInt(text || '100', 10)
   }).toBeLessThan(75)
+})
+
+test('mobile web 8: locate-me runs once and later saves do not pull the viewport back', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openMobileWorkspace(page, true, 1, true)
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  await page.getByRole('button', { name: '定位我', exact: true }).click()
+  const viewport = () => page.locator('.react-flow__viewport').evaluate(el => (el as HTMLElement).style.transform)
+  await page.waitForTimeout(400)
+  const before = await viewport()
+  const card = page.locator('.react-flow__node[data-id="1"]')
+  const box = (await card.boundingBox())!
+  const saved = page.waitForRequest(r => r.method() === 'PUT' && r.url().includes('/nodes/1/layout'))
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 + 40, { steps: 6 })
+  await page.mouse.up()
+  await saved
+  await page.waitForTimeout(800)
+  expect(await viewport()).toBe(before)
+})
+
+test('desktop: releasing a dragged card does not select it or open details', async ({ page }) => {
+  await page.setViewportSize({ width: 1420, height: 960 })
+  await openWorkspace(page)
+  await expectCanvasFits(page)
+  const node = page.locator('.react-flow__node[data-id="4"]')
+  const card = node.locator('.axis-map-card')
+  await expect(card).not.toHaveClass(/is-selected/)
+  const box = (await node.boundingBox())!
+  const saved = page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith('/nodes/4/layout'), { timeout: 7000 })
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 65, box.y + box.height / 2 - 45, { steps: 12 })
+  await page.mouse.up()
+  await saved
+  await page.waitForTimeout(300)
+  await expect(card).not.toHaveClass(/is-selected/)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  // 对照：不拖动的单击仍然选中
+  const after = (await node.boundingBox())!
+  await page.mouse.click(after.x + after.width / 2, after.y + 30)
+  await expect(card).toHaveClass(/is-selected/)
+})
+
+test('desktop: drag horizontally, reset, switch to vertical and back keeps the base position', async ({ page }) => {
+  await page.setViewportSize({ width: 1420, height: 960 })
+  await openWorkspace(page)
+  await expectCanvasFits(page)
+  const node = page.locator('.react-flow__node[data-id="4"]')
+  const position = () => node.evaluate(el => { const m = new DOMMatrixReadOnly((el as HTMLElement).style.transform); return { x: m.m41, y: m.m42 } })
+  const base = await position()
+  const box = (await node.boundingBox())!
+  const saved = page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith('/nodes/4/layout'), { timeout: 7000 })
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 65, box.y + box.height / 2 - 45, { steps: 12 })
+  await page.mouse.up()
+  expect((await saved).postDataJSON().orientation).toBe('horizontal')
+  expect(await position()).not.toEqual(base)
+
+  const resetSaved = page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith('/nodes/4/layout'), { timeout: 7000 })
+  await page.getByRole('button', { name: '重置布局', exact: true }).click()
+  await resetSaved
+  await expect.poll(position).toEqual(base)
+
+  await page.getByRole('button', { name: '纵向', exact: true }).click()
+  await page.getByRole('button', { name: '横向', exact: true }).click()
+  await expect(page.getByRole('button', { name: '横向', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.waitForTimeout(300)
+  expect(await position()).toEqual(base)
 })
