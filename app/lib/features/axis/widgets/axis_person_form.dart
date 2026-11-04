@@ -326,7 +326,7 @@ class _AxisPersonFormState extends State<AxisPersonForm> {
         ),
         const SizedBox(height: AppSpacing.lg),
         const AxisInfoBanner(
-          text: '新增人员会建立人轴关系，并同步其项目内汇报智能体绑定。人轴最多三级。',
+          text: '新增人员会建立人轴关系，并同步其项目内汇报智能体绑定。人员最多四层。',
         ),
         const SizedBox(height: AppSpacing.xl),
         AppButton(

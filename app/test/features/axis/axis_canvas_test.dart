@@ -97,7 +97,7 @@ void main() {
     sort: AxisSort.tree,
   );
 
-  testWidgets('拖动人员卡片到另一位人员上：触发调整上级（人挂人）', (tester) async {
+  testWidgets('拖动人员卡片到另一位人员上：停留 400ms 触发调整上级（人挂人）', (tester) async {
     bigView(tester);
     AxisPersonNode? dragged;
     AxisPersonNode? target;
@@ -108,6 +108,13 @@ void main() {
           orientation: AxisOrientation.vertical,
           spacing: AxisSpacing.standard,
           sort: AxisSort.tree,
+          permissions: const AxisPermissions(
+            canEditAll: true,
+            nodePermissions: {
+              '104': {'can_add_subordinate': true},
+              '102': {'can_change_supervisor': true},
+            },
+          ),
           onReparentPerson: (d, t) {
             dragged = d;
             target = t;
@@ -117,14 +124,17 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 100));
 
-    final layout = layoutFor(defaultNodes);
-    final from = layout.personById(104)!.center;
-    final to = layout.personById(101)!.center;
-    await tester.drag(find.byKey(const Key('axis-person-104')), to - from);
+    final from = tester.getCenter(find.byKey(const Key('axis-person-102')));
+    final to = tester.getCenter(find.byKey(const Key('axis-person-104')));
+    final gesture = await tester.startGesture(from);
+    await tester.pump();
+    await gesture.moveTo(to);
+    await tester.pump(const Duration(milliseconds: 400));
+    await gesture.up();
     await tester.pump(const Duration(milliseconds: 100));
 
-    expect(dragged?.id, 104);
-    expect(target?.id, 101);
+    expect(dragged?.id, 102);
+    expect(target?.id, 104);
   });
 
   testWidgets('拖到空白处只保存卡片位置，不改上级（曲线模式不吸附）', (tester) async {
@@ -471,7 +481,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    testWidgets('卡片固定 240x168；最多显示 2 条任务，底部提示还有 N 项', (tester) async {
+    testWidgets('卡片固定 240x168；最多显示 2 条任务，查看全部与暂无任务', (tester) async {
       await withClock(Clock.fixed(today), () async {
         await pumpCards(tester);
         expect(
@@ -481,19 +491,18 @@ void main() {
         expect(find.text('已逾期任务'), findsOneWidget);
         expect(find.text('本周任务'), findsOneWidget);
         expect(find.text('没有日期'), findsNothing);
-        expect(find.text('还有 1 项，点开查看'), findsOneWidget);
-        expect(find.text('共 1 项'), findsOneWidget);
+        expect(find.text('查看全部 →'), findsNWidgets(2));
         expect(find.text('暂无任务'), findsOneWidget);
         expect(find.text('终责'), findsOneWidget);
       });
     });
 
-    testWidgets('截止日期显示 MM/DD，逾期用危险色，未逾期不用', (tester) async {
+    testWidgets('截止日期显示 MM/DD 与状态胶囊，逾期用危险色，未逾期不用', (tester) async {
       await withClock(Clock.fixed(today), () async {
         await pumpCards(tester);
         Color? colorOf(String text) =>
             tester.widget<Text>(find.text(text)).style?.color;
-        expect(colorOf('11/01'), AppColors.danger);
+        expect(colorOf('逾期 2 天'), AppColors.danger);
         expect(colorOf('已逾期任务'), AppColors.danger);
         expect(colorOf('11/08'), isNot(AppColors.danger));
         expect(colorOf('本周任务'), isNot(AppColors.danger));
@@ -519,9 +528,258 @@ void main() {
         expect(owner, 1);
         expect(openedPerson, isNull);
 
-        await tester.tap(find.text('还有 1 项，点开查看'));
+        await tester.tap(find.text('查看全部 →').first);
         await tester.pump(const Duration(milliseconds: 50));
         expect(openedPerson?.id, 1);
+      });
+    });
+  });
+
+  group('批次 4A 新增特性（A5 要求）', () {
+    final today = DateTime(2026, 11, 3, 9);
+
+    testWidgets('1. 选中卡片后出现「新增下级」「更多」按钮，未选中不出现；只读用户不出现', (tester) async {
+      bigView(tester);
+      final nodes = sampleTree();
+
+      // 情况 A：可编辑权限，未选中时按钮不出现
+      await tester.pumpWidget(
+        host(
+          AxisCanvas(
+            nodes: nodes,
+            orientation: AxisOrientation.vertical,
+            spacing: AxisSpacing.standard,
+            sort: AxisSort.tree,
+            permissions: const AxisPermissions(
+              canEditAll: true,
+              nodePermissions: {
+                '2': {
+                  'can_add_subordinate': true,
+                  'can_edit': true,
+                  'can_change_supervisor': true,
+                },
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byTooltip('新增下级'), findsNothing);
+      expect(find.byTooltip('更多'), findsNothing);
+
+      // 点按选中 node 2 后出现
+      final card2 = find.byKey(const Key('axis-person-2'));
+      final tapAt = tester.getTopLeft(card2) + const Offset(30, 20);
+      await tester.tapAt(tapAt);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byTooltip('新增下级'), findsOneWidget);
+      expect(find.byTooltip('更多'), findsOneWidget);
+
+      // 情况 B：只读用户选中也不出现
+      await tester.pumpWidget(
+        host(
+          AxisCanvas(
+            nodes: nodes,
+            orientation: AxisOrientation.vertical,
+            spacing: AxisSpacing.standard,
+            sort: AxisSort.tree,
+            selectedNodeId: 2,
+            permissions: const AxisPermissions(
+              role: 'reader',
+              canEditAll: false,
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.byTooltip('新增下级'), findsNothing);
+      expect(find.byTooltip('更多'), findsNothing);
+    });
+
+    testWidgets('2. 拖到另一人员卡片停留 400ms 后松手 → 回调 onReparentPerson；停留 100ms 就松手 → 不回调、走 onLayoutChanged', (tester) async {
+      bigView(tester);
+      final nodes = [
+        person(1, null),
+        person(2, 1),
+        person(3, 1),
+      ];
+
+      // 停留 400ms 后松手
+      AxisPersonNode? reparentDragged;
+      AxisPersonNode? reparentTarget;
+      Offset? layoutOffset;
+
+      Widget buildApp({
+        required void Function(AxisPersonNode, AxisPersonNode)? onReparent,
+        required Future<void> Function(AxisPersonNode, Offset)? onLayout,
+      }) => host(
+        AxisCanvas(
+          nodes: nodes,
+          orientation: AxisOrientation.vertical,
+          spacing: AxisSpacing.standard,
+          sort: AxisSort.tree,
+          permissions: const AxisPermissions(
+            canEditAll: true,
+            nodePermissions: {
+              '2': {'can_change_supervisor': true},
+              '3': {'can_add_subordinate': true},
+            },
+          ),
+          onReparentPerson: onReparent,
+          onLayoutChanged: onLayout,
+        ),
+      );
+
+      await tester.pumpWidget(
+        buildApp(
+          onReparent: (d, t) {
+            reparentDragged = d;
+            reparentTarget = t;
+          },
+          onLayout: (node, offset) async {
+            layoutOffset = offset;
+          },
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final from = tester.getCenter(find.byKey(const Key('axis-person-2')));
+      final to = tester.getCenter(find.byKey(const Key('axis-person-3')));
+
+      // 拖动停留 400ms
+      var gesture = await tester.startGesture(from);
+      await tester.pump();
+      await gesture.moveTo(to);
+      await tester.pump(const Duration(milliseconds: 400));
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(reparentDragged?.id, 2);
+      expect(reparentTarget?.id, 3);
+      expect(layoutOffset, isNull);
+
+      // 停留 100ms 就松手：不回调 onReparentPerson，走 onLayoutChanged
+      reparentDragged = null;
+      reparentTarget = null;
+      layoutOffset = null;
+
+      await tester.pumpWidget(
+        buildApp(
+          onReparent: (d, t) {
+            reparentDragged = d;
+            reparentTarget = t;
+          },
+          onLayout: (node, offset) async {
+            layoutOffset = offset;
+          },
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      gesture = await tester.startGesture(from);
+      await tester.pump();
+      await gesture.moveTo(to);
+      await tester.pump(const Duration(milliseconds: 100)); // 仅停留 100ms
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(reparentDragged, isNull);
+      expect(reparentTarget, isNull);
+      expect(layoutOffset, isNotNull);
+    });
+
+    testWidgets('3. 拖到自己下属上停留 400ms → 显示「不能挂到自己的下属下面」', (tester) async {
+      bigView(tester);
+      final nodes = [
+        person(1, null),
+        person(2, 1),
+        person(3, 2),
+      ];
+
+      await tester.pumpWidget(
+        host(
+          AxisCanvas(
+            nodes: nodes,
+            orientation: AxisOrientation.vertical,
+            spacing: AxisSpacing.standard,
+            sort: AxisSort.tree,
+            permissions: const AxisPermissions(canEditAll: true),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final from = tester.getCenter(find.byKey(const Key('axis-person-2')));
+      final to = tester.getCenter(find.byKey(const Key('axis-person-3')));
+
+      final gesture = await tester.startGesture(from);
+      await tester.pump();
+      await gesture.moveTo(to);
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // 300ms 后判定得出 rejected，气泡显示「不能挂到自己的下属下面」
+      expect(find.text('不能挂到自己的下属下面'), findsOneWidget);
+
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 100));
+    });
+
+    testWidgets('4. 缩放 0.5 时卡片显示「逾期」大标签、不显示任务行', (tester) async {
+      await withClock(Clock.fixed(today), () async {
+        bigView(tester);
+        final viewport = AxisViewportController();
+        final tasks = [
+          task(1, '逾期任务A', dueAt: DateTime(2026, 11, 1)),
+          task(2, '未到期任务B', dueAt: DateTime(2026, 11, 8)),
+        ];
+
+        await tester.pumpWidget(
+          host(
+            AxisCanvas(
+              nodes: [person(1, null, workItems: tasks)],
+              orientation: AxisOrientation.vertical,
+              spacing: AxisSpacing.standard,
+              sort: AxisSort.tree,
+              viewportController: viewport,
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // 默认 scale >= 0.6，显示任务行
+        expect(find.text('逾期任务A'), findsOneWidget);
+
+        // 设置缩放到 0.5 (< 0.6)
+        viewport.setScale(0.5);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        // 精简模式：显示「逾期 1」大标签，不显示任务行
+        expect(find.text('逾期 1'), findsOneWidget);
+        expect(find.text('逾期任务A'), findsNothing);
+        expect(find.text('未到期任务B'), findsNothing);
+      });
+    });
+
+    testWidgets('5. 卡片「暂无任务」只出现一次', (tester) async {
+      await withClock(Clock.fixed(today), () async {
+        bigView(tester);
+        await tester.pumpWidget(
+          host(
+            AxisCanvas(
+              nodes: [person(1, null, workItems: const [])],
+              orientation: AxisOrientation.vertical,
+              spacing: AxisSpacing.standard,
+              sort: AxisSort.tree,
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(find.text('暂无任务'), findsOneWidget);
+        expect(find.textContaining('共 0 项'), findsNothing);
       });
     });
   });

@@ -1050,13 +1050,25 @@ class _OverviewView extends StatelessWidget {
         id: dragged.id,
         isPerson: true,
         parentId: dragged.parentId,
+        nodeOrigin: dragged.nodeOrigin,
       ),
-      target: AxisDragSubject(id: target.id, isPerson: true),
+      target: AxisDragSubject(
+        id: target.id,
+        isPerson: true,
+        parentId: target.parentId,
+        nodeOrigin: target.nodeOrigin,
+      ),
       nodes: controller.nodes,
       canAddUnderTarget: controller.permissions.nodeCan(
         target,
         'can_add_subordinate',
       ),
+      hasPermission: controller.permissions.nodeCan(
+            dragged,
+            'can_change_supervisor',
+          ) ||
+          controller.permissions.canManageStructure ||
+          controller.permissions.canEditAll,
     );
     if (!check.allowed) {
       onNotice(check.reason ?? '该位置不可放置');
@@ -1064,10 +1076,9 @@ class _OverviewView extends StatelessWidget {
     }
     final confirmed = await showAppConfirmDialog(
       context: context,
-      title: '调整直属上级',
-      message: '将「${dragged.name}」移动到「${target.name}」下面？'
-          '调整后新提交汇报走新链路，历史报告保留原接收关系。',
-      confirmLabel: '确认移动',
+      title: '调整上级',
+      message: '把「${dragged.name}」（连同他的下属和任务）调到「${target.name}」下面？',
+      confirmLabel: '确定',
     );
     if (confirmed != true) return;
     try {
@@ -1075,6 +1086,53 @@ class _OverviewView extends StatelessWidget {
     } catch (e) {
       onError(e);
     }
+  }
+
+  Future<void> _openAddChild(
+    BuildContext context,
+    AxisPersonNode parent,
+  ) async {
+    await showAppBottomSheet<void>(
+      context: context,
+      title: '新增下级人员',
+      builder: (ctx) => AxisPersonForm(
+        api: controller.api,
+        projectId: controller.projectId,
+        allNodes: controller.nodes,
+        members: controller.members,
+        suggestedParentId: parent.id,
+        canChangeSupervisor: controller.permissions.canManageStructure ||
+            controller.permissions.canEditAll,
+        canManageAssignees: true,
+        onSaved: () async {
+          if (!ctx.mounted) return;
+          Navigator.of(ctx).pop();
+          await controller.load();
+          onNotice('人员信息保存成功');
+        },
+        onCancel: () => Navigator.of(ctx).pop(),
+      ),
+    );
+  }
+
+  Future<void> _openRelinkPerson(
+    BuildContext context,
+    AxisPersonNode person,
+  ) async {
+    final candidates = AxisRules.supervisorCandidates(
+      current: person,
+      nodes: controller.nodes,
+    );
+    final chosen = await showAxisPickerSheet<AxisPersonNode>(
+      context: context,
+      title: '调整上级',
+      items: candidates,
+      labelOf: (p) =>
+          '${p.name}（${p.roleTitle.isEmpty ? '无岗位' : p.roleTitle}）',
+      emptyLabel: '无可用的上级候选人',
+    );
+    if (chosen == null || !context.mounted) return;
+    await _confirmReparent(context, person, chosen);
   }
 
   @override
@@ -1199,6 +1257,10 @@ class _OverviewView extends StatelessWidget {
                       }
                     },
                     onNotice: onNotice,
+                    onAddChild: (parent) => _openAddChild(context, parent),
+                    onEditPerson: onOpenPerson,
+                    onRelinkPerson: (person) =>
+                        _openRelinkPerson(context, person),
                   ),
                 ),
               ),
@@ -1287,7 +1349,7 @@ class _OverviewView extends StatelessWidget {
                           ),
                         ),
                         child: const Text(
-                          '拖动卡片调整位置 · 双指缩放',
+                          '拖到别人卡片上停一下＝换上级 · 拖到空白处＝挪位置',
                           textAlign: TextAlign.center,
                           style: TextStyle(fontSize: 10, color: Colors.white),
                         ),
