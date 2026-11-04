@@ -293,4 +293,67 @@ void main() {
       expect(v.referenceLineEnd, const Offset(120, 256 + 84));
     });
   });
+
+  group('clampDropBubble 拖放指示气泡视口夹紧计算', () {
+    const viewport = Size(800, 600);
+    const bubbleSize = Size(160, 32);
+
+    test('1. 居中：目标卡片居中，气泡放卡片上方并水平居中，不触发夹紧', () {
+      const target = Rect.fromLTWH(300, 200, 200, 100);
+      final bubble = clampDropBubble(
+        targetRect: target,
+        bubbleSize: bubbleSize,
+        viewportSize: viewport,
+      );
+      // 卡片中心 dx = 400, 气泡 left = 400 - 80 = 320
+      expect(bubble.left, 320);
+      // 上方放得下：200 - 32 - 6 = 162
+      expect(bubble.top, 162);
+      expect(bubble.width, 160);
+      expect(bubble.height, 32);
+    });
+
+    test('2. 靠顶：目标卡片靠近视口顶部，上方放不下，气泡放到卡片下方', () {
+      const target = Rect.fromLTWH(300, 20, 200, 100);
+      final bubble = clampDropBubble(
+        targetRect: target,
+        bubbleSize: bubbleSize,
+        viewportSize: viewport,
+      );
+      // 上方空间 20 - 32 - 6 = -18 < 8，放不下，转到卡片下方: bottom + 6 = 126
+      expect(bubble.top, 126);
+      expect(bubble.left, 320);
+      expect(bubble.top >= 8, isTrue);
+    });
+
+    test('3. 靠左：目标卡片靠近视口左侧，气泡左侧留 8 逻辑像素', () {
+      // 卡片部分伸到视口左边缘之外
+      const target = Rect.fromLTWH(-50, 200, 200, 100);
+      final bubble = clampDropBubble(
+        targetRect: target,
+        bubbleSize: bubbleSize,
+        viewportSize: viewport,
+      );
+      // 理想中心 dx = 50, left = -30, 夹紧到 margin = 8
+      expect(bubble.left, 8.0);
+      expect(bubble.right, 168.0);
+      expect(bubble.top, 162.0);
+    });
+
+    test('4. 靠右：目标卡片靠近视口右侧，气泡右侧留 8 逻辑像素', () {
+      // 卡片靠近视口右边缘 800
+      const target = Rect.fromLTWH(700, 200, 200, 100);
+      final bubble = clampDropBubble(
+        targetRect: target,
+        bubbleSize: bubbleSize,
+        viewportSize: viewport,
+      );
+      // 理想中心 dx = 800, left = 720, right = 880 > 792 (800 - 8)
+      // 夹紧后 right 应等于 viewport.width - 8 = 792
+      expect(bubble.right, 792.0);
+      expect(bubble.left, 792.0 - 160.0);
+      expect(bubble.top, 162.0);
+    });
+  });
 }
+

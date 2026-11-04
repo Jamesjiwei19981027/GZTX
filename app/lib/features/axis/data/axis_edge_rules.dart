@@ -326,3 +326,46 @@ AxisSnapResult snapToParentAxis({
     referenceLineEnd: lineEnd,
   );
 }
+
+/// 计算拖放指示气泡在视口坐标系中的矩形位置。
+///
+/// [targetRect] 目标卡片在视口坐标系中的矩形。
+/// [bubbleSize] 气泡本身的尺寸。
+/// [viewportSize] 可视区域（画布视口）的尺寸。
+/// [margin] 距视口边缘的保留间距，默认 8 逻辑像素。
+/// [gap] 气泡与目标卡片边缘的垂直间距，默认 6 逻辑像素。
+///
+/// 规则：
+/// 1. 默认置于目标卡片上方，水平居中对齐目标卡片。
+/// 2. 上方放不下（即顶部超出视口 margin）时，放到目标卡片下方。
+/// 3. 若下方也超出视口底部，则夹紧在视口内。
+/// 4. 水平方向左右严格留 [margin] 逻辑像素（即 clamp 在 margin 到 viewport.width - margin - bubbleWidth 之间）。
+Rect clampDropBubble({
+  required Rect targetRect,
+  required Size bubbleSize,
+  required Size viewportSize,
+  double margin = 8.0,
+  double gap = 6.0,
+}) {
+  final idealLeft = targetRect.center.dx - bubbleSize.width / 2;
+  final maxLeft = math.max(margin, viewportSize.width - margin - bubbleSize.width);
+  final left = idealLeft.clamp(margin, maxLeft);
+
+  final fitsOnTop = (targetRect.top - bubbleSize.height - gap) >= margin;
+  double top;
+  if (fitsOnTop) {
+    top = targetRect.top - bubbleSize.height - gap;
+  } else {
+    top = targetRect.bottom + gap;
+    final maxTop = math.max(margin, viewportSize.height - margin - bubbleSize.height);
+    if (top > maxTop) {
+      top = maxTop;
+    }
+  }
+  if (top < margin) {
+    top = margin;
+  }
+
+  return Rect.fromLTWH(left, top, bubbleSize.width, bubbleSize.height);
+}
+

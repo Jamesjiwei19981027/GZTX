@@ -1398,7 +1398,7 @@ class _OverviewView extends StatelessWidget {
   }
 }
 
-/// 画布左下角缩放胶囊：不透明卡片底色、1px 边框、圆角 16、轻阴影，高 40。
+/// 画布左下角缩放胶囊：不透明卡片底色、1px 边框、圆角 16、轻阴影，高 44。
 /// 与网页 `.axis-control-pill` 同款；颜色随深浅色模式切换。
 class _AxisZoomPill extends StatelessWidget {
   const _AxisZoomPill({required this.viewport});
@@ -1408,10 +1408,10 @@ class _AxisZoomPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
-    const buttonSize = Size(40, 40);
+    const buttonSize = Size(44, 44);
     return Container(
       key: const Key('axis-zoom-pill'),
-      height: 40,
+      height: 44,
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : AppColors.surface,
         borderRadius: BorderRadius.circular(16),
@@ -1443,7 +1443,7 @@ class _AxisZoomPill extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               child: SizedBox(
                 width: 44,
-                height: 40,
+                height: 44,
                 child: Center(
                   child: Text(
                     '${(scale * 100).round()}%',

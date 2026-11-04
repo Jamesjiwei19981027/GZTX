@@ -129,7 +129,13 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex -space-x-2 mr-2">
             {members.slice(0, 5).map((member) => (
-              <img key={member.id} src={member.avatar || undefined} alt={member.name} title={member.name} className="w-8 h-8 rounded-full border-2 border-surface object-cover bg-surface-container" />
+              member.avatar ? (
+                <img key={member.id} src={member.avatar} alt={member.name} title={member.name} className="w-8 h-8 rounded-full border-2 border-surface object-cover bg-surface-container" />
+              ) : (
+                <span key={member.id} title={member.name} className="w-8 h-8 rounded-full border-2 border-surface bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
+                  {member.name.slice(0, 1)}
+                </span>
+              )
             ))}
             {members.length > 5 && <span className="w-8 h-8 rounded-full border-2 border-surface bg-surface-container text-[10px] font-bold flex items-center justify-center">+{members.length - 5}</span>}
           </div>

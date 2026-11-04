@@ -285,11 +285,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               {/* Avatar section */}
               <div className="flex items-center gap-6 p-4 bg-surface-container-low dark:bg-[#2e3132] rounded-2xl">
-                <img
-                  src={user.avatar}
-                  alt={user.name}
-                  className="w-20 h-20 rounded-full object-cover ring-4 ring-primary/20 shadow-md"
-                />
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="w-20 h-20 rounded-full object-cover ring-4 ring-primary/20 shadow-md"
+                  />
+                ) : (
+                  <span className="w-20 h-20 rounded-full bg-primary/10 text-primary text-2xl font-bold flex items-center justify-center ring-4 ring-primary/20 shadow-md">
+                    {user.name ? user.name.slice(0, 1) : '?'}
+                  </span>
+                )}
                 <div>
                   <h3 className="font-bold text-base text-on-surface dark:text-[#f0f1f2]">
                     {user.name}

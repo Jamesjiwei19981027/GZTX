@@ -830,6 +830,68 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     });
 
+    testWidgets('目标卡片在视口右缘时气泡全文可见（tester.getRect 在视口内）', (tester) async {
+      tester.view.physicalSize = const Size(800, 600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final nodes = [
+        person(1, null),
+        person(2, 1),
+      ];
+      final viewport = AxisViewportController();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.android, useMaterial3: true),
+          home: Scaffold(
+            body: SizedBox(
+              width: 800,
+              height: 600,
+              child: AxisCanvas(
+                nodes: nodes,
+                orientation: AxisOrientation.vertical,
+                spacing: AxisSpacing.standard,
+                sort: AxisSort.tree,
+                offsets: const {
+                  1: Offset(40, 200),
+                  2: Offset(530, 200),
+                },
+                viewportController: viewport,
+                permissions: const AxisPermissions(canEditAll: true),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      viewport.reset();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final from = tester.getCenter(find.byKey(const Key('axis-person-1')));
+      final to = tester.getCenter(find.byKey(const Key('axis-person-2')));
+      final card2Rect = tester.getRect(find.byKey(const Key('axis-person-2')));
+      expect(card2Rect.right, greaterThan(700));
+
+      final gesture = await tester.startGesture(from);
+      await tester.pump();
+      await gesture.moveTo(to);
+      await tester.pump(const Duration(milliseconds: 400));
+
+      final bubbleFinder = find.byKey(const Key('axis-drop-bubble'));
+      expect(bubbleFinder, findsOneWidget);
+
+      final bubbleRect = tester.getRect(bubbleFinder);
+      // 气泡全文在视口内：左右留 8 逻辑像素，上下在视口内
+      expect(bubbleRect.left, greaterThanOrEqualTo(8.0));
+      expect(bubbleRect.right, lessThanOrEqualTo(800.0 - 8.0));
+      expect(bubbleRect.top, greaterThanOrEqualTo(0.0));
+      expect(bubbleRect.bottom, lessThanOrEqualTo(600.0));
+
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 100));
+    });
+
     testWidgets('4. 缩放 0.5 时卡片显示「逾期」大标签、不显示任务行', (tester) async {
       await withClock(Clock.fixed(today), () async {
         bigView(tester);

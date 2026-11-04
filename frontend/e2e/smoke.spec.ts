@@ -318,3 +318,36 @@ test('S10 逾期顺延：昨天到期任务 → 逾期组「全部顺延→明�
     overdueGroup.getByTestId('task-row').filter({ hasText: title }),
   ).toHaveCount(0)
 })
+
+test('顶栏头像无地址时显示首字占位且无空字符串图片控制台报错', async ({ page }) => {
+  const consoleErrors: string[] = []
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') {
+      consoleErrors.push(msg.text())
+    }
+  })
+
+  await page.goto('/')
+  await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
+  await page.getByPlaceholder('用户名 / 邮箱 / 手机号').fill(E2E_USER)
+  await page.locator('input[type="password"]').fill(E2E_PASSWORD)
+  await page.locator('form button[type="submit"]').click()
+  await expect(sidebar(page).getByRole('button', { name: '工作', exact: true })).toBeVisible()
+
+  // 顶栏头像按钮处显示姓名首字占位
+  const userMenuBtn = page.getByTestId('user-menu-button')
+  await expect(userMenuBtn).toBeVisible()
+  await expect(userMenuBtn.locator('img')).toHaveCount(0)
+  const initial = userMenuBtn.locator('span').first()
+  await expect(initial).toBeVisible()
+  const initialText = await initial.textContent()
+  expect(initialText?.trim().length).toBeGreaterThan(0)
+
+  // 控制台无 empty string ("") was passed to the src attribute 错误
+  const emptySrcErrors = consoleErrors.filter((err) =>
+    err.includes('An empty string ("") was passed to the src attribute') ||
+    err.includes('was passed to the src attribute'),
+  )
+  expect(emptySrcErrors).toEqual([])
+})
+
