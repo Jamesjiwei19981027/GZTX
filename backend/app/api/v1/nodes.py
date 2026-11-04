@@ -50,6 +50,9 @@ async def _node_dto(db, node: TreeNode) -> dict:
         "ui_offset": (node.progress_json or {}).get("ui_offset")
         if isinstance(node.progress_json, dict)
         else None,
+        "ui_offsets": (node.progress_json or {}).get("ui_offsets") or {}
+        if isinstance(node.progress_json, dict)
+        else {},
     }
 
 

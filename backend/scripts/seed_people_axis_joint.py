@@ -29,21 +29,28 @@ async def ensure_role_project(db):
     from app.models.company import Company
     company = await db.get(Company, first.company_id)
     ps, ts = ProjectService(), TreeService()
-    project = await ps.create_project(db, company=company, name=name, creator_user_id=users['axis_member'].id)
-    await ps.assign_pm(db, project, users['axis_member'].id)
+    pm_user = users['axis_member']
+    project = await ps.create_project(db, company=company, name=name, creator_user_id=pm_user.id)
+    await ps.assign_pm(db, project, pm_user.id)
+
+    # 每个项目先由项目 PM 建终责根（primary=PM）
+    root = await ts.create_node(
+        db, project, parent_id=None, node_type_key='person', title='项目负责人',
+        assignees=[{'user_id': pm_user.id, 'role_key': 'primary'}], created_by=pm_user.id
+    )
+
     for username, role in [('axis_pm', '设计协作负责人'), ('axis_dev', '测试负责人')]:
         user = users[username]
         await ps.pull_member(db, project, user.id)
-        owner = await ts.create_node(db, project, parent_id=None, node_type_key='person', title=role,
-                                     assignees=[{'user_id': user.id, 'role_key': 'primary'}], created_by=users['axis_member'].id)
-        await ts.create_node(db, project, parent_id=owner.id, node_type_key='work_item', title=f'{role}验收事项', created_by=users['axis_member'].id)
+        owner = await ts.create_node(db, project, parent_id=root.id, node_type_key='person', title=role,
+                                     assignees=[{'user_id': user.id, 'role_key': 'primary'}], created_by=pm_user.id)
+        await ts.create_node(db, project, parent_id=owner.id, node_type_key='work_item', title=f'{role}验收事项', created_by=pm_user.id)
     return project.id
 
-async def main():
+async def seed(session_factory=None) -> dict:
     assert settings.DEBUG and 'axis_joint_debug_' in settings.DATABASE_URL
-    engine.echo = False
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
-    async with async_session_factory() as db:
+    sf = session_factory or async_session_factory
+    async with sf() as db:
         # Directly seeded users need the default category created by normal
         # registration, too. Keep reruns safe for an existing fixture.
         for user in (await db.scalars(select(User).where(User.username.in_([
@@ -55,8 +62,7 @@ async def main():
         if existing:
             second_id = await ensure_role_project(db)
             await db.commit()
-            print(json.dumps({'project_id': existing.id, 'role_project_id': second_id, 'existing': True}))
-            return
+            return {'project_id': existing.id, 'role_project_id': second_id, 'existing': True}
         users = []
         for username, name in [('axis_pm', '王宁'), ('axis_member', '林悦'), ('axis_product', '赵晨'), ('axis_dev', '陈宇'), ('axis_reader', '只读观察员')]:
             user = User(username=username, nickname=name, email=f'{username}@example.test', password_hash=get_password_hash('axis-debug-2026'), email_verified_at=datetime.utcnow(), phone_verified_at=datetime.utcnow(), is_active=True)
@@ -76,16 +82,30 @@ async def main():
         await ps.assign_pm(db, project, pm.id)
         for user in users[1:]:
             await ps.pull_member(db, project, user.id)
-        roots = []
+
+        # 每个项目先由项目 PM 建终责根（primary=PM）
+        root = await ts.create_node(
+            db, project, parent_id=None, node_type_key='person', title='项目负责人',
+            assignees=[{'user_id': pm.id, 'role_key': 'primary'}], created_by=pm.id
+        )
+
+        children = []
         for i, (user, role, task_title) in enumerate([(product, '产品负责人', '需求方案确认'), (member, '设计负责人', '交互原型设计'), (dev, '研发负责人', '核心功能开发')]):
-            owner = await ts.create_node(db, project, parent_id=None, node_type_key='person', title=role, sort_order=i, assignees=[{'user_id': user.id, 'role_key': 'primary'}], created_by=pm.id)
-            roots.append(owner)
+            owner = await ts.create_node(db, project, parent_id=root.id, node_type_key='person', title=role, sort_order=i, assignees=[{'user_id': user.id, 'role_key': 'primary'}], created_by=pm.id)
+            children.append(owner)
             await ts.create_node(db, project, parent_id=owner.id, node_type_key='work_item', title=task_title, assignees=[{'user_id': user.id, 'role_key': 'primary'}], created_by=pm.id)
-        await ts.create_node(db, project, parent_id=roots[2].id, node_type_key='person', title='前端工程师', description='person: 刘洋', created_by=pm.id)
+        await ts.create_node(db, project, parent_id=children[2].id, node_type_key='person', title='前端工程师', description='person: 刘洋', created_by=pm.id)
         await db.commit()
         second_id = await ensure_role_project(db)
         await db.commit()
-        print(json.dumps({'project_id': project.id, 'role_project_id': second_id, 'roots': [n.id for n in roots], 'users': {u.username: u.id for u in users}}, ensure_ascii=False))
+        return {'project_id': project.id, 'role_project_id': second_id, 'roots': [root.id], 'users': {u.username: u.id for u in users}}
+
+async def main():
+    engine.echo = False
+    logging.getLogger('sqlalchemy.engine').setLevel(logging.WARNING)
+    result = await seed()
+    print(json.dumps(result, ensure_ascii=False))
     await engine.dispose()
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
