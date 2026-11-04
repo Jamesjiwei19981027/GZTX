@@ -148,3 +148,57 @@ export async function rollupAgentReports(projectId: number) {
   )
 }
 
+export function latestReportByUser(
+  reports: AgentReport[],
+  userId: number | string | null | undefined,
+): AgentReport | null {
+  if (userId == null) return null
+  const matched = reports.filter(r => String(r.author_user_id) === String(userId))
+  if (matched.length === 0) return null
+  return [...matched].sort((a, b) => {
+    const timeA = a.submitted_at || a.created_at || ''
+    const timeB = b.submitted_at || b.created_at || ''
+    if (timeA && timeB && timeA !== timeB) return timeB.localeCompare(timeA)
+    return (b.id || 0) - (a.id || 0)
+  })[0]
+}
+
+export function reportStatusLabel(
+  report: AgentReport | null | undefined,
+  now: Date = new Date(),
+): string {
+  void now
+  if (!report) return '暂无汇报'
+  if (report.status === 'draft') {
+    const count = report.source_count ?? (report.sources ? report.sources.length : 0)
+    return `草稿待提交 · ${count} 条来源`
+  }
+  const timeStr = report.submitted_at || report.created_at
+  if (!timeStr) return '已提交'
+  const d = new Date(timeStr)
+  if (isNaN(d.getTime())) return '已提交'
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return `${mm}-${dd} ${hh}:${min} 已提交`
+}
+
+
+
+export type ReportStatusTone = {
+  kind: 'submitted' | 'draft' | 'none'
+  iconName: 'check-circle' | 'file' | null
+  textClass: string
+}
+
+/** 汇报状态到展示样式：已提交=绿色对勾；草稿=蓝色文件；暂无汇报=灰色无图标。 */
+export function reportStatusTone(report: AgentReport | null | undefined): ReportStatusTone {
+  if (!report) {
+    return { kind: 'none', iconName: null, textClass: 'text-slate-400 dark:text-slate-500' }
+  }
+  if (report.status === 'draft') {
+    return { kind: 'draft', iconName: 'file', textClass: 'text-blue-600 dark:text-blue-400' }
+  }
+  return { kind: 'submitted', iconName: 'check-circle', textClass: 'text-emerald-600 dark:text-emerald-400' }
+}

@@ -218,6 +218,12 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
   // Draw.io Interactive Re-linking & Mounting States
   const [linkingSourceNodeId, setLinkingSourceNodeId] = useState<string | null>(null);
+  const [reparentConfirm, setReparentConfirm] = useState<{
+    sourceId: string;
+    targetId: string;
+    sourceName: string;
+    targetName: string;
+  } | null>(null);
   const [linkingHoveredTargetId, setLinkingHoveredTargetId] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -841,11 +847,93 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     return directChildren.some(child => isDescendantNode(allNodes, child.id, targetId));
   };
 
-  // Re-linking target handlers
+  const executeReparent = async (sourceNodeId: string, targetNodeId: string) => {
+    const sourceNode = nodes.find(n => n.id === sourceNodeId);
+    const targetNode = nodes.find(n => n.id === targetNodeId);
+    const sourceId = asBackendId(sourceNodeId);
+    const targetId = asBackendId(targetNodeId);
+
+    if (isBackendProject) {
+      if (sourceId == null || targetId == null) {
+        showToast(lang === 'zh' ? '节点尚未同步到后端，无法挂载' : 'Node not on backend');
+        return;
+      }
+      try {
+        setSyncStatus('syncing');
+        await moveNode(sourceId, { new_parent_id: targetId, sort_order: 0 });
+        setDragOffsets(prev => {
+          const next = { ...prev };
+          delete next[sourceNodeId];
+          dragOffsetsRef.current = next;
+          return next;
+        });
+        void saveNodeOffset(sourceId, { x: 0, y: 0 }).catch(() => {});
+        setExpandedNodes((prev) => ({ ...prev, [targetNodeId]: true }));
+        setLinkingSourceNodeId(null);
+        setLinkingHoveredTargetId(null);
+        await reloadAxisFromBackend();
+        showToast(
+          lang === 'zh'
+            ? `已将【${sourceNode?.person.name || ''}】挂载到【${targetNode?.person.name || ''}】`
+            : `Attached ${sourceNode?.person.name} under ${targetNode?.person.name}`,
+        );
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : '挂载失败');
+        setSyncStatus('synced');
+      }
+      return;
+    }
+
+    const updated = nodes.map(n => {
+      if (n.id === sourceNodeId) {
+        return {
+          ...n,
+          parentId: targetNodeId,
+        };
+      }
+      return n;
+    });
+
+    setDragOffsets(prev => {
+      const next = { ...prev };
+      delete next[sourceNodeId];
+      dragOffsetsRef.current = next;
+      return next;
+    });
+    handleSaveNodes(updated);
+    setExpandedNodes(prev => ({ ...prev, [targetNodeId]: true }));
+    setLinkingSourceNodeId(null);
+    setLinkingHoveredTargetId(null);
+    showToast(
+      lang === 'zh'
+        ? `已将【${sourceNode?.person.name || ''}】挂载到【${targetNode?.person.name || ''}】`
+        : `Attached ${sourceNode?.person.name} under ${targetNode?.person.name}`,
+    );
+  };
+
+  const handleRequestReparent = (sourceId: string, targetId: string) => {
+    const sourceNode = nodes.find(n => n.id === sourceId);
+    const targetNode = nodes.find(n => n.id === targetId);
+    if (!sourceNode || !targetNode) return;
+    setReparentConfirm({
+      sourceId,
+      targetId,
+      sourceName: sourceNode.person.name,
+      targetName: targetNode.person.name,
+    });
+  };
+
+  const handleConfirmReparent = async () => {
+    if (!reparentConfirm) return;
+    const { sourceId, targetId } = reparentConfirm;
+    setReparentConfirm(null);
+    await executeReparent(sourceId, targetId);
+  };
+
+  // Re-linking target handlers (fallback for keyboard and menu)
   const handleConnectToTarget = (targetNodeId: string) => {
     if (!linkingSourceNodeId) return;
     if (linkingSourceNodeId === targetNodeId) return;
-    // 入口按钮已按 canRelink 显隐，这里兜底（快捷键/竞态路径），口径与服务端 move 校验一致
     if (isBackendProject && !canMoveNodes) {
       showToast(lang === 'zh' ? '连线（改挂上级）仅项目 PM 可用' : 'Re-linking requires the project PM');
       return;
@@ -859,118 +947,11 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     const sourceNode = nodes.find(n => n.id === linkingSourceNodeId);
     const targetNode = nodes.find(n => n.id === targetNodeId);
     if (sourceNode?.nodeOrigin !== 'subordinate' && targetNode?.nodeOrigin === 'subordinate') {
-      showToast(lang === 'zh' ? '项目定义节点请选择项目定义的上级，下辖分支使用独立挂载点' : 'Project nodes must attach to the project definition');
-      return;
-    }
-    const sourceId = asBackendId(linkingSourceNodeId);
-    const targetId = asBackendId(targetNodeId);
-
-    if (isBackendProject) {
-      if (sourceId == null || targetId == null) {
-        showToast(lang === 'zh' ? '节点尚未同步到后端，无法挂载' : 'Node not on backend');
-        return;
-      }
-      void (async () => {
-        try {
-          setSyncStatus('syncing');
-          await moveNode(sourceId, { new_parent_id: targetId, sort_order: 0 });
-          setExpandedNodes((prev) => ({ ...prev, [targetNodeId]: true }));
-          setLinkingSourceNodeId(null);
-          setLinkingHoveredTargetId(null);
-          await reloadAxisFromBackend();
-          showToast(
-            lang === 'zh'
-              ? `已将【${sourceNode?.person.name || ''}】挂载到【${targetNode?.person.name || ''}】`
-              : `Attached ${sourceNode?.person.name} under ${targetNode?.person.name}`,
-          );
-        } catch (err) {
-          showToast(err instanceof Error ? err.message : '挂载失败');
-          setSyncStatus('synced');
-        }
-      })();
+      showToast(lang === 'zh' ? '项目成员不能挂到下级自建人员下面' : 'Project members cannot be assigned under self-added personnel');
       return;
     }
 
-    const updated = nodes.map(n => {
-      if (n.id === linkingSourceNodeId) {
-        return {
-          ...n,
-          parentId: targetNodeId
-        };
-      }
-      return n;
-    });
-
-    handleSaveNodes(updated);
-    setExpandedNodes(prev => ({ ...prev, [targetNodeId]: true }));
-    setLinkingSourceNodeId(null);
-    setLinkingHoveredTargetId(null);
-    showToast(
-      lang === 'zh'
-        ? `⚡ [Draw.io 连线更新] 已成功将【${sourceNode?.person.name || ''}】移动挂载为【${targetNode?.person.name || ''}】的直属下属！`
-        : `Attached ${sourceNode?.person.name} under ${targetNode?.person.name}`
-    );
-  };
-
-  const handleConnectToSpine = () => {
-    if (!linkingSourceNodeId) return;
-    if (isBackendProject && !canMoveNodes) {
-      showToast(lang === 'zh' ? '提升为主干仅项目 PM 可用' : 'Promoting to trunk requires the project PM');
-      return;
-    }
-    const sourceNode = nodes.find(n => n.id === linkingSourceNodeId);
-    const sourceId = asBackendId(linkingSourceNodeId);
-    if (sourceNode?.nodeOrigin === 'subordinate') {
-      showToast(lang === 'zh' ? '下辖分支需连接人员挂载点，不能移入项目定义主干' : 'Subordinate branches must attach to a person');
-      return;
-    }
-
-    if (isBackendProject) {
-      if (sourceId == null) {
-        showToast(lang === 'zh' ? '节点尚未同步到后端' : 'Node not on backend');
-        return;
-      }
-      void (async () => {
-        try {
-          setSyncStatus('syncing');
-          await moveNode(sourceId, {
-            new_parent_id: null,
-            sort_order: mainTrunkNodes.length,
-          });
-          setLinkingSourceNodeId(null);
-          setLinkingHoveredTargetId(null);
-          await reloadAxisFromBackend();
-          showToast(
-            lang === 'zh'
-              ? `已将【${sourceNode?.person.name || ''}】提升为主干`
-              : `Promoted ${sourceNode?.person.name} to trunk`,
-          );
-        } catch (err) {
-          showToast(err instanceof Error ? err.message : '提升失败');
-          setSyncStatus('synced');
-        }
-      })();
-      return;
-    }
-
-    const updated = nodes.map(n => {
-      if (n.id === linkingSourceNodeId) {
-        return {
-          ...n,
-          parentId: undefined
-        };
-      }
-      return n;
-    });
-
-    handleSaveNodes(updated);
-    setLinkingSourceNodeId(null);
-    setLinkingHoveredTargetId(null);
-    showToast(
-      lang === 'zh'
-        ? `🚩 [主轴升级] 已将【${sourceNode?.person.name || ''}】提升为主干部门主管！`
-        : `Promoted ${sourceNode?.person.name} to main trunk leader!`
-    );
+    void executeReparent(linkingSourceNodeId, targetNodeId);
   };
 
   // Handlers for adding Node, WorkItem, Evidence
@@ -989,7 +970,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       return;
     }
     if (newNodeOrigin === 'subordinate' && !newParentId) {
-      showToast(lang === 'zh' ? '请选择下辖分支的直属上级挂载点' : 'Choose the parent attachment point');
+      showToast(lang === 'zh' ? '请选择下级自建人员的直属上级' : 'Choose the direct manager for self-added person');
       return;
     }
     let personToAssign: TeamMember;
@@ -1313,10 +1294,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           edgeStyle,
           linkingSourceNodeId, onNodeDragStop: handleNodeDragStop, onPaneClick: handlePaneClick,
           onResetLayout: () => { resetAllDragOffsets(); setCanvasResetToken(n => n + 1); },
+          onRequestReparent: handleRequestReparent,
+          onShowToast: showToast,
           resetToken: canvasResetToken,
           onCancelLinking: () => { setLinkingSourceNodeId(null); setLinkingHoveredTargetId(null); },
-          onConnectToSpine: handleConnectToSpine,
-          canConnectToSpine: nodes.find(node => node.id === linkingSourceNodeId)?.nodeOrigin !== 'subordinate',
         }}
         onAddEvidence={id => { if (!canSubmitEvidence(id)) return; setIsAddingEvidence(id); setNewEvDescription(''); setNewEvFiles([]); }}
         onAudit={handleRunAxisAudit} auditing={auditLoading} onReload={() => setLoadVersion(version => version + 1)}
@@ -1377,8 +1358,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                 const origin = event.target.value as 'project' | 'subordinate'; setNewNodeOrigin(origin);
                 if (origin === 'subordinate' && !newParentId) setNewParentId(nodes.find(n => canAddSubordinate(n.id))?.id || '');
                 if (origin === 'project' && nodes.find(n => n.id === newParentId)?.nodeOrigin === 'subordinate') setNewParentId('');
-              }}><option value="project">{lang === 'zh' ? '项目定义 · 正式责任骨架' : 'Project definition'}</option><option value="subordinate">{lang === 'zh' ? '下辖分支 · 独立挂载点' : 'Subordinate branch'}</option></select></label>
-                : <p className="axis-muted">{lang === 'zh' ? '新增人员作为下辖分支，连接直属上级的独立挂载点。' : 'Add a subordinate branch through the parent attachment point.'}</p>}
+              }}><option value="project">{lang === 'zh' ? '项目成员' : 'Project member'}</option><option value="subordinate">{lang === 'zh' ? '下级自建' : 'Self-added'}</option></select></label>
+                : <p className="axis-muted">{lang === 'zh' ? '新增人员作为下级自建人员，连接直属上级。' : 'Add as self-added personnel under the direct manager.'}</p>}
               {/* Member Selection Mode Toggle */}
               <div className="p-1 bg-surface-container dark:bg-[#282b2d] rounded-2xl flex items-center gap-1 border border-outline-variant/40">
                 <button
@@ -1478,7 +1459,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                   )}
                   {nodes.filter(n => canAddSubordinate(n.id) && (newNodeOrigin === 'subordinate' || n.nodeOrigin !== 'subordinate')).map(n => (
                     <option key={n.id} value={n.id}>
-                      {n.person.name} ({n.roleTitle}) · {n.nodeOrigin === 'subordinate' ? '下辖分支' : '项目定义'}
+                      {n.person.name} ({n.roleTitle}) · {n.nodeOrigin === 'subordinate' ? (lang === 'zh' ? '下级自建' : 'Self-added') : (lang === 'zh' ? '项目成员' : 'Project member')}
                     </option>
                   ))}
                 </select>
@@ -1640,6 +1621,37 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
             </form>
           </div>
         </AxisDialog>
+      )}
+
+      {reparentConfirm && (
+        <div className="axis-dialog-mask" role="dialog" aria-modal="true" data-testid="reparent-confirm-dialog">
+          <div className="axis-reparent-dialog">
+            <h3>{lang === 'zh' ? '调整上级' : 'Change manager'}</h3>
+            <p>
+              {lang === 'zh'
+                ? `把「${reparentConfirm.sourceName}」（连同他的下属和任务）调到「${reparentConfirm.targetName}」下面？`
+                : `Move "${reparentConfirm.sourceName}" (along with subordinates and tasks) under "${reparentConfirm.targetName}"?`}
+            </p>
+            <div className="axis-reparent-dialog-actions">
+              <button
+                type="button"
+                className="axis-secondary-button"
+                data-testid="reparent-confirm-no"
+                onClick={() => setReparentConfirm(null)}
+              >
+                {lang === 'zh' ? '取消' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                className="axis-primary-button"
+                data-testid="reparent-confirm-yes"
+                onClick={handleConfirmReparent}
+              >
+                {lang === 'zh' ? '确定' : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* FLOATING TOAST FEEDBACK BANNER */}

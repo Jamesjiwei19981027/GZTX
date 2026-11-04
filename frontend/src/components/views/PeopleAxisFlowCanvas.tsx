@@ -9,11 +9,10 @@ import '@xyflow/react/dist/style.css'
 import type { PeopleAxisNode, Language } from '../../types'
 import {
   borderAnchor, floatingEdgePath, straightEdgePath, highlightEdgeIds,
-  snapToParentAxis, subordinatePortAnchor, type RectCoords, type BorderAnchor,
+  snapToParentAxis, reparentVerdict, type RectCoords, type BorderAnchor,
 } from './peopleAxisUtils'
 import { type AxisOrientation, CARD_W, CARD_H } from './peopleAxisFlowLayout'
-import { AxisAvatar, AxisOriginBadge } from './ResponsibilityParts'
-import { summarizeCardTasks } from '../../api/mappers'
+import { summarizeCardTasks, cardTaskChip, cardOverdueCount } from '../../api/mappers'
 
 export interface PersonNodeData extends Record<string, unknown> {
   node: PeopleAxisNode
@@ -29,6 +28,8 @@ export interface PersonNodeData extends Record<string, unknown> {
   linkingActive: boolean
   isLinkingSource: boolean
   isLinkingTarget: boolean
+  dropState?: 'ok' | 'bad' | null
+  dropTip?: string
   canEdit: boolean
   canAddSubordinate: boolean
   canAddWorkItem: boolean
@@ -72,104 +73,206 @@ function formatTaskDate(dueDate: string): string {
 const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
   const { node: n, lang } = d
   const { zoom } = useViewport()
-  const compactTouch = d.mobile && zoom < 0.65
-  const port = useSubordinatePort(n.id, d.orientation)
-  const isTerminal = Boolean(n.isTerminalPM)
+  const isCompact = zoom < 0.6
+  const isTerminal = Boolean(d.isOverallLeader || n.isTerminalPM)
+  const today = useMemo(() => new Date(), [])
+  const summary = useMemo(() => summarizeCardTasks(n.workItems, today), [n.workItems, today])
+  const overdueCount = useMemo(() => cardOverdueCount(n.workItems, today), [n.workItems, today])
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
 
-  const summary = useMemo(() => summarizeCardTasks(n.workItems, new Date()), [n.workItems])
-  const footText = useMemo(() => {
-    if (summary.total === 0) return lang === 'zh' ? '暂无任务' : 'No tasks'
-    if (summary.total <= 2) return lang === 'zh' ? `共 ${summary.total} 项` : `${summary.total} items`
-    return lang === 'zh' ? `还有 ${summary.hiddenCount} 项，点开查看` : `${summary.hiddenCount} more, tap to view`
-  }, [summary, lang])
+  useEffect(() => {
+    if (!menuOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as unknown as globalThis.Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [menuOpen])
 
   return (
     <div
       data-node-anchor={n.id}
-      style={{ width: CARD_W, height: CARD_H }}
       data-node-origin={n.nodeOrigin || 'project'}
-      className={`axis-map-card${isTerminal ? ' is-terminal' : ''}${n.nodeOrigin === 'subordinate' ? ' is-subordinate' : ''}${d.isSelected ? ' is-selected' : ''}${d.isLinkingSource ? ' is-link-source' : ''}${d.linkingActive ? ' nopan' : ''}${d.linkingActive && !d.isLinkingSource ? ' is-link-target' : ''}`}
+      className={`axis-map-card${isTerminal ? ' is-terminal' : ''}${isCompact ? ' is-compact' : ''}${d.isSelected ? ' is-selected' : ''}${d.isLinkingSource ? ' is-link-source' : ''}${d.linkingActive ? ' nopan' : ''}${d.linkingActive && !d.isLinkingSource ? ' is-link-target' : ''}${d.dropState === 'ok' ? ' drop-ok' : d.dropState === 'bad' ? ' drop-bad' : ''}`}
       onMouseEnter={() => d.linkingActive && !d.isLinkingSource && d.onHoverTarget(n.id)}
       onMouseLeave={() => d.linkingActive && d.onHoverTarget(null)}
     >
       <HiddenHandles />
-      <div className="axis-rank-row">
-        <span>{responsibilityLevelLabel(d.level, lang)}</span>
-        {isTerminal && <b className="axis-terminal-badge">{lang === 'zh' ? '终责' : 'Lead'}</b>}
-        <AxisOriginBadge origin={n.nodeOrigin} lang={lang} />
-        {d.isMine ? (
-          <b>{lang === 'zh' ? '我负责' : 'My role'}</b>
-        ) : (
-          d.isScopeContext && <small>{lang === 'zh' ? '上级链路' : 'Reporting path'}</small>
-        )}
-      </div>
+      {d.dropTip && <div className={`axis-drop-tip axis-drop-bubble ${d.dropState || ''}`}>{d.dropTip}</div>}
 
-      <div className="axis-person-heading">
-        <AxisAvatar person={n.person} small />
-        <div className="axis-person-label">
-          <strong>{n.person.name}</strong>
-          <span>{n.roleTitle}</span>
+      <div className="axis-card-head">
+        <div className="axis-card-avatar">
+          {n.person.avatar ? (
+            <img src={n.person.avatar} alt="" draggable={false} onError={e => { e.currentTarget.hidden = true }} />
+          ) : null}
+          <span aria-hidden="true">{n.person.name.slice(0, 1)}</span>
         </div>
-        {d.childCount > 0 ? (
-          <button
-            className="axis-icon-button nodrag"
-            aria-label={lang === 'zh' ? `${d.isExpanded ? '折叠' : '展开'}${n.person.name}的下级` : 'Toggle subordinates'}
-            disabled={d.linkingActive || compactTouch}
-            style={d.linkingActive || compactTouch ? { pointerEvents: 'none' } : undefined}
-            aria-expanded={d.isExpanded}
-            onClick={e => { e.stopPropagation(); d.onToggleExpand(n.id) }}
-          >
-            {d.isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-            <small>{d.childCount}</small>
-          </button>
-        ) : (
-          <span className={`axis-risk-dot ${n.aiContext?.riskLevel || ''}`} title={n.aiContext?.summary || ''} />
+
+        <div className="axis-card-who axis-person-label">
+          <div className="axis-card-name">
+            <strong>{n.person.name}</strong>
+            {isTerminal && <span className="axis-card-tag final axis-terminal-badge">{lang === 'zh' ? '终责' : 'Final owner'}</span>}
+            {!isCompact && d.isMine && <span className="axis-card-tag me">{lang === 'zh' ? '我' : 'Me'}</span>}
+            {!isCompact && n.nodeOrigin === 'subordinate' && (
+              <span className="axis-card-tag self-added">{lang === 'zh' ? '下级自建' : 'Self-added'}</span>
+            )}
+          </div>
+          {!isCompact && <div className="axis-card-role">{n.roleTitle}</div>}
+        </div>
+
+        {!isCompact && (
+          <div className="axis-card-corner" ref={menuRef}>
+            {d.canAddSubordinate && (
+              <button
+                type="button"
+                className="axis-card-icon-btn add nodrag"
+                title={lang === 'zh' ? '新增下级' : 'Add subordinate'}
+                aria-label={lang === 'zh' ? `新增下级 · ${n.person.name}` : `Add subordinate for ${n.person.name}`}
+                data-testid="add-subordinate-btn"
+                onClick={e => {
+                  e.stopPropagation()
+                  d.onAddChild(n.id)
+                }}
+              >
+                <Plus size={14} />
+              </button>
+            )}
+            {(d.canEdit || d.canRelink) && (
+              <button
+                type="button"
+                className="axis-card-icon-btn nodrag"
+                title={lang === 'zh' ? '更多' : 'More'}
+                aria-label={lang === 'zh' ? `${n.person.name} · 更多` : `More actions for ${n.person.name}`}
+                data-testid="card-more-menu-btn"
+                onClick={e => {
+                  e.stopPropagation()
+                  setMenuOpen(v => !v)
+                }}
+              >
+                ⋯
+              </button>
+            )}
+            {menuOpen && (
+              <div className="axis-card-menu nodrag" onClick={e => e.stopPropagation()}>
+                {d.canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      d.onEditPerson(n.id)
+                    }}
+                  >
+                    {lang === 'zh' ? '编辑人员' : 'Edit person'}
+                  </button>
+                )}
+                {d.canRelink && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      d.onToggleLinking(n.id)
+                    }}
+                  >
+                    {lang === 'zh' ? '调整上级（备用）' : 'Change manager'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false)
+                    d.onCardClick(n.id)
+                  }}
+                >
+                  {lang === 'zh' ? '查看全部任务' : 'View all tasks'}
+                </button>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
-      <div className="axis-card-tasks">
-        {summary.visible.length === 0 ? (
-          <div className="axis-card-empty">{lang === 'zh' ? '暂无任务' : 'No tasks'}</div>
-        ) : (
-          summary.visible.map(item => (
-            <div key={item.id} className="axis-card-task">
-              <span className="axis-truncate" title={item.title}>{item.title}</span>
-              {item.dueDate ? (
-                <time className={summary.overdueIds.has(item.id) ? 'is-overdue' : ''}>
-                  {formatTaskDate(item.dueDate)}
-                </time>
-              ) : null}
+      {isCompact ? (
+        <div className="axis-compact-status">
+          {overdueCount > 0 ? (
+            <>
+              <span className="axis-compact-over">{lang === 'zh' ? `逾期 ${overdueCount}` : `Overdue ${overdueCount}`}</span>
+              <span className="axis-compact-count">{lang === 'zh' ? `共 ${n.workItems.length} 项` : `${n.workItems.length} items`}</span>
+            </>
+          ) : n.workItems.length > 0 ? (
+            <>
+              <span className="axis-compact-ok">{lang === 'zh' ? '无逾期' : 'No overdue'}</span>
+              <span className="axis-compact-count">{lang === 'zh' ? `共 ${n.workItems.length} 项` : `${n.workItems.length} items`}</span>
+            </>
+          ) : (
+            <span className="axis-compact-count">{lang === 'zh' ? '暂无任务' : 'No tasks'}</span>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="axis-card-tasks-panel">
+            <div className="axis-card-tasks-title">
+              {lang === 'zh' ? `任务 ${summary.total}` : `Tasks ${summary.total}`}
             </div>
-          ))
-        )}
-      </div>
+            {summary.visible.length === 0 ? (
+              <div className="axis-tasks-empty">{lang === 'zh' ? '暂无任务' : 'No tasks'}</div>
+            ) : (
+              summary.visible.map(item => {
+                const chip = cardTaskChip(item, today, lang)
+                return (
+                  <div
+                    key={item.id}
+                    className="axis-task-row nodrag"
+                    title={item.title}
+                    onClick={e => {
+                      e.stopPropagation()
+                      d.onCardClick(n.id)
+                    }}
+                  >
+                    <i className={`axis-task-dot ${chip.tone}`} />
+                    <span className="axis-task-title">{item.title}</span>
+                    <span className={`axis-task-chip ${chip.tone}`}>{chip.text}</span>
+                  </div>
+                )
+              })
+            )}
+          </div>
 
-      <button
-        type="button"
-        className="axis-map-card-foot nodrag"
-        onClick={e => { e.stopPropagation(); d.onCardClick(n.id) }}
-      >
-        <span>{footText}</span>
-      </button>
-
-      <div className={`axis-node-actions nodrag nopan${d.isSelected ? ' is-active' : ''}`} style={compactTouch ? { visibility: 'hidden', pointerEvents: 'none' } : undefined}>
-        {d.canEdit && !d.linkingActive && <>
-          {d.canAddSubordinate && <button aria-label={`${lang === 'zh' ? '新增下级' : 'Add subordinate'} · ${n.person.name}`} onClick={e => { e.stopPropagation(); d.onAddChild(n.id) }}><Plus size={14} />{lang === 'zh' ? '新增下级' : 'Add person'}</button>}
-          <button aria-label={`${lang === 'zh' ? '编辑人员' : 'Edit person'} · ${n.person.name}`} onClick={e => { e.stopPropagation(); d.onEditPerson(n.id) }}><Pencil size={13} />{lang === 'zh' ? '编辑' : 'Edit'}</button>
-        </>}
-        {d.canRelink && !d.linkingActive && <button aria-label={`${lang === 'zh' ? '调整上级' : 'Change manager'} · ${n.person.name}`} onClick={e => { e.stopPropagation(); d.onToggleLinking(n.id) }}><GitBranch size={14} /></button>}
-      </div>
-
-      <button
-        className={`axis-subordinate-port nodrag nopan is-${d.orientation}`}
-        disabled={!d.canAddSubordinate || d.linkingActive || compactTouch}
-        style={port ? { left: port.offsetX - 1, top: port.offsetY - 1, right: 'auto', bottom: 'auto', transform: 'translate(-50%, -50%)' } : undefined}
-        aria-label={`${lang === 'zh' ? '下辖挂载点' : 'Subordinate attachment'} · ${n.person.name}`}
-        title={lang === 'zh' ? '下辖分支挂载点' : 'Subordinate attachment point'}
-        onClick={event => { event.stopPropagation(); d.onAddChild(n.id) }}
-      >
-        <Plus size={14} />
-      </button>
+          <div className="axis-card-foot-row">
+            {summary.total > 0 ? (
+              <button
+                type="button"
+                className="foot-link nodrag"
+                onClick={e => {
+                  e.stopPropagation()
+                  d.onCardClick(n.id)
+                }}
+              >
+                {lang === 'zh' ? '查看全部 →' : 'View all →'}
+              </button>
+            ) : (
+              <span />
+            )}
+            {d.childCount > 0 ? (
+              <button
+                type="button"
+                className="axis-card-subordinate-toggle nodrag"
+                aria-label={lang === 'zh' ? `${d.isExpanded ? '折叠' : '展开'}${n.person.name}的下级` : 'Toggle subordinates'}
+                onClick={e => {
+                  e.stopPropagation()
+                  d.onToggleExpand(n.id)
+                }}
+              >
+                {lang === 'zh' ? `下属 ${d.childCount} ⌄` : `Reports ${d.childCount} ⌄`}
+              </button>
+            ) : (
+              <span />
+            )}
+          </div>
+        </>
+      )}
 
       {d.linkingActive && (
         <div className="axis-link-label">
@@ -192,32 +295,9 @@ function internalToRect(n: InternalNode): RectCoords | null {
   return { left: x, right: x + w, top: y, bottom: y + h, width: w, height: h, centerX: x + w / 2, centerY: y + h / 2 }
 }
 
-type SubordinatePort = BorderAnchor & { offsetX: number; offsetY: number }
-
-function useSubordinatePort(sourceId: string, orientation: AxisOrientation) {
-  return useStore(useCallback(state => {
-    const node = state.nodeLookup.get(sourceId)
-    const source = node && internalToRect(node)
-    if (!source) return null
-    const targets: RectCoords[] = []
-    for (const edge of state.edges) {
-      if (edge.source !== sourceId || edge.data?.attachmentKind !== 'subordinate') continue
-      const target = state.nodeLookup.get(edge.target)
-      const rect = target && !target.hidden && internalToRect(target)
-      if (rect) targets.push(rect)
-    }
-    const anchor = subordinatePortAnchor(source, targets, orientation)
-    return { ...anchor, offsetX: anchor.x - source.left, offsetY: anchor.y - source.top }
-  }, [sourceId, orientation]), (a: SubordinatePort | null, b: SubordinatePort | null) =>
-    a === b || (!!a && !!b && a.x === b.x && a.y === b.y && a.side === b.side && a.offsetX === b.offsetX && a.offsetY === b.offsetY),
-  )
-}
-
 const BranchEdge: React.FC<EdgeProps> = ({ source, target, data }) => {
   const sn = useInternalNode(source), tn = useInternalNode(target)
   const d = data as BranchEdgeData | undefined
-  const orientation = d?.orientation || 'vertical'
-  const port = useSubordinatePort(source, orientation)
   if (!sn || !tn) return null
   const s = internalToRect(sn), t = internalToRect(tn)
   if (!s || !t) return null
@@ -226,7 +306,7 @@ const BranchEdge: React.FC<EdgeProps> = ({ source, target, data }) => {
   const isStraight = d?.edgeStyle === 'straight'
   const path = isStraight
     ? straightEdgePath(s, t)
-    : floatingEdgePath(s, t, subordinate ? port || undefined : undefined)
+    : floatingEdgePath(s, t)
 
   const emphasis = d?.emphasis || 'normal'
   let stroke = subordinate ? 'var(--axis-extension, #278c7f)' : 'var(--axis-branch, #8daed5)'
@@ -291,14 +371,14 @@ export interface PeopleAxisFlowCanvasProps {
   onNodeDragStop: (id: string, position: { x: number; y: number }) => void
   onPaneClick: () => void
   onResetLayout: () => void
+  onRequestReparent?: (sourceId: string, targetId: string) => void
+  onShowToast?: (message: string) => void
   resetToken?: number
   mobile?: boolean
   hasPreview?: boolean
   focusNodeId?: string | null
   focusToken?: number
   onCancelLinking?: () => void
-  onConnectToSpine?: () => void
-  canConnectToSpine?: boolean
 }
 
 const ZoomReadout = () => {
@@ -308,14 +388,24 @@ const ZoomReadout = () => {
 
 const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   lang, nodes, edges, orientation, edgeStyle = 'curve', linkingSourceNodeId, onNodeDragStop, onPaneClick,
-  onResetLayout, resetToken, mobile, hasPreview, focusNodeId, focusToken, onCancelLinking, onConnectToSpine, canConnectToSpine = true,
+  onResetLayout, onRequestReparent, onShowToast, resetToken, mobile, hasPreview, focusNodeId, focusToken, onCancelLinking,
 }) => {
-  const { zoomIn, zoomOut, fitView, setCenter, getNode, getZoom } = useReactFlow()
+  const { zoomIn, zoomOut, fitView, setCenter, getNode, getZoom, screenToFlowPosition } = useReactFlow()
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<AxisFlowNode>(nodes)
   const [moving, setMoving] = useState(false)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [snapGuide, setSnapGuide] = useState<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null)
   const lastSnappedPos = useRef<Map<string, { x: number; y: number }>>(new Map())
+  const dwellTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const currentDropTargetId = useRef<string | null>(null)
+  const dropVerdictRef = useRef<{ targetId: string; verdict: { ok: boolean; reason: string } } | null>(null)
+  const dragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
+
+  useEffect(() => {
+    return () => {
+      if (dwellTimer.current) clearTimeout(dwellTimer.current)
+    }
+  }, [])
 
   const canMoveCards = nodes.some(node => node.type === 'person' && node.draggable)
   useEffect(() => { if (linkingSourceNodeId || !canMoveCards) setMoving(false) }, [linkingSourceNodeId, canMoveCards])
@@ -386,7 +476,94 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
     })
   }, [edges, effectiveFocusId, highlightedEdges, orientation, edgeStyle])
 
-  const handleNodeDrag = useCallback((_: React.MouseEvent | React.TouchEvent, node: Node) => {
+  const handleNodeDrag = useCallback((event: React.MouseEvent | React.TouchEvent, node: Node) => {
+    let clientX: number | undefined
+    let clientY: number | undefined
+    if ('clientX' in event && typeof event.clientX === 'number') {
+      clientX = event.clientX
+      clientY = event.clientY
+    } else if ('touches' in event && event.touches && event.touches.length > 0) {
+      clientX = event.touches[0].clientX
+      clientY = event.touches[0].clientY
+    }
+
+    let targetId: string | null = null
+    if (clientX != null && clientY != null) {
+      const flowPos = screenToFlowPosition({ x: clientX, y: clientY })
+      const targetNode = rfNodes.find(n =>
+        n.id !== node.id &&
+        !n.hidden &&
+        n.type === 'person' &&
+        flowPos.x >= n.position.x &&
+        flowPos.x <= n.position.x + CARD_W &&
+        flowPos.y >= n.position.y &&
+        flowPos.y <= n.position.y + CARD_H,
+      )
+      targetId = targetNode?.id || null
+    }
+
+    if (targetId !== currentDropTargetId.current) {
+      if (dwellTimer.current) {
+        clearTimeout(dwellTimer.current)
+        dwellTimer.current = null
+      }
+      currentDropTargetId.current = targetId
+      dropVerdictRef.current = null
+
+      setRfNodes(nds => nds.map(n => {
+        const d = n.data as PersonNodeData
+        if (d.dropState || d.dropTip) {
+          return {
+            ...n,
+            data: { ...d, dropState: null, dropTip: '' },
+          }
+        }
+        return n
+      }))
+
+      if (targetId) {
+        const capturedTargetId = targetId
+        dwellTimer.current = setTimeout(() => {
+          const allPeopleNodes = rfNodes.map(n => {
+            const d = n.data as PersonNodeData
+            return {
+              ...d.node,
+              isTerminal: Boolean(d.isOverallLeader || d.node.isTerminalPM),
+            }
+          })
+          const canRelinkCheck = (id: string) => {
+            const targetNodeData = rfNodes.find(n => n.id === id)?.data as PersonNodeData | undefined
+            return Boolean(targetNodeData?.canRelink)
+          }
+          const verdict = reparentVerdict(allPeopleNodes, node.id, capturedTargetId, {
+            canRelink: canRelinkCheck,
+            lang,
+          })
+          if (verdict) {
+            dropVerdictRef.current = { targetId: capturedTargetId, verdict }
+            setRfNodes(nds => nds.map(n => {
+              if (n.id === capturedTargetId) {
+                return {
+                  ...n,
+                  data: {
+                    ...(n.data as PersonNodeData),
+                    dropState: verdict.ok ? 'ok' : 'bad',
+                    dropTip: verdict.reason,
+                  },
+                }
+              }
+              return n
+            }))
+          }
+        }, 300)
+      }
+    }
+
+    if (targetId) {
+      if (snapGuide) setSnapGuide(null)
+      return
+    }
+
     if (edgeStyle !== 'straight') {
       if (snapGuide) setSnapGuide(null)
       return
@@ -417,16 +594,49 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       setSnapGuide(null)
       lastSnappedPos.current.delete(node.id)
     }
-  }, [edgeStyle, orientation, rfNodes, snapGuide, setRfNodes])
+  }, [edgeStyle, orientation, rfNodes, snapGuide, screenToFlowPosition, lang, setRfNodes])
 
   const handleNodeDragStop = useCallback((_: React.MouseEvent | React.TouchEvent, node: Node) => {
     dragging.current = false
     setSnapGuide(null)
+    if (dwellTimer.current) {
+      clearTimeout(dwellTimer.current)
+      dwellTimer.current = null
+    }
+
+    setRfNodes(nds => nds.map(n => {
+      const d = n.data as PersonNodeData
+      if (d.dropState || d.dropTip) {
+        return {
+          ...n,
+          data: { ...d, dropState: null, dropTip: '' },
+        }
+      }
+      return n
+    }))
+
+    const decided = dropVerdictRef.current
+    dropVerdictRef.current = null
+    currentDropTargetId.current = null
+
+    if (decided && decided.verdict) {
+      const initialPos = dragStartPos.current
+      lastSnappedPos.current.delete(node.id)
+      setRfNodes(nds => nds.map(n => n.id === node.id ? { ...n, position: initialPos } : n))
+
+      if (decided.verdict.ok) {
+        onRequestReparent?.(node.id, decided.targetId)
+      } else {
+        onShowToast?.(decided.verdict.reason)
+      }
+      return
+    }
+
     const snapped = lastSnappedPos.current.get(node.id)
     lastSnappedPos.current.delete(node.id)
     const finalPos = snapped || node.position
     onNodeDragStop(node.id, finalPos)
-  }, [onNodeDragStop])
+  }, [onNodeDragStop, onRequestReparent, onShowToast, setRfNodes])
 
   return (
     <ReactFlow
@@ -435,7 +645,16 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
       onNodesChange={onNodesChange}
-      onNodeDragStart={() => { dragging.current = true }}
+      onNodeDragStart={(_, n) => {
+        dragging.current = true
+        dragStartPos.current = { ...n.position }
+        currentDropTargetId.current = null
+        dropVerdictRef.current = null
+        if (dwellTimer.current) {
+          clearTimeout(dwellTimer.current)
+          dwellTimer.current = null
+        }
+      }}
       onNodeDrag={handleNodeDrag}
       onNodeDragStop={handleNodeDragStop}
       onNodeMouseEnter={(_, n) => { setHoveredNodeId(n.id) }}
@@ -491,7 +710,6 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       {linkingSourceNodeId && (
         <Panel position="top-center" className="axis-link-panel">
           <span>{lang === 'zh' ? '点击人员设为直属上级' : 'Tap the new parent'}</span>
-          {canConnectToSpine && <button onClick={onConnectToSpine}>{lang === 'zh' ? '移至主干' : 'To trunk'}</button>}
           <button aria-label={lang === 'zh' ? '取消连线' : 'Cancel linking'} onClick={onCancelLinking}><X size={16} /></button>
         </Panel>
       )}

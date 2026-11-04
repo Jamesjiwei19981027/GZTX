@@ -4,7 +4,7 @@ import type { AxisWorkItem, Language, TeamMember } from '../../types'
 
 export function AxisOriginBadge({origin, lang}: {origin?: 'project' | 'subordinate'; lang: Language}) {
   const subordinate = origin === 'subordinate'
-  return <span className={`axis-origin-badge${subordinate ? ' is-subordinate' : ''}`}>{lang === 'zh' ? subordinate ? '下辖分支' : '项目定义' : subordinate ? 'Subordinate' : 'Project definition'}</span>
+  return <span className={`axis-origin-badge${subordinate ? ' is-subordinate' : ''}`}>{lang === 'zh' ? subordinate ? '下级自建' : '项目成员' : subordinate ? 'Self-added' : 'Project member'}</span>
 }
 
 export function AxisAvatar({ person, small = false }: { person: Pick<TeamMember, 'name' | 'avatar'>; small?: boolean }) {
