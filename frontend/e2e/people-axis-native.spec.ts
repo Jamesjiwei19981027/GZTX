@@ -203,6 +203,24 @@ test('desktop uses a canvas and persistent inspector', async ({ page }) => {
   await page.screenshot({ path: test.info().outputPath('desktop-inspector.png'), animations: 'disabled' })
 })
 
+test('desktop zoomed out to 50% shows compact cards with a large name', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await openWorkspace(page)
+  await expect(page.getByTestId('axis-overview')).toBeVisible()
+  const readout = page.locator('.axis-zoom-readout')
+  const zoomOutBtn = page.getByRole('button', { name: '缩小', exact: true })
+  const readZoom = async () => parseInt((await readout.textContent()) || '100', 10)
+  for (let i = 0; i < 20 && (await readZoom()) > 50; i++) {
+    await zoomOutBtn.click()
+    await page.waitForTimeout(150)
+  }
+  expect(await readZoom()).toBeLessThan(60)
+  const card = page.locator('.react-flow__node[data-id="1"] .axis-map-card')
+  await expect(card).toHaveClass(/is-compact/)
+  const fontSize = await card.locator('.axis-card-name strong').evaluate(el => parseFloat(getComputedStyle(el).fontSize))
+  expect(fontSize).toBeGreaterThanOrEqual(24)
+})
+
 test('a member can submit evidence without personnel editing rights', async ({ page }) => {
   await page.setViewportSize({width:390,height:844})
   await openWorkspace(page, false)

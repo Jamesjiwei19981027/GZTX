@@ -16,7 +16,7 @@ import {
   BackendMember,
 } from '../../../api/backend';
 import { mapTreeToPeopleAxis, summarizeCardTasks } from '../../../api/mappers';
-import { listAgentReports, latestReportByUser, reportStatusLabel, type AgentReport } from '../../../api/reports';
+import { listAgentReports, latestReportByUser, reportStatusLabel, reportStatusTone, type AgentReport } from '../../../api/reports';
 import { averagePeopleAxisProgress } from '../../../components/views/peopleAxisUtils';
 import { getMyPermissions, MyProjectPermissions } from '../../../api/shell';
 import { AppIcon } from '../../ui/AppIcon';
@@ -429,10 +429,16 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                     }}
                     className="mt-3.5 pt-2.5 border-t border-blue-200/80 dark:border-blue-900/60 flex items-center justify-between text-xs text-[#0058BE] dark:text-blue-400 font-semibold"
                   >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <AppIcon name="file" size={14} />
-                      {reportStatusLabel(latestReportByUser(agentReports, currentUserIdNum))}
-                    </span>
+                    {(() => {
+                      const selfReport = latestReportByUser(agentReports, currentUserIdNum)
+                      const tone = reportStatusTone(selfReport)
+                      return (
+                        <span className={`flex items-center gap-1.5 truncate ${tone.textClass}`}>
+                          {tone.iconName && <AppIcon name={tone.iconName} size={14} />}
+                          {reportStatusLabel(selfReport)}
+                        </span>
+                      )
+                    })()}
                     <AppIcon name="chevron-right" size={14} className="shrink-0 text-[#0058BE]" />
                   </div>
                 )}
@@ -493,10 +499,16 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
 
                       {showAiStatus && !reportsLoadFailed && (
                         <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
-                          <span className="flex items-center gap-1 truncate text-emerald-600 dark:text-emerald-400">
-                            <AppIcon name="check-circle" size={12} />
-                            {reportStatusLabel(latestReportByUser(agentReports, sub.ownerUserIds?.[0]))}
-                          </span>
+                          {(() => {
+                            const subReport = latestReportByUser(agentReports, sub.ownerUserIds?.[0])
+                            const tone = reportStatusTone(subReport)
+                            return (
+                              <span className={`flex items-center gap-1 truncate ${tone.textClass}`}>
+                                {tone.iconName && <AppIcon name={tone.iconName} size={12} />}
+                                {reportStatusLabel(subReport)}
+                              </span>
+                            )
+                          })()}
                           <span className="text-[10px] text-slate-400">点击查看</span>
                         </div>
                       )}

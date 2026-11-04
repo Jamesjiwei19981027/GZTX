@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { latestReportByUser, reportStatusLabel, type AgentReport } from '../src/api/reports'
+import { latestReportByUser, reportStatusLabel, reportStatusTone, type AgentReport } from '../src/api/reports'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -66,6 +66,21 @@ assert.equal(reportStatusLabel(user30), '草稿待提交 · 2 条来源')
 
 const submittedLabel = reportStatusLabel(user20)
 assert.match(submittedLabel, /^\d{2}-\d{2} \d{2}:\d{2} 已提交$/)
+
+// 2b. reportStatusTone：已提交绿色对勾，草稿蓝色文件，暂无汇报灰色无图标
+const toneNone = reportStatusTone(null)
+assert.equal(toneNone.kind, 'none')
+assert.equal(toneNone.iconName, null)
+assert.match(toneNone.textClass, /slate/)
+assert.doesNotMatch(toneNone.textClass, /emerald|green/)
+const toneDraft = reportStatusTone(user10)
+assert.equal(toneDraft.kind, 'draft')
+assert.equal(toneDraft.iconName, 'file')
+assert.match(toneDraft.textClass, /blue/)
+const toneSubmitted = reportStatusTone(user20)
+assert.equal(toneSubmitted.kind, 'submitted')
+assert.equal(toneSubmitted.iconName, 'check-circle')
+assert.match(toneSubmitted.textClass, /emerald/)
 
 // 3. 源码断言确认 MobileAxisScreens.tsx 里不再含「14:30」「4 条来源」「70%」字样
 const screensFilePath = path.resolve(__dirname, '../src/mobile/features/people-axis/MobileAxisScreens.tsx')

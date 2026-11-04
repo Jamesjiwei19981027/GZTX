@@ -185,3 +185,20 @@ export function reportStatusLabel(
 }
 
 
+
+export type ReportStatusTone = {
+  kind: 'submitted' | 'draft' | 'none'
+  iconName: 'check-circle' | 'file' | null
+  textClass: string
+}
+
+/** 汇报状态到展示样式：已提交=绿色对勾；草稿=蓝色文件；暂无汇报=灰色无图标。 */
+export function reportStatusTone(report: AgentReport | null | undefined): ReportStatusTone {
+  if (!report) {
+    return { kind: 'none', iconName: null, textClass: 'text-slate-400 dark:text-slate-500' }
+  }
+  if (report.status === 'draft') {
+    return { kind: 'draft', iconName: 'file', textClass: 'text-blue-600 dark:text-blue-400' }
+  }
+  return { kind: 'submitted', iconName: 'check-circle', textClass: 'text-emerald-600 dark:text-emerald-400' }
+}
