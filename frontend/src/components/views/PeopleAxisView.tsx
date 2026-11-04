@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PersonMembershipActions } from '../PersonMembershipActions';
 import { MaterialTextInput } from '../MaterialTextInput';
@@ -1623,8 +1624,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         </AxisDialog>
       )}
 
-      {reparentConfirm && (
-        <div className="axis-dialog-mask" role="dialog" aria-modal="true" data-testid="reparent-confirm-dialog">
+      {reparentConfirm && createPortal(
+        <div className="axis-theme axis-dialog-mask" role="dialog" aria-modal="true" data-testid="reparent-confirm-dialog">
           <div className="axis-reparent-dialog">
             <h3>{lang === 'zh' ? '调整上级' : 'Change manager'}</h3>
             <p>
@@ -1651,7 +1652,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* FLOATING TOAST FEEDBACK BANNER */}
