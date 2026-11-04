@@ -832,7 +832,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '人轴最多三级。',
+                  '人轴最多四级。',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textTertiaryOf(isDark),
