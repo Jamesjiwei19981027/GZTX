@@ -189,10 +189,52 @@ function mapMatter(n: BackendTreeNode): AxisWorkItem {
   }
 }
 
+export type UiOffsetPoint = { x: number; y: number }
+export type UiOffsetsMap = {
+  horizontal?: UiOffsetPoint | null
+  vertical?: UiOffsetPoint | null
+}
+
+/**
+ * 按当前展开方向提取节点的 UI 布局偏移。
+ * 规则严格按 MOBILE-SPEC 第 6 节：
+ * 1. 优先取 ui_offsets[orientation]；
+ * 2. 否则，仅在 orientation === 'horizontal' 时回退旧的 ui_offset；
+ * 3. 都没有则返回 { x: 0, y: 0 }。
+ */
+export function pickUiOffset(
+  node: {
+    ui_offsets?: UiOffsetsMap | null
+    ui_offset?: UiOffsetPoint | null
+    uiOffsets?: UiOffsetsMap | null
+    uiOffset?: UiOffsetPoint | null
+    progress_json?: {
+      ui_offsets?: UiOffsetsMap | null
+      ui_offset?: UiOffsetPoint | null
+    } | null
+  } | null | undefined,
+  orientation: 'horizontal' | 'vertical' = 'horizontal',
+): UiOffsetPoint {
+  if (!node) return { x: 0, y: 0 }
+  const offsets = node.ui_offsets ?? node.uiOffsets ?? node.progress_json?.ui_offsets
+  const byDir = offsets?.[orientation]
+  if (byDir && typeof byDir.x === 'number' && typeof byDir.y === 'number') {
+    return { x: byDir.x, y: byDir.y }
+  }
+  if (orientation === 'horizontal') {
+    const single = node.ui_offset ?? node.uiOffset ?? node.progress_json?.ui_offset
+    if (single && typeof single.x === 'number' && typeof single.y === 'number') {
+      return { x: single.x, y: single.y }
+    }
+  }
+  return { x: 0, y: 0 }
+}
+
 /** 将后端嵌套人树映射为新 UI 的 PeopleAxisNode 列表（扁平） */
 export function mapTreeToPeopleAxis(
   roots: BackendTreeNode[],
   finalOwnerUserId?: number | null,
+  orientation: 'horizontal' | 'vertical' = 'horizontal',
 ): PeopleAxisNode[] {
   const out: PeopleAxisNode[] = []
   let order = 0
@@ -243,7 +285,9 @@ export function mapTreeToPeopleAxis(
     }
     const isTerminal = n.id === firstRootId
 
-    const offset = n.ui_offset || n.progress_json?.ui_offset
+    const offset = pickUiOffset(n, orientation)
+    const rawOffsets = n.ui_offsets ?? n.progress_json?.ui_offsets ?? null
+    const rawOffset = n.ui_offset ?? n.progress_json?.ui_offset ?? null
     // 与服务端 acl._owns_path 同口径：只有 primary/collaborator 指派才拥有该子树的编辑权
     const ownerUserIds = (n.assignees || [])
       .filter((a) => a.role_key === 'primary' || a.role_key === 'collaborator')
@@ -265,8 +309,10 @@ export function mapTreeToPeopleAxis(
       },
       workItems: matters,
       ownerUserIds,
-      ...(offset ? { layoutOffset: offset } : {}),
-    } as PeopleAxisNode & { layoutOffset?: { x: number; y: number } })
+      uiOffsets: rawOffsets,
+      uiOffset: rawOffset,
+      layoutOffset: offset,
+    } as PeopleAxisNode)
 
     for (const c of [...(n.children || [])].sort(treeOrder)) {
       if (c.node_type_key === 'person') walkPerson(c, String(n.id))

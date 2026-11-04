@@ -109,8 +109,20 @@ export type BackendTreeNode = {
   start_at?: string | null
   due_at?: string | null
   milestone_at?: string | null
-  progress_json?: { status?: string; percent?: number; ui_offset?: { x: number; y: number } }
+  progress_json?: {
+    status?: string
+    percent?: number
+    ui_offset?: { x: number; y: number }
+    ui_offsets?: {
+      horizontal?: { x: number; y: number }
+      vertical?: { x: number; y: number }
+    }
+  }
   ui_offset?: { x: number; y: number } | null
+  ui_offsets?: {
+    horizontal?: { x: number; y: number }
+    vertical?: { x: number; y: number }
+  } | null
   assignees?: {
     user_id: number
     role_key?: string
@@ -516,6 +528,21 @@ export async function submitEvidence(
       evidence_kind: body.evidence_kind,
       external_url: body.external_url,
       file_ids: body.file_ids || [],
+    }),
+  })
+}
+
+export async function putNodeLayout(
+  nodeId: number,
+  offset: { x: number; y: number },
+  orientation?: 'horizontal' | 'vertical',
+) {
+  return apiRequest(`/nodes/${nodeId}/layout`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      offset_x: offset.x,
+      offset_y: offset.y,
+      ...(orientation ? { orientation } : {}),
     }),
   })
 }

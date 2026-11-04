@@ -181,6 +181,12 @@ export interface PeopleAxisNode {
   workItems: AxisWorkItem[]; // "工作项/里程碑/范围只能挂在某个「人」下面"
   /** 后端 primary/collaborator 责任人 user_id（与服务端 _owns_path 同口径，用于前端权限显隐） */
   ownerUserIds?: number[];
+  uiOffsets?: {
+    horizontal?: { x: number; y: number } | null;
+    vertical?: { x: number; y: number } | null;
+  } | null;
+  uiOffset?: { x: number; y: number } | null;
+  layoutOffset?: { x: number; y: number };
   aiContext?: {
     riskLevel: 'low' | 'medium' | 'high';
     summary: string;

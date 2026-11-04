@@ -5,11 +5,10 @@ import {
   type Node, type Edge, type NodeProps, type EdgeProps, type InternalNode,
 } from '@xyflow/react'
 import { ChevronDown, ChevronRight, Minus, Plus, Maximize, LocateFixed, Move, Pencil, GitBranch, X } from 'lucide-react'
-import '@xyflow/react/dist/style.css'
 import type { PeopleAxisNode, Language } from '../../types'
 import {
   borderAnchor, floatingEdgePath, straightEdgePath, highlightEdgeIds,
-  snapToParentAxis, reparentVerdict, type RectCoords, type BorderAnchor,
+  snapToParentAxis, reparentVerdict, calculateCanvasDefaultCenter, type RectCoords, type BorderAnchor,
 } from './peopleAxisUtils'
 import { type AxisOrientation, CARD_W, CARD_H } from './peopleAxisFlowLayout'
 import { summarizeCardTasks, cardTaskChip, cardOverdueCount } from '../../api/mappers'
@@ -96,7 +95,12 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
     <div
       data-node-anchor={n.id}
       data-node-origin={n.nodeOrigin || 'project'}
+      data-testid={`mobile-axis-node-${n.id}`}
       className={`axis-map-card${isTerminal ? ' is-terminal' : ''}${isCompact ? ' is-compact' : ''}${d.isSelected ? ' is-selected' : ''}${d.isLinkingSource ? ' is-link-source' : ''}${d.linkingActive ? ' nopan' : ''}${d.linkingActive && !d.isLinkingSource ? ' is-link-target' : ''}${d.dropState === 'ok' ? ' drop-ok' : d.dropState === 'bad' ? ' drop-bad' : ''}`}
+      onClick={e => {
+        e.stopPropagation()
+        d.onCardClick(n.id)
+      }}
       onMouseEnter={() => d.linkingActive && !d.isLinkingSource && d.onHoverTarget(n.id)}
       onMouseLeave={() => d.linkingActive && d.onHoverTarget(null)}
     >
@@ -125,7 +129,7 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
 
         {!isCompact && (
           <div className="axis-card-corner" ref={menuRef}>
-            {d.canAddSubordinate && (
+            {d.canAddSubordinate && (!d.mobile || d.isSelected) && (
               <button
                 type="button"
                 className="axis-card-icon-btn add nodrag"
@@ -140,7 +144,7 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
                 <Plus size={14} />
               </button>
             )}
-            {(d.canEdit || d.canRelink) && (
+            {(d.canEdit || d.canRelink) && (!d.mobile || d.isSelected) && (
               <button
                 type="button"
                 className="axis-card-icon-btn nodrag"
@@ -379,6 +383,8 @@ export interface PeopleAxisFlowCanvasProps {
   focusNodeId?: string | null
   focusToken?: number
   onCancelLinking?: () => void
+  fitToken?: number
+  centerMeToken?: number
 }
 
 const ZoomReadout = () => {
@@ -389,10 +395,10 @@ const ZoomReadout = () => {
 const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   lang, nodes, edges, orientation, edgeStyle = 'curve', linkingSourceNodeId, onNodeDragStop, onPaneClick,
   onResetLayout, onRequestReparent, onShowToast, resetToken, mobile, hasPreview, focusNodeId, focusToken, onCancelLinking,
+  fitToken, centerMeToken,
 }) => {
   const { zoomIn, zoomOut, fitView, setCenter, getNode, getZoom, screenToFlowPosition } = useReactFlow()
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<AxisFlowNode>(nodes)
-  const [moving, setMoving] = useState(false)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [snapGuide, setSnapGuide] = useState<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null)
   const lastSnappedPos = useRef<Map<string, { x: number; y: number }>>(new Map())
@@ -401,14 +407,39 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   const dropVerdictRef = useRef<{ targetId: string; verdict: { ok: boolean; reason: string } } | null>(null)
   const dragStartPos = useRef<{ x: number; y: number }>({ x: 0, y: 0 })
 
+  // 手机操作提示：首次进入画布显示 5 秒或点击后隐藏，写入 localStorage（读写异常安全处理）
+  const [showMobileHint, setShowMobileHint] = useState(() => {
+    if (!mobile) return false
+    try {
+      return localStorage.getItem('axis_canvas_hint_seen') !== 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const dismissMobileHint = useCallback(() => {
+    setShowMobileHint(false)
+    try {
+      localStorage.setItem('axis_canvas_hint_seen', 'true')
+    } catch {
+      // 读写失败当作已看过
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!showMobileHint) return
+    const timer = setTimeout(() => {
+      dismissMobileHint()
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [showMobileHint, dismissMobileHint])
+
   useEffect(() => {
     return () => {
       if (dwellTimer.current) clearTimeout(dwellTimer.current)
     }
   }, [])
 
-  const canMoveCards = nodes.some(node => node.type === 'person' && node.draggable)
-  useEffect(() => { if (linkingSourceNodeId || !canMoveCards) setMoving(false) }, [linkingSourceNodeId, canMoveCards])
   const dragging = useRef(false)
   const reducedMotion = typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches
   const duration = reducedMotion ? 0 : 280
@@ -428,16 +459,58 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
     left: '28px',
   }), [linkingSourceNodeId, mobile, hasPreview])
 
-  const fit = useCallback(() => void fitView({ duration, padding, minZoom: 0.05, maxZoom: 1 }), [fitView, padding, duration])
-  const lastAutoFit = useRef('')
+  const fit = useCallback(() => {
+    void fitView({ duration, padding, minZoom: mobile ? 0.25 : 0.05, maxZoom: 1 })
+  }, [fitView, padding, duration, mobile])
 
+  const centerOnTarget = useCallback(() => {
+    const targetNodes = nodes.map(n => ({
+      id: n.id,
+      parentId: (n.data as PersonNodeData)?.node?.parentId,
+      isTerminal: Boolean((n.data as PersonNodeData)?.isOverallLeader || (n.data as PersonNodeData)?.node?.isTerminalPM),
+      isMine: Boolean((n.data as PersonNodeData)?.isMine),
+      position: n.position,
+    }))
+    const center = calculateCanvasDefaultCenter(targetNodes, CARD_W, CARD_H)
+    void setCenter(center.x, center.y, { zoom: 0.75, duration: 0 })
+  }, [nodes, setCenter])
+
+  // 手机模式进入画布：以"我"为中心、缩放 0.75；找不到"我"以根为中心。切换方向后同样处理。
+  const lastOrientKey = useRef<string | null>(null)
   useEffect(() => {
+    if (!initialized || !width || !height) return
+    const key = `${orientation}`
+    if (lastOrientKey.current === key) return
+    lastOrientKey.current = key
+
+    if (mobile) {
+      centerOnTarget()
+    } else {
+      void fitView({ duration: 0, padding, minZoom: 0.05, maxZoom: 1 })
+    }
+  }, [orientation, initialized, width, height, mobile, centerOnTarget, fitView, padding])
+
+  // 电脑端在增删节点或重置时自适应
+  const lastAutoFit = useRef('')
+  useEffect(() => {
+    if (mobile) return
     const fitKey = JSON.stringify([orientation, visibleKey, resetToken, width, height, padding])
     if (initialized && width && height && lastAutoFit.current !== fitKey) {
       lastAutoFit.current = fitKey
       void fitView({ duration: 0, padding, minZoom: 0.05, maxZoom: 1 })
     }
-  }, [orientation, visibleKey, resetToken, width, height, initialized, fitView, padding])
+  }, [mobile, orientation, visibleKey, resetToken, width, height, initialized, fitView, padding])
+
+  // 响应外部工具条动作
+  useEffect(() => {
+    if (!fitToken) return
+    fit()
+  }, [fitToken, fit])
+
+  useEffect(() => {
+    if (!centerMeToken) return
+    centerOnTarget()
+  }, [centerMeToken, centerOnTarget])
 
   useEffect(() => {
     if (!focusToken || !focusNodeId) return
@@ -640,7 +713,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
 
   return (
     <ReactFlow
-      nodes={rfNodes.map(n => mobile && !moving ? { ...n, draggable: false } : n)}
+      nodes={rfNodes}
       edges={styledEdges}
       nodeTypes={nodeTypes}
       edgeTypes={edgeTypes}
@@ -666,8 +739,8 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
         setHoveredNodeId(null)
         onPaneClick()
       }}
-      fitView
-      fitViewOptions={{ padding, minZoom: 0.05, maxZoom: 1 }}
+      fitView={!mobile}
+      fitViewOptions={{ padding, minZoom: mobile ? 0.25 : 0.05, maxZoom: 1 }}
       minZoom={0.05}
       maxZoom={2}
       nodesConnectable={false}
@@ -680,6 +753,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       zoomOnDoubleClick={false}
       nodeDragThreshold={8}
       className="axis-flow"
+      data-testid={mobile ? 'mobile-axis-graph' : undefined}
     >
       <Background color="var(--axis-dot, #dce2eb)" gap={22} size={1} />
       <LinkingPreview sourceId={linkingSourceNodeId} />
@@ -713,25 +787,28 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
           <button aria-label={lang === 'zh' ? '取消连线' : 'Cancel linking'} onClick={onCancelLinking}><X size={16} /></button>
         </Panel>
       )}
+      {mobile && showMobileHint && (
+        <Panel position="top-center" className="axis-canvas-hint-panel">
+          <div
+            className="axis-canvas-hint-bubble"
+            data-testid="axis-canvas-hint"
+            onClick={dismissMobileHint}
+            role="button"
+            tabIndex={0}
+          >
+            <span>拖到别人卡片上停一下＝换上级 · 拖到空白处＝挪位置</span>
+          </div>
+        </Panel>
+      )}
       <Panel position="bottom-left" className={`axis-canvas-controls${mobile && hasPreview ? ' has-preview' : ''}`}>
         <div className="axis-control-pill">
           <button aria-label={lang === 'zh' ? '缩小' : 'Zoom out'} onClick={() => void zoomOut({ duration })}><Minus size={18} /></button>
           <ZoomReadout />
           <button aria-label={lang === 'zh' ? '放大' : 'Zoom in'} onClick={() => void zoomIn({ duration })}><Plus size={18} /></button>
         </div>
-        <button className="axis-control-square" aria-label={lang === 'zh' ? '适配全部节点' : 'Fit all nodes'} onClick={fit}><Maximize size={18} /></button>
+        <button className="axis-control-square" aria-label={lang === 'zh' ? '适应屏幕' : 'Fit all nodes'} title={lang === 'zh' ? '适应屏幕' : 'Fit all nodes'} onClick={fit}><Maximize size={18} /></button>
         {!mobile && <button className="axis-control-square" aria-label={lang === 'zh' ? '重置布局' : 'Reset layout'} onClick={() => { onResetLayout(); setTimeout(fit, 100) }}><LocateFixed size={18} /></button>}
-        {mobile && canMoveCards && (
-          <button className={`axis-control-square axis-move-mode${moving ? ' is-active' : ''}`} aria-label={lang === 'zh' ? '调整位置' : 'Move nodes'} aria-pressed={moving} onClick={() => setMoving(value => !value)}>
-            <Move size={18} /><span>{lang === 'zh' ? moving ? '完成' : '调整位置' : moving ? 'Done' : 'Move'}</span>
-          </button>
-        )}
       </Panel>
-      {mobile && moving && (
-        <Panel position="top-center" className="axis-move-hint">
-          {lang === 'zh' ? '拖动人员调整位置 · 拖动空白浏览' : 'Drag a person to move · drag blank space to pan'}
-        </Panel>
-      )}
     </ReactFlow>
   )
 }

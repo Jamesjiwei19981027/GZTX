@@ -14,7 +14,7 @@ import {
   moveNode,
   submitEvidence,
 } from '../../api/backend';
-import { mapMember, mapTreeToPeopleAxis, extraRootIds } from '../../api/mappers';
+import { mapMember, mapTreeToPeopleAxis, extraRootIds, pickUiOffset } from '../../api/mappers';
 import { withAxisPersonMetadata } from '../../api/axisPerson';
 import { getMyPermissions, getPeopleAxisAggregate, putNodeLayout, runAxisAudit, MyProjectPermissions } from '../../api/shell';
 import { fetchMe } from '../../api/auth';
@@ -178,22 +178,35 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
   // Flagship Visual Controls
   const [treeOrientation, setTreeOrientation] = useState<'horizontal' | 'vertical'>(() => mobile ? 'vertical' : 'horizontal');
+  const treeOrientationRef = useRef(treeOrientation);
+  treeOrientationRef.current = treeOrientation;
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
   // 用户拖拽产生的偏移（叠加在布局基准位置上，落盘到后端 layout）
   const [dragOffsets, setDragOffsets] = useState<Record<string, { x: number; y: number }>>({});
   const dragOffsetsRef = useRef<Record<string, { x: number; y: number }>>({});
   const layoutSavesRef = useRef(new Map<number, Promise<unknown>>());
   const savedOffsetsRef = useRef(new Map<number, {x: number; y: number}>());
-  const saveNodeOffset = useCallback((nodeId: number, offset: { x: number; y: number }) => {
+  const saveNodeOffset = useCallback((nodeId: number, offset: { x: number; y: number }, orientation = treeOrientation) => {
     // Preserve drag/reset order even when an earlier request is slow or fails.
     const pending = (layoutSavesRef.current.get(nodeId) || Promise.resolve())
-      .catch(() => undefined).then(() => putNodeLayout(nodeId, offset))
+      .catch(() => undefined).then(() => putNodeLayout(nodeId, offset, orientation))
       .then(result => { savedOffsetsRef.current.set(nodeId, offset); return result; });
     layoutSavesRef.current.set(nodeId, pending);
     const clear = () => { if (layoutSavesRef.current.get(nodeId) === pending) layoutSavesRef.current.delete(nodeId); };
     void pending.then(clear, clear);
     return pending;
-  }, []);
+  }, [treeOrientation]);
+
+  const handleOrientationChange = useCallback((nextDir: 'horizontal' | 'vertical') => {
+    setTreeOrientation(nextDir);
+    const nextOffsets: Record<string, { x: number; y: number }> = {};
+    nodes.forEach(n => {
+      const off = pickUiOffset(n, nextDir);
+      if (off.x !== 0 || off.y !== 0) nextOffsets[n.id] = off;
+    });
+    dragOffsetsRef.current = nextOffsets;
+    setDragOffsets(nextOffsets);
+  }, [nodes]);
 
   // Mobile bottom sheet with the description / progress / controls that the
   // desktop layout shows above the canvas.
@@ -341,7 +354,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           });
           summaries.push({
             id: String(project.project_id), name: project.project_name,
-            nodes: mapTreeToPeopleAxis(roots as never[], project.final_owner_user_id ?? project.pm_user_id),
+            nodes: mapTreeToPeopleAxis(roots as never[], project.final_owner_user_id ?? project.pm_user_id, treeOrientationRef.current),
             myRole: project.my_role || 'member',
             ownedNodeIds: (project.my_owned_node_ids || []).map(String),
           });
@@ -384,6 +397,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         const mapped = mapTreeToPeopleAxis(
           tree.nodes || [],
           proj.final_owner_user_id ?? proj.pm_user_id,
+          treeOrientationRef.current,
         );
         const withEvidence = await enrichMattersWithEvidence(mapped);
         if (cancelled) return;
@@ -432,6 +446,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       const mapped = mapTreeToPeopleAxis(
         tree.nodes || [],
         proj.final_owner_user_id ?? proj.pm_user_id,
+        treeOrientationRef.current,
       );
       const withEvidence = await enrichMattersWithEvidence(mapped);
       if (!isCurrent()) return;
@@ -798,9 +813,17 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       dragOffsetsRef.current = next;
       return next;
     });
+
+    const targetNode = nodes.find(n => n.id === id);
+    if (targetNode) {
+      targetNode.uiOffsets = { ...(targetNode.uiOffsets || {}), [treeOrientation]: off };
+      if (treeOrientation === 'horizontal') targetNode.uiOffset = off;
+      targetNode.layoutOffset = off;
+    }
+
     if (isBackendProject) {
       const backendId = asBackendId(id);
-      if (backendId != null) void saveNodeOffset(backendId, off).catch(error => {
+      if (backendId != null) void saveNodeOffset(backendId, off, treeOrientation).catch(error => {
         if (activeProjectRef.current !== String(backendProjectId)) return;
         setDragOffsets(current => {
           // Do not roll back a newer drag while an older request is failing.
@@ -810,7 +833,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         showToast(error instanceof Error ? error.message : (lang === 'zh' ? '位置保存失败' : 'Position could not be saved'));
       });
     }
-  }, [isBackendProject, backendProjectId, canEditAny, editableNodeIds, lang, showToast, saveNodeOffset]);
+  }, [isBackendProject, backendProjectId, canEditAny, editableNodeIds, lang, showToast, saveNodeOffset, treeOrientation, nodes]);
 
   const handlePaneClick = () => {
     // 连线模式下点空白不动作（防误触）；提升主干走 banner 上的显式按钮
@@ -827,7 +850,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         if (!canEditAny && !editableNodeIds.has(id)) { retained[id] = off; return; }
         if (!off || (off.x === 0 && off.y === 0)) return;
         const backendId = asBackendId(id);
-        if (backendId != null) void saveNodeOffset(backendId, { x: 0, y: 0 }).catch(error => {
+        if (backendId != null) void saveNodeOffset(backendId, { x: 0, y: 0 }, treeOrientation).catch(error => {
           if (activeProjectRef.current !== String(backendProjectId)) return;
           setDragOffsets(current => {
             if (current[id]) return current;
@@ -868,7 +891,13 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           dragOffsetsRef.current = next;
           return next;
         });
-        void saveNodeOffset(sourceId, { x: 0, y: 0 }).catch(() => {});
+        if (sourceNode) {
+          sourceNode.uiOffsets = null;
+          sourceNode.uiOffset = null;
+          sourceNode.layoutOffset = { x: 0, y: 0 };
+        }
+        void saveNodeOffset(sourceId, { x: 0, y: 0 }, 'horizontal').catch(() => {});
+        void saveNodeOffset(sourceId, { x: 0, y: 0 }, 'vertical').catch(() => {});
         setExpandedNodes((prev) => ({ ...prev, [targetNodeId]: true }));
         setLinkingSourceNodeId(null);
         setLinkingHoveredTargetId(null);
@@ -1286,7 +1315,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           setNewNodePermissions(defaultResponsibilityPermissions);
           setIsAddingNode(true);
         }}
-        onOrientation={setTreeOrientation}
+        onOrientation={handleOrientationChange}
         edgeStyle={edgeStyle}
         onEdgeStyle={handleEdgeStyleChange}
         extraRoots={extraRoots}

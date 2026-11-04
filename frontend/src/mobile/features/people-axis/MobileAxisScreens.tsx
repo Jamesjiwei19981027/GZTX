@@ -25,8 +25,8 @@ import { MobileSheet } from '../../ui/MobileSheet';
 import { MobileField, MobileInput, MobileSwitch } from '../../ui/MobileField';
 import { MobileEmptyState, MobileLoadingState } from '../../ui/MobileState';
 import { MobileConfirm } from '../../ui/MobileConfirm';
-import { MobileAxisGraph } from './MobileAxisGraph';
-import type { ReactFlowInstance } from '@xyflow/react';
+import { PeopleAxisFlowCanvas } from '../../../components/views/PeopleAxisFlowCanvas';
+import { usePeopleAxisCanvas, ReparentConfirmDialog } from '../../../components/views/usePeopleAxisCanvas';
 import { PersonMembershipActions } from '../../../components/PersonMembershipActions';
 
 // ==========================================
@@ -111,10 +111,13 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   const [showAiStatus, setShowAiStatus] = useState(true);
   const [expandSubordinates, setExpandSubordinates] = useState(true);
   const [spacing, setSpacing] = useState<AxisSpacing>('standard');
+  const [edgeStyle, setEdgeStyle] = useState<'curve' | 'straight'>('curve');
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement | null>(null);
 
-  // 画布缩放与平移
-  const [scale, setScale] = useState(1);
-  const graphRef = useRef<ReactFlowInstance | null>(null);
+  // 画布缩放与定位触发 token
+  const [fitToken, setFitToken] = useState(0);
+  const [centerMeToken, setCenterMeToken] = useState(0);
 
   // 选中与模态弹层状态
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -137,6 +140,17 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     setTimeout(() => setToastMessage(null), 3000);
   }, []);
 
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const handleOutside = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as unknown as globalThis.Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, [moreMenuOpen]);
+
   // 刷新人轴核心数据
   const loadData = useCallback(async () => {
     if (!pid) {
@@ -152,7 +166,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
         getMyPermissions(pid).catch(() => null),
         listAgentReports(pid).catch(() => null),
       ]);
-      const mapped = mapTreeToPeopleAxis(treeRes.nodes || []);
+      const mapped = mapTreeToPeopleAxis(treeRes.nodes || [], undefined, orientation);
       setAxisNodes(mapped);
       setProjectMembers(membersRes.items || []);
       setPermissions(permRes);
@@ -199,12 +213,40 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   const handleLocateMe = useCallback(() => {
     if (selfNode) {
       setSelectedNodeId(selfNode.id);
-      void graphRef.current?.fitView({ nodes: [{ id: selfNode.id }], duration: 250, maxZoom: 1 });
     }
+    setCenterMeToken(t => t + 1);
   }, [selfNode]);
-  const zoomIn = () => { void graphRef.current?.zoomIn({ duration: 150 }); };
-  const zoomOut = () => { void graphRef.current?.zoomOut({ duration: 150 }); };
-  const zoomReset = () => { void graphRef.current?.fitView({ duration: 200, padding: 0.2, maxZoom: 1 }); };
+
+  const handleFitScreen = useCallback(() => {
+    setFitToken(t => t + 1);
+  }, []);
+
+  const flowCanvas = usePeopleAxisCanvas({
+    nodes: expandSubordinates ? axisNodes : axisNodes.filter(node => !node.parentId),
+    orientation,
+    edgeStyle,
+    lang: 'zh',
+    mobile: true,
+    isBackendProject: true,
+    backendProjectId: pid,
+    serverPerms: permissions,
+    currentUserId: currentUserIdNum,
+    selectedNodeId,
+    onSelectNode: (id) => {
+      setSelectedNodeId(prev => (prev === id ? null : id));
+    },
+    onAddChild: (parentId) => {
+      setEditPersonTarget({ mode: 'add', parentSuggestedId: parentId });
+    },
+    onEditPerson: (nodeId) => {
+      const node = axisNodes.find(n => n.id === nodeId) || null;
+      setEditPersonTarget({ mode: 'edit', node });
+    },
+    onReloadAxis: loadData,
+    onShowToast: showToast,
+    canEditAny: Boolean(permissions?.is_pm || permissions?.is_superadmin || permissions?.can_edit_all),
+    canMoveNodes: Boolean(permissions?.can_move || permissions?.is_pm || permissions?.is_superadmin),
+  });
 
   const canChangeSupervisor = Boolean(permissions?.is_pm || permissions?.is_superadmin);
   const nodeCan = (node: PeopleAxisNode | null | undefined, capability: 'can_edit_person' | 'can_add_subordinate' | 'can_manage_permissions' | 'can_move_person') => {
@@ -588,95 +630,143 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
           /* 设计 ID 21 & ID 86：项目全貌画布容器                     */
           /* ========================================================= */
           <div className="h-full flex flex-col relative select-none">
-            {/* 顶部辅助操作栏 (纵向/横向切换与定位我) */}
-            <div className="flex items-center justify-between px-3 py-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-b border-slate-200/80 dark:border-slate-800 z-10 shrink-0">
-              <div className="flex items-center gap-2">
+            {/* 顶部工具栏（只占一行） */}
+            <div className="flex items-center justify-between px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200/80 dark:border-slate-800 z-10 shrink-0 gap-2">
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                {/* 方向切换（两段式） */}
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-0.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setOrientation('vertical')}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
+                      orientation === 'vertical'
+                        ? 'bg-white dark:bg-slate-900 text-[#0058BE] dark:text-blue-300 font-bold shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    纵向
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOrientation('horizontal')}
+                    className={`px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
+                      orientation === 'horizontal'
+                        ? 'bg-white dark:bg-slate-900 text-[#0058BE] dark:text-blue-300 font-bold shadow-sm'
+                        : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    横向
+                  </button>
+                </div>
+
+                {/* 定位我 */}
                 <button
                   type="button"
-                  onClick={() => setOrientation('vertical')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
-                    orientation === 'vertical'
-                      ? 'bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300 font-bold'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                  }`}
+                  onClick={handleLocateMe}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-[#0058BE] dark:text-blue-400 flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
                 >
-                  纵向
+                  <AppIcon name="user" size={13} />
+                  <span>定位我</span>
                 </button>
+
+                {/* 适应屏幕 */}
                 <button
                   type="button"
-                  onClick={() => setOrientation('horizontal')}
-                  className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
-                    orientation === 'horizontal'
-                      ? 'bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300 font-bold'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
-                  }`}
+                  data-testid="toolbar-fit-screen"
+                  onClick={handleFitScreen}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
+                  aria-label="适应屏幕"
                 >
-                  横向
+                  <AppIcon name="maximize" size={13} />
+                  <span>适应屏幕</span>
                 </button>
               </div>
 
-              <button
-                type="button"
-                onClick={handleLocateMe}
-                className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-[#0058BE] dark:text-blue-400 flex items-center gap-1 active:opacity-60 cursor-pointer"
-              >
-                <AppIcon name="user" size={13} />
-                定位我
-              </button>
+              {/* 右侧「⋯」菜单 */}
+              <div className="relative shrink-0" ref={moreMenuRef}>
+                <button
+                  type="button"
+                  aria-label="更多画布设置"
+                  onClick={() => setMoreMenuOpen(prev => !prev)}
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:opacity-60 cursor-pointer"
+                >
+                  <AppIcon name="more-horizontal" size={18} />
+                </button>
+
+                {moreMenuOpen && (
+                  <div className="absolute right-0 top-full mt-1.5 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-2 z-50 text-xs space-y-2">
+                    <div>
+                      <span className="text-[11px] text-slate-400 px-2 font-medium">连线样式</span>
+                      <div className="grid grid-cols-2 gap-1 mt-1">
+                        <button
+                          type="button"
+                          onClick={() => { setEdgeStyle('curve'); setMoreMenuOpen(false); }}
+                          className={`py-1.5 rounded-lg text-center font-medium cursor-pointer ${
+                            edgeStyle === 'curve'
+                              ? 'bg-blue-50 dark:bg-blue-950 text-[#0058BE] font-bold'
+                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                          }`}
+                        >
+                          曲线
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setEdgeStyle('straight'); setMoreMenuOpen(false); }}
+                          className={`py-1.5 rounded-lg text-center font-medium cursor-pointer ${
+                            edgeStyle === 'straight'
+                              ? 'bg-blue-50 dark:bg-blue-950 text-[#0058BE] font-bold'
+                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                          }`}
+                        >
+                          直线
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="border-t border-slate-100 dark:border-slate-800 pt-1.5">
+                      <span className="text-[11px] text-slate-400 px-2 font-medium">节点间距</span>
+                      <div className="grid grid-cols-3 gap-1 mt-1">
+                        {(['compact', 'standard', 'loose'] as AxisSpacing[]).map((sp) => (
+                          <button
+                            key={sp}
+                            type="button"
+                            onClick={() => { setSpacing(sp); setMoreMenuOpen(false); }}
+                            className={`py-1 rounded-lg text-center font-medium cursor-pointer ${
+                              spacing === sp
+                                ? 'bg-blue-50 dark:bg-blue-950 text-[#0058BE] font-bold'
+                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                            }`}
+                          >
+                            {sp === 'compact' ? '紧凑' : sp === 'standard' ? '标准' : '宽松'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="flex-1 w-full min-h-0 bg-[#eef2f7] dark:bg-[#151c24]">
-              <MobileAxisGraph key={`${pid}-${orientation}-${spacing}-${expandSubordinates}-${layoutRevision}`}
-                nodes={expandSubordinates ? axisNodes : axisNodes.filter(node => !node.parentId)}
-                orientation={orientation} spacing={spacing}
-                onReady={instance => { graphRef.current = instance; }} onZoomChange={setScale}
-                renderCard={node => {
-                  const nodeReport = !reportsLoadFailed ? latestReportByUser(agentReports, node.ownerUserIds?.[0]) : null;
-                  return (
-                    <CanvasPersonCard
-                      node={node}
-                      isSelf={node.id === selfNode?.id}
-                      isSelected={node.id === selectedNodeId}
-                      showAiStatus={showAiStatus && !reportsLoadFailed}
-                      reportStatus={nodeReport ? reportStatusLabel(nodeReport) : undefined}
-                      onClick={() => {}}
-                    />
-                  );
+            <div className="flex-1 w-full min-h-0 bg-[#eef2f7] dark:bg-[#151c24] relative">
+              <PeopleAxisFlowCanvas
+                lang="zh"
+                nodes={flowCanvas.rfNodes}
+                edges={flowCanvas.rfEdges}
+                orientation={orientation}
+                edgeStyle={edgeStyle}
+                linkingSourceNodeId={flowCanvas.linkingSourceNodeId}
+                onNodeDragStop={flowCanvas.handleNodeDragStop}
+                onPaneClick={() => {
+                  setSelectedNodeId(null);
+                  setPreviewNode(null);
                 }}
-                onSelect={node => { setSelectedNodeId(node.id); setPreviewNode(node); }} />
-            </div>
-
-            {/* 底部缩放控制浮层 (设计 ID 21 下方按钮) */}
-            <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between pointer-events-none z-10">
-              <div className="flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 shadow-md border border-slate-200/80 dark:border-slate-800 rounded-2xl p-1 pointer-events-auto">
-                <button
-                  type="button"
-                  aria-label="缩小画布"
-                  onClick={zoomOut}
-                  className="mobile-touch-target w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 active:opacity-60 cursor-pointer"
-                >
-                  <AppIcon name="chevron-down" size={18} />
-                </button>
-                <button
-                  type="button"
-                  onClick={zoomReset}
-                  className="px-2.5 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"
-                >
-                  {Math.round(scale * 100)}%
-                </button>
-                <button
-                  type="button"
-                  aria-label="放大画布"
-                  onClick={zoomIn}
-                  className="mobile-touch-target w-9 h-9 flex items-center justify-center rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 active:opacity-60 cursor-pointer"
-                >
-                  <AppIcon name="plus" size={18} />
-                </button>
-              </div>
-
-              <div className="bg-black/60 backdrop-blur-md text-white text-[11px] px-3 py-1.5 rounded-full pointer-events-none">
-                拖动卡片调整位置 · 双指缩放
-              </div>
+                onResetLayout={flowCanvas.resetAllDragOffsets}
+                onRequestReparent={flowCanvas.handleRequestReparent}
+                onShowToast={showToast}
+                mobile={true}
+                fitToken={fitToken}
+                centerMeToken={centerMeToken}
+              />
             </div>
           </div>
         )}
@@ -1064,6 +1154,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
         cancelLabel="取消"
         onConfirm={() => {
           setShowResetConfirm(false);
+          flowCanvas.resetAllDragOffsets();
           setLayoutRevision(revision => revision + 1);
           showToast('卡片布局已重置');
         }}
@@ -1076,109 +1167,14 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
           {toastMessage}
         </div>
       )}
-    </div>
-  );
-};
 
-// ==========================================
-// 子组件：画布人员卡片 (CanvasPersonCard)
-// ==========================================
-
-interface CanvasPersonCardProps {
-  node: PeopleAxisNode;
-  isSelf?: boolean;
-  isSelected?: boolean;
-  showAiStatus?: boolean;
-  reportStatus?: string;
-  onClick?: () => void;
-}
-
-const CanvasPersonCard: React.FC<CanvasPersonCardProps> = ({
-  node,
-  isSelf,
-  isSelected,
-  showAiStatus,
-  reportStatus,
-  onClick,
-}) => {
-  const summary = useMemo(() => summarizeCardTasks(node.workItems || [], new Date()), [node.workItems]);
-  const footText = useMemo(() => {
-    if (summary.total === 0) return '暂无任务';
-    if (summary.total <= 2) return `共 ${summary.total} 项`;
-    return `还有 ${summary.hiddenCount} 项，点开查看`;
-  }, [summary]);
-
-  return (
-    <div
-      onClick={onClick}
-      className={`w-[240px] rounded-2xl p-3 border text-left shadow-sm transition-all cursor-pointer select-none ${
-        node.isTerminalPM
-          ? 'border-amber-400 bg-amber-50/30 dark:bg-amber-950/20'
-          : isSelf
-          ? 'bg-blue-50/90 dark:bg-blue-950/80 border-blue-400 dark:border-blue-600 ring-2 ring-blue-300 dark:ring-blue-800'
-          : isSelected
-          ? 'bg-white dark:bg-slate-900 border-[#0058BE] ring-2 ring-blue-200'
-          : 'bg-white dark:bg-slate-900 border-slate-200/90 dark:border-slate-800'
-      }`}
-    >
-      <div className="flex items-center gap-2.5">
-        <div
-          className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
-            node.isTerminalPM
-              ? 'bg-amber-500 text-white'
-              : isSelf
-              ? 'bg-[#0058BE] text-white'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
-          }`}
-        >
-          {node.person.name.slice(0, 1)}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-              {node.person.name}
-            </strong>
-            {node.isTerminalPM && (
-              <span className="text-[10px] text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-1 py-0.5 rounded font-bold">
-                终责
-              </span>
-            )}
-            {isSelf && !node.isTerminalPM && (
-              <span className="text-[10px] text-[#0058BE] dark:text-blue-400 font-bold">我</span>
-            )}
-          </div>
-          <p className="text-[11px] text-slate-400 truncate mt-0.5">
-            {node.roleTitle || '岗位未指定'}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-1 text-[11px]">
-        {summary.visible.length === 0 ? (
-          <div className="text-slate-400 text-[10px]">暂无任务</div>
-        ) : (
-          summary.visible.map(item => (
-            <div key={item.id} className="flex items-center justify-between gap-1 text-slate-700 dark:text-slate-300">
-              <span className="truncate">{item.title}</span>
-              {item.dueDate ? (
-                <span className={`tabular-nums shrink-0 text-[10px] ${summary.overdueIds.has(item.id) ? 'text-red-500 font-semibold' : 'text-slate-400'}`}>
-                  {item.dueDate.slice(5, 10).replace('-', '/')}
-                </span>
-              ) : null}
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="mt-2 pt-1 border-t border-slate-100/60 dark:border-slate-800/50 text-[10px] text-slate-400 flex items-center justify-between">
-        <span>{footText}</span>
-        {showAiStatus && reportStatus && (
-          <span className="text-[#0058BE] dark:text-blue-400 flex items-center gap-0.5">
-            <AppIcon name="file" size={10} />
-            {reportStatus}
-          </span>
-        )}
-      </div>
+      {/* 换上级置顶确认框 */}
+      <ReparentConfirmDialog
+        confirm={flowCanvas.reparentConfirm}
+        lang="zh"
+        onConfirm={flowCanvas.handleConfirmReparent}
+        onCancel={flowCanvas.handleCancelReparent}
+      />
     </div>
   );
 };

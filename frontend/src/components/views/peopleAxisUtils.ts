@@ -296,3 +296,43 @@ export function reparentVerdict(
     reason: lang === 'zh' ? `松手设为「${tgt.person.name}」的下属` : `Release to set as subordinate of ${tgt.person.name}`,
   }
 }
+
+export interface CanvasCenterTargetNode {
+  id: string
+  parentId?: string | null
+  isTerminal?: boolean
+  isMine?: boolean
+  position: { x: number; y: number }
+}
+
+/**
+ * 计算进入画布或切换方向时的默认中心坐标。
+ * 规则严格按 MOBILE-SPEC 第 3 节：
+ * 优先以"我"（当前用户为 primary 责任人的节点）为中心；
+ * 找不到"我"则以根节点为中心；
+ * 均找不到则回退原点中心。
+ */
+export function calculateCanvasDefaultCenter(
+  nodes: CanvasCenterTargetNode[],
+  cardWidth = 240,
+  cardHeight = 168,
+): { x: number; y: number } {
+  if (!nodes || nodes.length === 0) {
+    return { x: cardWidth / 2, y: cardHeight / 2 }
+  }
+  const mine = nodes.find(n => Boolean(n.isMine))
+  if (mine && mine.position) {
+    return {
+      x: mine.position.x + cardWidth / 2,
+      y: mine.position.y + cardHeight / 2,
+    }
+  }
+  const root = nodes.find(n => !n.parentId || Boolean(n.isTerminal)) ?? nodes[0]
+  if (root && root.position) {
+    return {
+      x: root.position.x + cardWidth / 2,
+      y: root.position.y + cardHeight / 2,
+    }
+  }
+  return { x: cardWidth / 2, y: cardHeight / 2 }
+}

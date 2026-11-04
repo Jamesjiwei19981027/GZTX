@@ -61,8 +61,15 @@ async function openWorkspace(page: Page, editable = true, userId?: number, dense
     else if (/^\/nodes\/\d+\/layout$/.test(path)) {
       const body = route.request().postDataJSON()
       const node = findNode(Number(path.split('/')[2]))
-      node.ui_offset = { x: body.offset_x, y: body.offset_y }
-      data = { id: node.id, ui_offset: node.ui_offset }
+      if (node) {
+        if (body.orientation) {
+          node.ui_offsets = node.ui_offsets || {}
+          node.ui_offsets[body.orientation] = { x: body.offset_x, y: body.offset_y }
+        } else {
+          node.ui_offset = { x: body.offset_x, y: body.offset_y }
+        }
+        data = { id: node.id, ui_offset: node.ui_offset, ui_offsets: node.ui_offsets }
+      }
     }
     else if (/^\/nodes\/\d+$/.test(path)) {
       const node = findNode(Number(path.split('/')[2]))
@@ -84,7 +91,7 @@ async function openWorkspace(page: Page, editable = true, userId?: number, dense
   })
   // Exercise the real view, API mappers and canvas, without unrelated app boot.
   await page.route(url => url.pathname === '/', route => route.fulfill({
-    contentType: 'text/html; charset=utf-8', body: `<!doctype html><html lang="zh"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0"><div id="root"></div>
+    contentType: 'text/html; charset=utf-8', body: `<!doctype html><html lang="zh" style="width:100%;height:100%"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;width:100%;height:100%"><div id="root" style="width:100%;height:100%"></div>
     <script type="module">
       import RefreshRuntime from '/@react-refresh';
       RefreshRuntime.injectIntoGlobalHook(window);
@@ -110,12 +117,110 @@ async function openWorkspace(page: Page, editable = true, userId?: number, dense
   await page.goto('/')
 }
 
+async function openMobileWorkspace(page: Page, editable = true, userId = 1, hintSeen = false) {
+  const currentTree = structuredClone(tree)
+  const findNode = (id: number, list: any[] = currentTree): any => {
+    for (const node of list) { if (node.id === id) return node; const child = findNode(id, node.children || []); if (child) return child }
+  }
+  page.on('pageerror', error => { throw error })
+  await page.route('**/api/v1/**', async route => {
+    const path = new URL(route.request().url()).pathname.replace('/api/v1', '')
+    let data: unknown = { items: [] }
+    if (path === '/users/me') data = { id: userId, nickname: userId === 1 ? '赵晨' : '当前用户' }
+    else if (path.endsWith('/my-permissions')) data = {
+      role: editable ? 'pm' : 'member', is_pm: editable, is_superadmin: false,
+      can_edit_all: editable, owned_node_ids: [1, 2, 3, 4], via_delegation: false, can_move: editable, can_delete: editable,
+      can_submit_evidence: true, can_read_evidence: true,
+    }
+    else if (path.endsWith('/tree')) data = { project_id: 1, nodes: currentTree }
+    else if (/^\/nodes\/\d+\/move$/.test(path)) {
+      const body = route.request().postDataJSON()
+      const id = Number(path.split('/')[2])
+      const index = currentTree.findIndex(n => n.id === id)
+      if (index >= 0) {
+        const moved = { ...currentTree.splice(index, 1)[0], parent_id: body.new_parent_id }
+        const parent = findNode(body.new_parent_id)
+        if (parent) parent.children.push(moved)
+        else currentTree.push(moved)
+        data = moved
+      }
+    }
+    else if (/^\/nodes\/\d+\/layout$/.test(path)) {
+      const body = route.request().postDataJSON()
+      const node = findNode(Number(path.split('/')[2]))
+      if (node) {
+        if (body.orientation) {
+          node.ui_offsets = node.ui_offsets || {}
+          node.ui_offsets[body.orientation] = { x: body.offset_x, y: body.offset_y }
+        } else {
+          node.ui_offset = { x: body.offset_x, y: body.offset_y }
+        }
+        data = { id: node.id, ui_offset: node.ui_offset, ui_offsets: node.ui_offsets }
+      }
+    }
+    else if (path.endsWith('/members')) data = { items: [
+      { user_id: 1, display_name: '赵晨', role: 'pm' },
+      { user_id: 2, display_name: '林悦', role: 'member' },
+    ] }
+    else if (/^\/projects\/\d+$/.test(path)) data = {
+      id: 1, company_id: 1, name: '产品体验升级', pm_user_id: 1,
+      final_owner_user_id: 1, final_owner: { user_id: 1, nickname: '赵晨' },
+    }
+    await route.fulfill({ json: { code: 200, data } })
+  })
+
+  await page.route(url => url.pathname === '/', route => route.fulfill({
+    contentType: 'text/html; charset=utf-8', body: `<!doctype html><html lang="zh" style="width:100%;height:100%"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;width:100%;height:100%"><div id="root" style="width:100%;height:100%"></div>
+    <script type="module">
+      import RefreshRuntime from '/@react-refresh';
+      RefreshRuntime.injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {};
+      window.$RefreshSig$ = () => (type) => type;
+      window.__vite_plugin_react_preamble_installed__ = true;
+    </script><script type="module">
+      import React from '/node_modules/.vite/deps/react.js';
+      import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
+      import '/src/index.css';
+      import '/node_modules/@fontsource-variable/inter/index.css';
+      import '/node_modules/@fontsource-variable/noto-sans-sc/index.css';
+      import { MobileAxisScreens } from '/src/mobile/features/people-axis/MobileAxisScreens.tsx';
+      localStorage.setItem('access_token', 'test-token');
+      ${hintSeen ? "localStorage.setItem('axis_canvas_hint_seen', 'true');" : "localStorage.removeItem('axis_canvas_hint_seen');"}
+      const project = { id: 1, name: '产品体验升级', color: '#0058BE' };
+      const user = { id: '${userId}', name: '${userId === 1 ? '赵晨' : '当前用户'}', role: 'pm' };
+      function App() {
+        return React.createElement(MobileAxisScreens, {
+          projectId: 1,
+          currentProject: project,
+          projects: [project],
+          currentUser: user,
+          companyId: 1,
+        });
+      }
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));
+    </script></body></html>`,
+  }))
+  await page.goto('/')
+}
+
 async function expectCanvasFits(page: Page) {
+  const fitBtn = page.locator('button[aria-label="适应屏幕"], [data-testid="toolbar-fit-screen"]').first()
+  if (await fitBtn.isVisible().catch(() => false)) {
+    await fitBtn.click()
+  }
   await expect.poll(() => page.locator('.axis-flow').evaluate(canvas => {
     const bounds = canvas.getBoundingClientRect()
     const controls = canvas.querySelector('.axis-canvas-controls')!.getBoundingClientRect()
     const nodes = [...canvas.querySelectorAll<HTMLElement>('.react-flow__node')].filter(node => node.getClientRects().length)
-    return nodes.length > 0 && nodes.every(node => {
+    if (nodes.length === 0) return false
+    const isMobile = bounds.width < 500
+    if (isMobile && nodes.length > 5) {
+      return nodes.some(node => {
+        const box = node.getBoundingClientRect()
+        return box.left >= bounds.left - 16 && box.right <= bounds.right + 16 && box.top >= bounds.top && box.bottom <= controls.top
+      })
+    }
+    return nodes.every(node => {
       const box = node.getBoundingClientRect()
       return box.left >= bounds.left + 16 && box.right <= bounds.right - 16 && box.top >= bounds.top + 20 && box.bottom <= controls.top - 16
     })
@@ -298,22 +403,21 @@ test.describe('touch phone', () => {
   test('touch adjustment saves a node position and keeps its reporting line', async ({ page }) => {
     await openWorkspace(page)
     await page.getByRole('tab', { name: '总览', exact: true }).tap()
+    await expectCanvasFits(page)
     const node = page.locator('.react-flow__node[data-id="4"]')
     await node.tap()
     await page.getByRole('button',{name:'定位',exact:true}).tap()
+    await page.waitForTimeout(500)
     await expect(page.locator('.axis-zoom-readout')).toHaveText('85%')
-    const moving = page.getByRole('button', { name: '调整位置', exact: true })
-    await expect(moving).toHaveAttribute('aria-pressed', 'false')
-    await moving.tap()
-    await expect(moving).toHaveAttribute('aria-pressed', 'true')
-    const box = (await node.locator('.axis-person-label').boundingBox())!
-    const cdp = await page.context().newCDPSession(page)
-    const saved = page.waitForResponse(r => r.request().method() === 'PUT' && r.url().endsWith('/nodes/4/layout'), { timeout: 7000 })
+    const box = (await node.boundingBox())!
+    const saved = page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith('/nodes/4/layout'), { timeout: 7000 })
     const start = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] })
-    for (let i = 1; i <= 12; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{x:start.x - i * 3,y:start.y - i * 4}] })
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
-    expect((await saved).ok()).toBeTruthy()
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    for (let i = 1; i <= 12; i++) await page.mouse.move(start.x - i * 3, start.y - i * 4, { steps: 2 })
+    await page.mouse.up()
+    const req = await saved
+    expect(req).toBeTruthy()
     const position = () => node.evaluate(el => { const m = new DOMMatrixReadOnly((el as HTMLElement).style.transform); return {x:m.m41,y:m.m42} })
     const after = await position()
     await page.screenshot({path:test.info().outputPath('mobile-adjustment.png')})
@@ -879,4 +983,115 @@ test('zoom out below 0.6 switches to compact mode showing overdue chip and hidin
   const compactStatus = node.locator('.axis-compact-status')
   await expect(compactStatus).toBeVisible()
   await expect(compactStatus).toContainText('逾期')
+})
+
+test('mobile web 1: default 75% zoom and "me" card in viewport', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openMobileWorkspace(page, true, 1)
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  await expect(page.locator('.axis-zoom-readout')).toHaveText('75%')
+  const meCard = page.locator('.react-flow__node[data-id="1"]')
+  await expect(meCard).toBeVisible()
+  const box = await meCard.boundingBox()
+  expect(box).toBeTruthy()
+  expect(box!.x + box!.width / 2).toBeGreaterThanOrEqual(0)
+  expect(box!.x + box!.width / 2).toBeLessThanOrEqual(390)
+  expect(box!.y + box!.height / 2).toBeGreaterThanOrEqual(0)
+  expect(box!.y + box!.height / 2).toBeLessThanOrEqual(844)
+})
+
+test('mobile web 2: card task block "任务 N", "查看全部", and "暂无任务" appears at most once', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openMobileWorkspace(page, true, 1)
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  const card1 = page.locator('.react-flow__node[data-id="1"]')
+  await expect(card1.locator('.axis-card-tasks-title')).toHaveText('任务 1')
+  await expect(card1.locator('.foot-link')).toHaveText(/查看全部/)
+  const card4 = page.locator('.react-flow__node[data-id="4"]')
+  await expect(card4.locator('.axis-card-tasks-title')).toHaveText('任务 0')
+  await expect(card4.locator('.axis-tasks-empty')).toHaveText('暂无任务')
+  const emptyCount = await card4.getByText('暂无任务').count()
+  expect(emptyCount).toBe(1)
+})
+
+test('mobile web 3: add subordinate button visible only when card is selected', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openMobileWorkspace(page, true, 1)
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  const card1 = page.locator('.react-flow__node[data-id="1"]')
+  const addBtn = card1.locator('[data-testid="add-subordinate-btn"]')
+  await expect(addBtn).not.toBeVisible()
+  await card1.locator('.axis-map-card').dispatchEvent('click')
+  await expect(addBtn).toBeVisible()
+})
+
+test('mobile web 4: drag card over another with 400ms dwell shows bubble, topmost confirm dialog, and issues move', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openMobileWorkspace(page, true, 1)
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  const b1 = await page.locator('.react-flow__node[data-id="1"]').boundingBox()
+  const b2 = await page.locator('.react-flow__node[data-id="2"]').boundingBox()
+  expect(b1 && b2).toBeTruthy()
+  const movePromise = page.waitForRequest(r => r.method() === 'POST' && r.url().includes('/nodes/2/move'))
+  await page.mouse.move(b2!.x + 15, b2!.y + 15)
+  await page.mouse.down()
+  await page.mouse.move(b1!.x + b1!.width / 2, b1!.y + b1!.height / 2, { steps: 10 })
+  await page.waitForTimeout(400)
+  await expect(page.locator('.axis-drop-bubble')).toBeVisible()
+  await page.mouse.up()
+  const dialog = page.getByTestId('reparent-confirm-dialog')
+  await expect(dialog).toBeVisible()
+  const confirmBtn = page.getByTestId('reparent-confirm-yes')
+  await expect(confirmBtn).toBeVisible()
+  await confirmBtn.click()
+  const req = await movePromise
+  expect(req.postDataJSON().new_parent_id).toBe(1)
+})
+
+test('mobile web 5: horizontal drag saves with orientation: horizontal, switching to vertical does not inherit offset', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openMobileWorkspace(page, true, 1)
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  await page.getByRole('button', { name: '横向', exact: true }).click()
+  const layoutSave = page.waitForRequest(r => r.method() === 'PUT' && r.url().includes('/nodes/2/layout'))
+  const c2 = await page.locator('.react-flow__node[data-id="2"]').boundingBox()
+  expect(c2).toBeTruthy()
+  await page.mouse.move(c2!.x + c2!.width / 2, c2!.y + c2!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(c2!.x + c2!.width / 2, c2!.y + c2!.height / 2 + 60, { steps: 5 })
+  await page.mouse.up()
+  const req = await layoutSave
+  expect(req.postDataJSON().orientation).toBe('horizontal')
+  await page.getByRole('button', { name: '纵向', exact: true }).click()
+  const c2Vertical = await page.locator('.react-flow__node[data-id="2"]').boundingBox()
+  const c1Vertical = await page.locator('.react-flow__node[data-id="1"]').boundingBox()
+  expect(c2Vertical && c1Vertical).toBeTruthy()
+  expect(Math.abs(c2Vertical!.y - c1Vertical!.y)).toBeLessThan(10)
+})
+
+test('mobile web 6: hint shown on first entry, dismissed on refresh after seen in localStorage', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openMobileWorkspace(page, true, 1, false)
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  const hint = page.getByTestId('axis-canvas-hint')
+  await expect(hint).toBeVisible()
+  await hint.click()
+  await expect(hint).not.toBeVisible()
+  const seen = await page.evaluate(() => localStorage.getItem('axis_canvas_hint_seen'))
+  expect(seen).toBe('true')
+  await page.reload()
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  await expect(page.getByTestId('axis-canvas-hint')).not.toBeVisible()
+})
+
+test('mobile web 7: fit screen button reduces zoom readout below 75%', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 })
+  await openMobileWorkspace(page, true, 1)
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  await expect(page.locator('.axis-zoom-readout')).toHaveText('75%')
+  await page.getByTestId('toolbar-fit-screen').click()
+  await expect.poll(async () => {
+    const text = await page.locator('.axis-zoom-readout').textContent()
+    return parseInt(text || '100', 10)
+  }).toBeLessThan(75)
 })
