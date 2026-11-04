@@ -144,6 +144,7 @@ test.describe('live touch phone', () => {
     await detail.getByRole('button', { name: '管理责任关系', exact: true }).tap()
     const moveResponse = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/nodes/${id}/move`))
     await page.locator('.react-flow__node[data-id="5"]').tap()
+    await page.getByTestId('reparent-confirm-yes').tap()
     expect((await (await moveResponse).json()).code).toBe(200)
     await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
     const persisted = (await tree(request, headers)).find(n => n.id === 5)!

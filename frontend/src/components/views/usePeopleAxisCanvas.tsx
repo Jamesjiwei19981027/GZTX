@@ -369,7 +369,11 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     await executeReparent(sourceId, targetId)
   }, [reparentConfirm, executeReparent])
 
-  const handleCancelReparent = useCallback(() => setReparentConfirm(null), [])
+  const handleCancelReparent = useCallback(() => {
+    setReparentConfirm(null)
+    setLinkingSourceNodeId(null)
+    setLinkingHoveredTargetId(null)
+  }, [])
 
   // 连线模式下点目标卡片（拖放之外的备用路径）
   const handleConnectToTarget = useCallback((targetNodeId: string) => {
@@ -388,8 +392,8 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
       toast(zh ? '项目成员不能挂到下级自建人员下面' : 'Project members cannot be assigned under self-added personnel')
       return
     }
-    void executeReparent(linkingSourceNodeId, targetNodeId)
-  }, [linkingSourceNodeId, isBackendProject, canMoveNodes, nodes, executeReparent, toast, zh])
+    handleRequestReparent(linkingSourceNodeId, targetNodeId)
+  }, [linkingSourceNodeId, isBackendProject, canMoveNodes, nodes, handleRequestReparent, toast, zh])
 
   // ===== 构建画布节点 =====
   const rfNodes = useMemo<AxisFlowNode[]>(() => {

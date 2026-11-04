@@ -371,32 +371,128 @@ test('creating an item from the phone sheet targets the selected owner', async (
 test('relationship action opens overview, can cancel and assigns the chosen parent', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await openWorkspace(page)
-  const start = async () => {
-    await page.getByTestId('axis-chain-node-2').click()
+  let moveSent = false
+  page.on('request', r => { if (r.method() === 'POST' && r.url().endsWith('/move')) moveSent = true })
+
+  const startForNode = async (id: number) => {
+    await page.getByTestId(`axis-chain-node-${id}`).click()
     await page.getByRole('dialog', { name: '节点详情' }).getByRole('button', { name: '管理责任关系', exact: true }).click()
     await expect(page.getByRole('tab', { name: '总览', exact: true })).toHaveAttribute('aria-selected', 'true')
     await expect(page.getByRole('dialog', { name: '节点详情' })).toHaveCount(0)
     await expect(page.getByText('点击人员设为直属上级', { exact: true })).toBeVisible()
     await expectCanvasFits(page)
   }
-  await start()
+
+  // 1. 验证取消连线按钮
+  await startForNode(2)
   await page.getByRole('button', { name: '取消连线', exact: true }).click()
   await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
+
+  // 2. 验证离开总览取消连线模式
   await page.getByRole('tab', { name: '责任链', exact: true }).click()
-  await start()
-  // Leaving overview cancels relationship mode; a chain card must open details.
+  await startForNode(2)
   await page.getByRole('tab', { name: '责任链', exact: true }).click()
   await page.getByTestId('axis-chain-node-2').click()
   await expect(page.getByRole('dialog', { name: '节点详情' })).toBeVisible()
   await page.getByRole('dialog', { name: '节点详情' }).getByRole('button', { name: '管理责任关系', exact: true }).click()
   await expectCanvasFits(page)
-  const request = page.waitForRequest(req => req.method() === 'POST' && req.url().endsWith('/nodes/2/move'))
+
+  // 3. 进入连线模式点合法目标 → 出现确认框，此时没有发出 move 请求
+  const confirmDialog = page.getByTestId('reparent-confirm-dialog')
   await page.locator('.react-flow__node[data-id="3"]').click()
+  await expect(confirmDialog).toBeVisible()
+  await expect(confirmDialog).toContainText('林悦')
+  await expect(confirmDialog).toContainText('陈宇')
+  expect(moveSent).toBeFalsy()
+
+  // 4. 点「取消」→ 没有 move 请求，连线模式退出，卡片高亮不残留
+  await page.getByTestId('reparent-confirm-no').click()
+  await expect(confirmDialog).toHaveCount(0)
+  expect(moveSent).toBeFalsy()
+  await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
+  await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card')).not.toHaveClass(/is-link-source/)
+  await expect(page.locator('.react-flow__node[data-id="3"] .axis-map-card')).not.toHaveClass(/is-link-target/)
+
+  // 5. 点非法目标（节点 3 试图连线到自己的下属节点 4）→ 不出现确认框，显示原有提示
+  await page.getByRole('tab', { name: '责任链', exact: true }).click()
+  await startForNode(3)
+  await page.locator('.react-flow__node[data-id="4"]').click()
+  await expect(confirmDialog).toHaveCount(0)
+  await expect(page.getByText('不能挂载到自己的下属节点上')).toBeVisible()
+  expect(moveSent).toBeFalsy()
+  await page.getByRole('button', { name: '取消连线', exact: true }).click()
+
+  // 6. 再来一次点「确定」→ 发出一次 move，且 new_parent_id 正确
+  await page.getByRole('tab', { name: '责任链', exact: true }).click()
+  await startForNode(2)
+  await page.locator('.react-flow__node[data-id="3"]').click()
+  await expect(confirmDialog).toBeVisible()
+  const request = page.waitForRequest(req => req.method() === 'POST' && req.url().endsWith('/nodes/2/move'))
+  await page.getByTestId('reparent-confirm-yes').click()
   expect((await request).postDataJSON()).toMatchObject({ new_parent_id: 3 })
+  await expect(confirmDialog).toHaveCount(0)
   await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
   await page.getByRole('tab', { name: '责任链', exact: true }).click()
   const parent = page.getByTestId('axis-chain-node-3').locator('xpath=../..')
   await expect(parent.getByTestId('axis-chain-node-2')).toBeVisible()
+})
+
+test('desktop link mode requires confirmation, cancels cleanly and executes on confirm', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await openWorkspace(page)
+  let moveSent = false
+  page.on('request', r => { if (r.method() === 'POST' && r.url().endsWith('/move')) moveSent = true })
+
+  const node2 = page.locator('.react-flow__node[data-id="2"]')
+  const node3 = page.locator('.react-flow__node[data-id="3"]')
+  const node4 = page.locator('.react-flow__node[data-id="4"]')
+  const confirmDialog = page.getByTestId('reparent-confirm-dialog')
+
+  // 1. 桌面端进入连线模式（节点 2）点合法目标（节点 3）→ 出现确认框，此时没有发出 move 请求
+  await node2.click()
+  await page.getByRole('button', { name: '管理责任关系', exact: true }).click()
+  await expect(node2.locator('.axis-map-card')).toHaveClass(/is-link-source/)
+  await expect(page.getByText('点击人员设为直属上级', { exact: true })).toBeVisible()
+
+  await node3.click()
+  await expect(confirmDialog).toBeVisible()
+  await expect(confirmDialog).toContainText('林悦')
+  await expect(confirmDialog).toContainText('陈宇')
+  expect(moveSent).toBeFalsy()
+
+  // 2. 点「取消」→ 没有 move 请求，连线模式退出，来源与目标卡片高亮不残留
+  await page.getByTestId('reparent-confirm-no').click()
+  await expect(confirmDialog).toHaveCount(0)
+  expect(moveSent).toBeFalsy()
+  await expect(node2.locator('.axis-map-card')).not.toHaveClass(/is-link-source/)
+  await expect(node3.locator('.axis-map-card')).not.toHaveClass(/is-link-target/)
+  await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
+
+  // 3. 点非法目标（节点 3 试图连线到自己的下属节点 4）→ 不出现确认框，显示原有提示
+  await node3.click()
+  await page.getByRole('button', { name: '管理责任关系', exact: true }).click()
+  await expect(node3.locator('.axis-map-card')).toHaveClass(/is-link-source/)
+
+  await node4.click()
+  await expect(confirmDialog).toHaveCount(0)
+  await expect(page.getByText('不能挂载到自己的下属节点上')).toBeVisible()
+  expect(moveSent).toBeFalsy()
+  await page.getByRole('button', { name: '取消连线', exact: true }).click()
+  await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
+
+  // 4. 再来一次点「确定」→ 发出一次 move，且 new_parent_id 正确
+  await node2.click()
+  await page.getByRole('button', { name: '管理责任关系', exact: true }).click()
+  await expect(node2.locator('.axis-map-card')).toHaveClass(/is-link-source/)
+
+  await node3.click()
+  await expect(confirmDialog).toBeVisible()
+  const moveRequest = page.waitForRequest(r => r.method() === 'POST' && r.url().endsWith('/nodes/2/move'))
+  await page.getByTestId('reparent-confirm-yes').click()
+  const req = await moveRequest
+  expect(req.postDataJSON()).toMatchObject({ new_parent_id: 3 })
+  await expect(confirmDialog).toHaveCount(0)
+  await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
 })
 
 test.describe('touch phone', () => {
@@ -557,6 +653,7 @@ test.describe('dense touch hierarchy', () => {
     await expectCanvasFits(page)
     const moved = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/nodes/2/move'), { timeout: 7000 })
     await page.locator('.react-flow__node[data-id="3"]').tap()
+    await page.getByTestId('reparent-confirm-yes').tap()
     expect((await moved).ok()).toBeTruthy()
     await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
   })
