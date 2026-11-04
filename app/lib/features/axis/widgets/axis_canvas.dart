@@ -595,6 +595,7 @@ class _AxisCanvasState extends State<AxisCanvas>
         ),
       ),
       textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
       maxLines: 1,
     )..layout();
 
@@ -732,31 +733,31 @@ class _AxisCanvasState extends State<AxisCanvas>
           padding: isCompact
               ? const EdgeInsets.symmetric(horizontal: 20, vertical: 22)
               : const EdgeInsets.fromLTRB(12, 10, 12, 8),
-                decoration: BoxDecoration(
-                  color: background,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: borderColor, width: borderWidth),
-                  boxShadow: shadows,
-                ),
-                child: MediaQuery.withClampedTextScaling(
-                  maxScaleFactor: 1.15,
-                  child: isCompact
-                      ? _buildCompactCard(node, isRoot, isDark)
-                      : _buildFullCard(
-                          node: node,
-                          summary: summary,
-                          isRoot: isRoot,
-                          isMe: isMe,
-                          isSelfAdded: isSelfAdded,
-                          selected: selected,
-                          canAddSubordinate: canAddSubordinate,
-                          showMore: showMore,
-                          subordinatesCount: subordinatesCount,
-                          isDark: isDark,
-                        ),
-                ),
-              ),
-            ),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor, width: borderWidth),
+            boxShadow: shadows,
+          ),
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.15,
+            child: isCompact
+                ? _buildCompactCard(node, isRoot, isDark)
+                : _buildFullCard(
+                    node: node,
+                    summary: summary,
+                    isRoot: isRoot,
+                    isMe: isMe,
+                    isSelfAdded: isSelfAdded,
+                    selected: selected,
+                    canAddSubordinate: canAddSubordinate,
+                    showMore: showMore,
+                    subordinatesCount: subordinatesCount,
+                    isDark: isDark,
+                  ),
+          ),
+        ),
+      ),
     );
   }
 
