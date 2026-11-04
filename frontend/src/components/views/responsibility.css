@@ -2,25 +2,27 @@
 .axis-theme {
   --axis-bg: #f5f6f8; --axis-card: #fff; --axis-ink: #19202b; --axis-muted: #78818e;
   --axis-line: #e8ecf1; --axis-soft: #f2f5f9; --axis-blue: #0058be; --axis-tint: #eaf3ff;
-  --axis-green: #31ae7a; --axis-dot: #dfe5ed; --axis-branch: #8daed5; --axis-extension: #278c7f;
+  --axis-green: #1e8e3e; --axis-dot: #dfe5ed; --axis-branch: #8daed5; --axis-extension: #278c7f;
+  --axis-amber: #d98a00; --axis-amber-soft: #fff4dc;
+  --axis-red: #d93025; --axis-red-soft: #fdecea;
+  --axis-green-soft: #e6f4ea;
+  --axis-task-bg: #f3f7fd;
   color: var(--axis-ink); font-family: -apple-system, BlinkMacSystemFont, 'Inter Variable', 'Noto Sans SC Variable', 'Segoe UI', sans-serif;
   font-size: 14px; line-height: 1.5; -webkit-tap-highlight-color: transparent;
 }
 
-/* People axis card task summary and root emphasis */
-.axis-map-card.is-terminal { border-color: #d99a35; }
-.axis-terminal-badge { color: #a66b00 !important; background: #fff1cc !important; }
-.axis-card-tasks { display: flex; flex-direction: column; gap: 4px; min-height: 28px; font-size: 11px; }
-.axis-card-task { display: flex; justify-content: space-between; gap: 8px; min-width: 0; }
-.axis-card-task time { color: var(--axis-muted); font-variant-numeric: tabular-nums; }
-.axis-card-task time.is-overdue { color: #c43d3d; font-weight: 650; }
-.axis-card-empty { color: var(--axis-muted); }
-.axis-map-card-foot { width: 100%; border: 0; background: transparent; padding: 0; text-align: left; cursor: pointer; }
+/* People axis card root emphasis */
+.axis-map-card.is-terminal { border-color: var(--axis-amber, #d98a00); }
+.axis-terminal-badge { color: var(--axis-amber) !important; background: var(--axis-amber-soft) !important; }
 .axis-multi-root-notice { margin: 8px 20px; padding: 9px 12px; border-radius: 10px; background: #fff1cc; color: #8a5a00; font-size: 12px; }
 .dark .axis-theme, .axis-theme:where(.dark *) {
   --axis-bg: #14181e; --axis-card: #1d232c; --axis-ink: #eef2f8; --axis-muted: #a0a9b7;
   --axis-line: #303844; --axis-soft: #242c36; --axis-blue: #80b7ff; --axis-tint: #21344e;
   --axis-green: #57c99a; --axis-dot: #333c49; --axis-branch: #6485ad; --axis-extension: #6ad3bd;
+  --axis-amber: #f5a623; --axis-amber-soft: #382d1a;
+  --axis-red: #ff6b6b; --axis-red-soft: #3d1e22;
+  --axis-green-soft: #1d3329;
+  --axis-task-bg: #212936;
 }
 .axis-theme button, .axis-theme select, .axis-theme input { font: inherit; }
 .axis-theme button { cursor: pointer; touch-action: manipulation; }
@@ -90,16 +92,389 @@
 .axis-view-panel { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 .axis-overview { height: 100%; width: 100%; position: relative; }
 .axis-flow { background: transparent; }
-.axis-map-card { background: var(--axis-card); border: 1px solid var(--axis-line); border-radius: 20px; box-shadow: 0 3px 14px #15233809; padding: 16px; cursor: pointer; display: flex; flex-direction: column; gap: 13px; color: var(--axis-ink); position: relative; transition: border-color .18s, box-shadow .18s; }
-.axis-map-card.is-selected { border-color: var(--axis-blue); box-shadow: 0 0 0 3px color-mix(in srgb, var(--axis-blue) 9%, transparent), 0 4px 16px #1523380b; }
-.axis-map-card.is-subordinate, .axis-chain-card.is-subordinate { border-style: dashed; border-color: color-mix(in srgb, var(--axis-extension) 48%, var(--axis-line)); }
+.axis-map-card {
+  width: 240px;
+  height: 168px;
+  background: var(--axis-card);
+  border: 1px solid var(--axis-line);
+  border-radius: 14px;
+  box-shadow: 0 2px 6px rgba(20, 40, 80, 0.06);
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  cursor: grab;
+  user-select: none;
+  position: relative;
+  transition: box-shadow 0.15s, border-color 0.15s;
+  box-sizing: border-box;
+}
+.axis-map-card:hover {
+  box-shadow: 0 6px 18px rgba(20, 40, 80, 0.12);
+}
+.axis-map-card.is-terminal {
+  border: 1.5px solid var(--axis-amber);
+}
+.axis-map-card.is-selected {
+  border-color: var(--axis-blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--axis-blue) 16%, transparent), 0 4px 16px rgba(20, 40, 80, 0.12);
+}
+.axis-map-card.drop-ok {
+  border: 2px solid var(--axis-green) !important;
+  box-shadow: 0 0 0 4px var(--axis-green-soft) !important;
+}
+.axis-map-card.drop-bad {
+  border: 2px solid var(--axis-red) !important;
+  box-shadow: 0 0 0 4px var(--axis-red-soft) !important;
+}
+.axis-drop-tip {
+  position: absolute;
+  left: 50%;
+  top: -30px;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  color: #fff;
+  pointer-events: none;
+  z-index: 60;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.drop-ok .axis-drop-tip {
+  background: var(--axis-green);
+}
+.drop-bad .axis-drop-tip {
+  background: var(--axis-red);
+}
+
+/* 头部 (高约 40) */
+.axis-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  position: relative;
+  padding-right: 64px;
+}
+.axis-card-avatar {
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--axis-tint);
+  color: var(--axis-blue);
+  display: grid;
+  place-items: center;
+  font-weight: 600;
+  font-size: 14px;
+  overflow: hidden;
+}
+.axis-card-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.axis-card-who {
+  flex: 1;
+  min-width: 0;
+}
+.axis-card-name {
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  color: var(--axis-ink);
+}
+.axis-card-name strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.axis-card-role {
+  font-size: 11px;
+  color: var(--axis-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+.axis-card-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 6px;
+  line-height: 16px;
+  flex-shrink: 0;
+}
+.axis-card-tag.final {
+  background: var(--axis-amber-soft);
+  color: var(--axis-amber);
+}
+.axis-card-tag.me {
+  background: var(--axis-tint);
+  color: var(--axis-blue);
+}
+.axis-card-tag.self-added {
+  background: var(--axis-soft);
+  color: var(--axis-muted);
+  font-weight: 500;
+}
+
+/* 右上角按钮组 */
+.axis-card-corner {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  position: absolute;
+  right: 0;
+  top: 4px;
+}
+.axis-card-icon-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 8px;
+  border: 1px solid var(--axis-line);
+  background: var(--axis-card);
+  color: var(--axis-muted);
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s, border-color 0.15s, color 0.15s;
+}
+.axis-card-icon-btn.add {
+  color: var(--axis-blue);
+  border-color: color-mix(in srgb, var(--axis-blue) 35%, var(--axis-line));
+  background: var(--axis-tint);
+}
+.axis-card-icon-btn:hover {
+  border-color: var(--axis-blue);
+  color: var(--axis-blue);
+}
+.axis-map-card.is-selected .axis-card-icon-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: hover) {
+  .axis-map-card:hover .axis-card-icon-btn {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* ⋯ 菜单 */
+.axis-card-menu {
+  position: absolute;
+  right: 0;
+  top: 32px;
+  background: var(--axis-card);
+  border: 1px solid var(--axis-line);
+  border-radius: 10px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.14);
+  padding: 4px;
+  z-index: 70;
+  min-width: 150px;
+}
+.axis-card-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: none;
+  padding: 7px 10px;
+  font-size: 12px;
+  color: var(--axis-ink);
+  border-radius: 7px;
+  cursor: pointer;
+}
+.axis-card-menu button:hover {
+  background: var(--axis-tint);
+  color: var(--axis-blue);
+}
+
+/* 任务区 */
+.axis-card-tasks-panel {
+  margin-top: 6px;
+  background: var(--axis-task-bg);
+  border-radius: 10px;
+  padding: 5px 8px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  border-left: 3px solid var(--axis-blue);
+  min-height: 0;
+  overflow: hidden;
+}
+.axis-card-tasks-title {
+  font-size: 10px;
+  color: var(--axis-blue);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.axis-task-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  height: 20px;
+  cursor: pointer;
+  border-radius: 6px;
+  min-width: 0;
+}
+.axis-task-row:hover .axis-task-title {
+  color: var(--axis-blue);
+  text-decoration: underline;
+}
+.axis-task-dot {
+  flex: 0 0 7px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9aa6b6;
+}
+.axis-task-dot.over {
+  background: var(--axis-red);
+}
+.axis-task-dot.today {
+  background: var(--axis-amber);
+}
+.axis-task-dot.done {
+  background: var(--axis-green);
+}
+.axis-task-title {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--axis-ink);
+}
+.axis-task-chip {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--axis-card);
+  color: var(--axis-muted);
+  line-height: 17px;
+  border: 1px solid var(--axis-line);
+}
+.axis-task-chip.over {
+  background: var(--axis-red-soft);
+  color: var(--axis-red);
+  border-color: color-mix(in srgb, var(--axis-red) 35%, var(--axis-line));
+  font-weight: 600;
+}
+.axis-task-chip.today {
+  background: var(--axis-amber-soft);
+  color: var(--axis-amber);
+  border-color: color-mix(in srgb, var(--axis-amber) 35%, var(--axis-line));
+  font-weight: 600;
+}
+.axis-tasks-empty {
+  font-size: 12px;
+  color: var(--axis-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+/* 底部一行 */
+.axis-card-foot-row {
+  height: 20px;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--axis-blue);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.axis-card-foot-row a, .axis-card-foot-row button.foot-link {
+  color: var(--axis-blue);
+  text-decoration: none;
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 500;
+}
+.axis-card-foot-row a:hover, .axis-card-foot-row button.foot-link:hover {
+  text-decoration: underline;
+}
+.axis-card-subordinate-toggle {
+  font-size: 11px;
+  color: var(--axis-muted);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.axis-card-subordinate-toggle:hover {
+  color: var(--axis-ink);
+}
+
+/* 精简模式 (zoom < 0.6) */
+.axis-map-card.is-compact {
+  padding: 22px 20px;
+}
+.axis-map-card.is-compact .axis-card-head {
+  height: auto;
+  padding-right: 0;
+}
+.axis-map-card.is-compact .axis-card-avatar {
+  flex-basis: 64px;
+  width: 64px;
+  height: 64px;
+  font-size: 28px;
+}
+.axis-map-card.is-compact .axis-card-name {
+  font-size: 30px;
+  gap: 10px;
+}
+.axis-map-card.is-compact .axis-card-tag.final {
+  font-size: 20px;
+  padding: 2px 10px;
+  line-height: 28px;
+}
+.axis-compact-status {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+}
+.axis-compact-over {
+  background: var(--axis-red);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 12px;
+}
+.axis-compact-ok {
+  color: var(--axis-green);
+  font-size: 24px;
+  font-weight: 600;
+}
+.axis-compact-count {
+  color: var(--axis-muted);
+  font-size: 22px;
+}
+
 .axis-origin-badge { display: inline-flex; flex-shrink: 0; border: 1px solid var(--axis-line); border-radius: 6px; color: var(--axis-muted); padding: 1px 5px; font-size: 9px; font-weight: 500; }
 .axis-origin-badge.is-subordinate { color: var(--axis-extension); border-color: color-mix(in srgb, var(--axis-extension) 24%, transparent); background: color-mix(in srgb, var(--axis-extension) 7%, var(--axis-card)); }
-.axis-subordinate-port { position: absolute; width: 28px; height: 28px; min-width: 28px; display: grid; place-items: center; padding: 0; border: 1.5px dashed var(--axis-extension); background: var(--axis-card); color: var(--axis-extension); border-radius: 50%; z-index: 2; }
-.axis-subordinate-port.is-horizontal { right: -15px; bottom: 26px; }.axis-subordinate-port.is-vertical { bottom: -15px; right: 36px; }
-.axis-subordinate-port:disabled { opacity: .7; pointer-events: none; }
-.axis-attachment-legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 0 20px 8px; color: var(--axis-muted); font-size: 10px; flex-shrink: 0; }
-.axis-attachment-legend span { display: inline-flex; align-items: center; gap: 5px; }.axis-attachment-legend i { display: inline-block; width: 18px; border-top: 2px solid var(--axis-blue); }.axis-attachment-legend .is-subordinate { color: var(--axis-extension); }.axis-attachment-legend .is-subordinate i { border-color: var(--axis-extension); border-top-style: dashed; }
 .axis-chain-branch.is-child.is-subordinate { border-left: 1px dashed var(--axis-extension); }.axis-chain-branch.is-subordinate:before { border-color: var(--axis-extension); }
 .axis-node-permissions { display: flex; flex-wrap: wrap; gap: 6px; }.axis-node-permissions > span { padding: 4px 7px; border-radius: 7px; font-size: 10px; background: var(--axis-soft); color: var(--axis-muted); }.axis-node-permissions > .is-allowed { color: var(--axis-extension); background: color-mix(in srgb, var(--axis-extension) 8%, var(--axis-card)); }
 .axis-permission-fields { min-width: 0; display: flex; flex-direction: column; gap: 12px; padding: 15px; margin: 0; border: 1px solid var(--axis-line); border-radius: 16px; background: var(--axis-soft); }.axis-permission-fields legend { padding: 0 5px; font-size: 12px; font-weight: 600; color: var(--axis-ink); }
@@ -107,10 +482,6 @@
 .axis-permission-fields .axis-permission-toggle { flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; }.axis-permission-fields .axis-permission-toggle input { width: 20px; height: 20px; min-height: 0; flex-shrink: 0; accent-color: var(--axis-blue); }
 .axis-map-card.is-link-source { border: 2px solid var(--axis-blue); }
 .axis-map-card.is-link-target:hover { border-color: var(--axis-green); box-shadow: 0 0 0 3px #31ae7a22; }
-.axis-node-actions { display: flex; align-items: center; gap: 5px; min-height: 32px; margin-top: auto; visibility: hidden; }
-.axis-node-actions.is-active { visibility: visible; }
-@media (hover: hover) { .axis-map-card:hover .axis-node-actions { visibility: visible; } }
-.axis-node-actions button { min-height: 32px; padding: 4px 7px; display: inline-flex; align-items: center; gap: 3px; border: 0; border-radius: 9px; background: var(--axis-tint); color: var(--axis-blue); font-size: 10px; white-space: nowrap; }
 .axis-person-management { display: flex; flex-wrap: wrap; gap: 8px; }
 .axis-chain-management, .axis-preview-management { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 0 8px; border-top: 1px solid var(--axis-line); }
 .axis-chain-management button, .axis-preview-management button { display: inline-flex; flex: 1; align-items: center; justify-content: center; gap: 5px; min-height: 44px; padding: 5px; border: 0; background: transparent; color: var(--axis-blue); font-size: 11px; white-space: nowrap; }
@@ -255,3 +626,44 @@
 .axis-quick-actions { display: flex; gap: 12px; padding: 0 20px 12px; flex-shrink: 0; }
 .axis-quick-actions .axis-settings-row { width: auto; min-height: 44px; padding: 10px 16px; border-radius: 12px; background: var(--axis-panel, rgba(0, 88, 190, .06)); }
 @media (max-width: 767px) { .axis-quick-actions { padding: 0 16px 8px; gap: 8px; }.axis-quick-actions .axis-settings-row { flex: 1; justify-content: center; font-size: 12px; padding: 8px; } }
+
+/* 换上级确认对话框 */
+.axis-dialog-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 25, 40, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.axis-reparent-dialog {
+  background: var(--axis-card);
+  color: var(--axis-ink);
+  border-radius: 16px;
+  padding: 24px;
+  width: min(380px, 90vw);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--axis-line);
+}
+.axis-reparent-dialog h3 {
+  margin: 0 0 10px;
+  font-size: 17px;
+  font-weight: 650;
+}
+.axis-reparent-dialog p {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: var(--axis-muted);
+  line-height: 1.6;
+}
+.axis-reparent-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.axis-toolbar-hint {
+  font-size: 12px;
+  color: var(--axis-muted);
+  white-space: nowrap;
+}

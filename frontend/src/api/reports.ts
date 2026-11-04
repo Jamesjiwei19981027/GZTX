@@ -148,3 +148,40 @@ export async function rollupAgentReports(projectId: number) {
   )
 }
 
+export function latestReportByUser(
+  reports: AgentReport[],
+  userId: number | string | null | undefined,
+): AgentReport | null {
+  if (userId == null) return null
+  const matched = reports.filter(r => String(r.author_user_id) === String(userId))
+  if (matched.length === 0) return null
+  return [...matched].sort((a, b) => {
+    const timeA = a.submitted_at || a.created_at || ''
+    const timeB = b.submitted_at || b.created_at || ''
+    if (timeA && timeB && timeA !== timeB) return timeB.localeCompare(timeA)
+    return (b.id || 0) - (a.id || 0)
+  })[0]
+}
+
+export function reportStatusLabel(
+  report: AgentReport | null | undefined,
+  now: Date = new Date(),
+): string {
+  void now
+  if (!report) return '暂无汇报'
+  if (report.status === 'draft') {
+    const count = report.source_count ?? (report.sources ? report.sources.length : 0)
+    return `草稿待提交 · ${count} 条来源`
+  }
+  const timeStr = report.submitted_at || report.created_at
+  if (!timeStr) return '已提交'
+  const d = new Date(timeStr)
+  if (isNaN(d.getTime())) return '已提交'
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  const hh = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return `${mm}-${dd} ${hh}:${min} 已提交`
+}
+
+

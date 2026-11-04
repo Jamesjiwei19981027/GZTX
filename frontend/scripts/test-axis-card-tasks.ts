@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { sortCardTasks, summarizeCardTasks, extraRootIds } from '../src/api/mappers'
+import { sortCardTasks, summarizeCardTasks, extraRootIds, cardTaskChip, cardOverdueCount } from '../src/api/mappers'
 import type { AxisWorkItem, PeopleAxisNode } from '../src/types'
 
 const item = (
@@ -49,6 +49,24 @@ assert.deepEqual(
   sortCardTasks([item('10', '2026-11-10'), item('9', '2026-11-10')], today).map(x => x.id),
   ['9', '10'],
 )
+
+// cardTaskChip: 逾期 1 天/2 天、今天、未来、无日期、已完成
+assert.deepEqual(cardTaskChip(item('o1', '2026-11-02'), today), { text: '逾期 1 天', tone: 'over' })
+assert.deepEqual(cardTaskChip(item('o1', '2026-11-02'), today, 'en'), { text: 'Overdue 1 d', tone: 'over' })
+assert.deepEqual(cardTaskChip(item('o2', '2026-11-01'), today), { text: '逾期 2 天', tone: 'over' })
+assert.deepEqual(cardTaskChip(item('o2', '2026-11-01'), today, 'en'), { text: 'Overdue 2 d', tone: 'over' })
+assert.deepEqual(cardTaskChip(item('t0', '2026-11-03'), today), { text: '今天', tone: 'today' })
+assert.deepEqual(cardTaskChip(item('t0', '2026-11-03'), today, 'en'), { text: 'Today', tone: 'today' })
+assert.deepEqual(cardTaskChip(item('f1', '2026-11-10'), today), { text: '11/10', tone: 'normal' })
+assert.deepEqual(cardTaskChip(item('nd', ''), today), { text: '无日期', tone: 'none' })
+assert.deepEqual(cardTaskChip(item('nd', ''), today, 'en'), { text: 'No date', tone: 'none' })
+assert.deepEqual(cardTaskChip(item('dn', '2026-11-01', 'Done'), today), { text: '已完成', tone: 'done' })
+assert.deepEqual(cardTaskChip(item('dn', '2026-11-01', 'Done'), today, 'en'), { text: 'Done', tone: 'done' })
+
+// cardOverdueCount
+assert.equal(cardOverdueCount(sorted, today), 2)
+assert.equal(cardOverdueCount([], today), 0)
+assert.equal(cardOverdueCount([item('done', '2026-10-01', 'Done')], today), 0)
 
 console.log('axis card tasks: sorting and summary cases passed')
 

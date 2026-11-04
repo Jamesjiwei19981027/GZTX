@@ -16,6 +16,8 @@ import {
   BackendMember,
 } from '../../../api/backend';
 import { mapTreeToPeopleAxis, summarizeCardTasks } from '../../../api/mappers';
+import { listAgentReports, latestReportByUser, reportStatusLabel, type AgentReport } from '../../../api/reports';
+import { averagePeopleAxisProgress } from '../../../components/views/peopleAxisUtils';
 import { getMyPermissions, MyProjectPermissions } from '../../../api/shell';
 import { AppIcon } from '../../ui/AppIcon';
 import { MobileTopBar } from '../../ui/MobileTopBar';
@@ -100,6 +102,8 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   const [axisNodes, setAxisNodes] = useState<PeopleAxisNode[]>([]);
   const [projectMembers, setProjectMembers] = useState<BackendMember[]>([]);
   const [permissions, setPermissions] = useState<MyProjectPermissions | null>(null);
+  const [agentReports, setAgentReports] = useState<AgentReport[]>([]);
+  const [reportsLoadFailed, setReportsLoadFailed] = useState(false);
 
   // 视图控制
   const [activeTab, setActiveTab] = useState<AxisViewTab>('mine');
@@ -142,15 +146,22 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     setLoading(true);
     setError(null);
     try {
-      const [treeRes, membersRes, permRes] = await Promise.all([
+      const [treeRes, membersRes, permRes, reportsRes] = await Promise.all([
         getProjectTree(pid),
         listProjectMembers(pid).catch(() => ({ items: [] })),
         getMyPermissions(pid).catch(() => null),
+        listAgentReports(pid).catch(() => null),
       ]);
       const mapped = mapTreeToPeopleAxis(treeRes.nodes || []);
       setAxisNodes(mapped);
       setProjectMembers(membersRes.items || []);
       setPermissions(permRes);
+      if (reportsRes) {
+        setAgentReports(reportsRes.items || []);
+        setReportsLoadFailed(false);
+      } else {
+        setReportsLoadFailed(true);
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '加载人轴责任链失败';
       setError(message);
@@ -410,7 +421,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   </div>
                 </div>
 
-                {showAiStatus && (
+                {showAiStatus && !reportsLoadFailed && (
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
@@ -420,7 +431,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   >
                     <span className="flex items-center gap-1.5 truncate">
                       <AppIcon name="file" size={14} />
-                      草稿待提交 · 4 条来源
+                      {reportStatusLabel(latestReportByUser(agentReports, currentUserIdNum))}
                     </span>
                     <AppIcon name="chevron-right" size={14} className="shrink-0 text-[#0058BE]" />
                   </div>
@@ -480,11 +491,11 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                         <AppIcon name="chevron-right" size={16} className="text-slate-400 shrink-0" />
                       </div>
 
-                      {showAiStatus && (
+                      {showAiStatus && !reportsLoadFailed && (
                         <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
                           <span className="flex items-center gap-1 truncate text-emerald-600 dark:text-emerald-400">
                             <AppIcon name="check-circle" size={12} />
-                            今天 14:30 已提交
+                            {reportStatusLabel(latestReportByUser(agentReports, sub.ownerUserIds?.[0]))}
                           </span>
                           <span className="text-[10px] text-slate-400">点击查看</span>
                         </div>
@@ -607,8 +618,19 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 nodes={expandSubordinates ? axisNodes : axisNodes.filter(node => !node.parentId)}
                 orientation={orientation} spacing={spacing}
                 onReady={instance => { graphRef.current = instance; }} onZoomChange={setScale}
-                renderCard={node => <CanvasPersonCard node={node} isSelf={node.id === selfNode?.id}
-                  isSelected={node.id === selectedNodeId} showAiStatus={showAiStatus} onClick={() => {}} />}
+                renderCard={node => {
+                  const nodeReport = !reportsLoadFailed ? latestReportByUser(agentReports, node.ownerUserIds?.[0]) : null;
+                  return (
+                    <CanvasPersonCard
+                      node={node}
+                      isSelf={node.id === selfNode?.id}
+                      isSelected={node.id === selectedNodeId}
+                      showAiStatus={showAiStatus && !reportsLoadFailed}
+                      reportStatus={nodeReport ? reportStatusLabel(nodeReport) : undefined}
+                      onClick={() => {}}
+                    />
+                  );
+                }}
                 onSelect={node => { setSelectedNodeId(node.id); setPreviewNode(node); }} />
             </div>
 
@@ -789,6 +811,8 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
           <NodeDetailContent
             node={detailNode}
             allNodes={axisNodes}
+            agentReports={agentReports}
+            reportsLoadFailed={reportsLoadFailed}
             canEdit={nodeCan(detailNode, 'can_edit_person')}
             canManagePermissions={nodeCan(detailNode, 'can_manage_permissions')}
             canChangeSupervisor={canChangeSupervisor && nodeCan(detailNode,'can_move_person')}
@@ -1053,6 +1077,7 @@ interface CanvasPersonCardProps {
   isSelf?: boolean;
   isSelected?: boolean;
   showAiStatus?: boolean;
+  reportStatus?: string;
   onClick?: () => void;
 }
 
@@ -1061,6 +1086,7 @@ const CanvasPersonCard: React.FC<CanvasPersonCardProps> = ({
   isSelf,
   isSelected,
   showAiStatus,
+  reportStatus,
   onClick,
 }) => {
   const summary = useMemo(() => summarizeCardTasks(node.workItems || [], new Date()), [node.workItems]);
@@ -1134,10 +1160,10 @@ const CanvasPersonCard: React.FC<CanvasPersonCardProps> = ({
 
       <div className="mt-2 pt-1 border-t border-slate-100/60 dark:border-slate-800/50 text-[10px] text-slate-400 flex items-center justify-between">
         <span>{footText}</span>
-        {showAiStatus && (
+        {showAiStatus && reportStatus && (
           <span className="text-[#0058BE] dark:text-blue-400 flex items-center gap-0.5">
             <AppIcon name="file" size={10} />
-            {isSelf ? '草稿待提交' : '已收到汇报'}
+            {reportStatus}
           </span>
         )}
       </div>
@@ -1150,6 +1176,8 @@ const CanvasPersonCard: React.FC<CanvasPersonCardProps> = ({
 interface NodeDetailContentProps {
   node: PeopleAxisNode;
   allNodes: PeopleAxisNode[];
+  agentReports?: AgentReport[];
+  reportsLoadFailed?: boolean;
   canEdit: boolean;
   canManagePermissions: boolean;
   canChangeSupervisor: boolean;
@@ -1163,6 +1191,8 @@ interface NodeDetailContentProps {
 const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
   node,
   allNodes,
+  agentReports,
+  reportsLoadFailed,
   canEdit,
   canManagePermissions,
   canChangeSupervisor,
@@ -1280,20 +1310,34 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
         </div>
       )}
 
-      {tab === 'progress' && (
-        <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl space-y-3">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-semibold text-slate-800 dark:text-slate-200">综合进展</span>
-            <span className="font-bold text-[#0058BE]">70%</span>
+      {tab === 'progress' && (() => {
+        const progressVal = typeof (node as Record<string, unknown>).progress === 'number'
+          ? ((node as Record<string, unknown>).progress as number)
+          : node.workItems && node.workItems.length > 0
+          ? averagePeopleAxisProgress([node])
+          : null;
+        const nodeReport = !reportsLoadFailed ? latestReportByUser(agentReports || [], node.ownerUserIds?.[0]) : null;
+        return (
+          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl space-y-3">
+            {progressVal != null && (
+              <>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">综合进展</span>
+                  <span className="font-bold text-[#0058BE]">{progressVal}%</span>
+                </div>
+                <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                  <div className="h-full bg-[#0058BE] rounded-full" style={{ width: `${progressVal}%` }} />
+                </div>
+              </>
+            )}
+            {!reportsLoadFailed && (
+              <p className="text-[11px] text-slate-400 leading-relaxed">
+                {nodeReport ? `最近汇报：${reportStatusLabel(nodeReport)} · 汇报材料已进入审计追溯` : '暂无汇报 · 汇报材料已进入审计追溯'}
+              </p>
+            )}
           </div>
-          <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-            <div className="h-full bg-[#0058BE] rounded-full" style={{ width: '70%' }} />
-          </div>
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            最近汇报更新于今天 14:30 · 汇报材料已进入审计追溯
-          </p>
-        </div>
-      )}
+        );
+      })()}
 
       {/* 底部操作区 */}
       <div className="pt-2 space-y-2">

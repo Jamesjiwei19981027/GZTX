@@ -1,4 +1,4 @@
-import type { Status } from '../../types'
+import type { Status, PeopleAxisNode, Language } from '../../types'
 
 type ProgressItem = {
   progress?: number
@@ -166,4 +166,133 @@ export function averagePeopleAxisProgress(nodes: ProgressNode[]): number {
     }
   }
   return count > 0 ? Math.round(total / count) : 0
+}
+
+/** Check if targetId is an existing descendant of ancestorId. */
+export function isDescendantNode(nodes: PeopleAxisNode[], ancestorId: string, targetId: string): boolean {
+  if (ancestorId === targetId) return true
+  const directChildren = nodes.filter(n => n.parentId === ancestorId)
+  return directChildren.some(child => isDescendantNode(nodes, child.id, targetId))
+}
+
+/** 1-based depth from root (root = 1). */
+export function nodeDepth(nodes: PeopleAxisNode[], id: string): number {
+  const byId = new Map(nodes.map(n => [n.id, n]))
+  let depth = 1
+  let current = byId.get(id)
+  const visited = new Set<string>()
+  while (current?.parentId && byId.has(current.parentId) && !visited.has(current.parentId)) {
+    depth++
+    visited.add(current.id)
+    current = byId.get(current.parentId)
+  }
+  return depth
+}
+
+/** Personnel height of node's subtree (leaf = 1). */
+export function nodeSubtreeHeight(nodes: PeopleAxisNode[], id: string): number {
+  const childrenMap = new Map<string, string[]>()
+  nodes.forEach(n => {
+    if (n.parentId) {
+      childrenMap.set(n.parentId, [...(childrenMap.get(n.parentId) || []), n.id])
+    }
+  })
+  const visited = new Set<string>()
+  function height(curId: string): number {
+    if (visited.has(curId)) return 1
+    visited.add(curId)
+    const kids = childrenMap.get(curId) || []
+    if (kids.length === 0) return 1
+    return 1 + Math.max(...kids.map(k => height(k)))
+  }
+  return height(id)
+}
+
+export interface ReparentVerdictResult {
+  ok: boolean
+  reason: string
+}
+
+/**
+ * Validate reparenting drop according to CARD-SPEC §3 rules.
+ * Returns null if sourceId === targetId or node not found.
+ */
+export function reparentVerdict(
+  nodes: PeopleAxisNode[],
+  sourceId: string,
+  targetId: string,
+  opts: {
+    canRelink: (id: string) => boolean
+    lang?: Language
+    finalOwnerNodeId?: string | null
+  },
+): ReparentVerdictResult | null {
+  if (sourceId === targetId) return null
+  const lang = opts.lang || 'zh'
+  const byId = new Map(nodes.map(n => [n.id, n]))
+  const src = byId.get(sourceId)
+  const tgt = byId.get(targetId)
+  if (!src || !tgt) return null
+
+  // 1. 拖的是项目终责人 →「终责人不能挂到别人下面」
+  const isTerminal = Boolean(
+    (src as any).isTerminal ||
+    src.isTerminalPM ||
+    (opts.finalOwnerNodeId && src.id === opts.finalOwnerNodeId),
+  )
+  if (isTerminal) {
+    return {
+      ok: false,
+      reason: lang === 'zh' ? '终责人不能挂到别人下面' : 'Final owner cannot be moved under another person',
+    }
+  }
+
+  // 2. 目标就是当前上级 →「已经是他的上级」
+  if (src.parentId === targetId) {
+    return {
+      ok: false,
+      reason: lang === 'zh' ? '已经是他的上级' : 'Already their direct manager',
+    }
+  }
+
+  // 3. 目标是自己的后代 →「不能挂到自己的下属下面」
+  if (isDescendantNode(nodes, sourceId, targetId)) {
+    return {
+      ok: false,
+      reason: lang === 'zh' ? '不能挂到自己的下属下面' : 'Cannot be placed under direct or indirect subordinates',
+    }
+  }
+
+  // 4. 目标层级 + 被拖子树人员高度 > 4 →「人员最多四层」
+  const tgtDepth = nodeDepth(nodes, targetId)
+  const srcHeight = nodeSubtreeHeight(nodes, sourceId)
+  if (tgtDepth + srcHeight > 4) {
+    return {
+      ok: false,
+      reason: lang === 'zh' ? '人员最多四层' : 'People axis supports up to 4 levels',
+    }
+  }
+
+  // 5. 被拖节点 node_origin=='project' 且目标 node_origin=='subordinate' →「项目成员不能挂到下级自建人员下面」
+  const srcOrigin = src.nodeOrigin || 'project'
+  const tgtOrigin = tgt.nodeOrigin || 'project'
+  if (srcOrigin === 'project' && tgtOrigin === 'subordinate') {
+    return {
+      ok: false,
+      reason: lang === 'zh' ? '项目成员不能挂到下级自建人员下面' : 'Project members cannot be assigned under self-added personnel',
+    }
+  }
+
+  // 6. 当前用户对源或目标无权限 →「没有权限调整此人的上级」
+  if (!opts.canRelink(sourceId) || !opts.canRelink(targetId)) {
+    return {
+      ok: false,
+      reason: lang === 'zh' ? '没有权限调整此人的上级' : 'No permission to change manager for this person',
+    }
+  }
+
+  return {
+    ok: true,
+    reason: lang === 'zh' ? `松手设为「${tgt.person.name}」的下属` : `Release to set as subordinate of ${tgt.person.name}`,
+  }
 }

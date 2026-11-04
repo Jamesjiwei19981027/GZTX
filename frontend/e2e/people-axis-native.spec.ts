@@ -1,15 +1,15 @@
 import { test, expect, type Page } from '@playwright/test'
 
-const task = (id: number, parent: number, title: string, percent: number) => ({
+const task = (id: number, parent: number, title: string, percent: number, due_at = '2026-11-30T08:00:00Z') => ({
   id, parent_id: parent, node_type_key: 'work_item', title,
-  progress_json: { percent }, due_at: '2026-11-30T08:00:00Z', children: [],
+  progress_json: { percent }, due_at, children: [],
 })
 const owner = (id: number, name: string, role: string, children: unknown[]) => ({
   id, parent_id: null, node_type_key: 'person', title: role, sort_order: id,
   assignees: [{ user_id: id, role_key: 'primary', display_name: name }], children,
 })
 const tree = [
-  owner(1, '赵晨', '产品负责人', [task(11, 1, '需求方案确认', 80)]),
+  owner(1, '赵晨', '产品负责人', [task(11, 1, '需求方案确认', 80, '2026-10-01T08:00:00Z')]),
   owner(2, '林悦', '设计负责人', [task(21, 2, '交互原型设计', 65), task(22, 2, '视觉规范整理', 100)]),
   owner(3, '陈宇', '研发负责人', [task(31, 3, '核心功能开发', 58),
     { ...owner(4, '刘洋', '前端工程师', []), parent_id: 3 }]),
@@ -170,12 +170,11 @@ test('small touch overview selects a card without triggering its tiny management
   const node = page.locator('.react-flow__node[data-id="3"]')
   await node.click()
   await expect(page.getByTestId('axis-node-preview')).toContainText('陈宇')
-  await expect(node.getByRole('button',{name:'下辖挂载点 · 陈宇',exact:true})).toBeDisabled()
   await expect(node.getByRole('button',{name:'编辑人员 · 陈宇',exact:true})).not.toBeVisible()
   await node.click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await page.getByRole('button',{name:'定位',exact:true}).click()
-  await expect(node.getByRole('button',{name:'下辖挂载点 · 陈宇',exact:true})).toBeEnabled()
+  await expect(node.getByRole('button',{name:'新增下级 · 陈宇',exact:true})).toBeVisible()
 })
 
 test('read-only mobile users can browse but cannot edit nodes', async ({ page }) => {
@@ -350,8 +349,8 @@ for (const width of [1420, 1099]) {
         expect(child.y).toBeGreaterThan(parent.y + parent.height)
       }
       await expect(page.locator('.react-flow__node[data-id="1"] .axis-terminal-badge')).toBeVisible()
-      await expect(page.locator('.react-flow__node[data-id="3"]')).toContainText('一级负责人')
-      await expect(page.locator('.react-flow__node[data-id="4"]')).toContainText('二级负责人')
+      await expect(page.locator('.react-flow__node[data-id="3"]')).toContainText('陈宇')
+      await expect(page.locator('.react-flow__node[data-id="4"]')).toContainText('刘洋')
       await expect(page.locator('.react-flow__edge[data-id="branch-4"]')).toHaveCount(1)
       await page.screenshot({ path: test.info().outputPath(`hierarchy-${direction}.png`) })
     }
@@ -516,12 +515,12 @@ test('a manager can add a third-level person directly from any chain node', asyn
   await expect(page.getByTestId('axis-chain-node-99')).toContainText('三级负责人')
   await expect(page.getByTestId('axis-chain-node-99')).toContainText('客户端负责人')
   await expect(page.getByTestId('axis-chain-node-99')).toHaveAttribute('data-node-origin','subordinate')
-  await expect(page.getByTestId('axis-chain-node-99')).toContainText('下辖分支')
+  await expect(page.getByTestId('axis-chain-node-99')).toContainText('下级自建')
   await page.getByRole('tab', { name: '总览', exact: true }).click()
   await expect(page.locator('.react-flow__node[data-id="99"]')).toBeVisible()
   await expect(page.locator('.react-flow__edge[data-id="branch-99"]')).toHaveCount(1)
   await expect(page.locator('.react-flow__edge[data-id="branch-99"] [data-attachment-kind="subordinate"]')).toHaveCount(1)
-  await expect(page.getByRole('button',{name:'下辖挂载点 · 刘洋',exact:true})).toBeVisible()
+  await expect(page.locator('.react-flow__node[data-id="4"]')).toBeVisible()
 })
 
 test('person editing exposes persisted material and subordinate permissions', async ({page}) => {
@@ -607,13 +606,8 @@ for (const orientation of ['纵向','横向']) for (const extension of [false,tr
       })
       const targetBox = (await target.boundingBox())!
       expect(Math.min(Math.abs(points.end.x-targetBox.x),Math.abs(points.end.x-targetBox.x-targetBox.width),Math.abs(points.end.y-targetBox.y),Math.abs(points.end.y-targetBox.y-targetBox.height))).toBeLessThan(2)
-      if(extension) {
-        const port = (await source.locator('.axis-subordinate-port').boundingBox())!
-        expect(Math.hypot(points.start.x-port.x-port.width/2,points.start.y-port.y-port.height/2)).toBeLessThan(2)
-      } else {
-        const sourceBox = (await source.boundingBox())!
-        expect(Math.min(Math.abs(points.start.x-sourceBox.x),Math.abs(points.start.x-sourceBox.x-sourceBox.width),Math.abs(points.start.y-sourceBox.y),Math.abs(points.start.y-sourceBox.y-sourceBox.height))).toBeLessThan(2)
-      }
+      const sourceBox = (await source.boundingBox())!
+      expect(Math.min(Math.abs(points.start.x-sourceBox.x),Math.abs(points.start.x-sourceBox.x-sourceBox.width),Math.abs(points.start.y-sourceBox.y),Math.abs(points.start.y-sourceBox.y-sourceBox.height))).toBeLessThan(2)
     } finally { await page.mouse.up() }
     }
     await page.locator('.axis-flow').screenshot({path:test.info().outputPath('curved-connections.png')})
@@ -681,4 +675,127 @@ test('two failed drag saves restore the last persisted position', async ({page})
     await expect(page.getByText('模拟位置保存失败',{exact:true})).toBeVisible()
     await expect.poll(position).toEqual(before)
   } finally {release()}
+})
+
+test('desktop hover reveals add-child button and opens creation dialog', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await openWorkspace(page)
+  const zoomInBtn = page.getByRole('button', { name: '放大' })
+  for (let i = 0; i < 4; i++) {
+    await zoomInBtn.click()
+  }
+  const node = page.locator('.react-flow__node[data-id="2"]')
+  await expect(node).toBeVisible()
+  await node.hover()
+  const addBtn = node.getByRole('button', { name: '新增下级 · 林悦' })
+  await expect(addBtn).toBeVisible()
+  await addBtn.click()
+  const dialog = page.getByRole('dialog', { name: '添加责任人' })
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('combobox', { name: '直属上级' })).toHaveValue('2')
+})
+
+test('drag card over target with 400ms dwell shows drop tip and confirms reparent', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await openWorkspace(page)
+  const sourceNode = page.locator('.react-flow__node[data-id="2"]')
+  const targetNode = page.locator('.react-flow__node[data-id="3"]')
+  await expect(sourceNode).toBeVisible()
+  await expect(targetNode).toBeVisible()
+
+  const srcBox = (await sourceNode.boundingBox())!
+  const tgtBox = (await targetNode.boundingBox())!
+
+  const moveRequest = page.waitForRequest(r => r.method() === 'POST' && r.url().endsWith('/nodes/2/move'))
+
+  await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(tgtBox.x + tgtBox.width / 2, tgtBox.y + tgtBox.height / 2, { steps: 10 })
+  await page.waitForTimeout(400)
+
+  const tip = targetNode.locator('.axis-drop-bubble')
+  await expect(tip).toBeVisible()
+  await expect(tip).toContainText('松手设为')
+  await page.mouse.up()
+
+  const confirmDialog = page.getByTestId('reparent-confirm-dialog')
+  await expect(confirmDialog).toBeVisible()
+  await expect(confirmDialog).toContainText('林悦')
+  await expect(confirmDialog).toContainText('陈宇')
+
+  await page.getByTestId('reparent-confirm-yes').click()
+  const req = await moveRequest
+  expect(req.postDataJSON()).toMatchObject({ new_parent_id: 3 })
+})
+
+test('fast drag across another card to blank space saves layout without move', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await openWorkspace(page)
+  const sourceNode = page.locator('.react-flow__node[data-id="2"]')
+  const targetNode = page.locator('.react-flow__node[data-id="3"]')
+  const srcBox = (await sourceNode.boundingBox())!
+  const tgtBox = (await targetNode.boundingBox())!
+
+  let moveCalled = false
+  await page.route('**/nodes/2/move', async route => {
+    moveCalled = true
+    await route.fallback()
+  })
+  const layoutRequest = page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith('/nodes/2/layout'))
+
+  await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(tgtBox.x + tgtBox.width / 2, tgtBox.y + tgtBox.height / 2, { steps: 3 })
+  await page.waitForTimeout(50)
+  await page.mouse.move(tgtBox.x + tgtBox.width + 150, tgtBox.y + tgtBox.height + 150, { steps: 5 })
+  await page.mouse.up()
+
+  await layoutRequest
+  expect(moveCalled).toBeFalsy()
+  await expect(page.getByTestId('reparent-confirm-dialog')).toHaveCount(0)
+})
+
+test('dragging card over its descendant shows invalid drop tip and toast on drop', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await openWorkspace(page)
+  const sourceNode = page.locator('.react-flow__node[data-id="3"]')
+  const targetNode = page.locator('.react-flow__node[data-id="4"]')
+  const srcBox = (await sourceNode.boundingBox())!
+  const tgtBox = (await targetNode.boundingBox())!
+
+  await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(tgtBox.x + tgtBox.width / 2, tgtBox.y + tgtBox.height / 2, { steps: 10 })
+  await page.waitForTimeout(400)
+
+  const tip = targetNode.locator('.axis-drop-bubble')
+  await expect(tip).toBeVisible()
+  await expect(tip).toContainText('不能挂到自己的下属下面')
+  await page.mouse.up()
+
+  await expect(page.getByText('不能挂到自己的下属下面')).toBeVisible()
+  await expect(page.getByTestId('reparent-confirm-dialog')).toHaveCount(0)
+})
+
+test('zoom out below 0.6 switches to compact mode showing overdue chip and hiding task rows', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await openWorkspace(page)
+  const node = page.locator('.react-flow__node[data-id="1"]')
+  await expect(page.getByTestId('axis-overview')).toBeVisible()
+
+  const zoomInBtn = page.getByRole('button', { name: '放大' })
+  for (let i = 0; i < 4; i++) {
+    await zoomInBtn.click()
+  }
+  await expect(node.locator('.axis-card-tasks-panel')).toBeVisible()
+
+  const zoomOutBtn = page.getByRole('button', { name: '缩小' })
+  for (let i = 0; i < 6; i++) {
+    await zoomOutBtn.click()
+  }
+
+  await expect(node.locator('.axis-card-tasks-panel')).toHaveCount(0)
+  const compactStatus = node.locator('.axis-compact-status')
+  await expect(compactStatus).toBeVisible()
+  await expect(compactStatus).toContainText('逾期')
 })

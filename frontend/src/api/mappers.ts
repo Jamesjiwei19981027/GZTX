@@ -9,6 +9,7 @@ import type {
   UserProfile,
   AxisWorkItem,
   AxisEvidence,
+  Language,
 } from '../types'
 import { fromApiDueDate, toLocalDateString } from '../utils/datetime'
 import { readAxisPersonMetadata } from './axisPerson'
@@ -347,4 +348,52 @@ export function extraRootIds(nodes: PeopleAxisNode[]): string[] {
   const roots = nodes.filter(node => !node.parentId || !ids.has(node.parentId))
     .sort((a, b) => a.orderOnAxis - b.orderOnAxis || a.id.localeCompare(b.id))
   return roots.slice(1).map(node => node.id)
+}
+
+export function cardTaskChip(
+  item: AxisWorkItem,
+  today: Date,
+  lang: Language = 'zh',
+): { text: string; tone: 'over' | 'today' | 'normal' | 'done' | 'none' } {
+  if (isCompleted(item)) {
+    return { text: lang === 'zh' ? '已完成' : 'Done', tone: 'done' }
+  }
+  if (!item.dueDate) {
+    return { text: lang === 'zh' ? '无日期' : 'No date', tone: 'none' }
+  }
+  const match = item.dueDate.match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!match) {
+    return { text: lang === 'zh' ? '无日期' : 'No date', tone: 'none' }
+  }
+  const y = Number(match[1])
+  const m = Number(match[2])
+  const d = Number(match[3])
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+  const dueStart = new Date(y, m - 1, d).getTime()
+  const diffDays = Math.round((todayStart - dueStart) / 86400000)
+
+  if (diffDays > 0) {
+    return {
+      text: lang === 'zh' ? `逾期 ${diffDays} 天` : `Overdue ${diffDays} d`,
+      tone: 'over',
+    }
+  }
+  if (diffDays === 0) {
+    return { text: lang === 'zh' ? '今天' : 'Today', tone: 'today' }
+  }
+  return {
+    text: `${String(m).padStart(2, '0')}/${String(d).padStart(2, '0')}`,
+    tone: 'normal',
+  }
+}
+
+export function cardOverdueCount(items: AxisWorkItem[], today: Date): number {
+  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+  return items.filter(item => {
+    if (isCompleted(item) || !item.dueDate) return false
+    const match = item.dueDate.match(/^(\d{4})-(\d{2})-(\d{2})/)
+    if (!match) return false
+    const dueStart = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])).getTime()
+    return dueStart < todayStart
+  }).length
 }

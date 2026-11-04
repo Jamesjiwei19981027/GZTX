@@ -304,8 +304,12 @@ export function ResponsibilityWorkspace(p: Props) {
               </button>
             </div>
           </div>}
+          {mode === 'overview' && !p.mobile && !p.canvas.linkingSourceNodeId && (
+            <span className="axis-toolbar-hint">
+              {zh ? '拖到别人卡片上停一下＝换上级 · 拖到空白处＝挪位置' : 'Hover card over peer = change manager · Drag blank = move'}
+            </span>
+          )}
         </div>
-        <div className="axis-attachment-legend" aria-label={zh ? '责任结构图例' : 'Structure legend'}><span><i />{zh ? '项目定义' : 'Project definition'}</span><span className="is-subordinate"><i />{zh ? '下辖分支 · 独立挂载' : 'Subordinate attachment'}</span></div>
         <div className="axis-view-panel" role="tabpanel" id="axis-view-panel" aria-label={zh ? mode === 'chain' ? '责任链' : '总览' : mode}>
           {p.nodes.length > 0 ? mode === 'chain' ? renderChain() : <div className="axis-overview" data-testid="axis-overview">
             {p.extraRoots && p.extraRoots.length > 0 && (
@@ -314,7 +318,7 @@ export function ResponsibilityWorkspace(p: Props) {
               </div>
             )}
             <PeopleAxisFlowCanvas {...p.canvas} edgeStyle={p.edgeStyle} mobile={p.mobile} hasPreview={hasPreview} focusNodeId={p.selectedId} focusToken={focusToken} />
-            {!p.canvas.linkingSourceNodeId && <p className="axis-canvas-hint">{zh ? p.mobile ? '双指缩放 · 拖动浏览' : '拖动节点调整位置 · 拖动空白浏览' : 'Drag cards to move · drag blank space to pan'}</p>}
+            {p.mobile && !p.canvas.linkingSourceNodeId && <p className="axis-canvas-hint">{zh ? '双指缩放 · 拖动浏览' : 'Pinch to zoom · drag to pan'}</p>}
             {hasPreview && selected && <div className="axis-node-preview" data-testid="axis-node-preview"><div className="axis-sheet-handle" />
               <button className="axis-preview-close axis-icon-button" aria-label={zh ? '关闭预览' : 'Close preview'} onClick={() => p.onSelect(null)}><X size={17} /></button>
               <div className="axis-person-heading"><AxisAvatar person={selected.person} small /><div className="axis-person-label"><strong>{selected.person.name}</strong><span>{selected.roleTitle}</span></div><b>{averagePeopleAxisProgress([selected])}%</b></div>
