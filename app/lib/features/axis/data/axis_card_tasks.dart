@@ -1,5 +1,82 @@
 import 'axis_models.dart';
 
+enum AxisCardTaskTone {
+  over,
+  today,
+  normal,
+  done,
+  none,
+}
+
+class AxisCardChip {
+  const AxisCardChip({
+    required this.text,
+    required this.tone,
+  });
+
+  final String text;
+  final AxisCardTaskTone tone;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AxisCardChip &&
+          runtimeType == other.runtimeType &&
+          text == other.text &&
+          tone == other.tone;
+
+  @override
+  int get hashCode => Object.hash(text, tone);
+
+  @override
+  String toString() => 'AxisCardChip($text, $tone)';
+}
+
+AxisCardChip cardTaskChip(AxisWorkItem item, DateTime today) {
+  if (item.isDone) {
+    return const AxisCardChip(
+      text: '已完成',
+      tone: AxisCardTaskTone.done,
+    );
+  }
+  if (item.dueAt == null) {
+    return const AxisCardChip(
+      text: '无日期',
+      tone: AxisCardTaskTone.none,
+    );
+  }
+  final todayZero = DateTime(today.year, today.month, today.day);
+  final dueZero = DateTime(item.dueAt!.year, item.dueAt!.month, item.dueAt!.day);
+  if (dueZero.isBefore(todayZero)) {
+    final diffDays = todayZero.difference(dueZero).inDays;
+    return AxisCardChip(
+      text: '逾期 $diffDays 天',
+      tone: AxisCardTaskTone.over,
+    );
+  }
+  if (dueZero.isAtSameMomentAs(todayZero)) {
+    return const AxisCardChip(
+      text: '今天',
+      tone: AxisCardTaskTone.today,
+    );
+  }
+  final m = item.dueAt!.month.toString().padLeft(2, '0');
+  final d = item.dueAt!.day.toString().padLeft(2, '0');
+  return AxisCardChip(
+    text: '$m/$d',
+    tone: AxisCardTaskTone.normal,
+  );
+}
+
+int cardOverdueCount(List<AxisWorkItem> items, DateTime today) {
+  final day = DateTime(today.year, today.month, today.day);
+  return items.where((item) {
+    if (item.isDone || item.dueAt == null) return false;
+    final dueZero = DateTime(item.dueAt!.year, item.dueAt!.month, item.dueAt!.day);
+    return dueZero.isBefore(day);
+  }).length;
+}
+
 class AxisCardTaskSummary {
   const AxisCardTaskSummary({
     required this.visible,

@@ -709,7 +709,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                                   color: AppColors.warning,
                                 ),
                               AxisStatusChip(
-                                label: person.isPrimary ? '主轴人员' : '次级人员',
+                                label: person.isPrimary ? '项目成员' : '下级自建',
                                 color: person.isPrimary
                                     ? AppColors.primary
                                     : AppColors.textTertiaryOf(isDark),

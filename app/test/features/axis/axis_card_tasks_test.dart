@@ -1,3 +1,4 @@
+import 'package:clock/clock.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/features/axis/data/axis_card_tasks.dart';
 import 'package:worktodo_app/features/axis/data/axis_models.dart';
@@ -114,6 +115,65 @@ void main() {
         item(2, dueAt: DateTime(2026, 10, 2)),
       ], today);
       expect(s.overdueIds, {2});
+    });
+  });
+
+  group('cardTaskChip 与 cardOverdueCount', () {
+    T runAtFixedDay<T>(DateTime day, T Function() callback) {
+      return withClock(Clock.fixed(day), callback);
+    }
+
+    test('逾期 1 天、逾期 2 天、今天、未来、无日期、已完成', () {
+      runAtFixedDay(today, () {
+        // 逾期 1 天 (2026-11-02 vs 2026-11-03)
+        final chipOver1 = cardTaskChip(item(1, dueAt: DateTime(2026, 11, 2)), today);
+        expect(chipOver1.text, '逾期 1 天');
+        expect(chipOver1.tone, AxisCardTaskTone.over);
+
+        // 逾期 2 天 (2026-11-01 vs 2026-11-03)
+        final chipOver2 = cardTaskChip(item(2, dueAt: DateTime(2026, 11, 1, 18)), today);
+        expect(chipOver2.text, '逾期 2 天');
+        expect(chipOver2.tone, AxisCardTaskTone.over);
+
+        // 今天 (2026-11-03 vs 2026-11-03)
+        final chipToday = cardTaskChip(item(3, dueAt: DateTime(2026, 11, 3, 23, 59)), today);
+        expect(chipToday.text, '今天');
+        expect(chipToday.tone, AxisCardTaskTone.today);
+
+        // 未来 (2026-11-08)
+        final chipFuture = cardTaskChip(item(4, dueAt: DateTime(2026, 11, 8)), today);
+        expect(chipFuture.text, '11/08');
+        expect(chipFuture.tone, AxisCardTaskTone.normal);
+
+        // 无日期
+        final chipNone = cardTaskChip(item(5, dueAt: null), today);
+        expect(chipNone.text, '无日期');
+        expect(chipNone.tone, AxisCardTaskTone.none);
+
+        // 已完成（不论是否有截止日或逾期）
+        final chipDone = cardTaskChip(item(6, dueAt: DateTime(2026, 10, 1), status: 'done'), today);
+        expect(chipDone.text, '已完成');
+        expect(chipDone.tone, AxisCardTaskTone.done);
+
+        final chipDone100 = cardTaskChip(item(7, dueAt: DateTime(2026, 10, 1), percent: 100), today);
+        expect(chipDone100.text, '已完成');
+        expect(chipDone100.tone, AxisCardTaskTone.done);
+      });
+    });
+
+    test('cardOverdueCount 正确统计未完成逾期数', () {
+      runAtFixedDay(today, () {
+        final tasks = [
+          item(1, dueAt: DateTime(2026, 11, 1)), // 逾期 2 天
+          item(2, dueAt: DateTime(2026, 11, 2)), // 逾期 1 天
+          item(3, dueAt: DateTime(2026, 11, 3)), // 今天不算逾期
+          item(4, dueAt: DateTime(2026, 11, 5)), // 未来
+          item(5, dueAt: null),                 // 无日期
+          item(6, dueAt: DateTime(2026, 10, 1), status: 'done'), // 已完成不算逾期
+        ];
+        expect(cardOverdueCount(tasks, today), 2);
+        expect(cardOverdueCount(const [], today), 0);
+      });
     });
   });
 }

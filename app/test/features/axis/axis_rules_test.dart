@@ -27,6 +27,102 @@ AxisPersonNode person(
 }
 
 void main() {
+  group('CARD-SPEC 第 3 节六条拖放判定规则与合法判定', () {
+    final specNodes = [
+      person(1, name: '终责根', origin: 'project'),
+      person(2, parentId: 1, name: '项目成员A', origin: 'project'),
+      person(3, parentId: 2, name: '项目成员B', origin: 'project'),
+      person(4, parentId: 3, name: '下级自建C', origin: 'subordinate'),
+      person(5, parentId: 1, name: '下级自建D', origin: 'subordinate'),
+      person(6, parentId: 1, name: '项目成员E', origin: 'project'),
+    ];
+
+    test('规则 1：拖的是根节点 → 终责人不能挂到别人下面', () {
+      final res = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 1, isPerson: true),
+        target: const AxisDragSubject(id: 2, isPerson: true),
+        nodes: specNodes,
+      );
+      expect(res.allowed, isFalse);
+      expect(res.reason, '终责人不能挂到别人下面');
+    });
+
+    test('规则 2：目标就是当前上级 → 已经是他的上级', () {
+      final res = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 2, isPerson: true, parentId: 1),
+        target: const AxisDragSubject(id: 1, isPerson: true),
+        nodes: specNodes,
+      );
+      expect(res.allowed, isFalse);
+      expect(res.reason, '已经是他的上级');
+    });
+
+    test('规则 3：目标是自己的后代 → 不能挂到自己的下属下面', () {
+      final res = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 2, isPerson: true, parentId: 1),
+        target: const AxisDragSubject(id: 4, isPerson: true),
+        nodes: specNodes,
+      );
+      expect(res.allowed, isFalse);
+      expect(res.reason, '不能挂到自己的下属下面');
+    });
+
+    test('规则 4：目标层级 + 被拖子树人员高度 > 4 → 人员最多四层', () {
+      // specNodes: 1(L1) -> 2(L2) -> 3(L3) -> 4(L4)
+      // 若把 2（子树包含 2,3,4，高度为 3）挂到 5（L2）下面：2 + 3 = 5 > 4 被拒
+      final res = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 2, isPerson: true, parentId: 1, nodeOrigin: 'subordinate'),
+        target: const AxisDragSubject(id: 5, isPerson: true, nodeOrigin: 'subordinate'),
+        nodes: specNodes,
+      );
+      expect(res.allowed, isFalse);
+      expect(res.reason, '人员最多四层');
+    });
+
+    test('规则 5：被拖节点 project 且目标 subordinate → 项目成员不能挂到下级自建人员下面', () {
+      // 6(project, parent 1) 拖到 5(subordinate, parent 1)
+      final res = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 6, isPerson: true, parentId: 1, nodeOrigin: 'project'),
+        target: const AxisDragSubject(id: 5, isPerson: true, nodeOrigin: 'subordinate'),
+        nodes: specNodes,
+      );
+      expect(res.allowed, isFalse);
+      expect(res.reason, '项目成员不能挂到下级自建人员下面');
+    });
+
+    test('规则 6：当前用户对源或目标无权限 → 没有权限调整此人的上级', () {
+      final resNoAdd = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 5, isPerson: true, parentId: 1, nodeOrigin: 'subordinate'),
+        target: const AxisDragSubject(id: 2, isPerson: true, nodeOrigin: 'project'),
+        nodes: specNodes,
+        canAddUnderTarget: false,
+      );
+      expect(resNoAdd.allowed, isFalse);
+      expect(resNoAdd.reason, '没有权限调整此人的上级');
+
+      final resNoPerm = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 5, isPerson: true, parentId: 1, nodeOrigin: 'subordinate'),
+        target: const AxisDragSubject(id: 2, isPerson: true, nodeOrigin: 'project'),
+        nodes: specNodes,
+        hasPermission: false,
+      );
+      expect(resNoPerm.allowed, isFalse);
+      expect(resNoPerm.reason, '没有权限调整此人的上级');
+    });
+
+    test('合法一例：下级自建人员调整到项目成员下，层级<=4且有权限', () {
+      final res = AxisRules.validateDrop(
+        dragged: const AxisDragSubject(id: 5, isPerson: true, parentId: 1, nodeOrigin: 'subordinate'),
+        target: const AxisDragSubject(id: 2, isPerson: true, nodeOrigin: 'project'),
+        nodes: specNodes,
+        canAddUnderTarget: true,
+        hasPermission: true,
+      );
+      expect(res.allowed, isTrue);
+      expect(res.reason, isNull);
+    });
+  });
+
   group('人轴拖放规则（与后端 assert_shape / assert_person_limit 对齐）', () {
     final nodes = [
       person(1, name: '一层'),
@@ -39,8 +135,8 @@ void main() {
 
     test('人挂人可以：二层人员改挂到另一位人员下', () {
       final result = AxisRules.validateDrop(
-        dragged: const AxisDragSubject(id: 6, isPerson: true, parentId: 1),
-        target: const AxisDragSubject(id: 1, isPerson: true),
+        dragged: const AxisDragSubject(id: 6, isPerson: true, parentId: 1, nodeOrigin: 'subordinate'),
+        target: const AxisDragSubject(id: 2, isPerson: true, nodeOrigin: 'project'),
         nodes: nodes,
       );
       expect(result.allowed, isTrue);
@@ -102,7 +198,7 @@ void main() {
         nodes: nodes,
       );
       expect(result.allowed, isFalse);
-      expect(result.reason, contains('根'));
+      expect(result.reason, '终责人不能挂到别人下面');
     });
 
     test('已有根时，不能把人员拖到根位置；没有根时可以', () {
@@ -132,12 +228,12 @@ void main() {
       expect(self.allowed, isFalse);
 
       final descendant = AxisRules.validateDrop(
-        dragged: const AxisDragSubject(id: 1, isPerson: true),
+        dragged: const AxisDragSubject(id: 2, isPerson: true, parentId: 1),
         target: const AxisDragSubject(id: 3, isPerson: true),
         nodes: nodes,
       );
       expect(descendant.allowed, isFalse);
-      expect(descendant.reason, contains('闭环'));
+      expect(descendant.reason, '不能挂到自己的下属下面');
     });
 
     test('目标人员未开放新增下属时拒绝', () {
@@ -148,7 +244,7 @@ void main() {
         canAddUnderTarget: false,
       );
       expect(result.allowed, isFalse);
-      expect(result.reason, contains('新增直属下属'));
+      expect(result.reason, '没有权限调整此人的上级');
     });
 
     test('拖到空白处只调整位置，不改变上级', () {

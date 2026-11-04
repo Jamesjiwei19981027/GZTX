@@ -35,7 +35,7 @@ void main() {
     expect(find.text('林悦 · 责任详情'), findsOneWidget);
     expect(find.text('设计负责人 · 设计部'), findsOneWidget);
     expect(find.text('王宁'), findsOneWidget);
-    expect(find.text('次级人员'), findsOneWidget);
+    expect(find.text('下级自建'), findsOneWidget);
     expect(find.text('编辑人员'), findsOneWidget);
     expect(find.text('节点权限'), findsOneWidget);
     expect(find.text('责任事项'), findsOneWidget);

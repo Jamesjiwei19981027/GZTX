@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:clock/clock.dart';
@@ -8,6 +9,7 @@ import '../../../design/design.dart';
 import '../data/axis_card_tasks.dart';
 import '../data/axis_edge_rules.dart';
 import '../data/axis_models.dart';
+import '../data/axis_rules.dart';
 import '../data/axis_view_models.dart';
 import 'axis_flow_layout.dart';
 
@@ -22,6 +24,7 @@ class AxisViewportController {
   void zoomIn() => _state?.zoomBy(1.25);
   void zoomOut() => _state?.zoomBy(0.8);
   void reset() => _state?.resetView();
+  void setScale(double s) => _state?.setScale(s);
   void focusNode(int nodeId) => _state?.focusNode(nodeId);
   void dispose() => scale.dispose();
 }
@@ -47,6 +50,9 @@ class AxisCanvas extends StatefulWidget {
     this.onReparentPerson,
     this.onLayoutChanged,
     this.onNotice,
+    this.onAddChild,
+    this.onEditPerson,
+    this.onRelinkPerson,
   });
 
   final List<AxisPersonNode> nodes;
@@ -69,6 +75,9 @@ class AxisCanvas extends StatefulWidget {
   final Future<void> Function(AxisPersonNode node, Offset offset)?
       onLayoutChanged;
   final ValueChanged<String>? onNotice;
+  final ValueChanged<AxisPersonNode>? onAddChild;
+  final ValueChanged<AxisPersonNode>? onEditPerson;
+  final ValueChanged<AxisPersonNode>? onRelinkPerson;
 
   @override
   State<AxisCanvas> createState() => _AxisCanvasState();
@@ -87,7 +96,11 @@ class _AxisCanvasState extends State<AxisCanvas>
   Offset? _referenceLineStart;
   Offset? _referenceLineEnd;
   int? _hoverTargetId;
+  int? _verdictTargetId;
+  AxisDropResult? _dropVerdict;
+  Timer? _dwellTimer;
   int? _selectedId;
+  bool _isCompact = false;
 
   AxisFlowResult get _layout => AxisFlowLayout.compute(
         nodes: widget.nodes,
@@ -103,6 +116,7 @@ class _AxisCanvasState extends State<AxisCanvas>
     super.initState();
     _selectedId = widget.selectedNodeId;
     widget.viewportController?._attach(this);
+    _isCompact = _currentScale < 0.6;
     _transform.addListener(_publishScale);
   }
 
@@ -135,6 +149,7 @@ class _AxisCanvasState extends State<AxisCanvas>
 
   @override
   void dispose() {
+    _dwellTimer?.cancel();
     _edgeAnimation?.dispose();
     widget.viewportController?._detach(this);
     _transform.removeListener(_publishScale);
@@ -142,10 +157,18 @@ class _AxisCanvasState extends State<AxisCanvas>
     super.dispose();
   }
 
-  void _publishScale() => widget.viewportController?.scale.value =
-      _transform.value.getMaxScaleOnAxis();
+  void _publishScale() {
+    final scale = _transform.value.getMaxScaleOnAxis();
+    widget.viewportController?.scale.value = scale;
+    final nextCompact = scale < 0.6;
+    if (nextCompact != _isCompact) {
+      setState(() => _isCompact = nextCompact);
+    }
+  }
+
   double get _currentScale =>
       _transform.value.getMaxScaleOnAxis().clamp(0.25, 2.0);
+
   void zoomBy(double factor) {
     final next = (_currentScale * factor).clamp(0.25, 2.0);
     final ratio = next / _currentScale;
@@ -158,6 +181,12 @@ class _AxisCanvasState extends State<AxisCanvas>
   }
 
   void resetView() => _transform.value = Matrix4.identity();
+
+  void setScale(double targetScale) {
+    final clamped = targetScale.clamp(0.25, 2.0);
+    _transform.value = Matrix4.identity()
+      ..scaleByDouble(clamped, clamped, clamped, 1);
+  }
 
   void _fitInitial() {
     if (_viewport == Size.zero) return;
@@ -208,7 +237,7 @@ class _AxisCanvasState extends State<AxisCanvas>
     widget.onSelectPerson?.call(next);
   }
 
-  // 卡片内可点区域（任务行、底部提示）。拖动区域会抢先接管手势，
+  // 卡片内可点区域（任务行、底部提示、操作按钮）。拖动区域会抢先接管手势，
   // 所以点按时按坐标判断落在哪个区域。
   final Map<String, GlobalKey> _hitKeys = {};
   GlobalKey _hitKey(String id) => _hitKeys.putIfAbsent(id, GlobalKey.new);
@@ -220,18 +249,73 @@ class _AxisCanvasState extends State<AxisCanvas>
     return rect.contains(global);
   }
 
+  void _handleAddChild(AxisPersonNode node) {
+    widget.onAddChild?.call(node);
+  }
+
+  void _handleMoreMenu(AxisPersonNode node) {
+    final canEdit = widget.permissions.nodeCan(node, 'can_edit');
+    final canRelink = widget.permissions.nodeCan(node, 'can_change_supervisor') ||
+        widget.permissions.canManageStructure ||
+        widget.permissions.canEditAll;
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (canEdit)
+              ListTile(
+                leading: const Icon(Icons.edit_outlined),
+                title: const Text('编辑人员'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  widget.onEditPerson?.call(node);
+                },
+              ),
+            if (canRelink)
+              ListTile(
+                leading: const Icon(Icons.sync_alt_outlined),
+                title: const Text('调整上级'),
+                onTap: () {
+                  Navigator.of(ctx).pop();
+                  widget.onRelinkPerson?.call(node);
+                },
+              ),
+            ListTile(
+              leading: const Icon(Icons.list_alt_outlined),
+              title: const Text('查看全部任务'),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                widget.onOpenPerson?.call(node);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _onCardTap(
     AxisPersonNode node,
     AxisCardTaskSummary summary,
     Offset global,
   ) {
+    if (_hits('${node.id}:add', global)) {
+      _handleAddChild(node);
+      return;
+    }
+    if (_hits('${node.id}:more', global)) {
+      _handleMoreMenu(node);
+      return;
+    }
     for (final item in summary.visible) {
       if (_hits('${node.id}:${item.id}', global)) {
         widget.onOpenMatter?.call(item, node.id);
         return;
       }
     }
-    if (_hits('${node.id}:footer', global)) {
+    if (_hits('${node.id}:view_all', global)) {
       widget.onOpenPerson?.call(node);
       return;
     }
@@ -239,6 +323,7 @@ class _AxisCanvasState extends State<AxisCanvas>
   }
 
   void _cancelDrag() {
+    _dwellTimer?.cancel();
     setState(() {
       _dragPersonId = null;
       _dragDelta = Offset.zero;
@@ -246,10 +331,13 @@ class _AxisCanvasState extends State<AxisCanvas>
       _referenceLineStart = null;
       _referenceLineEnd = null;
       _hoverTargetId = null;
+      _verdictTargetId = null;
+      _dropVerdict = null;
     });
   }
 
   void _onPersonDragStart(AxisPersonNode node) {
+    _dwellTimer?.cancel();
     setState(() {
       _dragPersonId = node.id;
       _dragDelta = Offset.zero;
@@ -257,6 +345,8 @@ class _AxisCanvasState extends State<AxisCanvas>
       _referenceLineStart = null;
       _referenceLineEnd = null;
       _hoverTargetId = null;
+      _verdictTargetId = null;
+      _dropVerdict = null;
     });
   }
 
@@ -269,8 +359,13 @@ class _AxisCanvasState extends State<AxisCanvas>
     var nextDelta = _rawDelta;
     Offset? lineStart;
     Offset? lineEnd;
+
+    final targetNode = _personAt(placed.center + nextDelta, layout);
+    final targetId = targetNode?.id;
+
     if (widget.edgeStyle == AxisEdgeStyle.straight &&
-        placed.node.parentId != null) {
+        placed.node.parentId != null &&
+        targetId == null) {
       final parent = layout.personById(placed.node.parentId!);
       if (parent != null) {
         final result = snapToParentAxis(
@@ -286,20 +381,64 @@ class _AxisCanvasState extends State<AxisCanvas>
         }
       }
     }
+
+    if (targetId != _hoverTargetId) {
+      _dwellTimer?.cancel();
+      _hoverTargetId = targetId;
+      _verdictTargetId = null;
+      _dropVerdict = null;
+      if (targetId != null) {
+        final targetSnapshotId = targetId;
+        _dwellTimer = Timer(const Duration(milliseconds: 300), () {
+          if (!mounted || _dragPersonId == null || _hoverTargetId != targetSnapshotId) return;
+          final draggedNode = placed.node;
+          final currentTargetNode = layout.personById(targetSnapshotId)?.node;
+          if (currentTargetNode == null) return;
+          final hasPermission = widget.permissions.nodeCan(draggedNode, 'can_change_supervisor') ||
+              widget.permissions.canManageStructure ||
+              widget.permissions.canEditAll;
+          final canAddUnderTarget = widget.permissions.nodeCan(currentTargetNode, 'can_add_subordinate');
+          final verdict = AxisRules.validateDrop(
+            dragged: AxisDragSubject(
+              id: draggedNode.id,
+              isPerson: true,
+              parentId: draggedNode.parentId,
+              nodeOrigin: draggedNode.nodeOrigin,
+            ),
+            target: AxisDragSubject(
+              id: currentTargetNode.id,
+              isPerson: true,
+              parentId: currentTargetNode.parentId,
+              nodeOrigin: currentTargetNode.nodeOrigin,
+            ),
+            nodes: widget.nodes,
+            canAddUnderTarget: canAddUnderTarget,
+            hasPermission: hasPermission,
+          );
+          setState(() {
+            _verdictTargetId = targetSnapshotId;
+            _dropVerdict = verdict;
+          });
+        });
+      }
+    }
+
     setState(() {
       _dragDelta = nextDelta;
       _referenceLineStart = lineStart;
       _referenceLineEnd = lineEnd;
-      _hoverTargetId = _personAt(placed.center + nextDelta, layout)?.id;
     });
   }
 
   void _onPersonDragEnd(AxisPersonNode node) {
+    _dwellTimer?.cancel();
     final layout = _layout;
     final placed = layout.personById(node.id);
     final delta = _dragDelta;
-    final target =
-        _hoverTargetId == null ? null : layout.personById(_hoverTargetId!);
+    final targetId = _verdictTargetId;
+    final verdict = _dropVerdict;
+    final targetNode = targetId == null ? null : layout.personById(targetId)?.node;
+
     setState(() {
       _dragPersonId = null;
       _dragDelta = Offset.zero;
@@ -307,11 +446,23 @@ class _AxisCanvasState extends State<AxisCanvas>
       _referenceLineStart = null;
       _referenceLineEnd = null;
       _hoverTargetId = null;
+      _verdictTargetId = null;
+      _dropVerdict = null;
     });
-    if (target != null) {
-      widget.onReparentPerson?.call(node, target.node);
+
+    if (targetNode != null && verdict != null) {
+      if (verdict.allowed) {
+        widget.onReparentPerson?.call(node, targetNode);
+      } else {
+        final reason = verdict.reason ?? '不能调整到该人员下面';
+        widget.onNotice?.call(reason);
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text(reason)),
+        );
+      }
       return;
     }
+
     if (placed == null || delta.distance < 4) return;
     widget.onLayoutChanged?.call(
       node,
@@ -379,174 +530,712 @@ class _AxisCanvasState extends State<AxisCanvas>
     final delta = _dragPersonId == node.id ? _dragDelta : Offset.zero;
     final rect = placed.rect.shift(delta);
     final selected = _selectedId == node.id;
-    final hovered = _hoverTargetId == node.id;
+    final isCompact = _currentScale < 0.6;
+    final isDropTarget = _verdictTargetId == node.id;
+    final isDropVerdictOk = isDropTarget && (_dropVerdict?.allowed == true);
+    final isDropVerdictBad = isDropTarget && (_dropVerdict?.allowed == false);
+
     final summary = summarizeCardTasks(node.workItems, clock.now());
-    final borderColor = hovered
-        ? AppColors.success
-        : (node.isTerminalPm
-            ? AppColors.warning
-            : (selected ? AppColors.primary : AppColors.border));
-    final background = node.isTerminalPm
-        ? (isDark ? AppColors.darkSurface : AppColors.warningLight)
-        : (isDark ? AppColors.darkSurface : AppColors.surface);
+    final isRoot = node.isTerminalPm;
+    final isMe = widget.selfNodeId == node.id;
+    final isSelfAdded = node.nodeOrigin == 'subordinate';
+
+    final canAddSubordinate =
+        widget.permissions.nodeCan(node, 'can_add_subordinate');
+    final canEdit = widget.permissions.nodeCan(node, 'can_edit');
+    final canRelink = widget.permissions.nodeCan(node, 'can_change_supervisor') ||
+        widget.permissions.canManageStructure ||
+        widget.permissions.canEditAll;
+    final showMore = canEdit || canRelink;
+
+    Color borderColor;
+    double borderWidth = 1.0;
+    List<BoxShadow> shadows = const [
+      BoxShadow(
+        color: Color(0x14000000),
+        blurRadius: 8,
+        offset: Offset(0, 2),
+      ),
+    ];
+
+    if (isDropVerdictOk) {
+      borderColor = AppColors.success;
+      borderWidth = 2.0;
+      shadows = [
+        BoxShadow(
+          color: AppColors.success.withValues(alpha: 0.35),
+          blurRadius: 10,
+          spreadRadius: 2,
+        ),
+      ];
+    } else if (isDropVerdictBad) {
+      borderColor = AppColors.danger;
+      borderWidth = 2.0;
+      shadows = [
+        BoxShadow(
+          color: AppColors.danger.withValues(alpha: 0.35),
+          blurRadius: 10,
+          spreadRadius: 2,
+        ),
+      ];
+    } else if (selected) {
+      borderColor = AppColors.primary;
+      borderWidth = 2.0;
+    } else if (isRoot) {
+      borderColor = AppColors.warning;
+      borderWidth = 1.5;
+    } else {
+      borderColor = isDark ? AppColors.darkBorder : AppColors.border;
+      borderWidth = 1.0;
+    }
+
+    final background = isDark ? AppColors.darkSurface : AppColors.surface;
+    final subordinatesCount =
+        widget.nodes.where((n) => n.parentId == node.id).length;
+
     return Positioned(
       left: rect.left,
       top: rect.top,
       width: AxisFlowLayout.personCardSize.width,
       height: AxisFlowLayout.personCardSize.height,
-      child: _AxisDragRegion(
-        onTap: (global) => _onCardTap(node, summary, global),
-        onStart: () => _onPersonDragStart(node),
-        onUpdate: _onPersonDragUpdate,
-        onEnd: () => _onPersonDragEnd(node),
-        onCancel: _cancelDrag,
-        child: Container(
-          key: Key('axis-person-${node.id}'),
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            border: Border.all(
-              color: borderColor,
-              width: node.isTerminalPm || selected || hovered ? 2 : 1,
-            ),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 8,
-                offset: Offset(0, 2),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          if (isDropTarget && _dropVerdict != null)
+            Positioned(
+              top: -30,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: isDropVerdictOk ? AppColors.success : AppColors.danger,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x24000000),
+                        blurRadius: 4,
+                        offset: Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Text(
+                    isDropVerdictOk
+                        ? '松手设为「${node.name}」的下属'
+                        : (_dropVerdict!.reason ?? '不能挂到该人员下面'),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
               ),
-            ],
+            ),
+          Positioned.fill(
+            child: _AxisDragRegion(
+              onTap: (global) => _onCardTap(node, summary, global),
+              onStart: () => _onPersonDragStart(node),
+              onUpdate: _onPersonDragUpdate,
+              onEnd: () => _onPersonDragEnd(node),
+              onCancel: _cancelDrag,
+              child: Container(
+                key: Key('axis-person-${node.id}'),
+                padding: isCompact
+                    ? const EdgeInsets.symmetric(horizontal: 20, vertical: 22)
+                    : const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                decoration: BoxDecoration(
+                  color: background,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: borderColor, width: borderWidth),
+                  boxShadow: shadows,
+                ),
+                child: MediaQuery.withClampedTextScaling(
+                  maxScaleFactor: 1.15,
+                  child: isCompact
+                      ? _buildCompactCard(node, isRoot, isDark)
+                      : _buildFullCard(
+                          node: node,
+                          summary: summary,
+                          isRoot: isRoot,
+                          isMe: isMe,
+                          isSelfAdded: isSelfAdded,
+                          selected: selected,
+                          canAddSubordinate: canAddSubordinate,
+                          showMore: showMore,
+                          subordinatesCount: subordinatesCount,
+                          isDark: isDark,
+                        ),
+                ),
+              ),
+            ),
           ),
-          // 卡片尺寸固定（与网页一致），文字放大时限制在 1.15 倍以内，避免撑破卡片。
-          child: MediaQuery.withClampedTextScaling(
-            maxScaleFactor: 1.15,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        node.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompactCard(AxisPersonNode node, bool isRoot, bool isDark) {
+    final overCount = cardOverdueCount(node.workItems, clock.now());
+    final avatarLetter =
+        node.name.characters.isNotEmpty ? node.name.characters.first : '?';
+
+    Widget statusWidget;
+    if (overCount > 0) {
+      statusWidget = FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.danger,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '逾期 $overCount',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '共 ${node.workItems.length} 项',
+              style: TextStyle(
+                fontSize: 18,
+                color: AppColors.textTertiaryOf(isDark),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (node.workItems.isNotEmpty) {
+      statusWidget = FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              '无逾期',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: AppColors.success,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '共 ${node.workItems.length} 项',
+              style: TextStyle(
+                fontSize: 18,
+                color: AppColors.textTertiaryOf(isDark),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else {
+      statusWidget = Text(
+        '暂无任务',
+        style: TextStyle(
+          fontSize: 20,
+          color: AppColors.textTertiaryOf(isDark),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.primary.withValues(alpha: 0.2)
+                    : AppColors.primaryLight,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                avatarLetter,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    node.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 30,
+                      fontWeight: FontWeight.w700,
+                      color: isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.textPrimary,
+                    ),
+                  ),
+                  if (isRoot)
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.warningLight,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        '终责',
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: isDark
-                              ? AppColors.darkTextPrimary
-                              : AppColors.textPrimary,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.warning,
                         ),
                       ),
                     ),
-                    if (node.isTerminalPm)
-                      const _Tag(text: '终责', color: AppColors.warning),
-                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+        const Spacer(),
+        statusWidget,
+        const Spacer(),
+      ],
+    );
+  }
+
+  Widget _buildFullCard({
+    required AxisPersonNode node,
+    required AxisCardTaskSummary summary,
+    required bool isRoot,
+    required bool isMe,
+    required bool isSelfAdded,
+    required bool selected,
+    required bool canAddSubordinate,
+    required bool showMore,
+    required int subordinatesCount,
+    required bool isDark,
+  }) {
+    final avatarLetter =
+        node.name.characters.isNotEmpty ? node.name.characters.first : '?';
+    final taskBg = isDark ? const Color(0xFF1E2836) : const Color(0xFFF3F7FD);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 头部
+        Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppColors.primary.withValues(alpha: 0.2)
+                      : AppColors.primaryLight,
+                  shape: BoxShape.circle,
                 ),
-                const SizedBox(height: 3),
-                Text(
-                  node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: isDark
-                        ? AppColors.darkTextTertiary
-                        : AppColors.textTertiary,
+                alignment: Alignment.center,
+                child: Text(
+                  avatarLetter,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.primary,
                   ),
                 ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
                       children: [
-                        ...summary.visible.map(
-                          (item) => KeyedSubtree(
-                            key: _hitKey('${node.id}:${item.id}'),
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 5),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      item.title,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: summary.isOverdue(item)
-                                            ? AppColors.danger
-                                            : (isDark
-                                                ? AppColors.darkTextPrimary
-                                                : AppColors.textPrimary),
-                                      ),
-                                    ),
-                                  ),
-                                  if (item.dueAt != null)
-                                    Text(
-                                      '${item.dueAt!.month.toString().padLeft(2, '0')}/${item.dueAt!.day.toString().padLeft(2, '0')}',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: summary.isOverdue(item)
-                                            ? AppColors.danger
-                                            : AppColors.textTertiary,
-                                      ),
-                                    ),
-                                ],
+                        Flexible(
+                          child: Text(
+                            node.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: isDark
+                            ? AppColors.darkTextPrimary
+                            : AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        if (isRoot) ...[
+                          const SizedBox(width: 4),
+                          const _CardTag(
+                            text: '终责',
+                            backgroundColor: AppColors.warningLight,
+                            textColor: AppColors.warning,
+                          ),
+                        ],
+                        if (isMe) ...[
+                          const SizedBox(width: 4),
+                          const _CardTag(
+                            text: '我',
+                            backgroundColor: AppColors.primaryLight,
+                            textColor: AppColors.primary,
+                          ),
+                        ],
+                        if (isSelfAdded) ...[
+                          const SizedBox(width: 4),
+                          _CardTag(
+                            text: '下级自建',
+                            backgroundColor: isDark
+                                ? AppColors.darkSurfaceVariant
+                                : const Color(0xFFF1F3F6),
+                            textColor: AppColors.textTertiaryOf(isDark),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 1),
+                    Text(
+                      node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textTertiaryOf(isDark),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 右上角按钮：只在选中时显示，无权限不渲染
+              if (selected && (canAddSubordinate || showMore))
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (canAddSubordinate)
+                      KeyedSubtree(
+                        key: _hitKey('${node.id}:add'),
+                        child: Tooltip(
+                          message: '新增下级',
+                          child: InkWell(
+                            key: Key('axis-person-add-${node.id}'),
+                            onTap: () => _handleAddChild(node),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.primary.withValues(alpha: 0.2)
+                                    : AppColors.primaryLight,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: const Color(0xFFB9D3F5),
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Text(
+                                '＋',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.primary,
+                                  height: 1.1,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      ),
+                    if (canAddSubordinate && showMore)
+                      const SizedBox(width: 4),
+                    if (showMore)
+                      KeyedSubtree(
+                        key: _hitKey('${node.id}:more'),
+                        child: Tooltip(
+                          message: '更多',
+                          child: InkWell(
+                            key: Key('axis-person-more-${node.id}'),
+                            onTap: () => _handleMoreMenu(node),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppColors.darkSurfaceVariant
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isDark
+                                      ? AppColors.darkBorder
+                                      : AppColors.border,
+                                ),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                '⋯',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppColors.textSecondaryOf(isDark),
+                                  height: 1.0,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                KeyedSubtree(
-                  key: _hitKey('${node.id}:footer'),
-                  child: Text(
-                    summary.total == 0
-                        ? '暂无任务'
-                        : (summary.hiddenCount > 0
-                            ? '还有 ${summary.hiddenCount} 项，点开查看'
-                            : '共 ${summary.total} 项'),
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isDark
-                          ? AppColors.darkTextTertiary
-                          : AppColors.textTertiary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            ],
           ),
+        const SizedBox(height: 6),
+        // 任务区（剩余高度，独立成块）
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              color: taskBg,
+              borderRadius: BorderRadius.circular(10),
+              border: const Border(
+                left: BorderSide(color: AppColors.primary, width: 3),
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            child: summary.total == 0
+                ? Center(
+                    child: Text(
+                      '暂无任务',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textTertiaryOf(isDark),
+                      ),
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '任务 ${summary.total}',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      ...summary.visible.map((item) {
+                        final chip = cardTaskChip(item, clock.now());
+                        return KeyedSubtree(
+                          key: _hitKey('${node.id}:${item.id}'),
+                          child: Container(
+                            height: 20,
+                            margin: const EdgeInsets.only(bottom: 2),
+                            child: Row(
+                              children: [
+                                _taskDot(chip.tone),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    item.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: chip.tone == AxisCardTaskTone.over
+                                          ? AppColors.danger
+                                          : (isDark
+                                              ? AppColors.darkTextPrimary
+                                              : AppColors.textPrimary),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                _taskChipWidget(chip, isDark),
+                              ],
+                            ),
+                          ),
+                        );
+                      }),
+                    ],
+                  ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        // 底部一行（高约 20）
+        SizedBox(
+          height: 20,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              if (summary.total > 0)
+                KeyedSubtree(
+                  key: _hitKey('${node.id}:view_all'),
+                  child: InkWell(
+                    onTap: () => widget.onOpenPerson?.call(node),
+                    child: const Text(
+                      '查看全部 →',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.primary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                const SizedBox(),
+              if (subordinatesCount > 0)
+                Text(
+                  '下属 $subordinatesCount ⌄',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textTertiaryOf(isDark),
+                  ),
+                )
+              else
+                const SizedBox(),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _taskDot(AxisCardTaskTone tone) {
+    Color color;
+    switch (tone) {
+      case AxisCardTaskTone.over:
+        color = AppColors.danger;
+        break;
+      case AxisCardTaskTone.today:
+        color = AppColors.warning;
+        break;
+      case AxisCardTaskTone.done:
+        color = AppColors.success;
+        break;
+      case AxisCardTaskTone.normal:
+      case AxisCardTaskTone.none:
+        color = const Color(0xFF9AA6B6);
+        break;
+    }
+    return Container(
+      width: 7,
+      height: 7,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+
+  Widget _taskChipWidget(AxisCardChip chip, bool isDark) {
+    Color bg;
+    Color text;
+    Color border;
+    FontWeight weight = FontWeight.w400;
+
+    switch (chip.tone) {
+      case AxisCardTaskTone.over:
+        bg = AppColors.dangerLight;
+        text = AppColors.danger;
+        border = const Color(0xFFF6C4BF);
+        weight = FontWeight.w600;
+        break;
+      case AxisCardTaskTone.today:
+        bg = AppColors.warningLight;
+        text = AppColors.warning;
+        border = const Color(0xFFF3D79D);
+        weight = FontWeight.w600;
+        break;
+      case AxisCardTaskTone.done:
+        bg = isDark ? AppColors.darkSurfaceVariant : Colors.white;
+        text = AppColors.textTertiaryOf(isDark);
+        border = isDark ? AppColors.darkBorder : AppColors.border;
+        break;
+      case AxisCardTaskTone.normal:
+      case AxisCardTaskTone.none:
+        bg = isDark ? AppColors.darkSurfaceVariant : Colors.white;
+        text = AppColors.textTertiaryOf(isDark);
+        border = isDark ? AppColors.darkBorder : AppColors.border;
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      height: 18,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: border),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        chip.text,
+        style: TextStyle(
+          fontSize: 10.5,
+          color: text,
+          fontWeight: weight,
+          height: 1.1,
         ),
       ),
     );
   }
 }
 
-class _Tag extends StatelessWidget {
-  const _Tag({required this.text, required this.color});
+class _CardTag extends StatelessWidget {
+  const _CardTag({
+    required this.text,
+    required this.backgroundColor,
+    required this.textColor,
+    this.fontWeight = FontWeight.w600,
+  });
+
   final String text;
-  final Color color;
+  final Color backgroundColor;
+  final Color textColor;
+  final FontWeight fontWeight;
+
   @override
   Widget build(BuildContext context) => DecoratedBox(
         decoration: BoxDecoration(
-          color: color.withValues(alpha: .14),
-          borderRadius: BorderRadius.circular(5),
+          color: backgroundColor,
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
           child: Text(
             text,
             style: TextStyle(
               fontSize: 10,
-              color: color,
-              fontWeight: FontWeight.w700,
+              color: textColor,
+              fontWeight: fontWeight,
+              height: 1.4,
             ),
           ),
         ),
