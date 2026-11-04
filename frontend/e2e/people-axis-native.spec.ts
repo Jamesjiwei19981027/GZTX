@@ -713,37 +713,100 @@ test('desktop hover reveals add-child button and opens creation dialog', async (
   await expect(dialog.getByRole('combobox', { name: '直属上级' })).toHaveValue('2')
 })
 
-test('drag card over target with 400ms dwell shows drop tip and confirms reparent', async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 960 })
-  await openWorkspace(page)
+async function dragCardTwoOntoThree(page: Page) {
   const sourceNode = page.locator('.react-flow__node[data-id="2"]')
   const targetNode = page.locator('.react-flow__node[data-id="3"]')
-  await expect(sourceNode).toBeVisible()
-  await expect(targetNode).toBeVisible()
-
   const srcBox = (await sourceNode.boundingBox())!
   const tgtBox = (await targetNode.boundingBox())!
-
-  const moveRequest = page.waitForRequest(r => r.method() === 'POST' && r.url().endsWith('/nodes/2/move'))
-
   await page.mouse.move(srcBox.x + srcBox.width / 2, srcBox.y + srcBox.height / 2)
   await page.mouse.down()
   await page.mouse.move(tgtBox.x + tgtBox.width / 2, tgtBox.y + tgtBox.height / 2, { steps: 10 })
   await page.waitForTimeout(400)
-
   const tip = targetNode.locator('.axis-drop-bubble')
   await expect(tip).toBeVisible()
   await expect(tip).toContainText('松手设为')
   await page.mouse.up()
+}
 
+test('drag card over target with 400ms dwell shows drop tip and confirms reparent', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await openWorkspace(page)
+  await expect(page.locator('.react-flow__node[data-id="2"]')).toBeVisible()
+  await expect(page.locator('.react-flow__node[data-id="3"]')).toBeVisible()
+
+  let moveSent = false
+  page.on('request', r => { if (r.method() === 'POST' && r.url().endsWith('/nodes/2/move')) moveSent = true })
+
+  await dragCardTwoOntoThree(page)
   const confirmDialog = page.getByTestId('reparent-confirm-dialog')
   await expect(confirmDialog).toBeVisible()
   await expect(confirmDialog).toContainText('林悦')
   await expect(confirmDialog).toContainText('陈宇')
 
+  // 确定、取消两个按钮的中心点必须落在按钮自身上（不能被画布元素盖住）
+  for (const id of ['reparent-confirm-yes', 'reparent-confirm-no']) {
+    const topmost = await page.getByTestId(id).evaluate(el => {
+      const r = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      return !!hit && (hit === el || el.contains(hit))
+    })
+    expect(topmost, `${id} 被其他元素遮挡`).toBe(true)
+  }
+
+  // 确认框内部网格取点，每个点命中的元素都必须在确认框内（画布工具条、卡片不能盖在上面）
+  const covered = await confirmDialog.evaluate(el => {
+    const panel = el.firstElementChild as HTMLElement
+    const r = panel.getBoundingClientRect()
+    const bad: string[] = []
+    for (let i = 1; i < 8; i++) for (let j = 1; j < 6; j++) {
+      const x = r.left + (r.width * i) / 8, y = r.top + (r.height * j) / 6
+      const hit = document.elementFromPoint(x, y)
+      if (!hit || !el.contains(hit)) bad.push(`${Math.round(x)},${Math.round(y)}:${(hit as HTMLElement | null)?.className}`)
+    }
+    return bad
+  })
+  expect(covered, '确认框被画布元素遮挡').toEqual([])
+
+  // 确认框面板必须不透明（背景透明会让下面的卡片、工具条透出来，看起来像盖在上面）
+  const panelBg = await confirmDialog.evaluate(el => getComputedStyle(el.firstElementChild as HTMLElement).backgroundColor)
+  expect(panelBg, '确认框面板背景透明').not.toBe('rgba(0, 0, 0, 0)')
+
+  // 点取消：确认框消失，且没有发出 move 请求
+  await page.getByTestId('reparent-confirm-no').click()
+  await expect(confirmDialog).toHaveCount(0)
+  await page.waitForTimeout(300)
+  expect(moveSent).toBeFalsy()
+
+  // 再拖一次，点确定：发出 move 请求
+  const moveRequest = page.waitForRequest(r => r.method() === 'POST' && r.url().endsWith('/nodes/2/move'))
+  await dragCardTwoOntoThree(page)
+  await expect(confirmDialog).toBeVisible()
   await page.getByTestId('reparent-confirm-yes').click()
   const req = await moveRequest
   expect(req.postDataJSON()).toMatchObject({ new_parent_id: 3 })
+})
+
+test('card more menu is topmost over other cards', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 960 })
+  await openWorkspace(page)
+  const zoomInBtn = page.getByRole('button', { name: '放大' })
+  for (let i = 0; i < 4; i++) await zoomInBtn.click()
+  const node = page.locator('.react-flow__node[data-id="2"]')
+  await expect(node).toBeVisible()
+  await node.hover()
+  await node.getByTestId('card-more-menu-btn').click()
+  const menu = node.locator('.axis-card-menu')
+  await expect(menu).toBeVisible()
+  const count = await menu.locator('button').count()
+  expect(count).toBeGreaterThan(0)
+  for (let i = 0; i < count; i++) {
+    const topmost = await menu.locator('button').nth(i).evaluate(el => {
+      const r = el.getBoundingClientRect()
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+      return !!hit && (hit === el || el.contains(hit))
+    })
+    expect(topmost, `菜单第 ${i + 1} 项被遮挡`).toBe(true)
+  }
 })
 
 test('fast drag across another card to blank space saves layout without move', async ({ page }) => {
