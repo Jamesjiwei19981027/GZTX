@@ -1386,42 +1386,7 @@ class _OverviewView extends StatelessWidget {
                 bottom: AppSpacing.lg,
                 child: Row(
                   children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.surface.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(
-                          AppSpacing.radiusLg,
-                        ),
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Row(
-                        children: [
-                          IconButton(
-                            tooltip: '缩小画布',
-                            onPressed: viewport.zoomOut,
-                            icon: const Icon(Icons.remove, size: 18),
-                          ),
-                          ValueListenableBuilder<double>(
-                            valueListenable: viewport.scale,
-                            builder: (context, scale, _) => TextButton(
-                              onPressed: viewport.reset,
-                              child: Text(
-                                '${(scale * 100).round()}%',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: '放大画布',
-                            onPressed: viewport.zoomIn,
-                            icon: const Icon(Icons.add, size: 18),
-                          ),
-                        ],
-                      ),
-                    ),
+                    _AxisZoomPill(viewport: viewport),
                   ],
                 ),
               ),
@@ -1429,6 +1394,80 @@ class _OverviewView extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 画布左下角缩放胶囊：不透明卡片底色、1px 边框、圆角 16、轻阴影，高 40。
+/// 与网页 `.axis-control-pill` 同款；颜色随深浅色模式切换。
+class _AxisZoomPill extends StatelessWidget {
+  const _AxisZoomPill({required this.viewport});
+
+  final AxisViewportController viewport;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
+    const buttonSize = Size(40, 40);
+    return Container(
+      key: const Key('axis-zoom-pill'),
+      height: 40,
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkSurface : AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppColors.darkBorder : AppColors.border,
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14152338),
+            blurRadius: 12,
+            offset: Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            tooltip: '缩小画布',
+            onPressed: viewport.zoomOut,
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints.tight(buttonSize),
+            icon: const Icon(Icons.remove, size: 18),
+          ),
+          ValueListenableBuilder<double>(
+            valueListenable: viewport.scale,
+            builder: (context, scale, _) => InkWell(
+              onTap: viewport.reset,
+              borderRadius: BorderRadius.circular(12),
+              child: SizedBox(
+                width: 44,
+                height: 40,
+                child: Center(
+                  child: Text(
+                    '${(scale * 100).round()}%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? AppColors.darkTextPrimary
+                          : AppColors.textPrimary,
+                      fontFeatures: const [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: '放大画布',
+            onPressed: viewport.zoomIn,
+            padding: EdgeInsets.zero,
+            constraints: BoxConstraints.tight(buttonSize),
+            icon: const Icon(Icons.add, size: 18),
+          ),
+        ],
+      ),
     );
   }
 }

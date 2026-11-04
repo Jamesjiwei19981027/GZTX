@@ -223,7 +223,10 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '${person.name} · ${person.roleTitle.isEmpty ? '岗位' : person.roleTitle}',
+                      person.roleTitle.trim().isEmpty ||
+                              person.roleTitle.trim() == person.name.trim()
+                          ? person.name
+                          : '${person.name} · ${person.roleTitle.trim()}',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
@@ -952,7 +955,10 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                       ),
                       Expanded(
                         child: Text(
-                          '${owner.name}${owner.roleTitle.isEmpty ? '' : ' · ${owner.roleTitle}'}',
+                          owner.roleTitle.trim().isEmpty ||
+                                  owner.roleTitle.trim() == owner.name.trim()
+                              ? owner.name
+                              : '${owner.name} · ${owner.roleTitle.trim()}',
                           style: const TextStyle(
                               fontSize: 13, fontWeight: FontWeight.w600),
                         ),
