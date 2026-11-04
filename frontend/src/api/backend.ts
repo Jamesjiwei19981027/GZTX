@@ -109,8 +109,20 @@ export type BackendTreeNode = {
   start_at?: string | null
   due_at?: string | null
   milestone_at?: string | null
-  progress_json?: { status?: string; percent?: number; ui_offset?: { x: number; y: number } }
+  progress_json?: {
+    status?: string
+    percent?: number
+    ui_offset?: { x: number; y: number }
+    ui_offsets?: {
+      horizontal?: { x: number; y: number }
+      vertical?: { x: number; y: number }
+    }
+  }
   ui_offset?: { x: number; y: number } | null
+  ui_offsets?: {
+    horizontal?: { x: number; y: number }
+    vertical?: { x: number; y: number }
+  } | null
   assignees?: {
     user_id: number
     role_key?: string
