@@ -520,42 +520,132 @@ class _AxisCanvasState extends State<AxisCanvas>
             if (mounted) _fitInitial();
           });
         }
-        return InteractiveViewer(
-          transformationController: _transform,
-          constrained: false,
-          minScale: 0.25,
-          maxScale: 2,
-          boundaryMargin: const EdgeInsets.all(240),
-          child: SizedBox(
-            width: layout.size.width,
-            height: layout.size.height,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(
-                    painter: AxisCurvePainter(
-                      layout: layout,
-                      liveDeltas: _dragPersonId == null
-                          ? const {}
-                          : {_dragPersonId!: _dragDelta},
-                      orientation: widget.orientation,
-                      edgeStyle: widget.edgeStyle,
-                      isDark: isDark,
-                      highlighted: highlighted,
-                      focusActive: highlighted.isNotEmpty,
-                      animation: _edgeAnimation,
-                      referenceLineStart: _referenceLineStart,
-                      referenceLineEnd: _referenceLineEnd,
+        final dropBubble = _buildDropBubble();
+        return SizedBox(
+          width: constraints.maxWidth,
+          height: constraints.maxHeight,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: InteractiveViewer(
+                  transformationController: _transform,
+                  constrained: false,
+                  minScale: 0.25,
+                  maxScale: 2,
+                  boundaryMargin: const EdgeInsets.all(240),
+                  child: SizedBox(
+                    width: layout.size.width,
+                    height: layout.size.height,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Positioned.fill(
+                          child: CustomPaint(
+                            painter: AxisCurvePainter(
+                              layout: layout,
+                              liveDeltas: _dragPersonId == null
+                                  ? const {}
+                                  : {_dragPersonId!: _dragDelta},
+                              orientation: widget.orientation,
+                              edgeStyle: widget.edgeStyle,
+                              isDark: isDark,
+                              highlighted: highlighted,
+                              focusActive: highlighted.isNotEmpty,
+                              animation: _edgeAnimation,
+                              referenceLineStart: _referenceLineStart,
+                              referenceLineEnd: _referenceLineEnd,
+                            ),
+                          ),
+                        ),
+                        ...layout.people.map((person) => _buildPerson(person, isDark)),
+                      ],
                     ),
                   ),
                 ),
-                ...layout.people.map((person) => _buildPerson(person, isDark)),
-              ],
-            ),
+              ),
+              if (dropBubble != null) dropBubble,
+            ],
           ),
         );
       },
+    );
+  }
+
+  Widget? _buildDropBubble() {
+    if (_verdictTargetId == null ||
+        _dropVerdict == null ||
+        _viewport == Size.zero) {
+      return null;
+    }
+    final targetPlaced = _layout.personById(_verdictTargetId!);
+    if (targetPlaced == null) return null;
+
+    final isDropVerdictOk = _dropVerdict!.allowed;
+    final bubbleText = isDropVerdictOk
+        ? '松手设为「${targetPlaced.node.name}」的下属'
+        : (_dropVerdict!.reason ?? '不能挂到该人员下面');
+
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: bubbleText,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+
+    final bubbleSize = Size(
+      textPainter.width + 16.0,
+      textPainter.height + 6.0,
+    );
+
+    final targetDelta =
+        _dragPersonId == targetPlaced.node.id ? _dragDelta : Offset.zero;
+    final targetCanvasRect = targetPlaced.rect.shift(targetDelta);
+    final targetViewportRect = MatrixUtils.transformRect(
+      _transform.value,
+      targetCanvasRect,
+    );
+
+    final bubbleRect = clampDropBubble(
+      targetRect: targetViewportRect,
+      bubbleSize: bubbleSize,
+      viewportSize: _viewport,
+    );
+
+    return Positioned(
+      left: bubbleRect.left,
+      top: bubbleRect.top,
+      child: IgnorePointer(
+        child: Container(
+          key: const Key('axis-drop-bubble'),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: isDropVerdictOk ? AppColors.success : AppColors.danger,
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x24000000),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Text(
+            bubbleText,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Colors.white,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -632,80 +722,41 @@ class _AxisCanvasState extends State<AxisCanvas>
       top: rect.top,
       width: AxisFlowLayout.personCardSize.width,
       height: AxisFlowLayout.personCardSize.height,
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          if (isDropTarget && _dropVerdict != null)
-            Positioned(
-              top: -30,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: isDropVerdictOk ? AppColors.success : AppColors.danger,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x24000000),
-                        blurRadius: 4,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    isDropVerdictOk
-                        ? '松手设为「${node.name}」的下属'
-                        : (_dropVerdict!.reason ?? '不能挂到该人员下面'),
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          Positioned.fill(
-            child: _AxisDragRegion(
-              onTap: (global) => _onCardTap(node, summary, global),
-              onStart: () => _onPersonDragStart(node),
-              onUpdate: _onPersonDragUpdate,
-              onEnd: () => _onPersonDragEnd(node),
-              onCancel: _cancelDrag,
-              child: Container(
-                key: Key('axis-person-${node.id}'),
-                padding: isCompact
-                    ? const EdgeInsets.symmetric(horizontal: 20, vertical: 22)
-                    : const EdgeInsets.fromLTRB(12, 10, 12, 8),
-                decoration: BoxDecoration(
-                  color: background,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: borderColor, width: borderWidth),
-                  boxShadow: shadows,
-                ),
-                child: MediaQuery.withClampedTextScaling(
-                  maxScaleFactor: 1.15,
-                  child: isCompact
-                      ? _buildCompactCard(node, isRoot, isDark)
-                      : _buildFullCard(
-                          node: node,
-                          summary: summary,
-                          isRoot: isRoot,
-                          isMe: isMe,
-                          isSelfAdded: isSelfAdded,
-                          selected: selected,
-                          canAddSubordinate: canAddSubordinate,
-                          showMore: showMore,
-                          subordinatesCount: subordinatesCount,
-                          isDark: isDark,
-                        ),
-                ),
-              ),
-            ),
+      child: _AxisDragRegion(
+        onTap: (global) => _onCardTap(node, summary, global),
+        onStart: () => _onPersonDragStart(node),
+        onUpdate: _onPersonDragUpdate,
+        onEnd: () => _onPersonDragEnd(node),
+        onCancel: _cancelDrag,
+        child: Container(
+          key: Key('axis-person-${node.id}'),
+          padding: isCompact
+              ? const EdgeInsets.symmetric(horizontal: 20, vertical: 22)
+              : const EdgeInsets.fromLTRB(12, 10, 12, 8),
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor, width: borderWidth),
+            boxShadow: shadows,
           ),
-        ],
+          child: MediaQuery.withClampedTextScaling(
+            maxScaleFactor: 1.15,
+            child: isCompact
+                ? _buildCompactCard(node, isRoot, isDark)
+                : _buildFullCard(
+                    node: node,
+                    summary: summary,
+                    isRoot: isRoot,
+                    isMe: isMe,
+                    isSelfAdded: isSelfAdded,
+                    selected: selected,
+                    canAddSubordinate: canAddSubordinate,
+                    showMore: showMore,
+                    subordinatesCount: subordinatesCount,
+                    isDark: isDark,
+                  ),
+          ),
+        ),
       ),
     );
   }

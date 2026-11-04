@@ -209,7 +209,13 @@ export const TaskDetailDrawer: React.FC<TaskDetailDrawerProps> = ({
                 <span className="text-on-surface-variant font-medium">{t.assignee}</span>
                 {task.assignee ? (
                   <div className="flex items-center gap-2">
-                    <img src={task.assignee.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                    {task.assignee.avatar ? (
+                      <img src={task.assignee.avatar} alt="" className="w-6 h-6 rounded-full object-cover" />
+                    ) : (
+                      <span className="w-6 h-6 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
+                        {task.assignee.name ? task.assignee.name.slice(0, 1) : '?'}
+                      </span>
+                    )}
                     <span className="font-bold text-on-surface dark:text-[#f0f1f2]">{task.assignee.name}</span>
                   </div>
                 ) : (

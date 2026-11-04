@@ -199,22 +199,34 @@ const NavbarImpl: React.FC<NavbarProps> = ({
               }}
               className="flex items-center gap-2 p-1 rounded-full hover:bg-surface-container dark:hover:bg-[#2e3132] transition-colors border border-outline-variant"
             >
-              <img
-                src={user.avatar}
-                alt={user.name}
-                className="w-8 h-8 rounded-full object-cover"
-                onError={(e) => {
-                  // Fallback if image fails
-                  (e.target as HTMLElement).style.display = 'none';
-                }}
-              />
+              {user.avatar ? (
+                <img
+                  src={user.avatar}
+                  alt={user.name}
+                  className="w-8 h-8 rounded-full object-cover"
+                  onError={(e) => {
+                    // Fallback if image fails
+                    (e.target as HTMLElement).style.display = 'none';
+                  }}
+                />
+              ) : (
+                <span className="w-8 h-8 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                  {user.name ? user.name.slice(0, 1) : '?'}
+                </span>
+              )}
               <span className="w-2 h-2 rounded-full bg-secondary absolute bottom-1 right-1 ring-2 ring-surface"></span>
             </button>
 
             {showUserDropdown && (
               <div className="absolute right-0 mt-2 w-64 bg-surface dark:bg-[#2e3132] rounded-xl shadow-xl border border-surface-variant dark:border-outline p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                 <div className="px-3 py-3 border-b border-surface-variant mb-1 flex items-center gap-3">
-                  <img src={user.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+                  {user.avatar ? (
+                    <img src={user.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
+                  ) : (
+                    <span className="w-10 h-10 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center">
+                      {user.name ? user.name.slice(0, 1) : '?'}
+                    </span>
+                  )}
                   <div className="overflow-hidden">
                     <p className="font-bold text-sm text-on-surface dark:text-[#f0f1f2] truncate">
                       {user.name}

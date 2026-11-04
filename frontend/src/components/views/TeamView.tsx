@@ -221,11 +221,17 @@ export const TeamView: React.FC<TeamViewProps> = ({
             className="text-left p-5 rounded-3xl bg-surface-container-lowest border border-outline-variant/30 hover:border-primary/40 transition-all cursor-pointer"
           >
             <div className="flex items-center gap-3">
-              <img
-                src={m.avatar || undefined}
-                alt=""
-                className="w-12 h-12 rounded-full object-cover bg-surface-container"
-              />
+              {m.avatar ? (
+                <img
+                  src={m.avatar}
+                  alt=""
+                  className="w-12 h-12 rounded-full object-cover bg-surface-container"
+                />
+              ) : (
+                <span className="w-12 h-12 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center">
+                  {m.name.slice(0, 1)}
+                </span>
+              )}
               <div className="min-w-0">
                 <div className="font-bold text-on-surface truncate">{m.name}</div>
                 <div className="text-xs text-on-surface-variant truncate">{m.role}</div>

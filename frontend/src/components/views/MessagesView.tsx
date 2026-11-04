@@ -735,11 +735,17 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             )}
             {filteredMessages.map((msg) => (
               <div key={msg.id} className="flex gap-3">
-                <img
-                  src={msg.senderAvatar || undefined}
-                  alt=""
-                  className="w-10 h-10 rounded-full object-cover bg-surface-container"
-                />
+                {msg.senderAvatar ? (
+                  <img
+                    src={msg.senderAvatar}
+                    alt=""
+                    className="w-10 h-10 rounded-full object-cover bg-surface-container"
+                  />
+                ) : (
+                  <span className="w-10 h-10 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                    {msg.senderName ? msg.senderName.slice(0, 1) : '?'}
+                  </span>
+                )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2">
                     <span className="text-sm font-bold text-on-surface">{msg.senderName}</span>
@@ -802,7 +808,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             {members.slice(0, 8).map((member) => (
               <div key={member.id} className="flex items-center gap-2">
                 <span className={`w-2 h-2 rounded-full ${presence[member.id] === 'online' ? 'bg-secondary' : presence[member.id] === 'busy' ? 'bg-amber-500' : 'bg-outline-variant'}`} />
-                <img src={member.avatar || undefined} alt="" className="w-7 h-7 rounded-full bg-surface-container object-cover" />
+                {member.avatar ? (
+                  <img src={member.avatar} alt="" className="w-7 h-7 rounded-full bg-surface-container object-cover" />
+                ) : (
+                  <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
+                    {member.name.slice(0, 1)}
+                  </span>
+                )}
                 <span className="text-xs font-semibold truncate">{member.name}</span>
               </div>
             ))}
