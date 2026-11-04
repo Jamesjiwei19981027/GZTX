@@ -130,12 +130,14 @@ test('person cards drag independently and connected lines follow in both orienta
   await expect(graph.locator('.react-flow__edge-path')).toHaveCount(2);
   const card = page.getByTestId('mobile-axis-node-1');
   const before = await card.boundingBox();
-  const otherBefore = await page.getByTestId('mobile-axis-node-2').boundingBox();
+  // 默认取景把卡片放在视口右缘附近，拖动会触发画布自动平移；所以「另一张卡片没动」按画布坐标比较，而不是屏幕坐标
+  const flowPos = (id: number) => page.locator(`.react-flow__node[data-id="${id}"]`).evaluate(el => (el as HTMLElement).style.transform);
+  const otherBefore = await flowPos(2);
   const lineBefore = await graph.locator('.react-flow__edge-path').first().getAttribute('d');
   await page.mouse.move(before!.x + 80, before!.y + 24);
   await page.mouse.down(); await page.mouse.move(before!.x + 140, before!.y + 74, { steps: 12 }); await page.mouse.up();
   expect((await card.boundingBox())!.x - before!.x).toBeGreaterThan(45);
-  expect(await page.getByTestId('mobile-axis-node-2').boundingBox()).toEqual(otherBefore);
+  expect(await flowPos(2)).toBe(otherBefore);
   expect(await graph.locator('.react-flow__edge-path').first().getAttribute('d')).not.toBe(lineBefore);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await page.getByRole('button', { name: '横向', exact: true }).click();
@@ -168,7 +170,7 @@ test('new-message button opens contacts and starts explicitly selected private c
 test('Bezier endpoints follow a card throughout dragging, before pointer release', async ({page}) => {
   await open(page,'axis');
   await page.getByRole('button',{name:'项目全貌',exact:true}).click();
-  const path = page.locator('.react-flow__edge[data-id="1-2"] .react-flow__edge-path');
+  const path = page.locator('.react-flow__edge[data-id="branch-2"] .react-flow__edge-path');
   await expect(path).toHaveAttribute('d',/C/);
   const card = page.getByTestId('mobile-axis-node-1');
   const box = (await card.boundingBox())!;
@@ -184,9 +186,11 @@ test('Bezier endpoints follow a card throughout dragging, before pointer release
     const p=path.getPointAtLength(0), matrix=path.getScreenCTM()!;
     return {x:matrix.a*p.x+matrix.c*p.y+matrix.e,y:matrix.b*p.x+matrix.d*p.y+matrix.f};
   });
-  const handle = (await page.locator('.react-flow__node[data-id="1"] .source').boundingBox())!;
-  expect(Math.abs(point.x-(handle.x+handle.width/2))).toBeLessThan(4);
-  expect(Math.abs(point.y-(handle.y+handle.height/2))).toBeLessThan(4);
+  // 连线端点贴着被拖卡片的边（浮动连线按对端方向取边上的点，不再固定在底部手柄）
+  const rect = (await page.locator('.react-flow__node[data-id="1"] .axis-map-card').boundingBox())!;
+  const inside = (m: number) => point.x >= rect.x + m && point.x <= rect.x + rect.width - m && point.y >= rect.y + m && point.y <= rect.y + rect.height - m;
+  expect(inside(-4)).toBe(true);
+  expect(inside(4)).toBe(false);
   await page.mouse.up();
 });
 

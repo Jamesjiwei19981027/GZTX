@@ -336,3 +336,19 @@ export function calculateCanvasDefaultCenter(
   }
   return { x: cardWidth / 2, y: cardHeight / 2 }
 }
+
+/** 某节点的全部后代 id（改上级防环用；放在纯工具文件里，脚本测试不必加载界面与样式） */
+export function getDescendantNodeIds(nodeId: string, nodes: PeopleAxisNode[]): Set<string> {
+  const descendants = new Set<string>();
+  const queue = [nodeId];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    for (const n of nodes) {
+      if (n.parentId === current && !descendants.has(n.id)) {
+        descendants.add(n.id);
+        queue.push(n.id);
+      }
+    }
+  }
+  return descendants;
+}
