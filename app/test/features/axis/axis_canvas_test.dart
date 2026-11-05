@@ -1117,5 +1117,293 @@ void main() {
       expect(vCardPos.dx, closeTo(rootPos.dx, 1.0));
       expect(vCardPos.dy > rootPos.dy, isTrue);
     });
+
+    testWidgets('画布宽度从大变小时，原中心点仍在新视口中心、缩放不变', (tester) async {
+      final nodes = [person(1, null), person(2, 1)];
+      final viewport = AxisViewportController();
+
+      // 1. 初始视口尺寸为 800 x 600
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 800,
+                height: 600,
+                child: AxisCanvas(
+                  nodes: nodes,
+                  selfNodeId: 1,
+                  orientation: AxisOrientation.vertical,
+                  spacing: AxisSpacing.standard,
+                  sort: AxisSort.tree,
+                  viewportController: viewport,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final initialController = tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!;
+      final initialMatrix = initialController.value.clone();
+      final initialScale = initialMatrix.getMaxScaleOnAxis();
+
+      // 原视口中心点 (400, 300) 在旧矩阵下对应的画布点
+      final oldCenter = const Offset(400, 300);
+      final invertedInitial = Matrix4.inverted(initialMatrix);
+      final canvasPointAtCenter =
+          MatrixUtils.transformPoint(invertedInitial, oldCenter);
+
+      // 2. 宽度变小为 400 x 600
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                height: 600,
+                child: AxisCanvas(
+                  nodes: nodes,
+                  selfNodeId: 1,
+                  orientation: AxisOrientation.vertical,
+                  spacing: AxisSpacing.standard,
+                  sort: AxisSort.tree,
+                  viewportController: viewport,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      // 等待下一帧 postFrameCallback 执行
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final updatedMatrix = tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!
+          .value;
+
+      // 验证缩放不变
+      expect(updatedMatrix.getMaxScaleOnAxis(), closeTo(initialScale, 0.001));
+
+      // 验证原中心点落到新视口中心 (200, 300)
+      final newScreenPoint =
+          MatrixUtils.transformPoint(updatedMatrix, canvasPointAtCenter);
+      expect(newScreenPoint.dx, closeTo(200.0, 0.001));
+      expect(newScreenPoint.dy, closeTo(300.0, 0.001));
+    });
+
+    testWidgets('只改高度时变换矩阵不变', (tester) async {
+      final nodes = [person(1, null), person(2, 1)];
+      final viewport = AxisViewportController();
+
+      // 1. 初始视口尺寸为 400 x 600
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                height: 600,
+                child: AxisCanvas(
+                  nodes: nodes,
+                  selfNodeId: 1,
+                  orientation: AxisOrientation.vertical,
+                  spacing: AxisSpacing.standard,
+                  sort: AxisSort.tree,
+                  viewportController: viewport,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final matrixBefore = tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!
+          .value
+          .clone();
+
+      // 2. 只改高度为 400 x 400（如键盘弹起）
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                height: 400,
+                child: AxisCanvas(
+                  nodes: nodes,
+                  selfNodeId: 1,
+                  orientation: AxisOrientation.vertical,
+                  spacing: AxisSpacing.standard,
+                  sort: AxisSort.tree,
+                  viewportController: viewport,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final matrixAfter = tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!
+          .value;
+
+      // 变换矩阵严格相等（完全不平移）
+      expect(matrixAfter, equals(matrixBefore));
+    });
+
+    testWidgets('手动平移后再变宽度，平移结果按同样规则保留', (tester) async {
+      final nodes = [person(1, null), person(2, 1)];
+      final viewport = AxisViewportController();
+
+      // 1. 初始尺寸 400 x 600
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 400,
+                height: 600,
+                child: AxisCanvas(
+                  nodes: nodes,
+                  selfNodeId: 1,
+                  orientation: AxisOrientation.vertical,
+                  spacing: AxisSpacing.standard,
+                  sort: AxisSort.tree,
+                  viewportController: viewport,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      // 用户手动平移画布
+      final controller = tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!;
+      controller.value = Matrix4.identity()
+        ..translateByDouble(50, 80, 0, 1)
+        ..multiply(controller.value);
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final matrixManual = controller.value.clone();
+      final scaleManual = matrixManual.getMaxScaleOnAxis();
+
+      // 手动平移后，原视口中心 (200, 300) 对应的画布点
+      final oldCenter = const Offset(200, 300);
+      final canvasPoint = MatrixUtils.transformPoint(
+        Matrix4.inverted(matrixManual),
+        oldCenter,
+      );
+
+      // 2. 宽度变化为 600 x 600（如折叠屏展开）
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 600,
+                height: 600,
+                child: AxisCanvas(
+                  nodes: nodes,
+                  selfNodeId: 1,
+                  orientation: AxisOrientation.vertical,
+                  spacing: AxisSpacing.standard,
+                  sort: AxisSort.tree,
+                  viewportController: viewport,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final updatedMatrix = tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!
+          .value;
+
+      // 缩放保持不变
+      expect(updatedMatrix.getMaxScaleOnAxis(), closeTo(scaleManual, 0.001));
+
+      // 原视口中心对应的画布点落到新视口中心 (300, 300)
+      final newScreenPoint =
+          MatrixUtils.transformPoint(updatedMatrix, canvasPoint);
+      expect(newScreenPoint.dx, closeTo(300.0, 0.001));
+      expect(newScreenPoint.dy, closeTo(300.0, 0.001));
+    });
+
+    testWidgets('拖拽进行中发生宽度变化不会崩溃', (tester) async {
+      final nodes = [person(1, null), person(2, 1)];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 800,
+                height: 600,
+                child: AxisCanvas(
+                  nodes: nodes,
+                  selfNodeId: 1,
+                  orientation: AxisOrientation.vertical,
+                  spacing: AxisSpacing.standard,
+                  sort: AxisSort.tree,
+                  permissions: const AxisPermissions(canEditAll: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final cardFinder = find.byKey(const Key('axis-person-1'));
+      final gesture = await tester.startGesture(tester.getCenter(cardFinder));
+      await gesture.moveBy(const Offset(30, 30));
+      await tester.pump();
+
+      // 在拖拽未结束时，改变视口宽度
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 500,
+                height: 600,
+                child: AxisCanvas(
+                  nodes: nodes,
+                  selfNodeId: 1,
+                  orientation: AxisOrientation.vertical,
+                  spacing: AxisSpacing.standard,
+                  sort: AxisSort.tree,
+                  permissions: const AxisPermissions(canEditAll: true),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      await gesture.moveBy(const Offset(20, 20));
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.byType(AxisCanvas), findsOneWidget);
+    });
   });
 }

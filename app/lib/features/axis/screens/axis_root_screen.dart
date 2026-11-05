@@ -1063,11 +1063,14 @@ class _VerticalConnector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 2,
-      height: 18,
-      margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      color: AppColors.primary.withValues(alpha: 0.35),
+    return Center(
+      child: Container(
+        key: const Key('axis-vertical-connector'),
+        width: 2,
+        height: 18,
+        margin: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
+        color: AppColors.primary.withValues(alpha: 0.35),
+      ),
     );
   }
 }

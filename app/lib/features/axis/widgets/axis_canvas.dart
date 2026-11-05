@@ -511,13 +511,25 @@ class _AxisCanvasState extends State<AxisCanvas>
     final highlighted = highlightConnectionIds(widget.nodes, _selectedId);
     return LayoutBuilder(
       builder: (context, constraints) {
-        _viewport = Size(constraints.maxWidth, constraints.maxHeight);
+        final oldViewport = _viewport;
+        final newViewport = Size(constraints.maxWidth, constraints.maxHeight);
+        _viewport = newViewport;
         final signature =
             '${widget.orientation}-${widget.sort}-${widget.spacing}-${widget.nodes.length}';
         if (_fittedSignature != signature && _viewport != Size.zero) {
           _fittedSignature = signature;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) _fitInitial();
+          });
+        } else if (oldViewport != Size.zero &&
+            newViewport.width != oldViewport.width) {
+          final dx = (newViewport.width - oldViewport.width) / 2;
+          final dy = (newViewport.height - oldViewport.height) / 2;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _transform.value = Matrix4.identity()
+              ..translateByDouble(dx, dy, 0, 1)
+              ..multiply(_transform.value);
           });
         }
         final dropBubble = _buildDropBubble();

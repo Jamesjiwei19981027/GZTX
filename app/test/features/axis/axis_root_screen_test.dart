@@ -512,4 +512,36 @@ void main() {
     // 苏菲卡片显示真实汇报时间及状态
     expect(find.textContaining('已提交'), findsOneWidget);
   });
+
+  testWidgets('我的职责页面中 _VerticalConnector 渲染宽度为 2 且水平居中', (tester) async {
+    const screenWidth = 400.0;
+    const screenHeight = 800.0;
+    tester.view.physicalSize = const Size(screenWidth, screenHeight);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final harness = await AxisTestHarness.create();
+    await tester.pumpWidget(harness.wrap(
+      AxisRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+
+    // 经公开界面断言查找连接线
+    final connectorFinder = find.byKey(const Key('axis-vertical-connector'));
+    expect(connectorFinder, findsWidgets);
+
+    // 每一个连接线的渲染宽度必须为 2，且在屏幕水平正中间
+    for (final element in connectorFinder.evaluate()) {
+      final box = element.findRenderObject() as RenderBox?;
+      expect(box, isNotNull);
+      expect(box!.hasSize, isTrue);
+      // 宽度为 2
+      expect(box.size.width, equals(2.0));
+      // 水平居中于屏幕（屏幕宽度 400，中心为 200）
+      final globalPos = box.localToGlobal(Offset.zero);
+      final centerX = globalPos.dx + box.size.width / 2;
+      expect(centerX, closeTo(screenWidth / 2, 0.5));
+    }
+  });
 }
