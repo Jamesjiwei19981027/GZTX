@@ -8,18 +8,6 @@ import { responsibilityScope } from './peopleAxisFlowLayout'
 import { AxisAvatar, AxisMatter, AxisProgress, AxisOriginBadge } from './ResponsibilityParts'
 import './responsibility.css'
 
-export function useAxisMobile() {
-  const [mobile, setMobile] = useState(() => typeof matchMedia !== 'undefined' && matchMedia('(max-width: 767px)').matches)
-  useEffect(() => {
-    const query = matchMedia('(max-width: 767px)')
-    const update = () => setMobile(query.matches)
-    query.addEventListener('change', update)
-    update()
-    return () => query.removeEventListener('change', update)
-  }, [])
-  return mobile
-}
-
 /** Modal surface shared by the phone detail sheet and canvas settings. */
 export function AxisDialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -78,7 +66,6 @@ type Props = {
   progress: number
   syncing: boolean
   error: string | null
-  mobile: boolean
   finalOwner: { name: string; avatar: string }
   canAdd: boolean
   onAdd: () => void
@@ -176,8 +163,7 @@ const PersonRow: React.FC<{ node: PeopleAxisNode; onClick: () => void }> = ({ no
 
 export function ResponsibilityWorkspace(p: Props) {
   const zh = p.lang === 'zh'
-  const [mode, setMode] = useState<'chain' | 'overview'>(() => p.mobile ? 'chain' : 'overview')
-  const [detailOpen, setDetailOpen] = useState(false)
+  const [mode, setMode] = useState<'chain' | 'overview'>('overview')
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [focusToken, setFocusToken] = useState(0)
   const selected = p.nodes.find(n => n.id === p.selectedId)
@@ -185,22 +171,15 @@ export function ResponsibilityWorkspace(p: Props) {
   const allData = useMemo(() => new Map(p.canvas.nodes.filter(n => n.type === 'person').map(n => [n.id, n.data as PersonNodeData])), [p.canvas.nodes])
   const summaryNodes = p.isProject ? p.nodes : p.projectSummaries.flatMap(project => project.nodes)
   const count = summaryNodes.reduce((sum, n) => sum + n.workItems.length, 0)
-  const hasPreview = p.mobile && mode === 'overview' && !!selected && !detailOpen && !p.canvas.linkingSourceNodeId
-  const prevMobile = useRef(p.mobile)
+  useEffect(() => { setSettingsOpen(false) }, [p.projectId])
   useEffect(() => {
-    if (p.mobile !== prevMobile.current) { setMode(p.mobile ? 'chain' : 'overview'); setDetailOpen(false); prevMobile.current = p.mobile }
-  }, [p.mobile])
-  useEffect(() => { setDetailOpen(false); setSettingsOpen(false) }, [p.projectId])
-  useEffect(() => { if (!selected) setDetailOpen(false) }, [selected])
-  useEffect(() => {
-    if (p.canvas.linkingSourceNodeId) { setMode('overview'); setDetailOpen(false) }
+    if (p.canvas.linkingSourceNodeId) { setMode('overview') }
   }, [p.canvas.linkingSourceNodeId])
   const choose = (id: string) => {
     allData.get(id)?.onCardClick(id)
-    if (!p.canvas.linkingSourceNodeId) setDetailOpen(true)
   }
   const detail = selected && <NodeDetails node={selected} data={selectedData} nodes={p.nodes} lang={p.lang}
-    onSelect={p.onSelect} onAddEvidence={p.onAddEvidence} onAction={() => { setDetailOpen(false) }} />
+    onSelect={p.onSelect} onAddEvidence={p.onAddEvidence} onAction={() => {}} />
   const renderChain = () => {
     const sorted = [...p.nodes].sort((a, b) => a.orderOnAxis - b.orderOnAxis)
     const roots = sorted.filter(n => !n.parentId || !p.nodes.some(parent => parent.id === n.parentId))
@@ -250,7 +229,7 @@ export function ResponsibilityWorkspace(p: Props) {
         </label>
         {p.isProject && <button className="axis-icon-button" aria-label={zh ? '项目知识' : 'Project knowledge'} onClick={p.onOpenWiki}><BookOpen size={20} /></button>}
         {p.isProject && <button className="axis-icon-button" aria-label={zh ? '画布设置' : 'Canvas settings'} onClick={() => setSettingsOpen(true)}><MoreHorizontal size={21} /></button>}
-        {!p.mobile && p.canAdd && <button className="axis-primary-button" aria-label="添加责任人" onClick={p.onAdd}><Plus size={17} />{zh ? '添加成员' : 'Add person'}</button>}
+        {p.canAdd && <button className="axis-primary-button" aria-label="添加责任人" onClick={p.onAdd}><Plus size={17} />{zh ? '添加成员' : 'Add person'}</button>}
       </div>
     </header>
     {p.isProject && <nav className="axis-quick-actions" aria-label={zh ? '人轴协作与检查' : 'Delegation and review'}>
@@ -286,8 +265,8 @@ export function ResponsibilityWorkspace(p: Props) {
     </div> : <div className="axis-workbench">
       <div className="axis-board">
         <div className="axis-view-toolbar"><div className="axis-segment axis-view-tabs" role="tablist" aria-label={zh ? '项目视图' : 'Project view'}>
-          <button role="tab" aria-selected={mode === 'chain'} aria-controls="axis-view-panel" onClick={() => { p.canvas.onCancelLinking?.(); setMode('chain'); setDetailOpen(false) }}>{zh ? '责任链' : 'Chain'}</button>
-          <button role="tab" aria-selected={mode === 'overview'} aria-controls="axis-view-panel" onClick={() => { setMode('overview'); setDetailOpen(false); p.onSelect(null) }}>{zh ? '总览' : 'Overview'}</button>
+          <button role="tab" aria-selected={mode === 'chain'} aria-controls="axis-view-panel" onClick={() => { p.canvas.onCancelLinking?.(); setMode('chain') }}>{zh ? '责任链' : 'Chain'}</button>
+          <button role="tab" aria-selected={mode === 'overview'} aria-controls="axis-view-panel" onClick={() => { setMode('overview'); p.onSelect(null) }}>{zh ? '总览' : 'Overview'}</button>
         </div>
           {mode === 'overview' && <div className="flex items-center gap-2">
             <div className="axis-orientation" role="group" aria-label={zh ? '主轴方向' : 'Orientation'}>
@@ -304,7 +283,7 @@ export function ResponsibilityWorkspace(p: Props) {
               </button>
             </div>
           </div>}
-          {mode === 'overview' && !p.mobile && !p.canvas.linkingSourceNodeId && (
+          {mode === 'overview' && !p.canvas.linkingSourceNodeId && (
             <span className="axis-toolbar-hint">
               {zh ? '拖到别人卡片上停一下＝换上级 · 拖到空白处＝挪位置' : 'Hover card over peer = change manager · Drag blank = move'}
             </span>
@@ -317,34 +296,20 @@ export function ResponsibilityWorkspace(p: Props) {
                 {zh ? '该项目存在多个根节点，请联系管理员整理' : 'This project has multiple root nodes. Please ask an administrator to tidy it up.'}
               </div>
             )}
-            <PeopleAxisFlowCanvas {...p.canvas} edgeStyle={p.edgeStyle} mobile={p.mobile} hasPreview={hasPreview} focusNodeId={p.selectedId} focusToken={focusToken} />
-            {p.mobile && !p.canvas.linkingSourceNodeId && <p className="axis-canvas-hint">{zh ? '双指缩放 · 拖动浏览' : 'Pinch to zoom · drag to pan'}</p>}
-            {hasPreview && selected && <div className="axis-node-preview" data-testid="axis-node-preview"><div className="axis-sheet-handle" />
-              <button className="axis-preview-close axis-icon-button" aria-label={zh ? '关闭预览' : 'Close preview'} onClick={() => p.onSelect(null)}><X size={17} /></button>
-              <div className="axis-person-heading"><AxisAvatar person={selected.person} small /><div className="axis-person-label"><strong>{selected.person.name}</strong><span>{selected.roleTitle}</span></div><b>{averagePeopleAxisProgress([selected])}%</b></div>
-              <div className="axis-preview-actions"><button className="axis-primary-button" onClick={() => setDetailOpen(true)}>{zh ? '查看详情' : 'View details'}<ArrowRight size={17} /></button>
-                <button className="axis-secondary-button" onClick={() => setFocusToken(t => t + 1)}><LocateFixed size={17} />{zh ? '定位' : 'Locate'}</button></div>
-              {selectedData?.canEdit && <div className="axis-preview-management">
-                {selectedData.canAddSubordinate && <button onClick={() => selectedData.onAddChild(selected.id)}><Plus size={15} />{zh ? '新增下级' : 'Add subordinate'}</button>}
-                <button onClick={() => selectedData.onEditPerson(selected.id)}><Pencil size={14} />{zh ? '编辑人员' : 'Edit person'}</button>
-                {selectedData.canRelink && <button onClick={() => selectedData.onToggleLinking(selected.id)}><GitBranch size={14} />{zh ? '调整上级' : 'Change manager'}</button>}
-              </div>}
-            </div>}
+            <PeopleAxisFlowCanvas {...p.canvas} edgeStyle={p.edgeStyle} mobile={false} focusNodeId={p.selectedId} focusToken={focusToken} />
           </div> : <div className="axis-empty-state"><span className="axis-empty-icon"><GitBranch size={34} /></span>
             <h2>{p.syncing ? (zh ? '正在加载责任链…' : 'Loading…') : p.error ? (zh ? '暂时无法显示责任链' : 'Unable to load') : p.scope === 'mine' && !p.hasResponsibilities && !p.isProjectPM ? (zh ? '你在此项目尚未分配职责' : 'No assigned responsibilities') : (zh ? '从一位负责人开始' : 'Start with an owner')}</h2>
             <p>{zh ? p.scope === 'mine' && !p.hasResponsibilities && !p.isProjectPM ? '可切换项目全貌查看分工，或联系项目 PM 分配职责。' : '项目终责统筹，负责人逐级分工，事项落实到人。' : 'The project lead oversees a hierarchy of owners and their work.'}</p>
             {p.canAdd && !p.syncing && !(p.scope === 'mine' && !p.hasResponsibilities && !p.isProjectPM) && <><button className="axis-primary-button" onClick={p.onAdd}><Plus size={18} />{zh ? '先添加终责人' : 'Add final owner'}</button>
               <button className="axis-text-button" disabled={p.seeding} onClick={p.onSeed}>{p.seeding ? (zh ? '生成中…' : 'Creating…') : (zh ? '一键生成示例人轴' : 'Create a sample axis')}</button></>}
           </div>}
-          {p.mobile && p.canAdd && !detailOpen && p.nodes.length > 0 && <button className={`axis-add-fab ${hasPreview ? 'has-preview' : ''}`} aria-label="添加责任人" onClick={p.onAdd}><Plus size={28} /></button>}
         </div>
       </div>
-      {!p.mobile && selected && <aside className="axis-inspector" data-testid="axis-inspector"><div className="axis-inspector-title"><h2>{zh ? '节点详情' : 'Node details'}</h2>
+      {selected && <aside className="axis-inspector" data-testid="axis-inspector"><div className="axis-inspector-title"><h2>{zh ? '节点详情' : 'Node details'}</h2>
         {selected && <button className="axis-icon-button" aria-label="关闭详情" onClick={() => p.onSelect(null)}><X size={18} /></button>}</div>
         {detail || <div className="axis-inspector-empty"><Users size={30} /><p>{zh ? '选择一位负责人' : 'Select an owner'}</p><small>{zh ? '查看事项、材料与协作关系' : 'Explore work items, evidence and relationships'}</small></div>}
       </aside>}
     </div>}
-    {p.mobile && detailOpen && selected && <AxisDialog title={zh ? '节点详情' : 'Node details'} onClose={() => setDetailOpen(false)}>{detail}</AxisDialog>}
     {settingsOpen && <AxisDialog title={zh ? '画布设置' : 'Canvas settings'} onClose={() => setSettingsOpen(false)}><div className="axis-settings"><h2>{zh ? '画布设置' : 'Canvas settings'}</h2>
       <p className="axis-muted">{zh ? '浏览方式随时切换，责任关系保持同步。' : 'Switch views while keeping the same responsibility data.'}</p>
       <button className="axis-settings-row" onClick={() => { p.canvas.onResetLayout(); setSettingsOpen(false) }}><RefreshCw size={19} />{zh ? '重置卡片布局' : 'Reset card layout'}</button>

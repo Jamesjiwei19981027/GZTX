@@ -23,4 +23,4 @@
 .project-wiki-notice{background:#eaf8f1;color:#23714f;padding:10px 12px;border-radius:12px;font-size:13px}
 .project-wiki-spin{animation:wiki-spin 1s linear infinite}
 @keyframes wiki-spin{to{transform:rotate(360deg)}}
-@media(max-width:767px){.project-wiki-panel{padding:24px 16px 22px;gap:18px}.project-wiki-panel h2{font-size:18px}.project-wiki-card{padding:13px}}
+@media(max-width:1023px){.project-wiki-panel{padding:24px 16px 22px;gap:18px}.project-wiki-panel h2{font-size:18px}.project-wiki-card{padding:13px}}

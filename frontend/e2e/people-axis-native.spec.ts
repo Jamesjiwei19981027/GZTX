@@ -129,7 +129,7 @@ async function openMobileWorkspace(page: Page, editable = true, userId = 1, hint
     if (path === '/users/me') data = { id: userId, nickname: userId === 1 ? '赵晨' : '当前用户' }
     else if (path.endsWith('/my-permissions')) data = {
       role: editable ? 'pm' : 'member', is_pm: editable, is_superadmin: false,
-      can_edit_all: editable, owned_node_ids: [1, 2, 3, 4], via_delegation: false, can_move: editable, can_delete: editable,
+      can_edit_all: editable, owned_node_ids: editable ? [1, 2, 3, 4] : [], via_delegation: false, can_move: editable, can_delete: editable,
       can_submit_evidence: true, can_read_evidence: true,
     }
     else if (path.endsWith('/tree')) data = { project_id: 1, nodes: currentTree }
@@ -228,74 +228,14 @@ async function expectCanvasFits(page: Page) {
   })).toBeTruthy()
 }
 
-test('phone chain, horizontal/vertical overview and detail sheet share real node data', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await openWorkspace(page)
-  await expect(page.getByRole('tab', { name: '责任链', exact: true })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByTestId('axis-chain-node-2')).toBeVisible()
-  await page.screenshot({ path: test.info().outputPath('phone-chain.png'), animations: 'disabled' })
-  await page.getByTestId('axis-chain-node-2').click()
-  const sheet = page.getByRole('dialog', { name: '节点详情' })
-  await expect(sheet).toBeVisible()
-  await expect(sheet.getByText('交互原型设计', { exact: true })).toBeVisible()
-  await expect(sheet.getByRole('button', { name: '添加事项', exact: true })).toBeVisible()
-  await page.screenshot({ path: test.info().outputPath('phone-detail.png'), animations: 'disabled' })
-  await sheet.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.getByRole('tab', { name: '总览', exact: true }).click()
-  await expect(page.getByTestId('axis-overview')).toBeVisible()
-  await expect(page.getByRole('button', { name: '纵向', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  const node = page.locator('.react-flow__node[data-id="2"]')
-  const first = page.locator('.react-flow__node[data-id="1"]')
-  await expect(node).toBeVisible()
-  await expect.poll(async () => {
-    const a = await first.boundingBox(), b = await node.boundingBox()
-    return a && b ? b.x > a.x && Math.abs(b.y - a.y) < 3 : false
-  }).toBeTruthy()
-  await expectCanvasFits(page)
-  await page.screenshot({ path: test.info().outputPath('phone-overview-vertical.png'), animations: 'disabled' })
-  await page.getByRole('button', { name: '横向', exact: true }).click()
-  await expect.poll(async () => {
-    const a = await first.boundingBox(), b = await node.boundingBox()
-    return a && b ? b.y > a.y && Math.abs(b.x - a.x) < 3 : false
-  }).toBeTruthy()
-  await expectCanvasFits(page)
-  await page.screenshot({ path: test.info().outputPath('phone-overview-horizontal.png'), animations: 'disabled' })
-  await node.click()
-  await expect(page.getByTestId('axis-node-preview')).toContainText('林悦')
-  await page.getByRole('button', { name: '查看详情', exact: true }).click()
-  await expect(sheet.getByText('交互原型设计', { exact: true })).toBeVisible()
-  await sheet.getByRole('button', { name: '关闭', exact: true }).click()
-  await expect(page.getByRole('button', { name: '横向', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
-})
-
-test('small touch overview selects a card without triggering its tiny management controls', async ({ page }) => {
-  await page.setViewportSize({width:390,height:844})
-  await openWorkspace(page,true,undefined,true)
-  await page.getByRole('tab',{name:'总览',exact:true}).click()
-  const node = page.locator('.react-flow__node[data-id="3"]')
-  await node.click()
-  await expect(page.getByTestId('axis-node-preview')).toContainText('陈宇')
-  await expect(node.getByRole('button',{name:'编辑人员 · 陈宇',exact:true})).not.toBeVisible()
-  await node.click()
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await page.getByRole('button',{name:'定位',exact:true}).click()
-  await expect(node.getByRole('button',{name:'新增下级 · 陈宇',exact:true})).toBeVisible()
-})
-
 test('read-only mobile users can browse but cannot edit nodes', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 })
-  await openWorkspace(page, false)
-  await page.getByTestId('axis-chain-node-2').click()
-  const sheet = page.getByRole('dialog', { name: '节点详情' })
-  await expect(sheet.getByRole('button', { name: '添加事项', exact: true })).toHaveCount(0)
-  await expect(sheet.getByText('只读', { exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: '添加责任人', exact: true })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '新增下级', exact: true })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '编辑人员', exact: true })).toHaveCount(0)
-  await sheet.getByRole('button', { name: '关闭', exact: true }).click()
-  await page.getByRole('tab', { name: '总览', exact: true }).click()
-  await expect(page.getByRole('button', { name: '调整位置', exact: true })).toHaveCount(0)
+  await openMobileWorkspace(page, false, 2)
+  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+  await expect(page.locator('.react-flow__node[data-id="1"]')).toBeVisible()
+  await expect(page.getByRole('button', { name: '新增主轴人员' })).toHaveCount(0)
+  await page.locator('.react-flow__node[data-id="2"]').click()
+  await expect(page.locator('.axis-card-icon-btn.add')).toHaveCount(0)
 })
 
 test('desktop uses a canvas and persistent inspector', async ({ page }) => {
@@ -325,116 +265,6 @@ test('desktop zoomed out to 50% shows compact cards with a large name', async ({
   await expect(card).toHaveClass(/is-compact/)
   const fontSize = await card.locator('.axis-card-name strong').evaluate(el => parseFloat(getComputedStyle(el).fontSize))
   expect(fontSize).toBeGreaterThanOrEqual(24)
-})
-
-test('a member can submit evidence without personnel editing rights', async ({ page }) => {
-  await page.setViewportSize({width:390,height:844})
-  await openWorkspace(page, false)
-  await page.getByTestId('axis-chain-node-2').click()
-  const detail = page.getByRole('dialog',{name:'节点详情'})
-  await expect(detail.getByTestId('axis-node-permissions')).toContainText('可提交材料')
-  await expect(detail.getByRole('button',{name:'编辑人员',exact:true})).toHaveCount(0)
-  await detail.locator('.axis-detail-item').first().getByRole('button',{name:'提交材料',exact:true}).click()
-  const form = page.getByRole('dialog',{name:'提交材料'})
-  await form.getByLabel('文字材料').fill('成员交付材料')
-  const submitted = page.waitForRequest(r => r.method()==='POST' && r.url().endsWith('/nodes/21/evidence'))
-  await form.getByRole('button',{name:'提交材料',exact:true}).click()
-  expect((await submitted).postDataJSON().summary_text).toContain('成员交付材料')
-})
-
-test('tree editing alone does not imply evidence submission rights', async ({ page }) => {
-  await page.setViewportSize({width:390,height:844})
-  await openWorkspace(page,true,undefined,false,false,false)
-  await page.getByTestId('axis-chain-node-2').click()
-  const detail = page.getByRole('dialog',{name:'节点详情'})
-  await expect(detail.getByRole('button',{name:'编辑人员',exact:true})).toBeVisible()
-  await expect(detail.getByTestId('axis-node-permissions')).toContainText('不可提交材料')
-  await expect(detail.getByRole('button',{name:'提交材料',exact:true})).toHaveCount(0)
-})
-
-test('creating an item from the phone sheet targets the selected owner', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await openWorkspace(page)
-  await page.getByTestId('axis-chain-node-2').click()
-  await page.getByRole('dialog', { name: '节点详情' }).getByRole('button', { name: '添加事项', exact: true }).click()
-  const form = page.getByRole('dialog', { name: '添加事项' })
-  await expect(form).toBeVisible()
-  await form.locator('input').first().fill('移动端验收事项')
-  const request = page.waitForRequest(req => req.method() === 'POST' && req.url().endsWith('/projects/1/nodes'))
-  await form.locator('button[type="submit"]').click()
-  expect((await request).postDataJSON()).toMatchObject({ parent_id: 2, node_type_key: 'work_item', title: '移动端验收事项' })
-  await expect(form).not.toBeVisible()
-  await page.getByTestId('axis-chain-node-2').click()
-  await expect(page.getByRole('dialog', { name: '节点详情' }).getByText('移动端验收事项', { exact: true })).toBeVisible()
-})
-
-test('relationship action opens overview, can cancel and assigns the chosen parent', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await openWorkspace(page)
-  let moveSent = false
-  page.on('request', r => { if (r.method() === 'POST' && r.url().endsWith('/move')) moveSent = true })
-
-  const startForNode = async (id: number) => {
-    await page.getByTestId(`axis-chain-node-${id}`).click()
-    await page.getByRole('dialog', { name: '节点详情' }).getByRole('button', { name: '管理责任关系', exact: true }).click()
-    await expect(page.getByRole('tab', { name: '总览', exact: true })).toHaveAttribute('aria-selected', 'true')
-    await expect(page.getByRole('dialog', { name: '节点详情' })).toHaveCount(0)
-    await expect(page.getByText('点击人员设为直属上级', { exact: true })).toBeVisible()
-    await expectCanvasFits(page)
-  }
-
-  // 1. 验证取消连线按钮
-  await startForNode(2)
-  await page.getByRole('button', { name: '取消连线', exact: true }).click()
-  await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
-
-  // 2. 验证离开总览取消连线模式
-  await page.getByRole('tab', { name: '责任链', exact: true }).click()
-  await startForNode(2)
-  await page.getByRole('tab', { name: '责任链', exact: true }).click()
-  await page.getByTestId('axis-chain-node-2').click()
-  await expect(page.getByRole('dialog', { name: '节点详情' })).toBeVisible()
-  await page.getByRole('dialog', { name: '节点详情' }).getByRole('button', { name: '管理责任关系', exact: true }).click()
-  await expectCanvasFits(page)
-
-  // 3. 进入连线模式点合法目标 → 出现确认框，此时没有发出 move 请求
-  const confirmDialog = page.getByTestId('reparent-confirm-dialog')
-  await page.locator('.react-flow__node[data-id="3"]').click()
-  await expect(confirmDialog).toBeVisible()
-  await expect(confirmDialog).toContainText('林悦')
-  await expect(confirmDialog).toContainText('陈宇')
-  expect(moveSent).toBeFalsy()
-
-  // 4. 点「取消」→ 没有 move 请求，连线模式退出，卡片高亮不残留
-  await page.getByTestId('reparent-confirm-no').click()
-  await expect(confirmDialog).toHaveCount(0)
-  expect(moveSent).toBeFalsy()
-  await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
-  await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card')).not.toHaveClass(/is-link-source/)
-  await expect(page.locator('.react-flow__node[data-id="3"] .axis-map-card')).not.toHaveClass(/is-link-target/)
-
-  // 5. 点非法目标（节点 3 试图连线到自己的下属节点 4）→ 不出现确认框，显示原有提示
-  await page.getByRole('tab', { name: '责任链', exact: true }).click()
-  await startForNode(3)
-  await page.locator('.react-flow__node[data-id="4"]').click()
-  await expect(confirmDialog).toHaveCount(0)
-  await expect(page.getByText('不能挂载到自己的下属节点上')).toBeVisible()
-  expect(moveSent).toBeFalsy()
-  await page.getByRole('button', { name: '取消连线', exact: true }).click()
-
-  // 6. 再来一次点「确定」→ 发出一次 move，且 new_parent_id 正确
-  await page.getByRole('tab', { name: '责任链', exact: true }).click()
-  await startForNode(2)
-  await page.locator('.react-flow__node[data-id="3"]').click()
-  await expect(confirmDialog).toBeVisible()
-  const request = page.waitForRequest(req => req.method() === 'POST' && req.url().endsWith('/nodes/2/move'))
-  await page.getByTestId('reparent-confirm-yes').click()
-  expect((await request).postDataJSON()).toMatchObject({ new_parent_id: 3 })
-  await expect(confirmDialog).toHaveCount(0)
-  await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
-  await page.getByRole('tab', { name: '责任链', exact: true }).click()
-  const parent = page.getByTestId('axis-chain-node-3').locator('xpath=../..')
-  await expect(parent.getByTestId('axis-chain-node-2')).toBeVisible()
 })
 
 test('desktop link mode requires confirmation, cancels cleanly and executes on confirm', async ({ page }) => {
@@ -493,63 +323,6 @@ test('desktop link mode requires confirmation, cancels cleanly and executes on c
   expect(req.postDataJSON()).toMatchObject({ new_parent_id: 3 })
   await expect(confirmDialog).toHaveCount(0)
   await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
-})
-
-test.describe('touch phone', () => {
-  test.use({ isMobile: true, hasTouch: true, viewport: { width: 390, height: 844 } })
-  test('touch adjustment saves a node position and keeps its reporting line', async ({ page }) => {
-    await openWorkspace(page)
-    await page.getByRole('tab', { name: '总览', exact: true }).tap()
-    await expectCanvasFits(page)
-    const node = page.locator('.react-flow__node[data-id="4"]')
-    await node.tap()
-    await page.getByRole('button',{name:'定位',exact:true}).tap()
-    await page.waitForTimeout(500)
-    await expect(page.locator('.axis-zoom-readout')).toHaveText('85%')
-    const box = (await node.boundingBox())!
-    const saved = page.waitForRequest(r => r.method() === 'PUT' && r.url().endsWith('/nodes/4/layout'), { timeout: 7000 })
-    const start = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-    // 真实触摸事件（与旧用例同口径），不是鼠标模拟
-    const cdp = await page.context().newCDPSession(page)
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] })
-    for (let i = 1; i <= 12; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: start.x - i * 3, y: start.y - i * 4 }] })
-    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
-    const req = await saved
-    expect(req.postDataJSON().orientation).toBeTruthy()
-    const position = () => node.evaluate(el => { const m = new DOMMatrixReadOnly((el as HTMLElement).style.transform); return {x:m.m41,y:m.m42} })
-    const after = await position()
-    await page.screenshot({path:test.info().outputPath('mobile-adjustment.png')})
-    await expect(page.locator('.axis-zoom-readout')).toHaveText('85%')
-    await page.reload()
-    await page.getByRole('tab', { name: '总览', exact: true }).tap()
-    await expect.poll(position).toEqual(after)
-    await expect(page.locator('.react-flow__edge[data-id="branch-4"]')).toHaveCount(1)
-  })
-  test('touch navigation, collapse and project switching work in dark mode', async ({ page }) => {
-    await openWorkspace(page)
-    await page.evaluate(() => document.documentElement.classList.add('dark'))
-    // Android WebView's button default differs from desktop Chromium.
-    await page.addStyleTag({ content: '@layer base { button { align-items: flex-start; } }' })
-    const dimensions = await page.getByTestId('axis-chain-node-2').evaluate(el => ({ card: el.clientWidth, heading: el.querySelector('.axis-person-heading')!.clientWidth }))
-    expect(dimensions.heading).toBeGreaterThan(dimensions.card - 35)
-    await page.getByTestId('axis-chain-node-4').scrollIntoViewIfNeeded()
-    await expect(page.getByTestId('axis-chain-node-4')).toBeVisible()
-    await page.getByRole('button', { name: '收起下级', exact: true }).tap()
-    await expect(page.getByTestId('axis-chain-node-4')).toHaveCount(0)
-    await page.getByRole('tab', { name: '总览', exact: true }).tap()
-    await expectCanvasFits(page)
-    await page.locator('.react-flow__node[data-id="2"]').tap()
-    await expect(page.getByTestId('axis-node-preview')).toContainText('林悦')
-    await page.getByRole('button', { name: '查看详情', exact: true }).tap()
-    await expect(page.getByRole('dialog', { name: '节点详情' })).toBeVisible()
-    await page.getByRole('button', { name: '关闭', exact: true }).tap()
-    await page.getByRole('combobox', { name: '选择项目' }).selectOption('all')
-    await expect(page.getByRole('combobox', { name: '选择项目' })).toHaveValue('all')
-    await expect(page.getByRole('button', { name: '添加责任人', exact: true })).toHaveCount(0)
-    await page.getByRole('combobox', { name: '选择项目' }).selectOption('1')
-    await expect(page.locator('.react-flow__node[data-id="2"]')).toBeVisible()
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
-  })
 })
 
 for (const width of [1420, 1099]) {
@@ -623,60 +396,6 @@ test('straight mode snaps subordinate card within 16px to parent horizontal axis
   }).toBeTruthy()
 })
 
-test('member role, reporting path and project-specific responsibility survive switching', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await openWorkspace(page, false, 4)
-  await expect(page.getByTestId('axis-my-role')).toContainText('前端工程师')
-  await expect(page.getByRole('button', { name: '我的职责', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByTestId('axis-chain-node-4')).toContainText('我负责')
-  await expect(page.getByTestId('axis-chain-node-3')).toContainText('上级链路')
-  await expect(page.getByTestId('axis-chain-node-1')).toHaveCount(0)
-  await page.getByRole('button', { name: '项目全貌', exact: true }).click()
-  await expect(page.getByTestId('axis-chain-node-1')).toBeVisible()
-  await page.getByRole('combobox', { name: '选择项目' }).selectOption('all')
-  await expect(page.getByTestId('axis-project-1')).toContainText('前端工程师')
-  await expect(page.getByTestId('axis-project-2')).toContainText('项目 PM')
-  await expect(page.locator('.react-flow')).toHaveCount(0)
-  await page.getByTestId('axis-project-2').click()
-  await expect(page.getByTestId('axis-my-role')).toContainText('项目 PM')
-  await expect(page.getByTestId('axis-chain-node-102')).toBeVisible()
-  await expect(page.getByTestId('axis-chain-node-4')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: '项目全貌', exact: true })).toHaveAttribute('aria-pressed', 'true')
-})
-
-test.describe('dense touch hierarchy', () => {
-  test.use({ isMobile: true, hasTouch: true, viewport: { width: 390, height: 844 } })
-  test('selecting a manager at overview scale never collapses its descendants', async ({ page }) => {
-    await openWorkspace(page, true, undefined, true)
-    await page.getByTestId('axis-chain-node-2').tap()
-    await page.getByRole('dialog', { name: '节点详情' }).getByRole('button', { name: '管理责任关系', exact: true }).tap()
-    await expectCanvasFits(page)
-    const moved = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/nodes/2/move'), { timeout: 7000 })
-    await page.locator('.react-flow__node[data-id="3"]').tap()
-    await page.getByTestId('reparent-confirm-yes').tap()
-    expect((await moved).ok()).toBeTruthy()
-    await expect(page.getByText('点击人员设为直属上级', { exact: true })).toHaveCount(0)
-  })
-})
-
-test('task-only assignments use the same role in project directory and chain', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await openWorkspace(page, false, 99)
-  await expect(page.getByTestId('axis-my-role')).toHaveText('设计负责人')
-  await expect(page.getByTestId('axis-chain-node-2')).toContainText('我负责')
-  await page.getByRole('combobox', { name: '选择项目' }).selectOption('all')
-  await expect(page.getByTestId('axis-project-1')).toContainText('我的岗位 · 设计负责人')
-})
-
-test('retry restores project metadata as well as its tree', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await openWorkspace(page, true, undefined, false, true)
-  await page.getByRole('button', { name: '重新加载', exact: true }).click()
-  await expect(page.locator('.axis-chain-final')).toContainText('王宁')
-  await expect(page.getByTestId('axis-chain-node-2')).toBeVisible()
-  await expect(page.getByRole('button', { name: '重新加载', exact: true })).toHaveCount(0)
-})
-
 test('project directory can retry after a failed aggregate request', async ({ page }) => {
   await openWorkspace(page)
   let calls = 0
@@ -689,94 +408,6 @@ test('project directory can retry after a failed aggregate request', async ({ pa
   await page.getByRole('button', { name: '重新加载', exact: true }).click()
   await expect(page.getByTestId('axis-project-1')).toContainText('恢复的项目')
   expect(calls).toBe(2)
-})
-
-test('late refresh from a previous project cannot replace the current chain', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await openWorkspace(page)
-  await expect(page.getByTestId('axis-chain-node-2')).toBeVisible()
-  let release!: () => void
-  const gate = new Promise<void>(resolve => { release = resolve })
-  let entered!: () => void
-  const started = new Promise<void>(resolve => { entered = resolve })
-  await page.route('**/api/v1/projects/1/tree?*', async route => {
-    entered()
-    await gate
-    await route.fulfill({ json: { code: 200, data: { project_id: 1, nodes: tree } } })
-  })
-  try {
-    await page.getByTestId('axis-chain-node-2').click()
-    await page.getByRole('dialog', { name: '节点详情' }).getByRole('button', { name: '添加事项', exact: true }).click()
-    const form = page.getByRole('dialog', { name: '添加事项' })
-    await form.locator('input').first().fill('切项目前提交的事项')
-    await form.locator('button[type="submit"]').click()
-    await started
-    await page.getByRole('combobox', { name: '选择项目' }).selectOption('2')
-    await expect(page.getByTestId('axis-chain-node-102')).toBeVisible()
-    const response = page.waitForResponse(r => new URL(r.url()).pathname.endsWith('/projects/1/tree'))
-    release()
-    await response
-    await expect(page.getByRole('status').filter({ hasText: '已同步' })).toBeVisible()
-    await expect(page.getByTestId('axis-chain-node-102')).toBeVisible()
-    await expect(page.getByTestId('axis-chain-node-2')).toHaveCount(0)
-  } finally { release() }
-})
-
-test('a manager can add a third-level person directly from any chain node', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await openWorkspace(page)
-  const branch = page.getByTestId('axis-chain-node-4').locator('xpath=../..')
-  await branch.getByRole('button', { name: '新增下级', exact: true }).click()
-  const form = page.getByRole('dialog', { name: '添加责任人' })
-  await expect(form.getByRole('combobox', { name: '直属上级' })).toHaveValue('4')
-  await form.getByPlaceholder('例如: 实时协同网关责任专家...').fill('客户端负责人')
-  const created = page.waitForRequest(r => r.method() === 'POST' && r.url().endsWith('/projects/1/nodes'))
-  await form.locator('button[type="submit"]').click()
-  expect((await created).postDataJSON().parent_id).toBe(4)
-  await expect(page.getByTestId('axis-chain-node-99')).toContainText('三级负责人')
-  await expect(page.getByTestId('axis-chain-node-99')).toContainText('客户端负责人')
-  await expect(page.getByTestId('axis-chain-node-99')).toHaveAttribute('data-node-origin','subordinate')
-  await expect(page.getByTestId('axis-chain-node-99')).toContainText('下级自建')
-  await page.getByRole('tab', { name: '总览', exact: true }).click()
-  await expect(page.locator('.react-flow__node[data-id="99"]')).toBeVisible()
-  await expect(page.locator('.react-flow__edge[data-id="branch-99"]')).toHaveCount(1)
-  await expect(page.locator('.react-flow__edge[data-id="branch-99"] [data-attachment-kind="subordinate"]')).toHaveCount(1)
-  await expect(page.locator('.react-flow__node[data-id="4"]')).toBeVisible()
-})
-
-test('person editing exposes persisted material and subordinate permissions', async ({page}) => {
-  await page.setViewportSize({width:390,height:844})
-  await openWorkspace(page)
-  const card = page.getByTestId('axis-chain-node-2')
-  await card.locator('xpath=..').getByRole('button',{name:'编辑人员',exact:true}).click()
-  const edit = page.getByRole('dialog',{name:'编辑人员'})
-  await edit.getByLabel('材料提交范围').selectOption('disabled')
-  await edit.getByLabel('允许负责人新增下级',{exact:true}).uncheck()
-  const saved = page.waitForRequest(r=>r.method()==='PATCH' && r.url().endsWith('/nodes/2'))
-  await edit.getByRole('button',{name:'保存修改',exact:true}).click()
-  expect((await saved).postDataJSON().responsibility_permissions).toEqual({evidence_submit:'disabled',allow_add_subordinates:false,allow_add_work_items:true})
-  await expect(edit).toHaveCount(0)
-  await card.locator('xpath=..').getByRole('button',{name:'编辑人员',exact:true}).click()
-  await expect(edit.getByLabel('材料提交范围')).toHaveValue('disabled')
-  await expect(edit.getByLabel('允许负责人新增下级',{exact:true})).not.toBeChecked()
-})
-
-test('editing a person keeps their subordinates and work items', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await openWorkspace(page)
-  await page.getByTestId('axis-chain-node-2').locator('xpath=../..').getByRole('button', { name: '编辑人员', exact: true }).click()
-  const form = page.getByRole('dialog', { name: '编辑人员' })
-  await expect(form.getByLabel('项目岗位')).toHaveValue('设计负责人')
-  await form.getByLabel('关联成员').selectOption('9')
-  await form.getByLabel('项目岗位').fill('体验总负责人')
-  const saved = page.waitForRequest(r => r.method() === 'PATCH' && r.url().endsWith('/nodes/2'))
-  await form.getByRole('button', { name: '保存修改', exact: true }).click()
-  expect((await saved).postDataJSON().assignees).toEqual([{user_id:9,role_key:'primary'}])
-  await expect(form).toHaveCount(0)
-  await expect(page.getByTestId('axis-chain-node-2')).toContainText('王宁')
-  await expect(page.getByTestId('axis-chain-node-2')).toContainText('体验总负责人')
-  await page.getByTestId('axis-chain-node-2').click()
-  await expect(page.getByRole('dialog', { name: '节点详情' })).toContainText('交互原型设计')
 })
 
 test('desktop node positions can be dragged, saved and restored', async ({ page }) => {

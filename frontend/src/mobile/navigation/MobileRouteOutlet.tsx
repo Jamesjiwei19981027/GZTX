@@ -117,9 +117,6 @@ const CalendarView = React.lazy(() =>
 const ReportsView = React.lazy(() =>
   import('../../components/views/ReportsView').then((m) => ({ default: m.ReportsView })),
 );
-const PeopleAxisView = React.lazy(() =>
-  import('../../components/views/PeopleAxisView').then((m) => ({ default: m.PeopleAxisView })),
-);
 const MessagesView = React.lazy(() =>
   import('../../components/views/MessagesView').then((m) => ({ default: m.MessagesView })),
 );

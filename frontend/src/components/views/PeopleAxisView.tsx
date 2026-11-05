@@ -21,7 +21,7 @@ import {
   usePeopleAxisCanvas, ReparentConfirmDialog, computeEditableNodeIds, makeNodeCapabilityCheckers,
 } from './usePeopleAxisCanvas';
 import { DelegationModal } from '../modals/DelegationModal';
-import { ResponsibilityWorkspace, AxisDialog, useAxisMobile, type AxisProjectSummary } from './ResponsibilityWorkspace';
+import { ResponsibilityWorkspace, AxisDialog, type AxisProjectSummary } from './ResponsibilityWorkspace';
 import { EditResponsibilityPerson } from './EditResponsibilityPerson';
 import { ResponsibilityPermissionFields, defaultResponsibilityPermissions } from './ResponsibilityPermissionFields';
 import { ProjectWikiPanel } from './ProjectWikiPanel';
@@ -125,7 +125,6 @@ interface PeopleAxisViewProps {
 }
 
 export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId, projects, onSelectProject }) => {
-  const mobile = useAxisMobile();
   const activeProjectRef = useRef(projectId);
   activeProjectRef.current = projectId;
   const [projectName, setProjectName] = useState('');
@@ -176,7 +175,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const [auditLoading, setAuditLoading] = useState(false);
 
   // Flagship Visual Controls
-  const [treeOrientation, setTreeOrientation] = useState<'horizontal' | 'vertical'>(() => mobile ? 'vertical' : 'horizontal');
+  const [treeOrientation, setTreeOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
   const treeOrientationRef = useRef(treeOrientation);
   treeOrientationRef.current = treeOrientation;
   // 数据每次整体载入（切项目 / 手动刷新）时递增，画布据此重新读取节点里的位置偏移
@@ -567,7 +566,6 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     orientation: treeOrientation,
     edgeStyle,
     lang,
-    mobile,
     isBackendProject,
     backendProjectId,
     serverPerms,
@@ -928,7 +926,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         isProjectPM={!!isProjectPM} hasResponsibilities={myScope.direct.size > 0}
         onSelect={setSelectedNodeId} expanded={expandedNodes} onToggleExpand={toggleExpandNode}
         progress={averagePeopleAxisProgress(scopedNodes)} syncing={syncStatus === 'syncing'} error={backendLoadError}
-        mobile={mobile} finalOwner={finalOwner} canAdd={isBackendProject && canMountSomething}
+        finalOwner={finalOwner} canAdd={isBackendProject && canMountSomething}
         onAdd={() => {
           if (nodes.length === 0 && pmUserId != null) {
             setNewPersonId(String(pmUserId));

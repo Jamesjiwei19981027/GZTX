@@ -4,7 +4,8 @@ test.use({ timezoneId: 'Asia/Shanghai' });
 
 async function open(page: Page, screen: string, manager = true, userId = '2') {
   page.on('pageerror',error=>console.log(`feedback-pageerror: ${error.message}`));
-  await page.setViewportSize({ width: 390, height: 844 });
+  const isDesktop = screen.startsWith('desktop-');
+  await page.setViewportSize(isDesktop ? { width: 1440, height: 1000 } : { width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: 'light' });
   await page.route('**/api/v1/**', async route => {
     const path = new URL(route.request().url()).pathname;

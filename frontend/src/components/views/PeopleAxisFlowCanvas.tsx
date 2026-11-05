@@ -377,7 +377,6 @@ export interface PeopleAxisFlowCanvasProps {
   onShowToast?: (message: string) => void
   resetToken?: number
   mobile?: boolean
-  hasPreview?: boolean
   focusNodeId?: string | null
   focusToken?: number
   onCancelLinking?: () => void
@@ -392,7 +391,7 @@ const ZoomReadout = () => {
 
 const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   lang, nodes, edges, orientation, edgeStyle = 'curve', linkingSourceNodeId, onNodeDragStop, onPaneClick,
-  onResetLayout, onRequestReparent, onShowToast, resetToken, mobile, hasPreview, focusNodeId, focusToken, onCancelLinking,
+  onResetLayout, onRequestReparent, onShowToast, resetToken, mobile, focusNodeId, focusToken, onCancelLinking,
   fitToken, centerMeToken,
 }) => {
   const { zoomIn, zoomOut, fitView, setCenter, getNode, getZoom, screenToFlowPosition } = useReactFlow()
@@ -453,9 +452,9 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   const padding = useMemo(() => ({
     top: linkingSourceNodeId ? '76px' : '32px',
     right: '28px',
-    bottom: mobile && hasPreview ? '312px' : '90px',
+    bottom: '90px',
     left: '28px',
-  }), [linkingSourceNodeId, mobile, hasPreview])
+  }), [linkingSourceNodeId])
 
   const fit = useCallback(() => {
     void fitView({ duration, padding, minZoom: mobile ? 0.25 : 0.05, maxZoom: 1 })
@@ -523,8 +522,8 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   useEffect(() => {
     if (!focusToken || !focusNodeId) return
     const node = getNode(focusNodeId)
-    if (node) void setCenter(node.position.x + CARD_W / 2, node.position.y + CARD_H / 2 + (mobile && hasPreview ? 150 : 0), { zoom: Math.max(getZoom(), mobile ? 0.85 : 1), duration: mobile ? 0 : duration })
-  }, [focusToken, focusNodeId, getNode, setCenter, getZoom, mobile, hasPreview, duration])
+    if (node) void setCenter(node.position.x + CARD_W / 2, node.position.y + CARD_H / 2, { zoom: Math.max(getZoom(), mobile ? 0.85 : 1), duration: mobile ? 0 : duration })
+  }, [focusToken, focusNodeId, getNode, setCenter, getZoom, mobile, duration])
 
   const effectiveFocusId = hoveredNodeId || focusNodeId || null
 
@@ -808,7 +807,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
           </div>
         </Panel>
       )}
-      <Panel position="bottom-left" className={`axis-canvas-controls${mobile && hasPreview ? ' has-preview' : ''}`}>
+      <Panel position="bottom-left" className="axis-canvas-controls">
         <div className="axis-control-pill">
           <button aria-label={lang === 'zh' ? '缩小' : 'Zoom out'} onClick={() => void zoomOut({ duration })}><Minus size={18} /></button>
           <ZoomReadout />
