@@ -76,19 +76,15 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
   const [discardModalOpen, setDiscardModalOpen] = useState<boolean>(false);
   const [pendingBackAction, setPendingBackAction] = useState<(() => void) | null>(null);
 
-  // 手机浏览器返回键历史栈管理
+  // 手机浏览器返回键：历史条数始终跟随页面栈深度（当前 Tab 的栈深 - 1 + 是否有弹层），
+  // 由状态驱动同步，避免内部返回与 popstate 互相触发造成重复返回。
   const historyDepthRef = useRef<number>(0);
-  const isHandlingPopStateRef = useRef<boolean>(false);
-  const isInternalBackRef = useRef<boolean>(false);
+  const ignorePopStateRef = useRef<boolean>(false);
+  const [historySyncTick, setHistorySyncTick] = useState(0);
 
   const activeStack = stacks[currentTab];
   const activeRoute = activeStack[activeStack.length - 1] || createDefaultRoute(currentTab);
   const isDetailOpen = activeStack.length > 1;
-
-  const activeStackRef = useRef<MobileRoute[]>(activeStack);
-  useEffect(() => {
-    activeStackRef.current = activeStack;
-  }, [activeStack]);
 
   // 告知原生宿主是否开启返回拦截
   useEffect(() => {
@@ -113,11 +109,6 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
       const normalized = normalizeMobileRoute(routeConfig, currentTab);
       const targetTab = normalized.tab;
       const isTargetDefault = normalized.screen === createDefaultRoute(targetTab).screen;
-
-      if (typeof window !== 'undefined' && window.history && !isTargetDefault) {
-        window.history.pushState({ mobileNav: true }, '');
-        historyDepthRef.current += 1;
-      }
 
       setCurrentTab(targetTab);
       setStacks((prev) => {
@@ -220,19 +211,10 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
         }
         case 'close-overlay': {
           closeOverlay();
-          if (!isHandlingPopStateRef.current && historyDepthRef.current > 0) {
-            isInternalBackRef.current = true;
-            window.history.back();
-          }
           return true;
         }
         case 'pop-detail': {
-          const popped = pop();
-          if (popped && !isHandlingPopStateRef.current && historyDepthRef.current > 0) {
-            isInternalBackRef.current = true;
-            window.history.back();
-          }
-          return popped;
+          return pop();
         }
         case 'root': {
           return false; // 根页不消耗，允许宿主执行退出或最小化
@@ -254,42 +236,44 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
     return unsubscribe;
   }, [executeBack]);
 
+  // 让浏览器历史条数追上/回落到页面栈深度
+  const desiredHistoryDepth = activeStack.length - 1 + (overlay ? 1 : 0);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.history) return;
+    const depth = historyDepthRef.current;
+    if (desiredHistoryDepth > depth) {
+      for (let i = depth; i < desiredHistoryDepth; i += 1) {
+        window.history.pushState({ mobileNav: true }, '');
+      }
+      historyDepthRef.current = desiredHistoryDepth;
+    } else if (desiredHistoryDepth < depth) {
+      // 程序主动回退历史：这次 popstate 是自己触发的，不再回头执行页面返回
+      ignorePopStateRef.current = true;
+      historyDepthRef.current = desiredHistoryDepth;
+      window.history.go(desiredHistoryDepth - depth);
+    }
+  }, [desiredHistoryDepth, historySyncTick]);
+
   // 监听浏览器返回事件 (手机浏览器返回键)
+  const executeBackRef = useRef(executeBack);
+  executeBackRef.current = executeBack;
   useEffect(() => {
     if (typeof window === 'undefined') return;
-
     const handlePopState = () => {
-      if (isInternalBackRef.current) {
-        isInternalBackRef.current = false;
-        if (historyDepthRef.current > 0) {
-          historyDepthRef.current -= 1;
-        }
+      if (ignorePopStateRef.current) {
+        ignorePopStateRef.current = false;
         return;
       }
-
-      const canReturn = isDirty || Boolean(overlayRef.current) || activeStackRef.current.length > 1;
-      if (!canReturn) {
-        // 栈空时不拦截，自然交由浏览器处理退出或后退
-        return;
-      }
-
-      if (historyDepthRef.current > 0) {
-        historyDepthRef.current -= 1;
-      }
-
-      isHandlingPopStateRef.current = true;
-      try {
-        executeBack(false);
-      } finally {
-        isHandlingPopStateRef.current = false;
-      }
+      // 没有我们压入的历史条目：栈空，不拦截，交给浏览器自己退出或后退
+      if (historyDepthRef.current <= 0) return;
+      historyDepthRef.current -= 1;
+      executeBackRef.current(false);
+      // 若返回被拦截（如未保存确认），页面栈没变，触发一次同步把历史条目补回去
+      setHistorySyncTick((t) => t + 1);
     };
-
     window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [executeBack, isDirty]);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const handleConfirmDiscard = useCallback(() => {
     setDiscardModalOpen(false);
@@ -303,10 +287,6 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
   const handleCancelDiscard = useCallback(() => {
     setDiscardModalOpen(false);
     setPendingBackAction(null);
-    if (typeof window !== 'undefined' && window.history) {
-      window.history.pushState({ mobileNav: true }, '');
-      historyDepthRef.current += 1;
-    }
   }, []);
 
   const value = useMemo<MobileNavigationContextValue>(() => {
