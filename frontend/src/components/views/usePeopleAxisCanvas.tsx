@@ -9,7 +9,7 @@ import {
   type AxisOrientation,
 } from './peopleAxisFlowLayout'
 import {
-  axisMemberIds, revealAncestors, pulledSubtree, loadPulled, savePulled, type AxisFoldSpec,
+  axisMemberIds, revealAncestors, pulledSubtree, loadPulled, savePulled, computeReturnableIds, type AxisFoldSpec,
 } from './peopleAxisFold'
 import { pickUiOffset } from '../../api/mappers'
 import { moveNode } from '../../api/backend'
@@ -261,10 +261,11 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     if (patch.pulled) savePulled(cb.current.currentUserId, cb.current.backendProjectId, patch.pulled)
   }, [])
 
-  /** 可「收回」的人：上轴、非根、被拉出、不在我的上级链上（手机底部面板用） */
-  const returnableIds = useMemo(() => new Set(foldOn
-    ? scopedNodes.filter(n => !!n.parentId && !!axisMembers?.has(n.id) && pulledIds.has(n.id) && !selfAncestorIds.has(n.id)).map(n => n.id)
-    : []), [foldOn, scopedNodes, axisMembers, pulledIds, selfAncestorIds])
+  /** 可「收回」的人：上轴且收回后确实会离开人轴（默认名额内的人不显示） */
+  const returnableIds = useMemo(() => {
+    if (!foldOn || !foldSpec) return new Set<string>()
+    return computeReturnableIds(scopedNodes, foldSpec, axisMembers ?? undefined)
+  }, [foldOn, foldSpec, scopedNodes, axisMembers])
 
   const toggleFoldedRow = useCallback((id: string) => {
     updateFold(cur => {
@@ -617,8 +618,7 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
           }
         },
         onHoverTarget: setLinkingHoveredTargetId,
-        canReturn: foldOn && !!n.parentId && !!axisMembers?.has(n.id)
-          && pulledIds.has(n.id) && !selfAncestorIds.has(n.id),
+        canReturn: foldOn && returnableIds.has(n.id),
         footprintHeight: layout.footprints.get(n.id)?.height,
         onToggleRow: toggleFoldedRow,
         onPull: pullToAxis,

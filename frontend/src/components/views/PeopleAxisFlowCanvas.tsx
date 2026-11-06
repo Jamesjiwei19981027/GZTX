@@ -668,11 +668,12 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       `${n.id}:${(n.data as PersonNodeData).node.parentId || ''}`,
     ).join(',')
     if (rfKey !== visibleKey || !shown.every(n => n.measured?.width)) return
-    setRefitPending(false)
-    const frame = requestAnimationFrame(() => {
+    // 节点位置还在跟着布局变化时不取景：每次 rfNodes 变化都重新计时，安静一小会儿后再取景
+    const timer = window.setTimeout(() => {
+      setRefitPending(false)
       void fitView({ duration: 0, padding, minZoom: mobile ? 0.25 : 0.05, maxZoom: 1 })
-    })
-    return () => cancelAnimationFrame(frame)
+    }, 120)
+    return () => window.clearTimeout(timer)
   }, [refitPending, rfNodes, visibleKey, initialized, width, height, fitView, padding, mobile])
 
   // 响应外部工具条动作
