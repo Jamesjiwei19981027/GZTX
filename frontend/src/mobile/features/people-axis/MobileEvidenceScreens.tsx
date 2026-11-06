@@ -52,6 +52,7 @@ export type EvidenceScreenMode =
 export interface MobileEvidenceScreensProps {
   mode?: EvidenceScreenMode;
   projectId: number | string;
+  projectName?: string;
   companyId: number | string | null;
   nodeId?: number | string;
   packageId?: number | string;
@@ -75,6 +76,7 @@ interface UploadedFileItem {
 export const MobileEvidenceScreens: React.FC<MobileEvidenceScreensProps> = ({
   mode = 'submit',
   projectId,
+  projectName,
   companyId,
   nodeId,
   packageId,
@@ -158,6 +160,7 @@ export const MobileEvidenceScreens: React.FC<MobileEvidenceScreensProps> = ({
       return (
         <MobileAxisAuditScreen
           projectId={Number(projectId)}
+          projectName={projectName}
           currentUser={currentUser}
           onBack={onBack}
           onOpenPackage={handleOpenPackage}
@@ -608,10 +611,12 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
           </section>
         )}
 
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
-          <AppIcon name="info" size={16} className="shrink-0" />
-          <span>材料提交后进入待验收状态，请等待授权负责人确认。</span>
-        </div>
+        {detail?.status !== 'adopted' && (
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
+            <AppIcon name="info" size={16} className="shrink-0" />
+            <span>材料提交后进入待验收状态，请等待授权负责人确认。</span>
+          </div>
+        )}
 
         <div className="pt-2 pb-6">
           <button
@@ -681,58 +686,6 @@ export const MobileProgressRecordScreen: React.FC<MobileProgressRecordScreenProp
       />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 mobile-scroll-container">
-        {/* 顶部进度指标卡片 */}
-        <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              交互原型评审
-            </h3>
-            <span className="text-lg font-extrabold text-[#0058BE]">70%</span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-            <div className="h-full bg-[#0058BE] rounded-full" style={{ width: '70%' }} />
-          </div>
-          <p className="text-xs text-slate-400">更新于今天 15:20 · 进行中</p>
-        </div>
-
-        {/* 进度记录时间轴 */}
-        <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
-            进度记录
-          </h2>
-          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
-            <div className="relative pl-6 pb-2 border-l-2 border-blue-200 dark:border-blue-900 last:border-l-0">
-              <span className="absolute -left-[7px] top-0.5 w-3 h-3 rounded-full bg-[#0058BE] ring-4 ring-white dark:ring-slate-900" />
-              <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
-                今天 15:20 · 70%
-              </strong>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                补齐员工端原型，管理者汇报入口待验收。
-              </p>
-            </div>
-
-            <div className="relative pl-6 pb-2 border-l-2 border-blue-200 dark:border-blue-900 last:border-l-0">
-              <span className="absolute -left-[7px] top-0.5 w-3 h-3 rounded-full bg-blue-300 dark:bg-blue-700 ring-4 ring-white dark:ring-slate-900" />
-              <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
-                昨天 17:40 · 40%
-              </strong>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                基础任务流程已完成，附评审纪要。
-              </p>
-            </div>
-
-            <div className="relative pl-6 last:border-l-0">
-              <span className="absolute -left-[7px] top-0.5 w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 ring-4 ring-white dark:ring-slate-900" />
-              <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
-                10 月 16 日 · 10%
-              </strong>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                完成责任分工和交付范围确认。
-              </p>
-            </div>
-          </div>
-        </section>
-
         {/* 支撑材料 */}
         <section className="space-y-2">
           <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
@@ -1097,6 +1050,7 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
 
 export interface MobileAxisAuditScreenProps {
   projectId: number;
+  projectName?: string;
   currentUser: UserProfile;
   onBack?: () => void;
   onOpenPackage?: (pkgId: number) => void;
@@ -1104,6 +1058,7 @@ export interface MobileAxisAuditScreenProps {
 
 export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
   projectId,
+  projectName,
   currentUser,
   onBack,
   onOpenPackage,
@@ -1201,14 +1156,21 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
               </h3>
             </div>
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-              {auditResult ? `${auditResult.nodes.length} 项待处理` : '2 项待处理'}
+              {auditResult ? `${auditResult.nodes.length} 项待处理` : '待处理'}
             </span>
           </div>
-          <p className="text-xs text-slate-400">
-            {auditResult?.generated_at
-              ? new Date(auditResult.generated_at).toLocaleString()
-              : '今天 15:20'} · 责任树联合调试
-          </p>
+          {Boolean(auditResult?.generated_at || projectName?.trim()) && (
+            <p className="text-xs text-slate-400">
+              {[
+                auditResult?.generated_at
+                  ? new Date(auditResult.generated_at).toLocaleString()
+                  : '',
+                projectName?.trim() || '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
         </div>
 
         {/* 待确认问题列表 */}
