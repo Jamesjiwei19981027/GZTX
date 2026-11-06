@@ -172,7 +172,7 @@ export function ResponsibilityWorkspace(p: Props) {
   const [focusToken, setFocusToken] = useState(0)
   const selected = p.nodes.find(n => n.id === p.selectedId)
   const selectedData = p.canvas.nodes.find(n => n.id === p.selectedId)?.data as PersonNodeData | undefined
-  const allData = useMemo(() => new Map(p.canvas.nodes.map(n => [n.id, n.data as PersonNodeData])), [p.canvas.nodes])
+  const allData = useMemo(() => new Map(p.canvas.nodes.filter(n => n.type === 'person' || n.type === 'foldedRow').map(n => [n.id, n.data as PersonNodeData])), [p.canvas.nodes])
   const summaryNodes = p.isProject ? p.nodes : p.projectSummaries.flatMap(project => project.nodes)
   const count = summaryNodes.reduce((sum, n) => sum + n.workItems.length, 0)
   useEffect(() => { setSettingsOpen(false) }, [p.projectId])

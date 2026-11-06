@@ -619,9 +619,13 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
 
   useEffect(() => {
     if (!focusToken || !focusNodeId) return
-    const node = getNode(focusNodeId)
-    if (node) void setCenter(node.position.x + CARD_W / 2, node.position.y + CARD_H / 2, { zoom: Math.max(getZoom(), mobile ? 0.85 : 1), duration: mobile ? 0 : duration })
-  }, [focusToken, focusNodeId, getNode, setCenter, getZoom, mobile, duration])
+    const target = nodes.find(n => n.id === focusNodeId)
+    if (target) {
+      const pos = absolutePositionOf(nodes)(target)
+      const h = target.type === 'foldedRow' ? FOLDED_ROW_H : CARD_H
+      void setCenter(pos.x + CARD_W / 2, pos.y + h / 2, { zoom: Math.max(getZoom(), mobile ? 0.85 : 1), duration: mobile ? 0 : duration })
+    }
+  }, [focusToken, focusNodeId, nodes, setCenter, getZoom, mobile, duration])
 
   // 定位请求：目标可能刚被拉到人轴或刚展开，等它出现在节点里（且画布已量好尺寸）再居中；
   // 声明在自动取景之后，同一轮提交里它最后执行，不会被取景盖掉

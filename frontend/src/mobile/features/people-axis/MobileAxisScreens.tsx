@@ -250,10 +250,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   const handleLocateMe = useCallback(() => {
     if (selfNode) {
       setSelectedNodeId(selfNode.id);
-      revealPerson(selfNode.id);
+      locateNode(selfNode.id);
     }
-    setCenterMeToken(t => t + 1);
-  }, [selfNode, revealPerson]);
+  }, [selfNode, locateNode]);
 
   const canChangeSupervisor = Boolean(permissions?.is_pm || permissions?.is_superadmin);
   const nodeCan = (node: PeopleAxisNode | null | undefined, capability: 'can_edit_person' | 'can_add_subordinate' | 'can_manage_permissions' | 'can_move_person') => {
