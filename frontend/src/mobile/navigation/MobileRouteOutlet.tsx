@@ -416,11 +416,16 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
       }
 
       case 'axis': {
+        // 人轴页在“全部项目”下会回退到具体项目并把它带进路由；拿不到具体项目时不发 NaN 请求
+        const axisProjectId = activeRoute.params.projectId || props.currentProject.id;
+        if (activeRoute.screen !== 'axis-root' && !(Number(axisProjectId) > 0)) {
+          return <MobileEmptyState iconName="folder" title="请先选择项目" description="请先在顶部选择一个具体项目后再打开此页面。" />;
+        }
         if (activeRoute.screen === 'axis-evidence-submit') {
           return (
             <MobileEvidenceScreens
               mode="submit"
-              projectId={props.currentProject.id}
+              projectId={axisProjectId}
               companyId={props.companyId}
               nodeId={activeRoute.params.nodeId}
               currentUser={props.user}
@@ -432,7 +437,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
           return (
             <MobileEvidenceScreens
               mode="detail"
-              projectId={props.currentProject.id}
+              projectId={axisProjectId}
               companyId={props.companyId}
               nodeId={activeRoute.params.nodeId}
               packageId={activeRoute.params.packageId}
@@ -445,7 +450,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
           return (
             <MobileEvidenceScreens
               mode="progress"
-              projectId={props.currentProject.id}
+              projectId={axisProjectId}
               companyId={props.companyId}
               nodeId={activeRoute.params.nodeId}
               currentUser={props.user}
@@ -460,7 +465,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
           return (
             <MobileEvidenceScreens
               mode="delegations"
-              projectId={props.currentProject.id}
+              projectId={axisProjectId}
               companyId={props.companyId}
               currentUser={props.user}
               onBack={goBack}
@@ -471,7 +476,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
           return (
             <MobileEvidenceScreens
               mode="audit"
-              projectId={props.currentProject.id}
+              projectId={axisProjectId}
               companyId={props.companyId}
               currentUser={props.user}
               onBack={goBack}
@@ -491,7 +496,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               : 'published';
           return (
             <MobileWikiScreens
-              projectId={props.currentProject.id}
+              projectId={axisProjectId}
               projectName={props.currentProject.name}
               currentUser={props.user}
               initialTab={initialTab}
@@ -505,7 +510,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
 
         return (
           <MobileAxisScreens
-            projectId={props.currentProject.id}
+            projectId={axisProjectId}
             projects={props.projects}
             currentProject={props.currentProject}
             currentUser={props.user}
@@ -531,8 +536,8 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             onOpenEvidence={(nodeId) =>
               push({ screen: 'axis-evidence-submit', params: { nodeId } })
             }
-            onOpenAudit={() => push({ screen: 'axis-audit' })}
-            onOpenDelegation={() => push({ screen: 'axis-delegations' })}
+            onOpenAudit={(projectId) => push({ screen: 'axis-audit', params: { projectId: projectId ? String(projectId) : undefined } })}
+            onOpenDelegation={(projectId) => push({ screen: 'axis-delegations', params: { projectId: projectId ? String(projectId) : undefined } })}
           />
         );
       }

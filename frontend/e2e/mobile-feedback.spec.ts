@@ -361,3 +361,16 @@ test('my duty report row opens the AI report page with the shown project instead
   expect(await page.evaluate(() => (window as any).__selected)).toBe('1');
 });
 
+
+test('axis delegation and audit screens use the fallback project instead of requesting NaN under all-projects', async ({ page }) => {
+  const urls: string[] = [];
+  page.on('request', request => urls.push(request.url()));
+  await open(page, 'work', true, '2', true, undefined, true);
+  await page.evaluate(() => (window as any).__MOBILE_NAV__.push({tab:'axis',screen:'axis-root',title:'人轴'}));
+  await expect(page.getByRole('heading',{name:'我的职责',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'委托授权',exact:true}).click();
+  await expect(page.getByText('请先选择项目')).toHaveCount(0);
+  await expect.poll(() => urls.some(u => /\/projects\/1\/my-permissions/.test(u))).toBe(true);
+  await page.goBack().catch(() => undefined);
+  expect(urls.filter(u => /\/projects\/NaN/.test(u))).toEqual([]);
+});
