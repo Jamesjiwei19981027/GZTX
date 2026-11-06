@@ -608,10 +608,12 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
           </section>
         )}
 
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
-          <AppIcon name="info" size={16} className="shrink-0" />
-          <span>材料提交后进入待验收状态，请等待授权负责人确认。</span>
-        </div>
+        {detail?.status !== 'adopted' && (
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
+            <AppIcon name="info" size={16} className="shrink-0" />
+            <span>材料提交后进入待验收状态，请等待授权负责人确认。</span>
+          </div>
+        )}
 
         <div className="pt-2 pb-6">
           <button
