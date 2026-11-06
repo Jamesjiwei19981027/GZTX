@@ -588,4 +588,169 @@ void main() {
     expect(returned, [2]);
     expect(folded, [4]);
   });
+
+  testWidgets('FOLDUA3-1: 点折叠行展开后若卡片超出可视区则画布平移至整张卡片可见且不改缩放，已完全可见时不动',
+      (tester) async {
+    final controller = AxisViewportController();
+    addTearDown(controller.dispose);
+    Set<int> expanded = {};
+
+    // 视口高 380；给根人员偏移，使折叠行 3 展开前在视口内（bottom 约 302），展开后（高度 168）bottom 达约 434，超出 380。
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 800,
+              height: 380,
+              child: StatefulBuilder(
+                builder: (context, setState) => AxisCanvas(
+                  nodes: tree(),
+                  orientation: AxisOrientation.vertical,
+                  spacing: AxisSpacing.standard,
+                  sort: AxisSort.tree,
+                  viewportController: controller,
+                  fold: AxisFoldSpec(expandedRows: expanded),
+                  onToggleFoldedRow: (id) => setState(() {
+                    expanded = expanded.contains(id)
+                        ? ({...expanded}..remove(id))
+                        : {...expanded, id};
+                  }),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 此时 scale 为 0.75（初始缩放），设置到 100% 缩放进行测试。
+    controller.setScale(1.0);
+    await tester.pumpAndSettle();
+
+    // 验证折叠行 3 目前在视口内可见
+    expect(key('axis-folded-row-3'), findsOneWidget);
+    final row3Before = tester.getRect(key('axis-folded-row-3'));
+    expect(row3Before.top, greaterThanOrEqualTo(0.0));
+    expect(row3Before.bottom, lessThanOrEqualTo(380.0));
+
+    // 点击折叠行 3 进行展开
+    await tester.tap(key('axis-folded-row-3'));
+    await tester.pumpAndSettle();
+
+    // 展开后成为完整卡片
+    expect(key('axis-person-3'), findsOneWidget);
+    final card3Rect = tester.getRect(key('axis-person-3'));
+    // 缩放保持为 1.0 不变
+    expect(controller.scale.value, closeTo(1.0, 0.001));
+    // 整张卡片（含底部按钮）必须完全平移到可视区内
+    expect(card3Rect.bottom, lessThanOrEqualTo(380.0));
+    expect(card3Rect.top, greaterThanOrEqualTo(0.0));
+
+    // 此时整张卡片已完全可见，再次 pump 不发生任何移动
+    final card3RectAfter = tester.getRect(key('axis-person-3'));
+    expect(card3RectAfter, equals(card3Rect));
+  });
+
+  testWidgets('FOLDUA3-2: 卡片操作按钮（折叠/拉到人轴/收回）在100%缩放下高度不小于44且可命中，不抢查看全部与下属n',
+      (tester) async {
+    bigView(tester);
+    const taskItem = AxisWorkItem(
+      id: 99,
+      title: '事项A',
+      nodeTypeKey: 'work_item',
+      status: 'in_progress',
+      percent: 20,
+    );
+    final nodes = [
+      person(1, null, items: [taskItem]),
+      person(2, 1, items: [taskItem]),
+      person(3, 1),
+      person(4, 2),
+    ];
+    int? openedPersonId;
+    int? stackToggledLeaderId;
+    int? returnedId;
+    int? foldedId;
+    int? pulledId;
+    final controller = AxisViewportController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 1400,
+            height: 1300,
+            child: AxisCanvas(
+              viewportController: controller,
+              nodes: nodes,
+              orientation: AxisOrientation.vertical,
+              spacing: AxisSpacing.standard,
+              sort: AxisSort.tree,
+              fold: const AxisFoldSpec(
+                pulled: {2}, // 2 被拉到人轴，有下属 4，提供“收回”与“下属 1 ⌄”，有任务
+                expandedRows: {3}, // 3 是展开卡片，提供“折叠”与“拉到人轴”
+              ),
+              onOpenPerson: (node) => openedPersonId = node.id,
+              onToggleStack: (leaderId) => stackToggledLeaderId = leaderId,
+              onReturnFromAxis: (id) => returnedId = id,
+              onToggleFoldedRow: (id) => foldedId = id,
+              onPullToAxis: (id) => pulledId = id,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    controller.setScale(1.0);
+    await tester.pumpAndSettle();
+
+    // 1. 验证文字大小和卡片高度不变
+    final foldText = tester.widget<Text>(find.descendant(
+      of: key('axis-fold-3'),
+      matching: find.byType(Text),
+    ));
+    expect(foldText.style?.fontSize, 11);
+    expect(
+      tester.getSize(key('axis-person-3')).height,
+      closeTo(AxisFlowLayout.personCardSize.height, 0.01),
+    );
+
+    // 2. 验证加大后的区域通过自定义命中测试 _hitKey 确认真的能点中：
+    // 在 100% 缩放下，屏幕上高度不小于 44 逻辑像素。
+    // 原按钮文字高度仅约 14~18 像素（半高仅 7~9 像素），
+    // 点击偏离中心垂直方向 15 像素处（跨度达 30 像素，落在 44 像素高度内）：
+    final foldCenter = tester.getCenter(key('axis-fold-3'));
+    await tester.tapAt(foldCenter + const Offset(0, 15));
+    await tester.pumpAndSettle();
+    expect(foldedId, 3, reason: '折叠按钮加大后下方 15px 处能点中');
+
+    final pullCenter = tester.getCenter(key('axis-pull-3'));
+    await tester.tapAt(pullCenter + const Offset(0, -15));
+    await tester.pumpAndSettle();
+    expect(pulledId, 3, reason: '拉到人轴按钮加大后上方 15px 处能点中');
+
+    final returnCenter = tester.getCenter(key('axis-return-2'));
+    await tester.tapAt(returnCenter + const Offset(0, 18));
+    await tester.pumpAndSettle();
+    expect(returnedId, 2, reason: '收回按钮加大后下方 18px 处能点中');
+
+    // 3. 验证不抢“查看全部”与“下属 n”的点击
+    await tester.tap(find.descendant(
+      of: key('axis-person-2'),
+      matching: find.textContaining('查看全部'),
+    ));
+    await tester.pumpAndSettle();
+    expect(openedPersonId, 2);
+
+    await tester.tap(key('axis-stack-toggle-2'));
+    await tester.pumpAndSettle();
+    expect(stackToggledLeaderId, 2);
+
+    // 4. 验证没有溢出异常
+    expect(tester.takeException(), isNull);
+  });
 }

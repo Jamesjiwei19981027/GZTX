@@ -327,7 +327,18 @@ class _AxisCanvasState extends State<AxisCanvas>
   bool _hits(String id, Offset global) {
     final box = _hitKeys[id]?.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.attached) return false;
-    final rect = box.localToGlobal(Offset.zero) & box.size;
+    var rect = box.localToGlobal(Offset.zero) & box.size;
+    final isCardAction = id.endsWith(':fold') ||
+        id.endsWith(':pull') ||
+        id.endsWith(':return');
+    if (isCardAction) {
+      // 卡片操作按钮点击区域加大：屏幕上高度不小于 44 逻辑像素（在 100% 缩放下）
+      const minHeight = 44.0;
+      if (rect.height < minHeight) {
+        final dh = (minHeight - rect.height) / 2;
+        rect = Rect.fromLTRB(rect.left, rect.top - dh, rect.right, rect.bottom + dh);
+      }
+    }
     return rect.contains(global);
   }
 
@@ -670,6 +681,64 @@ class _AxisCanvasState extends State<AxisCanvas>
   Offset _leaderShift(int leaderId) =>
       _dragPersonId == leaderId ? _dragDelta : Offset.zero;
 
+  void _handleExpandFoldedRow(int nodeId) {
+    widget.onToggleFoldedRow?.call(nodeId);
+    void checkVisibility() {
+      if (!mounted || _viewport == Size.zero) return;
+      final layout = _layout;
+      Rect? cardRect;
+      for (final stack in layout.stacks) {
+        for (final m in stack.members) {
+          if (m.node.id == nodeId) {
+            // 若尚未展开成卡片形态（例如高度仍为折叠行高度），等待新布局生效的下一帧
+            if (!m.expanded || m.rect.height < AxisFlowLayout.personCardSize.height) {
+              WidgetsBinding.instance.addPostFrameCallback((_) => checkVisibility());
+              return;
+            }
+            cardRect = m.rect.shift(_leaderShift(stack.leaderId));
+            break;
+          }
+        }
+        if (cardRect != null) break;
+      }
+      cardRect ??= layout.personById(nodeId)?.rect;
+      if (cardRect == null) return;
+
+      final screenRect = MatrixUtils.transformRect(_transform.value, cardRect);
+      // 已完全可见时不动
+      final fullyVisible = screenRect.left >= 0 &&
+          screenRect.right <= _viewport.width &&
+          screenRect.top >= 0 &&
+          screenRect.bottom <= _viewport.height;
+      if (fullyVisible) return;
+
+      // 超出可视区时平移画布让整张卡片完全可见，不改缩放
+      var dx = 0.0;
+      var dy = 0.0;
+      if (screenRect.left < 0) {
+        dx = -screenRect.left;
+      } else if (screenRect.right > _viewport.width) {
+        dx = _viewport.width - screenRect.right;
+      }
+
+      if (screenRect.top < 0) {
+        dy = -screenRect.top;
+      } else if (screenRect.bottom > _viewport.height) {
+        dy = _viewport.height - screenRect.bottom;
+      }
+
+      if (dx == 0 && dy == 0) return;
+
+      setState(() {
+        _transform.value = Matrix4.identity()
+          ..translateByDouble(dx, dy, 0, 1)
+          ..multiply(_transform.value);
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => checkVisibility());
+  }
+
   Widget _buildFoldedRow(AxisFoldedMember member, Offset shift, bool isDark) {
     final node = member.node;
     final rect = member.rect.shift(shift);
@@ -685,7 +754,7 @@ class _AxisCanvasState extends State<AxisCanvas>
         total: summarizeCardTasks(node.workItems, now).total,
         overdue: cardOverdueCount(node.workItems, now),
         isDark: isDark,
-        onTap: () => widget.onToggleFoldedRow?.call(node.id),
+        onTap: () => _handleExpandFoldedRow(node.id),
       ),
     );
   }
@@ -1473,12 +1542,15 @@ class _AxisCanvasState extends State<AxisCanvas>
       child: InkWell(
         key: Key('axis-$action-${node.id}'),
         onTap: () => onTap?.call(node.id),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w500,
-            color: primary ? AppColors.primary : AppColors.textTertiaryOf(isDark),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: primary ? AppColors.primary : AppColors.textTertiaryOf(isDark),
+            ),
           ),
         ),
       ),
