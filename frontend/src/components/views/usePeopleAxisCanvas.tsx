@@ -7,6 +7,9 @@ import {
   collectHiddenNodeIds,
   type AxisOrientation,
 } from './peopleAxisFlowLayout'
+import {
+  axisMemberIds, revealAncestors, pulledSubtree, loadPulled, savePulled, type AxisFoldSpec,
+} from './peopleAxisFold'
 import { pickUiOffset } from '../../api/mappers'
 import { moveNode } from '../../api/backend'
 import { putNodeLayout, type MyProjectPermissions } from '../../api/shell'
@@ -99,6 +102,8 @@ export interface UsePeopleAxisCanvasOptions {
   mineNodeIds?: Set<string>
   /** 范围之外、只作上下文显示的节点集合 */
   scopeContextNodeIds?: Set<string>
+  /** 「项目全貌」：只把根、被拉到人轴的人和我的上级画成卡片，其余直属下属折叠在领导下方 */
+  foldSubordinates?: boolean
   onSelectNode?: (nodeId: string | null) => void
   onAddChild?: (parentId: string) => void
   onAddWorkItem?: (nodeId: string) => void
@@ -145,6 +150,9 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
   activeProjectRef.current = backendProjectId ?? null
 
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({})
+  const foldOn = options.foldSubordinates === true
+  const expandedNodesRef = useRef(expandedNodes)
+  expandedNodesRef.current = expandedNodes
   const [linkingSourceNodeId, setLinkingSourceNodeId] = useState<string | null>(null)
   const [linkingHoveredTargetId, setLinkingHoveredTargetId] = useState<string | null>(null)
   const [reparentConfirm, setReparentConfirm] = useState<{
@@ -203,6 +211,116 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
 
   const dragOffsets = offsetsByDir[orientation]
 
+  // ===== 下属默认折叠：拉出集合按「用户 id + 项目 id」存本机，展开行只在内存 =====
+  type FoldState = { key: string; pulled: Set<string>; rows: Set<string> }
+  const foldKey = `${currentUserId ?? ''}:${backendProjectId ?? ''}`
+  const [foldStored, setFoldStored] = useState<FoldState>(
+    () => ({ key: foldKey, pulled: loadPulled(currentUserId, backendProjectId), rows: new Set() }),
+  )
+  let fold = foldStored
+  if (foldStored.key !== foldKey) {
+    // 换用户或换项目：重新读本机，旧的展开行作废
+    fold = { key: foldKey, pulled: loadPulled(currentUserId, backendProjectId), rows: new Set() }
+    setFoldStored(fold)
+  }
+  const foldRef = useRef(fold)
+  foldRef.current = fold
+  const pulledIds = fold.pulled
+  const expandedRows = fold.rows
+
+  const selfNodeId = useMemo(() => {
+    if (!foldOn) return null
+    const mine = options.mineNodeIds
+    const found = scopedNodes.find(n => mine
+      ? mine.has(n.id)
+      : currentUserId != null && (n.ownerUserIds || []).includes(currentUserId))
+    return found?.id ?? null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [foldOn, scopedNodes, options.mineNodeIds, currentUserId])
+  const foldSpec = useMemo<AxisFoldSpec | undefined>(
+    () => (foldOn ? { pulled: pulledIds, expandedRows, selfNodeId } : undefined),
+    [foldOn, pulledIds, expandedRows, selfNodeId],
+  )
+  const axisMembers = useMemo(
+    () => (foldSpec ? axisMemberIds(scopedNodes, foldSpec) : null),
+    [foldSpec, scopedNodes],
+  )
+  /** 我的所有上级：默认上轴，不提供「收回」 */
+  const selfAncestorIds = useMemo(
+    () => new Set(foldOn && selfNodeId ? revealAncestors(scopedNodes, selfNodeId) : []),
+    [foldOn, selfNodeId, scopedNodes],
+  )
+
+  const updateFold = useCallback((change: (cur: FoldState) => { pulled?: Set<string>; rows?: Set<string> }) => {
+    const cur = foldRef.current
+    const patch = change(cur)
+    const next: FoldState = { key: cur.key, pulled: patch.pulled ?? cur.pulled, rows: patch.rows ?? cur.rows }
+    foldRef.current = next
+    setFoldStored(next)
+    if (patch.pulled) savePulled(cb.current.currentUserId, cb.current.backendProjectId, patch.pulled)
+  }, [])
+
+  const toggleFoldedRow = useCallback((id: string) => {
+    updateFold(cur => {
+      const rows = new Set(cur.rows)
+      if (!rows.delete(id)) rows.add(id)
+      return { rows }
+    })
+  }, [updateFold])
+
+  const pullToAxis = useCallback((id: string) => {
+    updateFold(cur => {
+      const rows = new Set(cur.rows)
+      rows.delete(id)
+      return { pulled: new Set(cur.pulled).add(id), rows }
+    })
+  }, [updateFold])
+
+  const returnFromAxis = useCallback((id: string) => {
+    updateFold(cur => {
+      const drop = pulledSubtree(cb.current.scopedNodes ?? cb.current.nodes, id, cur.pulled)
+      const pulled = new Set([...cur.pulled].filter(x => !drop.has(x)))
+      const rows = new Set([...cur.rows].filter(x => !drop.has(x)))
+      return { pulled, rows }
+    })
+  }, [updateFold])
+
+  const pullAllToAxis = useCallback(() => {
+    updateFold(() => ({ pulled: new Set(cb.current.nodes.map(n => n.id)), rows: new Set() }))
+  }, [updateFold])
+
+  const resetFold = useCallback(() => {
+    updateFold(() => ({ pulled: new Set(), rows: new Set() }))
+  }, [updateFold])
+
+  /** 定位到未上轴的人：把他所有上级拉出并保存，再展开他这一行。返回画面是否有变化 */
+  const revealPerson = useCallback((id: string): boolean => {
+    if (!foldOn) return false
+    const all = cb.current.scopedNodes ?? cb.current.nodes
+    if (!all.some(n => n.id === id)) return false
+    let changed = false
+    const cur = foldRef.current
+    const ancestors = revealAncestors(all, id)
+    const members = axisMemberIds(all, { pulled: cur.pulled, expandedRows: cur.rows, selfNodeId })
+    const row = all.find(n => n.id === id)
+    const alreadyShown = members.has(id) || (!!row?.parentId && members.has(row.parentId) && cur.rows.has(id))
+    if (!alreadyShown) {
+      updateFold(c => {
+        const pulled = new Set(c.pulled)
+        ancestors.forEach(a => { if (!members.has(a)) pulled.add(a) })
+        return { pulled, rows: new Set(c.rows).add(id) }
+      })
+      changed = true
+    }
+    // 被「下属 n」收起的上级要展开，目标才看得见
+    const collapsed = ancestors.filter(a => expandedNodesRef.current[a] === false)
+    if (collapsed.length) {
+      setExpandedNodes(prev => ({ ...prev, ...Object.fromEntries(collapsed.map(a => [a, true])) }))
+      changed = true
+    }
+    return changed
+  }, [foldOn, selfNodeId, updateFold])
+
   const toggleExpandNode = useCallback((nodeId: string) => {
     setExpandedNodes(prev => ({ ...prev, [nodeId]: prev[nodeId] === false }))
   }, [])
@@ -247,8 +365,8 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
 
   // ===== 布局 =====
   const layout = useMemo(
-    () => computeAxisLayout(scopedNodes, orientation, expandedNodes),
-    [scopedNodes, orientation, expandedNodes],
+    () => computeAxisLayout(scopedNodes, orientation, expandedNodes, foldSpec),
+    [scopedNodes, orientation, expandedNodes, foldSpec],
   )
   const layoutRef = useRef(layout)
   layoutRef.current = layout
@@ -399,15 +517,16 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
   const rfNodes = useMemo<AxisFlowNode[]>(() => {
     const mineIds = options.mineNodeIds
     const contextIds = options.scopeContextNodeIds
+    const nodeById = new Map(nodes.map(n => [n.id, n]))
     const childCounts = new Map<string, number>()
     nodes.forEach(n => {
       if (n.parentId) childCounts.set(n.parentId, (childCounts.get(n.parentId) || 0) + 1)
     })
     const list: AxisFlowNode[] = []
-    nodes.forEach(n => {
-      const hidden = hiddenNodeIds.has(n.id) || !layout.positions.has(n.id)
-      const base = layout.positions.get(n.id) || ZERO
-      const off = dragOffsets[n.id] || ZERO
+    // 折叠成员由领导节点带出（父节点必须排在子节点之前），这里不再单独输出
+    const stacked = new Set<string>()
+    layout.stacks.forEach(entries => entries.forEach(e => stacked.add(e.memberId)))
+    const buildData = (n: PeopleAxisNode): PersonNodeData => {
       const data: PersonNodeData = {
         node: n,
         lang,
@@ -485,15 +604,46 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
           }
         },
         onHoverTarget: setLinkingHoveredTargetId,
+        canReturn: foldOn && !!n.parentId && !!axisMembers?.has(n.id)
+          && pulledIds.has(n.id) && !selfAncestorIds.has(n.id),
+        onToggleRow: toggleFoldedRow,
+        onPull: pullToAxis,
+        onReturn: returnFromAxis,
       }
+      return data
+    }
+    nodes.forEach(n => {
+      if (stacked.has(n.id)) return
+      const hidden = hiddenNodeIds.has(n.id) || !layout.positions.has(n.id)
+      const base = layout.positions.get(n.id) || ZERO
+      const off = dragOffsets[n.id] || ZERO
       list.push({
         id: n.id,
         type: 'person',
         hidden,
         position: { x: base.x + off.x, y: base.y + off.y },
-        data,
+        data: buildData(n),
         // 布局偏移的持久化接口同样要求编辑权限，无权节点不可拖，避免 403
         draggable: !linkingSourceNodeId && (canEditAny || editableNodeIds.has(n.id)),
+      })
+      // 折叠组：行或就地展开的卡片，位置相对领导，拖领导时实时跟随；不读已保存偏移、不可拖
+      layout.stacks.get(n.id)?.forEach((entry, index) => {
+        const member = nodeById.get(entry.memberId)
+        if (!member) return
+        const memberData: PersonNodeData = {
+          ...buildData(member),
+          foldedMember: true,
+          foldedFirst: index === 0,
+          canReturn: false,
+        }
+        list.push({
+          id: member.id,
+          type: entry.expanded ? 'person' : 'foldedRow',
+          parentId: n.id,
+          position: { x: 0, y: entry.y },
+          data: memberData,
+          draggable: false,
+        } as AxisFlowNode)
       })
     })
     return list
@@ -503,6 +653,7 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     linkingSourceNodeId, linkingHoveredTargetId, canEditAny, canMoveNodes, editableNodeIds, caps,
     serverPerms, orientation, mobile, isBackendProject, currentUserId,
     options.mineNodeIds, options.scopeContextNodeIds, handleConnectToTarget, toggleExpandNode, toast,
+    foldOn, axisMembers, pulledIds, selfAncestorIds, toggleFoldedRow, pullToAxis, returnFromAxis,
   ])
 
   // ===== 构建连线 =====
@@ -511,6 +662,8 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     scopedNodes.forEach(n => {
       if (!n.parentId) return
       if (hiddenNodeIds.has(n.id) || hiddenNodeIds.has(n.parentId)) return
+      // 折叠成员不连线：只连上轴人员
+      if (axisMembers && !(axisMembers.has(n.id) && axisMembers.has(n.parentId))) return
       edges.push({
         id: `branch-${n.id}`,
         source: n.parentId,
@@ -524,7 +677,7 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
       })
     })
     return edges
-  }, [scopedNodes, hiddenNodeIds, orientation, edgeStyle])
+  }, [scopedNodes, hiddenNodeIds, orientation, edgeStyle, axisMembers])
 
   return {
     rfNodes,
@@ -533,6 +686,15 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     expandedNodes,
     setExpandedNodes,
     toggleExpandNode,
+    foldEnabled: foldOn,
+    pulledIds,
+    expandedRows,
+    toggleFoldedRow,
+    pullToAxis,
+    returnFromAxis,
+    pullAllToAxis,
+    resetFold,
+    revealPerson,
     handleNodeDragStop,
     resetAllDragOffsets,
     reparentConfirm,
