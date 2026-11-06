@@ -320,98 +320,53 @@ const WikiPublishedScreen: React.FC<WikiPublishedScreenProps> = ({
         </div>
       )}
 
-      {/* 标题与版本 */}
+      {/* 标题与版本：只显示接口真实返回的内容，没有就不显示 */}
       <div>
         <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 leading-tight">
-          {mainPage?.title || '移动端体验升级'}
+          {mainPage?.title || projectName}
         </h1>
         <p className="text-xs text-slate-400 mt-1">
-          项目知识 · v{mainPage?.meta?.revision || 3} · 发布于今天 14:00
+          项目知识{mainPage?.meta?.revision ? ` · v${mainPage.meta.revision}` : ''}
         </p>
       </div>
 
       {/* 项目目标 */}
-      <section className="space-y-1.5">
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          项目目标
-        </h2>
-        <p className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-xs text-slate-700 dark:text-slate-300 leading-relaxed shadow-xs">
-          {mainPage?.body_text ||
-            '优化手机端责任分工、任务处理和 AI 汇报体验，让进展可以追溯到具体材料与责任链条。'}
-        </p>
-      </section>
+      {mainPage?.body_text && (
+        <section className="space-y-1.5">
+          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            项目目标
+          </h2>
+          <p className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-xs text-slate-700 dark:text-slate-300 leading-relaxed shadow-xs">
+            {mainPage.body_text}
+          </p>
+        </section>
+      )}
 
-      {/* 当前里程碑章节 */}
-      <section className="space-y-1.5">
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          当前里程碑
-        </h2>
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
-          <div className="p-3.5 flex items-center justify-between">
-            <div>
-              <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 block">
-                阶段一 · 核心流程
-              </strong>
-              <p className="text-[11px] text-slate-400 mt-0.5">任务与汇报链路联调完成</p>
-            </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-              已完成
-            </span>
-          </div>
-
-          <div className="p-3.5 flex items-center justify-between">
-            <div>
-              <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 block">
-                阶段二 · 页面审核
-              </strong>
-              <p className="text-[11px] text-slate-400 mt-0.5">全量移动端设计待确认</p>
-            </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-100 text-[#0058BE] dark:bg-blue-950 dark:text-blue-300">
-              进行中
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* 参考材料 (带来源追溯) */}
-      <section className="space-y-1.5">
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          参考材料与证据
-        </h2>
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
-          <div
-            onClick={() => onOpenEvidencePackage?.(1)}
-            className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
-              <div className="min-w-0">
-                <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
-                  交互评审纪要.pdf
-                </strong>
-                <span className="text-[10px] text-slate-400">材料 · 林悦上传 · 今天 14:10</span>
+      {/* 参考材料（取自真实证据包材料） */}
+      {(catalog?.materials || []).length > 0 && (
+        <section className="space-y-1.5">
+          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            参考材料与证据
+          </h2>
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+            {(catalog?.materials || []).map((m) => (
+              <div
+                key={m.id}
+                onClick={() => onOpenEvidencePackage?.(m.id)}
+                className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
+                  <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                    {m.title}
+                  </strong>
+                </div>
+                <AppIcon name="chevron-right" size={16} className="text-slate-400" />
               </div>
-            </div>
-            <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+            ))}
           </div>
-
-          <div
-            onClick={() => onOpenEvidencePackage?.(2)}
-            className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <AppIcon name="work" size={18} className="text-[#0058BE] shrink-0" />
-              <div className="min-w-0">
-                <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
-                  原型验收任务
-                </strong>
-                <span className="text-[10px] text-slate-400">任务 · 进行中 · 更新于 15:20</span>
-              </div>
-            </div>
-            <AppIcon name="chevron-right" size={16} className="text-slate-400" />
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* 底部生成草稿操作 */}
       <div className="pt-2 pb-6 space-y-2">
@@ -452,7 +407,7 @@ const WikiDraftEditorScreen: React.FC<WikiDraftEditorScreenProps> = ({
   onSavedDraft,
   onOpenEvidencePackage,
 }) => {
-  const [title, setTitle] = useState(draft.title || '移动端体验升级 · 阶段进展');
+  const [title, setTitle] = useState(draft.title || '');
   const [bodyText, setBodyText] = useState(
     draft.body_text ||
       '本阶段完成任务与汇报链路联调。移动端页面正在审核，材料引用详见下方。',

@@ -1,3 +1,4 @@
+import { parseApiDateTime } from '../utils/datetime'
 import { apiRequest } from './client'
 
 /** Project reporting APIs. Visibility and PM permissions are enforced by the backend. */
@@ -175,7 +176,7 @@ export function reportStatusLabel(
   }
   const timeStr = report.submitted_at || report.created_at
   if (!timeStr) return '已提交'
-  const d = new Date(timeStr)
+  const d = parseApiDateTime(timeStr)
   if (isNaN(d.getTime())) return '已提交'
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')

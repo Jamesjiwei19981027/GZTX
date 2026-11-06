@@ -67,8 +67,8 @@ export interface MobileAxisScreensProps {
   onNavigateToReport?: (reportId?: string, nodeId?: string, projectId?: string | number) => void;
   onOpenWiki?: () => void;
   onOpenEvidence?: (nodeId?: string) => void;
-  onOpenAudit?: () => void;
-  onOpenDelegation?: () => void;
+  onOpenAudit?: (projectId?: number) => void;
+  onOpenDelegation?: (projectId?: number) => void;
 }
 
 export type AxisViewTab = 'mine' | 'overview';
@@ -359,10 +359,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       </div>
 
       <nav aria-label="人轴协作与检查" className="grid grid-cols-2 gap-2 px-4 pb-2 bg-white dark:bg-slate-900 shrink-0">
-        {onOpenDelegation && <button type="button" onClick={onOpenDelegation} className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0058BE] dark:text-blue-300 text-xs font-semibold">
+        {onOpenDelegation && <button type="button" onClick={() => onOpenDelegation(pid)} className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0058BE] dark:text-blue-300 text-xs font-semibold">
           <AppIcon name="lock" size={17} />委托授权
         </button>}
-        {onOpenAudit && <button type="button" onClick={onOpenAudit} className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0058BE] dark:text-blue-300 text-xs font-semibold">
+        {onOpenAudit && <button type="button" onClick={() => onOpenAudit(pid)} className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0058BE] dark:text-blue-300 text-xs font-semibold">
           <AppIcon name="ai" size={17} />AI 责任链审计
         </button>}
       </nav>

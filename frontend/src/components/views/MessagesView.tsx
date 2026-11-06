@@ -82,6 +82,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const [inputText, setInputText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [presence, setPresence] = useState<Record<string, string>>({});
   const [conversations, setConversations] = useState<DirectConversation[]>([]);
@@ -151,6 +152,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 
     setLoading(true);
     setError(null);
+    setLoadFailed(false);
     try {
       const pid = projectId && projectId !== 'all' ? Number(projectId) : undefined;
       const chRes = await listChannels(companyId, Number.isFinite(pid) ? pid : undefined);
@@ -202,7 +204,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       );
     } catch (e) {
       if (isStale()) return;
-      setError(e instanceof Error ? e.message : '加载消息失败');
+      setError('消息加载失败，请重试');
+      setLoadFailed(true);
       setMessages([]);
     } finally {
       if (!isStale()) setLoading(false);
@@ -211,7 +214,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 
   const summarizeCurrentConversation = async () => {
     const scopeId = activeChannel === 'direct' ? activeConversationId : channelMap[activeChannel];
-    if (!scopeId) return;
+    if (!scopeId) {
+      setError(lang === 'zh' ? '当前没有可总结的频道或会话' : 'No channel or conversation to summarize');
+      return;
+    }
     setSummaryLoading(true);
     try {
       const result = activeChannel === 'direct'
@@ -620,15 +626,13 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             <span className="material-symbols-outlined text-primary text-3xl">forum</span>
             {lang === 'zh' ? '消息中心' : 'Messages'}
           </h1>
-          <p className="text-sm text-on-surface-variant mt-1">
-            {companyId
-              ? lang === 'zh'
-                ? '已连接后端频道（发帖/点赞写回）'
-                : 'Connected to backend channels'
-              : lang === 'zh'
+          {!companyId && (
+            <p className="text-sm text-on-surface-variant mt-1">
+              {lang === 'zh'
                 ? '未绑定公司，请先创建或加入公司后使用团队消息'
                 : 'Join or create a company to use team messages'}
-          </p>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {onCreateCompany && !companyId && (
@@ -663,8 +667,11 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       </div>}
 
       {error && (
-        <div className="px-4 py-2 rounded-xl bg-amber-50 text-amber-900 text-sm border border-amber-200">
-          {error}
+        <div className="px-4 py-2 rounded-xl bg-amber-50 text-amber-900 text-sm border border-amber-200 flex items-center justify-between gap-3">
+          <span>{error}</span>
+          {loadFailed && (
+            <button type="button" onClick={() => void load()} className="px-3 py-1 rounded-lg bg-amber-100 font-semibold cursor-pointer">重试</button>
+          )}
         </div>
       )}
 

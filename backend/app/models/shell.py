@@ -7,6 +7,8 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     JSON,
+    Index,
+    text,
 )
 from sqlalchemy.sql import func
 
@@ -15,6 +17,25 @@ from app.db.base import Base
 
 class TeamChannel(Base):
     __tablename__ = "team_channels"
+    __table_args__ = (
+        Index(
+            "uq_team_channels_company_project_key",
+            "company_id",
+            "project_id",
+            "key",
+            unique=True,
+            postgresql_where=text("project_id IS NOT NULL"),
+            sqlite_where=text("project_id IS NOT NULL"),
+        ),
+        Index(
+            "uq_team_channels_company_null_project_key",
+            "company_id",
+            "key",
+            unique=True,
+            postgresql_where=text("project_id IS NULL"),
+            sqlite_where=text("project_id IS NULL"),
+        ),
+    )
 
     id = Column(Integer, primary_key=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)

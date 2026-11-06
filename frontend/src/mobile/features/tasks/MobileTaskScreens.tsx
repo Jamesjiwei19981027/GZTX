@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { categoryLabel } from '../../../utils/taskLabels';
 import { TaskScheduleHistory } from '../../../components/TaskScheduleHistory';
 import {
   createTask,
@@ -137,7 +138,7 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
 
               {task.category && (
                 <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500">
-                  {task.category}
+                  {categoryLabel(task.category)}
                 </span>
               )}
             </div>
@@ -528,9 +529,9 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
               onChange={(e) => setPriority(e.target.value as Priority)}
               className="w-full min-h-[48px] px-3 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
             >
-              <option value="Low">低优先级 (Low)</option>
-              <option value="Medium">中优先级 (Medium)</option>
-              <option value="High">高优先级 (High)</option>
+              <option value="Low">低优先级</option>
+              <option value="Medium">中优先级</option>
+              <option value="High">高优先级</option>
             </select>
           </MobileField>
 
@@ -540,15 +541,15 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
               onChange={(e) => setStatus(e.target.value as Status)}
               className="w-full min-h-[48px] px-3 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
             >
-              <option value="To Do">待办 (To Do)</option>
-              <option value="In Progress">进行中 (In Progress)</option>
-              <option value="Done">已完成 (Done)</option>
+              <option value="To Do">待办</option>
+              <option value="In Progress">进行中</option>
+              <option value="Done">已完成</option>
             </select>
           </MobileField>
         </div>
 
         {/* 82 日期与重复规则 */}
-        <MobileListGroup title="截止时间与周期重复 (82)">
+        <MobileListGroup title="截止时间与周期重复">
           <div className="p-3.5 space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <MobileField label="截止日期">
@@ -590,9 +591,9 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
                 onChange={(e) => setRecurrenceRule(e.target.value)}
                 className="w-full min-h-[44px] px-3 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
               >
-                <option value="daily">每天重复 (Daily)</option>
-                <option value="weekdays">每个工作日 (Mon-Fri)</option>
-                <option value="weekly">每周重复 (Weekly)</option>
+                <option value="daily">每天重复</option>
+                <option value="weekdays">每个工作日</option>
+                <option value="weekly">每周重复</option>
                 <option value="monthly">每月重复 (Monthly)</option>
               </select>
             )}
@@ -601,7 +602,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
 
         {/* 83 成员分配与清空 */}
         <MobileListGroup
-          title="执行人员 (83)"
+          title="执行人员"
           footer="多选成员限定在当前项目范围内，支持随时清空指派。"
         >
           <div className="p-3.5 space-y-2">
@@ -756,7 +757,7 @@ export const MobileQuickAddSheet: React.FC<{
     <MobileSheet
       isOpen={isOpen}
       onClose={onClose}
-      title="快速添加任务 (16)"
+      title="快速添加任务"
       snapPoints={['half']}
       defaultSnap="half"
     >
@@ -875,7 +876,7 @@ export const MobileTaskExtractChatSheet: React.FC<{
     <MobileSheet
       isOpen={isOpen}
       onClose={onClose}
-      title="从聊天提取任务 (17)"
+      title="从聊天提取任务"
       snapPoints={['full']}
       defaultSnap="full"
     >
@@ -1177,7 +1178,7 @@ export const MobileCalendarScreen: React.FC<{
             onClick={() => setViewMode(viewMode === 'month' ? 'week' : 'month')}
             className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium"
           >
-            {viewMode === 'month' ? '周视图 (85)' : '月视图'}
+            {viewMode === 'month' ? '周视图' : '月视图'}
           </button>
         </div>
       </header>
@@ -1410,7 +1411,7 @@ export const MobileMyTasksScreen: React.FC<{
             }}
             className="min-h-[36px] px-2.5 text-xs font-semibold text-[#0058BE]"
           >
-            {batchMode ? '退出批量' : '批量操作 (13)'}
+            {batchMode ? '退出批量' : '批量操作'}
           </button>
         </div>
       </header>}

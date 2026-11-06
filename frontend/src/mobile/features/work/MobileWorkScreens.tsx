@@ -171,7 +171,7 @@ export const MobileWorkbenchScreen: React.FC<MobileWorkbenchProps> = ({
                   : 'text-slate-500'
               }`}
             >
-              员工待办视图 (05)
+              员工待办视图
             </button>
             <button
               type="button"
@@ -182,7 +182,7 @@ export const MobileWorkbenchScreen: React.FC<MobileWorkbenchProps> = ({
                   : 'text-slate-500'
               }`}
             >
-              管理者全貌视图 (06)
+              管理者全貌视图
             </button>
           </div>
         )}

@@ -553,7 +553,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         AppButton(
-          label: '返回我的责任链',
+          label: '返回我的职责',
           variant: AppButtonVariant.secondary,
           icon: const AppIcon('axis', size: 17, color: AppColors.primary),
           onPressed: () => context.goNamed('axis-root'),

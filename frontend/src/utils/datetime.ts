@@ -69,3 +69,16 @@ export function localDayEndToApi(date: string): string | undefined {
   if (Number.isNaN(local.getTime())) return undefined
   return local.toISOString()
 }
+
+/**
+ * 解析后端时间：不带时区标记的 `YYYY-MM-DDTHH:mm:ss` 按 UTC 处理（后端出参是 UTC），
+ * 否则浏览器会把它当本地时间，东八区会差 8 小时。
+ */
+export function parseApiDateTime(value?: string | null): Date {
+  if (!value) return new Date(NaN)
+  const text = String(value).trim()
+  const hasTime = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}/.test(text)
+  const hasZone = /(Z|[+-]\d{2}:?\d{2})$/i.test(text)
+  if (hasTime && !hasZone) return new Date(`${text.replace(' ', 'T')}Z`)
+  return new Date(text)
+}

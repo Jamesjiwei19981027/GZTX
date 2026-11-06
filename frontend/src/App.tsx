@@ -128,7 +128,7 @@ const ViewLoadingFallback: React.FC = () => (
 
 const ALL_PROJECT_ITEM: Project = {
   id: 'all',
-  name: '全盘研发概览 (All Projects Overview)',
+  name: '全盘研发概览',
   description: '跨项目总览（任务来自个人任务 API；人轴需选具体项目）',
   color: '#0058be',
   active: true,
@@ -216,6 +216,7 @@ export default function App() {
   const [projectMembers, setProjectMembers] = useState<import('./types').TeamMember[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [companyId, setCompanyId] = useState<number | null>(null);
+  const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project>(ALL_PROJECT_ITEM);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [user, setUser] = useState<UserProfile>({
@@ -319,6 +320,7 @@ export default function App() {
       }));
       const cid = companies.items?.[0]?.id ?? null;
       setCompanyId(cid);
+      setIsCompanyAdmin(Boolean(companies.items?.[0]?.my_membership?.is_super_admin));
       let mappedProjects: Project[] = [];
       if (cid) {
         const projPage = await listProjects(cid);
@@ -1323,6 +1325,7 @@ export default function App() {
             {activeView === 'inbox' && (
          <InboxView
                 companyId={companyId}
+                canViewIntegrations={isCompanyAdmin}
                 onOpenNewTaskWithTitle={(title, desc, source) => {
                   setNewTaskDefaultTitle(title);
                   setNewTaskDefaultDesc(desc);

@@ -359,7 +359,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
     }
 
     return AppScaffold(
-      title: controller.tab == AxisViewTab.mine ? '我的责任链' : '项目全貌',
+      title: controller.tab == AxisViewTab.mine ? '我的职责' : '项目全貌',
       actions: [
         if (_canAddPerson)
           IconButton(

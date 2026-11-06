@@ -13,6 +13,7 @@ from fastapi import APIRouter, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import func, select, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.collab_errors import CollabError, fail
@@ -178,17 +179,22 @@ async def _ensure_default_channels(db, company_id: int, project_id: int | None):
             conds.append(TeamChannel.project_id == project_id)
         else:
             conds.append(TeamChannel.project_id.is_(None))
-        q = await db.execute(select(TeamChannel).where(*conds))
-        ch = q.scalar_one_or_none()
+        q = await db.execute(select(TeamChannel).where(*conds).order_by(TeamChannel.id.asc()))
+        ch = q.scalars().first()
         if not ch:
-            ch = TeamChannel(
-                company_id=company_id,
-                project_id=project_id,
-                key=key,
-                name=name,
-            )
-            db.add(ch)
-            await db.flush()
+            try:
+                async with db.begin_nested():
+                    ch = TeamChannel(
+                        company_id=company_id,
+                        project_id=project_id,
+                        key=key,
+                        name=name,
+                    )
+                    db.add(ch)
+                    await db.flush()
+            except IntegrityError:
+                q = await db.execute(select(TeamChannel).where(*conds).order_by(TeamChannel.id.asc()))
+                ch = q.scalars().first()
         out.append(ch)
     return out
 
