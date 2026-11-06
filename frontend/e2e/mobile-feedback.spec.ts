@@ -374,3 +374,67 @@ test('axis delegation and audit screens use the fallback project instead of requ
   await page.goBack().catch(() => undefined);
   expect(urls.filter(u => /\/projects\/NaN/.test(u))).toEqual([]);
 });
+
+test.describe('browser back button follows the in-app page stack', () => {
+  const screenOf = (page: Page) => page.evaluate(() => (window as any).__MOBILE_NAV__.activeRoute.screen as string);
+  const push = (page: Page, screen: string, tab = 'work') =>
+    page.evaluate(([s, t]) => (window as any).__MOBILE_NAV__.push({ tab: t, screen: s, title: s }), [screen, tab]);
+
+  test('consecutive pushes unwind one level per browser back and leave the app at the root', async ({ page }) => {
+    await open(page, 'work');
+    expect(await screenOf(page)).toBe('work-root');
+    await push(page, 'work-trash');
+    await push(page, 'work-search');
+    expect(await screenOf(page)).toBe('work-search');
+    await page.goBack();
+    await expect.poll(() => screenOf(page)).toBe('work-trash');
+    await page.goBack();
+    await expect.poll(() => screenOf(page)).toBe('work-root');
+    // 栈空时不拦截：再按一次返回离开应用页面
+    await page.goBack();
+    await expect.poll(() => page.url()).toBe('about:blank');
+  });
+
+  test('in-page back button and browser back do not double-pop', async ({ page }) => {
+    await open(page, 'work');
+    await push(page, 'work-trash');
+    await push(page, 'work-search');
+    await page.getByRole('button', { name: '返回' }).first().click();
+    await expect.poll(() => screenOf(page)).toBe('work-trash');
+    // 页面内返回之后历史条数同步回落：浏览器再返回一次应只回到根页，且不离开应用
+    await page.goBack();
+    await expect.poll(() => screenOf(page)).toBe('work-root');
+    await page.waitForTimeout(300);
+    expect(page.url()).not.toBe('about:blank');
+  });
+
+  test('tab switch keeps each tab stack and its history in step', async ({ page }) => {
+    await open(page, 'work');
+    await push(page, 'work-trash');
+    await page.evaluate(() => (window as any).__MOBILE_NAV__.switchTab('axis'));
+    await expect.poll(() => page.evaluate(() => (window as any).__MOBILE_NAV__.currentTab)).toBe('axis');
+    await page.evaluate(() => (window as any).__MOBILE_NAV__.switchTab('work'));
+    await expect.poll(() => screenOf(page)).toBe('work-trash');
+    await page.goBack();
+    await expect.poll(() => screenOf(page)).toBe('work-root');
+  });
+
+  test('overlay closes with browser back without popping the page underneath, and closing it in-page leaves history intact', async ({ page }) => {
+    await open(page, 'work');
+    await push(page, 'work-trash');
+    await page.evaluate(() => (window as any).__MOBILE_NAV__.openOverlay({ id: 'o1', type: 'sheet' }));
+    await expect.poll(() => page.evaluate(() => Boolean((window as any).__MOBILE_NAV__.overlay))).toBe(true);
+    await page.goBack();
+    await expect.poll(() => page.evaluate(() => Boolean((window as any).__MOBILE_NAV__.overlay))).toBe(false);
+    expect(await screenOf(page)).toBe('work-trash');
+    // 再开再由页面内关闭，随后浏览器返回只应退一层页面
+    await page.evaluate(() => (window as any).__MOBILE_NAV__.openOverlay({ id: 'o2', type: 'sheet' }));
+    await expect.poll(() => page.evaluate(() => Boolean((window as any).__MOBILE_NAV__.overlay))).toBe(true);
+    await page.evaluate(() => (window as any).__MOBILE_NAV__.closeOverlay());
+    await expect.poll(() => page.evaluate(() => Boolean((window as any).__MOBILE_NAV__.overlay))).toBe(false);
+    await page.goBack();
+    await expect.poll(() => screenOf(page)).toBe('work-root');
+    await page.waitForTimeout(300);
+    expect(page.url()).not.toBe('about:blank');
+  });
+});
