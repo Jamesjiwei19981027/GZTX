@@ -1262,7 +1262,14 @@ class _OverviewView extends StatelessWidget {
                     ),
                     onPressed: controller.selfNode == null
                         ? null
-                        : () => viewport.focusNode(controller.selfNode!.id),
+                        : () {
+                            final selfId = controller.selfNode!.id;
+                            controller.revealPerson(selfId);
+                            // 等拉出 / 展开后的新布局出来，再把视口移过去。
+                            WidgetsBinding.instance.addPostFrameCallback(
+                              (_) => viewport.focusNode(selfId),
+                            );
+                          },
                     icon: const Icon(Icons.my_location, size: 14),
                     label: const Text('定位我', style: TextStyle(fontSize: 12)),
                   ),
@@ -1346,6 +1353,11 @@ class _OverviewView extends StatelessWidget {
                     onEditPerson: onOpenPerson,
                     onRelinkPerson: (person) =>
                         _openRelinkPerson(context, person),
+                    fold: controller.foldSpec,
+                    onToggleFoldedRow: controller.togglePersonRow,
+                    onPullToAxis: controller.pullToAxis,
+                    onReturnFromAxis: controller.returnFromAxis,
+                    onToggleStack: controller.toggleStack,
                   ),
                 ),
               ),
@@ -1737,6 +1749,29 @@ class _AxisMoreMenu extends StatelessWidget {
           ),
         const PopupMenuDivider(height: 8),
         const PopupMenuItem<String>(
+          value: 'pull_all',
+          height: 36,
+          child: Row(
+            children: [
+              Icon(Icons.account_tree_outlined, size: 16),
+              SizedBox(width: 8),
+              Text('全部拉到人轴', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuItem<String>(
+          value: 'reset_fold',
+          height: 36,
+          child: Row(
+            children: [
+              Icon(Icons.unfold_less, size: 16),
+              SizedBox(width: 8),
+              Text('恢复默认折叠', style: TextStyle(fontSize: 13)),
+            ],
+          ),
+        ),
+        const PopupMenuDivider(height: 8),
+        const PopupMenuItem<String>(
           value: 'reset_layout',
           height: 36,
           child: Row(
@@ -1770,6 +1805,17 @@ class _AxisMoreMenu extends StatelessWidget {
             break;
           case 'spacing_loose':
             controller.setSpacing(AxisSpacing.loose);
+            break;
+          case 'pull_all':
+            controller.pullAllToAxis();
+            // 等新布局生效后适应屏幕，避免视口落在空处。
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => viewport.fitToScreen());
+            break;
+          case 'reset_fold':
+            controller.resetFold();
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => viewport.fitToScreen());
             break;
           case 'reset_layout':
             onResetLayout();

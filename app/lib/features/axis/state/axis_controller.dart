@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' show Offset;
 
 import 'package:flutter/foundation.dart';
@@ -6,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../reports/models/report_models.dart';
 import '../data/axis_api.dart';
+import '../data/axis_fold.dart';
 import '../data/axis_models.dart';
 import '../data/axis_report_helpers.dart';
 import '../data/axis_tree_mapper.dart';
@@ -54,6 +56,12 @@ class AxisController extends ChangeNotifier {
   bool showAiStatus = true;
   bool expandSubordinates = true;
 
+  /// 折叠状态：被拉到人轴的人（按“用户 id + 项目 id”存本机）、已展开的折叠行与被隐藏的折叠组（仅内存）。
+  Set<int> pulledIds = {};
+  Set<int> expandedRowIds = {};
+  Set<int> hiddenStackIds = {};
+  bool _pulledTouched = false;
+
   /// 重置布局进行中、尚未落盘完成的节点；加载不得用后端旧值把它们改回去。
   final Set<int> _pendingResetIds = {};
 
@@ -76,6 +84,13 @@ class AxisController extends ChangeNotifier {
     }
     return null;
   }
+
+  AxisFoldSpec get foldSpec => AxisFoldSpec(
+        pulled: pulledIds,
+        expandedRows: expandedRowIds,
+        hiddenStacks: hiddenStackIds,
+        selfId: selfNode?.id,
+      );
 
   AxisPersonNode? get supervisorNode {
     final self = selfNode;
@@ -186,6 +201,108 @@ class AxisController extends ChangeNotifier {
     notifyListeners();
   }
 
+  String? get _pulledKey => currentUserId == null
+      ? null
+      : 'axis_pulled_${currentUserId}_$_projectId';
+
+  /// 折叠行点一下就地展开 / 再点收起（只在内存里）。
+  void togglePersonRow(int id) {
+    expandedRowIds = expandedRowIds.contains(id)
+        ? ({...expandedRowIds}..remove(id))
+        : {...expandedRowIds, id};
+    notifyListeners();
+  }
+
+  /// 领导卡片“下属 n”：整体显示 / 隐藏这组折叠行。
+  void toggleStack(int leaderId) {
+    hiddenStackIds = hiddenStackIds.contains(leaderId)
+        ? ({...hiddenStackIds}..remove(leaderId))
+        : {...hiddenStackIds, leaderId};
+    notifyListeners();
+  }
+
+  void pullToAxis(int id) {
+    pulledIds = {...pulledIds, id};
+    expandedRowIds = {...expandedRowIds}..remove(id);
+    _commitPulled();
+  }
+
+  /// 收回：他和他下面所有被拉出的人都移出拉出集合。
+  void returnFromAxis(int id) {
+    final gone = pulledSubtree(nodes, id, pulledIds);
+    pulledIds = {...pulledIds}..removeAll(gone);
+    expandedRowIds = {...expandedRowIds}..removeAll(gone);
+    _commitPulled();
+  }
+
+  void pullAllToAxis() {
+    pulledIds = {
+      for (final node in nodes)
+        if (node.parentId != null) node.id,
+    };
+    expandedRowIds = {};
+    _commitPulled();
+  }
+
+  void resetFold() {
+    pulledIds = {};
+    expandedRowIds = {};
+    _commitPulled();
+  }
+
+  /// 定位到未上轴的人：把他所有上级拉到人轴并保存，再展开他这一行。
+  void revealPerson(int id) {
+    final node = nodeById(id);
+    if (node == null) return;
+    final ancestors = revealAncestors(nodes, id);
+    pulledIds = {
+      ...pulledIds,
+      for (final a in ancestors)
+        if (nodeById(a)?.parentId != null) a,
+    };
+    if (!axisMemberIds(nodes, foldSpec).contains(id)) {
+      expandedRowIds = {...expandedRowIds, id};
+      if (node.parentId != null) {
+        hiddenStackIds = {...hiddenStackIds}..remove(node.parentId);
+      }
+    }
+    _commitPulled();
+  }
+
+  void _commitPulled() {
+    _pulledTouched = true;
+    notifyListeners();
+    unawaited(_persistPulled());
+  }
+
+  Future<void> _persistPulled() async {
+    final key = _pulledKey;
+    if (key == null) return;
+    try {
+      final prefs = await _prefsLoader();
+      final ids = pulledIds.toList()..sort();
+      await prefs.setString(key, jsonEncode(ids));
+    } catch (_) {
+      // 记不住就算了，当前会话内仍然生效。
+    }
+  }
+
+  /// 读取本项目已保存的拉出集合；读取失败或内容损坏返回 null（保持当前集合）。
+  Future<Set<int>?> _loadPulled() async {
+    final key = _pulledKey;
+    if (key == null) return null;
+    try {
+      final prefs = await _prefsLoader();
+      final raw = prefs.getString(key);
+      if (raw == null) return <int>{};
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return null;
+      return {for (final v in decoded) if (v is int) v};
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// 重置当前方向的卡片布局：本地立即清零，并把每个非零偏移带方向写回后端。
   ///
   /// 无权编辑的节点保留原偏移、不发请求；单个失败时恢复该节点偏移，
@@ -241,8 +358,11 @@ class AxisController extends ChangeNotifier {
         api.fetchPermissions(_projectId),
         api.fetchProject(_projectId),
         _restoreEdgeStyle(),
+        _loadPulled(),
       ]);
       if (!_isFresh(epoch)) return;
+      final storedPulled = results[5] as Set<int>?;
+      if (storedPulled != null && !_pulledTouched) pulledIds = storedPulled;
 
       final tree = results[0] as List<Map<String, dynamic>>;
       final members = results[1] as List<AxisMember>;
@@ -307,6 +427,10 @@ class AxisController extends ChangeNotifier {
     permissions = AxisPermissions.empty;
     project = null;
     selectedNodeId = null;
+    pulledIds = {};
+    expandedRowIds = {};
+    hiddenStackIds = {};
+    _pulledTouched = false;
     _offsetsByOrientation[AxisOrientation.horizontal]?.clear();
     _offsetsByOrientation[AxisOrientation.vertical]?.clear();
     latestReports = const {};

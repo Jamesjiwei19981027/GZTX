@@ -544,4 +544,46 @@ void main() {
       expect(centerX, closeTo(screenWidth / 2, 0.5));
     }
   });
+
+  testWidgets('菜单“全部拉到人轴”“恢复默认折叠”执行后自动适应屏幕，卡片仍在画布内', (tester) async {
+    final harness = await AxisTestHarness.create();
+    await tester.pumpWidget(harness.wrap(
+      AxisRootScreen(api: harness.api, authState: harness.authState),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('项目全貌'));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    final screen = Offset.zero & tester.view.physicalSize / tester.view.devicePixelRatio;
+    bool inScreen(String k) {
+      final f = find.byKey(Key(k));
+      if (f.evaluate().isEmpty) return false;
+      return screen.overlaps(tester.getRect(f));
+    }
+
+    await tester.tap(find.byKey(const Key('axis-more-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('全部拉到人轴'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    final persons = find.byWidgetPredicate(
+      (w) => w.key is ValueKey<String> &&
+          (w.key as ValueKey<String>).value.startsWith('axis-person-') &&
+          !(w.key as ValueKey<String>).value.contains('more') &&
+          !(w.key as ValueKey<String>).value.contains('add'),
+    );
+    expect(persons, findsWidgets);
+    for (final e in persons.evaluate()) {
+      expect(screen.contains(tester.getRect(find.byWidget(e.widget)).center), isTrue,
+          reason: '全部拉到人轴后卡片应在屏幕内');
+    }
+
+    await tester.tap(find.byKey(const Key('axis-more-menu')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('恢复默认折叠'));
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(inScreen('axis-person-101'), isTrue);
+    expect(screen.contains(tester.getRect(find.byKey(const Key('axis-person-101'))).center), isTrue);
+  });
 }
