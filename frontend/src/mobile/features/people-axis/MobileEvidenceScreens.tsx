@@ -52,6 +52,7 @@ export type EvidenceScreenMode =
 export interface MobileEvidenceScreensProps {
   mode?: EvidenceScreenMode;
   projectId: number | string;
+  projectName?: string;
   companyId: number | string | null;
   nodeId?: number | string;
   packageId?: number | string;
@@ -75,6 +76,7 @@ interface UploadedFileItem {
 export const MobileEvidenceScreens: React.FC<MobileEvidenceScreensProps> = ({
   mode = 'submit',
   projectId,
+  projectName,
   companyId,
   nodeId,
   packageId,
@@ -158,6 +160,7 @@ export const MobileEvidenceScreens: React.FC<MobileEvidenceScreensProps> = ({
       return (
         <MobileAxisAuditScreen
           projectId={Number(projectId)}
+          projectName={projectName}
           currentUser={currentUser}
           onBack={onBack}
           onOpenPackage={handleOpenPackage}
@@ -1099,6 +1102,7 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
 
 export interface MobileAxisAuditScreenProps {
   projectId: number;
+  projectName?: string;
   currentUser: UserProfile;
   onBack?: () => void;
   onOpenPackage?: (pkgId: number) => void;
@@ -1106,6 +1110,7 @@ export interface MobileAxisAuditScreenProps {
 
 export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
   projectId,
+  projectName,
   currentUser,
   onBack,
   onOpenPackage,
@@ -1206,11 +1211,18 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
               {auditResult ? `${auditResult.nodes.length} 项待处理` : '待处理'}
             </span>
           </div>
-          <p className="text-xs text-slate-400">
-            {auditResult?.generated_at
-              ? new Date(auditResult.generated_at).toLocaleString()
-              : '今天 15:20'} · 责任树联合调试
-          </p>
+          {Boolean(auditResult?.generated_at || projectName?.trim()) && (
+            <p className="text-xs text-slate-400">
+              {[
+                auditResult?.generated_at
+                  ? new Date(auditResult.generated_at).toLocaleString()
+                  : '',
+                projectName?.trim() || '',
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          )}
         </div>
 
         {/* 待确认问题列表 */}

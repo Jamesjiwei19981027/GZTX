@@ -473,10 +473,14 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
           );
         }
         if (activeRoute.screen === 'axis-audit') {
+          const currentAuditProject =
+            props.projects.find((p) => String(p.id) === String(axisProjectId)) ||
+            (props.currentProject.id !== 'all' ? props.currentProject : undefined);
           return (
             <MobileEvidenceScreens
               mode="audit"
               projectId={axisProjectId}
+              projectName={currentAuditProject?.name}
               companyId={props.companyId}
               currentUser={props.user}
               onBack={goBack}
