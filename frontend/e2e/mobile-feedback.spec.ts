@@ -3,7 +3,8 @@ import { expect, test, type Page } from '@playwright/test';
 test.use({ timezoneId: 'Asia/Shanghai' });
 
 async function open(page: Page, screen: string, manager = true, userId = '2', pullAll = true, customNodes?: any[], startAll = false) {
-  page.on('pageerror',error=>console.log(`feedback-pageerror: ${error.message}`));
+  page.on('pageerror',error=>console.log(`feedback-pageerror: ${error.message}
+${error.stack}`));
   const isDesktop = screen.startsWith('desktop-');
   await page.setViewportSize(isDesktop ? { width: 1440, height: 1000 } : { width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: 'light' });
@@ -437,4 +438,25 @@ test.describe('browser back button follows the in-app page stack', () => {
     await page.waitForTimeout(300);
     expect(page.url()).not.toBe('about:blank');
   });
+});
+
+test('all-projects: opening a responsibility item enters the material page of the shown project once', async ({ page }) => {
+  const person = (id: number, parent: number | null, name: string, children: any[] = []) => ({
+    id, parent_id: parent, node_type_key: 'person', title: name, children,
+    node_origin: parent ? 'subordinate' : 'project',
+    assignees: [{ user_id: id, display_name: name, role_key: 'primary' }],
+  });
+  const nodes = [person(1, null, '项目经理', [person(2, 1, '直属成员', [
+    { id: 21, parent_id: 2, node_type_key: 'work_item', title: '移动端责任事项', due_at: '2026-12-31T00:00:00Z', progress_json: { percent: 30, status: 'in_progress' }, children: [] },
+  ])])];
+  const urls: string[] = [];
+  page.on('request', request => urls.push(request.url()));
+  await open(page, 'work', false, '2', true, nodes, true);
+  await page.evaluate(() => (window as any).__MOBILE_NAV__.push({tab:'axis',screen:'axis-root',title:'人轴'}));
+  await expect(page.getByRole('heading',{name:'我的职责',exact:true})).toBeVisible();
+  await page.getByText('移动端责任事项').first().click();
+  await expect(page.getByText('请先选择项目')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__MOBILE_NAV__.activeRoute.screen)).toBe('axis-evidence-submit');
+  expect(await page.evaluate(() => (window as any).__selected)).toBe('1');
+  expect(urls.filter(u => /\/projects\/NaN/.test(u))).toEqual([]);
 });
