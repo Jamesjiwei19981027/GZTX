@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Project, UserProfile } from '../../../types';
 import { AppIcon } from '../../ui/AppIcon';
 import { MobileTopBar } from '../../ui/MobileTopBar';
-import { MobileLoadingState, MobileErrorState } from '../../ui/MobileState';
+import { MobileLoadingState, MobileErrorState, MobileEmptyState } from '../../ui/MobileState';
 import { useMobileNavigation } from '../../navigation/MobileNavigationProvider';
 import {
   listReportAgentBindings,
@@ -266,73 +266,16 @@ export const ReportReviewScreen: React.FC<ReportReviewScreenProps> = ({
             </div>
           )}
 
-          <div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-              请补充最终验收清单
-            </h2>
-            <p className="text-xs text-slate-400 mt-1">王宁及其项目 AI · 今天 14:30</p>
-          </div>
-
-          {/* 追问要求说明 */}
-          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
-            你的汇报描述“全部交互已验收”，但当前材料没有管理者确认记录。请补充验收清单或修改完成表述。
-          </div>
-
-          {/* 关联来源 */}
-          <section className="space-y-2">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
-              关联来源
-            </h3>
-            {reviewReport?.sources && reviewReport.sources.length > 0 ? (
-              <ReportSources sources={reviewReport.sources} />
-            ) : (
-              <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-center text-xs text-slate-400">
-                暂无来源
-              </div>
-            )}
-          </section>
-
-          {/* 补充说明 */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-              补充说明
-            </label>
-            <textarea
-              rows={3}
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              placeholder="说明当前进度与尚未完成的事项…"
-              className="w-full rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 text-sm text-slate-800 dark:text-slate-200 outline-hidden focus:border-[#0058BE] transition-colors leading-relaxed shadow-2xs resize-none"
-            />
-          </div>
-
-          {/* 规范提示 */}
-          <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 rounded-xl flex items-start gap-2">
-            <AppIcon name="info" size={16} className="text-[#0058BE] shrink-0 mt-0.5" />
-            <p className="text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
-              补充后沿原项目与人轴链路递交，不跨项目读取其他资料。追问建议通过站内消息闭环沟通 (G04)。
-            </p>
-          </div>
-
-          {/* 动作按钮 */}
-          <div className="flex items-center gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => push({ screen: 'work-root', title: '工作台' })}
-              className="flex-1 min-h-[46px] rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-slate-200 cursor-pointer"
-            >
-              <AppIcon name="file" size={17} />
-              <span>上传材料</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => push({ screen: 'ai-report-create', title: '编辑我的 AI 汇报' })}
-              className="flex-1 min-h-[46px] rounded-xl bg-[#0058BE] text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 active:bg-blue-800 shadow-xs cursor-pointer"
-            >
-              <AppIcon name="edit" size={17} />
-              <span>更新汇报草稿</span>
-            </button>
-          </div>
+          <MobileEmptyState
+            iconName="inbox"
+            title="暂无上级追问"
+            description="当前项目下暂无需要补充材料的上级追问。"
+            action={{
+              label: '返回工作台',
+              onClick: () => push({ screen: 'work-root', title: '工作台' }),
+              iconName: 'back',
+            }}
+          />
         </div>
       </div>
     );
