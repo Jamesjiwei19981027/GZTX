@@ -3,7 +3,8 @@ import { expect, test, type Page } from '@playwright/test';
 test.use({ timezoneId: 'Asia/Shanghai' });
 
 async function open(page: Page, screen: string, manager = true, userId = '2', pullAll = true, customNodes?: any[], startAll = false) {
-  page.on('pageerror',error=>console.log(`feedback-pageerror: ${error.message}`));
+  page.on('pageerror',error=>console.log(`feedback-pageerror: ${error.message}
+${error.stack}`));
   const isDesktop = screen.startsWith('desktop-');
   await page.setViewportSize(isDesktop ? { width: 1440, height: 1000 } : { width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: 'light' });
@@ -372,5 +373,90 @@ test('axis delegation and audit screens use the fallback project instead of requ
   await expect(page.getByText('请先选择项目')).toHaveCount(0);
   await expect.poll(() => urls.some(u => /\/projects\/1\/my-permissions/.test(u))).toBe(true);
   await page.goBack().catch(() => undefined);
+  expect(urls.filter(u => /\/projects\/NaN/.test(u))).toEqual([]);
+});
+
+test.describe('browser back button follows the in-app page stack', () => {
+  const screenOf = (page: Page) => page.evaluate(() => (window as any).__MOBILE_NAV__.activeRoute.screen as string);
+  const push = (page: Page, screen: string, tab = 'work') =>
+    page.evaluate(([s, t]) => (window as any).__MOBILE_NAV__.push({ tab: t, screen: s, title: s }), [screen, tab]);
+
+  test('consecutive pushes unwind one level per browser back and leave the app at the root', async ({ page }) => {
+    await open(page, 'work');
+    expect(await screenOf(page)).toBe('work-root');
+    await push(page, 'work-trash');
+    await push(page, 'work-search');
+    expect(await screenOf(page)).toBe('work-search');
+    await page.goBack();
+    await expect.poll(() => screenOf(page)).toBe('work-trash');
+    await page.goBack();
+    await expect.poll(() => screenOf(page)).toBe('work-root');
+    // 栈空时不拦截：再按一次返回离开应用页面
+    await page.goBack();
+    await expect.poll(() => page.url()).toBe('about:blank');
+  });
+
+  test('in-page back button and browser back do not double-pop', async ({ page }) => {
+    await open(page, 'work');
+    await push(page, 'work-trash');
+    await push(page, 'work-search');
+    await page.getByRole('button', { name: '返回' }).first().click();
+    await expect.poll(() => screenOf(page)).toBe('work-trash');
+    // 页面内返回之后历史条数同步回落：浏览器再返回一次应只回到根页，且不离开应用
+    await page.goBack();
+    await expect.poll(() => screenOf(page)).toBe('work-root');
+    await page.waitForTimeout(300);
+    expect(page.url()).not.toBe('about:blank');
+  });
+
+  test('tab switch keeps each tab stack and its history in step', async ({ page }) => {
+    await open(page, 'work');
+    await push(page, 'work-trash');
+    await page.evaluate(() => (window as any).__MOBILE_NAV__.switchTab('axis'));
+    await expect.poll(() => page.evaluate(() => (window as any).__MOBILE_NAV__.currentTab)).toBe('axis');
+    await page.evaluate(() => (window as any).__MOBILE_NAV__.switchTab('work'));
+    await expect.poll(() => screenOf(page)).toBe('work-trash');
+    await page.goBack();
+    await expect.poll(() => screenOf(page)).toBe('work-root');
+  });
+
+  test('overlay closes with browser back without popping the page underneath, and closing it in-page leaves history intact', async ({ page }) => {
+    await open(page, 'work');
+    await push(page, 'work-trash');
+    await page.evaluate(() => (window as any).__MOBILE_NAV__.openOverlay({ id: 'o1', type: 'sheet' }));
+    await expect.poll(() => page.evaluate(() => Boolean((window as any).__MOBILE_NAV__.overlay))).toBe(true);
+    await page.goBack();
+    await expect.poll(() => page.evaluate(() => Boolean((window as any).__MOBILE_NAV__.overlay))).toBe(false);
+    expect(await screenOf(page)).toBe('work-trash');
+    // 再开再由页面内关闭，随后浏览器返回只应退一层页面
+    await page.evaluate(() => (window as any).__MOBILE_NAV__.openOverlay({ id: 'o2', type: 'sheet' }));
+    await expect.poll(() => page.evaluate(() => Boolean((window as any).__MOBILE_NAV__.overlay))).toBe(true);
+    await page.evaluate(() => (window as any).__MOBILE_NAV__.closeOverlay());
+    await expect.poll(() => page.evaluate(() => Boolean((window as any).__MOBILE_NAV__.overlay))).toBe(false);
+    await page.goBack();
+    await expect.poll(() => screenOf(page)).toBe('work-root');
+    await page.waitForTimeout(300);
+    expect(page.url()).not.toBe('about:blank');
+  });
+});
+
+test('all-projects: opening a responsibility item enters the material page of the shown project once', async ({ page }) => {
+  const person = (id: number, parent: number | null, name: string, children: any[] = []) => ({
+    id, parent_id: parent, node_type_key: 'person', title: name, children,
+    node_origin: parent ? 'subordinate' : 'project',
+    assignees: [{ user_id: id, display_name: name, role_key: 'primary' }],
+  });
+  const nodes = [person(1, null, '项目经理', [person(2, 1, '直属成员', [
+    { id: 21, parent_id: 2, node_type_key: 'work_item', title: '移动端责任事项', due_at: '2026-12-31T00:00:00Z', progress_json: { percent: 30, status: 'in_progress' }, children: [] },
+  ])])];
+  const urls: string[] = [];
+  page.on('request', request => urls.push(request.url()));
+  await open(page, 'work', false, '2', true, nodes, true);
+  await page.evaluate(() => (window as any).__MOBILE_NAV__.push({tab:'axis',screen:'axis-root',title:'人轴'}));
+  await expect(page.getByRole('heading',{name:'我的职责',exact:true})).toBeVisible();
+  await page.getByText('移动端责任事项').first().click();
+  await expect(page.getByText('请先选择项目')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__MOBILE_NAV__.activeRoute.screen)).toBe('axis-evidence-submit');
+  expect(await page.evaluate(() => (window as any).__selected)).toBe('1');
   expect(urls.filter(u => /\/projects\/NaN/.test(u))).toEqual([]);
 });

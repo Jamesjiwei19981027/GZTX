@@ -199,7 +199,7 @@ test('Mobile Settings & Admin Integration: 16 Screens Reachability, Role Access 
   // 6. 点击进入 58 (任务默认值)
   await page.click('text=任务默认值');
   await expect(page.locator('text=默认优先级')).toBeVisible();
-  await expect(page.locator('text=中优先级 (Medium)')).toBeVisible();
+  await expect(page.locator('text=中优先级')).toBeVisible();
   await page.click('button[aria-label="返回"]');
 
   // 7. 点击进入 59 (通知渠道配置)
@@ -252,7 +252,10 @@ test('Mobile Settings & Admin Integration: 16 Screens Reachability, Role Access 
   // 14. 点击进入 92 (模型密钥配置)
   await page.click('text=模型密钥配置');
   await expect(page.locator('text=多厂商模型密钥管理')).toBeVisible();
-  await expect(page.locator('text=•••••••••••••••• (已保存)')).toBeVisible();
+  // 配置状态来自接口真实返回（此处接口给出已配置），不再写死“已保存”
+  await expect(page.getByText('当前配置状态')).toBeVisible();
+  await expect(page.getByText('已配置', { exact: true })).toBeVisible();
+  await expect(page.getByText('(已保存)')).toHaveCount(0);
   await page.click('button[aria-label="返回"]');
 
   // 15. 点击进入 93 (语音识别配置 ASR)

@@ -14,7 +14,7 @@
  * 2. 密钥隐私安全：密码与 API 密钥绝不回显明文，已配置仅显示掩码占位符。
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useMobileNavigation } from '../../navigation/MobileNavigationProvider';
 import { UserProfile, AppSettings } from '../../../types';
 import { isUserAdmin, SettingsSharedProps } from './MobileSettingsScreens';
@@ -685,6 +685,29 @@ export const AdminModelKeysScreen: React.FC<SettingsSharedProps> = ({ user }) =>
   const [newKey, setNewKey] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+  const [llmConfig, setLlmConfig] = useState<{
+    provider?: string;
+    has_api_key?: boolean;
+    configured?: boolean;
+    enabled?: boolean;
+  } | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+
+  const loadConfig = useCallback(async () => {
+    setLoadingConfig(true);
+    try {
+      const res = await getLlmConfig();
+      setLlmConfig(res);
+    } catch {
+      setLlmConfig(null);
+    } finally {
+      setLoadingConfig(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadConfig();
+  }, [loadConfig]);
 
   const handleSaveKey = async () => {
     if (!isAdmin || !newKey.trim()) return;
@@ -694,12 +717,15 @@ export const AdminModelKeysScreen: React.FC<SettingsSharedProps> = ({ user }) =>
       await putLlmConfig({ provider: selectedProvider, api_key: newKey.trim() });
       setMsg({ type: 'ok', text: `${selectedProvider.toUpperCase()} 密钥更新成功！明文已加密入库。` });
       setNewKey('');
+      void loadConfig();
     } catch (err) {
       setMsg({ type: 'err', text: err instanceof Error ? err.message : '更新密钥失败' });
     } finally {
       setSaving(false);
     }
   };
+
+  const isConfigured = Boolean(llmConfig?.configured || llmConfig?.has_api_key);
 
   return (
     <div className="flex-1 flex flex-col w-full h-full overflow-y-auto pb-16 bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
@@ -745,12 +771,25 @@ export const AdminModelKeysScreen: React.FC<SettingsSharedProps> = ({ user }) =>
               </div>
             </MobileField>
 
-            <MobileField label="当前配置状态">
-              <div className="min-h-[44px] px-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs font-mono">
-                <span>•••••••••••••••• (已保存)</span>
-                <span className="text-emerald-600 font-semibold">AES-256</span>
-              </div>
-            </MobileField>
+            {llmConfig !== null ? (
+              <MobileField label="当前配置状态">
+                <div className="min-h-[44px] px-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs font-mono">
+                  {loadingConfig ? (
+                    <span className="text-slate-400">正在获取状态…</span>
+                  ) : isConfigured ? (
+                    <>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">已配置</span>
+                      <span className="text-emerald-600 font-semibold">AES-256</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-slate-400 font-medium">未配置</span>
+                      <span className="text-slate-400 text-[11px]">暂无密钥</span>
+                    </>
+                  )}
+                </div>
+              </MobileField>
+            ) : null}
 
             <MobileField label="输入新密钥" helperText="留空则保持现有密钥不变">
               <MobileInput

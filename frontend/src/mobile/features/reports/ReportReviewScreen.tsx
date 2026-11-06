@@ -8,6 +8,9 @@ import {
   listReportAgentBindings,
   ensureReportAgentBindings,
   ReportAgentBinding,
+  listAgentReports,
+  getReportDetail,
+  AgentReport,
 } from '../../../api/reports';
 import { ReportSources } from './ReportSources';
 
@@ -45,6 +48,7 @@ export const ReportReviewScreen: React.FC<ReportReviewScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [bindings, setBindings] = useState<ReportAgentBinding[]>([]);
+  const [reviewReport, setReviewReport] = useState<AgentReport | null>(null);
 
   // 追问/差异表单状态
   const [commentText, setCommentText] = useState(
@@ -70,6 +74,29 @@ export const ReportReviewScreen: React.FC<ReportReviewScreenProps> = ({
         .finally(() => {
           if (!cancelled) setLoading(false);
         });
+    } else if (routeMode === 'followup' || routeMode === 'conflict') {
+      const repId = activeRoute.params.reportId ? Number(activeRoute.params.reportId) : null;
+      if (repId) {
+        getReportDetail(repId)
+          .then((rep) => {
+            if (!cancelled) setReviewReport(rep);
+          })
+          .catch(() => {});
+      } else {
+        listAgentReports(numericProjectId)
+          .then(async (res) => {
+            if (!cancelled && res.items?.length) {
+              const first = res.items[0];
+              try {
+                const detail = await getReportDetail(first.id);
+                if (!cancelled) setReviewReport(detail);
+              } catch {
+                if (!cancelled) setReviewReport(first);
+              }
+            }
+          })
+          .catch(() => {});
+      }
     }
 
     return () => {
@@ -256,20 +283,13 @@ export const ReportReviewScreen: React.FC<ReportReviewScreenProps> = ({
             <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
               关联来源
             </h3>
-            <ReportSources
-              sources={[
-                {
-                  id: 1,
-                  source_type: 'evidence',
-                  excerpt: '交互评审纪要.pdf',
-                },
-                {
-                  id: 2,
-                  source_type: 'task',
-                  excerpt: '原型验收任务 · 进行中',
-                },
-              ]}
-            />
+            {reviewReport?.sources && reviewReport.sources.length > 0 ? (
+              <ReportSources sources={reviewReport.sources} />
+            ) : (
+              <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-center text-xs text-slate-400">
+                暂无来源
+              </div>
+            )}
           </section>
 
           {/* 补充说明 */}
@@ -368,20 +388,13 @@ export const ReportReviewScreen: React.FC<ReportReviewScreenProps> = ({
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
             查阅依据
           </h3>
-          <ReportSources
-            sources={[
-              {
-                id: 1,
-                source_type: 'evidence',
-                excerpt: '交互评审纪要.pdf · 林悦上传',
-              },
-              {
-                id: 2,
-                source_type: 'task',
-                excerpt: '原型验收任务 · 进行中',
-              },
-            ]}
-          />
+          {reviewReport?.sources && reviewReport.sources.length > 0 ? (
+            <ReportSources sources={reviewReport.sources} />
+          ) : (
+            <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 text-center text-xs text-slate-400">
+              暂无来源
+            </div>
+          )}
         </section>
 
         {/* 管理者核验意见 */}

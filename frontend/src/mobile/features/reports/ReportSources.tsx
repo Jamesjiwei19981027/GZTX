@@ -100,7 +100,7 @@ export const ReportSources: React.FC<ReportSourcesProps> = ({
   if (displayed.length === 0) {
     return (
       <div className={`p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 text-center ${className}`}>
-        <p className="text-xs text-slate-400 dark:text-slate-500">暂无事实来源依据</p>
+        <p className="text-xs text-slate-400 dark:text-slate-500">暂无来源</p>
       </div>
     );
   }

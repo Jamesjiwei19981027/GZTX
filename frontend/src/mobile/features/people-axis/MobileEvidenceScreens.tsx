@@ -3,6 +3,8 @@ import { UserProfile, AxisEvidence } from '../../../types';
 import {
   submitEvidence,
   listNodeEvidence,
+  getEvidencePackage,
+  BackendEvidencePackage,
   getTreeNode,
   BackendTreeNode,
   listProjectMembers,
@@ -10,7 +12,16 @@ import {
 } from '../../../api/backend';
 import { uploadEvidenceFile } from '../../../api/projectWiki';
 import { inferEvidenceKind } from '../../../utils/evidenceFiles';
+import { parseApiDateTime } from '../../../utils/datetime';
 import { MaterialTextInput } from '../../../components/MaterialTextInput';
+
+function formatDateTime(iso?: string | null): string {
+  if (!iso) return '';
+  const d = parseApiDateTime(iso);
+  if (Number.isNaN(d.getTime())) return String(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 import {
   listDelegations,
   createDelegation,
@@ -113,6 +124,7 @@ export const MobileEvidenceScreens: React.FC<MobileEvidenceScreensProps> = ({
           projectId={Number(projectId)}
           packageId={selectedPackageId}
           nodeId={nodeId ? Number(nodeId) : undefined}
+          currentUser={currentUser}
           onBack={() => {
             if (mode === 'detail' && onBack) onBack();
             else setCurrentMode('progress');
@@ -392,6 +404,7 @@ export interface MobileEvidencePackageDetailScreenProps {
   projectId: number;
   packageId?: number;
   nodeId?: number;
+  currentUser?: UserProfile;
   onBack?: () => void;
 }
 
@@ -399,33 +412,114 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
   projectId,
   packageId,
   nodeId,
+  currentUser,
   onBack,
 }) => {
-  const [evidenceList, setEvidenceList] = useState<any[]>([]);
+  const [detail, setDetail] = useState<BackendEvidencePackage | null>(null);
+  const [nodeTitle, setNodeTitle] = useState<string>('');
+  const [submitterName, setSubmitterName] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (nodeId) {
-      listNodeEvidence(nodeId)
-        .then((res) => setEvidenceList(res.items || []))
-        .catch(() => {})
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
+    let active = true;
+    setLoading(true);
+
+    async function loadData() {
+      try {
+        let pkg: BackendEvidencePackage | null = null;
+        if (packageId) {
+          try {
+            pkg = await getEvidencePackage(packageId);
+          } catch {
+            // fallback if getEvidencePackage fails
+          }
+        }
+
+        const currentNodeId = nodeId || pkg?.node_id;
+        if (!pkg && currentNodeId) {
+          const listRes = await listNodeEvidence(currentNodeId).catch(() => null);
+          if (listRes?.items?.length) {
+            const found = packageId
+              ? listRes.items.find((i) => i.id === packageId)
+              : listRes.items[0];
+            if (found) {
+              try {
+                pkg = await getEvidencePackage(found.id);
+              } catch {
+                pkg = found as BackendEvidencePackage;
+              }
+            }
+          }
+        }
+
+        if (!active) return;
+        setDetail(pkg);
+
+        if (currentNodeId) {
+          getTreeNode(currentNodeId)
+            .then((n) => {
+              if (active && n?.title) setNodeTitle(n.title);
+            })
+            .catch(() => {});
+        }
+
+        if (projectId) {
+          listProjectMembers(projectId)
+            .then((mRes) => {
+              if (!active) return;
+              const members = mRes?.items || [];
+              const subId = pkg?.submitter_user_id;
+              if (subId) {
+                const foundMem = members.find((m) => m.user_id === subId);
+                const memName = foundMem?.display_name || foundMem?.nickname || foundMem?.username;
+                if (memName) {
+                  setSubmitterName(memName);
+                  return;
+                }
+              }
+              // 只有提交人就是当前用户时才用当前用户姓名，不把别人的材料署成自己
+              if (currentUser && subId != null && String(currentUser.id) === String(subId)) {
+                setSubmitterName(currentUser.name || currentUser.username || '');
+              }
+            })
+            .catch(() => {
+              if (active && currentUser && pkg?.submitter_user_id != null && String(currentUser.id) === String(pkg.submitter_user_id)) {
+                setSubmitterName(currentUser.name || currentUser.username || '');
+              }
+            });
+        } else if (currentUser && pkg?.submitter_user_id != null && String(currentUser.id) === String(pkg.submitter_user_id)) {
+          setSubmitterName(currentUser.name || currentUser.username || '');
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
     }
-  }, [nodeId]);
+
+    loadData();
+    return () => {
+      active = false;
+    };
+  }, [packageId, nodeId, projectId, currentUser]);
 
   if (loading) {
     return <MobileLoadingState message="正在加载证据包详情…" fullScreen />;
   }
 
-  const currentItem = evidenceList.find((e) => e.id === packageId) || evidenceList[0] || {
-    id: packageId || 1,
-    summary_text: '交互原型评审材料',
-    status: 'submitted',
-    submitted_at: '今天 14:10',
-    evidence_kind: 'document',
+  const statusMap: Record<string, string> = {
+    adopted: '已采纳',
+    submitted: '已提交',
+    rejected: '已驳回',
+    draft: '草稿',
+    prechecking: '预检中',
   };
+  const statusText = (detail?.status && statusMap[detail.status]) || detail?.status || '已提交';
+  const version = detail?.version ?? (detail?.structured as any)?.version;
+  const badgeText = version != null ? `${statusText} · 版本 ${version}` : statusText;
+
+  const files = detail?.files || [];
+  const rawDate = detail?.submitted_at || detail?.created_at;
+  const formattedTime = formatDateTime(rawDate);
+  const finalSubmitterName = submitterName || '提交人';
 
   return (
     <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden">
@@ -440,80 +534,79 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
         {/* 状态徽标与标题 */}
         <div>
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 mb-2">
-            已提交 · 版本 2
+            {badgeText}
           </span>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
-            {currentItem.summary_text || '交互原型评审材料'}
+            {detail?.summary_text || '材料详情'}
           </h1>
           <p className="text-xs text-slate-400 mt-1">
-            提报人 · {currentItem.submitted_at || '今天 14:10'}
+            提报人 · {finalSubmitterName}
+            {formattedTime ? ` · ${formattedTime}` : ''}
           </p>
         </div>
 
-        {/* 提交说明 */}
-        <section className="space-y-1.5">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            提交说明
-          </h2>
-          <div className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-xs text-slate-700 dark:text-slate-300 leading-relaxed shadow-xs">
-            包含评审纪要与验收清单，用于验证本阶段移动端 UI 与汇报链路交互交付范围。
-          </div>
-        </section>
-
-        {/* 文件列表 */}
-        <section className="space-y-1.5">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            支撑文件 (2)
-          </h2>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
-            <div className="p-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
-                <div className="min-w-0">
-                  <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
-                    交互评审纪要.pdf
-                  </strong>
-                  <span className="text-[10px] text-slate-400">PDF · 2.4 MB</span>
-                </div>
-              </div>
-              <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+        {/* 真实提交说明：没有说明就不显示这一块，不许编造 */}
+        {Boolean(detail?.summary_text?.trim()) && (
+          <section className="space-y-1.5">
+            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              提交说明
+            </h2>
+            <div className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-xs text-slate-700 dark:text-slate-300 leading-relaxed shadow-xs whitespace-pre-wrap">
+              {detail?.summary_text}
             </div>
+          </section>
+        )}
 
-            <div className="p-3.5 flex items-center justify-between">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
-                <div className="min-w-0">
-                  <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
-                    原型验收清单.xlsx
-                  </strong>
-                  <span className="text-[10px] text-slate-400">XLSX · 48 KB</span>
-                </div>
-              </div>
-              <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+        {/* 真实文件列表和数量：没有文件就不显示 */}
+        {files.length > 0 && (
+          <section className="space-y-1.5">
+            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              支撑文件 ({files.length})
+            </h2>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+              {files.map((file, idx) => {
+                const ext = file.original_name ? file.original_name.split('.').pop()?.toUpperCase() : 'FILE';
+                const sizeStr = file.size_bytes
+                  ? file.size_bytes < 1024 * 1024
+                    ? `${Math.round(file.size_bytes / 1024)} KB`
+                    : `${(file.size_bytes / (1024 * 1024)).toFixed(1)} MB`
+                  : '';
+                return (
+                  <div key={file.file_id || idx} className="p-3.5 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
+                      <div className="min-w-0">
+                        <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                          {file.original_name}
+                        </strong>
+                        <span className="text-[10px] text-slate-400">
+                          {[ext, sizeStr].filter(Boolean).join(' · ')}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         {/* 关联信息 */}
-        <section className="space-y-1.5">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            关联信息
-          </h2>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs text-xs">
-            <div className="p-3.5 flex items-center justify-between">
-              <span className="text-slate-400">责任事项</span>
-              <span className="font-semibold text-slate-800 dark:text-slate-200">
-                完成交互原型评审
-              </span>
+        {(nodeTitle || detail?.node_id || nodeId) && (
+          <section className="space-y-1.5">
+            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              关联信息
+            </h2>
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs text-xs">
+              <div className="p-3.5 flex items-center justify-between">
+                <span className="text-slate-400">责任事项</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {nodeTitle || `责任事项 #${detail?.node_id || nodeId}`}
+                </span>
+              </div>
             </div>
-            <div className="p-3.5 flex items-center justify-between">
-              <span className="text-slate-400">引用此材料的汇报</span>
-              <span className="font-semibold text-[#0058BE] dark:text-blue-400">
-                本周产品设计进展 · 2 次引用
-              </span>
-            </div>
-          </div>
-        </section>
+          </section>
+        )}
 
         <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
           <AppIcon name="info" size={16} className="shrink-0" />
@@ -558,6 +651,15 @@ export const MobileProgressRecordScreen: React.FC<MobileProgressRecordScreenProp
   onOpenPackage,
   onOpenSubmit,
 }) => {
+  const [evidenceList, setEvidenceList] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (nodeId) {
+      listNodeEvidence(nodeId)
+        .then((res) => setEvidenceList(res.items || []))
+        .catch(() => {});
+    }
+  }, [nodeId]);
   return (
     <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden">
       <MobileTopBar
@@ -636,39 +738,34 @@ export const MobileProgressRecordScreen: React.FC<MobileProgressRecordScreenProp
           <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
             支撑材料
           </h2>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
-            <div
-              onClick={() => onOpenPackage?.(1)}
-              className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
-                <div className="min-w-0">
-                  <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
-                    交互评审纪要.pdf
-                  </strong>
-                  <span className="text-[10px] text-slate-400">材料 · 林悦上传 · 今天 14:10</span>
+          {evidenceList.length > 0 ? (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+              {evidenceList.map((pkg) => (
+                <div
+                  key={pkg.id}
+                  onClick={() => onOpenPackage?.(pkg.id)}
+                  className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
+                    <div className="min-w-0">
+                      <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                        {pkg.summary_text || `材料包 #${pkg.id}`}
+                      </strong>
+                      <span className="text-[10px] text-slate-400">
+                        {pkg.submitted_at ? formatDateTime(pkg.submitted_at) : '已提交'}
+                      </span>
+                    </div>
+                  </div>
+                  <AppIcon name="chevron-right" size={16} className="text-slate-400" />
                 </div>
-              </div>
-              <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+              ))}
             </div>
-
-            <div
-              onClick={() => onOpenPackage?.(2)}
-              className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <AppIcon name="work" size={18} className="text-[#0058BE] shrink-0" />
-                <div className="min-w-0">
-                  <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
-                    原型验收任务
-                  </strong>
-                  <span className="text-[10px] text-slate-400">任务 · 进行中 · 更新于 15:20</span>
-                </div>
-              </div>
-              <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+          ) : (
+            <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-center text-xs text-slate-400">
+              暂无支撑材料
             </div>
-          </div>
+          )}
         </section>
 
         <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
@@ -1141,30 +1238,7 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
                 </div>
               ))
             ) : (
-              <>
-                <div className="p-3.5 flex items-center justify-between">
-                  <div>
-                    <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
-                      验收责任未明确
-                    </strong>
-                    <p className="text-[11px] text-slate-500 mt-0.5">接口联调 / 无终责人</p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
-                    高
-                  </span>
-                </div>
-                <div className="p-3.5 flex items-center justify-between">
-                  <div>
-                    <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
-                      资料可能不足
-                    </strong>
-                    <p className="text-[11px] text-slate-500 mt-0.5">产品设计 / 缺最终验收清单</p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">
-                    中
-                  </span>
-                </div>
-              </>
+              <div className="p-4 text-center text-xs text-slate-400">暂无风险节点</div>
             )}
           </div>
         </section>
@@ -1174,38 +1248,8 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
           <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
             审计依据
           </h2>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
-            <div
-              onClick={() => onOpenPackage?.(1)}
-              className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
-                <div className="min-w-0">
-                  <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
-                    交互评审纪要.pdf
-                  </strong>
-                  <span className="text-[10px] text-slate-400">材料 · 林悦上传 · 今天 14:10</span>
-                </div>
-              </div>
-              <AppIcon name="chevron-right" size={16} className="text-slate-400" />
-            </div>
-
-            <div
-              onClick={() => onOpenPackage?.(2)}
-              className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <AppIcon name="work" size={18} className="text-[#0058BE] shrink-0" />
-                <div className="min-w-0">
-                  <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
-                    原型验收任务
-                  </strong>
-                  <span className="text-[10px] text-slate-400">任务 · 进行中 · 更新于 15:20</span>
-                </div>
-              </div>
-              <AppIcon name="chevron-right" size={16} className="text-slate-400" />
-            </div>
+          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-center text-xs text-slate-400">
+            暂无关联审计材料
           </div>
         </section>
 

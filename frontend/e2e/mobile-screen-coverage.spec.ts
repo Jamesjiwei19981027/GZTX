@@ -237,12 +237,21 @@ test('Mobile Screen Coverage: Full Screen Reachability & Action Button Verificat
   // ==========================================
   // 3. 人轴责任链与证据 (Axis Tab)
   // ==========================================
+  // 没有具体项目（全部项目且路由没带项目）时按设计提示先选择项目，且不发 NaN 请求
+  const nanRequests: string[] = [];
+  page.on('request', request => { if (/\/projects\/NaN/.test(request.url())) nanRequests.push(request.url()); });
   await goToScreen('axis', 'axis-delegations');
+  await expect(page.getByText('请先选择项目', { exact: true })).toBeVisible({ timeout: 5000 });
+  expect(nanRequests).toEqual([]);
+
+  // 带上具体项目后进入委托授权页
+  await goToScreen('axis', 'axis-delegations', { projectId: '101' });
   await expect(page.locator('text=委托授权').or(page.locator('text=我的授权')).first()).toBeVisible({ timeout: 5000 });
+  expect(nanRequests).toEqual([]);
 
   await goToScreen('axis', 'axis-wiki');
-  // 当前停在「全部项目」汇总，项目知识按项目隔离，应给出选择具体项目的提示而不是一直加载
-  await expect(page.getByText('请先选择具体项目', { exact: true })).toBeVisible({ timeout: 5000 });
+  // 当前停在「全部项目」汇总且路由没带项目：人轴子页统一给出“请先选择项目”提示（W1 引入的统一拦截），而不是一直加载
+  await expect(page.getByText('请先选择项目', { exact: true })).toBeVisible({ timeout: 5000 });
 
   // ==========================================
   // 4. AI 汇报中心多角色视图 (AI Tab)
