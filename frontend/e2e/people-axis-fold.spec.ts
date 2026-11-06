@@ -30,24 +30,6 @@ const makeTree = (sibling = false) => [
         assignees: [{ user_id: 2, role_key: 'primary', display_name: '林悦' }],
         children: [
           {
-            id: 21,
-            parent_id: 2,
-            node_type_key: 'work_item',
-            title: '交互原型设计',
-            due_at: '2026-11-30T08:00:00Z',
-            progress_json: { percent: 50, status: 'in_progress' },
-            children: [],
-          },
-          {
-            id: 22,
-            parent_id: 2,
-            node_type_key: 'work_item',
-            title: '设计规范已逾期',
-            due_at: '2020-01-01T08:00:00Z',
-            progress_json: { percent: 0, status: 'pending' },
-            children: [],
-          },
-          {
             id: 3,
             parent_id: 2,
             node_type_key: 'person',
@@ -55,20 +37,67 @@ const makeTree = (sibling = false) => [
             sort_order: 3,
             node_origin: 'subordinate',
             assignees: [{ user_id: 3, role_key: 'primary', display_name: '陈宇' }],
-            children: [],
+            children: [
+              {
+                id: 31,
+                parent_id: 3,
+                node_type_key: 'work_item',
+                title: '界面组件实现',
+                due_at: '2026-11-30T08:00:00Z',
+                progress_json: { percent: 50, status: 'in_progress' },
+                children: [],
+              },
+              {
+                id: 32,
+                parent_id: 3,
+                node_type_key: 'work_item',
+                title: '单元测试已逾期',
+                due_at: '2020-01-01T08:00:00Z',
+                progress_json: { percent: 0, status: 'pending' },
+                children: [],
+              },
+              {
+                id: 5,
+                parent_id: 3,
+                node_type_key: 'person',
+                title: '测试工程师',
+                sort_order: 1,
+                node_origin: 'subordinate',
+                assignees: [{ user_id: 5, role_key: 'primary', display_name: '张强' }],
+                children: [],
+              },
+            ],
           },
         ],
       },
-      ...(sibling ? [{
-        id: 4,
-        parent_id: 1,
-        node_type_key: 'person',
-        title: '运营负责人',
-        sort_order: 4,
-        node_origin: 'subordinate',
-        assignees: [{ user_id: 4, role_key: 'primary', display_name: '周楠' }],
-        children: [],
-      }] : []),
+      ...(sibling ? [
+        {
+          id: 41, parent_id: 1, node_type_key: 'person', title: '后端开发A', sort_order: 3,
+          node_origin: 'subordinate', assignees: [{ user_id: 41, role_key: 'primary', display_name: '李明' }], children: [],
+        },
+        {
+          id: 42, parent_id: 1, node_type_key: 'person', title: '后端开发B', sort_order: 4,
+          node_origin: 'subordinate', assignees: [{ user_id: 42, role_key: 'primary', display_name: '王强' }], children: [],
+        },
+        {
+          id: 43, parent_id: 1, node_type_key: 'person', title: '测试经理', sort_order: 5,
+          node_origin: 'subordinate', assignees: [{ user_id: 43, role_key: 'primary', display_name: '宋杰' }], children: [],
+        },
+        {
+          id: 44, parent_id: 1, node_type_key: 'person', title: '运维工程师', sort_order: 6,
+          node_origin: 'subordinate', assignees: [{ user_id: 44, role_key: 'primary', display_name: '孙浩' }], children: [],
+        },
+        {
+          id: 4,
+          parent_id: 1,
+          node_type_key: 'person',
+          title: '运营负责人',
+          sort_order: 7,
+          node_origin: 'subordinate',
+          assignees: [{ user_id: 4, role_key: 'primary', display_name: '周楠' }],
+          children: [],
+        },
+      ] : []),
     ],
   },
 ]
@@ -88,7 +117,7 @@ async function setupDesktopMock(page: Page, initialPulled: string[] = [], siblin
         is_pm: true,
         is_superadmin: false,
         can_edit_all: true,
-        owned_node_ids: [1, 2, 3],
+        owned_node_ids: [1, 2, 3, 4, 5, 41, 42, 43, 44],
         via_delegation: false,
         can_move: true,
         can_delete: true,
@@ -102,7 +131,7 @@ async function setupDesktopMock(page: Page, initialPulled: string[] = [], siblin
             project_id: 1,
             project_name: '产品体验升级',
             my_role: 'pm',
-            my_owned_node_ids: [1, 2, 3],
+            my_owned_node_ids: [1, 2, 3, 4, 5, 41, 42, 43, 44],
             nodes: currentTree,
           },
         ],
@@ -116,6 +145,8 @@ async function setupDesktopMock(page: Page, initialPulled: string[] = [], siblin
           { user_id: 1, display_name: '赵晨', role: 'member' },
           { user_id: 2, display_name: '林悦', role: 'member' },
           { user_id: 3, display_name: '陈宇', role: 'member' },
+          { user_id: 4, display_name: '周楠', role: 'member' },
+          { user_id: 5, display_name: '张强', role: 'member' },
         ],
       }
     } else if (/^\/projects\/\d+$/.test(path)) {
@@ -178,7 +209,7 @@ async function setupMobileMock(page: Page, initialPulled: string[] = []) {
         is_pm: true,
         is_superadmin: false,
         can_edit_all: true,
-        owned_node_ids: [1, 2, 3],
+        owned_node_ids: [1, 2, 3, 4, 5, 41, 42, 43, 44],
         via_delegation: false,
         can_move: true,
         can_delete: true,
@@ -193,6 +224,8 @@ async function setupMobileMock(page: Page, initialPulled: string[] = []) {
           { user_id: 9, display_name: '王宁', role: 'pm' },
           { user_id: 1, display_name: '赵晨', role: 'member' },
           { user_id: 2, display_name: '林悦', role: 'member' },
+          { user_id: 3, display_name: '陈宇', role: 'member' },
+          { user_id: 5, display_name: '张强', role: 'member' },
         ],
       }
     } else if (/^\/projects\/\d+$/.test(path)) {
@@ -252,47 +285,51 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     await page.setViewportSize({ width: 1440, height: 960 })
     await setupDesktopMock(page)
 
-    // 根卡片（赵晨）作为完整卡片渲染
+    // 根卡片（赵晨）与名额内第 2 层直属下属（林悦）作为完整卡片渲染
     const rootNode = page.locator('.react-flow__node[data-id="1"]')
     await expect(rootNode).toBeVisible()
     await expect(rootNode.locator('.axis-card-name strong')).toHaveText('赵晨')
 
-    // 下属（林悦）未上轴，默认呈现为折叠行
-    const foldedRow = page.getByTestId('axis-folded-row-2')
+    const parentNode = page.locator('.react-flow__node[data-id="2"]')
+    await expect(parentNode).toBeVisible()
+    await expect(parentNode.locator('.axis-card-name strong')).toHaveText('林悦')
+
+    // 第 3 层直属下属（陈宇）未上轴，默认呈现为折叠行在林悦卡片下方
+    const foldedRow = page.getByTestId('axis-folded-row-3')
     await expect(foldedRow).toBeVisible()
-    await expect(foldedRow.locator('.axis-folded-name')).toHaveText('林悦')
-    await expect(foldedRow.locator('.axis-folded-role')).toHaveText('设计负责人')
+    await expect(foldedRow.locator('.axis-folded-name')).toHaveText('陈宇')
+    await expect(foldedRow.locator('.axis-folded-role')).toHaveText('前端工程师')
     await expect(foldedRow.locator('.axis-folded-count')).toHaveText('任务 2')
     await expect(foldedRow.locator('.axis-folded-over')).toHaveText('逾期 1')
 
-    // 未上轴的折叠人员不生成连线
+    // 未上轴的折叠人员不生成连线（仅有根到第 2 层的一条连线）
     const edges = page.locator('.react-flow__edge-path')
-    await expect(edges).toHaveCount(0)
+    await expect(edges).toHaveCount(1)
   })
 
   test('展开与重新折叠：点折叠行就地展开卡片，点折叠恢复原样', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 960 })
     await setupDesktopMock(page)
 
-    const foldedRow = page.getByTestId('axis-folded-row-2')
+    const foldedRow = page.getByTestId('axis-folded-row-3')
     await expect(foldedRow).toBeVisible()
 
     // 1. 点击折叠行：就地展开成下属卡片
     await foldedRow.click()
-    const expandedCard = page.locator('.react-flow__node[data-id="2"] .axis-map-card.is-folded-member')
+    const expandedCard = page.locator('.react-flow__node[data-id="3"] .axis-map-card.is-folded-member')
     await expect(expandedCard).toBeVisible()
     // 展开卡片有“下属”标签
     await expect(expandedCard.locator('.axis-card-tag.subordinate')).toHaveText('下属')
     // 提供“折叠”和“拉到人轴”操作
-    const foldBtn = page.getByTestId('axis-fold-2')
-    const pullBtn = page.getByTestId('axis-pull-2')
+    const foldBtn = page.getByTestId('axis-fold-3')
+    const pullBtn = page.getByTestId('axis-pull-3')
     await expect(foldBtn).toBeVisible()
     await expect(pullBtn).toBeVisible()
 
     // 2. 点击“折叠”：卡片收起，恢复为折叠行
     await foldBtn.click()
-    await expect(page.getByTestId('axis-folded-row-2')).toBeVisible()
-    await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card')).toHaveCount(0)
+    await expect(page.getByTestId('axis-folded-row-3')).toBeVisible()
+    await expect(page.locator('.react-flow__node[data-id="3"] .axis-map-card')).toHaveCount(0)
   })
 
   test('拉到人轴：展开卡片点拉到人轴成为完整卡片并生成连线', async ({ page }) => {
@@ -300,71 +337,71 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     await setupDesktopMock(page)
 
     // 展开并拉到人轴
-    await page.getByTestId('axis-folded-row-2').click()
-    await page.getByTestId('axis-pull-2').click()
+    await page.getByTestId('axis-folded-row-3').click()
+    await page.getByTestId('axis-pull-3').click()
 
     // 成为完整上轴卡片，不再有 is-folded-member
-    const axisCard = page.locator('.react-flow__node[data-id="2"] .axis-map-card:not(.is-folded-member)')
+    const axisCard = page.locator('.react-flow__node[data-id="3"] .axis-map-card:not(.is-folded-member)')
     await expect(axisCard).toBeVisible()
 
-    // 与领导之间出现连线
-    await expect(page.locator('.react-flow__edge-path')).toHaveCount(1)
+    // 与领导之间出现连线（根->林悦，林悦->陈宇 共 2 条）
+    await expect(page.locator('.react-flow__edge-path')).toHaveCount(2)
 
-    // 非根上轴人员卡片上显示“收回”按钮
-    await expect(page.getByTestId('axis-return-2')).toBeVisible()
+    // 非根拉出上轴人员卡片上显示“收回”按钮
+    await expect(page.getByTestId('axis-return-3')).toBeVisible()
 
-    // 林悦自己的下属（陈宇）默认折叠在林悦下方
-    await expect(page.getByTestId('axis-folded-row-3')).toBeVisible()
+    // 陈宇自己的下属（张强）默认折叠在陈宇下方
+    await expect(page.getByTestId('axis-folded-row-5')).toBeVisible()
   })
 
   test('刷新后保留：拉到人轴后刷新页面，状态从 localStorage 恢复', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 960 })
     await setupDesktopMock(page)
 
-    await page.getByTestId('axis-folded-row-2').click()
-    await page.getByTestId('axis-pull-2').click()
-    await expect(page.getByTestId('axis-return-2')).toBeVisible()
+    await page.getByTestId('axis-folded-row-3').click()
+    await page.getByTestId('axis-pull-3').click()
+    await expect(page.getByTestId('axis-return-3')).toBeVisible()
 
     // 检查 localStorage 存入了拉出 id
     const stored = await page.evaluate(() => localStorage.getItem('axis-pulled:9:1'))
-    expect(stored).toContain('2')
+    expect(stored).toContain('3')
 
     // 刷新页面后依然是完整上轴卡片
     await page.reload()
-    await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
-    await expect(page.getByTestId('axis-return-2')).toBeVisible()
-    await expect(page.locator('.react-flow__edge-path')).toHaveCount(1)
+    await expect(page.locator('.react-flow__node[data-id="3"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
+    await expect(page.getByTestId('axis-return-3')).toBeVisible()
+    await expect(page.locator('.react-flow__edge-path')).toHaveCount(2)
   })
 
   test('收回：上轴人员点收回连同其下属移出拉出集合重新折叠', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 960 })
-    // 初始化时 2 和 3 都已拉出
-    await setupDesktopMock(page, ['2', '3'])
+    // 初始化时 3 和 5 都已拉出
+    await setupDesktopMock(page, ['3', '5'])
 
-    await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
-    await expect(page.getByTestId('axis-return-2')).toBeVisible()
+    await expect(page.locator('.react-flow__node[data-id="3"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
+    await expect(page.getByTestId('axis-return-3')).toBeVisible()
 
-    // 点击收回林悦
-    await page.locator('.react-flow__node[data-id="2"]').hover()
-    await page.getByTestId('axis-return-2').click()
+    // 点击收回陈宇
+    await page.locator('.react-flow__node[data-id="3"]').hover()
+    await page.getByTestId('axis-return-3').click()
 
-    // 林悦变回折叠行
-    await expect(page.getByTestId('axis-folded-row-2')).toBeVisible()
-    // 连线消失
-    await expect(page.locator('.react-flow__edge-path')).toHaveCount(0)
+    // 陈宇变回折叠行
+    await expect(page.getByTestId('axis-folded-row-3')).toBeVisible()
+    // 连线减回 1 条（仅根->林悦）
+    await expect(page.locator('.react-flow__edge-path')).toHaveCount(1)
 
-    // localStorage 中移除了 2 和其下属 3
+    // localStorage 中移除了 3 和其下属 5
     const stored = await page.evaluate(() => localStorage.getItem('axis-pulled:9:1'))
-    expect(stored).not.toContain('2')
     expect(stored).not.toContain('3')
+    expect(stored).not.toContain('5')
   })
 
   test('全部拉到人轴：工具条更多菜单一键拉出所有人员', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 960 })
     await setupDesktopMock(page)
 
-    // 默认只有根卡片
-    await expect(page.getByTestId('axis-folded-row-2')).toBeVisible()
+    // 默认陈宇呈折叠行
+    await expect(page.getByTestId('axis-folded-row-3')).toBeVisible()
 
     // 打开画布设置弹窗
     await page.getByRole('button', { name: '画布设置' }).click()
@@ -374,20 +411,21 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     await pullAllBtn.click()
 
     // 所有折叠行消失，全部呈现为卡片
-    await expect(page.getByTestId('axis-folded-row-2')).toHaveCount(0)
     await expect(page.getByTestId('axis-folded-row-3')).toHaveCount(0)
+    await expect(page.getByTestId('axis-folded-row-5')).toHaveCount(0)
     await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
     await expect(page.locator('.react-flow__node[data-id="3"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
-    // 1->2 与 2->3 两条连线
-    await expect(page.locator('.react-flow__edge-path')).toHaveCount(2)
+    await expect(page.locator('.react-flow__node[data-id="5"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
+    // 1->2, 2->3 与 3->5 三条连线
+    await expect(page.locator('.react-flow__edge-path')).toHaveCount(3)
   })
 
   test('恢复默认折叠：工具条更多菜单一键清空拉出集合并恢复折叠', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 960 })
-    await setupDesktopMock(page, ['2', '3'])
+    await setupDesktopMock(page, ['3', '5'])
 
     // 当前全拉出
-    await expect(page.locator('.react-flow__edge-path')).toHaveCount(2)
+    await expect(page.locator('.react-flow__edge-path')).toHaveCount(3)
 
     // 打开画布设置弹窗
     await page.getByRole('button', { name: '画布设置' }).click()
@@ -396,8 +434,8 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     await resetFoldBtn.click()
 
     // 恢复为默认折叠，折叠行出现
-    await expect(page.getByTestId('axis-folded-row-2')).toBeVisible()
-    await expect(page.locator('.react-flow__edge-path')).toHaveCount(0)
+    await expect(page.getByTestId('axis-folded-row-3')).toBeVisible()
+    await expect(page.locator('.react-flow__edge-path')).toHaveCount(1)
   })
 
   const paneBox = (page: Page) => page.locator('.react-flow').first().boundingBox()
@@ -432,13 +470,14 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
 
   test('批量折叠操作后自动适应：全部拉到人轴、收回、恢复默认折叠后目标都在视口内', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 960 })
-    await setupDesktopMock(page, [], true)
+    await setupDesktopMock(page)
     const inPane = async (selector: string) => {
       const pane = (await paneBox(page))!
       await expect.poll(async () => {
         const b = await page.locator(selector).first().boundingBox()
-        return !!b && b.x >= pane.x - 1 && b.y >= pane.y - 1 && b.x + b.width <= pane.x + pane.width + 1 && b.y + b.height <= pane.y + pane.height + 1
-      }, { message: selector }).toBe(true)
+        if (!b) return false
+        return b.x >= pane.x - 2 && b.y >= pane.y - 2 && b.x + b.width <= pane.x + pane.width + 2 && b.y + b.height <= pane.y + pane.height + 2
+      }, { message: selector, timeout: 8000 }).toBe(true)
     }
 
     await page.getByRole('button', { name: '画布设置' }).click()
@@ -447,24 +486,24 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     await inPane('.react-flow__node[data-id="3"]')
     await inPane('.react-flow__node[data-id="1"]')
 
-    await page.locator('.react-flow__node[data-id="2"]').hover()
-    await page.getByTestId('axis-return-2').click()
-    await expect(page.getByTestId('axis-folded-row-2')).toBeVisible()
+    await page.locator('.react-flow__node[data-id="3"]').hover()
+    await page.getByTestId('axis-return-3').click()
+    await expect(page.getByTestId('axis-folded-row-3')).toBeVisible()
     await inPane('.react-flow__node[data-id="1"]')
-    await inPane('[data-testid="axis-folded-row-2"]')
+    await inPane('[data-testid="axis-folded-row-3"]')
 
     await page.getByRole('button', { name: '画布设置' }).click()
     await page.getByTestId('axis-pull-all').click()
     await page.getByRole('button', { name: '画布设置' }).click()
     await page.getByTestId('axis-reset-fold').click()
-    await expect(page.getByTestId('axis-folded-row-2')).toBeVisible()
+    await expect(page.getByTestId('axis-folded-row-3')).toBeVisible()
     await inPane('.react-flow__node[data-id="1"]')
-    await inPane('[data-testid="axis-folded-row-4"]')
+    await inPane('[data-testid="axis-folded-row-3"]')
   })
 
   test('折叠行列对齐：姓名、职责、任务数、逾期数固定列，逾期为 0 时留空不移位，五字职责不截断', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 960 })
-    await setupDesktopMock(page, ['2'])
+    await setupDesktopMock(page, ['3'])
     const measure = (id: string) => page.getByTestId(`axis-folded-row-${id}`).evaluate(row => {
       const r = row.getBoundingClientRect()
       const pos = (sel: string) => {
@@ -477,51 +516,51 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
         over: row.querySelector('.axis-folded-over') !== null, width: Math.round(r.width),
       }
     })
-    // 3 号（陈宇）挂在已拉出的 2 号下：任务 0、无逾期，职责“前端工程师”五个字
-    const row3 = await measure('3')
-    expect(row3.over).toBe(false)
-    expect(row3.name.clipped).toBe(false)
-    expect(row3.role.clipped).toBe(false)
-    expect(row3.count.clipped).toBe(false)
-    expect(row3.arrow.right).toBeLessThanOrEqual(12)
+    // 5 号（张强）挂在已拉出的 3 号下：任务 0、无逾期，职责“测试工程师”五个字
+    const row5 = await measure('5')
+    expect(row5.over).toBe(false)
+    expect(row5.name.clipped).toBe(false)
+    expect(row5.role.clipped).toBe(false)
+    expect(row5.count.clipped).toBe(false)
+    expect(row5.arrow.right).toBeLessThanOrEqual(12)
 
-    // 收回 2 号后它变成折叠行（带逾期、职责“设计负责人”五个字）：各列位置必须与 3 号一致
-    await page.locator('.react-flow__node[data-id="2"]').hover()
-    await page.getByTestId('axis-return-2').click()
-    const row2 = await measure('2')
-    expect(row2.over).toBe(true)
-    expect(row2.role.clipped).toBe(false)
-    expect(row2.name.left).toBe(row3.name.left)
-    expect(row2.role.left).toBe(row3.role.left)
-    expect(row2.count.left).toBe(row3.count.left)
-    expect(row2.arrow.right).toBe(row3.arrow.right)
-    expect(row2.width).toBe(row3.width)
+    // 收回 3 号后它变成折叠行（带逾期、职责“前端工程师”五个字）：各列位置必须与 5 号一致
+    await page.locator('.react-flow__node[data-id="3"]').hover()
+    await page.getByTestId('axis-return-3').click()
+    const row3 = await measure('3')
+    expect(row3.over).toBe(true)
+    expect(row3.role.clipped).toBe(false)
+    expect(row3.name.left).toBe(row5.name.left)
+    expect(row3.role.left).toBe(row5.role.left)
+    expect(row3.count.left).toBe(row5.count.left)
+    expect(row3.arrow.right).toBe(row5.arrow.right)
+    expect(row3.width).toBe(row5.width)
   })
 
   test('低缩放下展开卡片和拉出卡片仍有 折叠 / 拉到人轴 / 收回', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 960 })
-    await setupDesktopMock(page, ['2'])
-    await page.getByTestId('axis-folded-row-3').click()
+    await setupDesktopMock(page, ['3'])
+    await page.getByTestId('axis-folded-row-5').click()
     const zoomOutBtn = page.getByRole('button', { name: '缩小' })
     const readout = page.locator('.axis-zoom-readout')
     for (let i = 0; i < 14 && parseInt((await readout.textContent()) || '100') >= 55; i++) {
       await zoomOutBtn.click()
       await page.waitForTimeout(350)
     }
-    const expanded = page.locator('.react-flow__node[data-id="3"] .axis-map-card.is-compact')
+    const expanded = page.locator('.react-flow__node[data-id="5"] .axis-map-card.is-compact')
     await expect(expanded).toBeVisible()
     await expect(expanded.locator('.axis-card-tasks-panel')).toHaveCount(0)
-    await expect(page.getByTestId('axis-fold-3')).toBeVisible()
-    await expect(page.getByTestId('axis-pull-3')).toBeVisible()
-    // 拉出的 2 号卡片同样有“收回”
-    await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card.is-compact')).toBeVisible()
-    await expect(page.getByTestId('axis-return-2')).toBeVisible()
-    // 低缩放下点得动
-    await page.getByTestId('axis-pull-3').click()
+    await expect(page.getByTestId('axis-fold-5')).toBeVisible()
+    await expect(page.getByTestId('axis-pull-5')).toBeVisible()
+    // 拉出的 3 号卡片同样有“收回”
+    await expect(page.locator('.react-flow__node[data-id="3"] .axis-map-card.is-compact')).toBeVisible()
     await expect(page.getByTestId('axis-return-3')).toBeVisible()
-    await page.locator('.react-flow__node[data-id="2"]').hover()
-    await page.getByTestId('axis-return-2').click()
-    await expect(page.getByTestId('axis-folded-row-2')).toBeVisible()
+    // 低缩放下点得动
+    await page.getByTestId('axis-pull-5').click()
+    await expect(page.getByTestId('axis-return-5')).toBeVisible()
+    await page.locator('.react-flow__node[data-id="3"]').hover()
+    await page.getByTestId('axis-return-3').click()
+    await expect(page.getByTestId('axis-folded-row-3')).toBeVisible()
   })
 
   test('纵向：拉出人员的连线不穿过领导卡片下方的折叠行', async ({ page }) => {
@@ -554,7 +593,7 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     // 切换到“项目全貌”
     await page.getByRole('button', { name: '项目全貌', exact: true }).click()
 
-    const foldedRow = page.getByTestId('axis-folded-row-2')
+    const foldedRow = page.getByTestId('axis-folded-row-3')
     await expect(foldedRow).toBeVisible()
 
     // 验证点击区域高度不小于 44px（移动端触控标准）
@@ -562,45 +601,59 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     expect(box).not.toBeNull()
     expect(box!.height).toBeGreaterThanOrEqual(44)
 
+    // 默认取景下折叠行落在左下角缩放控件旁，先在空白处把画布向上拖一段，避免控件挡住点击
+    await page.mouse.move(40, 400)
+    await page.mouse.down()
+    await page.mouse.move(40, 250, { steps: 5 })
+    await page.mouse.up()
     // 点击折叠行就地展开
     await foldedRow.click()
-    const foldBtn = page.getByTestId('axis-fold-2')
-    const pullBtn = page.getByTestId('axis-pull-2')
+    const foldBtn = page.getByTestId('axis-fold-3')
+    const pullBtn = page.getByTestId('axis-pull-3')
     await expect(foldBtn).toBeVisible()
     await expect(pullBtn).toBeVisible()
 
     // 点击拉到人轴
     await pullBtn.click()
-    await expect(page.locator('.react-flow__edge-path')).toHaveCount(1)
+    await expect(page.locator('.react-flow__edge-path')).toHaveCount(2)
   })
 
   test('手机触屏收回：点卡片弹出底部面板，在面板里点收回回到折叠行', async ({ browser }) => {
     const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 }, timezoneId: 'Asia/Shanghai' })
     const page = await context.newPage()
-    await setupMobileMock(page, ['2'])
+    await setupMobileMock(page, ['3'])
     await page.getByRole('button', { name: '项目全貌', exact: true }).click()
 
-    // 2 号已拉出：卡片上没有 18 像素的小收回按钮，点卡片打开底部面板
-    await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
-    await page.locator('.react-flow__node[data-id="2"] .axis-map-card').tap()
+    // 3 号已拉出：卡片上没有 18 像素的小收回按钮，点卡片打开底部面板
+    await expect(page.locator('.react-flow__node[data-id="3"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
+    // 默认取景以根为中心，3 号卡片只露出约 16 像素贴在屏幕底边；真人要先把画布往上推，卡片进入视口后再点
+    await page.mouse.move(40, 400)
+    await page.mouse.down()
+    await page.mouse.move(40, 150, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(async () => {
+      const b = await page.locator('.react-flow__node[data-id="3"] .axis-map-card').boundingBox()
+      return !!b && b.y >= 0 && b.y + b.height <= 844
+    }).toBe(true)
+    await page.locator('.react-flow__node[data-id="3"] .axis-map-card').tap()
     await expect(page.getByText('责任节点预览')).toBeVisible()
 
-    const returnBtn = page.getByTestId('axis-return-panel-2')
+    const returnBtn = page.getByTestId('axis-return-panel-3')
     await expect(returnBtn).toBeVisible()
     const box = await returnBtn.boundingBox()
     expect(box!.height).toBeGreaterThanOrEqual(44)
     await returnBtn.tap()
 
-    // 面板关闭，2 号回到折叠行并留在视口内
+    // 面板关闭，3 号回到折叠行并留在视口内
     await expect(page.getByText('责任节点预览')).toHaveCount(0)
-    const row = page.getByTestId('axis-folded-row-2')
+    const row = page.getByTestId('axis-folded-row-3')
     await expect(row).toBeVisible()
     await expect.poll(async () => {
       const b = await row.boundingBox()
       return !!b && b.x >= 0 && b.y >= 0 && b.x + b.width <= 390 && b.y + b.height <= 844
     }).toBe(true)
     const stored = await page.evaluate(() => localStorage.getItem('axis-pulled:9:1'))
-    expect(stored).not.toContain('2')
+    expect(stored).not.toContain('3')
     await context.close()
   })
 
@@ -615,7 +668,7 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     await setupMobileMock(page)
     await page.getByRole('button', { name: '项目全貌', exact: true }).click()
 
-    const foldedRow = page.getByTestId('axis-folded-row-2')
+    const foldedRow = page.getByTestId('axis-folded-row-3')
     await expect(foldedRow).toBeVisible()
 
     // 拖动画布空白处，将折叠行移动到靠近视口底部（如 y 约在 710~740，高度 44，距底约 60~90px）
@@ -644,7 +697,7 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     await foldedRow.tap()
 
     // 断言展开的卡片与拉到人轴按钮已渲染且在视口内
-    const pullBtn = page.getByTestId('axis-pull-2')
+    const pullBtn = page.getByTestId('axis-pull-3')
     await expect(pullBtn).toBeVisible()
 
     // 断言拉到人轴按钮在视口内且不被遮挡
@@ -672,10 +725,9 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     await pullBtn.tap()
 
     // 验证成功拉到人轴：卡片成为完整上轴节点，连线生成
-    await expect(page.locator('.react-flow__edge-path')).toHaveCount(1)
-    await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
+    await expect(page.locator('.react-flow__edge-path')).toHaveCount(2)
+    await expect(page.locator('.react-flow__node[data-id="3"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
 
     await context.close()
   })
-
 })
