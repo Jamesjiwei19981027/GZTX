@@ -865,6 +865,23 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 查看完整责任详情
               </button>
 
+              {flowCanvas.returnableIds.has(previewNode.id) && (
+                <button
+                  type="button"
+                  data-testid={`axis-return-panel-${previewNode.id}`}
+                  onClick={() => {
+                    const target = previewNode;
+                    setPreviewNode(null);
+                    setSelectedNodeId(null);
+                    // 收回后画布会自动适应，目标回到折叠行并留在视口内
+                    flowCanvas.returnFromAxis(target.id);
+                  }}
+                  className="w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-sm flex items-center justify-center gap-2 active:bg-slate-50 cursor-pointer"
+                >
+                  收回到折叠
+                </button>
+              )}
+
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"

@@ -261,6 +261,11 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     if (patch.pulled) savePulled(cb.current.currentUserId, cb.current.backendProjectId, patch.pulled)
   }, [])
 
+  /** 可「收回」的人：上轴、非根、被拉出、不在我的上级链上（手机底部面板用） */
+  const returnableIds = useMemo(() => new Set(foldOn
+    ? scopedNodes.filter(n => !!n.parentId && !!axisMembers?.has(n.id) && pulledIds.has(n.id) && !selfAncestorIds.has(n.id)).map(n => n.id)
+    : []), [foldOn, scopedNodes, axisMembers, pulledIds, selfAncestorIds])
+
   const toggleFoldedRow = useCallback((id: string) => {
     updateFold(cur => {
       const rows = new Set(cur.rows)
@@ -697,6 +702,7 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     toggleExpandNode,
     foldEnabled: foldOn,
     pulledIds,
+    returnableIds,
     expandedRows,
     toggleFoldedRow,
     pullToAxis,

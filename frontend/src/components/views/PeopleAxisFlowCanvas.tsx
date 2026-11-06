@@ -188,7 +188,7 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
                 <Plus size={14} />
               </button>
             )}
-            {d.canReturn && (!d.mobile || d.isSelected) && (
+            {d.canReturn && !d.mobile && (
               <button
                 type="button"
                 className="axis-card-icon-btn nodrag"

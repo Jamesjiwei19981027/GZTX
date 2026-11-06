@@ -573,4 +573,34 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     await pullBtn.click()
     await expect(page.locator('.react-flow__edge-path')).toHaveCount(1)
   })
+
+  test('手机触屏收回：点卡片弹出底部面板，在面板里点收回回到折叠行', async ({ browser }) => {
+    const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 }, timezoneId: 'Asia/Shanghai' })
+    const page = await context.newPage()
+    await setupMobileMock(page, ['2'])
+    await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+
+    // 2 号已拉出：卡片上没有 18 像素的小收回按钮，点卡片打开底部面板
+    await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
+    await page.locator('.react-flow__node[data-id="2"] .axis-map-card').tap()
+    await expect(page.getByText('责任节点预览')).toBeVisible()
+
+    const returnBtn = page.getByTestId('axis-return-panel-2')
+    await expect(returnBtn).toBeVisible()
+    const box = await returnBtn.boundingBox()
+    expect(box!.height).toBeGreaterThanOrEqual(44)
+    await returnBtn.tap()
+
+    // 面板关闭，2 号回到折叠行并留在视口内
+    await expect(page.getByText('责任节点预览')).toHaveCount(0)
+    const row = page.getByTestId('axis-folded-row-2')
+    await expect(row).toBeVisible()
+    await expect.poll(async () => {
+      const b = await row.boundingBox()
+      return !!b && b.x >= 0 && b.y >= 0 && b.x + b.width <= 390 && b.y + b.height <= 844
+    }).toBe(true)
+    const stored = await page.evaluate(() => localStorage.getItem('axis-pulled:9:1'))
+    expect(stored).not.toContain('2')
+    await context.close()
+  })
 })
