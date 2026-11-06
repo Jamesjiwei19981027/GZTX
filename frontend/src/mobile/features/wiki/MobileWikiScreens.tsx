@@ -471,39 +471,44 @@ const WikiDraftEditorScreen: React.FC<WikiDraftEditorScreenProps> = ({
         <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           引用来源
         </h2>
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
-          <div
-            onClick={() => onOpenEvidencePackage?.(1)}
-            className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
-              <div className="min-w-0">
-                <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
-                  交互评审纪要.pdf
-                </strong>
-                <span className="text-[10px] text-slate-400">材料 · 林悦上传 · 今天 14:10</span>
+        {facts.length > 0 ? (
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+            {facts.map((fact, idx) => (
+              <div
+                key={idx}
+                onClick={() => {
+                  if (fact.package_id && onOpenEvidencePackage) {
+                    onOpenEvidencePackage(fact.package_id);
+                  }
+                }}
+                className={`p-3.5 flex items-center justify-between ${
+                  fact.package_id ? 'cursor-pointer active:bg-slate-50 dark:active:bg-slate-800/50' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
+                  <div className="min-w-0">
+                    <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                      {fact.source_name || fact.text || `引用材料 #${fact.package_id || idx + 1}`}
+                    </strong>
+                    {fact.quote && (
+                      <span className="text-[10px] text-slate-400 truncate block">
+                        {fact.quote}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                {fact.package_id ? (
+                  <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                ) : null}
               </div>
-            </div>
-            <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+            ))}
           </div>
-
-          <div
-            onClick={() => onOpenEvidencePackage?.(2)}
-            className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <AppIcon name="work" size={18} className="text-[#0058BE] shrink-0" />
-              <div className="min-w-0">
-                <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
-                  原型验收任务
-                </strong>
-                <span className="text-[10px] text-slate-400">任务 · 进行中 · 更新于 15:20</span>
-              </div>
-            </div>
-            <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+        ) : (
+          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-center text-xs text-slate-400">
+            暂无引用来源
           </div>
-        </div>
+        )}
       </section>
 
       {/* 警示说明 */}
@@ -611,7 +616,7 @@ const WikiSearchScreen: React.FC<WikiSearchScreenProps> = ({
   projectName,
   onOpenEvidencePackage,
 }) => {
-  const [query, setQuery] = useState('原型验收');
+  const [query, setQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'task' | 'evidence' | 'wiki'>('all');
   const [results, setResults] = useState<KnowledgeChunk[]>([]);
   const [searching, setSearching] = useState(false);
@@ -635,6 +640,11 @@ const WikiSearchScreen: React.FC<WikiSearchScreenProps> = ({
   useEffect(() => {
     executeSearch();
   }, [executeSearch]);
+
+  const filteredResults =
+    filterType === 'all'
+      ? results
+      : results.filter((chunk) => chunk.source_type === filterType);
 
   return (
     <div className="h-full overflow-y-auto p-4 space-y-3.5 mobile-scroll-container">
@@ -672,81 +682,46 @@ const WikiSearchScreen: React.FC<WikiSearchScreenProps> = ({
 
       {/* 搜索结果列表 */}
       <div className="space-y-2.5">
-        {results.length > 0 ? (
-          results.map((chunk) => (
-            <div
-              key={chunk.chunk_id}
-              onClick={() => onOpenEvidencePackage?.(chunk.source_id)}
-              className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs space-y-1.5 cursor-pointer active:scale-[0.99] transition-transform"
-            >
-              <div className="flex items-center justify-between">
-                <strong className="text-xs font-bold text-slate-900 dark:text-slate-100">
-                  {chunk.source_type === 'evidence'
-                    ? '交互原型验收清单'
-                    : chunk.source_type === 'task'
-                    ? '原型评审责任事项'
-                    : '项目知识 知识条目'}
-                </strong>
-                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  {chunk.source_type === 'evidence' ? '材料' : chunk.source_type === 'task' ? '任务' : '知识'}
-                </span>
+        {filteredResults.length > 0 ? (
+          filteredResults.map((chunk) => {
+            const typeLabel =
+              chunk.source_type === 'evidence'
+                ? '材料'
+                : chunk.source_type === 'task'
+                ? '任务'
+                : '知识';
+            const titleLabel =
+              chunk.source_type === 'evidence'
+                ? `材料 #${chunk.source_id}`
+                : chunk.source_type === 'task'
+                ? `任务 #${chunk.source_id}`
+                : `知识条目 #${chunk.source_id}`;
+            return (
+              <div
+                key={chunk.chunk_id}
+                onClick={() => onOpenEvidencePackage?.(chunk.source_id)}
+                className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs space-y-1.5 cursor-pointer active:scale-[0.99] transition-transform"
+              >
+                <div className="flex items-center justify-between">
+                  <strong className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                    {titleLabel}
+                  </strong>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    {typeLabel}
+                  </span>
+                </div>
+                {chunk.chunk_text && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-3">
+                    {chunk.chunk_text}
+                  </p>
+                )}
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                …员工工作台、管理者汇报与任务详情纳入本次
-                <span className="text-[#0058BE] dark:text-blue-400 font-semibold px-0.5">
-                  {query}
-                </span>
-                范围…
-              </p>
-            </div>
-          ))
+            );
+          })
         ) : (
-          /* 样例静态卡片 (符合设计稿 34) */
-          <>
-            <div
-              onClick={() => onOpenEvidencePackage?.(1)}
-              className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs space-y-1.5 cursor-pointer active:scale-[0.99] transition-transform"
-            >
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block truncate">
-                    交互原型验收清单
-                  </strong>
-                  <span className="text-[10px] text-slate-400">材料 · 林悦 · 今天 14:10</span>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  材料
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                …员工工作台、管理者汇报与任务详情纳入本次
-                <span className="text-[#0058BE] dark:text-blue-400 font-semibold px-0.5">
-                  原型验收
-                </span>
-                …
-              </p>
-            </div>
-
-            <div
-              onClick={() => onOpenEvidencePackage?.(2)}
-              className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs space-y-1.5 cursor-pointer active:scale-[0.99] transition-transform"
-            >
-              <div className="flex items-center justify-between">
-                <div className="min-w-0">
-                  <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block truncate">
-                    原型评审责任事项
-                  </strong>
-                  <span className="text-[10px] text-slate-400">产品设计 / 进行中</span>
-                </div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                  任务
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                …需提供评审结论及验收标准…
-              </p>
-            </div>
-          </>
+          <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-center text-xs text-slate-400">
+            {searching ? '正在搜索…' : query.trim() ? '未找到相关内容' : '暂无搜索结果'}
+          </div>
         )}
       </div>
 
