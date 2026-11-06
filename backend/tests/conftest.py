@@ -1,9 +1,17 @@
 """个人底盘 + 全局测试夹具（async SQLite）"""
+import os
+
+os.environ.setdefault("INTEGRATION_SECRET_KEY", "test-integration-secret-key-32-chars-long!")
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
+
+from app.core.config import settings
+if not settings.INTEGRATION_SECRET_KEY:
+    settings.INTEGRATION_SECRET_KEY = "test-integration-secret-key-32-chars-long!"
 
 from app.core.dependencies import get_db
 from app.core.security import create_access_token, get_password_hash

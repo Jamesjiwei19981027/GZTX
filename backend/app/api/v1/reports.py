@@ -15,6 +15,7 @@ from app.services.hierarchical_reporting import (
     aggregate_leadership_report,
     aggregate_project_report,
     bind_project_agents,
+    ensure_member_agent_binding,
     generate_member_report_draft,
     ReportGenerationUnavailable,
     rollup_member_reports,
@@ -149,21 +150,32 @@ async def ensure_report_agent_bindings(project_id: int, db: DbSession, user: Cur
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
-    if not await acl.can(db, user.id, p.company_id, "progress.write_formal", project_id=p.id):
-        return fail(403, 40300, "需要项目管理者")
-    try:
-        from app.api.deps_collab import assert_company_write
-        await assert_company_write(db, p.company_id, feature="agents")
-        rows = await bind_project_agents(db, project_id=p.id, company_id=p.company_id, actor_user_id=user.id)
-    except ValueError as e:
-        return fail(422, 42200, str(e))
-    except Exception as e:
-        from app.core.collab_errors import CollabError
-        if isinstance(e, CollabError):
-            return fail(e.http_status, e.code, e.message)
-        raise
-    await db.commit()
-    return ResponseData(data={"items": [_binding_dto(r) for r in rows]})
+    is_pm = await acl.can(db, user.id, p.company_id, "progress.write_formal", project_id=p.id)
+    if is_pm:
+        try:
+            from app.api.deps_collab import assert_company_write
+            await assert_company_write(db, p.company_id, feature="agents")
+            rows = await bind_project_agents(db, project_id=p.id, company_id=p.company_id, actor_user_id=user.id)
+        except ValueError as e:
+            return fail(422, 42200, str(e))
+        except Exception as e:
+            from app.core.collab_errors import CollabError
+            if isinstance(e, CollabError):
+                return fail(e.http_status, e.code, e.message)
+            raise
+        await db.commit()
+        return ResponseData(data={"items": [_binding_dto(r) for r in rows]})
+    else:
+        if not await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id):
+            return fail(403, 40300, "非项目成员")
+        try:
+            binding = await ensure_member_agent_binding(db, project_id=p.id, user_id=user.id)
+        except PermissionError:
+            return fail(403, 40300, "非项目成员")
+        except ValueError as e:
+            return fail(422, 42200, str(e))
+        await db.commit()
+        return ResponseData(data={"items": [_binding_dto(binding)]})
 
 
 @router.get("/projects/{project_id}/report-agents/bindings")
@@ -253,7 +265,15 @@ async def generate_agent_report(
         stmt = stmt.where(ProjectAgentBinding.id == body.binding_id)
     binding = (await db.execute(stmt.limit(1))).scalar_one_or_none()
     if not binding:
-        return fail(404, 40400, "个人汇报智能体不存在")
+        if body.binding_id is not None:
+            return fail(404, 40400, "个人汇报智能体不存在")
+        try:
+            binding = await ensure_member_agent_binding(db, project_id=p.id, user_id=user.id)
+            await db.flush()
+        except PermissionError:
+            return fail(403, 40300, "非项目成员")
+        except ValueError as e:
+            return fail(422, 42200, str(e))
     try:
         report = await generate_member_report_draft(
             db, binding_id=binding.id, author_user_id=user.id
@@ -323,6 +343,8 @@ async def list_agent_reports(project_id: int, db: DbSession, user: CurrentUser):
                 "source_count": len(sources_by_report.get(r.id, [])),
                 "sources": sources_by_report.get(r.id, []),
                 "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None,
+                "read": r.read_at is not None,
+                "read_at": r.read_at.isoformat() if r.read_at else None,
             }
             for r in rows
         ]
@@ -541,7 +563,32 @@ async def legacy_generate_report(body: LegacyReportGenerateBody, db: DbSession, 
         stmt = stmt.where(ProjectAgentBinding.project_id == body.project_id)
     binding = (await db.execute(stmt.order_by(ProjectAgentBinding.id.desc()).limit(1))).scalar_one_or_none()
     if not binding:
-        return fail(422, 42200, "尚未绑定项目汇报智能体，请先打开项目汇报页面")
+        target_project_id = body.project_id
+        if target_project_id is None:
+            pm_row = (
+                await db.execute(
+                    select(ProjectMember.project_id)
+                    .where(ProjectMember.user_id == user.id, ProjectMember.left_at.is_(None))
+                    .order_by(ProjectMember.id.desc())
+                    .limit(1)
+                )
+            ).first()
+            if pm_row:
+                target_project_id = pm_row[0]
+            else:
+                return fail(403, 40300, "非项目成员")
+        p = await db.get(Project, target_project_id)
+        if not p:
+            return fail(404, 40400, "项目不存在")
+        if not await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id):
+            return fail(403, 40300, "非项目成员")
+        try:
+            binding = await ensure_member_agent_binding(db, project_id=target_project_id, user_id=user.id)
+            await db.flush()
+        except PermissionError:
+            return fail(403, 40300, "非项目成员")
+        except ValueError as e:
+            return fail(422, 42200, str(e))
     try:
         draft = await generate_member_report_draft(
             db, binding_id=binding.id, author_user_id=user.id

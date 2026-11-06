@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.models.company import CompanyMembership
 
@@ -83,3 +83,44 @@ async def test_shell_rejects_suspended_company_member_even_if_project_membership
         headers=seed_ids["member_headers"],
     )
     assert response.status_code == 403, response.text
+
+
+@pytest.mark.asyncio
+async def test_shell_channels_duplicate_prepopulated_returns_200(async_client, db_session, seed_ids):
+    from app.models.shell import TeamChannel
+    from sqlalchemy import text
+    cid = seed_ids["company_id"]
+    await db_session.execute(text("DROP INDEX IF EXISTS uq_team_channels_company_null_project_key"))
+    await db_session.execute(
+        text("INSERT INTO team_channels (company_id, key, name) VALUES (:cid, 'general', '全员交流大厅 1')"),
+        {"cid": cid},
+    )
+    await db_session.execute(
+        text("INSERT INTO team_channels (company_id, key, name) VALUES (:cid, 'general', '全员交流大厅 2')"),
+        {"cid": cid},
+    )
+    await db_session.commit()
+
+    res = await async_client.get(
+        f"/api/v1/companies/{cid}/channels",
+        headers=seed_ids["member_headers"],
+    )
+    assert res.status_code == 200, res.text
+    items = res.json()["data"]["items"]
+    general_items = [it for it in items if it["key"] == "general"]
+    assert len(general_items) == 1
+
+    count_before = (
+        await db_session.execute(select(func.count(TeamChannel.id)).where(TeamChannel.company_id == cid))
+    ).scalar_one()
+
+    res2 = await async_client.get(
+        f"/api/v1/companies/{cid}/channels",
+        headers=seed_ids["member_headers"],
+    )
+    assert res2.status_code == 200
+
+    count_after = (
+        await db_session.execute(select(func.count(TeamChannel.id)).where(TeamChannel.company_id == cid))
+    ).scalar_one()
+    assert count_before == count_after

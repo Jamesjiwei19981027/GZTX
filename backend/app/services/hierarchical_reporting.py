@@ -187,6 +187,78 @@ async def bind_project_agents(
     return list(rows)
 
 
+async def ensure_member_agent_binding(
+    db: AsyncSession, *, project_id: int, user_id: int
+) -> ProjectAgentBinding:
+    """为项目成员创建或激活本人的个人汇报智能体绑定，非项目成员抛出 PermissionError"""
+    project = await db.get(Project, project_id)
+    if not project:
+        raise ValueError("project_not_found")
+
+    from app.models.project import ProjectMember
+    from app.models.tree import NodeAssignment, TreeNode
+
+    is_member = (
+        await db.execute(
+            select(ProjectMember.id).where(
+                ProjectMember.project_id == project_id,
+                ProjectMember.user_id == user_id,
+                ProjectMember.left_at.is_(None),
+            )
+        )
+    ).first()
+    if not is_member:
+        is_assigned = (
+            await db.execute(
+                select(NodeAssignment.id)
+                .join(TreeNode, TreeNode.id == NodeAssignment.node_id)
+                .where(
+                    TreeNode.project_id == project_id,
+                    TreeNode.is_deleted.is_(False),
+                    NodeAssignment.user_id == user_id,
+                )
+            )
+        ).first()
+        if not is_assigned:
+            raise PermissionError("not_project_member")
+
+    binding = (
+        await db.execute(
+            select(ProjectAgentBinding).where(
+                ProjectAgentBinding.project_id == project_id,
+                ProjectAgentBinding.user_id == user_id,
+            )
+        )
+    ).scalar_one_or_none()
+
+    if binding:
+        binding.is_active = True
+        return binding
+
+    definition = AgentDefinition(
+        company_id=project.company_id,
+        owner_user_id=user_id,
+        kind="member_reporting",
+        name="个人项目汇报智能体",
+        scene="reporting",
+        config_json={"project_id": project_id, "context_scope": "project"},
+    )
+    db.add(definition)
+    await db.flush()
+
+    binding = ProjectAgentBinding(
+        company_id=project.company_id,
+        project_id=project_id,
+        user_id=user_id,
+        agent_definition_id=definition.id,
+        role="member",
+        is_active=True,
+    )
+    db.add(binding)
+    await db.flush()
+    return binding
+
+
 async def resolve_direct_leader_user_id(
     db: AsyncSession, *, project_id: int, user_id: int, project_manager_id: int | None
 ) -> int | None:
