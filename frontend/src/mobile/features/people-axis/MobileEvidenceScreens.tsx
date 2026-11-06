@@ -470,23 +470,25 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
               const members = mRes?.items || [];
               const subId = pkg?.submitter_user_id;
               if (subId) {
-                const foundMem = members.find((m) => m.user_id === subId || m.id === subId);
-                if (foundMem?.name) {
-                  setSubmitterName(foundMem.name);
+                const foundMem = members.find((m) => m.user_id === subId);
+                const memName = foundMem?.display_name || foundMem?.nickname || foundMem?.username;
+                if (memName) {
+                  setSubmitterName(memName);
                   return;
                 }
               }
-              if (currentUser) {
-                setSubmitterName(currentUser.name || currentUser.username || '当前用户');
+              // 只有提交人就是当前用户时才用当前用户姓名，不把别人的材料署成自己
+              if (currentUser && subId != null && String(currentUser.id) === String(subId)) {
+                setSubmitterName(currentUser.name || currentUser.username || '');
               }
             })
             .catch(() => {
-              if (active && currentUser) {
-                setSubmitterName(currentUser.name || currentUser.username || '当前用户');
+              if (active && currentUser && pkg?.submitter_user_id != null && String(currentUser.id) === String(pkg.submitter_user_id)) {
+                setSubmitterName(currentUser.name || currentUser.username || '');
               }
             });
-        } else if (currentUser) {
-          setSubmitterName(currentUser.name || currentUser.username || '当前用户');
+        } else if (currentUser && pkg?.submitter_user_id != null && String(currentUser.id) === String(pkg.submitter_user_id)) {
+          setSubmitterName(currentUser.name || currentUser.username || '');
         }
       } finally {
         if (active) setLoading(false);
@@ -517,7 +519,7 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
   const files = detail?.files || [];
   const rawDate = detail?.submitted_at || detail?.created_at;
   const formattedTime = formatDateTime(rawDate);
-  const finalSubmitterName = submitterName || currentUser?.name || currentUser?.username || '提交人';
+  const finalSubmitterName = submitterName || '提交人';
 
   return (
     <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden">
@@ -1236,30 +1238,7 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
                 </div>
               ))
             ) : (
-              <>
-                <div className="p-3.5 flex items-center justify-between">
-                  <div>
-                    <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
-                      验收责任未明确
-                    </strong>
-                    <p className="text-[11px] text-slate-500 mt-0.5">接口联调 / 无终责人</p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
-                    高
-                  </span>
-                </div>
-                <div className="p-3.5 flex items-center justify-between">
-                  <div>
-                    <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
-                      资料可能不足
-                    </strong>
-                    <p className="text-[11px] text-slate-500 mt-0.5">产品设计 / 缺最终验收清单</p>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700">
-                    中
-                  </span>
-                </div>
-              </>
+              <div className="p-4 text-center text-xs text-slate-400">暂无风险节点</div>
             )}
           </div>
         </section>
