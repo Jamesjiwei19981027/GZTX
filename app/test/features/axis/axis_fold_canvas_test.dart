@@ -1,23 +1,33 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:worktodo_app/features/axis/data/axis_edge_rules.dart';
 import 'package:worktodo_app/features/axis/data/axis_fold.dart';
 import 'package:worktodo_app/features/axis/data/axis_models.dart';
 import 'package:worktodo_app/features/axis/data/axis_view_models.dart';
 import 'package:worktodo_app/features/axis/widgets/axis_canvas.dart';
+import 'package:worktodo_app/features/axis/widgets/axis_flow_layout.dart';
 
-AxisPersonNode person(int id, int? parentId, {int sortOrder = 0}) =>
+AxisPersonNode person(
+  int id,
+  int? parentId, {
+  int sortOrder = 0,
+  String? name,
+  String role = '岗位',
+  List<AxisWorkItem> items = const [],
+}) =>
     AxisPersonNode(
       id: id,
       parentId: parentId,
       title: '人员$id',
       description: null,
-      name: '人员$id',
-      roleTitle: '岗位',
+      name: name ?? '人员$id',
+      roleTitle: role,
       department: '部门',
       nodeOrigin: parentId == null ? 'project' : 'subordinate',
       isTerminalPm: parentId == null,
       ownerUserIds: const [],
-      workItems: const [],
+      workItems: items,
       responsibilityPermissions: const {},
       sortOrder: sortOrder,
     );
@@ -37,12 +47,18 @@ class _FoldHost extends StatefulWidget {
     this.onLayout,
     this.onReparent,
     this.selfId,
+    this.controller,
+    this.width = 1400,
+    this.height = 1300,
   });
 
   final AxisFoldSpec initial;
   final void Function(AxisPersonNode, Offset)? onLayout;
   final void Function(AxisPersonNode, AxisPersonNode)? onReparent;
   final int? selfId;
+  final AxisViewportController? controller;
+  final double width;
+  final double height;
 
   @override
   State<_FoldHost> createState() => _FoldHostState();
@@ -56,10 +72,13 @@ class _FoldHostState extends State<_FoldHost> {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        body: SizedBox(
-          width: 1400,
-          height: 1300,
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+          width: widget.width,
+          height: widget.height,
           child: AxisCanvas(
+            viewportController: widget.controller,
             nodes: tree(),
             orientation: AxisOrientation.vertical,
             spacing: AxisSpacing.standard,
@@ -85,6 +104,7 @@ class _FoldHostState extends State<_FoldHost> {
                 widget.onLayout?.call(node, offset),
             onReparentPerson: widget.onReparent,
           ),
+        ),
         ),
       ),
     );
@@ -264,5 +284,232 @@ void main() {
     await gesture.up();
     await tester.pumpAndSettle();
     expect(reparented, isEmpty);
+  });
+
+  // ---- FOLDUA2 回归 ----
+
+  Rect union(Iterable<Rect> rects) =>
+      rects.reduce((a, b) => a.expandToInclude(b));
+
+  testWidgets('适应屏幕：根有负偏移时内容在视口内纵横居中', (tester) async {
+    bigView(tester);
+    final controller = AxisViewportController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 800,
+              height: 600,
+              child: AxisCanvas(
+                nodes: tree(),
+                orientation: AxisOrientation.vertical,
+                spacing: AxisSpacing.standard,
+                sort: AxisSort.tree,
+                offsets: const {1: Offset(-400, -150)},
+                fold: const AxisFoldSpec(),
+                viewportController: controller,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    controller.fitToScreen();
+    await tester.pumpAndSettle();
+
+    final content = union([
+      tester.getRect(key('axis-person-1')),
+      tester.getRect(key('axis-folded-row-2')),
+      tester.getRect(key('axis-folded-row-3')),
+    ]);
+    expect(content.center.dx, closeTo(400, 2));
+    expect(content.center.dy, closeTo(300, 2));
+  });
+
+  test('contentBounds 是卡片与折叠组的真实外接范围（不含原点和边距）', () {
+    final layout = AxisFlowLayout.compute(
+      nodes: tree(),
+      orientation: AxisOrientation.vertical,
+      spacing: AxisSpacing.standard,
+      sort: AxisSort.tree,
+      offsets: const {1: Offset(-400, -150)},
+      fold: const AxisFoldSpec(),
+    );
+    final rects = [
+      for (final p in layout.people) p.rect,
+      for (final st in layout.stacks)
+        for (final m in st.members) m.rect,
+    ];
+    final real = union(rects);
+    expect(layout.contentBounds.left, closeTo(real.left, 0.01));
+    expect(layout.contentBounds.top, closeTo(real.top, 0.01));
+    expect(layout.contentBounds.right, closeTo(real.right, 0.01));
+    expect(layout.contentBounds.bottom, closeTo(real.bottom, 0.01));
+  });
+
+  testWidgets('收回后目标人员仍在屏幕内（布局收缩不留空白）', (tester) async {
+    bigView(tester);
+    final controller = AxisViewportController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _FoldHost(
+        initial: const AxisFoldSpec(pulled: {2}),
+        width: 800,
+        height: 300,
+        controller: controller,
+      ),
+    );
+    await tester.pumpAndSettle();
+    // 视口移到最深处（2 的折叠行 4）。
+    controller.focusNode(4);
+    await tester.pumpAndSettle();
+    expect(key('axis-folded-row-4'), findsOneWidget);
+
+    // 视口已移走，按钮不在屏幕内，直接触发收回。
+    tester.widget<InkWell>(key('axis-return-2')).onTap!();
+    await tester.pumpAndSettle();
+    final row = tester.getRect(key('axis-folded-row-2'));
+    expect(const Rect.fromLTWH(0, 0, 800, 300).overlaps(row), isTrue);
+  });
+
+  testWidgets('折叠行按固定列对齐：逾期为 0 时留空、任务数同列、五字职责不截断', (tester) async {
+    bigView(tester);
+    final overdueItem = AxisWorkItem(
+      id: 1,
+      title: '逾期事项',
+      nodeTypeKey: 'work_item',
+      status: 'in_progress',
+      percent: 10,
+      dueAt: DateTime.now().subtract(const Duration(days: 5)),
+    );
+    final nodes = [
+      person(1, null),
+      person(2, 1,
+          sortOrder: 0, name: '张三丰丰', role: '产品负责人', items: [overdueItem]),
+      person(3, 1, sortOrder: 1, name: '李四', role: '研发负责人'),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 1400,
+            height: 1300,
+            child: AxisCanvas(
+              nodes: nodes,
+              orientation: AxisOrientation.vertical,
+              spacing: AxisSpacing.standard,
+              sort: AxisSort.tree,
+              fold: const AxisFoldSpec(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Finder col(int id, String name) => find.descendant(
+          of: key('axis-folded-row-$id'),
+          matching: key('folded-col-$name'),
+        );
+    double rel(int id, String name) =>
+        tester.getTopLeft(col(id, name)).dx -
+        tester.getTopLeft(key('axis-folded-row-$id')).dx;
+    // 姓名、职责、任务数、逾期各列在不同行里起点一致。
+    for (final name in ['name', 'role', 'total', 'overdue']) {
+      expect(rel(2, name), closeTo(rel(3, name), 0.01), reason: name);
+    }
+    // 箭头固定靠右。
+    double arrow(int id) => tester
+        .getTopRight(find.descendant(
+          of: key('axis-folded-row-$id'),
+          matching: find.byIcon(Icons.keyboard_arrow_down),
+        ))
+        .dx;
+    expect(arrow(2), closeTo(arrow(3), 0.01));
+    // 逾期为 0 的行不显示逾期文字，有逾期的行显示。
+    expect(
+      find.descendant(
+          of: key('axis-folded-row-3'), matching: find.textContaining('逾期')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+          of: key('axis-folded-row-2'), matching: find.textContaining('逾期')),
+      findsOneWidget,
+    );
+    // 五字职责完整显示：列宽放得下，FittedBox 不需要缩小，也没有省略。
+    for (final id in [2, 3]) {
+      final text = find.descendant(of: col(id, 'role'), matching: find.byType(Text));
+      final para = tester.renderObject<RenderParagraph>(text);
+      expect(para.didExceedMaxLines, isFalse);
+      expect(para.size.width, lessThanOrEqualTo(col(id, 'role').evaluate().first.size!.width));
+      expect(tester.getSize(text).width, closeTo(para.size.width, 0.01));
+    }
+  });
+
+  testWidgets('缩放低于 60% 的精简形态下，展开卡片有折叠/拉到人轴，拉出卡片有收回，且可点', (tester) async {
+    bigView(tester);
+    final controller = AxisViewportController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(_FoldHost(controller: controller));
+    await tester.pumpAndSettle();
+    await tester.tap(key('axis-folded-row-2'));
+    await tester.pumpAndSettle();
+    controller.setScale(0.4);
+    await tester.pumpAndSettle();
+
+    expect(key('axis-fold-2'), findsOneWidget);
+    expect(key('axis-pull-2'), findsOneWidget);
+    await tester.tap(key('axis-pull-2'));
+    await tester.pumpAndSettle();
+    expect(key('axis-return-2'), findsOneWidget);
+    await tester.tap(key('axis-return-2'));
+    await tester.pumpAndSettle();
+    expect(key('axis-person-2'), findsNothing);
+    expect(key('axis-folded-row-2'), findsOneWidget);
+
+    // 精简形态下展开后点“折叠”也能收回成一行。
+    await tester.tap(key('axis-folded-row-2'));
+    await tester.pumpAndSettle();
+    await tester.tap(key('axis-fold-2'));
+    await tester.pumpAndSettle();
+    expect(key('axis-person-2'), findsNothing);
+    expect(key('axis-folded-row-2'), findsOneWidget);
+  });
+
+  test('有折叠组时连线从折叠组底部出发，不穿过折叠行（纵向、横向）', () {
+    for (final orientation in AxisOrientation.values) {
+      final layout = AxisFlowLayout.compute(
+        nodes: tree(),
+        orientation: orientation,
+        spacing: AxisSpacing.standard,
+        sort: AxisSort.tree,
+        fold: const AxisFoldSpec(pulled: {2}, expandedRows: {3}),
+      );
+      final conn = layout.connections.single; // 1 -> 2
+      final stack = layout.stacks.firstWhere((s) => s.leaderId == 1);
+      final stackRects = [for (final m in stack.members) m.rect];
+      final lastBottom =
+          stackRects.map((r) => r.bottom).reduce((a, b) => a > b ? a : b);
+      if (orientation == AxisOrientation.vertical) {
+        expect(conn.start.dy, greaterThanOrEqualTo(lastBottom));
+      }
+      final from = conn.fromRect ?? layout.personById(1)!.rect;
+      final to = layout.personById(2)!.rect;
+      final path = floatingEdgeToPath(from, to);
+      for (final metric in path.computeMetrics()) {
+        for (var d = 2.0; d < metric.length - 2; d += 4) {
+          final pt = metric.getTangentForOffset(d)!.position;
+          for (final r in stackRects) {
+            expect(r.deflate(1).contains(pt), isFalse,
+                reason: '$orientation 连线穿过折叠行 $r @ $pt');
+          }
+        }
+      }
+    }
   });
 }

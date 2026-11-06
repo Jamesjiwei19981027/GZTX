@@ -168,6 +168,27 @@ class _AxisCanvasState extends State<AxisCanvas>
         if (mounted) _fitInitial();
       });
     }
+    final oldFold = oldWidget.fold;
+    final fold = widget.fold;
+    if (oldFold != null &&
+        fold != null &&
+        oldFold.pulled.difference(fold.pulled).isNotEmpty) {
+      // 收回会让布局收缩：收回的人若落到屏幕外，就整体适应屏幕。
+      final returned = oldFold.pulled.difference(fold.pulled);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _viewport == Size.zero) return;
+        final layout = _layout;
+        final view = MatrixUtils.transformRect(
+          Matrix4.inverted(_transform.value),
+          Offset.zero & _viewport,
+        );
+        final anyVisible = returned.any((id) {
+          final rect = _rectOf(id, layout);
+          return rect != null && rect.overlaps(view);
+        });
+        if (!anyVisible) fitToScreen();
+      });
+    }
   }
 
   @override
@@ -214,19 +235,16 @@ class _AxisCanvasState extends State<AxisCanvas>
   void fitToScreen() {
     if (_viewport == Size.zero) return;
     final bounds = _layout.contentBounds;
+    const margin = 24.0;
     final scale = math
         .min(
-          _viewport.width / bounds.width,
-          _viewport.height / bounds.height,
+          (_viewport.width - margin * 2) / bounds.width,
+          (_viewport.height - margin * 2) / bounds.height,
         )
         .clamp(0.25, 1.0)
         .toDouble();
     final dx = (_viewport.width - bounds.width * scale) / 2 - bounds.left * scale;
-    final dy = math.max(
-          8.0,
-          (_viewport.height - bounds.height * scale) / 2,
-        ) -
-        bounds.top * scale;
+    final dy = (_viewport.height - bounds.height * scale) / 2 - bounds.top * scale;
     _transform.value = Matrix4.identity()
       ..translateByDouble(dx, dy, 0, 1)
       ..scaleByDouble(scale, scale, scale, 1);
@@ -848,7 +866,13 @@ class _AxisCanvasState extends State<AxisCanvas>
       child: MediaQuery.withClampedTextScaling(
         maxScaleFactor: 1.15,
         child: isCompact
-            ? _buildCompactCard(node, isRoot, isDark)
+            ? _buildCompactCard(
+                node,
+                isRoot,
+                isDark,
+                foldedMember: foldedMember,
+                canReturn: canReturn,
+              )
             : _buildFullCard(
                 node: node,
                 summary: summary,
@@ -891,7 +915,13 @@ class _AxisCanvasState extends State<AxisCanvas>
     );
   }
 
-  Widget _buildCompactCard(AxisPersonNode node, bool isRoot, bool isDark) {
+  Widget _buildCompactCard(
+    AxisPersonNode node,
+    bool isRoot,
+    bool isDark, {
+    bool foldedMember = false,
+    bool canReturn = false,
+  }) {
     final overCount = cardOverdueCount(node.workItems, clock.now());
     final avatarLetter =
         node.name.characters.isNotEmpty ? node.name.characters.first : '?';
@@ -1036,7 +1066,53 @@ class _AxisCanvasState extends State<AxisCanvas>
         const Spacer(),
         statusWidget,
         const Spacer(),
+        if (foldedMember || canReturn)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (foldedMember) ...[
+                _compactAction(node, 'fold', '折叠', isDark),
+                const SizedBox(width: 16),
+                _compactAction(node, 'pull', '拉到人轴', isDark, primary: true),
+              ] else
+                _compactAction(node, 'return', '收回', isDark),
+            ],
+          ),
       ],
+    );
+  }
+
+  /// 精简形态下的操作按钮：字号放大以便缩小后仍可点。
+  Widget _compactAction(
+    AxisPersonNode node,
+    String action,
+    String label,
+    bool isDark, {
+    bool primary = false,
+  }) {
+    final onTap = switch (action) {
+      'fold' => widget.onToggleFoldedRow,
+      'pull' => widget.onPullToAxis,
+      _ => widget.onReturnFromAxis,
+    };
+    return KeyedSubtree(
+      key: _hitKey('${node.id}:$action'),
+      child: InkWell(
+        key: Key('axis-$action-${node.id}'),
+        onTap: () => onTap?.call(node.id),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color:
+                  primary ? AppColors.primary : AppColors.textTertiaryOf(isDark),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1513,7 +1589,7 @@ class _FoldedRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkSurface : AppColors.surface,
           borderRadius: BorderRadius.circular(10),
@@ -1525,59 +1601,72 @@ class _FoldedRow extends StatelessWidget {
           maxScaleFactor: 1.15,
           child: Row(
             children: [
-              Flexible(
-                child: Text(
-                  node.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: isDark
-                        ? AppColors.darkTextPrimary
-                        : AppColors.textPrimary,
-                  ),
+              _col(
+                48,
+                node.name,
+                TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? AppColors.darkTextPrimary
+                      : AppColors.textPrimary,
                 ),
+                const Key('folded-col-name'),
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textTertiaryOf(isDark),
-                  ),
-                ),
-              ),
-              Text(
-                '任务 $total',
-                style: TextStyle(
+              const SizedBox(width: 4),
+              _col(
+                60,
+                node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle,
+                TextStyle(
                   fontSize: 11,
                   color: AppColors.textTertiaryOf(isDark),
                 ),
+                const Key('folded-col-role'),
               ),
-              if (overdue > 0) ...[
-                const SizedBox(width: 6),
-                Text(
-                  '逾期 $overdue',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.danger,
-                  ),
-                ),
-              ],
               const SizedBox(width: 4),
+              _col(
+                38,
+                '任务 $total',
+                TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textTertiaryOf(isDark),
+                ),
+                const Key('folded-col-total'),
+              ),
+              const SizedBox(width: 4),
+              // 逾期为 0 时该列留空，后面的内容不左移。
+              _col(
+                38,
+                overdue > 0 ? '逾期 $overdue' : '',
+                const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.danger,
+                ),
+                const Key('folded-col-overdue'),
+              ),
+              const Spacer(),
               Icon(
                 Icons.keyboard_arrow_down,
-                size: 18,
+                size: 16,
                 color: AppColors.textTertiaryOf(isDark),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// 固定宽度的一列；放不下时整体缩小而不是截断。
+  Widget _col(double width, String text, TextStyle style, Key key) {
+    return SizedBox(
+      key: key,
+      width: width,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(text, maxLines: 1, style: style),
       ),
     );
   }
@@ -1650,7 +1739,8 @@ class AxisCurvePainter extends CustomPainter {
   Path _pathFor(AxisConnection connection) {
     final fromPerson = layout.personById(connection.fromId);
     final toPerson = layout.personById(connection.toId);
-    final fromRect = (fromPerson?.rect ??
+    final fromRect = (connection.fromRect ??
+            fromPerson?.rect ??
             Rect.fromCenter(
               center: connection.fromCenter,
               width: AxisFlowLayout.personCardSize.width,

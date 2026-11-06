@@ -13,6 +13,7 @@ class AxisConnection {
     required this.end,
     required this.fromCenter,
     required this.toCenter,
+    this.fromRect,
   });
 
   final int fromId;
@@ -21,6 +22,10 @@ class AxisConnection {
   final Offset end;
   final Offset fromCenter;
   final Offset toCenter;
+
+  /// 出发方的占位矩形：领导卡片加上他的折叠组。画线时以它为锚点，
+  /// 连线才会从折叠组外沿出发，不压在折叠行背后。
+  final Rect? fromRect;
 
   String get id => '$fromId-$toId';
 }
@@ -84,6 +89,7 @@ class AxisFlowResult {
     required this.autoRects,
     this.minCorner = Offset.zero,
     this.stacks = const [],
+    this.bounds,
   });
 
   final List<AxisPlacedPerson> people;
@@ -97,13 +103,13 @@ class AxisFlowResult {
   /// 卡片可被拖到负坐标；这里记录左上角的最小值（不大于 0），供“适应屏幕”使用。
   final Offset minCorner;
 
-  /// 全部卡片占据的范围，含负坐标。
-  Rect get contentBounds => Rect.fromLTRB(
-        minCorner.dx,
-        minCorner.dy,
-        size.width,
-        size.height,
-      );
+  /// 全部卡片与折叠组的真实外接范围（含负坐标，不含画布边距）。
+  final Rect? bounds;
+
+  /// 全部卡片占据的范围，含负坐标；“适应屏幕”按它居中。
+  Rect get contentBounds =>
+      bounds ??
+      Rect.fromLTRB(minCorner.dx, minCorner.dy, size.width, size.height);
 
   AxisPlacedPerson? personById(int id) {
     for (final person in people) {
@@ -316,30 +322,6 @@ class AxisFlowLayout {
       return null;
     }
 
-    final connections = <AxisConnection>[];
-    for (final person in people) {
-      final parentId = person.node.parentId;
-      if (parentId == null) continue;
-      final parent = personOf(parentId);
-      if (parent == null) continue;
-      final start = horizontal
-          ? Offset(parent.rect.right, parent.rect.center.dy)
-          : Offset(parent.rect.center.dx, parent.rect.bottom);
-      final end = horizontal
-          ? Offset(person.rect.left, person.rect.center.dy)
-          : Offset(person.rect.center.dx, person.rect.top);
-      connections.add(
-        AxisConnection(
-          fromId: parent.node.id,
-          toId: person.node.id,
-          start: start,
-          end: end,
-          fromCenter: parent.rect.center,
-          toCenter: person.rect.center,
-        ),
-      );
-    }
-
     final stacks = <AxisFoldedStack>[];
     for (final person in people) {
       final list = foldedOf[person.node.id];
@@ -371,11 +353,64 @@ class AxisFlowLayout {
       );
     }
 
+    final stackBottomOf = <int, double>{
+      for (final stack in stacks)
+        if (stack.members.isNotEmpty)
+          stack.leaderId: stack.members.last.rect.bottom,
+    };
+    final connections = <AxisConnection>[];
+    for (final person in people) {
+      final parentId = person.node.parentId;
+      if (parentId == null) continue;
+      final parent = personOf(parentId);
+      if (parent == null) continue;
+      // 有折叠组时，占位矩形向下延伸到最后一行的底部。
+      final stackBottom = stackBottomOf[parent.node.id];
+      final fromRect = stackBottom == null
+          ? parent.rect
+          : Rect.fromLTRB(
+              parent.rect.left,
+              parent.rect.top,
+              parent.rect.right,
+              math.max(parent.rect.bottom, stackBottom),
+            );
+      final start = horizontal
+          ? Offset(fromRect.right, parent.rect.center.dy)
+          : Offset(fromRect.center.dx, fromRect.bottom);
+      final end = horizontal
+          ? Offset(person.rect.left, person.rect.center.dy)
+          : Offset(person.rect.center.dx, person.rect.top);
+      connections.add(
+        AxisConnection(
+          fromId: parent.node.id,
+          toId: person.node.id,
+          start: start,
+          end: end,
+          fromCenter: parent.rect.center,
+          toCenter: person.rect.center,
+          fromRect: fromRect,
+        ),
+      );
+    }
+
     var maxX = personCardSize.width;
     var maxY = personCardSize.height;
     var minX = 0.0;
     var minY = 0.0;
+    // 真实外接范围：只统计卡片与折叠行，不含原点和边距。
+    var realMinX = double.infinity;
+    var realMinY = double.infinity;
+    var realMaxX = double.negativeInfinity;
+    var realMaxY = double.negativeInfinity;
+    void cover(Rect r) {
+      realMinX = math.min(realMinX, r.left);
+      realMinY = math.min(realMinY, r.top);
+      realMaxX = math.max(realMaxX, r.right);
+      realMaxY = math.max(realMaxY, r.bottom);
+    }
+
     for (final person in people) {
+      cover(person.rect);
       maxX = math.max(maxX, person.rect.right);
       maxY = math.max(maxY, person.rect.bottom);
       minX = math.min(minX, person.rect.left);
@@ -383,6 +418,7 @@ class AxisFlowLayout {
     }
     for (final stack in stacks) {
       for (final member in stack.members) {
+        cover(member.rect);
         maxX = math.max(maxX, member.rect.right);
         maxY = math.max(maxY, member.rect.bottom);
         minX = math.min(minX, member.rect.left);
@@ -397,6 +433,9 @@ class AxisFlowLayout {
       autoRects: autoRects,
       minCorner: Offset(minX, minY),
       stacks: stacks,
+      bounds: realMinX.isFinite
+          ? Rect.fromLTRB(realMinX, realMinY, realMaxX, realMaxY)
+          : Rect.fromLTWH(0, 0, personCardSize.width, personCardSize.height),
     );
   }
 }

@@ -1808,9 +1808,14 @@ class _AxisMoreMenu extends StatelessWidget {
             break;
           case 'pull_all':
             controller.pullAllToAxis();
+            // 等新布局生效后适应屏幕，避免视口落在空处。
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => viewport.fitToScreen());
             break;
           case 'reset_fold':
             controller.resetFold();
+            WidgetsBinding.instance
+                .addPostFrameCallback((_) => viewport.fitToScreen());
             break;
           case 'reset_layout':
             onResetLayout();
