@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import '../../../design/design.dart';
 import '../data/axis_card_tasks.dart';
 import '../data/axis_edge_rules.dart';
+import '../data/axis_fold.dart';
 import '../data/axis_models.dart';
 import '../data/axis_rules.dart';
 import '../data/axis_view_models.dart';
@@ -55,7 +56,21 @@ class AxisCanvas extends StatefulWidget {
     this.onAddChild,
     this.onEditPerson,
     this.onRelinkPerson,
+    this.fold,
+    this.onToggleFoldedRow,
+    this.onPullToAxis,
+    this.onReturnFromAxis,
+    this.onToggleStack,
   });
+
+  /// 折叠状态；为 null 时所有人都画成完整卡片（旧行为）。
+  final AxisFoldSpec? fold;
+  final ValueChanged<int>? onToggleFoldedRow;
+  final ValueChanged<int>? onPullToAxis;
+  final ValueChanged<int>? onReturnFromAxis;
+
+  /// 领导卡片“下属 n”：整体显示 / 隐藏该领导的折叠组。
+  final ValueChanged<int>? onToggleStack;
 
   final List<AxisPersonNode> nodes;
   final AxisOrientation orientation;
@@ -111,6 +126,7 @@ class _AxisCanvasState extends State<AxisCanvas>
         sort: widget.sort,
         offsets: widget.offsets,
         resetLayout: widget.resetLayout,
+        fold: widget.fold,
       );
 
   @override
@@ -244,14 +260,26 @@ class _AxisCanvasState extends State<AxisCanvas>
     }
   }
 
+  /// 人员在画布上的位置：上轴人员或折叠组成员。
+  Rect? _rectOf(int nodeId, AxisFlowResult layout) {
+    final person = layout.personById(nodeId);
+    if (person != null) return person.rect;
+    for (final stack in layout.stacks) {
+      for (final member in stack.members) {
+        if (member.node.id == nodeId) return member.rect;
+      }
+    }
+    return null;
+  }
+
   void focusNode(int nodeId) {
-    final person = _layout.personById(nodeId);
-    if (person == null || _viewport == Size.zero) return;
+    final rect = _rectOf(nodeId, _layout);
+    if (rect == null || _viewport == Size.zero) return;
     final scale = _currentScale.clamp(0.6, 1.2);
     _transform.value = Matrix4.identity()
       ..translateByDouble(
-        _viewport.width / 2 - person.center.dx * scale,
-        _viewport.height / 2 - person.center.dy * scale,
+        _viewport.width / 2 - rect.center.dx * scale,
+        _viewport.height / 2 - rect.center.dy * scale,
         0,
         1,
       )
@@ -337,6 +365,22 @@ class _AxisCanvasState extends State<AxisCanvas>
     AxisCardTaskSummary summary,
     Offset global,
   ) {
+    if (_hits('${node.id}:fold', global)) {
+      widget.onToggleFoldedRow?.call(node.id);
+      return;
+    }
+    if (_hits('${node.id}:pull', global)) {
+      widget.onPullToAxis?.call(node.id);
+      return;
+    }
+    if (_hits('${node.id}:return', global)) {
+      widget.onReturnFromAxis?.call(node.id);
+      return;
+    }
+    if (_hits('${node.id}:subs', global)) {
+      widget.onToggleStack?.call(node.id);
+      return;
+    }
     if (_hits('${node.id}:add', global)) {
       _handleAddChild(node);
       return;
@@ -571,6 +615,25 @@ class _AxisCanvasState extends State<AxisCanvas>
                             ),
                           ),
                         ),
+                        for (final stack in layout.stacks)
+                          for (final member in stack.members)
+                            member.expanded
+                                ? _buildPerson(
+                                    AxisPlacedPerson(
+                                      node: member.node,
+                                      rect: member.rect,
+                                      station: 0,
+                                      isTerminal: member.node.isTerminalPm,
+                                    ),
+                                    isDark,
+                                    foldedMember: true,
+                                    extraShift: _leaderShift(stack.leaderId),
+                                  )
+                                : _buildFoldedRow(
+                                    member,
+                                    _leaderShift(stack.leaderId),
+                                    isDark,
+                                  ),
                         ...layout.people.map((person) => _buildPerson(person, isDark)),
                       ],
                     ),
@@ -582,6 +645,30 @@ class _AxisCanvasState extends State<AxisCanvas>
           ),
         );
       },
+    );
+  }
+
+  /// 折叠组跟随领导：拖动领导时与领导同步位移。
+  Offset _leaderShift(int leaderId) =>
+      _dragPersonId == leaderId ? _dragDelta : Offset.zero;
+
+  Widget _buildFoldedRow(AxisFoldedMember member, Offset shift, bool isDark) {
+    final node = member.node;
+    final rect = member.rect.shift(shift);
+    final now = clock.now();
+    return Positioned(
+      left: rect.left,
+      top: rect.top,
+      width: rect.width,
+      height: rect.height,
+      child: _FoldedRow(
+        key: Key('axis-folded-row-${node.id}'),
+        node: node,
+        total: summarizeCardTasks(node.workItems, now).total,
+        overdue: cardOverdueCount(node.workItems, now),
+        isDark: isDark,
+        onTap: () => widget.onToggleFoldedRow?.call(node.id),
+      ),
     );
   }
 
@@ -662,10 +749,15 @@ class _AxisCanvasState extends State<AxisCanvas>
     );
   }
 
-  Widget _buildPerson(AxisPlacedPerson placed, bool isDark) {
+  Widget _buildPerson(
+    AxisPlacedPerson placed,
+    bool isDark, {
+    bool foldedMember = false,
+    Offset extraShift = Offset.zero,
+  }) {
     final node = placed.node;
     final delta = _dragPersonId == node.id ? _dragDelta : Offset.zero;
-    final rect = placed.rect.shift(delta);
+    final rect = placed.rect.shift(delta + extraShift);
     final selected = _selectedId == node.id;
     final isCompact = _currentScale < 0.6;
     final isDropTarget = _verdictTargetId == node.id;
@@ -721,6 +813,9 @@ class _AxisCanvasState extends State<AxisCanvas>
     } else if (isRoot) {
       borderColor = AppColors.warning;
       borderWidth = 1.5;
+    } else if (foldedMember) {
+      borderColor = const Color(0xFF9AA6B6);
+      borderWidth = 1.0;
     } else {
       borderColor = isDark ? AppColors.darkBorder : AppColors.border;
       borderWidth = 1.0;
@@ -729,48 +824,70 @@ class _AxisCanvasState extends State<AxisCanvas>
     final background = isDark ? AppColors.darkSurface : AppColors.surface;
     final subordinatesCount =
         widget.nodes.where((n) => n.parentId == node.id).length;
+    final fold = widget.fold;
+    // 收回：被拉出的上轴非根人员；当前用户上级链上的人不提供。
+    final canReturn = fold != null &&
+        !foldedMember &&
+        node.parentId != null &&
+        fold.pulled.contains(node.id) &&
+        !(fold.selfId != null &&
+            revealAncestors(widget.nodes, fold.selfId!).contains(node.id));
+    final stackHidden = fold?.hiddenStacks.contains(node.id) ?? false;
+
+    final card = Container(
+      key: Key('axis-person-${node.id}'),
+      padding: isCompact
+          ? const EdgeInsets.symmetric(horizontal: 20, vertical: 22)
+          : const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor, width: borderWidth),
+        boxShadow: shadows,
+      ),
+      child: MediaQuery.withClampedTextScaling(
+        maxScaleFactor: 1.15,
+        child: isCompact
+            ? _buildCompactCard(node, isRoot, isDark)
+            : _buildFullCard(
+                node: node,
+                summary: summary,
+                isRoot: isRoot,
+                isMe: isMe,
+                isSelfAdded: isSelfAdded,
+                selected: selected,
+                canAddSubordinate: canAddSubordinate,
+                showMore: showMore,
+                subordinatesCount: subordinatesCount,
+                isDark: isDark,
+                foldedMember: foldedMember,
+                canReturn: canReturn,
+                stackHidden: stackHidden,
+              ),
+      ),
+    );
 
     return Positioned(
       left: rect.left,
       top: rect.top,
       width: AxisFlowLayout.personCardSize.width,
       height: AxisFlowLayout.personCardSize.height,
-      child: _AxisDragRegion(
-        onTap: (global) => _onCardTap(node, summary, global),
-        onStart: () => _onPersonDragStart(node),
-        onUpdate: _onPersonDragUpdate,
-        onEnd: () => _onPersonDragEnd(node),
-        onCancel: _cancelDrag,
-        child: Container(
-          key: Key('axis-person-${node.id}'),
-          padding: isCompact
-              ? const EdgeInsets.symmetric(horizontal: 20, vertical: 22)
-              : const EdgeInsets.fromLTRB(12, 10, 12, 8),
-          decoration: BoxDecoration(
-            color: background,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: borderColor, width: borderWidth),
-            boxShadow: shadows,
-          ),
-          child: MediaQuery.withClampedTextScaling(
-            maxScaleFactor: 1.15,
-            child: isCompact
-                ? _buildCompactCard(node, isRoot, isDark)
-                : _buildFullCard(
-                    node: node,
-                    summary: summary,
-                    isRoot: isRoot,
-                    isMe: isMe,
-                    isSelfAdded: isSelfAdded,
-                    selected: selected,
-                    canAddSubordinate: canAddSubordinate,
-                    showMore: showMore,
-                    subordinatesCount: subordinatesCount,
-                    isDark: isDark,
-                  ),
-          ),
-        ),
-      ),
+      // 折叠组成员不能拖动，也不是换上级的放置目标；只响应点按。
+      child: foldedMember
+          ? GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapUp: (details) =>
+                  _onCardTap(node, summary, details.globalPosition),
+              child: card,
+            )
+          : _AxisDragRegion(
+              onTap: (global) => _onCardTap(node, summary, global),
+              onStart: () => _onPersonDragStart(node),
+              onUpdate: _onPersonDragUpdate,
+              onEnd: () => _onPersonDragEnd(node),
+              onCancel: _cancelDrag,
+              child: card,
+            ),
     );
   }
 
@@ -934,6 +1051,9 @@ class _AxisCanvasState extends State<AxisCanvas>
     required bool showMore,
     required int subordinatesCount,
     required bool isDark,
+    bool foldedMember = false,
+    bool canReturn = false,
+    bool stackHidden = false,
   }) {
     final avatarLetter =
         node.name.characters.isNotEmpty ? node.name.characters.first : '?';
@@ -1000,6 +1120,17 @@ class _AxisCanvasState extends State<AxisCanvas>
                             text: '我',
                             backgroundColor: AppColors.primaryLight,
                             textColor: AppColors.primary,
+                          ),
+                        ],
+                        if (foldedMember) ...[
+                          const SizedBox(width: 4),
+                          _CardTag(
+                            text: '下属',
+                            backgroundColor: isDark
+                                ? AppColors.darkSurfaceVariant
+                                : const Color(0xFFF1F3F6),
+                            textColor: AppColors.textTertiaryOf(isDark),
+                            fontWeight: FontWeight.w500,
                           ),
                         ],
                         if (isSelfAdded) ...[
@@ -1208,20 +1339,73 @@ class _AxisCanvasState extends State<AxisCanvas>
                 )
               else
                 const SizedBox(),
-              if (subordinatesCount > 0)
-                Text(
-                  '下属 $subordinatesCount ⌄',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textTertiaryOf(isDark),
-                  ),
-                )
-              else
-                const SizedBox(),
+              if (foldedMember) ...[
+                _cardAction(node, 'fold', '折叠', isDark),
+                _cardAction(node, 'pull', '拉到人轴', isDark, primary: true),
+              ] else ...[
+                if (canReturn) _cardAction(node, 'return', '收回', isDark),
+                if (subordinatesCount > 0)
+                  widget.fold == null
+                      ? Text(
+                          '下属 $subordinatesCount ⌄',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textTertiaryOf(isDark),
+                          ),
+                        )
+                      : KeyedSubtree(
+                          key: _hitKey('${node.id}:subs'),
+                          child: InkWell(
+                            key: Key('axis-stack-toggle-${node.id}'),
+                            onTap: () => widget.onToggleStack?.call(node.id),
+                            child: Text(
+                              stackHidden
+                                  ? '下属 $subordinatesCount ›'
+                                  : '下属 $subordinatesCount ⌄',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textTertiaryOf(isDark),
+                              ),
+                            ),
+                          ),
+                        )
+                else
+                  const SizedBox(),
+              ],
             ],
           ),
         ),
       ],
+    );
+  }
+
+  /// 卡片底部的小文字按钮（折叠 / 拉到人轴 / 收回）。
+  Widget _cardAction(
+    AxisPersonNode node,
+    String action,
+    String label,
+    bool isDark, {
+    bool primary = false,
+  }) {
+    final onTap = switch (action) {
+      'fold' => widget.onToggleFoldedRow,
+      'pull' => widget.onPullToAxis,
+      _ => widget.onReturnFromAxis,
+    };
+    return KeyedSubtree(
+      key: _hitKey('${node.id}:$action'),
+      child: InkWell(
+        key: Key('axis-$action-${node.id}'),
+        onTap: () => onTap?.call(node.id),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w500,
+            color: primary ? AppColors.primary : AppColors.textTertiaryOf(isDark),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1300,6 +1484,99 @@ class _AxisCanvasState extends State<AxisCanvas>
           color: text,
           fontWeight: weight,
           height: 1.1,
+        ),
+      ),
+    );
+  }
+}
+
+/// 折叠行：姓名、职责、任务总数、逾期数（为 0 不显示）、向下箭头；点按就地展开。
+class _FoldedRow extends StatelessWidget {
+  const _FoldedRow({
+    super.key,
+    required this.node,
+    required this.total,
+    required this.overdue,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final AxisPersonNode node;
+  final int total;
+  final int overdue;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.darkSurface : AppColors.surface,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: isDark ? AppColors.darkBorder : AppColors.border,
+          ),
+        ),
+        child: MediaQuery.withClampedTextScaling(
+          maxScaleFactor: 1.15,
+          child: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  node.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textTertiaryOf(isDark),
+                  ),
+                ),
+              ),
+              Text(
+                '任务 $total',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppColors.textTertiaryOf(isDark),
+                ),
+              ),
+              if (overdue > 0) ...[
+                const SizedBox(width: 6),
+                Text(
+                  '逾期 $overdue',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.danger,
+                  ),
+                ),
+              ],
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down,
+                size: 18,
+                color: AppColors.textTertiaryOf(isDark),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1411,6 +1688,18 @@ class AxisCurvePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    for (final stack in layout.stacks) {
+      final shift = _deltaFor(stack.leaderId);
+      canvas.drawLine(
+        stack.stemStart + shift,
+        stack.stemEnd + shift,
+        Paint()
+          ..strokeWidth = 1.8
+          ..strokeCap = StrokeCap.round
+          ..color =
+              isDark ? const Color(0xFF4E7AA8) : const Color(0xFF6D93BE),
+      );
+    }
     for (final connection in layout.connections) {
       final active = highlighted.contains(connection.id);
       final color = active
