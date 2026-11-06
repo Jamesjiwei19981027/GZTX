@@ -1203,7 +1203,7 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
               </h3>
             </div>
             <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-              {auditResult ? `${auditResult.nodes.length} 项待处理` : '2 项待处理'}
+              {auditResult ? `${auditResult.nodes.length} 项待处理` : '待处理'}
             </span>
           </div>
           <p className="text-xs text-slate-400">
