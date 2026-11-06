@@ -198,13 +198,6 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     return axisNodes.filter((n) => n.parentId === selfNode.id);
   }, [axisNodes, selfNode]);
 
-  const handleLocateMe = useCallback(() => {
-    if (selfNode) {
-      setSelectedNodeId(selfNode.id);
-    }
-    setCenterMeToken(t => t + 1);
-  }, [selfNode]);
-
   const handleFitScreen = useCallback(() => {
     setFitToken(t => t + 1);
   }, []);
@@ -219,6 +212,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     edgeStyle,
     lang: 'zh',
     mobile: true,
+    foldSubordinates: true,
     isBackendProject: true,
     backendProjectId: pid,
     serverPerms: permissions,
@@ -241,6 +235,24 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     canEditAny: Boolean(permissions?.is_pm || permissions?.is_superadmin || permissions?.can_edit_all),
     canMoveNodes: Boolean(permissions?.can_move || permissions?.is_pm || permissions?.is_superadmin),
   });
+
+  // 定位（含折叠成员）：先把目标拉出/展开，再由画布在节点出现后居中
+  const [locate, setLocate] = useState<{ id: string; seq: number } | null>(null);
+  const locateSeq = useRef(0);
+  const { revealPerson } = flowCanvas;
+  const locateNode = useCallback((id: string) => {
+    revealPerson(id);
+    locateSeq.current += 1;
+    setLocate({ id, seq: locateSeq.current });
+  }, [revealPerson]);
+  const handleLocateDone = useCallback(() => setLocate(null), []);
+
+  const handleLocateMe = useCallback(() => {
+    if (selfNode) {
+      setSelectedNodeId(selfNode.id);
+      locateNode(selfNode.id);
+    }
+  }, [selfNode, locateNode]);
 
   const canChangeSupervisor = Boolean(permissions?.is_pm || permissions?.is_superadmin);
   const nodeCan = (node: PeopleAxisNode | null | undefined, capability: 'can_edit_person' | 'can_add_subordinate' | 'can_manage_permissions' | 'can_move_person') => {
@@ -718,6 +730,25 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                       </div>
                     </div>
 
+                    <div className="border-t border-slate-100 dark:border-slate-800 pt-1.5 space-y-1">
+                      <button
+                        type="button"
+                        data-testid="axis-pull-all"
+                        onClick={() => { flowCanvas.pullAllToAxis(); setMoreMenuOpen(false); }}
+                        className="w-full min-h-[40px] px-2 rounded-lg text-left font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        全部拉到人轴
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="axis-reset-fold"
+                        onClick={() => { flowCanvas.resetFold(); setMoreMenuOpen(false); }}
+                        className="w-full min-h-[40px] px-2 rounded-lg text-left font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                      >
+                        恢复默认折叠
+                      </button>
+                    </div>
+
                     <div className="border-t border-slate-100 dark:border-slate-800 pt-1.5">
                       <span className="text-[11px] text-slate-400 px-2 font-medium">节点间距</span>
                       <div className="grid grid-cols-3 gap-1 mt-1">
@@ -760,7 +791,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 onShowToast={showToast}
                 mobile={true}
                 fitToken={fitToken}
+                refitToken={flowCanvas.foldFitSeq}
                 centerMeToken={centerMeToken}
+                locate={locate}
+                onLocateDone={handleLocateDone}
               />
             </div>
           </div>
@@ -831,12 +865,30 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 查看完整责任详情
               </button>
 
+              {flowCanvas.returnableIds.has(previewNode.id) && (
+                <button
+                  type="button"
+                  data-testid={`axis-return-panel-${previewNode.id}`}
+                  onClick={() => {
+                    const target = previewNode;
+                    setPreviewNode(null);
+                    setSelectedNodeId(null);
+                    // 收回后画布会自动适应，目标回到折叠行并留在视口内
+                    flowCanvas.returnFromAxis(target.id);
+                  }}
+                  className="w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-sm flex items-center justify-center gap-2 active:bg-slate-50 cursor-pointer"
+                >
+                  收回到折叠
+                </button>
+              )}
+
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => {
                     setPreviewNode(null);
                     // 定位并居中
+                    locateNode(previewNode.id);
                     setActiveTab('overview');
                   }}
                   className="min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-xs flex items-center justify-center gap-1.5 active:bg-slate-50 cursor-pointer"

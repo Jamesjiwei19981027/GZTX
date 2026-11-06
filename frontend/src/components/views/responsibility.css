@@ -425,6 +425,121 @@
   color: var(--axis-ink);
 }
 
+/* 下属默认折叠：折叠行、就地展开的下属卡片、领导与折叠组之间的竖线 */
+.axis-folded-row-wrap {
+  position: relative;
+  width: 240px;
+  height: 44px;
+}
+/* 手机画布默认 75% 缩放：行高按 60 算，屏幕上才不小于 44 */
+.axis-folded-row-wrap.is-mobile {
+  height: 60px;
+}
+.axis-folded-row-wrap.is-mobile .axis-folded-row {
+  height: 60px;
+  min-height: 60px;
+}
+.axis-fold-stem {
+  position: absolute;
+  left: 50%;
+  top: -12px;
+  width: 2px;
+  height: 12px;
+  margin-left: -1px;
+  background: var(--axis-branch);
+  pointer-events: none;
+}
+.axis-folded-row {
+  box-sizing: border-box;
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  /* 固定列：姓名 / 职责 / 任务数 / 逾期数 / 箭头；逾期为 0 时那一列留空，不挤动其他列 */
+  display: grid;
+  grid-template-columns: 52px 64px 38px 44px 16px;
+  align-items: center;
+  justify-content: space-between;
+  column-gap: 2px;
+  padding: 0 6px 0 8px;
+  background: var(--axis-card);
+  color: var(--axis-ink);
+  border: 1px solid var(--axis-line);
+  border-radius: 12px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.axis-folded-row:hover {
+  border-color: var(--axis-blue);
+  box-shadow: 0 2px 8px rgba(20, 40, 80, 0.1);
+}
+.axis-folded-row:focus-visible {
+  outline: 2px solid var(--axis-blue);
+  outline-offset: 2px;
+}
+.axis-folded-name,
+.axis-folded-role,
+.axis-folded-count,
+.axis-folded-over {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.axis-folded-name {
+  font-size: 13px;
+}
+.axis-folded-role {
+  font-size: 12px;
+  color: var(--axis-muted);
+}
+.axis-folded-count {
+  font-size: 11px;
+  color: var(--axis-muted);
+}
+.axis-folded-over {
+  justify-self: start;
+  padding: 0 3px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--axis-red);
+  background: var(--axis-red-soft);
+}
+.axis-folded-row > svg {
+  justify-self: end;
+  color: var(--axis-muted);
+}
+.axis-map-card.is-folded-member {
+  border-color: var(--axis-line);
+  border-width: 1px;
+  cursor: default;
+}
+.axis-map-card.is-folded-member.is-selected {
+  border-color: var(--axis-blue);
+}
+.axis-card-tag.subordinate {
+  background: var(--axis-soft);
+  color: var(--axis-muted);
+  font-weight: 500;
+}
+.axis-card-fold-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+/* 文字按钮很小：用伪元素把点按范围扩大，手机上也好点 */
+.axis-card-fold-actions .foot-link {
+  position: relative;
+}
+.axis-card-fold-actions .foot-link::after {
+  content: '';
+  position: absolute;
+  inset: -12px -6px;
+}
+
 /* 精简模式 (zoom < 0.6) */
 .axis-map-card.is-compact {
   padding: 22px 20px;
@@ -474,6 +589,17 @@
   font-weight: 700;
   padding: 4px 14px;
   border-radius: 12px;
+}
+.axis-compact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+  margin-top: 10px;
+}
+.axis-compact-actions .foot-link {
+  font-size: 22px;
+  font-weight: 600;
 }
 .axis-compact-ok {
   color: var(--axis-green);

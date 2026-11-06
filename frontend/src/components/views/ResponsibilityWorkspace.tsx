@@ -83,6 +83,10 @@ type Props = {
   onSeed: () => void
   seeding: boolean
   isProject: boolean
+  /** 「项目全貌」下属折叠：更多菜单里的两项，以及从详情里跳到某人时的定位 */
+  onPullAll?: () => void
+  onResetFold?: () => void
+  onLocate?: (id: string) => void
 }
 
 function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onAction }: {
@@ -168,7 +172,7 @@ export function ResponsibilityWorkspace(p: Props) {
   const [focusToken, setFocusToken] = useState(0)
   const selected = p.nodes.find(n => n.id === p.selectedId)
   const selectedData = p.canvas.nodes.find(n => n.id === p.selectedId)?.data as PersonNodeData | undefined
-  const allData = useMemo(() => new Map(p.canvas.nodes.filter(n => n.type === 'person').map(n => [n.id, n.data as PersonNodeData])), [p.canvas.nodes])
+  const allData = useMemo(() => new Map(p.canvas.nodes.filter(n => n.type === 'person' || n.type === 'foldedRow').map(n => [n.id, n.data as PersonNodeData])), [p.canvas.nodes])
   const summaryNodes = p.isProject ? p.nodes : p.projectSummaries.flatMap(project => project.nodes)
   const count = summaryNodes.reduce((sum, n) => sum + n.workItems.length, 0)
   useEffect(() => { setSettingsOpen(false) }, [p.projectId])
@@ -179,7 +183,7 @@ export function ResponsibilityWorkspace(p: Props) {
     allData.get(id)?.onCardClick(id)
   }
   const detail = selected && <NodeDetails node={selected} data={selectedData} nodes={p.nodes} lang={p.lang}
-    onSelect={p.onSelect} onAddEvidence={p.onAddEvidence} onAction={() => {}} />
+    onSelect={id => { p.onSelect(id); if (mode === 'overview') p.onLocate?.(id) }} onAddEvidence={p.onAddEvidence} onAction={() => {}} />
   const renderChain = () => {
     const sorted = [...p.nodes].sort((a, b) => a.orderOnAxis - b.orderOnAxis)
     const roots = sorted.filter(n => !n.parentId || !p.nodes.some(parent => parent.id === n.parentId))
@@ -313,6 +317,8 @@ export function ResponsibilityWorkspace(p: Props) {
     {settingsOpen && <AxisDialog title={zh ? '画布设置' : 'Canvas settings'} onClose={() => setSettingsOpen(false)}><div className="axis-settings"><h2>{zh ? '画布设置' : 'Canvas settings'}</h2>
       <p className="axis-muted">{zh ? '浏览方式随时切换，责任关系保持同步。' : 'Switch views while keeping the same responsibility data.'}</p>
       <button className="axis-settings-row" onClick={() => { p.canvas.onResetLayout(); setSettingsOpen(false) }}><RefreshCw size={19} />{zh ? '重置卡片布局' : 'Reset card layout'}</button>
+      {p.onPullAll && <button className="axis-settings-row" data-testid="axis-pull-all" onClick={() => { p.onPullAll?.(); setSettingsOpen(false) }}><Users size={19} />{zh ? '全部拉到人轴' : 'Pull everyone to the axis'}</button>}
+      {p.onResetFold && <button className="axis-settings-row" data-testid="axis-reset-fold" onClick={() => { p.onResetFold?.(); setSettingsOpen(false) }}><RefreshCw size={19} />{zh ? '恢复默认折叠' : 'Restore default folding'}</button>}
     </div></AxisDialog>}
   </section>
 }

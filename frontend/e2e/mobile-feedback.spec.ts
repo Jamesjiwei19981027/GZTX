@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 test.use({ timezoneId: 'Asia/Shanghai' });
 
-async function open(page: Page, screen: string, manager = true, userId = '2') {
+async function open(page: Page, screen: string, manager = true, userId = '2', pullAll = true) {
   page.on('pageerror',error=>console.log(`feedback-pageerror: ${error.message}`));
   const isDesktop = screen.startsWith('desktop-');
   await page.setViewportSize(isDesktop ? { width: 1440, height: 1000 } : { width: 390, height: 844 });
@@ -69,6 +69,7 @@ async function open(page: Page, screen: string, manager = true, userId = '2') {
           onSelectChannel:noop,onSelectDirect: conv => {document.body.dataset.opened = String(conv.id)}});
         else if ('${screen}' === 'theme') content = React.createElement(MobileAppearanceScreen,props);
         else content = React.createElement(MobileRouteOutlet,props);
+        ${pullAll ? `localStorage.setItem('axis-pulled:' + '${userId}' + ':1', JSON.stringify(['1','2','3']));` : ''}
         return React.createElement(MobileNavigationProvider,{initialTab:'work'},content);
       }
       ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(App));

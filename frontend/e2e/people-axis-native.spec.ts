@@ -15,7 +15,7 @@ const tree = [
     { ...owner(4, '刘洋', '前端工程师', []), parent_id: 3 }]),
 ]
 
-async function openWorkspace(page: Page, editable = true, userId?: number, dense = false, failFirst = false, canSubmitEvidence = true, extension = false) {
+async function openWorkspace(page: Page, editable = true, userId?: number, dense = false, failFirst = false, canSubmitEvidence = true, extension = false, pullAll = true) {
   const currentTree = structuredClone(tree)
   if (extension) Object.assign(currentTree[2].children[1], {node_origin:'subordinate'})
   const findNode = (id: number, list: any[] = currentTree): any => {
@@ -106,6 +106,7 @@ async function openWorkspace(page: Page, editable = true, userId?: number, dense
       import '/node_modules/@fontsource-variable/noto-sans-sc/index.css';
       import {PeopleAxisView} from '/src/components/views/PeopleAxisView.tsx';
       localStorage.setItem('access_token','test-token');
+      ${pullAll ? `localStorage.setItem('axis-pulled:' + (${userId ?? (editable ? 9 : 99)}) + ':1', JSON.stringify(['1','2','3','4','99',...Array.from({length:8}, (_,i)=>String(50+i))]));` : ''}
       const projects = [{id:'all',name:'全部项目',color:'#0058BE'}, {id:'1',name:'产品体验升级',color:'#0058BE'}, {id:'2',name:'第二项目',color:'#0058BE'}];
       function Workspace() {
         const [projectId, setProjectId] = React.useState('1');
@@ -117,7 +118,7 @@ async function openWorkspace(page: Page, editable = true, userId?: number, dense
   await page.goto('/')
 }
 
-async function openMobileWorkspace(page: Page, editable = true, userId = 1, hintSeen = false, picker?: { name: string }) {
+async function openMobileWorkspace(page: Page, editable = true, userId = 1, hintSeen = false, picker?: { name: string }, pullAll = true) {
   const currentTree = structuredClone(tree)
   const findNode = (id: number, list: any[] = currentTree): any => {
     for (const node of list) { if (node.id === id) return node; const child = findNode(id, node.children || []); if (child) return child }
@@ -185,6 +186,7 @@ async function openMobileWorkspace(page: Page, editable = true, userId = 1, hint
       import '/node_modules/@fontsource-variable/noto-sans-sc/index.css';
       import { MobileAxisScreens } from '/src/mobile/features/people-axis/MobileAxisScreens.tsx';
       localStorage.setItem('access_token', 'test-token');
+      ${pullAll ? `localStorage.setItem('axis-pulled:${userId}:1', JSON.stringify(['1', '2', '3', '4']));` : ''}
       ${hintSeen ? "localStorage.setItem('axis_canvas_hint_seen', 'true');" : "localStorage.removeItem('axis_canvas_hint_seen');"}
       const project = { id: 1, name: '${picker ? picker.name : '产品体验升级'}', color: '#0058BE' };
       const user = { id: '${userId}', name: '${userId === 1 ? '赵晨' : '当前用户'}', role: 'pm' };

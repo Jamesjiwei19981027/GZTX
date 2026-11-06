@@ -560,6 +560,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     handleNodeDragStop, resetAllDragOffsets,
     reparentConfirm, handleRequestReparent, handleConfirmReparent, handleCancelReparent,
     linkingSourceNodeId, setLinkingSourceNodeId, setLinkingHoveredTargetId,
+    pullAllToAxis, resetFold, foldFitSeq, revealPerson,
   } = usePeopleAxisCanvas({
     nodes,
     scopedNodes,
@@ -574,6 +575,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     selectedNodeId,
     mineNodeIds: myScope.direct,
     scopeContextNodeIds,
+    foldSubordinates: scope === 'project',
     canEditAny,
     canMoveNodes,
     editableNodeIds,
@@ -593,6 +595,16 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       if (nodeId != null) setEditingPerson({ nodeId, projectId: String(backendProjectId) });
     },
   });
+
+  // 一次性定位请求：先把目标拉出/展开，再由画布在节点出现后居中
+  const [locate, setLocate] = useState<{ id: string; seq: number } | null>(null);
+  const locateSeq = useRef(0);
+  const handleLocate = useCallback((id: string) => {
+    revealPerson(id);
+    locateSeq.current += 1;
+    setLocate({ id, seq: locateSeq.current });
+  }, [revealPerson]);
+  const handleLocateDone = useCallback(() => setLocate(null), []);
 
   // ESC 取消连线模式（连线预览曲线由画布内部的 LinkingPreview 处理）
   useEffect(() => {
@@ -955,8 +967,14 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           onRequestReparent: handleRequestReparent,
           onShowToast: showToast,
           resetToken: canvasResetToken,
+          refitToken: foldFitSeq,
           onCancelLinking: () => { setLinkingSourceNodeId(null); setLinkingHoveredTargetId(null); },
+          locate,
+          onLocateDone: handleLocateDone,
         }}
+        onPullAll={scope === 'project' ? pullAllToAxis : undefined}
+        onResetFold={scope === 'project' ? resetFold : undefined}
+        onLocate={handleLocate}
         onAddEvidence={id => { if (!canSubmitEvidence(id)) return; setIsAddingEvidence(id); setNewEvDescription(''); setNewEvFiles([]); }}
         onAudit={handleRunAxisAudit} auditing={auditLoading} onReload={() => setLoadVersion(version => version + 1)}
         onOpenWiki={() => setWikiProject({ id: backendProjectId,
