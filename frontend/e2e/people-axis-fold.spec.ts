@@ -603,4 +603,79 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
     expect(stored).not.toContain('2')
     await context.close()
   })
+
+  test('390px 触屏下展开靠近底部的折叠行：画布平移保证整张卡片可见且拉到人轴按钮在视口内不被遮挡可tap', async ({ browser }) => {
+    const context = await browser.newContext({
+      hasTouch: true,
+      isMobile: true,
+      viewport: { width: 390, height: 844 },
+      timezoneId: 'Asia/Shanghai',
+    })
+    const page = await context.newPage()
+    await setupMobileMock(page)
+    await page.getByRole('button', { name: '项目全貌', exact: true }).click()
+
+    const foldedRow = page.getByTestId('axis-folded-row-2')
+    await expect(foldedRow).toBeVisible()
+
+    // 拖动画布空白处，将折叠行移动到靠近视口底部（如 y 约在 710~740，高度 44，距底约 60~90px）
+    // 此时展开后卡片高度超 160px，若不平移底部必超出 844px 视口或被底部控件遮挡
+    const initialBox = (await foldedRow.boundingBox())!
+    const targetY = 720
+    const deltaY = targetY - initialBox.y
+
+    // 从屏幕左上角空白处（避开中间卡片）向下拖动 deltaY 像素
+    await page.mouse.move(30, 260)
+    await page.mouse.down()
+    await page.mouse.move(30, 260 + deltaY, { steps: 8 })
+    await page.mouse.up()
+
+    // 验证折叠行确实已被移动到靠近底部且仍位于可视区内
+    await expect.poll(async () => {
+      const b = await foldedRow.boundingBox()
+      return b ? b.y : 0
+    }).toBeGreaterThanOrEqual(680)
+
+    const rowBoxBefore = (await foldedRow.boundingBox())!
+    expect(rowBoxBefore.y).toBeLessThan(844)
+    expect(rowBoxBefore.y + rowBoxBefore.height).toBeLessThanOrEqual(844)
+
+    // 用 tap 点击触发展开
+    await foldedRow.tap()
+
+    // 断言展开的卡片与拉到人轴按钮已渲染且在视口内
+    const pullBtn = page.getByTestId('axis-pull-2')
+    await expect(pullBtn).toBeVisible()
+
+    // 断言拉到人轴按钮在视口内且不被遮挡
+    const pullBox = (await pullBtn.boundingBox())!
+    expect(pullBox).not.toBeNull()
+    expect(pullBox.x).toBeGreaterThanOrEqual(0)
+    expect(pullBox.y).toBeGreaterThanOrEqual(0)
+    expect(pullBox.x + pullBox.width).toBeLessThanOrEqual(390)
+    expect(pullBox.y + pullBox.height).toBeLessThanOrEqual(844)
+
+    // 断言不被左下角缩放按钮遮挡
+    const controls = page.locator('.axis-canvas-controls')
+    const controlsBox = await controls.boundingBox()
+    if (controlsBox) {
+      const overlaps = !(
+        pullBox.x + pullBox.width <= controlsBox.x ||
+        pullBox.x >= controlsBox.x + controlsBox.width ||
+        pullBox.y + pullBox.height <= controlsBox.y ||
+        pullBox.y >= controlsBox.y + controlsBox.height
+      )
+      expect(overlaps).toBe(false)
+    }
+
+    // 关键验证：用 tap 点击拉到人轴按钮，不用 force
+    await pullBtn.tap()
+
+    // 验证成功拉到人轴：卡片成为完整上轴节点，连线生成
+    await expect(page.locator('.react-flow__edge-path')).toHaveCount(1)
+    await expect(page.locator('.react-flow__node[data-id="2"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
+
+    await context.close()
+  })
+
 })

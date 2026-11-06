@@ -76,6 +76,10 @@ const HiddenHandles = () => <>
   <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} isConnectable={false} />
 </>
 
+const FoldedRowContext = React.createContext<{
+  onFoldedRowExpand?: (nodeId: string) => void
+}>({})
+
 function formatTaskDate(dueDate: string): string {
   if (!dueDate) return ''
   const m = dueDate.match(/\d{4}-(\d{2})-(\d{2})/)
@@ -86,6 +90,7 @@ function formatTaskDate(dueDate: string): string {
 /** 领导卡片下方的折叠行：姓名、职责、任务数、逾期数、向下箭头；整行可点，高度不小于 44 */
 const FoldedRowNode: React.FC<NodeProps<FoldedRowFlowNode>> = ({ data: d }) => {
   const { node: n, lang } = d
+  const { onFoldedRowExpand } = React.useContext(FoldedRowContext)
   const today = useMemo(() => new Date(), [])
   const total = useMemo(() => summarizeCardTasks(n.workItems, today).total, [n.workItems, today])
   const overdue = useMemo(() => cardOverdueCount(n.workItems, today), [n.workItems, today])
@@ -102,6 +107,7 @@ const FoldedRowNode: React.FC<NodeProps<FoldedRowFlowNode>> = ({ data: d }) => {
         aria-label={zh ? `展开 ${n.person.name}` : `Expand ${n.person.name}`}
         onClick={e => {
           e.stopPropagation()
+          onFoldedRowExpand?.(n.id)
           d.onToggleRow?.(n.id)
         }}
       >
@@ -535,7 +541,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   onResetLayout, onRequestReparent, onShowToast, resetToken, mobile, focusNodeId, focusToken, onCancelLinking,
   fitToken, refitToken, centerMeToken, locate, onLocateDone,
 }) => {
-  const { zoomIn, zoomOut, fitView, setCenter, getNode, getZoom, screenToFlowPosition } = useReactFlow()
+  const { zoomIn, zoomOut, fitView, setCenter, getNode, getZoom, screenToFlowPosition, getViewport, setViewport } = useReactFlow()
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<AxisFlowNode>(nodes)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
   const [snapGuide, setSnapGuide] = useState<{ from: { x: number; y: number }; to: { x: number; y: number } } | null>(null)
@@ -708,6 +714,147 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
     void setCenter(pos.x + CARD_W / 2, pos.y + h / 2, { zoom: Math.max(getZoom(), mobile ? 0.85 : 1), duration: mobile ? 0 : duration })
     onLocateDone?.()
   }, [locate, nodes, initialized, width, height, setCenter, getZoom, mobile, duration, onLocateDone])
+
+  // 点折叠行展开后：等 React Flow 量好新节点后，若该卡片（含底部按钮）超出可视区（手机端要算上底部导航和缩放按钮的遮挡），画布平移到让整张卡片可见，不改缩放；已完全可见时不动。
+  const [expandingTargetId, setExpandingTargetId] = useState<string | null>(null)
+  const prevNodesRef = useRef<Map<string, string>>(new Map())
+
+  const handleFoldedRowExpand = useCallback((nodeId: string) => {
+    setExpandingTargetId(nodeId)
+  }, [])
+
+  useEffect(() => {
+    for (const n of nodes) {
+      const prevType = prevNodesRef.current.get(n.id)
+      if (prevType === 'foldedRow' && n.type === 'person' && (n.data as PersonNodeData)?.foldedMember) {
+        setExpandingTargetId(n.id)
+      }
+    }
+    prevNodesRef.current = new Map(nodes.map(n => [n.id, n.type]))
+  }, [nodes])
+
+  useEffect(() => {
+    if (!expandingTargetId || !initialized || !width || !height) return
+
+    const targetNode = rfNodes.find(n => n.id === expandingTargetId)
+    if (!targetNode || targetNode.type !== 'person' || !targetNode.measured?.height || targetNode.measured.height <= 60) {
+      return
+    }
+
+    const frame = requestAnimationFrame(() => {
+      const cardEl = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${expandingTargetId}"] .axis-map-card`)
+      if (!cardEl) return
+
+      const pullBtn = cardEl.querySelector<HTMLElement>(`[data-testid="axis-pull-${expandingTargetId}"]`)
+      const foldBtn = cardEl.querySelector<HTMLElement>(`[data-testid="axis-fold-${expandingTargetId}"]`)
+
+      const cardRect = cardEl.getBoundingClientRect()
+      let targetRect = {
+        left: cardRect.left,
+        top: cardRect.top,
+        right: cardRect.right,
+        bottom: cardRect.bottom,
+      }
+      if (pullBtn) {
+        const b = pullBtn.getBoundingClientRect()
+        targetRect.left = Math.min(targetRect.left, b.left)
+        targetRect.top = Math.min(targetRect.top, b.top)
+        targetRect.right = Math.max(targetRect.right, b.right)
+        targetRect.bottom = Math.max(targetRect.bottom, b.bottom)
+      }
+      if (foldBtn) {
+        const b = foldBtn.getBoundingClientRect()
+        targetRect.left = Math.min(targetRect.left, b.left)
+        targetRect.top = Math.min(targetRect.top, b.top)
+        targetRect.right = Math.max(targetRect.right, b.right)
+        targetRect.bottom = Math.max(targetRect.bottom, b.bottom)
+      }
+
+      const container = document.querySelector<HTMLElement>('.react-flow')
+      const containerRect = container ? container.getBoundingClientRect() : {
+        left: 0,
+        top: 0,
+        right: window.innerWidth,
+        bottom: window.innerHeight,
+      }
+
+      const padding = 16
+
+      let viewLeft = containerRect.left + padding
+      let viewRight = containerRect.right - padding
+      let viewTop = containerRect.top + padding
+      let viewBottom = containerRect.bottom - padding
+
+      // 手机端：检查底部导航遮挡（如 MobileTabBar）
+      const bottomNav = document.querySelector<HTMLElement>('nav[role="tablist"], nav[aria-label="主要页面导航"], .mobile-tab-bar')
+      if (bottomNav) {
+        const navRect = bottomNav.getBoundingClientRect()
+        if (navRect.height > 0 && navRect.top < viewBottom) {
+          viewBottom = Math.min(viewBottom, navRect.top - padding)
+        }
+      }
+
+      // 缩放按钮遮挡（.axis-canvas-controls 位于画布左下角）
+      const controlsEl = container?.querySelector<HTMLElement>('.axis-canvas-controls')
+      let controlsRect: DOMRect | null = null
+      if (controlsEl) {
+        const r = controlsEl.getBoundingClientRect()
+        if (r.width > 0 && r.height > 0) {
+          controlsRect = r
+        }
+      }
+
+      const overlapsControlsX = controlsRect && (
+        targetRect.left < controlsRect.right + padding &&
+        targetRect.right > controlsRect.left - padding
+      )
+
+      let effectiveViewBottom = viewBottom
+      if (overlapsControlsX && controlsRect) {
+        effectiveViewBottom = Math.min(effectiveViewBottom, controlsRect.top - padding)
+      }
+
+      let dx = 0
+      let dy = 0
+
+      // Y 轴平移判断
+      if (targetRect.bottom > effectiveViewBottom) {
+        dy = effectiveViewBottom - targetRect.bottom
+        if (targetRect.top + dy < viewTop) {
+          dy = Math.max(dy, viewTop - targetRect.top)
+        }
+      } else if (targetRect.top < viewTop) {
+        dy = viewTop - targetRect.top
+      }
+
+      // X 轴平移判断
+      if (targetRect.right > viewRight) {
+        dx = viewRight - targetRect.right
+      } else if (targetRect.left < viewLeft) {
+        dx = viewLeft - targetRect.left
+      }
+
+      // 再次检查平移后的位置是否会与缩放按钮重叠
+      if (controlsRect && (targetRect.left + dx < controlsRect.right + padding) && (targetRect.right + dx > controlsRect.left - padding)) {
+        if (targetRect.bottom + dy > controlsRect.top - padding) {
+          dy = controlsRect.top - padding - targetRect.bottom
+          if (targetRect.top + dy < viewTop) {
+            dy = Math.max(dy, viewTop - targetRect.top)
+          }
+        }
+      }
+
+      // 若超出可视区或被遮挡，平移画布到整张卡片完全可见；若已完全可见，不动
+      if (Math.abs(dx) >= 1 || Math.abs(dy) >= 1) {
+        const vp = getViewport()
+        void setViewport({ x: vp.x + dx, y: vp.y + dy, zoom: vp.zoom }, { duration: 0 })
+      }
+
+      setExpandingTargetId(null)
+    })
+
+    return () => cancelAnimationFrame(frame)
+  }, [expandingTargetId, rfNodes, initialized, width, height, getViewport, setViewport])
 
   const effectiveFocusId = hoveredNodeId || focusNodeId || null
 
@@ -904,7 +1051,8 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   }, [onNodeDragStop, onRequestReparent, onShowToast, setRfNodes])
 
   return (
-    <ReactFlow
+    <FoldedRowContext.Provider value={{ onFoldedRowExpand: handleFoldedRowExpand }}>
+      <ReactFlow
       nodes={rfNodes}
       edges={styledEdges}
       nodeTypes={nodeTypes}
@@ -1001,7 +1149,8 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
         <button className="axis-control-square" aria-label={lang === 'zh' ? '适应屏幕' : 'Fit all nodes'} title={lang === 'zh' ? '适应屏幕' : 'Fit all nodes'} onClick={fit}><Maximize size={18} /></button>
         {!mobile && <button className="axis-control-square" aria-label={lang === 'zh' ? '重置布局' : 'Reset layout'} onClick={() => { onResetLayout(); setTimeout(fit, 100) }}><LocateFixed size={18} /></button>}
       </Panel>
-    </ReactFlow>
+      </ReactFlow>
+    </FoldedRowContext.Provider>
   )
 }
 
