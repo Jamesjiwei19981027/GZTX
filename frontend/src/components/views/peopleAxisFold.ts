@@ -11,6 +11,8 @@ export type AxisFoldSpec = {
   expandedRows: Set<string>
   /** 当前用户本人的节点；他的所有上级默认上轴 */
   selfNodeId: string | null
+  /** 折叠行高度；手机画布缩放小，行要更高才好点。省略时用默认值 */
+  rowHeight?: number
 }
 
 const byIdOf = (nodes: PeopleAxisNode[]) => new Map(nodes.map(n => [n.id, n]))

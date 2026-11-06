@@ -24,6 +24,7 @@ export interface AxisLayoutResult {
 export const CARD_W = 240
 export const CARD_H = 168
 export const FOLDED_ROW_H = 44
+export const FOLDED_ROW_H_MOBILE = 60
 export const FOLDED_ROW_GAP = 6
 export const FOLDED_STEM_H = 12
 
@@ -74,7 +75,7 @@ export function computeAxisLayout(
     let y = CARD_H + FOLDED_STEM_H
     return (foldedChildren.get(n.id) || []).map(member => {
       const expanded = fold.expandedRows.has(member.id)
-      const entry = { memberId: member.id, y, height: expanded ? CARD_H : FOLDED_ROW_H, expanded }
+      const entry = { memberId: member.id, y, height: expanded ? CARD_H : (fold.rowHeight ?? FOLDED_ROW_H), expanded }
       y += entry.height + FOLDED_ROW_GAP
       return entry
     })

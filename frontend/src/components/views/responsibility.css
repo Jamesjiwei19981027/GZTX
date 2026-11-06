@@ -431,6 +431,14 @@
   width: 240px;
   height: 44px;
 }
+/* 手机画布默认 75% 缩放：行高按 60 算，屏幕上才不小于 44 */
+.axis-folded-row-wrap.is-mobile {
+  height: 60px;
+}
+.axis-folded-row-wrap.is-mobile .axis-folded-row {
+  height: 60px;
+  min-height: 60px;
+}
 .axis-fold-stem {
   position: absolute;
   left: 50%;
@@ -446,10 +454,13 @@
   width: 100%;
   height: 44px;
   min-height: 44px;
-  display: flex;
+  /* 固定列：姓名 / 职责 / 任务数 / 逾期数 / 箭头；逾期为 0 时那一列留空，不挤动其他列 */
+  display: grid;
+  grid-template-columns: 52px 64px 38px 44px 16px;
   align-items: center;
-  gap: 8px;
-  padding: 0 10px 0 12px;
+  justify-content: space-between;
+  column-gap: 2px;
+  padding: 0 6px 0 8px;
   background: var(--axis-card);
   color: var(--axis-ink);
   border: 1px solid var(--axis-line);
@@ -467,37 +478,38 @@
   outline: 2px solid var(--axis-blue);
   outline-offset: 2px;
 }
-.axis-folded-name {
-  flex-shrink: 0;
-  max-width: 64px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-}
-.axis-folded-role {
-  flex: 1;
+.axis-folded-name,
+.axis-folded-role,
+.axis-folded-count,
+.axis-folded-over {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.axis-folded-name {
+  font-size: 13px;
+}
+.axis-folded-role {
+  font-size: 12px;
   color: var(--axis-muted);
 }
 .axis-folded-count {
-  flex-shrink: 0;
+  font-size: 11px;
   color: var(--axis-muted);
 }
 .axis-folded-over {
-  flex-shrink: 0;
-  padding: 0 6px;
+  justify-self: start;
+  padding: 0 3px;
   border-radius: 6px;
+  font-size: 11px;
   line-height: 18px;
   font-weight: 600;
   color: var(--axis-red);
   background: var(--axis-red-soft);
 }
 .axis-folded-row > svg {
-  flex-shrink: 0;
+  justify-self: end;
   color: var(--axis-muted);
 }
 .axis-map-card.is-folded-member {
@@ -577,6 +589,17 @@
   font-weight: 700;
   padding: 4px 14px;
   border-radius: 12px;
+}
+.axis-compact-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 22px;
+  margin-top: 10px;
+}
+.axis-compact-actions .foot-link {
+  font-size: 22px;
+  font-weight: 600;
 }
 .axis-compact-ok {
   color: var(--axis-green);

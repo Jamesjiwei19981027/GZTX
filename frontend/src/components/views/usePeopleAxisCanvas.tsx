@@ -5,6 +5,7 @@ import type { PeopleAxisNode, Language } from '../../types'
 import {
   computeAxisLayout,
   collectHiddenNodeIds,
+  FOLDED_ROW_H_MOBILE,
   type AxisOrientation,
 } from './peopleAxisFlowLayout'
 import {
@@ -238,8 +239,8 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [foldOn, scopedNodes, options.mineNodeIds, currentUserId])
   const foldSpec = useMemo<AxisFoldSpec | undefined>(
-    () => (foldOn ? { pulled: pulledIds, expandedRows, selfNodeId } : undefined),
-    [foldOn, pulledIds, expandedRows, selfNodeId],
+    () => (foldOn ? { pulled: pulledIds, expandedRows, selfNodeId, rowHeight: mobile ? FOLDED_ROW_H_MOBILE : undefined } : undefined),
+    [foldOn, pulledIds, expandedRows, selfNodeId, mobile],
   )
   const axisMembers = useMemo(
     () => (foldSpec ? axisMemberIds(scopedNodes, foldSpec) : null),
@@ -276,22 +277,29 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     })
   }, [updateFold])
 
+  // 收回 / 全部拉到人轴 / 恢复默认折叠会大幅改变画面：计数变化时画布等节点量好后自动适应
+  const [foldFitSeq, setFoldFitSeq] = useState(0)
+  const requestFoldFit = useCallback(() => setFoldFitSeq(n => n + 1), [])
+
   const returnFromAxis = useCallback((id: string) => {
+    requestFoldFit()
     updateFold(cur => {
       const drop = pulledSubtree(cb.current.scopedNodes ?? cb.current.nodes, id, cur.pulled)
       const pulled = new Set([...cur.pulled].filter(x => !drop.has(x)))
       const rows = new Set([...cur.rows].filter(x => !drop.has(x)))
       return { pulled, rows }
     })
-  }, [updateFold])
+  }, [updateFold, requestFoldFit])
 
   const pullAllToAxis = useCallback(() => {
+    requestFoldFit()
     updateFold(() => ({ pulled: new Set(cb.current.nodes.map(n => n.id)), rows: new Set() }))
-  }, [updateFold])
+  }, [updateFold, requestFoldFit])
 
   const resetFold = useCallback(() => {
+    requestFoldFit()
     updateFold(() => ({ pulled: new Set(), rows: new Set() }))
-  }, [updateFold])
+  }, [updateFold, requestFoldFit])
 
   /** 定位到未上轴的人：把他所有上级拉出并保存，再展开他这一行。返回画面是否有变化 */
   const revealPerson = useCallback((id: string): boolean => {
@@ -606,6 +614,7 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
         onHoverTarget: setLinkingHoveredTargetId,
         canReturn: foldOn && !!n.parentId && !!axisMembers?.has(n.id)
           && pulledIds.has(n.id) && !selfAncestorIds.has(n.id),
+        footprintHeight: layout.footprints.get(n.id)?.height,
         onToggleRow: toggleFoldedRow,
         onPull: pullToAxis,
         onReturn: returnFromAxis,
@@ -694,6 +703,7 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     returnFromAxis,
     pullAllToAxis,
     resetFold,
+    foldFitSeq,
     revealPerson,
     handleNodeDragStop,
     resetAllDragOffsets,

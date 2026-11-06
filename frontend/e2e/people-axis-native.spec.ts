@@ -106,7 +106,7 @@ async function openWorkspace(page: Page, editable = true, userId?: number, dense
       import '/node_modules/@fontsource-variable/noto-sans-sc/index.css';
       import {PeopleAxisView} from '/src/components/views/PeopleAxisView.tsx';
       localStorage.setItem('access_token','test-token');
-      ${pullAll ? `localStorage.setItem('axis-pulled:' + (${userId ?? (editable ? 9 : 99)}) + ':1', JSON.stringify(['1','2','3','4',...Array.from({length:8}, (_,i)=>String(50+i))]));` : ''}
+      ${pullAll ? `localStorage.setItem('axis-pulled:' + (${userId ?? (editable ? 9 : 99)}) + ':1', JSON.stringify(['1','2','3','4','99',...Array.from({length:8}, (_,i)=>String(50+i))]));` : ''}
       const projects = [{id:'all',name:'全部项目',color:'#0058BE'}, {id:'1',name:'产品体验升级',color:'#0058BE'}, {id:'2',name:'第二项目',color:'#0058BE'}];
       function Workspace() {
         const [projectId, setProjectId] = React.useState('1');
@@ -186,7 +186,7 @@ async function openMobileWorkspace(page: Page, editable = true, userId = 1, hint
       import '/node_modules/@fontsource-variable/noto-sans-sc/index.css';
       import { MobileAxisScreens } from '/src/mobile/features/people-axis/MobileAxisScreens.tsx';
       localStorage.setItem('access_token', 'test-token');
-      ${pullAll ? "localStorage.setItem('axis-pulled:' + user.id + ':1', JSON.stringify(['1', '2', '3', '4']));" : ''}
+      ${pullAll ? `localStorage.setItem('axis-pulled:${userId}:1', JSON.stringify(['1', '2', '3', '4']));` : ''}
       ${hintSeen ? "localStorage.setItem('axis_canvas_hint_seen', 'true');" : "localStorage.removeItem('axis_canvas_hint_seen');"}
       const project = { id: 1, name: '${picker ? picker.name : '产品体验升级'}', color: '#0058BE' };
       const user = { id: '${userId}', name: '${userId === 1 ? '赵晨' : '当前用户'}', role: 'pm' };

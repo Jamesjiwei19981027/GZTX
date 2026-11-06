@@ -12,7 +12,7 @@ import {
   borderAnchor, floatingEdgePath, straightEdgePath, highlightEdgeIds,
   snapToParentAxis, reparentVerdict, calculateCanvasDefaultCenter, type RectCoords, type BorderAnchor,
 } from './peopleAxisUtils'
-import { type AxisOrientation, CARD_W, CARD_H, FOLDED_ROW_H } from './peopleAxisFlowLayout'
+import { type AxisOrientation, CARD_W, CARD_H, FOLDED_ROW_H, FOLDED_ROW_H_MOBILE } from './peopleAxisFlowLayout'
 import { summarizeCardTasks, cardTaskChip, cardOverdueCount } from '../../api/mappers'
 
 export interface PersonNodeData extends Record<string, unknown> {
@@ -53,6 +53,8 @@ export interface PersonNodeData extends Record<string, unknown> {
   foldedFirst?: boolean
   /** 上轴非根、且不在当前用户上级链上：可「收回」 */
   canReturn?: boolean
+  /** 领导卡片连同折叠组的整块高度：纵向连线从整块底部出发，不穿过折叠行 */
+  footprintHeight?: number
   onToggleRow?: (id: string) => void
   onPull?: (id: string) => void
   onReturn?: (id: string) => void
@@ -89,7 +91,7 @@ const FoldedRowNode: React.FC<NodeProps<FoldedRowFlowNode>> = ({ data: d }) => {
   const overdue = useMemo(() => cardOverdueCount(n.workItems, today), [n.workItems, today])
   const zh = lang === 'zh'
   return (
-    <div className="axis-folded-row-wrap" data-node-anchor={n.id}>
+    <div className={`axis-folded-row-wrap${d.mobile ? ' is-mobile' : ''}`} data-node-anchor={n.id}>
       <HiddenHandles />
       {d.foldedFirst && <i className="axis-fold-stem" aria-hidden="true" />}
       <button
@@ -106,7 +108,7 @@ const FoldedRowNode: React.FC<NodeProps<FoldedRowFlowNode>> = ({ data: d }) => {
         <strong className="axis-folded-name">{n.person.name}</strong>
         <span className="axis-folded-role">{n.roleTitle}</span>
         <span className="axis-folded-count">{zh ? `任务 ${total}` : `Tasks ${total}`}</span>
-        {overdue > 0 && <span className="axis-folded-over">{zh ? `逾期 ${overdue}` : `Overdue ${overdue}`}</span>}
+        {overdue > 0 ? <span className="axis-folded-over">{zh ? `逾期 ${overdue}` : `Overdue ${overdue}`}</span> : <span aria-hidden="true" />}
         <ChevronDown size={16} aria-hidden="true" />
       </button>
     </div>
@@ -255,6 +257,40 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
         )}
       </div>
 
+      {isCompact && (d.foldedMember || d.canReturn) && (
+        <div className="axis-compact-actions">
+          {d.foldedMember && (
+            <>
+              <button
+                type="button"
+                className="foot-link nodrag"
+                data-testid={`axis-fold-${n.id}`}
+                onClick={e => { e.stopPropagation(); d.onToggleRow?.(n.id) }}
+              >
+                {lang === 'zh' ? '折叠' : 'Fold'}
+              </button>
+              <button
+                type="button"
+                className="foot-link nodrag"
+                data-testid={`axis-pull-${n.id}`}
+                onClick={e => { e.stopPropagation(); d.onPull?.(n.id) }}
+              >
+                {lang === 'zh' ? '拉到人轴' : 'Pull to axis'}
+              </button>
+            </>
+          )}
+          {d.canReturn && (
+            <button
+              type="button"
+              className="foot-link nodrag"
+              data-testid={`axis-return-${n.id}`}
+              onClick={e => { e.stopPropagation(); d.onReturn?.(n.id) }}
+            >
+              {lang === 'zh' ? '收回' : 'Return'}
+            </button>
+          )}
+        </div>
+      )}
       {isCompact ? (
         <div className="axis-compact-status">
           {overdueCount > 0 ? (
@@ -387,6 +423,13 @@ const BranchEdge: React.FC<EdgeProps> = ({ source, target, data }) => {
   if (!sn || !tn) return null
   const s = internalToRect(sn), t = internalToRect(tn)
   if (!s || !t) return null
+  // 纵向时领导卡片下方挂着折叠组：连线从整块（卡片 + 折叠组）底部出发，不穿过折叠行
+  const footprint = (sn.data as PersonNodeData | undefined)?.footprintHeight
+  if (d?.orientation === 'vertical' && footprint && footprint > s.height) {
+    s.height = footprint
+    s.bottom = s.top + footprint
+    s.centerY = s.top + footprint / 2
+  }
 
   const subordinate = d?.attachmentKind === 'subordinate'
   const isStraight = d?.edgeStyle === 'straight'
@@ -465,6 +508,8 @@ export interface PeopleAxisFlowCanvasProps {
   focusToken?: number
   onCancelLinking?: () => void
   fitToken?: number
+  /** 变化时等节点量好后自动适应一次（折叠相关的批量操作用） */
+  refitToken?: number
   centerMeToken?: number
   /** 一次性定位请求（含折叠成员）：节点出现后居中，随后回调 onLocateDone */
   locate?: { id: string; seq: number } | null
@@ -488,7 +533,7 @@ const ZoomReadout = () => {
 const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   lang, nodes, edges, orientation, edgeStyle = 'curve', linkingSourceNodeId, onNodeDragStop, onPaneClick,
   onResetLayout, onRequestReparent, onShowToast, resetToken, mobile, focusNodeId, focusToken, onCancelLinking,
-  fitToken, centerMeToken, locate, onLocateDone,
+  fitToken, refitToken, centerMeToken, locate, onLocateDone,
 }) => {
   const { zoomIn, zoomOut, fitView, setCenter, getNode, getZoom, screenToFlowPosition } = useReactFlow()
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<AxisFlowNode>(nodes)
@@ -602,6 +647,28 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
     }
   }, [mobile, orientation, visibleKey, resetToken, width, height, initialized, fitView, padding])
 
+  // 批量折叠操作后：新节点要先被量好（measured）再取景，否则按旧节点取景会留下空白画面
+  const lastRefitToken = useRef(refitToken ?? 0)
+  const [refitPending, setRefitPending] = useState(false)
+  useEffect(() => {
+    if (!refitToken || lastRefitToken.current === refitToken) return
+    lastRefitToken.current = refitToken
+    setRefitPending(true)
+  }, [refitToken])
+  useEffect(() => {
+    if (!refitPending || !initialized || !width || !height) return
+    const shown = rfNodes.filter(n => !n.hidden)
+    const rfKey = shown.filter(n => !(n.data as PersonNodeData).foldedMember).map(n =>
+      `${n.id}:${(n.data as PersonNodeData).node.parentId || ''}`,
+    ).join(',')
+    if (rfKey !== visibleKey || !shown.every(n => n.measured?.width)) return
+    setRefitPending(false)
+    const frame = requestAnimationFrame(() => {
+      void fitView({ duration: 0, padding, minZoom: mobile ? 0.25 : 0.05, maxZoom: 1 })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [refitPending, rfNodes, visibleKey, initialized, width, height, fitView, padding, mobile])
+
   // 响应外部工具条动作
   const lastFitToken = useRef(fitToken ?? 0)
   useEffect(() => {
@@ -622,7 +689,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
     const target = nodes.find(n => n.id === focusNodeId)
     if (target) {
       const pos = absolutePositionOf(nodes)(target)
-      const h = target.type === 'foldedRow' ? FOLDED_ROW_H : CARD_H
+      const h = target.type === 'foldedRow' ? (mobile ? FOLDED_ROW_H_MOBILE : FOLDED_ROW_H) : CARD_H
       void setCenter(pos.x + CARD_W / 2, pos.y + h / 2, { zoom: Math.max(getZoom(), mobile ? 0.85 : 1), duration: mobile ? 0 : duration })
     }
   }, [focusToken, focusNodeId, nodes, setCenter, getZoom, mobile, duration])
@@ -637,7 +704,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
     if (!target) return
     handledLocateSeq.current = locate.seq
     const pos = absolutePositionOf(nodes)(target)
-    const h = target.type === 'foldedRow' ? FOLDED_ROW_H : CARD_H
+    const h = target.type === 'foldedRow' ? (mobile ? FOLDED_ROW_H_MOBILE : FOLDED_ROW_H) : CARD_H
     void setCenter(pos.x + CARD_W / 2, pos.y + h / 2, { zoom: Math.max(getZoom(), mobile ? 0.85 : 1), duration: mobile ? 0 : duration })
     onLocateDone?.()
   }, [locate, nodes, initialized, width, height, setCenter, getZoom, mobile, duration, onLocateDone])

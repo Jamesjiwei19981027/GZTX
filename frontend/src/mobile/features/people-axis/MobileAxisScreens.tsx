@@ -791,6 +791,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 onShowToast={showToast}
                 mobile={true}
                 fitToken={fitToken}
+                refitToken={flowCanvas.foldFitSeq}
                 centerMeToken={centerMeToken}
                 locate={locate}
                 onLocateDone={handleLocateDone}
