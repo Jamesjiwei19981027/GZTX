@@ -626,6 +626,15 @@ test.describe('人轴「下属默认折叠」功能测试', () => {
 
     // 3 号已拉出：卡片上没有 18 像素的小收回按钮，点卡片打开底部面板
     await expect(page.locator('.react-flow__node[data-id="3"] .axis-map-card:not(.is-folded-member)')).toBeVisible()
+    // 默认取景以根为中心，3 号卡片只露出约 16 像素贴在屏幕底边；真人要先把画布往上推，卡片进入视口后再点
+    await page.mouse.move(40, 400)
+    await page.mouse.down()
+    await page.mouse.move(40, 150, { steps: 5 })
+    await page.mouse.up()
+    await expect.poll(async () => {
+      const b = await page.locator('.react-flow__node[data-id="3"] .axis-map-card').boundingBox()
+      return !!b && b.y >= 0 && b.y + b.height <= 844
+    }).toBe(true)
     await page.locator('.react-flow__node[data-id="3"] .axis-map-card').tap()
     await expect(page.getByText('责任节点预览')).toBeVisible()
 
