@@ -128,7 +128,7 @@ const ViewLoadingFallback: React.FC = () => (
 
 const ALL_PROJECT_ITEM: Project = {
   id: 'all',
-  name: '全盘研发概览 (All Projects Overview)',
+  name: '全盘研发概览',
   description: '跨项目总览（任务来自个人任务 API；人轴需选具体项目）',
   color: '#0058be',
   active: true,

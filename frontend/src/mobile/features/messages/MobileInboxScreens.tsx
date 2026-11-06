@@ -158,7 +158,7 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
                 : 'text-slate-500'
             }`}
           >
-            通知收件箱 (48)
+            通知收件箱
           </button>
           <button
             type="button"
@@ -169,7 +169,7 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
                 : 'text-slate-500'
             }`}
           >
-            外部邮件 (50)
+            外部邮件
           </button>
         </div>
         <div className="w-10 flex justify-end">
@@ -298,7 +298,7 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
       <MobileSheet
         isOpen={Boolean(selectedNotif)}
         onClose={() => setSelectedNotif(null)}
-        title="通知详情 (49)"
+        title="通知详情"
         snapPoints={['half', 'full']}
         defaultSnap="half"
       >
@@ -352,7 +352,7 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
                 className="min-h-[44px] w-full rounded-xl border border-[#0058BE] text-[#0058BE] dark:border-blue-500 dark:text-blue-400 text-xs font-semibold flex items-center justify-center gap-1.5 active:bg-blue-50"
               >
                 <AppIcon name="plus" size={16} />
-                <span>将此通知转为任务待办草稿 (98)</span>
+                <span>将此通知转为任务待办草稿</span>
               </button>
             )}
 

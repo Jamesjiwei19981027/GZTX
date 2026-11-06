@@ -48,7 +48,7 @@ async function open(page: Page, screen: string, manager = true, userId = '2', pu
       import { PeopleAxisView } from '/src/components/views/PeopleAxisView.tsx';
       import { MobileDelegationsScreen } from '/src/mobile/features/people-axis/MobileEvidenceScreens.tsx';
       import { DelegationModal } from '/src/components/modals/DelegationModal.tsx';
-      const project = { id:'1', name:'全盘研发概览 (All Projects Overview)', color:'#0058BE' };
+      const project = { id:'1', name:'全盘研发概览', color:'#0058BE' };
       const noop = () => {};
       function App() {
         const [current, setCurrent] = React.useState(${startAll ? "{id:'all',name:'全部项目',color:'#0058BE'}" : 'project'});

@@ -12,6 +12,7 @@
  * - 90: 第三方服务绑定 (微信/企微/钉钉真实绑定状态与合规提示)
  */
 
+import { categoryLabel, priorityLabel } from '../../../utils/taskLabels';
 import React, { useState, useEffect, useTransition } from 'react';
 import { useMobileNavigation } from '../../navigation/MobileNavigationProvider';
 import { useNativeRuntime } from '../../runtime/NativeRuntimeProvider';
@@ -179,7 +180,7 @@ export const MobileMeScreen: React.FC<SettingsSharedProps> = ({
           <MobileListItem
             leading={<AppIcon name="sliders" size={18} className="text-sky-600" />}
             title="任务默认值"
-            subtitle={`默认优先级: ${settings.taskDefaults?.priority || 'Medium'}`}
+            subtitle={`默认优先级: ${priorityLabel(settings.taskDefaults?.priority || 'Medium')}`}
             showDivider={false}
             onClick={() => push({ screen: 'me-defaults', title: '任务默认值' })}
           />
@@ -1112,7 +1113,7 @@ export const MobileTaskDefaultsScreen: React.FC<SettingsSharedProps> = ({
           {(['High', 'Medium', 'Low'] as Priority[]).map((p) => (
             <MobileListItem
               key={p}
-              title={p === 'High' ? '高优先级 (High)' : p === 'Medium' ? '中优先级 (Medium)' : '低优先级 (Low)'}
+              title={p === 'High' ? '高优先级' : p === 'Medium' ? '中优先级' : '低优先级'}
               selected={priority === p}
               trailing={priority === p ? <AppIcon name="check" size={18} className="text-[#0058BE]" /> : null}
               onClick={() => setPriority(p)}
@@ -1124,7 +1125,7 @@ export const MobileTaskDefaultsScreen: React.FC<SettingsSharedProps> = ({
           {(['Work', 'Personal', 'Documentation', 'Shopping', 'Health'] as Category[]).map((c) => (
             <MobileListItem
               key={c}
-              title={c}
+              title={categoryLabel(c)}
               selected={category === c}
               trailing={category === c ? <AppIcon name="check" size={18} className="text-[#0058BE]" /> : null}
               onClick={() => setCategory(c)}
