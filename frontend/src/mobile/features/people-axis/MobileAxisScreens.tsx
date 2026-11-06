@@ -15,8 +15,21 @@ import {
   BackendTreeNode,
   BackendMember,
 } from '../../../api/backend';
-import { mapTreeToPeopleAxis, summarizeCardTasks } from '../../../api/mappers';
-import { listAgentReports, latestReportByUser, reportStatusLabel, reportStatusTone, type AgentReport } from '../../../api/reports';
+import {
+  mapTreeToPeopleAxis,
+  summarizeCardTasks,
+  enrichMattersWithEvidence,
+  isWorkItemOverdue,
+  getWorkItemOverdueDays,
+} from '../../../api/mappers';
+import {
+  listAgentReports,
+  latestReportByUser,
+  reportStatusLabel,
+  reportStatusTone,
+  supervisorReportStatus,
+  type AgentReport,
+} from '../../../api/reports';
 import { averagePeopleAxisProgress } from '../../../components/views/peopleAxisUtils';
 import { getMyPermissions, MyProjectPermissions } from '../../../api/shell';
 import { AppIcon } from '../../ui/AppIcon';
@@ -51,7 +64,7 @@ export interface MobileAxisScreensProps {
   currentUser: UserProfile;
   companyId: number | string | null;
   onSelectProject?: (p: Project) => void;
-  onNavigateToReport?: (reportId?: string, nodeId?: string) => void;
+  onNavigateToReport?: (reportId?: string, nodeId?: string, projectId?: string | number) => void;
   onOpenWiki?: () => void;
   onOpenEvidence?: (nodeId?: string) => void;
   onOpenAudit?: () => void;
@@ -164,6 +177,12 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       } else {
         setReportsLoadFailed(true);
       }
+      try {
+        const enriched = await enrichMattersWithEvidence(mapped);
+        setAxisNodes(enriched);
+      } catch {
+        // 材料获取失败时保留已映射节点
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '加载人轴责任链失败';
       setError(message);
@@ -269,7 +288,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   if (!pid) {
     return (
       <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e]">
-        <MobileTopBar title={activeTab === 'mine' ? '我的责任链' : '项目全貌'} />
+        <MobileTopBar title={activeTab === 'mine' ? '我的职责' : '项目全貌'} />
         <MobileEmptyState
           iconName="folder"
           title="请先选择具体项目"
@@ -300,7 +319,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden relative">
       {/* 顶部导航条 */}
       <MobileTopBar
-        title={activeTab === 'mine' ? '我的责任链' : '项目全貌'}
+        title={activeTab === 'mine' ? '我的职责' : '项目全貌'}
         rightAction={
           <div className="flex items-center gap-1">
             {canChangeSupervisor && <button type="button" aria-label="新增主轴人员" onClick={()=>setEditPersonTarget({mode:'add'})} className="mobile-touch-target p-2 text-[#0058BE] dark:text-blue-400"><AppIcon name="plus" size={22}/></button>}
@@ -415,18 +434,28 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   </div>
                 </div>
 
-                {showAiStatus && (
+                {showAiStatus && !reportsLoadFailed && (
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
-                      onNavigateToReport?.(undefined, supervisorNode.id);
+                      onNavigateToReport?.(undefined, supervisorNode.id, pid);
                     }}
-                    className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs text-[#0058BE] dark:text-blue-400 font-medium"
+                    className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs font-medium"
                   >
-                    <span className="flex items-center gap-1.5 truncate">
-                      <AppIcon name="file" size={14} />
-                      已收到你的汇报 · 未读
-                    </span>
+                    {(() => {
+                      const supervisorReport = supervisorReportStatus(
+                        agentReports,
+                        currentUserIdNum,
+                        supervisorNode.ownerUserIds || [],
+                      );
+                      const tone = supervisorReport.tone;
+                      return (
+                        <span className={`flex items-center gap-1.5 truncate ${tone.textClass}`}>
+                          {tone.iconName && <AppIcon name={tone.iconName} size={14} />}
+                          {supervisorReport.label}
+                        </span>
+                      );
+                    })()}
                     <AppIcon name="chevron-right" size={14} className="shrink-0 text-slate-400" />
                   </div>
                 )}
@@ -473,7 +502,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
-                      onNavigateToReport?.();
+                      onNavigateToReport?.(undefined, undefined, pid);
                     }}
                     className="mt-3.5 pt-2.5 border-t border-blue-200/80 dark:border-blue-900/60 flex items-center justify-between text-xs text-[#0058BE] dark:text-blue-400 font-semibold"
                   >
@@ -617,10 +646,20 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                         <strong className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate block">
                           {item.title}
                         </strong>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                          {item.status === 'Done' ? '已完成' : '进行中'} ·{' '}
-                          {item.evidences?.length || 2} 份材料
-                        </p>
+                        {(() => {
+                          const isDone = item.status === 'Done';
+                          const isOverdue = isWorkItemOverdue(item);
+                          const overdueDays = isOverdue ? getWorkItemOverdueDays(item) : 0;
+                          return (
+                            <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                              <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                                {isDone ? '已完成' : isOverdue ? `逾期 ${overdueDays} 天` : '进行中'}
+                              </span>
+                              {' · '}
+                              {item.evidences?.length ?? 0} 份材料
+                            </p>
+                          );
+                        })()}
                       </div>
                       <AppIcon name="chevron-right" size={16} className="text-slate-400 shrink-0" />
                     </div>
@@ -1237,7 +1276,7 @@ interface NodeDetailContentProps {
   canManagePermissions: boolean;
   canChangeSupervisor: boolean;
   onOpenEvidence?: (nodeId?: string) => void;
-  onNavigateToReport?: (reportId?: string, nodeId?: string) => void;
+  onNavigateToReport?: (reportId?: string, nodeId?: string, projectId?: string | number) => void;
   onEditPerson: () => void;
   onEditPermissions: () => void;
   onMoveSupervisor: () => void;
@@ -1331,9 +1370,19 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
                   <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 block">
                     {item.title}
                   </strong>
-                  <span className="text-[11px] text-slate-400 mt-0.5 block">
-                    {item.status === 'Done' ? '已完成' : '进行中'} · {item.progress || 0}%
-                  </span>
+                  {(() => {
+                    const isDone = item.status === 'Done';
+                    const isOverdue = isWorkItemOverdue(item);
+                    const overdueDays = isOverdue ? getWorkItemOverdueDays(item) : 0;
+                    return (
+                      <span className="text-[11px] text-slate-400 mt-0.5 block">
+                        <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                          {isDone ? '已完成' : isOverdue ? `逾期 ${overdueDays} 天` : '进行中'}
+                        </span>
+                        {' · '}{item.progress || 0}%
+                      </span>
+                    );
+                  })()}
                 </div>
                 <AppIcon name="chevron-right" size={16} className="text-slate-400" />
               </div>

@@ -64,7 +64,7 @@ try {
   await tap(page.getByRole('button',{name:'取消',exact:true}));
   checked('Android: touching an input opens the full software keyboard over an unchanged page viewport');
   await tap(page.getByRole('tab',{name:'人轴',exact:true}));
-  const title = (await page.getByRole('heading',{name:'我的责任链',exact:true}).boundingBox())!;
+  const title = (await page.getByRole('heading',{name:'我的职责',exact:true}).boundingBox())!;
   const picker = (await page.getByLabel('选择项目',{exact:true}).boundingBox())!;
   expect(picker.y).toBeGreaterThan(title.y + title.height);
   checked('Project picker is below the title');

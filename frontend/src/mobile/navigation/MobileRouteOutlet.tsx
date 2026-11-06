@@ -511,10 +511,20 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             currentUser={props.user}
             companyId={props.companyId}
             onSelectProject={props.onSelectProject}
-            onNavigateToReport={(reportId, nodeId) => {
+            onNavigateToReport={(reportId, nodeId, projectId) => {
+              const targetPid = projectId || (props.currentProject.id !== 'all' ? props.currentProject.id : undefined);
+              if (targetPid && props.onSelectProject) {
+                const targetProject = props.projects.find((p) => String(p.id) === String(targetPid));
+                if (targetProject && String(props.currentProject.id) !== String(targetProject.id)) {
+                  props.onSelectProject(targetProject);
+                }
+              }
               push({
                 screen: 'ai-chat',
-                params: { reportId, nodeId },
+                params: {
+                  reportId: reportId != null ? String(reportId) : undefined,
+                  nodeId: nodeId != null ? String(nodeId) : undefined,
+                },
               });
             }}
             onOpenWiki={() => push({ screen: 'axis-wiki' })}
