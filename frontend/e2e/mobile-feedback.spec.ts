@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 test.use({ timezoneId: 'Asia/Shanghai' });
 
-async function open(page: Page, screen: string, manager = true, userId = '2', pullAll = true) {
+async function open(page: Page, screen: string, manager = true, userId = '2', pullAll = true, customNodes?: any[], startAll = false) {
   page.on('pageerror',error=>console.log(`feedback-pageerror: ${error.message}`));
   const isDesktop = screen.startsWith('desktop-');
   await page.setViewportSize(isDesktop ? { width: 1440, height: 1000 } : { width: 390, height: 844 });
@@ -14,7 +14,7 @@ async function open(page: Page, screen: string, manager = true, userId = '2', pu
       id, parent_id: parent, node_type_key: 'person', title: name, children, node_origin: parent ? 'subordinate' : 'project',
       assignees: [{ user_id: id, display_name: name, role_key: 'primary' }],
     });
-    if (path.endsWith('/tree')) data = { nodes: [person(1, null, '项目经理', [person(2, 1, '直属成员'), person(3, 1, '同级成员'),
+    if (path.endsWith('/tree')) data = { nodes: customNodes ?? [person(1, null, '项目经理', [person(2, 1, '直属成员'), person(3, 1, '同级成员'),
       {id:11,parent_id:1,node_type_key:'work_item',title:'方案确认',progress_json:{percent:100,status:'done'},children:[]},
       {id:12,parent_id:1,node_type_key:'work_item',title:'接口联调',progress_json:{percent:50,status:'in_progress'},children:[]},
     ])] };
@@ -51,11 +51,12 @@ async function open(page: Page, screen: string, manager = true, userId = '2', pu
       const project = { id:'1', name:'全盘研发概览 (All Projects Overview)', color:'#0058BE' };
       const noop = () => {};
       function App() {
+        const [current, setCurrent] = React.useState(${startAll ? "{id:'all',name:'全部项目',color:'#0058BE'}" : 'project'});
         const [settings, setSettings] = React.useState({themeMode:'light', accentColor:'blue', language:'zh', notifications:{},taskDefaults:{priority:'Medium',category:'Work'}});
         React.useEffect(() => { document.documentElement.classList.toggle('dark', settings.themeMode === 'dark'); }, [settings]);
         const props = { settings, onUpdateSettings: partial => setSettings(old => ({...old,...partial})), user:{id:'2',name:'直属成员',role:'member'},
-          tasks:[{id:'schedule-1',title:'周会讨论',status:'To Do',priority:'Medium',projectId:'1',dueDate:'2026-10-20',dueTime:'09:30',subtasks:[]}], projects:[project], currentProject:project, companyId:1, projectMembers:[], activities:[],
-          onSelectProject:noop, onOpenNewTask:noop, onOpenQuickAdd:noop, onOpenSearch:noop, onSelectTask:noop, onToggleTaskCompletion:noop,
+          tasks:[{id:'schedule-1',title:'周会讨论',status:'To Do',priority:'Medium',projectId:'1',dueDate:'2026-10-20',dueTime:'09:30',subtasks:[]}], projects:${startAll ? "[{id:'all',name:'全部项目',color:'#0058BE'},project]" : '[project]'}, currentProject:current, companyId:1, projectMembers:[], activities:[],
+          onSelectProject:p => { window.__selected = p.id; ${startAll ? 'setCurrent(p)' : ''} }, onOpenNewTask:noop, onOpenQuickAdd:noop, onOpenSearch:noop, onSelectTask:noop, onToggleTaskCompletion:noop,
           onBatchComplete:noop,onBatchReschedule:noop,onBatchDelete:noop,onUpdateUser:noop,onUploadAvatar:noop,onLogout:noop };
         props.user.id = '${userId}'; props.user.name = '${userId}' === '2' ? '直属成员' : '无节点项目经理';
         let content;
@@ -149,7 +150,7 @@ test('person cards drag independently and connected lines follow in both orienta
 
 test('project selector does not overlap title, member cannot add subordinates or change supervisor', async ({ page }) => {
   await open(page, 'axis', false);
-  const title = await page.getByRole('heading', { name:'我的责任链', exact:true }).boundingBox();
+  const title = await page.getByRole('heading', { name:'我的职责', exact:true }).boundingBox();
   const picker = await page.getByLabel('选择项目', {exact:true}).boundingBox();
   expect(picker!.y).toBeGreaterThanOrEqual(title!.y + title!.height);
   await expect(page.getByRole('button', { name:'添加下级人员',exact:true })).toHaveCount(0);
@@ -217,7 +218,7 @@ test('home shows interactive schedule and real project progress',async ({page})=
 test('project axis navigation switches tab and preserves work navigation stack', async ({page}) => {
   await open(page, 'work');
   await page.evaluate(() => (window as any).__MOBILE_NAV__.push({tab:'axis',screen:'axis-root',title:'人轴'}));
-  await expect(page.getByRole('heading',{name:'我的责任链',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'我的职责',exact:true})).toBeVisible();
   expect(await page.evaluate(() => (window as any).__MOBILE_NAV__.currentTab)).toBe('axis');
   await page.evaluate(() => (window as any).__MOBILE_NAV__.switchTab('work'));
   await expect(page.getByRole('region',{name:'首页日程日历'})).toBeVisible();
@@ -245,7 +246,7 @@ test('work has one search, task creation and AI progress entry without duplicate
 
 test('project manager without assigned node is never labelled as a different employee', async ({page}) => {
   await open(page, 'axis', true, '99');
-  await expect(page.getByRole('heading',{name:'我的责任链',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'我的职责',exact:true})).toBeVisible();
   await expect(page.getByText(/· 我$/)).toHaveCount(0);
   await expect(page.getByText('当前为项目顶层负责人，无直属上级')).toHaveCount(0);
 });
@@ -306,3 +307,57 @@ test('person removal requires preview and explicit handover, while secondary rem
   expect(url.searchParams.get('preview_token')).toBe('fixture-preview');
   expect(url.searchParams.has('cascade')).toBe(false);
 });
+
+test('my duty screen: shows no false report row, zero evidence count, and overdue badge', async ({ page }) => {
+  const person = (id: number, parent: number | null, name: string, children: any[] = []) => ({
+    id,
+    parent_id: parent,
+    node_type_key: 'person',
+    title: name,
+    children,
+    node_origin: parent ? 'subordinate' : 'project',
+    assignees: [{ user_id: id, display_name: name, role_key: 'primary' }],
+  });
+
+  const customNodes = [
+    person(1, null, '项目经理', [
+      person(2, 1, '直属成员', [
+        {
+          id: 21,
+          parent_id: 2,
+          node_type_key: 'work_item',
+          title: '移动端责任事项',
+          due_at: '2026-11-01T00:00:00Z',
+          progress_json: { percent: 30, status: 'in_progress' },
+          children: [],
+        },
+      ]),
+    ]),
+  ];
+
+  await open(page, 'axis', false, '2', true, customNodes);
+
+  // 1. 标题为“我的职责”
+  await expect(page.getByRole('heading', { name: '我的职责', exact: true })).toBeVisible();
+
+  // 2. 断言无汇报时页面不出现「已收到你的汇报」
+  await expect(page.getByText('已收到你的汇报')).toHaveCount(0);
+  await expect(page.getByText('暂无汇报').first()).toBeVisible();
+
+  // 3. 断言材料数为 0 时显示「0 份材料」
+  await expect(page.getByText('0 份材料')).toBeVisible();
+
+  // 4. 断言逾期事项显示「逾期」
+  await expect(page.getByText(/逾期/)).toBeVisible();
+});
+
+test('my duty report row opens the AI report page with the shown project instead of the select-project prompt', async ({ page }) => {
+  await open(page, 'work', false, '2', true, undefined, true);
+  await page.evaluate(() => (window as any).__MOBILE_NAV__.push({tab:'axis',screen:'axis-root',title:'人轴'}));
+  await expect(page.getByRole('heading',{name:'我的职责',exact:true})).toBeVisible();
+  await page.getByText('暂无汇报').last().click();
+  await expect(page.getByRole('heading',{name:'与我的 AI 对话'})).toBeVisible();
+  await expect(page.getByText('请选择具体项目')).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).__selected)).toBe('1');
+});
+

@@ -89,5 +89,7 @@ const screensSource = fs.readFileSync(screensFilePath, 'utf-8')
 assert.equal(screensSource.includes('14:30'), false, 'MobileAxisScreens.tsx 不应再包含 14:30')
 assert.equal(screensSource.includes('4 条来源'), false, 'MobileAxisScreens.tsx 不应再包含 4 条来源')
 assert.equal(screensSource.includes('70%'), false, 'MobileAxisScreens.tsx 不应再包含 70%')
+assert.equal(screensSource.includes('已收到你的汇报 · 未读'), false, 'MobileAxisScreens.tsx 不应再写死 已收到你的汇报 · 未读')
+assert.equal(screensSource.includes('|| 2} 份材料'), false, 'MobileAxisScreens.tsx 不应再写死 || 2 份材料')
 
 console.log('Mobile axis report status and source assertions PASSED')

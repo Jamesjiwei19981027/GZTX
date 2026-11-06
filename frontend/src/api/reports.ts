@@ -202,3 +202,55 @@ export function reportStatusTone(report: AgentReport | null | undefined): Report
   }
   return { kind: 'submitted', iconName: 'check-circle', textClass: 'text-emerald-600 dark:text-emerald-400' }
 }
+
+export function supervisorReportStatus(
+  reports: AgentReport[],
+  authorUserId: number | string | null | undefined,
+  supervisorUserIds: (number | string)[],
+): { label: string; tone: ReportStatusTone } {
+  if (authorUserId == null) {
+    return { label: '暂无汇报', tone: reportStatusTone(null) }
+  }
+
+  const supervisorSet = new Set((supervisorUserIds || []).map((id) => String(id)))
+
+  const matched = (reports || []).filter((r) => {
+    if (String(r.author_user_id) !== String(authorUserId)) return false
+    // parent_user_id 为空或者属于 supervisorUserIds
+    if (r.parent_user_id == null) return true
+    return supervisorSet.has(String(r.parent_user_id))
+  })
+
+  if (matched.length === 0) {
+    return { label: '暂无汇报', tone: reportStatusTone(null) }
+  }
+
+  const latest = [...matched].sort((a, b) => {
+    const timeA = a.submitted_at || a.created_at || ''
+    const timeB = b.submitted_at || b.created_at || ''
+    if (timeA && timeB && timeA !== timeB) return timeB.localeCompare(timeA)
+    return (b.id || 0) - (a.id || 0)
+  })[0]
+
+  const tone = reportStatusTone(latest)
+
+  if (latest.status === 'draft') {
+    return {
+      label: reportStatusLabel(latest),
+      tone,
+    }
+  }
+
+  if (latest.read) {
+    return {
+      label: '领导已读',
+      tone,
+    }
+  }
+
+  return {
+    label: '已提交 · 领导未读',
+    tone,
+  }
+}
+

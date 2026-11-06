@@ -7,11 +7,10 @@ import {
   createNode,
   getProject,
   getProjectTree,
-  listNodeEvidence,
   listProjectMembers,
   submitEvidence,
 } from '../../api/backend';
-import { mapMember, mapTreeToPeopleAxis, extraRootIds } from '../../api/mappers';
+import { mapMember, mapTreeToPeopleAxis, extraRootIds, asBackendId, enrichMattersWithEvidence } from '../../api/mappers';
 import { withAxisPersonMetadata } from '../../api/axisPerson';
 import { getMyPermissions, getPeopleAxisAggregate, runAxisAudit, MyProjectPermissions } from '../../api/shell';
 import { fetchMe } from '../../api/auth';
@@ -27,92 +26,10 @@ import { ResponsibilityPermissionFields, defaultResponsibilityPermissions } from
 import { ProjectWikiPanel } from './ProjectWikiPanel';
 import { uploadEvidenceFile } from '../../api/projectWiki';
 
-function asBackendId(id?: string | null): number | null {
-  if (!id) return null;
-  const n = Number(id);
-  return Number.isFinite(n) && n > 0 ? n : null;
-}
-
 function matterTypeKey(type: 'task' | 'milestone' | 'scope'): string {
   if (type === 'milestone') return 'milestone';
   if (type === 'scope') return 'scope';
   return 'work_item';
-}
-
-async function enrichMattersWithEvidence(
-  axisNodes: PeopleAxisNode[],
-): Promise<PeopleAxisNode[]> {
-  const matterIds = Array.from(
-    new Set(
-      axisNodes
-        .flatMap((n) => n.workItems.map((w) => asBackendId(w.id)))
-        .filter((id): id is number => id != null),
-    ),
-  );
-  if (!matterIds.length) return axisNodes;
-
-  type EvItem = {
-    id: number
-    summary_text?: string
-    status?: string
-    submitted_at?: string
-    evidence_kind?: string
-    external_url?: string
-    structured?: { evidence_kind?: string; external_url?: string }
-  }
-  const pairs: [number, EvItem[]][] = await Promise.all(
-    matterIds.map(async (id) => {
-      try {
-        const res = await listNodeEvidence(id);
-        return [id, res.items || []];
-      } catch {
-        return [id, [] as EvItem[]];
-      }
-    }),
-  );
-  const byId = new Map<number, EvItem[]>(pairs);
-
-  return axisNodes.map((n) => ({
-    ...n,
-    workItems: n.workItems.map((wi) => {
-      const mid = asBackendId(wi.id);
-      const items = mid != null ? byId.get(mid) || [] : [];
-      if (!items.length) return wi;
-      const kinds: AxisEvidence['type'][] = [
-        'commit',
-        'document',
-        'figma',
-        'log',
-        'delivery',
-      ];
-      const evidences: AxisEvidence[] = items.map((ev) => {
-        const raw = (ev.summary_text || '').trim();
-        const firstLine = raw.split('\n')[0] || '证据';
-        const kindMatch = firstLine.match(/^\[([^\]]+)\]\s*(.*)$/);
-        const urlLine = raw.split('\n').find((l) => l.startsWith('url:'));
-        const kindRaw =
-          ev.evidence_kind ||
-          ev.structured?.evidence_kind ||
-          kindMatch?.[1] ||
-          'document';
-        const kind = kinds.includes(kindRaw as AxisEvidence['type'])
-          ? (kindRaw as AxisEvidence['type'])
-          : 'document';
-        return {
-          id: String(ev.id),
-          type: kind,
-          title: kindMatch?.[2] || firstLine,
-          url:
-            ev.external_url ||
-            ev.structured?.external_url ||
-            (urlLine ? urlLine.replace(/^url:\s*/, '') : '#'),
-          timestamp: (ev.submitted_at || '').slice(5, 16).replace('T', ' ') || '—',
-          status: (ev.status === 'rejected' ? 'rejected' : ev.status === 'submitted' ? 'pending' : 'verified') as AxisEvidence['status'],
-        };
-      });
-      return { ...wi, evidences };
-    }),
-  }));
 }
 
 interface PeopleAxisViewProps {
