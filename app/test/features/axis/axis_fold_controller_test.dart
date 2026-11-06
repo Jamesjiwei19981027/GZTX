@@ -19,12 +19,12 @@ http.Response _ok(dynamic data) => http.Response(
     );
 
 /// 默认树：根 101（王宁）→ 102（林悦，用户 11 自己）；根 104、103。
-MockClient _mock() => MockClient((request) async {
+MockClient _mock({List<Map<String, dynamic>>? tree}) => MockClient((request) async {
       final path = request.url.path.replaceFirst('/api/v1', '');
       final match = RegExp(r'^/projects/(\d+)').firstMatch(path);
       final pid = int.tryParse(match?.group(1) ?? '') ?? 1;
       if (path.endsWith('/tree')) {
-        return _ok({'project_id': pid, 'nodes': AxisTestHarness.defaultTree()});
+        return _ok({'project_id': pid, 'nodes': tree ?? AxisTestHarness.defaultTree()});
       }
       if (path.endsWith('/members')) return _ok(AxisTestHarness.membersPayload());
       if (path.endsWith('/my-permissions')) {
@@ -43,12 +43,13 @@ AxisController _build({
   int userId = AxisTestHarness.memberUserId,
   int projectId = 1,
   Future<SharedPreferences> Function()? loader,
+  List<Map<String, dynamic>>? tree,
 }) =>
     AxisController(
       api: AxisApi(
         ApiClient(
           tokenStorage: InMemoryTokenStorage(access: 'token'),
-          httpClient: _mock(),
+          httpClient: _mock(tree: tree),
           baseUrl: 'http://localhost:8010/api/v1',
         ),
       ),
@@ -133,30 +134,81 @@ void main() {
   });
 
   test('revealPerson：把所有上级拉出并保存，再展开他这一行', () async {
-    // 用户 11 的节点是 102（父 101 为根）；单独造一个更深的场景用 104/103 无下属，
-    // 所以这里验证 102：本人是 101 的下属，需展开行；上级是根，不进拉出集合。
-    final c = _build();
+    // 门槛规则下第 2 层人员（102）默认上轴；按规范对需要折叠状态的用例改用第 3 层人员 105（父级 102）。
+    // 验证定位 105：上级 102（非根）被加入拉出集合并持久化，未上轴的 105 展开这一行。
+    final tree = [
+      AxisTestHarness.personNode(
+        id: 101,
+        parentId: null,
+        name: '王宁',
+        role: '项目负责人',
+        department: '项目部',
+        userId: 10,
+        sortOrder: 0,
+        children: [
+          AxisTestHarness.personNode(
+            id: 102,
+            parentId: 101,
+            name: '林悦',
+            role: '设计负责人',
+            department: '设计部',
+            userId: AxisTestHarness.memberUserId,
+            nodeOrigin: 'subordinate',
+            children: [
+              AxisTestHarness.personNode(
+                id: 105,
+                parentId: 102,
+                name: '小明',
+                role: '初级设计',
+                department: '设计部',
+                userId: 98,
+                nodeOrigin: 'subordinate',
+              ),
+            ],
+          ),
+        ],
+      ),
+      AxisTestHarness.personNode(
+        id: 104,
+        parentId: null,
+        name: '赵晨',
+        role: '产品负责人',
+        department: '产品部',
+        userId: 13,
+        sortOrder: 1,
+      ),
+      AxisTestHarness.personNode(
+        id: 103,
+        parentId: null,
+        name: '陈宇',
+        role: '项目经理',
+        department: '项目部',
+        userId: 1,
+        sortOrder: 2,
+      ),
+    ];
+    final c = _build(tree: tree);
     await c.load();
-    c.revealPerson(102);
+    c.revealPerson(105);
     await _settle();
-    expect(c.pulledIds, isEmpty);
-    expect(c.expandedRowIds, {102});
+    expect(c.pulledIds, {102});
+    expect(c.expandedRowIds, {105});
 
     // 隐藏该组后定位，会重新显示。
-    c.toggleStack(101);
-    expect(c.hiddenStackIds, {101});
-    c.togglePersonRow(102);
-    c.revealPerson(102);
+    c.toggleStack(102);
+    expect(c.hiddenStackIds, {102});
+    c.togglePersonRow(105);
+    c.revealPerson(105);
     expect(c.hiddenStackIds, isEmpty);
-    expect(c.expandedRowIds, {102});
+    expect(c.expandedRowIds, {105});
 
     // 已上轴的人不再展开。
-    c.pullToAxis(102);
-    c.revealPerson(102);
+    c.pullToAxis(105);
+    c.revealPerson(105);
     expect(c.expandedRowIds, isEmpty);
     // 不存在的人忽略。
     c.revealPerson(12345);
-    expect(c.pulledIds, {102});
+    expect(c.pulledIds, {102, 105});
     c.dispose();
   });
 

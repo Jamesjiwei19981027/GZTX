@@ -32,9 +32,15 @@ AxisPersonNode person(
       sortOrder: sortOrder,
     );
 
-/// 1 是根；2、3 是 1 的下属；4 是 2 的下属。
+/// 1 是根；11~15 是 1 的前 5 位下属（占满第 2 层默认名额）；
+/// 2、3 是 1 的超名额下属（第 2 层超名额，默认折叠）；4 是 2 的下属（第 3 层）。
 List<AxisPersonNode> tree() => [
       person(1, null),
+      person(11, 1, sortOrder: -5),
+      person(12, 1, sortOrder: -4),
+      person(13, 1, sortOrder: -3),
+      person(14, 1, sortOrder: -2),
+      person(15, 1, sortOrder: -1),
       person(2, 1, sortOrder: 0),
       person(3, 1, sortOrder: 1),
       person(4, 2),
@@ -322,7 +328,8 @@ void main() {
     await tester.pumpAndSettle();
 
     final content = union([
-      tester.getRect(key('axis-person-1')),
+      for (final id in [1, 11, 12, 13, 14, 15])
+        tester.getRect(key('axis-person-$id')),
       tester.getRect(key('axis-folded-row-2')),
       tester.getRect(key('axis-folded-row-3')),
     ]);
@@ -388,6 +395,7 @@ void main() {
     );
     final nodes = [
       person(1, null),
+      for (var i = 11; i <= 15; i++) person(i, 1, sortOrder: -i),
       person(2, 1,
           sortOrder: 0, name: '张三丰丰', role: '产品负责人', items: [overdueItem]),
       person(3, 1, sortOrder: 1, name: '李四', role: '研发负责人'),
@@ -490,7 +498,8 @@ void main() {
         sort: AxisSort.tree,
         fold: const AxisFoldSpec(pulled: {2}, expandedRows: {3}),
       );
-      final conn = layout.connections.single; // 1 -> 2
+      final conn = layout.connections
+          .firstWhere((c) => c.fromId == 1 && c.toId == 2); // 1 -> 2
       final stack = layout.stacks.firstWhere((s) => s.leaderId == 1);
       final stackRects = [for (final m in stack.members) m.rect];
       final lastBottom =
@@ -525,6 +534,7 @@ void main() {
     );
     final nodes = [
       person(1, null),
+      for (var i = 11; i <= 15; i++) person(i, 1, sortOrder: -i),
       person(2, 1, sortOrder: 0, name: '赵晨', items: [overdueItem]),
       person(3, 1, sortOrder: 1, name: '孙琪'),
       person(4, 2, name: '陈宇', items: [overdueItem]),
@@ -666,6 +676,7 @@ void main() {
     );
     final nodes = [
       person(1, null, items: [taskItem]),
+      for (var i = 11; i <= 15; i++) person(i, 1, sortOrder: -i),
       person(2, 1, items: [taskItem]),
       person(3, 1),
       person(4, 2),
