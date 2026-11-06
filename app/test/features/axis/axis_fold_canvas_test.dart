@@ -512,4 +512,80 @@ void main() {
       }
     }
   });
+
+  testWidgets('精简形态（27% 缩放）：有逾期与暂无任务的卡片都放得下，无溢出，操作按钮可点', (tester) async {
+    bigView(tester);
+    final overdueItem = AxisWorkItem(
+      id: 1,
+      title: '逾期事项',
+      nodeTypeKey: 'work_item',
+      status: 'in_progress',
+      percent: 10,
+      dueAt: DateTime.now().subtract(const Duration(days: 5)),
+    );
+    final nodes = [
+      person(1, null),
+      person(2, 1, sortOrder: 0, name: '赵晨', items: [overdueItem]),
+      person(3, 1, sortOrder: 1, name: '孙琪'),
+      person(4, 2, name: '陈宇', items: [overdueItem]),
+      person(5, 2, sortOrder: 1, name: '刘洋'),
+    ];
+    final controller = AxisViewportController();
+    addTearDown(controller.dispose);
+    final returned = <int>[];
+    final folded = <int>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        // 系统字体放大时（卡片内最多放大到 1.15）也不能溢出。
+        builder: (context, child) => MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: const TextScaler.linear(1.3),
+          ),
+          child: child!,
+        ),
+        home: Scaffold(
+          body: SizedBox(
+            width: 1400,
+            height: 1300,
+            child: AxisCanvas(
+              nodes: nodes,
+              orientation: AxisOrientation.vertical,
+              spacing: AxisSpacing.standard,
+              sort: AxisSort.tree,
+              viewportController: controller,
+              fold: const AxisFoldSpec(
+                pulled: {2, 3},
+                expandedRows: {4, 5},
+              ),
+              onReturnFromAxis: returned.add,
+              onToggleFoldedRow: folded.add,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    controller.setScale(0.27);
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    for (final id in [2, 3]) {
+      expect(key('axis-return-$id'), findsOneWidget);
+      final card = tester.getRect(key('axis-person-$id'));
+      final btn = tester.getRect(key('axis-return-$id'));
+      expect(card.inflate(0.01).contains(btn.center), isTrue);
+      expect(btn.bottom, lessThanOrEqualTo(card.bottom + 0.01));
+    }
+    for (final id in [4, 5]) {
+      for (final a in ['fold', 'pull']) {
+        final btn = tester.getRect(key('axis-$a-$id'));
+        final card = tester.getRect(key('axis-person-$id'));
+        expect(btn.bottom, lessThanOrEqualTo(card.bottom + 0.01));
+      }
+    }
+    await tester.tap(key('axis-return-2'));
+    await tester.tap(key('axis-fold-4'));
+    expect(returned, [2]);
+    expect(folded, [4]);
+  });
 }

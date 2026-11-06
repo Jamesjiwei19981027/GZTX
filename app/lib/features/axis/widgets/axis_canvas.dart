@@ -855,7 +855,7 @@ class _AxisCanvasState extends State<AxisCanvas>
     final card = Container(
       key: Key('axis-person-${node.id}'),
       padding: isCompact
-          ? const EdgeInsets.symmetric(horizontal: 20, vertical: 22)
+          ? const EdgeInsets.symmetric(horizontal: 20, vertical: 10)
           : const EdgeInsets.fromLTRB(12, 10, 12, 8),
       decoration: BoxDecoration(
         color: background,
