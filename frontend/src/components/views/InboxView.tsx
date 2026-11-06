@@ -21,6 +21,8 @@ interface InboxViewProps {
   onOpenNewTaskWithTitle?: (title: string, desc: string, source?: { channel?: string; title?: string; url?: string }) => void;
   lang: Language;
   companyId?: number | null;
+  /** 仅公司管理员才能读取集成列表；普通成员不发请求 */
+  canViewIntegrations?: boolean;
 }
 
 type InboxRow = {
@@ -84,6 +86,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   onOpenNewTaskWithTitle,
   lang,
   companyId,
+  canViewIntegrations = false,
 }) => {
   const [integrations, setIntegrations] = useState<IntegrationItem[]>([]);
   const [inboxItems, setInboxItems] = useState<InboxRow[]>([]);
@@ -105,7 +108,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
       try {
         const [notif, integ] = await Promise.all([
           listCollabNotifications(1, state),
-          companyId
+          companyId && canViewIntegrations
             ? listIntegrations(companyId).catch(() => ({ items: [] }))
             : Promise.resolve({ items: [] }),
         ]);
@@ -171,7 +174,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [companyId, state]);
+  }, [companyId, state, canViewIntegrations]);
 
   const reloadExternalMail = async () => {
     if (!companyId) return;
@@ -355,7 +358,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
                 {mode === 'all' ? (lang === 'zh' ? '全部' : 'All') : mode === 'unread' ? (lang === 'zh' ? '未读' : 'Unread') : (lang === 'zh' ? '需回复' : 'Needs reply')}
               </button>
             ))}
-            <button type="button" onClick={() => void markAllNotificationsRead().then(() => setInboxItems((prev) => prev.map((item) => ({ ...item, read: true, tag: 'Read' }))))} className="px-3 py-1.5 rounded-lg text-xs font-bold text-primary bg-primary/10">
+            <button type="button" onClick={() => void markAllNotificationsRead().then(() => setInboxItems((prev) => prev.map((item) => ({ ...item, read: true, tag: 'Read' })))).catch(() => setError(lang === 'zh' ? '全部已读失败，请重试' : 'Failed to mark all as read'))} className="px-3 py-1.5 rounded-lg text-xs font-bold text-primary bg-primary/10">
               {lang === 'zh' ? '全部已读' : 'Mark all read'}
             </button>
             <select value={state} onChange={(e) => setState(e.target.value as typeof state)} className="px-2 py-1.5 rounded-lg text-xs font-bold bg-surface-container border border-outline-variant">

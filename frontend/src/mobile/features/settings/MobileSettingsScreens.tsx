@@ -1256,7 +1256,6 @@ export const MobileBillingHelpScreen: React.FC<SettingsSharedProps> = () => {
               <span className="font-semibold text-slate-600 dark:text-slate-300">
                 工作梯 APP V2.0.0 (Build 20261019)
               </span>
-              <span>Flutter WebShell Bridge v1.0 · React 19 Client</span>
             </div>
           </>
         )}
