@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseApiDateTime } from '../../../utils/datetime';
 import { Project, UserProfile } from '../../../types';
 import { AppIcon } from '../../ui/AppIcon';
 import { MobileTopBar } from '../../ui/MobileTopBar';
@@ -124,7 +125,7 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
             </div>
             <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">汇报已提交</h2>
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-              {currentProject.name} · {displayReport?.submitted_at ? new Date(displayReport.submitted_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '刚刚'}
+              {currentProject.name} · {displayReport?.submitted_at ? parseApiDateTime(displayReport.submitted_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '刚刚'}
             </p>
           </div>
 
@@ -317,7 +318,7 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
                         </div>
                         <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
                           {r.submitted_at
-                            ? new Date(r.submitted_at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            ? parseApiDateTime(r.submitted_at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                             : '草稿'} · {isSubmitted ? `已送达直属领导` : '未提交'}
                         </p>
                       </div>
@@ -363,7 +364,7 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
                     {displayReport.status === 'aggregated' ? '已聚合到项目汇报' : displayReport.status === 'submitted' ? '已正式提交' : '草稿'}
                   </span>
                   <span className="text-xs text-slate-400">
-                    提交时间：{displayReport.submitted_at ? new Date(displayReport.submitted_at).toLocaleString('zh-CN') : '未提交'}
+                    提交时间：{displayReport.submitted_at ? parseApiDateTime(displayReport.submitted_at).toLocaleString('zh-CN') : '未提交'}
                   </span>
                 </div>
 

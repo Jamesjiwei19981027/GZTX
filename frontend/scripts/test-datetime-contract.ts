@@ -66,4 +66,21 @@ const dayEnd = new Date(2026, 4, 28, 23, 59, 59, 999)
 check(localDayEndToApi('2026-05-28'), dayEnd.toISOString(), '当天结束时刻')
 check(localDayEndToApi('bad'), undefined, '非法日期无端点')
 
+
+// 汇报时间：后端不带时区的时间按 UTC 解析（东八区 16:13 UTC 应是次日 00:13 本地）
+import { parseApiDateTime } from '../src/utils/datetime'
+import { reportStatusLabel } from '../src/api/reports'
+const utcMs = Date.UTC(2026, 10, 6, 16, 13, 0)
+check(parseApiDateTime('2026-11-06T16:13:00').getTime(), utcMs, '无时区时间按 UTC 解析')
+check(parseApiDateTime('2026-11-06T16:13:00Z').getTime(), utcMs, '带 Z 的时间不变')
+check(parseApiDateTime('2026-11-07T00:13:00+08:00').getTime(), utcMs, '带偏移的时间不变')
+check(parseApiDateTime(null).getTime(), NaN, '空值得到无效时间')
+const localLabel = new Date(utcMs)
+const pad2 = (n: number) => String(n).padStart(2, '0')
+check(
+  reportStatusLabel({ id: 1, status: 'submitted', submitted_at: '2026-11-06T16:13:00' } as never),
+  `${pad2(localLabel.getMonth() + 1)}-${pad2(localLabel.getDate())} ${pad2(localLabel.getHours())}:${pad2(localLabel.getMinutes())} 已提交`,
+  '汇报时间标签按 UTC 换算为本地',
+)
+
 console.log(`datetime contract: ${count} assertions passed`)

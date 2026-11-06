@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { parseApiDateTime } from '../../../utils/datetime';
 import { Project, UserProfile } from '../../../types';
 import { AppIcon } from '../../ui/AppIcon';
 import { MobileTopBar } from '../../ui/MobileTopBar';
@@ -251,7 +252,7 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
                     </p>
                     <span className="text-[11px] text-slate-400 block mt-1">
                       {r.submitted_at
-                        ? new Date(r.submitted_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+                        ? parseApiDateTime(r.submitted_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
                         : '今天'}
                     </span>
                   </div>
