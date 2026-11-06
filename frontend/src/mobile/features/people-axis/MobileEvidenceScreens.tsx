@@ -686,58 +686,6 @@ export const MobileProgressRecordScreen: React.FC<MobileProgressRecordScreenProp
       />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 mobile-scroll-container">
-        {/* 顶部进度指标卡片 */}
-        <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
-              交互原型评审
-            </h3>
-            <span className="text-lg font-extrabold text-[#0058BE]">70%</span>
-          </div>
-          <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-            <div className="h-full bg-[#0058BE] rounded-full" style={{ width: '70%' }} />
-          </div>
-          <p className="text-xs text-slate-400">更新于今天 15:20 · 进行中</p>
-        </div>
-
-        {/* 进度记录时间轴 */}
-        <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
-            进度记录
-          </h2>
-          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs space-y-4">
-            <div className="relative pl-6 pb-2 border-l-2 border-blue-200 dark:border-blue-900 last:border-l-0">
-              <span className="absolute -left-[7px] top-0.5 w-3 h-3 rounded-full bg-[#0058BE] ring-4 ring-white dark:ring-slate-900" />
-              <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
-                今天 15:20 · 70%
-              </strong>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                补齐员工端原型，管理者汇报入口待验收。
-              </p>
-            </div>
-
-            <div className="relative pl-6 pb-2 border-l-2 border-blue-200 dark:border-blue-900 last:border-l-0">
-              <span className="absolute -left-[7px] top-0.5 w-3 h-3 rounded-full bg-blue-300 dark:bg-blue-700 ring-4 ring-white dark:ring-slate-900" />
-              <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
-                昨天 17:40 · 40%
-              </strong>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                基础任务流程已完成，附评审纪要。
-              </p>
-            </div>
-
-            <div className="relative pl-6 last:border-l-0">
-              <span className="absolute -left-[7px] top-0.5 w-3 h-3 rounded-full bg-slate-300 dark:bg-slate-700 ring-4 ring-white dark:ring-slate-900" />
-              <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
-                10 月 16 日 · 10%
-              </strong>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
-                完成责任分工和交付范围确认。
-              </p>
-            </div>
-          </div>
-        </section>
-
         {/* 支撑材料 */}
         <section className="space-y-2">
           <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
