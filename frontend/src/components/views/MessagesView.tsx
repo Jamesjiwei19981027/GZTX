@@ -214,7 +214,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 
   const summarizeCurrentConversation = async () => {
     const scopeId = activeChannel === 'direct' ? activeConversationId : channelMap[activeChannel];
-    if (!scopeId) return;
+    if (!scopeId) {
+      setError(lang === 'zh' ? '当前没有可总结的频道或会话' : 'No channel or conversation to summarize');
+      return;
+    }
     setSummaryLoading(true);
     try {
       const result = activeChannel === 'direct'

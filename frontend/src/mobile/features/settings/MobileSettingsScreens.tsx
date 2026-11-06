@@ -1428,6 +1428,7 @@ export const MobileThirdPartyBindingsScreen: React.FC<SettingsSharedProps> = () 
     feishu: false,
     github: false,
   });
+  const [bindNotice, setBindNotice] = useState<string | null>(null);
 
   return (
     <div className="flex-1 flex flex-col w-full h-full overflow-y-auto pb-16 bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
@@ -1436,7 +1437,7 @@ export const MobileThirdPartyBindingsScreen: React.FC<SettingsSharedProps> = () 
       <div className="px-4 py-4 max-w-xl mx-auto w-full flex flex-col gap-4">
         <MobileListGroup
           title="移动与协同渠道"
-          footer="绑定微信服务号可接收微信模板消息提醒；企业微信与飞书需通过企业管理中心统一接入。"
+          footer={bindNotice || '绑定微信服务号可接收微信模板消息提醒；企业微信与飞书需通过企业管理中心统一接入。'}
         >
           <MobileListItem
             leading={<AppIcon name="messages" size={18} className="text-emerald-500" />}
@@ -1445,7 +1446,7 @@ export const MobileThirdPartyBindingsScreen: React.FC<SettingsSharedProps> = () 
             trailing={
               <button
                 type="button"
-                onClick={() => alert('微信绑定需通过微信移动端打开专属授权回调链接，不支持在独立 WebView 中绕过安全协议。')}
+                onClick={() => setBindNotice('微信绑定需通过微信移动端打开专属授权回调链接，不支持在当前页面内完成。')}
                 className="text-xs font-medium text-[#0058BE] px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950 cursor-pointer"
               >
                 {bindInfo.wechat ? '解绑' : '前往绑定'}

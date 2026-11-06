@@ -137,7 +137,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="flex items-center gap-2">
         <button
           onClick={() => {
-            void downloadTasksIcs().catch((e) =>
+            void downloadTasksIcs().then(() => toast.success(lang === 'zh' ? '日历已导出为 worktodo.ics' : 'Calendar exported as worktodo.ics')).catch((e) =>
               toast.error(e instanceof Error ? e.message : lang === 'zh' ? '导出失败' : 'Export failed'),
             )
           }}
