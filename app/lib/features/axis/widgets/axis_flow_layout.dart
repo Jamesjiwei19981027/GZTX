@@ -53,12 +53,24 @@ class AxisFlowResult {
     required this.connections,
     required this.size,
     required this.autoRects,
+    this.minCorner = Offset.zero,
   });
 
   final List<AxisPlacedPerson> people;
   final List<AxisConnection> connections;
   final Size size;
   final Map<int, Rect> autoRects;
+
+  /// 卡片可被拖到负坐标；这里记录左上角的最小值（不大于 0），供“适应屏幕”使用。
+  final Offset minCorner;
+
+  /// 全部卡片占据的范围，含负坐标。
+  Rect get contentBounds => Rect.fromLTRB(
+        minCorner.dx,
+        minCorner.dy,
+        size.width,
+        size.height,
+      );
 
   AxisPlacedPerson? personById(int id) {
     for (final person in people) {
@@ -225,9 +237,13 @@ class AxisFlowLayout {
 
     var maxX = personCardSize.width;
     var maxY = personCardSize.height;
+    var minX = 0.0;
+    var minY = 0.0;
     for (final person in people) {
       maxX = math.max(maxX, person.rect.right);
       maxY = math.max(maxY, person.rect.bottom);
+      minX = math.min(minX, person.rect.left);
+      minY = math.min(minY, person.rect.top);
     }
     final size = Size(maxX + 96, maxY + 96);
     return AxisFlowResult(
@@ -235,6 +251,7 @@ class AxisFlowLayout {
       connections: connections,
       size: size,
       autoRects: autoRects,
+      minCorner: Offset(minX, minY),
     );
   }
 }

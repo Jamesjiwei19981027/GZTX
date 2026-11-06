@@ -1077,6 +1077,106 @@ void main() {
       expect(viewport.scale.value >= 0.25, isTrue);
     });
 
+    group('无限画布', () {
+      Future<AxisViewportController> pumpFar(
+        WidgetTester tester, {
+        void Function(AxisPersonNode, Offset)? onMoved,
+      }) async {
+        bigView(tester);
+        final viewport = AxisViewportController();
+        await tester.pumpWidget(
+          host(
+            AxisCanvas(
+              nodes: [person(1, null), person(2, 1)],
+              orientation: AxisOrientation.horizontal,
+              spacing: AxisSpacing.standard,
+              sort: AxisSort.tree,
+              offsets: const {1: Offset(-900, -700), 2: Offset(1800, 1500)},
+              viewportController: viewport,
+              onLayoutChanged: (node, value) async =>
+                  onMoved?.call(node, value),
+            ),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(milliseconds: 100));
+        return viewport;
+      }
+
+      testWidgets('平移不受边界限制', (tester) async {
+        await pumpFar(tester);
+        final viewer =
+            tester.widget<InteractiveViewer>(find.byType(InteractiveViewer));
+        final before = viewer.transformationController!.value.clone();
+
+        for (var i = 0; i < 4; i++) {
+          await tester.dragFrom(const Offset(1300, 20), const Offset(-1200, 0));
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+
+        final moved = viewer.transformationController!.value.getTranslation().x -
+            before.getTranslation().x;
+        expect(moved, lessThan(-4000));
+      });
+
+      testWidgets('负坐标的卡片能拖动并保存', (tester) async {
+        AxisPersonNode? moved;
+        Offset? offset;
+        final viewport = await pumpFar(
+          tester,
+          onMoved: (node, value) {
+            moved = node;
+            offset = value;
+          },
+        );
+        viewport.focusNode(1);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        await tester.drag(
+          find.byKey(const Key('axis-person-1')),
+          const Offset(40, 60),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(moved?.id, 1);
+        // 初始缩放 0.75，屏幕位移要换算回画布坐标。
+        expect(offset!.dx, closeTo(-900 + 40 / 0.75, 2));
+        expect(offset!.dy, closeTo(-700 + 60 / 0.75, 2));
+      });
+
+      testWidgets('超出画布右下方的卡片也能拖动', (tester) async {
+        AxisPersonNode? moved;
+        final viewport = await pumpFar(
+          tester,
+          onMoved: (node, _) => moved = node,
+        );
+        viewport.focusNode(2);
+        await tester.pump(const Duration(milliseconds: 100));
+
+        await tester.drag(
+          find.byKey(const Key('axis-person-2')),
+          const Offset(40, 60),
+        );
+        await tester.pump(const Duration(milliseconds: 100));
+
+        expect(moved?.id, 2);
+      });
+
+      testWidgets('适应屏幕把负坐标的卡片也放进视口', (tester) async {
+        final viewport = await pumpFar(tester);
+        viewport.fitToScreen();
+        await tester.pump(const Duration(milliseconds: 100));
+
+        final canvas = tester.getRect(find.byType(AxisCanvas));
+        final first = tester.getRect(find.byKey(const Key('axis-person-1')));
+        final second = tester.getRect(find.byKey(const Key('axis-person-2')));
+        expect(first.left, greaterThanOrEqualTo(canvas.left));
+        expect(first.top, greaterThanOrEqualTo(canvas.top));
+        expect(second.right, lessThanOrEqualTo(canvas.right));
+        expect(second.bottom, lessThanOrEqualTo(canvas.bottom));
+      });
+    });
+
     testWidgets('A3-1. 横向保存偏移后切纵向不带该偏移', (tester) async {
       bigView(tester);
       final nodes = [person(1, null), person(2, 1)];

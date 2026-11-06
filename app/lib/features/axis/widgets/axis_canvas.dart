@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:clock/clock.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../../../design/design.dart';
 import '../data/axis_card_tasks.dart';
@@ -196,19 +197,20 @@ class _AxisCanvasState extends State<AxisCanvas>
 
   void fitToScreen() {
     if (_viewport == Size.zero) return;
-    final layout = _layout;
+    final bounds = _layout.contentBounds;
     final scale = math
         .min(
-          _viewport.width / layout.size.width,
-          _viewport.height / layout.size.height,
+          _viewport.width / bounds.width,
+          _viewport.height / bounds.height,
         )
         .clamp(0.25, 1.0)
         .toDouble();
-    final dx = (_viewport.width - layout.size.width * scale) / 2;
+    final dx = (_viewport.width - bounds.width * scale) / 2 - bounds.left * scale;
     final dy = math.max(
-      8.0,
-      (_viewport.height - layout.size.height * scale) / 2,
-    );
+          8.0,
+          (_viewport.height - bounds.height * scale) / 2,
+        ) -
+        bounds.top * scale;
     _transform.value = Matrix4.identity()
       ..translateByDouble(dx, dy, 0, 1)
       ..scaleByDouble(scale, scale, scale, 1);
@@ -545,11 +547,10 @@ class _AxisCanvasState extends State<AxisCanvas>
                   constrained: false,
                   minScale: 0.25,
                   maxScale: 2,
-                  boundaryMargin: const EdgeInsets.all(240),
-                  child: SizedBox(
-                    width: layout.size.width,
-                    height: layout.size.height,
-                    child: Stack(
+                  boundaryMargin: const EdgeInsets.all(double.infinity),
+                  child: _AxisWorld(
+                    size: layout.size,
+                    child: _AxisWorldStack(
                       clipBehavior: Clip.none,
                       children: [
                         Positioned.fill(
@@ -1449,6 +1450,68 @@ class AxisCurvePainter extends CustomPainter {
       oldDelegate.edgeStyle != edgeStyle ||
       oldDelegate.referenceLineStart != referenceLineStart ||
       oldDelegate.referenceLineEnd != referenceLineEnd;
+}
+
+/// 无限画布：卡片可以摆到画布尺寸之外（含负坐标），命中测试不能被尺寸裁掉，
+/// 否则看得见的卡片点不中、也拖不动。
+mixin _HitsOutsideBounds on RenderBox {
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!hitTestChildren(result, position: position)) return false;
+    result.add(BoxHitTestEntry(this, position));
+    return true;
+  }
+}
+
+class _AxisWorld extends SingleChildRenderObjectWidget {
+  const _AxisWorld({required this.size, required super.child});
+
+  final Size size;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderAxisWorld(size);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderAxisWorld renderObject,
+  ) {
+    renderObject.worldSize = size;
+  }
+}
+
+class _RenderAxisWorld extends RenderProxyBox with _HitsOutsideBounds {
+  _RenderAxisWorld(this._worldSize);
+
+  Size _worldSize;
+
+  set worldSize(Size value) {
+    if (_worldSize == value) return;
+    _worldSize = value;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    child?.layout(BoxConstraints.tight(_worldSize));
+    size = _worldSize;
+  }
+}
+
+class _AxisWorldStack extends Stack {
+  const _AxisWorldStack({super.clipBehavior, super.children});
+
+  @override
+  RenderStack createRenderObject(BuildContext context) =>
+      _RenderAxisWorldStack(
+        textDirection: Directionality.of(context),
+        clipBehavior: clipBehavior,
+      );
+}
+
+class _RenderAxisWorldStack extends RenderStack with _HitsOutsideBounds {
+  _RenderAxisWorldStack({super.textDirection, super.clipBehavior});
 }
 
 class _EagerPanGestureRecognizer extends PanGestureRecognizer {
