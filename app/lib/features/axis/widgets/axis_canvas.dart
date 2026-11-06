@@ -912,13 +912,9 @@ class _AxisCanvasState extends State<AxisCanvas>
     final subordinatesCount =
         widget.nodes.where((n) => n.parentId == node.id).length;
     final fold = widget.fold;
-    // 收回：被拉出的上轴非根人员；当前用户上级链上的人不提供。
-    final canReturn = fold != null &&
-        !foldedMember &&
-        node.parentId != null &&
-        fold.pulled.contains(node.id) &&
-        !(fold.selfId != null &&
-            revealAncestors(widget.nodes, fold.selfId!).contains(node.id));
+    // 收回：只有收回后此人确实会离开人轴才显示；默认名额内的人不显示；根与当前用户上级链不提供。
+    final canReturn =
+        fold != null && !foldedMember && canReturnPerson(widget.nodes, fold, node.id);
     final stackHidden = fold?.hiddenStacks.contains(node.id) ?? false;
 
     final card = Container(
