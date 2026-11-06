@@ -76,9 +76,19 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
   const [discardModalOpen, setDiscardModalOpen] = useState<boolean>(false);
   const [pendingBackAction, setPendingBackAction] = useState<(() => void) | null>(null);
 
+  // 手机浏览器返回键历史栈管理
+  const historyDepthRef = useRef<number>(0);
+  const isHandlingPopStateRef = useRef<boolean>(false);
+  const isInternalBackRef = useRef<boolean>(false);
+
   const activeStack = stacks[currentTab];
   const activeRoute = activeStack[activeStack.length - 1] || createDefaultRoute(currentTab);
   const isDetailOpen = activeStack.length > 1;
+
+  const activeStackRef = useRef<MobileRoute[]>(activeStack);
+  useEffect(() => {
+    activeStackRef.current = activeStack;
+  }, [activeStack]);
 
   // 告知原生宿主是否开启返回拦截
   useEffect(() => {
@@ -102,6 +112,13 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
     (routeConfig: MobileRouteInput) => {
       const normalized = normalizeMobileRoute(routeConfig, currentTab);
       const targetTab = normalized.tab;
+      const isTargetDefault = normalized.screen === createDefaultRoute(targetTab).screen;
+
+      if (typeof window !== 'undefined' && window.history && !isTargetDefault) {
+        window.history.pushState({ mobileNav: true }, '');
+        historyDepthRef.current += 1;
+      }
+
       setCurrentTab(targetTab);
       setStacks((prev) => {
         const currentStack = prev[targetTab];
@@ -114,7 +131,7 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
         };
         return {
           ...prev,
-          [targetTab]: normalized.screen === createDefaultRoute(targetTab).screen
+          [targetTab]: isTargetDefault
             ? [newRoute]
             : [...currentStack, newRoute],
         };
@@ -203,10 +220,19 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
         }
         case 'close-overlay': {
           closeOverlay();
+          if (!isHandlingPopStateRef.current && historyDepthRef.current > 0) {
+            isInternalBackRef.current = true;
+            window.history.back();
+          }
           return true;
         }
         case 'pop-detail': {
-          return pop();
+          const popped = pop();
+          if (popped && !isHandlingPopStateRef.current && historyDepthRef.current > 0) {
+            isInternalBackRef.current = true;
+            window.history.back();
+          }
+          return popped;
         }
         case 'root': {
           return false; // 根页不消耗，允许宿主执行退出或最小化
@@ -228,6 +254,43 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
     return unsubscribe;
   }, [executeBack]);
 
+  // 监听浏览器返回事件 (手机浏览器返回键)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handlePopState = () => {
+      if (isInternalBackRef.current) {
+        isInternalBackRef.current = false;
+        if (historyDepthRef.current > 0) {
+          historyDepthRef.current -= 1;
+        }
+        return;
+      }
+
+      const canReturn = isDirty || Boolean(overlayRef.current) || activeStackRef.current.length > 1;
+      if (!canReturn) {
+        // 栈空时不拦截，自然交由浏览器处理退出或后退
+        return;
+      }
+
+      if (historyDepthRef.current > 0) {
+        historyDepthRef.current -= 1;
+      }
+
+      isHandlingPopStateRef.current = true;
+      try {
+        executeBack(false);
+      } finally {
+        isHandlingPopStateRef.current = false;
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [executeBack, isDirty]);
+
   const handleConfirmDiscard = useCallback(() => {
     setDiscardModalOpen(false);
     setIsDirty(false);
@@ -240,6 +303,10 @@ export const MobileNavigationProvider: React.FC<MobileNavigationProviderProps> =
   const handleCancelDiscard = useCallback(() => {
     setDiscardModalOpen(false);
     setPendingBackAction(null);
+    if (typeof window !== 'undefined' && window.history) {
+      window.history.pushState({ mobileNav: true }, '');
+      historyDepthRef.current += 1;
+    }
   }, []);
 
   const value = useMemo<MobileNavigationContextValue>(() => {
