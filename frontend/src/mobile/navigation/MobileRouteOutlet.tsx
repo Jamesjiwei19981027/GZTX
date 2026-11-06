@@ -533,9 +533,25 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               });
             }}
             onOpenWiki={() => push({ screen: 'axis-wiki' })}
-            onOpenEvidence={(nodeId) =>
-              push({ screen: 'axis-evidence-submit', params: { nodeId } })
-            }
+            onOpenEvidence={(nodeId) => {
+              const targetPid =
+                axisProjectId && axisProjectId !== 'all' && Number(axisProjectId) > 0
+                  ? axisProjectId
+                  : props.projects.find((p) => p.id !== 'all' && Number(p.id) > 0)?.id;
+              if (targetPid && props.onSelectProject) {
+                const targetProject = props.projects.find((p) => String(p.id) === String(targetPid));
+                if (targetProject && String(props.currentProject.id) !== String(targetProject.id)) {
+                  props.onSelectProject(targetProject);
+                }
+              }
+              push({
+                screen: 'axis-evidence-submit',
+                params: {
+                  nodeId,
+                  projectId: targetPid ? String(targetPid) : undefined,
+                },
+              });
+            }}
             onOpenAudit={(projectId) => push({ screen: 'axis-audit', params: { projectId: projectId ? String(projectId) : undefined } })}
             onOpenDelegation={(projectId) => push({ screen: 'axis-delegations', params: { projectId: projectId ? String(projectId) : undefined } })}
           />
