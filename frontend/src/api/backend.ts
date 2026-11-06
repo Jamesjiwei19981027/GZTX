@@ -507,9 +507,49 @@ export async function listNodeEvidence(nodeId: number) {
       submitted_at?: string
       evidence_kind?: string
       external_url?: string
-      structured?: { evidence_kind?: string; external_url?: string }
+      structured?: { evidence_kind?: string; external_url?: string; version?: number | string }
+      version?: number | string
+      files?: Array<{
+        file_id: number
+        original_name: string
+        mime_type?: string
+        size_bytes?: number
+        kind?: string
+      }>
     }[]
   }>(`/nodes/${nodeId}/evidence`)
+}
+
+export interface BackendEvidencePackage {
+  id: number
+  company_id: number
+  project_id: number
+  node_id: number
+  submitter_user_id: number
+  status: string
+  summary_text?: string
+  structured?: any
+  links?: any[]
+  evidence_kind?: string
+  external_url?: string
+  files?: Array<{
+    file_id: number
+    original_name: string
+    mime_type?: string
+    size_bytes?: number
+    kind?: string
+  }>
+  supersedes_package_id?: number
+  precheck_errors?: any
+  judge_result?: any
+  submitted_at?: string
+  judged_at?: string
+  created_at?: string
+  version?: number | string
+}
+
+export async function getEvidencePackage(packageId: number): Promise<BackendEvidencePackage> {
+  return apiRequest<BackendEvidencePackage>(`/evidence/${packageId}`)
 }
 
 export async function submitEvidence(
