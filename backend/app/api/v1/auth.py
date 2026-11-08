@@ -31,6 +31,40 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["认证"])
 
 
+INVITE_ONLY_DETAIL = "当前仅支持受邀注册，请向管理员索取邀请链接"
+
+
+def _is_invite_only() -> bool:
+    from app.core.config import settings
+
+    return (settings.REGISTRATION_MODE or "").strip().lower() == "invite_only"
+
+
+async def _find_valid_invitation(db, token: str, email: str | None):
+    """返回有效邀请（pending、未过期、邀请邮箱与 email 一致），否则 None。"""
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.models.project import ProjectInvitation
+    from app.utils.datetime import as_utc
+
+    token = (token or "").strip()
+    if not token:
+        return None
+    inv = (
+        await db.execute(select(ProjectInvitation).where(ProjectInvitation.token == token))
+    ).scalar_one_or_none()
+    if not inv or inv.status != "pending":
+        return None
+    if inv.expires_at and as_utc(inv.expires_at) < datetime.now(timezone.utc):
+        return None
+    if inv.invitee_email:
+        if (email or "").strip().lower() != inv.invitee_email.strip().lower():
+            return None
+    return inv
+
+
 @router.get("/registration-config", response_model=ResponseData)
 async def get_registration_config():
     """获取注册配置（匿名，供前端决定是否显示注册入口及表单项）"""
@@ -72,39 +106,12 @@ async def send_verification_code(data: dict, db: DbSession, request: Request):
     except VerificationError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
-    from app.core.config import settings
-
-    if (settings.REGISTRATION_MODE or "").lower() == "invite_only" and purpose == "register":
-        invite_token = (data.get("invite_token") or "").strip()
-        if not invite_token:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="当前仅支持受邀注册，请向管理员索取邀请链接",
-            )
-        from app.models.project import ProjectInvitation
-        from app.utils.datetime import as_utc
-        from datetime import datetime, timezone
-
-        q = await db.execute(
-            select(ProjectInvitation).where(ProjectInvitation.token == invite_token)
+    if _is_invite_only() and purpose == "register":
+        inv = await _find_valid_invitation(
+            db, data.get("invite_token") or "", target if channel == "email" else None
         )
-        inv = q.scalar_one_or_none()
-        is_valid = True
-        if not inv or inv.status != "pending":
-            is_valid = False
-        elif inv.expires_at and as_utc(inv.expires_at) < datetime.now(timezone.utc):
-            is_valid = False
-        elif inv.invitee_email:
-            req_email = (target if channel == "email" else "").strip().lower()
-            inv_email = (inv.invitee_email or "").strip().lower()
-            if not req_email or req_email != inv_email:
-                is_valid = False
-
-        if not is_valid:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="当前仅支持受邀注册，请向管理员索取邀请链接",
-            )
+        if inv is None:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INVITE_ONLY_DETAIL)
 
     from app.services.rate_limit import enforce_send_code
 
@@ -145,43 +152,12 @@ async def register(data: UserRegister, db: DbSession):
         normalize_target,
     )
 
-    # 邀请校验（invite_only 时必须提供有效邀请；open 模式可选提供）
-    is_invite_only = (settings.REGISTRATION_MODE or "").lower() == "invite_only"
+    # 邀请校验：invite_only 必须有效邀请；open 模式带了有效邀请则注册后自动加入
     valid_invitation = None
-    if is_invite_only or data.invite_token:
-        invite_token = (data.invite_token or "").strip()
-        if not invite_token:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="当前仅支持受邀注册，请向管理员索取邀请链接",
-            )
-        from app.models.project import ProjectInvitation
-        from app.utils.datetime import as_utc
-        from datetime import datetime, timezone
-
-        q = await db.execute(
-            select(ProjectInvitation).where(ProjectInvitation.token == invite_token)
-        )
-        inv = q.scalar_one_or_none()
-        is_valid = True
-        if not inv or inv.status != "pending":
-            is_valid = False
-        elif inv.expires_at and as_utc(inv.expires_at) < datetime.now(timezone.utc):
-            is_valid = False
-        elif inv.invitee_email:
-            reg_email = (data.email or "").strip().lower()
-            inv_email = (inv.invitee_email or "").strip().lower()
-            if not reg_email or reg_email != inv_email:
-                is_valid = False
-
-        if not is_valid:
-            if is_invite_only:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="当前仅支持受邀注册，请向管理员索取邀请链接",
-                )
-        else:
-            valid_invitation = inv
+    if data.invite_token or _is_invite_only():
+        valid_invitation = await _find_valid_invitation(db, data.invite_token or "", data.email)
+        if valid_invitation is None and _is_invite_only():
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INVITE_ONLY_DETAIL)
 
     # 检查用户名是否已存在
     result = await db.execute(select(User).where(User.username == data.username))
