@@ -98,6 +98,44 @@ async def register(data: UserRegister, db: DbSession):
         normalize_target,
     )
 
+    # 邀请校验（invite_only 时必须提供有效邀请；open 模式可选提供）
+    is_invite_only = (settings.REGISTRATION_MODE or "").lower() == "invite_only"
+    valid_invitation = None
+    if is_invite_only or data.invite_token:
+        invite_token = (data.invite_token or "").strip()
+        if not invite_token:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="当前仅支持受邀注册，请向管理员索取邀请链接",
+            )
+        from app.models.project import ProjectInvitation
+        from app.utils.datetime import as_utc
+        from datetime import datetime, timezone
+
+        q = await db.execute(
+            select(ProjectInvitation).where(ProjectInvitation.token == invite_token)
+        )
+        inv = q.scalar_one_or_none()
+        is_valid = True
+        if not inv or inv.status != "pending":
+            is_valid = False
+        elif inv.expires_at and as_utc(inv.expires_at) < datetime.now(timezone.utc):
+            is_valid = False
+        elif inv.invitee_email:
+            reg_email = (data.email or "").strip().lower()
+            inv_email = (inv.invitee_email or "").strip().lower()
+            if not reg_email or reg_email != inv_email:
+                is_valid = False
+
+        if not is_valid:
+            if is_invite_only:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="当前仅支持受邀注册，请向管理员索取邀请链接",
+                )
+        else:
+            valid_invitation = inv
+
     # 检查用户名是否已存在
     result = await db.execute(select(User).where(User.username == data.username))
     if result.scalar_one_or_none():
@@ -212,6 +250,15 @@ async def register(data: UserRegister, db: DbSession):
                 "welcome email failed user_id=%s", getattr(user, "id", None)
             )
 
+    # 邀请有效时，自动接受邀请加入项目
+    project_id = None
+    if valid_invitation:
+        from app.services.project_service import ProjectService
+
+        psvc = ProjectService()
+        member = await psvc.accept_invitation(db, valid_invitation.token, user.id)
+        project_id = member.project_id
+
     # 生成 Token
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
@@ -225,6 +272,8 @@ async def register(data: UserRegister, db: DbSession):
     # 扩展字段：公司加入结果（前端可选展示）
     payload = token_data.model_dump()
     payload["company_join"] = join_info
+    if project_id is not None:
+        payload["project_id"] = project_id
     return ResponseData(data=payload)
 
 

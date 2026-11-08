@@ -134,6 +134,7 @@ class Settings(BaseSettings):
     # 注册双验证（邮箱+手机）总开关；短信服务商：fake（开发桩）| 后续 aliyun/tencent
     REGISTER_VERIFICATION_REQUIRED: bool = True
     PHONE_VERIFICATION_REQUIRED: bool = False
+    REGISTRATION_MODE: str = "open"  # open | invite_only
     SMS_PROVIDER: str = "fake"
 
     # —— 知识检索 / RAG（见 services/knowledge/，设计文档 docs/superpowers/specs/
