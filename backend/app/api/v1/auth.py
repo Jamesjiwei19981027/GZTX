@@ -31,6 +31,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/auth", tags=["认证"])
 
 
+@router.get("/registration-config", response_model=ResponseData)
+async def get_registration_config():
+    """获取注册配置（匿名，供前端决定是否显示注册入口及表单项）"""
+    from app.core.config import settings
+
+    return ResponseData(
+        data={
+            "mode": settings.REGISTRATION_MODE,
+            "phone_required": settings.PHONE_VERIFICATION_REQUIRED,
+        }
+    )
+
+
 @router.post("/send-code", response_model=ResponseData)
 async def send_verification_code(data: dict, db: DbSession, request: Request):
     """注册/登录发送邮箱或短信验证码（匿名可调）。
