@@ -181,6 +181,19 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
   const renderScreenContent = () => {
     switch (activeRoute.screen.startsWith('ai-') ? 'assistant' : currentTab) {
       case 'work': {
+        if (activeRoute.screen === 'record-progress') {
+          return (
+            <RecordProgressScreen
+              projectId={activeRoute.params.projectId || props.currentProject.id}
+              companyId={props.companyId}
+              nodeId={activeRoute.params.nodeId}
+              initialTarget={activeRoute.params.initialTarget as any}
+              currentUser={props.user}
+              projects={props.projects}
+              onBack={goBack}
+            />
+          );
+        }
         if (activeRoute.screen === 'work-tasks' || activeRoute.screen === 'work-kanban') {
           const view = activeRoute.screen === 'work-tasks' ? 'tasks' : 'kanban';
           const scope = normalizeTaskWorkspaceScope(activeRoute.params.filter);

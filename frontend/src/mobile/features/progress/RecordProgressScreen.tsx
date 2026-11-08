@@ -7,7 +7,7 @@ import { submitEvidence, getTreeNode, getProjectTree, BackendTreeNode } from '..
 import { uploadEvidenceFile } from '../../../api/projectWiki';
 import { inferEvidenceKind } from '../../../utils/evidenceFiles';
 import { createPersonalKnowledgeEntry } from '../../../api/personalKnowledge';
-import { suggestRecordProgress, RecordProgressTarget, RecordProgressSuggestResponse } from '../../../api/recordProgress';
+import { suggestRecordProgress, saveRecordProgress, resolveSuggestedTarget, RecordProgressTarget, RecordProgressSuggestResponse } from '../../../api/recordProgress';
 
 export interface UploadedFileItem {
   file_id: number;
@@ -94,7 +94,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
       const list: { id: string; name: string }[] = [];
       const traverse = (item: BackendTreeNode) => {
         if (item.id != null) {
-          list.push({ id: String(item.id), name: item.name || `事项 #${item.id}` });
+          list.push({ id: String(item.id), name: item.title || `事项 #${item.id}` });
         }
         if (item.children && Array.isArray(item.children)) {
           item.children.forEach(traverse);
@@ -129,7 +129,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
             setNodeList((prev) =>
               prev.some((n) => n.id === String(res.id))
                 ? prev
-                : [{ id: String(res.id), name: res.name || `事项 #${res.id}` }, ...prev]
+                : [{ id: String(res.id), name: res.title || `事项 #${res.id}` }, ...prev]
             );
           }
         })
@@ -195,9 +195,9 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
       });
 
       if (!active.current) return;
-      setSuggestResult(res);
-      // 如果进入时有 initialTarget 且用户已指定，也可以默认采用模型建议
-      setChosenTarget(res.target);
+      const resolved = resolveSuggestedTarget(res, initialTarget);
+      setSuggestResult(resolved);
+      setChosenTarget(resolved.target);
       setStep('confirm');
     } catch (err) {
       if (!active.current) return;
@@ -225,55 +225,29 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
       const pidNum = Number(selectedProjectId) || 1;
       const cidNum = companyId || 1;
 
-      if (chosenTarget === 'report_draft') {
-        // 汇报草稿：走原“告诉 AI 最新进展”接口
-        await agentChat({
-          company_id: cidNum,
-          project_id: pidNum,
-          message: text.trim(),
-        });
-        const label = TARGET_LABELS.report_draft;
-        setToastMessage(`已存为${label}`);
-        setTimeout(() => {
-          if (!active.current) return;
-          onSaved?.('report_draft');
-          onBack?.();
-        }, 1200);
-      } else if (chosenTarget === 'evidence') {
-        // 证据材料：检查是否关联事项
-        if (!selectedNodeId) {
-          setError('未选事项，请先选择关联事项');
-          setSubmitting(false);
-          return;
-        }
-        await submitEvidence(Number(selectedNodeId), {
-          summary: text.trim(),
-          evidence_kind: inferEvidenceKind(uploadedFiles),
-          file_ids: uploadedFiles.map((f) => f.file_id),
-        });
-        const label = TARGET_LABELS.evidence;
-        setToastMessage(`已存为${label}`);
-        setTimeout(() => {
-          if (!active.current) return;
-          onSaved?.('evidence');
-          onBack?.();
-        }, 1200);
-      } else if (chosenTarget === 'knowledge') {
-        // 个人知识：走 POST /projects/{project_id}/personal-knowledge/entries
-        const title = text.trim().split('\n')[0].slice(0, 60) || '个人笔记';
-        await createPersonalKnowledgeEntry(pidNum, {
-          title,
-          body_text: text.trim(),
-          tags: [],
-        });
-        const label = TARGET_LABELS.knowledge;
-        setToastMessage(`已存为${label}`);
-        setTimeout(() => {
-          if (!active.current) return;
-          onSaved?.('knowledge');
-          onBack?.();
-        }, 1200);
-      }
+      const message = await saveRecordProgress(
+        chosenTarget,
+        {
+          text,
+          companyId: cidNum,
+          projectId: pidNum,
+          nodeId: selectedNodeId ? Number(selectedNodeId) : null,
+          fileIds: uploadedFiles.map((f) => f.file_id),
+          evidenceKind: inferEvidenceKind(uploadedFiles),
+        },
+        {
+          agentChat,
+          submitEvidence: (id, body) => submitEvidence(id, body),
+          createKnowledgeEntry: (pid, body) => createPersonalKnowledgeEntry(pid, body),
+        },
+      );
+      setToastMessage(message);
+      const saved = chosenTarget;
+      setTimeout(() => {
+        if (!active.current) return;
+        onSaved?.(saved);
+        onBack?.();
+      }, 1200);
     } catch (err) {
       if (!active.current) return;
       setError(err instanceof Error ? err.message : '保存失败，请稍后重试');

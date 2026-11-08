@@ -135,7 +135,8 @@ export function normalizeMobileRoute(input: MobileRouteInput, fallback: MobileTa
   if (screen === 'ai-chat' || screen === 'axis-evidence-submit') {
     screen = 'record-progress';
   }
-  const owner = MOBILE_TABS.find(item => REGISTERED_SCREENS[item.id].has(screen));
+  const owner = MOBILE_TABS.find(item => item.id === input.tab && REGISTERED_SCREENS[item.id].has(screen))
+    ?? MOBILE_TABS.find(item => REGISTERED_SCREENS[item.id].has(screen));
   const tab = owner?.id ?? (input.tab === 'ai' ? 'work' : input.tab) ?? fallback;
   return { ...input, tab, screen, presentation: input.presentation ?? 'page', params: input.params ?? {} };
 }

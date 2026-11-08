@@ -111,7 +111,7 @@ console.log('✓ B1 candidate supervisors exclude self and descendants (1, 2, 4,
 
 console.log('\n=== 2. Testing Screen Registration in mobileRoutes ===');
 assert.equal(isValidScreenForTab('axis', 'axis-root'), true);
-assert.equal(isValidScreenForTab('axis', 'axis-evidence-submit'), true);
+assert.equal(isValidScreenForTab('axis', 'record-progress'), true);
 assert.equal(isValidScreenForTab('axis', 'axis-evidence-detail'), true);
 assert.equal(isValidScreenForTab('axis', 'axis-progress'), true);
 assert.equal(isValidScreenForTab('axis', 'axis-delegations'), true);

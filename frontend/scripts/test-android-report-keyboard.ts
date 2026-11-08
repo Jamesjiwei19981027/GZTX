@@ -56,7 +56,7 @@ try {
   await expect(page.getByRole('heading', { name: 'AI 汇报与助手', exact: true })).toBeVisible({ timeout: 30000 });
   drafts = await page.evaluate(() => Object.entries(localStorage).filter(([key]) => key.startsWith('wt_ai_report_draft_')));
   await page.getByLabel('汇报项目', { exact: true }).selectOption('1');
-  await tap(page.getByRole('button', { name: '告诉 AI 最新进展', exact: true }));
+  await tap(page.getByRole('button', { name: '记录进展', exact: true }));
   const input = page.getByPlaceholder('输入项目进展与工作事实…');
   const viewportHeight = await page.evaluate(() => innerHeight);
   const initial = (await input.boundingBox())!;

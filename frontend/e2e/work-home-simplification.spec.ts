@@ -217,7 +217,7 @@ for (const mobile of [false, true]) {
     const ai = page.getByRole('region', { name: 'AI 汇报与助手', exact: true });
     const metrics = mobile ? page.getByRole('region', { name: '待办汇总' }) : page.getByTestId('today-focus');
     const trend = page.getByRole('region', { name: '任务趋势', exact: true });
-    await expect(ai.getByRole('button', { name: '告诉 AI 最新进展', exact: true })).toBeVisible();
+    await expect(ai.getByRole('button', { name: '记录进展', exact: true })).toBeVisible();
     await expect(ai.getByRole('button', { name: '查看汇报', exact: true })).toBeVisible();
     expect(await ai.evaluate((element, other) => !!(element.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING), await metrics.elementHandle())).toBe(true);
     expect(await metrics.evaluate((element, other) => !!(element.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING), await trend.elementHandle())).toBe(true);
