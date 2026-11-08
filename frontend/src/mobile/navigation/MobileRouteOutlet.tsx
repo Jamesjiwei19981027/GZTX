@@ -607,7 +607,6 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             <ProjectReportScreen
               user={props.user}
               currentProject={props.currentProject}
-              initialMode="aggregate"
             />
           );
         }
