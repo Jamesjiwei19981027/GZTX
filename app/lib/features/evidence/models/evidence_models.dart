@@ -141,6 +141,8 @@ class EvidencePackage {
     this.judgedAt,
     this.precheckErrors = const [],
     this.judgeResult,
+    this.suggestion,
+    this.canReview = false,
   });
 
   final int id;
@@ -155,12 +157,28 @@ class EvidencePackage {
   final String? judgedAt;
   final List<String> precheckErrors;
   final Map<String, dynamic>? judgeResult;
+  final String? suggestion;
+  final bool canReview;
 
   String get statusLabel => evidenceStatusLabel(status);
 
   String get kindLabel => evidenceKindLabel(evidenceKind);
 
   bool get isRejected => status == 'rejected' || status == 'superseded';
+
+  String? get suggestionReason {
+    final reason = judgeResult?['reason'];
+    if (reason is String && reason.trim().isNotEmpty) {
+      return reason.trim();
+    }
+    return null;
+  }
+
+  String? get suggestionLabel {
+    if (suggestion == 'adopted') return '采纳';
+    if (suggestion == 'rejected') return '驳回';
+    return suggestion;
+  }
 
   factory EvidencePackage.fromJson(Map<String, dynamic> json) {
     final rawFiles = json['files'];
@@ -189,6 +207,15 @@ class EvidencePackage {
     final kindFromStructured = structured is Map
         ? structured['evidence_kind'] as String?
         : null;
+    final judgeResult = json['judge_result'] is Map<String, dynamic>
+        ? json['judge_result'] as Map<String, dynamic>
+        : (json['judge_result'] is Map
+            ? (json['judge_result'] as Map).cast<String, dynamic>()
+            : null);
+    final suggestion = json['suggestion'] as String? ??
+        (judgeResult != null ? judgeResult['decision'] as String? : null);
+    final canReview = json['can_review'] == true;
+
     return EvidencePackage(
       id: (json['id'] as num?)?.toInt() ?? 0,
       nodeId: (json['node_id'] as num?)?.toInt() ?? 0,
@@ -201,9 +228,9 @@ class EvidencePackage {
       submittedAt: json['submitted_at'] as String?,
       judgedAt: json['judged_at'] as String?,
       precheckErrors: precheck,
-      judgeResult: json['judge_result'] is Map<String, dynamic>
-          ? json['judge_result'] as Map<String, dynamic>
-          : null,
+      judgeResult: judgeResult,
+      suggestion: suggestion,
+      canReview: canReview,
     );
   }
 }

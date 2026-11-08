@@ -269,6 +269,9 @@ Map<String, dynamic> packageJson({
   String status = 'submitted',
   String summary = '完成交互原型评审，附评审纪要与验收清单。',
   List<Map<String, dynamic>> files = const [],
+  String? suggestion,
+  bool canReview = false,
+  Map<String, dynamic>? judgeResult,
 }) {
   return {
     'id': id,
@@ -282,7 +285,9 @@ Map<String, dynamic> packageJson({
     'evidence_kind': 'document',
     'files': files,
     'precheck_errors': null,
-    'judge_result': null,
+    'judge_result': judgeResult,
+    'suggestion': suggestion ?? judgeResult?['decision'],
+    'can_review': canReview,
     'submitted_at': null,
     'judged_at': null,
     'created_at': null,
