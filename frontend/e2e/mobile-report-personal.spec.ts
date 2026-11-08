@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
  * T08 个人项目 AI 汇报链路 E2E 验证
  * 覆盖设计 ID 35、36、37、38、39
  */
-test('Mobile personal report flow: AI chat, draft editor, submit & delivery status', async ({ page }) => {
+test('Mobile personal report flow: draft editor, submit & delivery status', async ({ page }) => {
   const calls: string[] = [];
   let submitted = false;
 
@@ -175,20 +175,8 @@ test('Mobile personal report flow: AI chat, draft editor, submit & delivery stat
   await expect(page.getByText('林悦的汇报助手')).toBeVisible();
   await expect(page.getByText('我的汇报')).toBeVisible();
 
-  // 2. 点击 "告诉 AI 最新进展" 进入 ID 36：与我的 AI 对话
-  await page.getByRole('button', { name: '记录进展' }).click();
-  await expect(page.getByText('与我的 AI 对话')).toBeVisible();
-
-  // 发送对话消息
-  const chatInput = page.getByPlaceholder('输入项目进展与工作事实…');
-  await chatInput.fill('今天完成了员工端原型验收');
-  await page.locator('button:has(svg)').last().click();
-
-  // 收到 AI 确认消息
-  await expect(page.getByText('已记录您的项目进展：完成员工端原型与交互说明。')).toBeVisible();
-
-  // 3. 点击 "加入汇报草稿" 进入写汇报
-  await page.getByRole('button', { name: '加入汇报草稿' }).click();
+  // 2. 点击“写汇报”进入写汇报页（对话式记录已并入“记录进展”页，不再经过汇报首页的对话）
+  await page.getByRole('button', { name: '写汇报' }).click();
   await expect(page.getByRole('heading', { name: '写汇报' })).toBeVisible();
   await expect(page.getByText('草稿 · 仅自己可见')).toBeVisible();
 
@@ -219,7 +207,6 @@ test('Mobile personal report flow: AI chat, draft editor, submit & delivery stat
 
   expect(calls).toEqual(
     expect.arrayContaining([
-      'POST /agents/chat',
       'POST /reports/generate',
       'POST /reports/202/submit',
       'GET /reports/my',
