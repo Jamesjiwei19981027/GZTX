@@ -558,7 +558,7 @@ async def generate_member_report_draft(
                 EvidencePackage.project_id == project.id,
                 EvidencePackage.submitter_user_id == author_user_id,
                 EvidencePackage.status.in_(
-                    ("submitted", "under_review", "adopted", "rejected")
+                    ("submitted", "under_review", "pending_review", "adopted", "rejected")
                 ),
             )
             .order_by(EvidencePackage.created_at.desc(), EvidencePackage.id.desc())

@@ -542,6 +542,8 @@ export interface BackendEvidencePackage {
   supersedes_package_id?: number
   precheck_errors?: any
   judge_result?: any
+  suggestion?: string
+  can_review?: boolean
   submitted_at?: string
   judged_at?: string
   created_at?: string
@@ -550,6 +552,19 @@ export interface BackendEvidencePackage {
 
 export async function getEvidencePackage(packageId: number): Promise<BackendEvidencePackage> {
   return apiRequest<BackendEvidencePackage>(`/evidence/${packageId}`)
+}
+
+export async function reviewEvidencePackage(
+  packageId: number,
+  body: {
+    decision: 'adopted' | 'rejected'
+    reason?: string
+  },
+): Promise<BackendEvidencePackage> {
+  return apiRequest<BackendEvidencePackage>(`/evidence/${packageId}/review`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
 }
 
 export async function submitEvidence(

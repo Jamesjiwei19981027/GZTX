@@ -149,4 +149,31 @@ assert.ok(
 );
 console.log('✓ People Axis empty state properly configured without endless loading');
 
+console.log('\n=== 5. Testing Evidence Manual Review and Pending Status Contract ===');
+const evidenceSource = fs.readFileSync(path.resolve(__dirname, '../src/mobile/features/people-axis/MobileEvidenceScreens.tsx'), 'utf-8');
+assert.ok(
+  evidenceSource.includes("pending_review: '待负责人确认'"),
+  'MobileEvidenceScreens.tsx statusMap 必须包含 pending_review 映射为“待负责人确认”',
+);
+assert.ok(
+  evidenceSource.includes('系统建议（仅供参考）') && evidenceSource.includes('系统建议：'),
+  'MobileEvidenceScreens.tsx 必须显示系统建议并明确标注是建议',
+);
+assert.ok(
+  evidenceSource.includes('detail?.can_review') &&
+  evidenceSource.includes('确认采纳') &&
+  evidenceSource.includes('驳回'),
+  'MobileEvidenceScreens.tsx 必须在 can_review 为真时显示“确认采纳”和“驳回”按钮',
+);
+assert.ok(
+  evidenceSource.includes('填写驳回理由') && evidenceSource.includes('reviewEvidencePackage'),
+  'MobileEvidenceScreens.tsx 必须支持填写驳回理由并调用 reviewEvidencePackage',
+);
+assert.ok(
+  evidenceSource.includes("detail?.status === 'pending_review'") &&
+  evidenceSource.includes('材料提交后进入待验收状态，请等待授权负责人确认。'),
+  'MobileEvidenceScreens.tsx 必须将待验收提示保留给 pending_review 状态',
+);
+console.log('✓ Evidence manual review UI & pending_review contract passed');
+
 console.log('\n🎉 ALL TESTS PASSED SUCCESSFULLY! 🎉\n');

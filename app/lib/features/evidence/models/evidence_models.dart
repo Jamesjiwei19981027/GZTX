@@ -19,6 +19,7 @@ const Map<String, String> evidenceStatusLabels = {
   'draft': '草稿',
   'submitted': '已提交',
   'pending': '待验收',
+  'pending_review': '待负责人确认',
   'adopted': '已采纳',
   'rejected': '已驳回',
   'superseded': '已被替代',

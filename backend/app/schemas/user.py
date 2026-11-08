@@ -18,6 +18,7 @@ class UserRegister(BaseModel):
     email_code: Optional[str] = None
     phone_code: Optional[str] = None
     nickname: Optional[str] = None
+    invite_token: Optional[str] = None
 
     @field_validator("username")
     @classmethod

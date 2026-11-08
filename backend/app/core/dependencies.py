@@ -84,12 +84,18 @@ async def get_email_verified_user(
 async def get_collaboration_user(
     user: Annotated[User, Depends(get_current_user)],
 ) -> User:
-    """要求邮箱和手机验证，用于创建或变更协作资源。"""
-    if settings.REGISTER_VERIFICATION_REQUIRED and not user.is_verified:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={"code": 40320, "message": "协作功能需要完成邮箱与手机验证"},
-        )
+    """要求邮箱已验证（若启用手机验证则额外要求手机验证），用于创建或变更协作资源。"""
+    if settings.REGISTER_VERIFICATION_REQUIRED:
+        if not user.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": 40320, "message": "请先完成邮箱验证"},
+            )
+        if settings.PHONE_VERIFICATION_REQUIRED and not user.phone_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": 40320, "message": "协作功能需要完成手机验证"},
+            )
     return user
 
 

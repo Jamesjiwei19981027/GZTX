@@ -12,6 +12,8 @@ logger = logging.getLogger(__name__)
 TEMPLATES = {
     "evidence.adopted": "你的材料「{node_title}」已采纳，正式进度已更新。",
     "evidence.rejected": "你的材料「{node_title}」未采纳：{reason}",
+    "evidence.pending_review": "你的材料「{node_title}」已完成预审，待负责人确认。",
+    "evidence.awaiting_review": "有材料「{node_title}」待你确认采纳。",
     "progress.auto_write_alert": "节点「{node_title}」在 1 小时内自动写入进度次数过多，请关注。",
     "review.awaiting_pm": "有复核待你确认：{summary}",
     "auth.welcome": "欢迎加入 {company_name}！请使用账号 {username} 登录 {app_url}。",

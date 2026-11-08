@@ -13,10 +13,16 @@ from app.models.project import Project
 from app.models.tree import TreeNode
 from app.models.wiki import ProjectWikiEntry
 from app.schemas.common import ResponseData
-from app.schemas.evidence import EvidenceSubmit, ReviewConfirmBody, ReviewRequestBody, WikiCreate, WikiPatch
+from app.schemas.evidence import EvidenceReviewBody, EvidenceSubmit, ReviewConfirmBody, ReviewRequestBody, WikiCreate, WikiPatch
 from app.schemas.tree import AssigneesPut, NodeMove, NodePatch
 from app.services.acl import AclService
-from app.services.evidence_service import run_evidence_judge, save_upload_file, submit_evidence
+from app.services.evidence_service import (
+    adopt_evidence_package,
+    reject_evidence_package,
+    run_evidence_judge,
+    save_upload_file,
+    submit_evidence,
+)
 from app.services.tree_service import TreeService
 from app.services.responsibility_access import get_responsibility_access
 from app.services.person_deletion import deletion_preview, execute_deletion
@@ -387,7 +393,11 @@ async def post_evidence(
     )
 
 
-def _pkg_dto(pkg: EvidencePackage, files: list[EvidenceFile] | None = None) -> dict:
+def _pkg_dto(
+    pkg: EvidencePackage,
+    files: list[EvidenceFile] | None = None,
+    can_review: bool = False,
+) -> dict:
     structured = pkg.structured_json or {}
     links = pkg.links_json or []
     external_url = structured.get("external_url")
@@ -420,10 +430,30 @@ def _pkg_dto(pkg: EvidencePackage, files: list[EvidenceFile] | None = None) -> d
         "supersedes_package_id": pkg.supersedes_package_id,
         "precheck_errors": pkg.precheck_errors_json,
         "judge_result": pkg.judge_result_json,
+        "suggestion": (pkg.judge_result_json or {}).get("decision"),
+        "can_review": can_review,
         "submitted_at": pkg.submitted_at.isoformat() if pkg.submitted_at else None,
         "judged_at": pkg.judged_at.isoformat() if pkg.judged_at else None,
         "created_at": pkg.created_at.isoformat() if pkg.created_at else None,
     }
+
+
+async def _can_user_review_package(
+    db, user_id: int, pkg: EvidencePackage
+) -> tuple[bool, str | None]:
+    if pkg.status != "pending_review":
+        return False, "材料非待确认状态"
+    if not await acl.can(
+        db, user_id, pkg.company_id, "review.confirm", project_id=pkg.project_id, node_id=pkg.node_id
+    ):
+        return False, "无确认权限"
+    if pkg.submitter_user_id == user_id:
+        project = await db.get(Project, pkg.project_id)
+        pm = await acl._project_member(db, pkg.project_id, user_id)
+        is_pm = bool(pm and pm.role == "pm") or (project and project.pm_user_id == user_id)
+        if not is_pm:
+            return False, "提交人不能确认自己的材料"
+    return True, None
 
 
 @router.get("/evidence/{package_id}")
@@ -439,7 +469,59 @@ async def get_evidence(package_id: int, db: DbSession, user: CurrentUser):
     files = (
         await db.execute(select(EvidenceFile).where(EvidenceFile.package_id == pkg.id))
     ).scalars().all()
-    return ResponseData(data=_pkg_dto(pkg, list(files)))
+    can_review, _ = await _can_user_review_package(db, user.id, pkg)
+    return ResponseData(data=_pkg_dto(pkg, list(files), can_review=can_review))
+
+
+@router.post("/evidence/{package_id}/review")
+async def review_evidence(
+    package_id: int,
+    body: EvidenceReviewBody,
+    db: DbSession,
+    user: CurrentUser,
+):
+    """人工确认材料（采纳或驳回）"""
+    pkg = await db.get(EvidencePackage, package_id)
+    if not pkg:
+        return fail(404, 40400, "材料不存在")
+
+    if pkg.status != "pending_review":
+        return fail(409, 40901, f"材料状态为 {pkg.status}，只有 pending_review 状态能确认")
+
+    if not await acl.can(
+        db, user.id, pkg.company_id, "review.confirm", project_id=pkg.project_id, node_id=pkg.node_id
+    ):
+        return fail(403, 40302, "无确认材料权限")
+
+    if pkg.submitter_user_id == user.id:
+        project = await db.get(Project, pkg.project_id)
+        pm = await acl._project_member(db, pkg.project_id, user.id)
+        is_pm = bool(pm and pm.role == "pm") or (project and project.pm_user_id == user.id)
+        if not is_pm:
+            return fail(403, 40303, "提交人不能确认自己的材料")
+
+    if body.decision == "adopted":
+        pkg = await adopt_evidence_package(
+            db,
+            package_id=pkg.id,
+            reviewer_user_id=user.id,
+            reason=body.reason,
+        )
+    elif body.decision == "rejected":
+        pkg = await reject_evidence_package(
+            db,
+            package_id=pkg.id,
+            reviewer_user_id=user.id,
+            reason=body.reason,
+        )
+    else:
+        return fail(400, 40001, "无效的确认决策")
+
+    files = (
+        await db.execute(select(EvidenceFile).where(EvidenceFile.package_id == pkg.id))
+    ).scalars().all()
+    can_rev, _ = await _can_user_review_package(db, user.id, pkg)
+    return ResponseData(data=_pkg_dto(pkg, list(files), can_review=can_rev))
 
 
 @router.get("/nodes/{node_id}/evidence")
@@ -474,9 +556,13 @@ async def list_evidence(
             .limit(page_size)
         )
     ).scalars().all()
+    items = []
+    for p in rows:
+        can_rev, _ = await _can_user_review_package(db, user.id, p)
+        items.append(_pkg_dto(p, can_review=can_rev))
     return ResponseData(
         data={
-            "items": [_pkg_dto(p) for p in rows],
+            "items": items,
             "total": total,
             "page": page,
             "page_size": page_size,
