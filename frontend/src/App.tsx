@@ -515,7 +515,7 @@ export default function App() {
         if (cancelled) return;
         const message = e instanceof Error ? e.message : '';
         const code = e instanceof ApiError ? e.code : 0;
-        if (code === 40320 || /手机/.test(message)) {
+        if ((code === 40320 || /手机/.test(message)) && regConfig.phone_required) {
           setPhoneGateOpen(true);
           setInviteRefreshFailed(false);
           setInviteNotice(
@@ -533,9 +533,10 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [authed, verified, phoneVerified, refreshFromBackend, settings.language, switchView]);
+  }, [authed, verified, phoneVerified, regConfig.phone_required, refreshFromBackend, settings.language, switchView]);
 
   const requirePhoneForCollab = useCallback(() => {
+    if (!regConfig.phone_required) return true;
     if (phoneVerified) return true;
     setPhoneGateOpen(true);
     toast.info(
@@ -544,7 +545,7 @@ export default function App() {
         : 'Collaboration requires phone verification',
     );
     return false;
-  }, [phoneVerified, settings.language, toast]);
+  }, [phoneVerified, regConfig.phone_required, settings.language, toast]);
 
   const handleCreateCompany = useCallback(
     async (payload: { name: string; slug?: string }) => {
@@ -1086,6 +1087,7 @@ export default function App() {
       <VerifyGate
         lang={settings.language}
         required="email"
+        phoneRequired={regConfig.phone_required}
         onVerified={() => setVerified(true)}
         onLogout={() => {
           setAuthed(false);
@@ -1500,13 +1502,21 @@ export default function App() {
         }
       />
 
-      <PhoneVerificationReminder userId={user.id || ''} verified={phoneVerified} onVerify={() => setPhoneGateOpen(true)} onVerified={markPhoneVerified} />
+      {regConfig.phone_required && (
+        <PhoneVerificationReminder
+          userId={user.id || ''}
+          verified={phoneVerified}
+          onVerify={() => setPhoneGateOpen(true)}
+          onVerified={markPhoneVerified}
+        />
+      )}
       {phoneGateOpen && (
         <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4">
           <div className="w-full max-w-lg">
             <VerifyGate
               lang={settings.language}
               required="phone"
+              phoneRequired={regConfig.phone_required}
               onVerified={() => {
                 setPhoneVerified(true);
                 setVerified(true);

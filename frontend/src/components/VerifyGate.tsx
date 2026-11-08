@@ -14,6 +14,7 @@ type Props = {
   onLogout: () => void
   /** email：个人待办只需邮箱；phone：协作功能需补验手机 */
   required?: 'email' | 'phone'
+  phoneRequired?: boolean
 }
 
 function useCountdown() {
@@ -147,14 +148,20 @@ function ChannelBind({
   )
 }
 
-export function VerifyGate({ lang = 'zh', onVerified, onLogout, required = 'email' }: Props) {
+export function VerifyGate({
+  lang = 'zh',
+  onVerified,
+  onLogout,
+  required = 'email',
+  phoneRequired = false,
+}: Props) {
   const zh = lang === 'zh'
   const [status, setStatus] = useState<VerificationStatus | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const isSatisfied = (st: VerificationStatus | null) => {
     if (!st) return false
-    if (required === 'phone') return Boolean(st.phone_verified && st.email_verified)
+    if (required === 'phone' && phoneRequired) return Boolean(st.phone_verified && st.email_verified)
     return Boolean(st.email_verified)
   }
 
@@ -168,7 +175,7 @@ export function VerifyGate({ lang = 'zh', onVerified, onLogout, required = 'emai
         setLoadError(e instanceof ApiError ? e.message : zh ? '加载失败' : 'Load failed')
       }
     })()
-  }, [onVerified, zh, required])
+  }, [onVerified, zh, required, phoneRequired])
 
   async function handleDone(st: VerificationStatus) {
     setStatus(st)
@@ -215,7 +222,7 @@ export function VerifyGate({ lang = 'zh', onVerified, onLogout, required = 'emai
               lang={lang}
               onDone={handleDone}
             />
-            {(required === 'phone' || status.phone_verified) && (
+            {((required === 'phone' && phoneRequired) || status.phone_verified) && (
               <ChannelBind
                 channel="sms"
                 initialTarget={status.phone}
