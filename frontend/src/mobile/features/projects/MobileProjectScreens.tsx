@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   acceptProjectInvitation,
-  createCompany,
   createProject,
   getProject,
   listMyCompanies,
@@ -180,17 +179,6 @@ export const MobileProjectSwitchScreen: React.FC<{
               <span>新建项目</span>
             </button>
           )}
-
-          {onCreateCompanyClick && (
-            <button
-              type="button"
-              onClick={onCreateCompanyClick}
-              className="min-h-[48px] w-full rounded-xl bg-transparent border border-dashed border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 font-medium text-xs flex items-center justify-center gap-2 active:bg-slate-100 dark:active:bg-slate-900"
-            >
-              <AppIcon name="folder" size={16} />
-              <span>创建新企业/团队公司</span>
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -198,7 +186,7 @@ export const MobileProjectSwitchScreen: React.FC<{
 };
 
 // -------------------------------------------------------------
-// 08 & 80 创建工作区 / 创建公司
+// 08 创建工作区 (项目)
 // -------------------------------------------------------------
 export const MobileWorkspaceCreateScreen: React.FC<{
   initialMode?: 'project' | 'company';
@@ -207,22 +195,14 @@ export const MobileWorkspaceCreateScreen: React.FC<{
   onCancel?: () => void;
   lang?: Language;
 }> = ({
-  initialMode = 'project',
   companyId,
   onCreated,
   onCancel,
   lang = 'zh',
 }) => {
-  const [mode, setMode] = useState<'project' | 'company'>(initialMode);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // 项目字段 (08)
   const [projectName, setProjectName] = useState('');
-
-  // 公司字段 (80)
-  const [companyName, setCompanyName] = useState('');
-  const [companySlug, setCompanySlug] = useState('');
 
   const handleCreateProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,33 +229,6 @@ export const MobileWorkspaceCreateScreen: React.FC<{
     }
   };
 
-  const handleCreateCompanySubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!companyName.trim()) {
-      setError('请输入公司名称');
-      return;
-    }
-    const cleanSlug = companySlug.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-    if (!cleanSlug) {
-      setError('请输入有效的公司英文代号 (slug)');
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await createCompany({
-        name: companyName.trim(),
-        slug: cleanSlug,
-        policy_preset: 'standard',
-      });
-      onCreated({ kind: 'company', id: res.id, name: res.name });
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : '创建公司失败');
-    } finally {
-      setBusy(false);
-    }
-  };
-
   return (
     <div className="flex flex-col h-full bg-white dark:bg-black text-slate-900 dark:text-slate-100">
       <header className="h-14 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
@@ -289,45 +242,11 @@ export const MobileWorkspaceCreateScreen: React.FC<{
             <AppIcon name="back" size={20} />
           </button>
         )}
-        <h1 className="text-base font-semibold">
-          {mode === 'project' ? '新建项目' : '创建新公司'}
-        </h1>
+        <h1 className="text-base font-semibold">新建项目</h1>
         <div className="w-10" />
       </header>
 
       <div className="flex-1 overflow-y-auto p-5 max-w-md mx-auto w-full">
-        {/* 模式切换 (08 <-> 80) */}
-        <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-xl mb-5">
-          <button
-            type="button"
-            onClick={() => {
-              setMode('project');
-              setError(null);
-            }}
-            className={`flex-1 min-h-[38px] rounded-lg text-xs font-semibold transition-all ${
-              mode === 'project'
-                ? 'bg-white dark:bg-slate-800 text-[#0058BE] shadow-xs'
-                : 'text-slate-500'
-            }`}
-          >
-            新建项目 (工作区)
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setMode('company');
-              setError(null);
-            }}
-            className={`flex-1 min-h-[38px] rounded-lg text-xs font-semibold transition-all ${
-              mode === 'company'
-                ? 'bg-white dark:bg-slate-800 text-[#0058BE] shadow-xs'
-                : 'text-slate-500'
-            }`}
-          >
-            创建独立公司 (租户)
-          </button>
-        </div>
-
         {error && (
           <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
             <AppIcon name="alert" size={16} />
@@ -335,60 +254,26 @@ export const MobileWorkspaceCreateScreen: React.FC<{
           </div>
         )}
 
-        {mode === 'project' ? (
-          <form onSubmit={handleCreateProjectSubmit} className="space-y-4">
-            <MobileField label="项目名称" required helperText="清晰易识别的项目名称，如「智能客服 2.0」">
-              <MobileInput
-                type="text"
-                placeholder="输入项目全名"
-                value={projectName}
-                onChange={(e) => setProjectName(e.target.value)}
-                autoFocus
-                leading={<AppIcon name="folder" size={18} />}
-              />
-            </MobileField>
+        <form onSubmit={handleCreateProjectSubmit} className="space-y-4">
+          <MobileField label="项目名称" required helperText="清晰易识别的项目名称，如「智能客服 2.0」">
+            <MobileInput
+              type="text"
+              placeholder="输入项目全名"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              autoFocus
+              leading={<AppIcon name="folder" size={18} />}
+            />
+          </MobileField>
 
-            <button
-              type="submit"
-              disabled={busy || !projectName.trim()}
-              className="min-h-[48px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-base shadow-sm active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 mt-6"
-            >
-              {busy ? '正在创建…' : '立即创建项目'}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleCreateCompanySubmit} className="space-y-4">
-            <MobileField label="公司 / 组织全称" required>
-              <MobileInput
-                type="text"
-                placeholder="例如「未来科技实业有限公司」"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-                leading={<AppIcon name="team" size={18} />}
-              />
-            </MobileField>
-
-            <MobileField label="英文唯一标识 (Slug)" required helperText="小写字母、数字与中划线，用于独立域名与数据隔离">
-              <MobileInput
-                type="text"
-                placeholder="例如 future-tech"
-                value={companySlug}
-                onChange={(e) => setCompanySlug(e.target.value)}
-                autoCapitalize="none"
-                leading={<AppIcon name="lock" size={18} />}
-              />
-            </MobileField>
-
-
-            <button
-              type="submit"
-              disabled={busy || !companyName.trim() || !companySlug.trim()}
-              className="min-h-[48px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-base shadow-sm active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 mt-6"
-            >
-              {busy ? '正在初始化公司…' : '确认创建公司'}
-            </button>
-          </form>
-        )}
+          <button
+            type="submit"
+            disabled={busy || !projectName.trim()}
+            className="min-h-[48px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-base shadow-sm active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 mt-6"
+          >
+            {busy ? '正在创建…' : '立即创建项目'}
+          </button>
+        </form>
       </div>
     </div>
   );

@@ -297,7 +297,6 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               companyId={parsedCompanyId}
               onSelectProject={props.onSelectProject}
               onCreateProjectClick={() => push({ screen: 'project-create', title: '新建项目' })}
-              onCreateCompanyClick={() => push({ screen: 'company-create', title: '新建公司' })}
               onClose={canGoBack ? goBack : undefined}
               lang={lang}
             />
