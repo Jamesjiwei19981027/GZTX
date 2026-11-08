@@ -6,9 +6,18 @@ import { changePassword, deleteMyAccount, getPrivacySummary } from '../../api/au
 import { getEmailStatus, getLlmConfig, getWechatSubscribeStatus, putWechatSubscribePreference, sendNotifyTest, listNotifyRecords, NotifyRecord } from '../../api/notifications';
 import { getHealth } from '../../api/backend';
 import { useToast } from '../toast/ToastProvider';
+import { isUserAdmin } from '../../mobile/features/settings/MobileSettingsScreens';
+import {
+  AdminNotifyChannelsSection,
+  AdminAiServicesSection,
+  AdminOrgSsoSection,
+  AdminIntegrationsSection,
+  AdminNotifyLogsSection,
+} from '../admin/EnterpriseSettingsSections';
 
 interface SettingsViewProps {
   user: UserProfile;
+  companyId?: number | string | null;
   onUpdateUser: (updated: Partial<UserProfile>) => Promise<void> | void;
   settings: AppSettings;
   onUpdateSettings: (updated: Partial<AppSettings>) => void;
@@ -21,6 +30,7 @@ interface SettingsViewProps {
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   user,
+  companyId,
   onUpdateUser,
   settings,
   onUpdateSettings,
@@ -32,7 +42,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 }) => {
   const t = getT(lang);
   const toast = useToast();
-  const [activeTab, setActiveTab] = useState<'profile' | 'appearance' | 'notifications' | 'defaults' | 'security'>('profile');
+  const isAdmin = isUserAdmin(user);
+  const [activeTab, setActiveTab] = useState<
+    | 'profile'
+    | 'appearance'
+    | 'notifications'
+    | 'defaults'
+    | 'security'
+    | 'admin-channels'
+    | 'admin-ai'
+    | 'admin-org-sso'
+    | 'admin-integrations'
+    | 'admin-notify-logs'
+  >('profile');
 
   const [nameInput, setNameInput] = useState(user.name);
   const [emailInput, setEmailInput] = useState(user.email);
@@ -252,6 +274,75 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <span className="material-symbols-outlined text-xl">tune</span>
             <span>{t.taskDefaults}</span>
           </button>
+
+          {isAdmin && (
+            <div className="pt-3 border-t border-surface-variant space-y-1">
+              <div className="px-4 py-1.5 text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm text-primary">domain</span>
+                <span>{lang === 'zh' ? '企业管理' : 'Enterprise Admin'}</span>
+              </div>
+
+              <button
+                onClick={() => setActiveTab('admin-channels')}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  activeTab === 'admin-channels'
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                }`}
+              >
+                <span className="material-symbols-outlined text-xl">hub</span>
+                <span>{lang === 'zh' ? '通知渠道' : 'Notification Channels'}</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('admin-ai')}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  activeTab === 'admin-ai'
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                }`}
+              >
+                <span className="material-symbols-outlined text-xl">smart_toy</span>
+                <span>{lang === 'zh' ? 'AI 服务配置' : 'AI Services'}</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('admin-org-sso')}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  activeTab === 'admin-org-sso'
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                }`}
+              >
+                <span className="material-symbols-outlined text-xl">corporate_fare</span>
+                <span>{lang === 'zh' ? '组织与登录' : 'Organization & SSO'}</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('admin-integrations')}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  activeTab === 'admin-integrations'
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                }`}
+              >
+                <span className="material-symbols-outlined text-xl">extension</span>
+                <span>{lang === 'zh' ? '第三方服务绑定' : 'Third-Party Services'}</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('admin-notify-logs')}
+                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                  activeTab === 'admin-notify-logs'
+                    ? 'bg-primary text-on-primary shadow-sm'
+                    : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                }`}
+              >
+                <span className="material-symbols-outlined text-xl">history</span>
+                <span>{lang === 'zh' ? '通知发送记录' : 'Delivery Logs'}</span>
+              </button>
+            </div>
+          )}
 
           <div className="border-t border-surface-variant my-2 pt-2">
             <button
@@ -827,6 +918,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
             </div>
+          )}
+
+          {/* TAB: ENTERPRISE ADMIN SECTIONS */}
+          {activeTab === 'admin-channels' && isAdmin && (
+            <AdminNotifyChannelsSection isAdmin={isAdmin} companyId={companyId} lang={lang} />
+          )}
+          {activeTab === 'admin-ai' && isAdmin && (
+            <AdminAiServicesSection isAdmin={isAdmin} companyId={companyId} lang={lang} />
+          )}
+          {activeTab === 'admin-org-sso' && isAdmin && (
+            <AdminOrgSsoSection isAdmin={isAdmin} companyId={companyId} lang={lang} />
+          )}
+          {activeTab === 'admin-integrations' && isAdmin && (
+            <AdminIntegrationsSection isAdmin={isAdmin} companyId={companyId} lang={lang} />
+          )}
+          {activeTab === 'admin-notify-logs' && isAdmin && (
+            <AdminNotifyLogsSection isAdmin={isAdmin} companyId={companyId} lang={lang} />
           )}
         </div>
       </div>
