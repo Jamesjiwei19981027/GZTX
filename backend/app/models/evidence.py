@@ -11,6 +11,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class EvidencePackage(Base):
@@ -30,9 +31,9 @@ class EvidencePackage(Base):
     )
     precheck_errors_json = Column(JSON, nullable=True)
     judge_result_json = Column(JSON, nullable=True)
-    submitted_at = Column(DateTime(timezone=True), nullable=True)
-    judged_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    submitted_at = Column(UTCDateTime(), nullable=True)
+    judged_at = Column(UTCDateTime(), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class EvidenceFile(Base):
@@ -49,7 +50,7 @@ class EvidenceFile(Base):
     size_bytes = Column(Integer, nullable=False, default=0)
     sha256 = Column(String(64), nullable=True)
     kind = Column(String(32), nullable=False, default="file")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class AsyncJob(Base):
@@ -62,6 +63,6 @@ class AsyncJob(Base):
     payload_json = Column(JSON, nullable=True)
     result_json = Column(JSON, nullable=True)
     error_message = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    started_at = Column(DateTime(timezone=True), nullable=True)
-    finished_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    started_at = Column(UTCDateTime(), nullable=True)
+    finished_at = Column(UTCDateTime(), nullable=True)

@@ -460,6 +460,7 @@ class TreeService:
                 select(NodeAssignment, User)
                 .join(User, User.id == NodeAssignment.user_id)
                 .where(NodeAssignment.node_id == node_id)
+                .order_by(NodeAssignment.id)
             )
         ).all()
         out = []

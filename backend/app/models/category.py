@@ -6,6 +6,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class Category(Base):
@@ -19,7 +20,7 @@ class Category(Base):
     icon = Column(String(50), nullable=True)
     sort_order = Column(Integer, nullable=False, default=0)
     is_default = Column(Boolean, nullable=False, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
     # 关系
     user = relationship("User", back_populates="categories")

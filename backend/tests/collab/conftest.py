@@ -1,4 +1,5 @@
 """协作测试床 — handoff §6 seed_ids"""
+from sqlalchemy import text as _sa_text
 import json
 from datetime import datetime, timedelta, timezone
 from copy import deepcopy
@@ -42,6 +43,8 @@ async def async_engine():
         engine = create_async_engine(test_db_url)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
+            # create_all 不管的 alembic_version（health/adopt 用例会建）也要清掉，保证用例间隔离
+            await conn.execute(_sa_text("DROP TABLE IF EXISTS alembic_version"))
             await conn.run_sync(Base.metadata.create_all)
         yield engine
         await engine.dispose()

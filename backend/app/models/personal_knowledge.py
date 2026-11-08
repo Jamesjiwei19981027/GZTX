@@ -3,6 +3,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, JS
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class PersonalKnowledgeEntry(Base):
@@ -24,8 +25,8 @@ class PersonalKnowledgeEntry(Base):
     source_id = Column(Integer, nullable=True)
     source_ref_json = Column(JSON, nullable=False, default=dict)
     is_deleted = Column(Boolean, nullable=False, default=False, server_default="0")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), server_default=func.now(), onupdate=func.now())
 
 
 class PersonalKnowledgeLink(Base):
@@ -39,4 +40,4 @@ class PersonalKnowledgeLink(Base):
     source_entry_id = Column(Integer, ForeignKey("personal_knowledge_entries.id", ondelete="CASCADE"), nullable=False)
     target_entry_id = Column(Integer, ForeignKey("personal_knowledge_entries.id", ondelete="CASCADE"), nullable=False)
     label = Column(String(200), nullable=False, default="")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())

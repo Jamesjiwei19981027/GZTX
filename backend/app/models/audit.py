@@ -10,6 +10,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class AuditLog(Base):
@@ -23,7 +24,7 @@ class AuditLog(Base):
     resource_type = Column(String(64), nullable=True)
     resource_id = Column(String(64), nullable=True)
     detail_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class ReviewCase(Base):
@@ -39,5 +40,5 @@ class ReviewCase(Base):
     evidence_package_id = Column(Integer, nullable=True)
     summary_text = Column(Text, nullable=True)
     conclusion_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), onupdate=func.now())

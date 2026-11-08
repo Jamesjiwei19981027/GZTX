@@ -3,6 +3,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class Attachment(Base):
@@ -15,7 +16,7 @@ class Attachment(Base):
     stored_name = Column(String(500), nullable=False)  # UUID-based filename on disk
     file_size = Column(Integer, nullable=False)  # bytes
     mime_type = Column(String(200), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(UTCDateTime(), server_default=func.now(), nullable=False)
 
     # Relationships
     task = relationship("Task", backref="attachments")
@@ -46,4 +47,4 @@ class AttachmentDownloadTicket(Base):
     )
     expires_at = Column(DateTime, nullable=False, index=True)
     used_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())

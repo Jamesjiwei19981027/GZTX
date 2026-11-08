@@ -12,6 +12,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class ProgressRecord(Base):
@@ -30,7 +31,7 @@ class ProgressRecord(Base):
     before_json = Column(JSON, nullable=True)
     after_json = Column(JSON, nullable=False)
     reason = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class AdoptionRecord(Base):
@@ -45,4 +46,4 @@ class AdoptionRecord(Base):
     decision = Column(String(32), nullable=False)  # adopted | rejected
     reason = Column(Text, nullable=True)
     in_wiki = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())

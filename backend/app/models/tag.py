@@ -6,6 +6,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 # 任务-标签 多对多关联表
 task_tags = Table(
@@ -24,7 +25,7 @@ class Tag(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(30), nullable=False)
     color = Column(String(7), nullable=False, default="#67C23A")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
     # 关系
     user = relationship("User", back_populates="tags")

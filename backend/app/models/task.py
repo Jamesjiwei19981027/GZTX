@@ -17,6 +17,7 @@ from sqlalchemy.sql import func
 
 from app.db.base import Base
 from app.models.tag import task_tags
+from app.db.types import UTCDateTime
 
 
 class Task(Base):
@@ -38,8 +39,8 @@ class Task(Base):
     description = Column(Text, nullable=True)
     priority = Column(Integer, nullable=False, default=1)  # 0=低, 1=中, 2=高
     status = Column(Integer, nullable=False, default=0)    # 0=待办, 1=进行中, 2=已完成
-    due_date = Column(DateTime(timezone=True), nullable=True, index=True)
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+    due_date = Column(UTCDateTime(), nullable=True, index=True)
+    completed_at = Column(UTCDateTime(), nullable=True)
     is_recurring = Column(Boolean, default=False, nullable=False)
     recurrence_rule = Column(JSON, nullable=True)
     parent_task_id = Column(Integer, ForeignKey("tasks.id"), nullable=True)
@@ -47,9 +48,9 @@ class Task(Base):
     checklist = Column(JSON, nullable=True)
     sort_order = Column(Integer, default=0, nullable=False)
     is_deleted = Column(Boolean, default=False, nullable=False, index=True)
-    deleted_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    deleted_at = Column(UTCDateTime(), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), onupdate=func.now())
 
     # 完成评价相关字段
     completion_rate = Column(Integer, default=100, nullable=False)  # 完成度 0-100
@@ -61,7 +62,7 @@ class Task(Base):
 
     # 邮件回复跟踪字段
     email_reply_count = Column(Integer, default=0, nullable=False)
-    last_reply_at = Column(DateTime(timezone=True), nullable=True)
+    last_reply_at = Column(UTCDateTime(), nullable=True)
     last_reply_command = Column(String(50), nullable=True)
 
     # 个人/协作兼容字段（附录 C.22）

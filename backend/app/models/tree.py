@@ -16,6 +16,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 def default_progress_json(template: str) -> dict:
@@ -88,15 +89,15 @@ class TreeNode(Base):
     sort_order = Column(Integer, nullable=False, default=0)
     path = Column(String(500), nullable=False, default="/")
     depth = Column(Integer, nullable=False, default=0)
-    start_at = Column(DateTime(timezone=True), nullable=True)
-    due_at = Column(DateTime(timezone=True), nullable=True)
-    milestone_at = Column(DateTime(timezone=True), nullable=True)
+    start_at = Column(UTCDateTime(), nullable=True)
+    due_at = Column(UTCDateTime(), nullable=True)
+    milestone_at = Column(UTCDateTime(), nullable=True)
     allow_clear_text_progress = Column(Boolean, default=False, nullable=False)
     progress_json = Column(JSON, nullable=False, default=dict)
     is_deleted = Column(Boolean, default=False, nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), onupdate=func.now())
 
 
 class NodeAssignment(Base):
@@ -109,4 +110,4 @@ class NodeAssignment(Base):
     node_id = Column(Integer, ForeignKey("tree_nodes.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     role_key = Column(String(32), nullable=False, default="primary")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())

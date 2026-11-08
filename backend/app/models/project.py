@@ -10,6 +10,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class Project(Base):
@@ -26,9 +27,9 @@ class Project(Base):
     final_owner_along_delta = Column(Integer, nullable=False, default=0, server_default="0")
     archive_policy_json = Column(JSON, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    archived_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), onupdate=func.now())
+    archived_at = Column(UTCDateTime(), nullable=True)
 
 
 class ProjectMember(Base):
@@ -38,8 +39,8 @@ class ProjectMember(Base):
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     role = Column(String(32), nullable=False, default="member")
-    joined_at = Column(DateTime(timezone=True), server_default=func.now())
-    left_at = Column(DateTime(timezone=True), nullable=True)
+    joined_at = Column(UTCDateTime(), server_default=func.now())
+    left_at = Column(UTCDateTime(), nullable=True)
 
 
 class ProjectInvitation(Base):
@@ -51,5 +52,5 @@ class ProjectInvitation(Base):
     invitee_email = Column(String(200), nullable=True)
     token = Column(String(64), unique=True, nullable=False)
     status = Column(String(32), nullable=False, default="pending")
-    expires_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    expires_at = Column(UTCDateTime(), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())

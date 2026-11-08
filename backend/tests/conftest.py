@@ -1,4 +1,5 @@
 """个人底盘 + 全局测试夹具（async SQLite）"""
+from sqlalchemy import text as _sa_text
 import os
 
 os.environ.setdefault("INTEGRATION_SECRET_KEY", "test-integration-secret-key-32-chars-long!")
@@ -43,6 +44,8 @@ async def async_engine():
         engine = create_async_engine(test_db_url)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
+            # create_all 不管的 alembic_version（health/adopt 用例会建）也要清掉，保证用例间隔离
+            await conn.execute(_sa_text("DROP TABLE IF EXISTS alembic_version"))
             await conn.run_sync(Base.metadata.create_all)
         yield engine
         await engine.dispose()
@@ -74,6 +77,8 @@ def sync_db_session():
         )
         engine = create_engine(sync_url)
         Base.metadata.drop_all(engine)
+        with engine.begin() as _c:
+            _c.execute(_sa_text("DROP TABLE IF EXISTS alembic_version"))
         Base.metadata.create_all(engine)
     else:
         engine = create_engine(
@@ -87,6 +92,8 @@ def sync_db_session():
     session.close()
     if test_db_url:
         Base.metadata.drop_all(engine)
+        with engine.begin() as _c:
+            _c.execute(_sa_text("DROP TABLE IF EXISTS alembic_version"))
     engine.dispose()
 
 

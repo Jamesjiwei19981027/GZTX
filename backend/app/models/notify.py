@@ -13,6 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class NotifyPolicy(Base):
@@ -47,10 +48,10 @@ class NotifyJob(Base):
     # 已尝试投递次数，由 main.drain_notify_jobs 维护
     attempts = Column(Integer, nullable=False, default=0, server_default="0")
     error_message = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    sent_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    sent_at = Column(UTCDateTime(), nullable=True)
     # 认领时间：进程崩溃留下的 processing 超时后可被重新认领
-    claimed_at = Column(DateTime(timezone=True), nullable=True)
+    claimed_at = Column(UTCDateTime(), nullable=True)
 
 
 class CollabInboxMessage(Base):
@@ -69,10 +70,10 @@ class CollabInboxMessage(Base):
     attachments_json = Column(JSON, nullable=False, default=list)
     requires_reply = Column(Boolean, default=False, nullable=False)
     reply_text = Column(Text, nullable=True)
-    replied_at = Column(DateTime(timezone=True), nullable=True)
-    archived_at = Column(DateTime(timezone=True), nullable=True, index=True)
-    deleted_at = Column(DateTime(timezone=True), nullable=True, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    replied_at = Column(UTCDateTime(), nullable=True)
+    archived_at = Column(UTCDateTime(), nullable=True, index=True)
+    deleted_at = Column(UTCDateTime(), nullable=True, index=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class NotificationRecord(Base):
@@ -90,7 +91,7 @@ class NotificationRecord(Base):
     status = Column(String(16), nullable=False)  # sent | failed
     error = Column(Text, nullable=True)
     task_id = Column(Integer, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at = Column(UTCDateTime(), server_default=func.now(), index=True)
 
 
 class PushSubscription(Base):
@@ -103,5 +104,5 @@ class PushSubscription(Base):
     endpoint = Column(String(2000), nullable=False, unique=True)
     subscription_json = Column(JSON, nullable=False, default=dict)
     user_agent = Column(String(500), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), onupdate=func.now())

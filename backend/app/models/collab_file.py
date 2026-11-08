@@ -4,6 +4,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class CollabFile(Base):
@@ -20,5 +21,5 @@ class CollabFile(Base):
     mime_type = Column(String(255), nullable=False, default="application/octet-stream")
     size_bytes = Column(Integer, nullable=False)
     sha256 = Column(String(64), nullable=False, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 

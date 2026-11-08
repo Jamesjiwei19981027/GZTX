@@ -7,6 +7,7 @@ logout 携带 refresh_token 时也写入一条（reason=logout，无宽限期）
 from sqlalchemy import Column, DateTime, Integer, String
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class RevokedRefreshToken(Base):
@@ -18,5 +19,5 @@ class RevokedRefreshToken(Base):
     # rotated：正常轮换产生，60 秒宽限期内允许旧 token 重放（多端/并发竞态保护）
     # logout：用户显式登出，立即失效，无宽限期
     reason = Column(String(16), nullable=False, default="rotated")
-    revoked_at = Column(DateTime(timezone=True), nullable=False)
-    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    revoked_at = Column(UTCDateTime(), nullable=False)
+    expires_at = Column(UTCDateTime(), nullable=False, index=True)

@@ -1143,12 +1143,15 @@ async def aggregate_people_axis(
     projects = (
         await db.execute(
             select(Project)
-            .outerjoin(ProjectMember, ProjectMember.project_id == Project.id)
             .where(
                 (Project.created_by == user.id)
-                | ((ProjectMember.user_id == user.id) & ProjectMember.left_at.is_(None))
+                | Project.id.in_(
+                    select(ProjectMember.project_id).where(
+                        ProjectMember.user_id == user.id,
+                        ProjectMember.left_at.is_(None),
+                    )
+                )
             )
-            .distinct()
             .order_by(Project.id)
             .limit(limit_projects)
         )

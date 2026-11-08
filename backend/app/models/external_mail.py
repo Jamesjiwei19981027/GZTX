@@ -4,6 +4,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class ExternalMail(Base):
@@ -23,7 +24,7 @@ class ExternalMail(Base):
     headers_json = Column(JSON, nullable=False, default=dict)
     body_text = Column(Text, nullable=False, default="")
     state = Column(String(16), nullable=False, default="active", index=True)  # active|archived|deleted
-    received_at = Column(DateTime(timezone=True), nullable=True)
-    synced_at = Column(DateTime(timezone=True), server_default=func.now())
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    received_at = Column(UTCDateTime(), nullable=True)
+    synced_at = Column(UTCDateTime(), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
