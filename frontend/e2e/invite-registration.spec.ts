@@ -203,7 +203,7 @@ for (const mobile of [false, true]) {
     if (mobile) {
       await page.getByRole('button', { name: '项目列表', exact: true }).click();
       await page.getByRole('button', { name: '新建项目', exact: true }).click();
-      await page.getByLabel('项目名称', { exact: true }).fill('无手机验证协作项目');
+      await page.getByRole('textbox', { name: '项目名称', exact: true }).fill('无手机验证协作项目');
       await page.getByRole('button', { name: '立即创建项目', exact: true }).click();
       await expect(page.getByRole('heading', { name: '新建项目', exact: true })).toHaveCount(0);
       await expect(page.getByRole('heading', { name: '切换工作区与项目', exact: true })).toBeVisible();
@@ -211,7 +211,7 @@ for (const mobile of [false, true]) {
       await expect(page.getByRole('button', { name: '项目列表', exact: true })).toHaveText('无手机验证协作项目');
     } else {
       await page.getByRole('button', { name: '创建项目', exact: true }).click();
-      await page.getByLabel('项目名称', { exact: true }).fill('无手机验证协作项目');
+      await page.getByRole('textbox', { name: '项目名称', exact: true }).fill('无手机验证协作项目');
       await page.getByRole('button', { name: '创建', exact: true }).click();
       await expect(page.getByText('项目已创建', { exact: true })).toBeVisible();
     }

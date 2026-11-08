@@ -80,7 +80,7 @@ test('AI 模型配置和快捷密钥保存后均只显示已配置，不回显�
   expect(writes).toHaveLength(2);
   expect(writes[1]).toEqual({ provider: 'openai', api_key: 'sk-e2e-replacement-secret' });
   await expect(quickKey).toHaveValue('');
-  await expect(main.getByText('已配置 (AES-256 加密)', { exact: true })).toBeVisible();
+  await expect(main.getByText(/已配置 \(AES-256 加密\)$/)).toBeVisible();
 
   // 离开再进入，验证重新读取配置也不会把密钥恢复到输入框。
   await main.getByRole('button', { name: /组织与登录/ }).click();
