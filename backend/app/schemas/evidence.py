@@ -1,7 +1,12 @@
 """证据 / 进度 schema"""
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
+
+
+class EvidenceReviewBody(BaseModel):
+    decision: Literal["adopted", "rejected"]
+    reason: Optional[str] = None
 
 
 class EvidenceSubmit(BaseModel):
