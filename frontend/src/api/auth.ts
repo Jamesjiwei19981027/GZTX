@@ -45,6 +45,28 @@ export type NotificationPreferenceUpdate = {
   weekend_mute?: boolean
 }
 
+export type RegistrationConfig = {
+  mode: 'open' | 'invite_only'
+  phone_required: boolean
+}
+
+export const DEFAULT_REGISTRATION_CONFIG: RegistrationConfig = {
+  mode: 'open',
+  phone_required: false,
+}
+
+export async function getRegistrationConfig(): Promise<RegistrationConfig> {
+  try {
+    const data = await apiRequest<RegistrationConfig>('/auth/registration-config')
+    return {
+      mode: data?.mode === 'invite_only' ? 'invite_only' : 'open',
+      phone_required: Boolean(data?.phone_required),
+    }
+  } catch {
+    return DEFAULT_REGISTRATION_CONFIG
+  }
+}
+
 function rememberTokens(data: AuthTokenPayload) {
   setToken(data.access_token)
   if (data.refresh_token) setRefreshToken(data.refresh_token)

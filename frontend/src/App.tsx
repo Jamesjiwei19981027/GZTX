@@ -34,7 +34,16 @@ import { NotificationsModal } from './components/modals/NotificationsModal';
 import { LoginGate } from './components/LoginGate';
 import { VerifyGate } from './components/VerifyGate';
 import { ApiError, getToken, sendPresenceKeepalive } from './api/client';
-import { fetchMe, getVerificationStatus, logout, updateMe, uploadAvatar } from './api/auth';
+import {
+  DEFAULT_REGISTRATION_CONFIG,
+  fetchMe,
+  getRegistrationConfig,
+  getVerificationStatus,
+  logout,
+  type RegistrationConfig,
+  updateMe,
+  uploadAvatar,
+} from './api/auth';
 import {
   batchCompleteTasks,
   batchDeleteTasks,
@@ -193,6 +202,7 @@ export default function App() {
     getToken() ? null : true,
   );
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [regConfig, setRegConfig] = useState<RegistrationConfig>(DEFAULT_REGISTRATION_CONFIG);
   const [inviteNotice, setInviteNotice] = useState<string | null>(null);
   const [inviteRefreshFailed, setInviteRefreshFailed] = useState(false);
   const [workspaceModal, setWorkspaceModal] = useState<WorkspaceSetupMode | null>(null);
@@ -455,6 +465,16 @@ export default function App() {
       cancelled = true;
     };
   }, [authed]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getRegistrationConfig().then((cfg) => {
+      if (!cancelled) setRegConfig(cfg);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (authed && verified) void refreshFromBackend();
