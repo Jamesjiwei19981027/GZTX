@@ -76,14 +76,26 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (mounted) setState(() {});
   }
 
-  AuthApi get _api => widget.api ?? AuthApi(context.read<AuthState>().api);
+  AuthState? get _authState {
+    try {
+      return Provider.of<AuthState>(context, listen: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  AuthApi? get _api {
+    if (widget.api != null) return widget.api;
+    final auth = _authState;
+    if (auth != null) return AuthApi(auth.api);
+    return null;
+  }
 
   String? _resolveInviteToken() {
     if (widget.inviteToken != null && widget.inviteToken!.trim().isNotEmpty) {
       return widget.inviteToken!.trim();
     }
-    return PendingInviteHolder.token ??
-        context.read<AuthState>().pendingInviteToken;
+    return PendingInviteHolder.token ?? _authState?.pendingInviteToken;
   }
 
   bool get _canSubmit =>
@@ -107,9 +119,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       });
       return;
     }
+    final api = _api;
+    if (api == null) return;
     setState(() => _busy = true);
     try {
-      final result = await _api.sendCode(
+      final result = await api.sendCode(
         channel: channel,
         target: target,
         purpose: SendCodePurpose.register,
@@ -168,9 +182,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       _error = null;
       _hint = null;
     });
+    final api = _api;
+    if (api == null) return;
     try {
       final username = _username.text.trim();
-      final session = await _api.register(
+      final session = await api.register(
         username: username,
         password: _password.text,
         email: _email.text.trim(),
@@ -181,8 +197,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         inviteToken: _resolveInviteToken(),
       );
       if (!mounted) return;
-      await AuthFlow(context.read<AuthState>())
-          .completeSignInAndEnter(context, session);
+      final auth = _authState;
+      if (auth != null) {
+        await AuthFlow(auth).completeSignInAndEnter(context, session);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = describeAuthError(e));

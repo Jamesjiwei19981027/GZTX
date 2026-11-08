@@ -60,7 +60,9 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _loadRegistrationConfig() async {
-    final cfg = await _api.fetchRegistrationConfig();
+    final api = _api;
+    if (api == null) return;
+    final cfg = await api.fetchRegistrationConfig();
     if (mounted) {
       setState(() => _regConfig = cfg);
     }
@@ -80,7 +82,20 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) setState(() {});
   }
 
-  AuthApi get _api => widget.api ?? AuthApi(context.read<AuthState>().api);
+  AuthState? get _authState {
+    try {
+      return Provider.of<AuthState>(context, listen: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  AuthApi? get _api {
+    if (widget.api != null) return widget.api;
+    final auth = _authState;
+    if (auth != null) return AuthApi(auth.api);
+    return null;
+  }
 
   void _clearMessages() {
     setState(() {
@@ -107,14 +122,18 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
       _hint = null;
     });
+    final api = _api;
+    if (api == null) return;
     try {
-      final session = await _api.loginWithPassword(
+      final session = await api.loginWithPassword(
         username: username,
         password: password,
       );
       if (!mounted) return;
-      await AuthFlow(context.read<AuthState>())
-          .completeSignInAndEnter(context, session);
+      final auth = _authState;
+      if (auth != null) {
+        await AuthFlow(auth).completeSignInAndEnter(context, session);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = describeAuthError(e));
@@ -140,15 +159,19 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
       _hint = null;
     });
+    final api = _api;
+    if (api == null) return;
     try {
-      final session = await _api.loginWithCode(
+      final session = await api.loginWithCode(
         channel: channel,
         target: target,
         code: code,
       );
       if (!mounted) return;
-      await AuthFlow(context.read<AuthState>())
-          .completeSignInAndEnter(context, session);
+      final auth = _authState;
+      if (auth != null) {
+        await AuthFlow(auth).completeSignInAndEnter(context, session);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = describeAuthError(e));
@@ -165,9 +188,11 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = '请输入有效的手机号或邮箱后再获取验证码');
       return;
     }
+    final api = _api;
+    if (api == null) return;
     setState(() => _busy = true);
     try {
-      final result = await _api.sendCode(
+      final result = await api.sendCode(
         channel: channel,
         target: target,
         purpose: SendCodePurpose.login,
@@ -197,8 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   String? _resolveInviteToken() {
-    return PendingInviteHolder.token ??
-        context.read<AuthState>().pendingInviteToken;
+    return PendingInviteHolder.token ?? _authState?.pendingInviteToken;
   }
 
   void _openRegister() {
