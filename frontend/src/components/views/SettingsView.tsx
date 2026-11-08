@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { AppSettings, UserProfile, Language, AccentColor } from '../../types';
 import { getT } from '../../i18n';
 import { getBrandName } from '../../constants/brand';
-import { changePassword, deleteMyAccount, getBillingSummary, getPrivacySummary } from '../../api/auth';
+import { changePassword, deleteMyAccount, getPrivacySummary } from '../../api/auth';
 import { getEmailStatus, getLlmConfig, getWechatSubscribeStatus, putWechatSubscribePreference, sendNotifyTest, listNotifyRecords, NotifyRecord } from '../../api/notifications';
 import { getHealth } from '../../api/backend';
 import { useToast } from '../toast/ToastProvider';
@@ -47,7 +47,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [savingPassword, setSavingPassword] = useState(false);
-  const [billing, setBilling] = useState<{ plan_code?: string; status: string; company_name?: string } | null>(null);
   const [privacy, setPrivacy] = useState<{ retention: string; stored_data: Record<string, unknown> } | null>(null);
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteBusy, setDeleteBusy] = useState(false);
@@ -64,7 +63,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   useEffect(() => {
     if (activeTab !== 'security' && activeTab !== 'notifications') return;
     void Promise.all([
-      getBillingSummary().then((value) => setBilling(value)).catch(() => undefined),
       getPrivacySummary().then((value) => setPrivacy(value)).catch(() => undefined),
       getWechatSubscribeStatus().then((value) => { setWechatBound(value.wx_bound); setWechatEnabled(value.subscription_enabled); }).catch(() => undefined),
       getEmailStatus().then((value) => setEmailStatus(value.smtp_configured ? `SMTP: ${value.smtp_source}` : 'SMTP 未配置')).catch(() => undefined),
@@ -813,11 +811,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     {t.signOut}
                   </button>
                 )}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
-                  <div className="p-3 rounded-xl bg-surface-container-low text-xs">
-                    <p className="font-bold text-on-surface">{lang === 'zh' ? '账单与订阅' : 'Billing & subscription'}</p>
-                    <p className="mt-1 text-on-surface-variant">{billing ? `${billing.company_name || '个人'} · ${billing.plan_code || billing.status}` : '加载中…'}</p>
-                  </div>
+                <div className="mt-6">
                   <div className="p-3 rounded-xl bg-surface-container-low text-xs">
                     <p className="font-bold text-on-surface">{lang === 'zh' ? '数据与隐私' : 'Data & privacy'}</p>
                     <p className="mt-1 text-on-surface-variant">{privacy ? `${privacy.retention} 任务 ${String(privacy.stored_data.tasks ?? 0)} 条` : '加载中…'}</p>
