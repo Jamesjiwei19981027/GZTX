@@ -26,6 +26,16 @@ from app.models.user import User
 import app.models  # noqa: F401 — register all tables
 
 
+def pytest_collection_modifyitems(config, items):
+    if os.environ.get("TEST_DATABASE_URL"):
+        skip_sqlite = pytest.mark.skip(
+            reason="仅在 SQLite 下运行（TEST_DATABASE_URL 已设置）"
+        )
+        for item in items:
+            if "sqlite_only" in item.keywords:
+                item.add_marker(skip_sqlite)
+
+
 @pytest_asyncio.fixture
 async def async_engine():
     test_db_url = os.environ.get("TEST_DATABASE_URL")
