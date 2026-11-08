@@ -116,22 +116,8 @@ export const REGISTERED_SCREENS: Record<MobileTab, ReadonlySet<string>> = {
     'admin-model-keys',
     'admin-asr-config',
     'admin-sso-config',
-    // T12 全尺寸与异常场景适配
-    'adapt-empty',
-    'adapt-offline',
-    'adapt-load-fail',
-    'adapt-forbidden',
-    'adapt-danger-confirm',
-    'adapt-narrow-320',
-    'adapt-wide-430',
-    'adapt-font-150',
-    'adapt-font-200',
-    'adapt-dark-mode',
-    'adapt-tablet-split',
-    'adapt-landscape',
-    'adapt-keyboard-inset',
+    // T12 账号注销确认
     'adapt-account-delete',
-    'adapt-boot-sync',
   ]),
 };
 

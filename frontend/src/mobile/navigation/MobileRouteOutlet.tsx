@@ -52,21 +52,7 @@ import {
   AdminSsoConfigScreen,
 } from '../features/settings/AdminIntegrationScreens';
 import {
-  AdaptEmptyStateScreen,
-  AdaptOfflineRecoveryScreen,
-  AdaptLoadFailScreen,
-  AdaptPermissionDeniedScreen,
-  AdaptDangerConfirmScreen,
-  AdaptNarrow320Screen,
-  AdaptWide430Screen,
-  AdaptFont150Screen,
-  AdaptFont200Screen,
-  AdaptDarkModeScreen,
-  AdaptTabletSplitScreen,
-  AdaptLandscapeScreen,
-  AdaptKeyboardInsetScreen,
   AdaptAccountDeleteScreen,
-  AdaptBootSyncScreen,
 } from '../features/adaptation/MobileAdaptationScreens';
 import {
   MobileWorkbenchScreen,
@@ -297,7 +283,6 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               companyId={parsedCompanyId}
               onSelectProject={props.onSelectProject}
               onCreateProjectClick={() => push({ screen: 'project-create', title: '新建项目' })}
-              onCreateCompanyClick={() => push({ screen: 'company-create', title: '新建公司' })}
               onClose={canGoBack ? goBack : undefined}
               lang={lang}
             />
@@ -878,51 +863,9 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
           return <AdminSsoConfigScreen {...props} />;
         }
 
-        // T12 全尺寸与异常场景适配
-        if (activeRoute.screen === 'adapt-empty') {
-          return <AdaptEmptyStateScreen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-offline') {
-          return <AdaptOfflineRecoveryScreen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-load-fail') {
-          return <AdaptLoadFailScreen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-forbidden') {
-          return <AdaptPermissionDeniedScreen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-danger-confirm') {
-          return <AdaptDangerConfirmScreen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-narrow-320') {
-          return <AdaptNarrow320Screen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-wide-430') {
-          return <AdaptWide430Screen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-font-150') {
-          return <AdaptFont150Screen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-font-200') {
-          return <AdaptFont200Screen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-dark-mode') {
-          return <AdaptDarkModeScreen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-tablet-split') {
-          return <AdaptTabletSplitScreen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-landscape') {
-          return <AdaptLandscapeScreen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-keyboard-inset') {
-          return <AdaptKeyboardInsetScreen {...props} />;
-        }
+        // T12 账号注销确认
         if (activeRoute.screen === 'adapt-account-delete') {
           return <AdaptAccountDeleteScreen {...props} />;
-        }
-        if (activeRoute.screen === 'adapt-boot-sync') {
-          return <AdaptBootSyncScreen {...props} />;
         }
 
         // 默认我的页面根页 (Design ID 53)

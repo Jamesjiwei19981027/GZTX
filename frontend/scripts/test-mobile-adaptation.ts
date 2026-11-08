@@ -11,32 +11,38 @@ import {
 
 console.log('--- Testing T12 Mobile Adaptation & Exception Contracts ---');
 
-// 1. 验证 15 个 T12 页面 key 均已在 REGISTERED_SCREENS.me 中登记
-const t12RequiredScreens = [
-  'adapt-empty',          // 66: 空状态与首次使用
-  'adapt-offline',        // 67: 断网与启动恢复
-  'adapt-load-fail',      // 68: 加载失败 / 模型不可用
-  'adapt-forbidden',      // 69: 权限不足 / 角色变化
-  'adapt-danger-confirm', // 70: 删除与高风险操作确认
-  'adapt-narrow-320',     // 71: 窄屏适配 · 320
-  'adapt-wide-430',       // 72: 宽屏手机 · 430
-  'adapt-font-150',       // 73: 系统大字体 · 150%
-  'adapt-font-200',       // 74: 系统大字体 · 200%
-  'adapt-dark-mode',      // 75: 深色模式
-  'adapt-tablet-split',   // 76: 平板双栏
-  'adapt-landscape',      // 77: 横屏手机
-  'adapt-keyboard-inset', // 78: 键盘弹出与输入
-  'adapt-account-delete', // 96: 删除账号确认
-  'adapt-boot-sync',      // 97: 启动与同步中 / 敏感操作二次验证
-];
+// 1. 验证真实保留的 T12 业务页面 (删除账号确认 96) 登记在 REGISTERED_SCREENS.me 中
+const retainedScreen = 'adapt-account-delete';
+assert.ok(
+  REGISTERED_SCREENS.me.has(retainedScreen),
+  `REGISTERED_SCREENS.me must contain T12 screen key: ${retainedScreen}`,
+);
 
-for (const screen of t12RequiredScreens) {
-  assert.ok(
+// 验证无实际导航入口的适配演示页已被精简移除
+const trimmedDemoScreens = [
+  'adapt-empty',
+  'adapt-offline',
+  'adapt-load-fail',
+  'adapt-forbidden',
+  'adapt-danger-confirm',
+  'adapt-narrow-320',
+  'adapt-wide-430',
+  'adapt-font-150',
+  'adapt-font-200',
+  'adapt-dark-mode',
+  'adapt-tablet-split',
+  'adapt-landscape',
+  'adapt-keyboard-inset',
+  'adapt-boot-sync',
+];
+for (const screen of trimmedDemoScreens) {
+  assert.equal(
     REGISTERED_SCREENS.me.has(screen),
-    `REGISTERED_SCREENS.me must contain T12 screen key: ${screen}`,
+    false,
+    `REGISTERED_SCREENS.me must not contain trimmed demo screen: ${screen}`,
   );
 }
-console.log(`✓ All ${t12RequiredScreens.length} T12 adaptation screen keys registered in navigation routes`);
+console.log('✓ Retained business screen registered and 14 unrouted demo screens cleanly trimmed');
 
 // 2. 验证 offlineDrafts 离线草稿隔离逻辑
 // 设置 Node 内存模拟 localStorage

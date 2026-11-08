@@ -909,30 +909,6 @@ export const AdminAsrConfigScreen: React.FC<SettingsSharedProps> = ({ user, comp
               <p className="text-xs text-slate-500">服务需提供兼容 Whisper 的音频转写接口，录音结束后才发送。当前仅保存配置，实际可用性以转写结果为准。</p>
             </>}
 
-            <MobileField label="主语言偏好">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  disabled={!isAdmin}
-                  onClick={() => setLang('zh')}
-                  className={`py-2 rounded-xl text-xs font-semibold border ${
-                    lang === 'zh' ? 'bg-[#0058BE] text-white' : 'bg-white dark:bg-slate-800'
-                  }`}
-                >
-                  中文普通话 (zh)
-                </button>
-                <button
-                  type="button"
-                  disabled={!isAdmin}
-                  onClick={() => setLang('en')}
-                  className={`py-2 rounded-xl text-xs font-semibold border ${
-                    lang === 'en' ? 'bg-[#0058BE] text-white' : 'bg-white dark:bg-slate-800'
-                  }`}
-                >
-                  English (en)
-                </button>
-              </div>
-            </MobileField>
 
             <MobileField label="音频采样率 (Sample Rate)">
               <div className="min-h-[44px] px-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center text-xs font-semibold text-slate-700 dark:text-slate-300">

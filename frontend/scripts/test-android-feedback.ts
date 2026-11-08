@@ -100,7 +100,7 @@ try {
   await expect(page.getByRole('heading',{name:'赵晨',exact:true})).toBeVisible();
   checked('New message opens allowed contacts and explicitly selected direct conversation');
   await tap(page.getByRole('tab',{name:'我的',exact:true}));
-  await tap(page.getByText('外观与语言',{exact:true}));
+  await tap(page.getByText('外观',{exact:true}));
   await tap(page.getByRole('button',{name:'深色模式'}));
   await expect(page.locator('html')).toHaveClass(/dark/);
   const header = page.locator('header').first();

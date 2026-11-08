@@ -10,13 +10,13 @@ const t11RequiredScreens = [
   'me-root',               // 53: 我的
   'me-profile',            // 54: 个人资料
   'me-security',           // 55: 账号安全
-  'me-appearance',         // 56: 外观与语言
+  'me-appearance',         // 56: 外观
   'me-notifications',      // 57: 通知与免打扰
   'me-defaults',           // 58: 任务默认值
   'admin-notify-channels', // 59: 通知渠道配置
   'admin-llm-config',      // 60: AI 模型配置
   'admin-org-sso',         // 61: 组织与登录集成
-  'me-billing-help',       // 62: 套餐、隐私与帮助
+  'me-billing-help',       // 62: 隐私与帮助
   'me-notify-logs',        // 63: 通知发送记录
   'me-integrations',       // 90: 第三方服务绑定
   'admin-push-certs',      // 91: 推送证书状态

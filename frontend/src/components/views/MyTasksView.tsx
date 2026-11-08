@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Task, Status, Priority, Category, Language } from '../../types';
+import { Task, Status, Priority, Language } from '../../types';
 import { getT } from '../../i18n';
 
 interface MyTasksViewProps {
@@ -178,40 +178,10 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
   const completedCount = tasks.filter((t) => t.status === 'Done').length;
   const completionPercentage = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
-  // Group by category
-  const categories: Category[] = ['Work', 'Health', 'Personal', 'Shopping', 'Documentation'];
-  const categoryColors: Record<Category, string> = {
-    Work: 'bg-primary text-primary',
-    Health: 'bg-secondary text-secondary',
-    Personal: 'bg-tertiary text-tertiary',
-    Shopping: 'bg-[#924700] text-[#924700]',
-    Documentation: 'bg-on-surface-variant text-on-surface-variant',
-  };
-
-  const getCategoryLabel = (cat: Category) => {
-    switch (cat) {
-      case 'Work':
-        return t.work;
-      case 'Health':
-        return t.health;
-      case 'Personal':
-        return t.personal;
-      case 'Shopping':
-        return t.shopping;
-      case 'Documentation':
-        return t.documentation;
-    }
-  };
-
-  // 键盘流的可见顺序：逾期组在前，随后按分类分组顺序
+  // 键盘流的可见顺序：逾期组在前，随后为常规任务
   const orderedTasks = useMemo(() => {
-    const list: Task[] = [...overdueTasks];
-    for (const cat of categories) {
-      list.push(...normalTasks.filter((task) => task.category === cat));
-    }
-    return list;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, statusFilter, priorityFilter, onlyToday]);
+    return [...overdueTasks, ...normalTasks];
+  }, [overdueTasks, normalTasks]);
 
   const orderedRef = useRef(orderedTasks);
   orderedRef.current = orderedTasks;
@@ -515,25 +485,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           </div>
         )}
 
-        {categories.map((cat) => {
-          const catTasks = normalTasks.filter((t) => t.category === cat);
-          if (catTasks.length === 0) return null;
-
-          return (
-            <div key={cat} className="space-y-3">
-              {/* Category Header */}
-              <div className="flex items-center gap-2 px-1">
-                <span className={`w-2.5 h-2.5 rounded-full ${categoryColors[cat].split(' ')[0]}`}></span>
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant">
-                  {getCategoryLabel(cat)} ({catTasks.length})
-                </h3>
-              </div>
-
-              {/* Tasks in this category */}
-              <div className="space-y-2.5">{catTasks.map((task) => renderTaskRow(task))}</div>
-            </div>
-          );
-        })}
+        {normalTasks.length > 0 && (
+          <div className="space-y-2.5">{normalTasks.map((task) => renderTaskRow(task))}</div>
+        )}
 
         {filteredTasks.length === 0 && (
           <div className="text-center py-16 bg-surface dark:bg-[#191c1d] rounded-2xl border border-dashed border-outline-variant">

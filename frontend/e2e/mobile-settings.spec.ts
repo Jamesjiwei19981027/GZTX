@@ -182,8 +182,8 @@ test('Mobile Settings & Admin Integration: 16 Screens Reachability, Role Access 
   await expect(page.locator('text=注销此账号')).toBeVisible();
   await page.click('button[aria-label="返回"]');
 
-  // 4. 点击进入 56 (外观与语言)
-  await page.click('text=外观与语言');
+  // 4. 点击进入 56 (外观)
+  await page.click('text=外观');
   await expect(page.locator('text=浅色模式')).toBeVisible();
   await expect(page.locator('text=深色模式').first()).toBeVisible();
   await expect(page.locator('text=系统动态字体 (Dynamic Type)')).toBeVisible();
@@ -222,9 +222,8 @@ test('Mobile Settings & Admin Integration: 16 Screens Reachability, Role Access 
   await expect(page.locator('text=企业微信 (WeCom)')).toBeVisible();
   await page.click('button[aria-label="返回"]');
 
-  // 10. 点击进入 62 (套餐、隐私与帮助)
-  await page.click('text=套餐、隐私与帮助');
-  await expect(page.locator('text=当前授权状态')).toBeVisible();
+  // 10. 点击进入 62 (隐私与帮助)
+  await page.click('text=隐私与帮助');
   await expect(page.locator('text=数据安全与隐私合规')).toBeVisible();
   // 验证桌面快捷键帮助展开
   await page.click('text=桌面键盘快捷键清单');

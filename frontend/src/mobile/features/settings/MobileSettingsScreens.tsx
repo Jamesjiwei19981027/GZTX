@@ -12,7 +12,7 @@
  * - 90: 第三方服务绑定 (微信/企微/钉钉真实绑定状态与合规提示)
  */
 
-import { categoryLabel, priorityLabel } from '../../../utils/taskLabels';
+import { priorityLabel } from '../../../utils/taskLabels';
 import React, { useState, useEffect, useTransition } from 'react';
 import { useMobileNavigation } from '../../navigation/MobileNavigationProvider';
 import { useNativeRuntime } from '../../runtime/NativeRuntimeProvider';
@@ -167,9 +167,9 @@ export const MobileMeScreen: React.FC<SettingsSharedProps> = ({
           />
           <MobileListItem
             leading={<AppIcon name="palette" size={18} className="text-purple-600" />}
-            title="外观与语言"
-            subtitle={`${settings.themeMode === 'dark' ? '深色' : '浅色'} · ${settings.language === 'zh' ? '简体中文' : 'English'}`}
-            onClick={() => push({ screen: 'me-appearance', title: '外观与语言' })}
+            title="外观"
+            subtitle={settings.themeMode === 'dark' ? '深色模式' : '浅色模式'}
+            onClick={() => push({ screen: 'me-appearance', title: '外观' })}
           />
           <MobileListItem
             leading={<AppIcon name="bell" size={18} className="text-amber-500" />}
@@ -245,10 +245,10 @@ export const MobileMeScreen: React.FC<SettingsSharedProps> = ({
         {/* 服务与支持 */}
         <MobileListGroup title="支持与记录">
           <MobileListItem
-            leading={<AppIcon name="card" size={18} className="text-cyan-600" />}
-            title="套餐、隐私与帮助"
-            subtitle="席位授权、数据导出与桌面快捷键"
-            onClick={() => push({ screen: 'me-billing-help', title: '套餐、隐私与帮助' })}
+            leading={<AppIcon name="help" size={18} className="text-cyan-600" />}
+            title="隐私与帮助"
+            subtitle="数据导出与桌面快捷键"
+            onClick={() => push({ screen: 'me-billing-help', title: '隐私与帮助' })}
           />
           <MobileListItem
             leading={<AppIcon name="clock" size={18} className="text-blue-500" />}
@@ -781,7 +781,7 @@ export const MobileSecurityScreen: React.FC<SettingsSharedProps> = ({ user }) =>
 };
 
 // ==========================================
-// 56. 外观与语言 (Appearance)
+// 56. 外观 (Appearance)
 // ==========================================
 export const MobileAppearanceScreen: React.FC<SettingsSharedProps> = ({
   settings,
@@ -794,13 +794,9 @@ export const MobileAppearanceScreen: React.FC<SettingsSharedProps> = ({
     onUpdateSettings({ themeMode: mode });
   };
 
-  const handleLang = (lang: Language) => {
-    onUpdateSettings({ language: lang });
-  };
-
   return (
     <div className="flex-1 flex flex-col w-full h-full overflow-y-auto pb-16 bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <MobileTopBar title="外观与语言" onBack={goBack} />
+      <MobileTopBar title="外观" onBack={goBack} />
 
       <div className="px-4 py-4 max-w-xl mx-auto w-full flex flex-col gap-4">
         {/* 主题选择卡片 */}
@@ -869,23 +865,6 @@ export const MobileAppearanceScreen: React.FC<SettingsSharedProps> = ({
               <span className="font-semibold">{runtime.reduceMotion ? '已启用' : '未启用'}</span>
             </div>
           </div>
-        </MobileListGroup>
-
-        {/* 语言切换 */}
-        <MobileListGroup title="显示语言">
-          <MobileListItem
-            title="简体中文 (zh-CN)"
-            selected={settings.language === 'zh'}
-            trailing={settings.language === 'zh' ? <AppIcon name="check" size={18} className="text-[#0058BE]" /> : null}
-            onClick={() => handleLang('zh')}
-          />
-          <MobileListItem
-            title="English (US)"
-            selected={settings.language === 'en'}
-            showDivider={false}
-            trailing={settings.language === 'en' ? <AppIcon name="check" size={18} className="text-[#0058BE]" /> : null}
-            onClick={() => handleLang('en')}
-          />
         </MobileListGroup>
       </div>
     </div>
@@ -1080,14 +1059,13 @@ export const MobileTaskDefaultsScreen: React.FC<SettingsSharedProps> = ({
 }) => {
   const { goBack } = useMobileNavigation();
   const [priority, setPriority] = useState<Priority>(settings.taskDefaults?.priority || 'Medium');
-  const [category, setCategory] = useState<Category>(settings.taskDefaults?.category || 'Work');
   const [savedMsg, setSavedMsg] = useState(false);
 
   const handleSave = () => {
     onUpdateSettings({
       taskDefaults: {
+        ...settings.taskDefaults,
         priority,
-        category,
       },
     });
     setSavedMsg(true);
@@ -1121,18 +1099,6 @@ export const MobileTaskDefaultsScreen: React.FC<SettingsSharedProps> = ({
           ))}
         </MobileListGroup>
 
-        <MobileListGroup title="默认所属分类">
-          {(['Work', 'Personal', 'Documentation', 'Shopping', 'Health'] as Category[]).map((c) => (
-            <MobileListItem
-              key={c}
-              title={categoryLabel(c)}
-              selected={category === c}
-              trailing={category === c ? <AppIcon name="check" size={18} className="text-[#0058BE]" /> : null}
-              onClick={() => setCategory(c)}
-            />
-          ))}
-        </MobileListGroup>
-
         <button
           type="button"
           onClick={handleSave}
@@ -1146,53 +1112,32 @@ export const MobileTaskDefaultsScreen: React.FC<SettingsSharedProps> = ({
 };
 
 // ==========================================
-// 62. 套餐、隐私与帮助 (Billing, Privacy & Help)
+// 62. 隐私与帮助 (Privacy & Help)
 // ==========================================
 export const MobileBillingHelpScreen: React.FC<SettingsSharedProps> = () => {
   const { goBack } = useMobileNavigation();
-  const [billing, setBilling] = useState<{ plan_code?: string; status: string; managed_by: string } | null>(null);
   const [privacy, setPrivacy] = useState<{ retention: string; export_endpoint: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [shortcutOpen, setShortcutOpen] = useState(false);
 
   useEffect(() => {
-    Promise.all([getBillingSummary().catch(() => null), getPrivacySummary().catch(() => null)])
-      .then(([b, p]) => {
-        setBilling(b);
+    getPrivacySummary()
+      .then((p) => {
         setPrivacy(p);
       })
+      .catch(() => null)
       .finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="flex-1 flex flex-col w-full h-full overflow-y-auto pb-16 bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <MobileTopBar title="套餐、隐私与帮助" onBack={goBack} />
+      <MobileTopBar title="隐私与帮助" onBack={goBack} />
 
       <div className="px-4 py-4 max-w-xl mx-auto w-full flex flex-col gap-4">
         {loading ? (
-          <MobileLoadingState message="正在加载套餐与合规信息…" />
+          <MobileLoadingState message="正在加载隐私与合规信息…" />
         ) : (
           <>
-            {/* 套餐信息卡片 */}
-            <div className="p-5 bg-gradient-to-br from-blue-900 to-[#0058BE] text-white rounded-2xl shadow-sm flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs uppercase tracking-wider text-blue-200 font-semibold">
-                  当前授权状态
-                </span>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-white/20 text-white font-medium">
-                  {billing?.status === 'active' ? '正常履约' : '基础免费'}
-                </span>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold">
-                  {billing?.plan_code || '企业专业版 · 多端协同'}
-                </h3>
-                <p className="text-xs text-blue-100 mt-1">
-                  服务管理方: {billing?.managed_by || '工作梯协作平台系统运维'}
-                </p>
-              </div>
-            </div>
-
             {/* 隐私与数据安全 */}
             <MobileListGroup title="数据安全与隐私合规" footer="个人数据严格遵照 GDPR 与本地合规要求，敏感凭据使用 AES-256 加密。">
               <div className="p-4 flex flex-col gap-3 text-xs">

@@ -291,19 +291,7 @@ test('Mobile Screen Coverage: Full Screen Reachability & Action Button Verificat
   // ==========================================
   // 7. 异常场景与全尺寸自适应 (Me Tab - T12)
   // ==========================================
-  // 320 窄屏适配
-  await goToScreen('me', 'adapt-narrow-320');
-  await expect(page.locator('text=窄屏适配 (320px)').first()).toBeVisible({ timeout: 5000 });
-
-  // 200% 系统大字适配
-  await goToScreen('me', 'adapt-font-200');
-  await expect(page.locator('text=系统大字体 200%').first()).toBeVisible({ timeout: 5000 });
-
-  // 断网恢复
-  await goToScreen('me', 'adapt-offline');
-  await expect(page.locator('text=断网与启动恢复').first()).toBeVisible({ timeout: 5000 });
-
-  // 高风险删除账号安全确认词门禁
+  // 高风险删除账号安全确认词门禁 (96)
   await goToScreen('me', 'adapt-account-delete');
   await expect(page.locator('text=注销账号确认').first()).toBeVisible({ timeout: 5000 });
   const deleteBtn = page.getByRole('button', { name: '永久注销此账号' });
