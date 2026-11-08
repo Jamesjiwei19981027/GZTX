@@ -17,6 +17,7 @@ export type AuthTokenPayload = {
   access_token: string
   refresh_token?: string
   user?: BackendUser
+  project_id?: number
   company_join?: {
     joined?: boolean
     company_id?: number | null
@@ -101,6 +102,7 @@ export async function register(body: {
   email_code?: string
   phone_code?: string
   nickname?: string
+  invite_token?: string
 }) {
   const data = await apiRequest<AuthTokenPayload>('/auth/register', {
     method: 'POST',
@@ -109,10 +111,19 @@ export async function register(body: {
   return rememberTokens(data)
 }
 
-export async function sendRegisterCode(channel: 'email' | 'sms', target: string) {
+export async function sendRegisterCode(
+  channel: 'email' | 'sms',
+  target: string,
+  invite_token?: string,
+) {
   return apiRequest<SendCodeResult>('/auth/send-code', {
     method: 'POST',
-    body: JSON.stringify({ channel, target, purpose: 'register' }),
+    body: JSON.stringify({
+      channel,
+      target,
+      purpose: 'register',
+      ...(invite_token ? { invite_token } : {}),
+    }),
   })
 }
 

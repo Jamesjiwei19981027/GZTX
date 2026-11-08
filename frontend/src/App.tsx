@@ -1066,9 +1066,31 @@ export default function App() {
     return (
       <LoginGate
         lang={settings.language}
-        onLoggedIn={() => {
+        registrationConfig={regConfig}
+        onLoggedIn={(payload) => {
           setAuthed(true);
           setVerified(null);
+          if (payload?.project_id) {
+            clearInviteToken();
+            const pid = payload.project_id;
+            void refreshFromBackend().then(() => {
+              void getProject(pid)
+                .then((p) => {
+                  setCurrentProject(mapProject(p));
+                  switchView('team');
+                })
+                .catch(() => {
+                  setCurrentProject({
+                    id: String(pid),
+                    name: settings.language === 'zh' ? '受邀项目' : 'Invited project',
+                    description: '',
+                    color: '#0058be',
+                    active: true,
+                  });
+                  switchView('team');
+                });
+            });
+          }
         }}
       />
     );

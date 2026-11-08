@@ -9,9 +9,14 @@ import {
   sendBindCode,
   confirmBindCode,
   type VerificationStatus,
+  type RegistrationConfig,
+  type AuthTokenPayload,
+  DEFAULT_REGISTRATION_CONFIG,
+  getRegistrationConfig,
 } from '../../../api/auth';
 import { ApiError } from '../../../api/client';
 import { BRAND, getBrandName, getBrandTagline } from '../../../constants/brand';
+import { clearInviteToken, readInviteToken } from '../../../utils/invite';
 import { AppIcon } from '../../ui/AppIcon';
 import { MobileField, MobileInput } from '../../ui/MobileField';
 import { Language } from '../../../types';
@@ -32,13 +37,14 @@ export interface MobileAuthScreenProps {
   initialMode?: AuthMode;
   initialLoginKind?: 'password' | 'code';
   lang?: Language;
-  onLoggedIn?: () => void;
+  onLoggedIn?: (payload?: AuthTokenPayload) => void;
   onVerified?: (status?: VerificationStatus) => void;
   onCancel?: () => void;
   /** 承接外部动作传递的预设手机或邮箱 */
   initialTarget?: string;
   /** 验证成功后的原操作草稿提示 */
   preservedContextHint?: string;
+  registrationConfig?: RegistrationConfig;
 }
 
 export const MobileAuthScreens: React.FC<MobileAuthScreenProps> = ({
@@ -50,8 +56,43 @@ export const MobileAuthScreens: React.FC<MobileAuthScreenProps> = ({
   onCancel,
   initialTarget = '',
   preservedContextHint,
+  registrationConfig,
 }) => {
-  const [mode, setMode] = useState<AuthMode>(initialMode);
+  const [config, setConfig] = useState<RegistrationConfig>(
+    registrationConfig || DEFAULT_REGISTRATION_CONFIG,
+  );
+
+  useEffect(() => {
+    if (registrationConfig) {
+      setConfig(registrationConfig);
+      return;
+    }
+    let cancelled = false;
+    void getRegistrationConfig().then((cfg) => {
+      if (!cancelled) setConfig(cfg);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [registrationConfig]);
+
+  const inviteToken = readInviteToken();
+  const isInviteOnly = config.mode === 'invite_only';
+  const canRegister = !isInviteOnly || Boolean(inviteToken);
+
+  const [mode, setMode] = useState<AuthMode>(() => {
+    if (inviteToken) return 'register';
+    return initialMode;
+  });
+
+  useEffect(() => {
+    if (isInviteOnly && !inviteToken && mode === 'register') {
+      setMode('login');
+    } else if (inviteToken && mode !== 'register') {
+      setMode('register');
+    }
+  }, [isInviteOnly, inviteToken]);
+
   const [loginKind, setLoginKind] = useState<'password' | 'code'>(initialLoginKind);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,16 +222,20 @@ export const MobileAuthScreens: React.FC<MobileAuthScreenProps> = ({
     setBusy(true);
     clearMessages();
     try {
-      await register({
+      const payload = await register({
         username: regUsername.trim(),
         password: regPassword,
         email: regEmail.trim() || undefined,
         email_code: regEmailCode.trim() || undefined,
         phone: regPhone.trim() || undefined,
         phone_code: regPhoneCode.trim() || undefined,
+        invite_token: inviteToken || undefined,
       });
+      if (payload?.project_id) {
+        clearInviteToken();
+      }
       setHint(lang === 'zh' ? '注册成功，正在进入工作台…' : 'Registration successful');
-      onLoggedIn?.();
+      onLoggedIn?.(payload);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : lang === 'zh' ? '注册失败' : 'Registration failed');
     } finally {
@@ -215,7 +260,7 @@ export const MobileAuthScreens: React.FC<MobileAuthScreenProps> = ({
     }
     setBusy(true);
     try {
-      const res = await sendRegisterCode(channel, target);
+      const res = await sendRegisterCode(channel, target, inviteToken || undefined);
       if (channel === 'email') emailCd.start(res.cooldown_seconds || 60);
       else phoneCd.start(res.cooldown_seconds || 60);
       setHint(
@@ -537,18 +582,28 @@ export const MobileAuthScreens: React.FC<MobileAuthScreenProps> = ({
               </form>
             )}
 
-            <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400">
-              还没有账号？{' '}
-              <button
-                type="button"
-                onClick={() => {
-                  clearMessages();
-                  setMode('register');
-                }}
-                className="min-h-[44px] text-[#0058BE] dark:text-blue-400 font-semibold inline-flex items-center hover:underline"
-              >
-                立即注册新账号
-              </button>
+            <div className="mt-6 text-center text-xs text-slate-500 dark:text-slate-400" data-testid="mobile-register-entry">
+              {canRegister ? (
+                <>
+                  还没有账号？{' '}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearMessages();
+                      setMode('register');
+                    }}
+                    className="min-h-[44px] text-[#0058BE] dark:text-blue-400 font-semibold inline-flex items-center hover:underline"
+                  >
+                    立即注册新账号
+                  </button>
+                </>
+              ) : (
+                <span>
+                  {safeLang === 'zh'
+                    ? '仅限受邀注册，请向管理员索取邀请链接'
+                    : 'Registration is by invitation only. Please ask an administrator for an invite link.'}
+                </span>
+              )}
             </div>
           </div>
         )}
