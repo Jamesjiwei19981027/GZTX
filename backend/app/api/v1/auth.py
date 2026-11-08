@@ -59,6 +59,40 @@ async def send_verification_code(data: dict, db: DbSession, request: Request):
     except VerificationError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
 
+    from app.core.config import settings
+
+    if (settings.REGISTRATION_MODE or "").lower() == "invite_only" and purpose == "register":
+        invite_token = (data.get("invite_token") or "").strip()
+        if not invite_token:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="当前仅支持受邀注册，请向管理员索取邀请链接",
+            )
+        from app.models.project import ProjectInvitation
+        from app.utils.datetime import as_utc
+        from datetime import datetime, timezone
+
+        q = await db.execute(
+            select(ProjectInvitation).where(ProjectInvitation.token == invite_token)
+        )
+        inv = q.scalar_one_or_none()
+        is_valid = True
+        if not inv or inv.status != "pending":
+            is_valid = False
+        elif inv.expires_at and as_utc(inv.expires_at) < datetime.now(timezone.utc):
+            is_valid = False
+        elif inv.invitee_email:
+            req_email = (target if channel == "email" else "").strip().lower()
+            inv_email = (inv.invitee_email or "").strip().lower()
+            if not req_email or req_email != inv_email:
+                is_valid = False
+
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="当前仅支持受邀注册，请向管理员索取邀请链接",
+            )
+
     from app.services.rate_limit import enforce_send_code
 
     await enforce_send_code(db, request, target)
