@@ -47,7 +47,15 @@ async def test_create_project_tree_and_evidence_flow(async_client, seed_ids):
     assert r3.status_code == 200
     body = r3.json()
     assert body["code"] == 200
-    assert body["data"]["status"] == "adopted"
+    # 预审结果只是建议：提交后为待确认，需负责人确认采纳后才推进进度
+    assert body["data"]["status"] == "pending_review"
+    r3b = await async_client.post(
+        f"/api/v1/evidence/{body['data']['package_id']}/review",
+        json={"decision": "adopted"},
+        headers=seed_ids["pm_headers"],
+    )
+    assert r3b.status_code == 200, r3b.text
+    assert r3b.json()["code"] == 200
 
     # progress timeline
     r4 = await async_client.get(

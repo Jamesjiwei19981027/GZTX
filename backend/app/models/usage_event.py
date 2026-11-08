@@ -3,6 +3,7 @@ from sqlalchemy import Column, DateTime, Integer, JSON, String
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class UsageEvent(Base):
@@ -12,4 +13,4 @@ class UsageEvent(Base):
     user_id = Column(Integer, nullable=False, index=True)
     name = Column(String(64), nullable=False, index=True)
     props = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    created_at = Column(UTCDateTime(), server_default=func.now(), index=True)

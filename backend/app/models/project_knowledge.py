@@ -3,6 +3,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, JS
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class ProjectKnowledgeGrant(Base):
@@ -15,8 +16,8 @@ class ProjectKnowledgeGrant(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     can_summarize = Column(Boolean, nullable=False, default=False, server_default="0")
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), server_default=func.now(), onupdate=func.now())
 
 
 class ProjectKnowledgeSummary(Base):
@@ -36,5 +37,5 @@ class ProjectKnowledgeSummary(Base):
     provider = Column(String(64), nullable=False)
     model_source = Column(String(32), nullable=False)
     personal_entry_id = Column(Integer, ForeignKey("personal_knowledge_entries.id"), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), server_default=func.now(), onupdate=func.now())

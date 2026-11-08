@@ -126,4 +126,4 @@ async def test_rescheduling_completed_task_keeps_real_completion_date(client, au
     response = await client.put(f"/api/v1/tasks/{task.id}", headers=auth_headers, json={"status":2, "due_date":"2020-01-03T09:30:00Z"})
     assert response.status_code == 200
     await db_session.refresh(task)
-    assert task.completed_at == completed
+    assert (task.completed_at.replace(tzinfo=None) if task.completed_at else None) == completed

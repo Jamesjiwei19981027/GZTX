@@ -10,6 +10,11 @@ from app.models.task import Task
 from app.models.user import User
 
 
+def _naive(value):
+    """PostgreSQL 的 timestamptz 回读带 UTC 时区，SQLite 回读 naive；比较前统一去掉时区。"""
+    return value.replace(tzinfo=None) if value is not None and value.tzinfo else value
+
+
 async def _make_category(db_session, user_id: int) -> Category:
     category = Category(
         user_id=user_id, name="默认", color="#409EFF", sort_order=0, is_default=True
@@ -49,8 +54,8 @@ async def test_batch_reschedule_replaces_date_keeps_time(
 
     await db_session.refresh(with_time)
     await db_session.refresh(without_due)
-    assert with_time.due_date == datetime(2026, 8, 20, 14, 30, 0), "原时刻必须保留"
-    assert without_due.due_date == datetime(2026, 8, 20, 0, 0, 0)
+    assert _naive(with_time.due_date) == datetime(2026, 8, 20, 14, 30, 0), "原时刻必须保留"
+    assert _naive(without_due.due_date) == datetime(2026, 8, 20, 0, 0, 0)
 
 
 @pytest.mark.asyncio
@@ -90,7 +95,7 @@ async def test_batch_reschedule_skips_readonly_projection(
     await db_session.refresh(normal)
     await db_session.refresh(readonly)
     assert normal.due_date.date().isoformat() == "2026-09-01"
-    assert readonly.due_date == datetime(2026, 8, 1, 9, 0, 0), "只读投影不得被改"
+    assert _naive(readonly.due_date) == datetime(2026, 8, 1, 9, 0, 0), "只读投影不得被改"
 
 
 @pytest.mark.asyncio
@@ -139,8 +144,8 @@ async def test_batch_reschedule_ignores_deleted_and_other_users_tasks(
 
     await db_session.refresh(others_task)
     await db_session.refresh(deleted_task)
-    assert others_task.due_date == datetime(2026, 8, 1, 9, 0, 0)
-    assert deleted_task.due_date == datetime(2026, 8, 1, 9, 0, 0)
+    assert _naive(others_task.due_date) == datetime(2026, 8, 1, 9, 0, 0)
+    assert _naive(deleted_task.due_date) == datetime(2026, 8, 1, 9, 0, 0)
 
 
 @pytest.mark.asyncio

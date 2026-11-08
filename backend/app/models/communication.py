@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, JSON, Str
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class ConversationSummary(Base):
@@ -26,7 +27,7 @@ class ConversationSummary(Base):
     provider = Column(String(32), nullable=False, default="deterministic")
     status = Column(String(24), nullable=False, default="completed")
     error_message = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class CallSession(Base):
@@ -40,8 +41,8 @@ class CallSession(Base):
     call_type = Column(String(16), nullable=False, default="audio")
     status = Column(String(16), nullable=False, default="active")
     participants_json = Column(JSON, nullable=False, default=list)
-    started_at = Column(DateTime(timezone=True), server_default=func.now())
-    ended_at = Column(DateTime(timezone=True), nullable=True)
+    started_at = Column(UTCDateTime(), server_default=func.now())
+    ended_at = Column(UTCDateTime(), nullable=True)
 
 
 class CallRecording(Base):
@@ -59,4 +60,4 @@ class CallRecording(Base):
     transcription_provider = Column(String(32), nullable=True)
     transcript_text = Column(Text, nullable=True)
     transcription_error = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())

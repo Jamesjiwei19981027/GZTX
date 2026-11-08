@@ -23,6 +23,7 @@ CRITICAL = {
 }
 
 
+@pytest.mark.sqlite_only
 def test_alembic_upgrade_empty_sqlite_creates_collab_tables(tmp_path):
     db_path = tmp_path / "migrate_empty.db"
     url = f"sqlite:///{db_path.as_posix()}"

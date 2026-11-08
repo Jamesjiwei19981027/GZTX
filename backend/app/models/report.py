@@ -14,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class ReportPolicy(Base):
@@ -27,7 +28,7 @@ class ReportPolicy(Base):
     template_key = Column(String(64), nullable=False, default="progress_summary")
     config_json = Column(JSON, nullable=True)
     enabled = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class ReportRun(Base):
@@ -42,7 +43,7 @@ class ReportRun(Base):
     summary_text = Column(Text, nullable=True)
     payload_json = Column(JSON, nullable=True)
     actor_user_id = Column(Integer, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class ProjectAgentBinding(Base):
@@ -66,8 +67,8 @@ class ProjectAgentBinding(Base):
     agent_definition_id = Column(Integer, ForeignKey("agent_definitions.id"), nullable=False, index=True)
     role = Column(String(24), nullable=False, default="member")  # member|project
     is_active = Column(Boolean, nullable=False, default=True, server_default="1")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), onupdate=func.now())
 
 
 class AgentReport(Base):
@@ -89,9 +90,9 @@ class AgentReport(Base):
     status = Column(String(24), nullable=False, default="submitted")  # draft|submitted|aggregated
     summary_text = Column(Text, nullable=False)
     payload_json = Column(JSON, nullable=False, default=dict)
-    submitted_at = Column(DateTime(timezone=True), server_default=func.now())
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    read_at = Column(DateTime(timezone=True), nullable=True)
+    submitted_at = Column(UTCDateTime(), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    read_at = Column(UTCDateTime(), nullable=True)
 
 
 class AgentReportSource(Base):
@@ -104,7 +105,7 @@ class AgentReportSource(Base):
     source_id = Column(Integer, nullable=True)
     excerpt = Column(Text, nullable=True)
     metadata_json = Column(JSON, nullable=False, default=dict)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class ProjectReportEnvelope(Base):
@@ -120,7 +121,7 @@ class ProjectReportEnvelope(Base):
     status = Column(String(24), nullable=False, default="submitted")
     summary_text = Column(Text, nullable=False)
     payload_json = Column(JSON, nullable=False, default=dict)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class LeadershipReportEnvelope(Base):
@@ -142,4 +143,4 @@ class LeadershipReportEnvelope(Base):
     status = Column(String(24), nullable=False, default="submitted")
     summary_text = Column(Text, nullable=False)
     payload_json = Column(JSON, nullable=False, default=dict)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())

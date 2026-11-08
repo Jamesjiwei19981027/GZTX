@@ -13,6 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class TeamChannel(Base):
@@ -42,7 +43,7 @@ class TeamChannel(Base):
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=True, index=True)
     key = Column(String(32), nullable=False, default="general")  # general|project|direct
     name = Column(String(120), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class TeamChannelMessage(Base):
@@ -57,7 +58,7 @@ class TeamChannelMessage(Base):
     parent_id = Column(Integer, ForeignKey("team_channel_messages.id"), nullable=True)
     message_type = Column(String(16), nullable=False, default="user")  # user|system
     attachments_json = Column(JSON, nullable=False, default=list)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class UserPresence(Base):
@@ -67,7 +68,7 @@ class UserPresence(Base):
 
     user_id = Column(Integer, ForeignKey("users.id"), primary_key=True)
     status = Column(String(16), nullable=False, default="offline")  # online|busy|offline
-    last_seen_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    last_seen_at = Column(UTCDateTime(), server_default=func.now(), onupdate=func.now())
 
 
 class DirectConversation(Base):
@@ -81,7 +82,7 @@ class DirectConversation(Base):
     kind = Column(String(16), nullable=False, default="direct")  # direct|group
     title = Column(String(120), nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class DirectConversationMember(Base):
@@ -90,8 +91,8 @@ class DirectConversationMember(Base):
     id = Column(Integer, primary_key=True)
     conversation_id = Column(Integer, ForeignKey("direct_conversations.id", ondelete="CASCADE"), nullable=False, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    last_read_at = Column(DateTime(timezone=True), nullable=True)
-    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+    last_read_at = Column(UTCDateTime(), nullable=True)
+    joined_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class DirectMessage(Base):
@@ -103,7 +104,7 @@ class DirectMessage(Base):
     body = Column(Text, nullable=False)
     message_type = Column(String(16), nullable=False, default="user")
     attachments_json = Column(JSON, nullable=False, default=list)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class PinnedLink(Base):
@@ -116,4 +117,4 @@ class PinnedLink(Base):
     title = Column(String(200), nullable=False)
     url = Column(String(2000), nullable=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())

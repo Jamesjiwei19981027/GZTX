@@ -61,6 +61,7 @@ TAGS_METADATA: list[dict[str, str]] = [
     {"name": "智能体汇报", "description": "智能体逐级汇报、汇总与领导层汇报"},
     {"name": "知识检索", "description": "项目资料全文检索"},
     {"name": "个人知识空间", "description": "个人知识条目、关联与 AI 整理"},
+    {"name": "记录进展", "description": "记录进展页：写汇报、智能体建议与进展记录"},
     {"name": "项目知识空间", "description": "项目知识权限、智能体总结与沉淀"},
     {"name": "项目 AI 知识库", "description": "AI 生成的项目知识库草稿与发布"},
     {"name": "频道私聊与界面偏好", "description": "频道、私聊、文件、AI 聊天总结、在线状态与界面偏好"},

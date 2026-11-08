@@ -5,7 +5,7 @@ import re
 from datetime import datetime, timezone
 
 from fastapi import HTTPException
-from sqlalchemy import select, update
+from sqlalchemy import String, cast, select, update
 
 from app.models.audit import AuditLog
 from app.models.evidence import EvidenceFile, EvidencePackage
@@ -180,6 +180,13 @@ def audit(db, project, user_id, action, entry_id):
                     action=action, resource_type="project_wiki", resource_id=str(entry_id)))
 
 
+def _json_unchanged(column, value):
+    """乐观锁比较 JSON 列：PG 的 json 类型没有等号运算符，统一转文本比较。"""
+    if value is None:
+        return column.is_(None)
+    return cast(column, String) == json.dumps(value)
+
+
 async def publish_draft(db, project, draft, user):
     meta = draft.meta_json or {}
     if meta.get("status") == "published":
@@ -220,7 +227,7 @@ async def publish_draft(db, project, draft, user):
         if old:
             changed = await db.execute(update(ProjectWikiEntry).where(ProjectWikiEntry.id == old.id,
                 ProjectWikiEntry.body_text == old.body_text,
-                ProjectWikiEntry.meta_json == old.meta_json).values(body_text=render_facts(facts), meta_json=new_meta))
+                _json_unchanged(ProjectWikiEntry.meta_json, old.meta_json)).values(body_text=render_facts(facts), meta_json=new_meta))
             if changed.rowcount != 1:
                 raise HTTPException(409, "知识页正在更新，请刷新后重试")
             ids.append(old.id)

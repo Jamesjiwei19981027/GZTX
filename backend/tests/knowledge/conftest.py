@@ -3,29 +3,47 @@
 阶段 3 起补充 API 客户端与轻量种子（公司/项目/成员，直插模型行；
 知识检索 API 无 entitlement 门禁，无需 license）。
 """
+from sqlalchemy import text as _sa_text
+import os
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import settings
 from app.core.dependencies import get_db
 from app.core.security import create_access_token, get_password_hash
 from app.db.base import Base
 
 import app.models  # noqa: F401 — 注册全部表
 
+test_db_url = os.environ.get("TEST_DATABASE_URL")
+if test_db_url:
+    settings.DATABASE_URL = test_db_url
+
 
 @pytest_asyncio.fixture
 async def async_engine():
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    await engine.dispose()
+    test_db_url = os.environ.get("TEST_DATABASE_URL")
+    if test_db_url:
+        engine = create_async_engine(test_db_url)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            # create_all 不管的 alembic_version（health/adopt 用例会建）也要清掉，保证用例间隔离
+            await conn.execute(_sa_text("DROP TABLE IF EXISTS alembic_version"))
+            await conn.run_sync(Base.metadata.create_all)
+        yield engine
+        await engine.dispose()
+    else:
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        yield engine
+        await engine.dispose()
 
 
 @pytest_asyncio.fixture

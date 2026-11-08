@@ -3,6 +3,7 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Text
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class DelegationGrant(Base):
@@ -15,8 +16,8 @@ class DelegationGrant(Base):
     grantee_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     actions_json = Column(JSON, nullable=False, default=list)  # e.g. ["project.read", "member.pull"]
     status = Column(String(32), nullable=False, default="active")  # active|revoked|expired
-    valid_from = Column(DateTime(timezone=True), server_default=func.now())
-    valid_to = Column(DateTime(timezone=True), nullable=True)
+    valid_from = Column(UTCDateTime(), server_default=func.now())
+    valid_to = Column(UTCDateTime(), nullable=True)
     reason = Column(Text, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    revoked_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    revoked_at = Column(UTCDateTime(), nullable=True)

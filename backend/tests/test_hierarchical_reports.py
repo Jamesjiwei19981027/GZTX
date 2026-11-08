@@ -255,9 +255,17 @@ async def test_leadership_envelope_is_project_scoped_and_marks_missing_ai(db_ses
     p2 = Project(company_id=company.id, name="P6-2", status="active", pm_user_id=leader.id, created_by=leader.id)
     db_session.add_all([p1, p2])
     await db_session.flush()
+    # 真实库强制外键：信封引用的项目智能体绑定必须真实存在，不能写死 id
+    defn = AgentDefinition(company_id=company.id, owner_user_id=leader.id, kind="project_reporting", name="P6 AI", scene="reporting")
+    db_session.add(defn)
+    await db_session.flush()
+    b1 = ProjectAgentBinding(company_id=company.id, project_id=p1.id, user_id=leader.id, agent_definition_id=defn.id, role="project")
+    b2 = ProjectAgentBinding(company_id=company.id, project_id=p2.id, user_id=leader.id, agent_definition_id=defn.id, role="project")
+    db_session.add_all([b1, b2])
+    await db_session.flush()
     db_session.add_all([
-        ProjectReportEnvelope(company_id=company.id, project_id=p1.id, project_binding_id=1, summary_text="P1 已完成", payload_json={"source_count": 2}),
-        ProjectReportEnvelope(company_id=company.id, project_id=p2.id, project_binding_id=2, summary_text="P2 有风险", payload_json={"source_count": 1}),
+        ProjectReportEnvelope(company_id=company.id, project_id=p1.id, project_binding_id=b1.id, summary_text="P1 已完成", payload_json={"source_count": 2}),
+        ProjectReportEnvelope(company_id=company.id, project_id=p2.id, project_binding_id=b2.id, summary_text="P2 有风险", payload_json={"source_count": 1}),
     ])
     await db_session.commit()
 

@@ -1,4 +1,5 @@
 """个人底盘 + 全局测试夹具（async SQLite）"""
+from sqlalchemy import text as _sa_text
 import os
 
 os.environ.setdefault("INTEGRATION_SECRET_KEY", "test-integration-secret-key-32-chars-long!")
@@ -13,6 +14,10 @@ from app.core.config import settings
 if not settings.INTEGRATION_SECRET_KEY:
     settings.INTEGRATION_SECRET_KEY = "test-integration-secret-key-32-chars-long!"
 
+test_db_url = os.environ.get("TEST_DATABASE_URL")
+if test_db_url:
+    settings.DATABASE_URL = test_db_url
+
 from app.core.dependencies import get_db
 from app.core.security import create_access_token, get_password_hash
 from app.db.base import Base
@@ -22,17 +27,38 @@ from app.models.user import User
 import app.models  # noqa: F401 — register all tables
 
 
+def pytest_collection_modifyitems(config, items):
+    if os.environ.get("TEST_DATABASE_URL"):
+        skip_sqlite = pytest.mark.skip(
+            reason="仅在 SQLite 下运行（TEST_DATABASE_URL 已设置）"
+        )
+        for item in items:
+            if "sqlite_only" in item.keywords:
+                item.add_marker(skip_sqlite)
+
+
 @pytest_asyncio.fixture
 async def async_engine():
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    await engine.dispose()
+    test_db_url = os.environ.get("TEST_DATABASE_URL")
+    if test_db_url:
+        engine = create_async_engine(test_db_url)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            # create_all 不管的 alembic_version（health/adopt 用例会建）也要清掉，保证用例间隔离
+            await conn.execute(_sa_text("DROP TABLE IF EXISTS alembic_version"))
+            await conn.run_sync(Base.metadata.create_all)
+        yield engine
+        await engine.dispose()
+    else:
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        yield engine
+        await engine.dispose()
 
 
 @pytest.fixture
@@ -41,15 +67,33 @@ def sync_db_session():
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
+    test_db_url = os.environ.get("TEST_DATABASE_URL")
+    if test_db_url:
+        sync_url = (
+            test_db_url.replace("sqlite+aiosqlite://", "sqlite://")
+            .replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+            .replace("+asyncpg", "+psycopg2")
+            .replace("+aiosqlite", "")
+        )
+        engine = create_engine(sync_url)
+        Base.metadata.drop_all(engine)
+        with engine.begin() as _c:
+            _c.execute(_sa_text("DROP TABLE IF EXISTS alembic_version"))
+        Base.metadata.create_all(engine)
+    else:
+        engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine)()
     yield session
     session.close()
+    if test_db_url:
+        Base.metadata.drop_all(engine)
+        with engine.begin() as _c:
+            _c.execute(_sa_text("DROP TABLE IF EXISTS alembic_version"))
     engine.dispose()
 
 

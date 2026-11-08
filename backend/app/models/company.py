@@ -15,6 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class Company(Base):
@@ -29,8 +30,8 @@ class Company(Base):
     policy_preset = Column(String(32), nullable=True)
     entitlement_json = Column(JSON, nullable=False, default=dict)
     login_methods_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
+    updated_at = Column(UTCDateTime(), onupdate=func.now())
 
 
 class CompanyLicense(Base):
@@ -40,10 +41,10 @@ class CompanyLicense(Base):
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
     license_payload = Column(Text, nullable=False)
     signature = Column(Text, nullable=False)
-    valid_from = Column(DateTime(timezone=True), nullable=True)
-    valid_to = Column(DateTime(timezone=True), nullable=True)
+    valid_from = Column(UTCDateTime(), nullable=True)
+    valid_to = Column(UTCDateTime(), nullable=True)
     features_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class CompanyMembership(Base):
@@ -60,7 +61,7 @@ class CompanyMembership(Base):
     org_unit_id = Column(Integer, nullable=True)
     external_user_id = Column(String(128), nullable=True)
     title = Column(String(100), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class ServiceActivation(Base):
@@ -71,10 +72,10 @@ class ServiceActivation(Base):
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
     plan_code = Column(String(64), nullable=False, default="standard")
     status = Column(String(32), nullable=False, default="active")
-    valid_from = Column(DateTime(timezone=True), nullable=True)
-    valid_to = Column(DateTime(timezone=True), nullable=True)
+    valid_from = Column(UTCDateTime(), nullable=True)
+    valid_to = Column(UTCDateTime(), nullable=True)
     entitlement_override_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class OrgUnit(Base):
@@ -90,4 +91,4 @@ class OrgUnit(Base):
     external_id = Column(String(128), nullable=True)
     source = Column(String(32), nullable=False, default="manual")  # wecom|dingtalk|feishu|manual|generic
     path = Column(String(1000), nullable=False, default="/")
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())

@@ -89,6 +89,7 @@ async def test_reindex_deletes_old_chunks(db_session):
     assert remaining == []
 
 
+@pytest.mark.sqlite_only
 async def test_fts5_path_used_when_available(async_engine, db_session, monkeypatch):
     """建好 FTS5 表+触发器后应走 FTS 路（LIKE 路被禁止调用）。"""
     await _create_fts(async_engine)
@@ -107,6 +108,7 @@ async def test_fts5_path_used_when_available(async_engine, db_session, monkeypat
     assert await search_chunks(db_session, company_id=1, project_id=1, query="验收标准") == []
 
 
+@pytest.mark.sqlite_only
 async def test_like_fallback_when_fts_errors(async_engine, db_session, monkeypatch):
     """FTS5 报错时降级 LIKE，返回结构一致（降级路径会 rollback，先提交数据）。"""
     await _create_fts(async_engine)
@@ -124,6 +126,7 @@ async def test_like_fallback_when_fts_errors(async_engine, db_session, monkeypat
     assert set(results[0]) >= {"chunk_id", "chunk_text", "source_type", "source_id", "node_id", "meta", "score"}
 
 
+@pytest.mark.sqlite_only
 async def test_like_fallback_when_fts_table_missing(db_session):
     """未跑迁移（无 FTS 表）的库自动走 LIKE，不报错。"""
     row = await db_session.execute(

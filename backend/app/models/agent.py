@@ -3,6 +3,7 @@ from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, JSON, F
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class AgentDefinition(Base):
@@ -16,7 +17,7 @@ class AgentDefinition(Base):
     scene = Column(String(64), nullable=False, default="general")
     config_json = Column(JSON, nullable=True)
     is_deleted = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class AgentSession(Base):
@@ -33,7 +34,7 @@ class AgentSession(Base):
     summary_text = Column(Text, nullable=True)
     # 摘要已覆盖到的消息 id（该 id 及之前的消息不再重复进上下文）
     summary_upto_message_id = Column(Integer, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class AgentMessage(Base):
@@ -44,4 +45,4 @@ class AgentMessage(Base):
     role = Column(String(32), nullable=False)  # user | assistant | system
     content = Column(Text, nullable=False)
     meta_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())

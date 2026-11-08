@@ -17,6 +17,7 @@ from sqlalchemy import (
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class EvidenceFileText(Base):
@@ -37,8 +38,8 @@ class EvidenceFileText(Base):
     # 页数 / 耗时 / 是否截断 / OCR 使用情况
     meta_json = Column(JSON, nullable=True)
     error_message = Column(Text, nullable=True)
-    extracted_at = Column(DateTime(timezone=True), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    extracted_at = Column(UTCDateTime(), nullable=True)
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
 
 class KnowledgeChunk(Base):
@@ -67,4 +68,4 @@ class KnowledgeChunk(Base):
     embedding_json = Column(JSON, nullable=True)
     # 页码 / 标题路径 / 原文件名等来源信息
     meta_json = Column(JSON, nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())

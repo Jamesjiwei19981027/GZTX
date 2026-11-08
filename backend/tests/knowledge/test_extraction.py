@@ -13,7 +13,9 @@ from app.core.config import settings
 from app.models.company import Company
 from app.models.evidence import AsyncJob
 from app.models.knowledge import EvidenceFileText, KnowledgeChunk
-from app.models.tree import TreeNode, default_progress_json
+from app.models.project import Project
+from app.models.tree import NodeType, TreeNode, default_progress_json
+from app.models.user import User
 from app.services import evidence_service as evidence_service_module
 from app.services.evidence_judge import JudgeResult, RuleBasedEvidenceJudge
 from app.services.evidence_service import (
@@ -47,6 +49,16 @@ async def _seed(db):
     )
     db.add(company)
     await db.flush()
+    # 真实库（PostgreSQL）强制外键：先建出用例里写死的 user/project/node_type id=1。
+    # 每个用例都重建全部表，序列从 1 开始，所以这三行建出来的 id 必为 1。
+    user = User(username=f"ext-{uuid.uuid4().hex[:8]}", password_hash="x", nickname="抽取测试", is_active=True)
+    db.add(user)
+    await db.flush()
+    project = Project(company_id=company.id, name="抽取测试项目", created_by=user.id)
+    ntype = NodeType(company_id=company.id, key="work_item", name="工作项", behavior_template="work_item")
+    db.add_all([project, ntype])
+    await db.flush()
+    assert (user.id, project.id, ntype.id) == (1, 1, 1)
     node = TreeNode(
         company_id=company.id,
         project_id=1,

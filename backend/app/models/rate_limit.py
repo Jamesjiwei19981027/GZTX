@@ -6,6 +6,7 @@
 from sqlalchemy import Column, DateTime, Integer, String
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class RateLimitCounter(Base):
@@ -20,4 +21,4 @@ class RateLimitCounter(Base):
     id = Column(Integer, primary_key=True)
     bucket_key = Column(String(255), nullable=False, unique=True, index=True)
     count = Column(Integer, nullable=False, default=0)
-    expires_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    expires_at = Column(UTCDateTime(), nullable=False, index=True)

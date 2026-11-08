@@ -37,6 +37,7 @@ async def invitee_id(db_session, seed_ids):
     return uid
 
 
+@pytest.mark.sqlite_only
 @pytest.mark.asyncio
 async def test_accept_invitation_works_on_sqlite(db_session, seed_ids, invitee_id):
     """回归：naive/aware 比较不得抛 TypeError"""

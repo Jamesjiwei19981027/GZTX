@@ -13,7 +13,8 @@ async def _category(db_session, user_id: int) -> int:
         is_default=True,
     )
     db_session.add(category)
-    await db_session.flush()
+    # 必须提交：接口使用独立会话，真实库（PostgreSQL）下未提交的行对它不可见
+    await db_session.commit()
     return category.id
 
 

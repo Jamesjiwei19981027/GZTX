@@ -6,6 +6,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import UTCDateTime
 
 
 class Reminder(Base):
@@ -19,15 +20,15 @@ class Reminder(Base):
     id = Column(Integer, primary_key=True, index=True)
     task_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    remind_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    remind_at = Column(UTCDateTime(), nullable=False, index=True)
     remind_type = Column(Integer, nullable=False, default=0)  # 0=截止前, 1=截止时, 2=逾期, 3=自定义
     notify_channels = Column(String(255), nullable=True)  # 通知方式，逗号分隔: web_popup,email,sms,wechat,alarm
     is_sent = Column(Boolean, default=False, nullable=False)
-    sent_at = Column(DateTime(timezone=True), nullable=True)
+    sent_at = Column(UTCDateTime(), nullable=True)
     # 发送重试计数：全渠道失败时不标 is_sent，靠 attempts 兜住无限重试
     attempts = Column(Integer, nullable=False, default=0, server_default="0")
     last_error = Column(String(500), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    created_at = Column(UTCDateTime(), server_default=func.now())
 
     # 关系
     task = relationship("Task", back_populates="reminders")
