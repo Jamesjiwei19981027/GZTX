@@ -1399,6 +1399,7 @@ export default function App() {
             {activeView === 'settings' && (
               <SettingsView
                 user={user}
+                companyId={companyId}
                  onUpdateUser={async (updated) => {
                   const saved = await updateMe({
                     nickname: updated.name,
