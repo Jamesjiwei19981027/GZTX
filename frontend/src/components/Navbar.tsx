@@ -159,15 +159,6 @@ const NavbarImpl: React.FC<NavbarProps> = ({
             </button>
           )}
 
-          {/* Language Switcher */}
-          <button
-            onClick={onToggleLang}
-            className="px-2.5 py-1 rounded-lg border border-outline-variant hover:bg-surface-container dark:hover:bg-[#2e3132] transition-colors text-xs font-semibold text-primary dark:text-[#adc6ff] flex items-center gap-1 shadow-sm"
-            title="Switch Language / 切换中英文"
-          >
-            <span className="material-symbols-outlined text-sm">translate</span>
-            <span>{lang === 'zh' ? '中文 / EN' : 'EN / 中文'}</span>
-          </button>
 
           {/* Notifications Button */}
           <div className="relative">

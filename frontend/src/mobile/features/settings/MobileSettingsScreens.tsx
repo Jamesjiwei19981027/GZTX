@@ -167,9 +167,9 @@ export const MobileMeScreen: React.FC<SettingsSharedProps> = ({
           />
           <MobileListItem
             leading={<AppIcon name="palette" size={18} className="text-purple-600" />}
-            title="外观与语言"
-            subtitle={`${settings.themeMode === 'dark' ? '深色' : '浅色'} · ${settings.language === 'zh' ? '简体中文' : 'English'}`}
-            onClick={() => push({ screen: 'me-appearance', title: '外观与语言' })}
+            title="外观"
+            subtitle={settings.themeMode === 'dark' ? '深色模式' : '浅色模式'}
+            onClick={() => push({ screen: 'me-appearance', title: '外观' })}
           />
           <MobileListItem
             leading={<AppIcon name="bell" size={18} className="text-amber-500" />}
@@ -781,7 +781,7 @@ export const MobileSecurityScreen: React.FC<SettingsSharedProps> = ({ user }) =>
 };
 
 // ==========================================
-// 56. 外观与语言 (Appearance)
+// 56. 外观 (Appearance)
 // ==========================================
 export const MobileAppearanceScreen: React.FC<SettingsSharedProps> = ({
   settings,
@@ -794,13 +794,9 @@ export const MobileAppearanceScreen: React.FC<SettingsSharedProps> = ({
     onUpdateSettings({ themeMode: mode });
   };
 
-  const handleLang = (lang: Language) => {
-    onUpdateSettings({ language: lang });
-  };
-
   return (
     <div className="flex-1 flex flex-col w-full h-full overflow-y-auto pb-16 bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <MobileTopBar title="外观与语言" onBack={goBack} />
+      <MobileTopBar title="外观" onBack={goBack} />
 
       <div className="px-4 py-4 max-w-xl mx-auto w-full flex flex-col gap-4">
         {/* 主题选择卡片 */}
@@ -869,23 +865,6 @@ export const MobileAppearanceScreen: React.FC<SettingsSharedProps> = ({
               <span className="font-semibold">{runtime.reduceMotion ? '已启用' : '未启用'}</span>
             </div>
           </div>
-        </MobileListGroup>
-
-        {/* 语言切换 */}
-        <MobileListGroup title="显示语言">
-          <MobileListItem
-            title="简体中文 (zh-CN)"
-            selected={settings.language === 'zh'}
-            trailing={settings.language === 'zh' ? <AppIcon name="check" size={18} className="text-[#0058BE]" /> : null}
-            onClick={() => handleLang('zh')}
-          />
-          <MobileListItem
-            title="English (US)"
-            selected={settings.language === 'en'}
-            showDivider={false}
-            trailing={settings.language === 'en' ? <AppIcon name="check" size={18} className="text-[#0058BE]" /> : null}
-            onClick={() => handleLang('en')}
-          />
         </MobileListGroup>
       </div>
     </div>
