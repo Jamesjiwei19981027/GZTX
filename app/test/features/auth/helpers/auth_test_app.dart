@@ -17,13 +17,14 @@ class AuthTestApp {
     MockApiClientHelper? helper,
     TokenStorage? tokenStorage,
     bool authenticated = false,
+    String initialLocation = '/work',
   }) : helper = helper ?? MockApiClientHelper() {
     client = this.helper.buildClient(
       tokenStorage: tokenStorage ??
           InMemoryTokenStorage(access: authenticated ? 'mock-access-token' : null),
     );
     authState = AuthState(apiClient: client);
-    appRouter = AppRouter(authState: authState);
+    appRouter = AppRouter(authState: authState, initialLocation: initialLocation);
   }
 
   final MockApiClientHelper helper;

@@ -158,6 +158,11 @@ class _AuthGateHostState extends State<AuthGateHost> {
       widget.router.go(AuthPaths.verifyLocation());
       return;
     }
+
+    final regConfig = await api.fetchRegistrationConfig();
+    if (!mounted) return;
+    if (!regConfig.phoneRequired) return;
+
     if (status.phoneVerified == true) return;
 
     final storage = widget.reminderStorage ??

@@ -17,6 +17,7 @@ export type AuthTokenPayload = {
   access_token: string
   refresh_token?: string
   user?: BackendUser
+  project_id?: number
   company_join?: {
     joined?: boolean
     company_id?: number | null
@@ -43,6 +44,28 @@ export type NotificationPreferenceUpdate = {
   channels?: Partial<Record<'email' | 'push' | 'desktop' | 'wechat', { enabled?: boolean }>>
   quiet_hours?: { start?: string; end?: string }
   weekend_mute?: boolean
+}
+
+export type RegistrationConfig = {
+  mode: 'open' | 'invite_only'
+  phone_required: boolean
+}
+
+export const DEFAULT_REGISTRATION_CONFIG: RegistrationConfig = {
+  mode: 'open',
+  phone_required: false,
+}
+
+export async function getRegistrationConfig(): Promise<RegistrationConfig> {
+  try {
+    const data = await apiRequest<RegistrationConfig>('/auth/registration-config')
+    return {
+      mode: data?.mode === 'invite_only' ? 'invite_only' : 'open',
+      phone_required: Boolean(data?.phone_required),
+    }
+  } catch {
+    return DEFAULT_REGISTRATION_CONFIG
+  }
 }
 
 function rememberTokens(data: AuthTokenPayload) {
@@ -79,6 +102,7 @@ export async function register(body: {
   email_code?: string
   phone_code?: string
   nickname?: string
+  invite_token?: string
 }) {
   const data = await apiRequest<AuthTokenPayload>('/auth/register', {
     method: 'POST',
@@ -87,10 +111,19 @@ export async function register(body: {
   return rememberTokens(data)
 }
 
-export async function sendRegisterCode(channel: 'email' | 'sms', target: string) {
+export async function sendRegisterCode(
+  channel: 'email' | 'sms',
+  target: string,
+  invite_token?: string,
+) {
   return apiRequest<SendCodeResult>('/auth/send-code', {
     method: 'POST',
-    body: JSON.stringify({ channel, target, purpose: 'register' }),
+    body: JSON.stringify({
+      channel,
+      target,
+      purpose: 'register',
+      ...(invite_token ? { invite_token } : {}),
+    }),
   })
 }
 

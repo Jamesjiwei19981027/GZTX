@@ -5,6 +5,7 @@ import '../../../core/auth/auth_state.dart';
 import '../auth_paths.dart';
 import '../gate/auth_gate_host.dart';
 import '../models/auth_models.dart';
+import '../../projects/invite_link.dart';
 
 /// 登录 / 注册成功后的统一收尾流程。
 ///
@@ -40,6 +41,14 @@ class AuthFlow {
       // 本轮登录的验证门由这里负责，避免全局宿主重复跳转覆盖用户正在输入的表单
       final userId = authState.currentUser?.id.toString() ?? '';
       if (userId.isNotEmpty) AuthGateSession.markHandled(userId);
+
+      if (session.projectId != null) {
+        PendingInviteHolder.clear();
+        authState.clearPendingInviteToken();
+        context.go('/projects/${session.projectId}');
+        return;
+      }
+
       authState.rememberAppLocation(
           GoRouter.of(context).routeInformationProvider.value.uri.toString());
       context.go(AuthPaths.verifyLocation());

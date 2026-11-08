@@ -34,7 +34,16 @@ import { NotificationsModal } from './components/modals/NotificationsModal';
 import { LoginGate } from './components/LoginGate';
 import { VerifyGate } from './components/VerifyGate';
 import { ApiError, getToken, sendPresenceKeepalive } from './api/client';
-import { fetchMe, getVerificationStatus, logout, updateMe, uploadAvatar } from './api/auth';
+import {
+  DEFAULT_REGISTRATION_CONFIG,
+  fetchMe,
+  getRegistrationConfig,
+  getVerificationStatus,
+  logout,
+  type RegistrationConfig,
+  updateMe,
+  uploadAvatar,
+} from './api/auth';
 import {
   batchCompleteTasks,
   batchDeleteTasks,
@@ -193,6 +202,7 @@ export default function App() {
     getToken() ? null : true,
   );
   const [phoneVerified, setPhoneVerified] = useState(false);
+  const [regConfig, setRegConfig] = useState<RegistrationConfig>(DEFAULT_REGISTRATION_CONFIG);
   const [inviteNotice, setInviteNotice] = useState<string | null>(null);
   const [inviteRefreshFailed, setInviteRefreshFailed] = useState(false);
   const [workspaceModal, setWorkspaceModal] = useState<WorkspaceSetupMode | null>(null);
@@ -457,6 +467,16 @@ export default function App() {
   }, [authed]);
 
   useEffect(() => {
+    let cancelled = false;
+    void getRegistrationConfig().then((cfg) => {
+      if (!cancelled) setRegConfig(cfg);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (authed && verified) void refreshFromBackend();
   }, [authed, verified, refreshFromBackend]);
 
@@ -495,7 +515,7 @@ export default function App() {
         if (cancelled) return;
         const message = e instanceof Error ? e.message : '';
         const code = e instanceof ApiError ? e.code : 0;
-        if (code === 40320 || /手机/.test(message)) {
+        if ((code === 40320 || /手机/.test(message)) && regConfig.phone_required) {
           setPhoneGateOpen(true);
           setInviteRefreshFailed(false);
           setInviteNotice(
@@ -513,9 +533,10 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [authed, verified, phoneVerified, refreshFromBackend, settings.language, switchView]);
+  }, [authed, verified, phoneVerified, regConfig.phone_required, refreshFromBackend, settings.language, switchView]);
 
   const requirePhoneForCollab = useCallback(() => {
+    if (!regConfig.phone_required) return true;
     if (phoneVerified) return true;
     setPhoneGateOpen(true);
     toast.info(
@@ -524,7 +545,7 @@ export default function App() {
         : 'Collaboration requires phone verification',
     );
     return false;
-  }, [phoneVerified, settings.language, toast]);
+  }, [phoneVerified, regConfig.phone_required, settings.language, toast]);
 
   const handleCreateCompany = useCallback(
     async (payload: { name: string; slug?: string }) => {
@@ -1045,9 +1066,31 @@ export default function App() {
     return (
       <LoginGate
         lang={settings.language}
-        onLoggedIn={() => {
+        registrationConfig={regConfig}
+        onLoggedIn={(payload) => {
           setAuthed(true);
           setVerified(null);
+          if (payload?.project_id) {
+            clearInviteToken();
+            const pid = payload.project_id;
+            void refreshFromBackend().then(() => {
+              void getProject(pid)
+                .then((p) => {
+                  setCurrentProject(mapProject(p));
+                  switchView('team');
+                })
+                .catch(() => {
+                  setCurrentProject({
+                    id: String(pid),
+                    name: settings.language === 'zh' ? '受邀项目' : 'Invited project',
+                    description: '',
+                    color: '#0058be',
+                    active: true,
+                  });
+                  switchView('team');
+                });
+            });
+          }
         }}
       />
     );
@@ -1066,6 +1109,7 @@ export default function App() {
       <VerifyGate
         lang={settings.language}
         required="email"
+        phoneRequired={regConfig.phone_required}
         onVerified={() => setVerified(true)}
         onLogout={() => {
           setAuthed(false);
@@ -1480,13 +1524,21 @@ export default function App() {
         }
       />
 
-      <PhoneVerificationReminder userId={user.id || ''} verified={phoneVerified} onVerify={() => setPhoneGateOpen(true)} onVerified={markPhoneVerified} />
+      {regConfig.phone_required && (
+        <PhoneVerificationReminder
+          userId={user.id || ''}
+          verified={phoneVerified}
+          onVerify={() => setPhoneGateOpen(true)}
+          onVerified={markPhoneVerified}
+        />
+      )}
       {phoneGateOpen && (
         <div className="fixed inset-0 z-[80] bg-black/50 flex items-center justify-center p-4">
           <div className="w-full max-w-lg">
             <VerifyGate
               lang={settings.language}
               required="phone"
+              phoneRequired={regConfig.phone_required}
               onVerified={() => {
                 setPhoneVerified(true);
                 setVerified(true);

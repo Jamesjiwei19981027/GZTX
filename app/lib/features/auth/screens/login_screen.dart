@@ -15,6 +15,7 @@ import '../utils/countdown_controller.dart';
 import '../widgets/auth_message_banner.dart';
 import '../widgets/code_field_row.dart';
 import '../widgets/send_code_button.dart';
+import '../../projects/invite_link.dart';
 
 /// 登录方式
 enum LoginKind { password, code }
@@ -40,6 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
   late final CountdownController _countdown = CountdownController();
 
   LoginKind _kind = LoginKind.password;
+  RegistrationConfig _regConfig = const RegistrationConfig();
   bool _obscurePassword = true;
   bool _busy = false;
   String? _error;
@@ -52,6 +54,18 @@ class _LoginScreenState extends State<LoginScreen> {
     _password.addListener(_onFormChanged);
     _target.addListener(_onFormChanged);
     _code.addListener(_onFormChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadRegistrationConfig();
+    });
+  }
+
+  Future<void> _loadRegistrationConfig() async {
+    final api = _api;
+    if (api == null) return;
+    final cfg = await api.fetchRegistrationConfig();
+    if (mounted) {
+      setState(() => _regConfig = cfg);
+    }
   }
 
   @override
@@ -68,7 +82,20 @@ class _LoginScreenState extends State<LoginScreen> {
     if (mounted) setState(() {});
   }
 
-  AuthApi get _api => widget.api ?? AuthApi(context.read<AuthState>().api);
+  AuthState? get _authState {
+    try {
+      return Provider.of<AuthState>(context, listen: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  AuthApi? get _api {
+    if (widget.api != null) return widget.api;
+    final auth = _authState;
+    if (auth != null) return AuthApi(auth.api);
+    return null;
+  }
 
   void _clearMessages() {
     setState(() {
@@ -95,14 +122,18 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
       _hint = null;
     });
+    final api = _api;
+    if (api == null) return;
     try {
-      final session = await _api.loginWithPassword(
+      final session = await api.loginWithPassword(
         username: username,
         password: password,
       );
       if (!mounted) return;
-      await AuthFlow(context.read<AuthState>())
-          .completeSignInAndEnter(context, session);
+      final auth = _authState;
+      if (auth != null) {
+        await AuthFlow(auth).completeSignInAndEnter(context, session);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = describeAuthError(e));
@@ -128,15 +159,19 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
       _hint = null;
     });
+    final api = _api;
+    if (api == null) return;
     try {
-      final session = await _api.loginWithCode(
+      final session = await api.loginWithCode(
         channel: channel,
         target: target,
         code: code,
       );
       if (!mounted) return;
-      await AuthFlow(context.read<AuthState>())
-          .completeSignInAndEnter(context, session);
+      final auth = _authState;
+      if (auth != null) {
+        await AuthFlow(auth).completeSignInAndEnter(context, session);
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = describeAuthError(e));
@@ -153,9 +188,11 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => _error = '请输入有效的手机号或邮箱后再获取验证码');
       return;
     }
+    final api = _api;
+    if (api == null) return;
     setState(() => _busy = true);
     try {
-      final result = await _api.sendCode(
+      final result = await api.sendCode(
         channel: channel,
         target: target,
         purpose: SendCodePurpose.login,
@@ -184,8 +221,17 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  String? _resolveInviteToken() {
+    return PendingInviteHolder.token ?? _authState?.pendingInviteToken;
+  }
+
   void _openRegister() {
-    context.push(AuthPaths.register);
+    final invite = _resolveInviteToken();
+    if (invite != null && invite.isNotEmpty) {
+      context.push('${AuthPaths.register}?invite=$invite');
+    } else {
+      context.push(AuthPaths.register);
+    }
   }
 
   Future<void> _openForgotHelp() async {
@@ -501,6 +547,23 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildRegisterEntry(BuildContext context, bool isDark) {
+    final inviteToken = _resolveInviteToken();
+    final bool isInviteOnly = _regConfig.isInviteOnly;
+    final bool canRegister =
+        !isInviteOnly || (inviteToken != null && inviteToken.isNotEmpty);
+
+    if (!canRegister) {
+      return Text(
+        '仅限受邀注册，请向管理员索取邀请链接',
+        key: const ValueKey('login-invite-only-hint'),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 12,
+          color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+        ),
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [

@@ -20,9 +20,14 @@ Future<AuthState> _signedInState(
   MockApiClientHelper helper, {
   required bool emailVerified,
   required bool phoneVerified,
+  bool phoneRequired = true,
 }) async {
   helper.whenGet('/users/me', {'id': 11, 'username': 'e2e_user'});
   helper.whenGet('/companies/mine', {'items': []});
+  helper.whenGet('/auth/registration-config', {
+    'mode': 'open',
+    'phone_required': phoneRequired,
+  });
   helper.whenGet('/users/me/verification', {
     'email': 'e2e_user@example.com',
     'phone': '13900000001',
@@ -171,6 +176,41 @@ void main() {
         helper,
         emailVerified: true,
         phoneVerified: true,
+      );
+
+      final router = GoRouter(
+        initialLocation: '/work',
+        routes: [
+          GoRoute(
+            path: '/work',
+            builder: (context, state) => const Scaffold(body: Text('工作入口占位')),
+          ),
+          GoRoute(
+            path: '/verify',
+            builder: (context, state) => const Scaffold(body: Text('验证门')),
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        _hostedApp(authState, router, InMemoryPhoneReminderStorage()),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 50));
+
+      expect(find.text('工作入口占位'), findsOneWidget);
+      expect(find.text('验证门'), findsNothing);
+      expect(find.text('手机号码尚未验证'), findsNothing);
+    });
+
+    testWidgets('phone_required 为 false 时：邮箱已验证手机未验证不弹手机绑定提醒', (tester) async {
+      final helper = MockApiClientHelper();
+      final authState = await _signedInState(
+        helper,
+        emailVerified: true,
+        phoneVerified: false,
+        phoneRequired: false,
       );
 
       final router = GoRouter(

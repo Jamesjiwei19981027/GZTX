@@ -20,7 +20,10 @@ final List<RouteBase> authRoutes = [
       GoRoute(
         path: 'register',
         name: 'auth-register',
-        builder: (context, state) => const RegisterScreen(),
+        builder: (context, state) => RegisterScreen(
+          inviteToken: state.uri.queryParameters['invite'] ??
+              state.uri.queryParameters['token'],
+        ),
       ),
     ],
   ),

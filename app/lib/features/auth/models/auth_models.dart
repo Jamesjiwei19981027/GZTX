@@ -93,8 +93,11 @@ class VerificationStatus {
   /// 邮箱与手机都已验证
   bool get fullyVerified => emailVerified && phoneVerified;
 
-  bool satisfies(VerifyRequirement requirement) {
-    if (requirement == VerifyRequirement.phone) {
+  bool isFullyVerified([bool phoneRequired = false]) =>
+      phoneRequired ? (emailVerified && phoneVerified) : emailVerified;
+
+  bool satisfies(VerifyRequirement requirement, {bool phoneRequired = false}) {
+    if (requirement == VerifyRequirement.phone && phoneRequired) {
       return emailVerified && phoneVerified;
     }
     return emailVerified;
@@ -138,13 +141,49 @@ class VerificationStatus {
   }
 }
 
+enum RegistrationMode {
+  open,
+  inviteOnly;
+
+  static RegistrationMode fromString(String? raw) {
+    if ((raw ?? '').trim().toLowerCase() == 'invite_only') {
+      return RegistrationMode.inviteOnly;
+    }
+    return RegistrationMode.open;
+  }
+}
+
+class RegistrationConfig {
+  const RegistrationConfig({
+    this.mode = RegistrationMode.open,
+    this.phoneRequired = false,
+  });
+
+  final RegistrationMode mode;
+  final bool phoneRequired;
+
+  bool get isInviteOnly => mode == RegistrationMode.inviteOnly;
+
+  factory RegistrationConfig.fromJson(dynamic json) {
+    if (json is! Map) {
+      return const RegistrationConfig();
+    }
+    return RegistrationConfig(
+      mode: RegistrationMode.fromString(json['mode'] as String?),
+      phoneRequired: json['phone_required'] == true,
+    );
+  }
+}
+
 /// 登录 / 注册成功后的令牌载荷
 class AuthSession {
   const AuthSession({
     required this.accessToken,
     this.refreshToken,
+    this.projectId,
   });
 
   final String accessToken;
   final String? refreshToken;
+  final int? projectId;
 }

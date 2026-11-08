@@ -1,18 +1,24 @@
 import React, { useEffect, useState } from 'react'
 import {
+  type AuthTokenPayload,
+  DEFAULT_REGISTRATION_CONFIG,
   detectChannel,
+  getRegistrationConfig,
   loginPassword,
   loginWithCode,
+  type RegistrationConfig,
   register,
   sendLoginCode,
   sendRegisterCode,
 } from '../api/auth'
 import { ApiError } from '../api/client'
 import { getBrandName, getBrandTagline } from '../constants/brand'
+import { clearInviteToken, readInviteToken } from '../utils/invite'
 
 type Props = {
-  onLoggedIn: () => void
+  onLoggedIn: (payload?: AuthTokenPayload) => void
   lang?: 'zh' | 'en'
+  registrationConfig?: RegistrationConfig
 }
 
 type Mode = 'login' | 'register'
@@ -31,13 +37,46 @@ function useCountdown() {
 const inputCls =
   'mt-1 w-full rounded-xl border border-outline-variant/50 px-3 py-2.5 bg-surface-container/40 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30'
 
-export function LoginGate({ onLoggedIn, lang = 'zh' }: Props) {
+export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props) {
   const zh = lang === 'zh'
-  const [mode, setMode] = useState<Mode>('login')
+  const [config, setConfig] = useState<RegistrationConfig>(
+    registrationConfig || DEFAULT_REGISTRATION_CONFIG,
+  )
+
+  useEffect(() => {
+    if (registrationConfig) {
+      setConfig(registrationConfig)
+      return
+    }
+    let cancelled = false
+    void getRegistrationConfig().then((cfg) => {
+      if (!cancelled) setConfig(cfg)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [registrationConfig])
+
+  const inviteToken = readInviteToken()
+  const isInviteOnly = config.mode === 'invite_only'
+  const canRegister = !isInviteOnly || Boolean(inviteToken)
+
+  const [mode, setMode] = useState<Mode>(() => {
+    if (inviteToken) return 'register'
+    return 'login'
+  })
   const [loginKind, setLoginKind] = useState<LoginKind>('password')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hint, setHint] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (isInviteOnly && !inviteToken && mode === 'register') {
+      setMode('login')
+    } else if (inviteToken && mode !== 'register') {
+      setMode('register')
+    }
+  }, [isInviteOnly, inviteToken])
 
   // password login
   const [username, setUsername] = useState('')
@@ -134,7 +173,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh' }: Props) {
       return
     }
     try {
-      const res = await sendRegisterCode(channel, target)
+      const res = await sendRegisterCode(channel, target, inviteToken || undefined)
       if (channel === 'email') emailCd.start(res.cooldown_seconds || 60)
       else phoneCd.start(res.cooldown_seconds || 60)
       setHint(
@@ -164,7 +203,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh' }: Props) {
     }
     setBusy(true)
     try {
-      await register({
+      const payload = await register({
         username: regUsername.trim(),
         password: regPassword,
         email: regEmail.trim(),
@@ -172,8 +211,12 @@ export function LoginGate({ onLoggedIn, lang = 'zh' }: Props) {
         phone: regPhone.trim() || undefined,
         phone_code: regPhoneCode.trim() || undefined,
         nickname: regUsername.trim(),
+        invite_token: inviteToken || undefined,
       })
-      onLoggedIn()
+      if (payload?.project_id) {
+        clearInviteToken()
+      }
+      onLoggedIn(payload)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : zh ? '注册失败' : 'Register failed')
     } finally {
@@ -199,25 +242,31 @@ export function LoginGate({ onLoggedIn, lang = 'zh' }: Props) {
 
       <div className="w-full md:w-1/2 flex items-center justify-center p-6">
         <div className="w-full max-w-md rounded-3xl border border-outline-variant/40 bg-white dark:bg-[#191c1d] p-7 shadow-xl space-y-5">
-          <div className="flex p-1 rounded-2xl bg-surface-container dark:bg-[#282b2d]">
-            {(['login', 'register'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => {
-                  setMode(m)
-                  clearMsgs()
-                }}
-                className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
-                  mode === m
-                    ? 'bg-primary text-on-primary shadow-sm'
-                    : 'text-on-surface-variant hover:text-on-surface'
-                }`}
-              >
-                {m === 'login' ? (zh ? '登录' : 'Sign in') : zh ? '注册' : 'Register'}
-              </button>
-            ))}
-          </div>
+          {canRegister ? (
+            <div className="flex p-1 rounded-2xl bg-surface-container dark:bg-[#282b2d]">
+              {(['login', 'register'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => {
+                    setMode(m)
+                    clearMsgs()
+                  }}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+                    mode === m
+                      ? 'bg-primary text-on-primary shadow-sm'
+                      : 'text-on-surface-variant hover:text-on-surface'
+                  }`}
+                >
+                  {m === 'login' ? (zh ? '登录' : 'Sign in') : zh ? '注册' : 'Register'}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="px-1 py-1 text-center font-bold text-lg text-on-surface">
+              {zh ? '登录' : 'Sign in'}
+            </div>
+          )}
 
           {mode === 'login' ? (
             <>
@@ -345,6 +394,11 @@ export function LoginGate({ onLoggedIn, lang = 'zh' }: Props) {
                     {busy ? (zh ? '登录中…' : 'Signing in…') : zh ? '登录' : 'Sign in'}
                   </button>
                 </form>
+              )}
+              {!canRegister && (
+                <p className="text-center text-xs text-on-surface-variant pt-2" data-testid="invite-only-notice">
+                  {zh ? '仅限受邀注册，请向管理员索取邀请链接' : 'Registration is by invitation only. Please ask an administrator for an invite link.'}
+                </p>
               )}
             </>
           ) : (

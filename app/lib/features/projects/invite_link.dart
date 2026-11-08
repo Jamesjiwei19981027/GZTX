@@ -48,3 +48,20 @@ String? readInviteTokenFromQuery(Map<String, String> query) {
   }
   return null;
 }
+
+/// 待消费的邀请令牌暂存器（供 worktodo:// 等外部链接进入后在未登录注册流程使用）
+class PendingInviteHolder {
+  PendingInviteHolder._();
+  static String? _token;
+  static String? get token => _token;
+  static void set(String? val) {
+    if (val != null && isValidInviteToken(val)) {
+      _token = val;
+    } else if (val == null) {
+      _token = null;
+    }
+  }
+  static void clear() {
+    _token = null;
+  }
+}
