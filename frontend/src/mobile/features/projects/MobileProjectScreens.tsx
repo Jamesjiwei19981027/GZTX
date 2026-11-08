@@ -223,7 +223,6 @@ export const MobileWorkspaceCreateScreen: React.FC<{
   // 公司字段 (80)
   const [companyName, setCompanyName] = useState('');
   const [companySlug, setCompanySlug] = useState('');
-  const [policyPreset, setPolicyPreset] = useState('enterprise_strict');
 
   const handleCreateProjectSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,7 +266,7 @@ export const MobileWorkspaceCreateScreen: React.FC<{
       const res = await createCompany({
         name: companyName.trim(),
         slug: cleanSlug,
-        policy_preset: policyPreset,
+        policy_preset: 'standard',
       });
       onCreated({ kind: 'company', id: res.id, name: res.name });
     } catch (err) {
@@ -380,16 +379,6 @@ export const MobileWorkspaceCreateScreen: React.FC<{
               />
             </MobileField>
 
-            <MobileField label="安全策略预设">
-              <select
-                value={policyPreset}
-                onChange={(e) => setPolicyPreset(e.target.value)}
-                className="w-full min-h-[48px] px-3 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
-              >
-                <option value="enterprise_strict">企业合规严格模式（强制人轴与逐级汇报）</option>
-                <option value="startup_flexible">创业敏捷模式（灵活扁平协作）</option>
-              </select>
-            </MobileField>
 
             <button
               type="submit"
