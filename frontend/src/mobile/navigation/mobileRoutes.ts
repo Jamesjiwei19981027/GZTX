@@ -65,7 +65,8 @@ export const REGISTERED_SCREENS: Record<MobileTab, ReadonlySet<string>> = {
     'project-settings',
     'project-invite',
     'invite-accept',
-    'ai-root', 'ai-chat', 'ai-report-create', 'ai-report-submitted', 'ai-report-detail',
+    'record-progress',
+    'ai-root', 'ai-report-create', 'ai-report-submitted', 'ai-report-detail',
     'ai-inbox', 'ai-project-aggregate', 'ai-leadership',
   ]),
   axis: new Set([
@@ -73,7 +74,7 @@ export const REGISTERED_SCREENS: Record<MobileTab, ReadonlySet<string>> = {
     'axis-node-detail',
     'axis-person-detail',
     'axis-edit-responsibility',
-    'axis-evidence-submit',
+    'record-progress',
     'axis-evidence-detail',
     'axis-progress',
     'axis-delegations',
@@ -82,7 +83,7 @@ export const REGISTERED_SCREENS: Record<MobileTab, ReadonlySet<string>> = {
     'axis-wiki-draft',
     'axis-wiki-search',
   ]),
-  knowledge: new Set(['knowledge-root', 'knowledge-chat']),
+  knowledge: new Set(['knowledge-root', 'knowledge-chat', 'record-progress']),
   messages: new Set([
     'messages-root',
     'messages-contacts',
@@ -130,7 +131,10 @@ export function createDefaultRoute(tab: MobileTab, params: MobileRouteParams = {
 
 /** Old callers can keep their screen IDs; one registry decides the owning tab. */
 export function normalizeMobileRoute(input: MobileRouteInput, fallback: MobileTab = 'work'): MobileRoute {
-  const screen = input.screen === 'me-knowledge' ? 'knowledge-root' : input.screen;
+  let screen = input.screen === 'me-knowledge' ? 'knowledge-root' : input.screen;
+  if (screen === 'ai-chat' || screen === 'axis-evidence-submit') {
+    screen = 'record-progress';
+  }
   const owner = MOBILE_TABS.find(item => REGISTERED_SCREENS[item.id].has(screen));
   const tab = owner?.id ?? (input.tab === 'ai' ? 'work' : input.tab) ?? fallback;
   return { ...input, tab, screen, presentation: input.presentation ?? 'page', params: input.params ?? {} };

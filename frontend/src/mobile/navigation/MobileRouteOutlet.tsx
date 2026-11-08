@@ -29,6 +29,7 @@ import { ProjectReportScreen } from '../features/reports/ProjectReportScreen';
 import { LeadershipReportScreen } from '../features/reports/LeadershipReportScreen';
 import { MobileAxisScreens } from '../features/people-axis/MobileAxisScreens';
 import { MobileEvidenceScreens } from '../features/people-axis/MobileEvidenceScreens';
+import { RecordProgressScreen } from '../features/progress/RecordProgressScreen';
 import { MobileWikiScreens } from '../features/wiki/MobileWikiScreens';
 import {
   MobileMeScreen,
@@ -374,7 +375,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             onNavigateToKanban={filter => push({ screen: 'work-kanban', title: '任务管理', params: { filter } })}
             onNavigateToCalendar={() => push({ screen: 'work-calendar', title: '日程日历' })}
             onNavigateToStatistics={() => push({ screen: 'work-statistics', title: '统计报表' })}
-            onNavigateToAssistant={action => push({ tab: 'work', screen: action === 'progress' ? 'ai-chat' : 'ai-root', title: action === 'progress' ? '告诉 AI 最新进展' : '汇报' })}
+            onNavigateToAssistant={action => push({ tab: 'work', screen: action === 'progress' ? 'record-progress' : 'ai-root', title: action === 'progress' ? '记录进展' : '汇报' })}
             onNavigateToTrash={() => push({ screen: 'work-trash', title: '回收站' })}
             onNavigateToAxis={() => push({ tab: 'axis', screen: 'axis-root', title: '人轴' })}
             onOpenProject={(project) => {
@@ -396,14 +397,15 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
         if (activeRoute.screen !== 'axis-root' && !(Number(axisProjectId) > 0)) {
           return <MobileEmptyState iconName="folder" title="请先选择项目" description="请先在顶部选择一个具体项目后再打开此页面。" />;
         }
-        if (activeRoute.screen === 'axis-evidence-submit') {
+        if (activeRoute.screen === 'record-progress') {
           return (
-            <MobileEvidenceScreens
-              mode="submit"
+            <RecordProgressScreen
               projectId={axisProjectId}
               companyId={props.companyId}
               nodeId={activeRoute.params.nodeId}
+              initialTarget={activeRoute.params.initialTarget as any}
               currentUser={props.user}
+              projects={props.projects}
               onBack={goBack}
             />
           );
@@ -504,10 +506,11 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
                 }
               }
               push({
-                screen: 'ai-chat',
+                screen: 'record-progress',
+                title: '记录进展',
                 params: {
-                  reportId: reportId != null ? String(reportId) : undefined,
                   nodeId: nodeId != null ? String(nodeId) : undefined,
+                  projectId: targetPid ? String(targetPid) : undefined,
                 },
               });
             }}
@@ -524,10 +527,12 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
                 }
               }
               push({
-                screen: 'axis-evidence-submit',
+                screen: 'record-progress',
+                title: '记录进展',
                 params: {
                   nodeId,
                   projectId: targetPid ? String(targetPid) : undefined,
+                  initialTarget: 'evidence',
                 },
               });
             }}
@@ -538,17 +543,16 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
       }
 
       case 'assistant': {
-        // AI 汇报与多级汇总管理 (T08 / T09)
-        if (activeRoute.screen === 'ai-chat') {
+        // 记录进展统一入口 (T08 / T09)
+        if (activeRoute.screen === 'record-progress') {
           return (
-            <MyAgentScreen
-              projects={props.projects}
-              onSelectProject={props.onSelectProject}
-              user={props.user}
-              currentProject={props.currentProject}
+            <RecordProgressScreen
+              projectId={activeRoute.params.projectId || props.currentProject.id}
               companyId={props.companyId}
-              projectMembers={props.projectMembers}
-              initialViewMode="chat"
+              nodeId={activeRoute.params.nodeId}
+              initialTarget={activeRoute.params.initialTarget as any}
+              currentUser={props.user}
+              projects={props.projects}
               onBack={goBack}
             />
           );
@@ -714,6 +718,19 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
       }
 
       case 'knowledge': {
+        if (activeRoute.screen === 'record-progress') {
+          return (
+            <RecordProgressScreen
+              projectId={activeRoute.params.projectId || props.currentProject.id}
+              companyId={props.companyId}
+              nodeId={activeRoute.params.nodeId}
+              initialTarget="knowledge"
+              currentUser={props.user}
+              projects={props.projects}
+              onBack={goBack}
+            />
+          );
+        }
         if (activeRoute.screen === 'knowledge-chat') {
           return <MyAgentScreen user={props.user} currentProject={props.currentProject}
             projects={props.projects} onSelectProject={props.onSelectProject} companyId={props.companyId}
@@ -729,6 +746,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             onSelectProject={props.onSelectProject}
             onBack={canGoBack ? goBack : undefined}
             onAskKnowledge={() => push({ screen: 'knowledge-chat', title: '知识助手' })}
+            onRecordProgress={() => push({ screen: 'record-progress', title: '记录进展', params: { projectId: props.currentProject.id, initialTarget: 'knowledge' } })}
           />;
         }
       }
