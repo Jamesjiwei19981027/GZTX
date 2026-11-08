@@ -442,11 +442,12 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   />
                 </label>
                 <div>
-                  <span className="text-sm text-on-surface-variant font-semibold">
+                  <label htmlFor="register-email-code" className="text-sm text-on-surface-variant font-semibold">
                     {zh ? '邮箱验证码 *' : 'Email code *'}
-                  </span>
+                  </label>
                   <div className="mt-1 flex gap-2">
                     <input
+                      id="register-email-code"
                       className={`${inputCls} mt-0 flex-1`}
                       value={regEmailCode}
                       onChange={(e) => setRegEmailCode(e.target.value)}
