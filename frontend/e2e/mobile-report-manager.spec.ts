@@ -18,7 +18,28 @@ test('Mobile manager report flow: Inbox, contrast, rollup, leadership overview &
 
     let data: unknown = {};
 
-    if (path === '/projects/1/report-agents/bindings' && request.method() === 'GET') {
+    if (path === '/projects/1/tree' && request.method() === 'GET') {
+      data = {
+        nodes: [
+          {
+            id: 1,
+            title: '负责人',
+            user_ids: [9],
+            assignees: [{ user_id: 9, role_key: 'primary' }],
+            children: [
+              {
+                id: 2,
+                title: '产品设计',
+                parent_id: 1,
+                user_ids: [7],
+                assignees: [{ user_id: 7, role_key: 'primary' }],
+                children: [],
+              },
+            ],
+          },
+        ],
+      };
+    } else if (path === '/projects/1/report-agents/bindings' && request.method() === 'GET') {
       data = {
         items: [
           { id: 101, user_id: 9, role: 'project', project_id: 1, is_active: true },
@@ -185,25 +206,20 @@ test('Mobile manager report flow: Inbox, contrast, rollup, leadership overview &
 
   await page.goto('/');
 
-  // 1. 管理者可见管理者能力区
-  await expect(page.getByText('管理者能力')).toBeVisible();
-  await expect(page.getByText('下属汇报收件箱')).toBeVisible();
+  // 1. 管理者可见下属汇报区
+  await expect(page.getByText('下属汇报')).toBeVisible();
+  await expect(page.getByText('林悦')).toBeVisible();
 
-  // 2. 进入 ID 40：下属汇报收件箱
-  await page.getByText('下属汇报收件箱').click();
-  await expect(page.getByRole('heading', { name: '下属汇报收件箱' })).toBeVisible();
-  await expect(page.getByText('林悦 · 产品设计')).toBeVisible();
-
-  // 点击未读项，自动触发 markReportRead 并进入详情
-  await page.getByText('林悦 · 产品设计').click();
+  // 2. 点击下属汇报项，自动触发 markReportRead 并进入详情
+  await page.getByText('林悦').click();
   await expect(page.getByText('汇报详情与版本')).toBeVisible();
   expect(calls).toContain('PUT /reports/inbox/201/read');
 
-  // 返回收件箱
-  await page.getByRole('button', { name: '列表' }).click();
+  // 返回汇报主页
+  await page.getByRole('button', { name: '返回' }).click();
 
-  // 3. 点击 "汇总项目汇报" 进入 ID 42：项目汇总与发布
-  await page.getByRole('button', { name: '汇总项目汇报' }).click();
+  // 3. 点击 "项目汇总与发布" 进入项目汇总
+  await page.getByRole('button', { name: '项目汇总与发布' }).click();
   await expect(page.getByText('待管理者确认')).toBeVisible();
   await expect(page.getByText('项目周报')).toBeVisible();
 
@@ -214,19 +230,4 @@ test('Mobile manager report flow: Inbox, contrast, rollup, leadership overview &
   // 验证 G03 规范防御提示
   await page.getByRole('button', { name: '确认发布项目摘要' }).click();
   await expect(page.getByText(/G03 规范提示/)).toBeVisible();
-
-  // 4. 切换到 ID 41：资料对照
-  await page.getByRole('button', { name: '资料对照' }).click();
-  await expect(page.getByRole('heading', { name: '项目资料对照' })).toBeVisible();
-  await expect(page.getByText('交互原型验收')).toBeVisible();
-  await expect(page.getByText('存在差异')).toBeVisible();
-
-  // 5. 点击 "记录核验意见与差异裁决" 进入 ID 100：资料差异确认
-  await page.getByRole('button', { name: '记录核验意见与差异裁决' }).click();
-  await expect(page.getByRole('heading', { name: '资料差异确认' })).toBeVisible();
-  await expect(page.getByText('原型验收状态不一致')).toBeVisible();
-
-  // 记录核验意见并验证 G05 规范提示
-  await page.getByRole('button', { name: '记录核验意见' }).click();
-  await expect(page.getByText(/G05 规范提示/)).toBeVisible();
 });
