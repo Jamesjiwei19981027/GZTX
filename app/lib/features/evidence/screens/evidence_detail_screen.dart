@@ -36,6 +36,8 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
   bool _loading = true;
   String? _error;
   bool _forbidden = false;
+  bool _reviewing = false;
+  String? _reviewError;
 
   @override
   void initState() {
@@ -133,6 +135,147 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
         );
       },
     );
+  }
+
+  Future<void> _handleAdopt() async {
+    final package = _package;
+    if (package == null || _reviewing) return;
+    setState(() {
+      _reviewing = true;
+      _reviewError = null;
+    });
+    try {
+      final updated = await widget.api.reviewEvidence(
+        packageId: package.id,
+        decision: 'adopted',
+      );
+      if (!mounted) return;
+      setState(() {
+        _package = updated;
+        _reviewing = false;
+      });
+      showAppToast(context, '已确认采纳', type: ToastType.success);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _reviewing = false;
+        _reviewError = error.message;
+      });
+      showAppToast(context, error.message, type: ToastType.error);
+    } catch (error) {
+      if (!mounted) return;
+      const msg = '确认采纳失败，请稍后重试';
+      setState(() {
+        _reviewing = false;
+        _reviewError = msg;
+      });
+      showAppToast(context, msg, type: ToastType.error);
+    }
+  }
+
+  Future<void> _handleRejectPrompt() async {
+    final package = _package;
+    if (package == null || _reviewing) return;
+    setState(() => _reviewError = null);
+
+    final reasonController = TextEditingController();
+    final isDark = isDarkMode(context);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
+          title: const Text(
+            '驳回材料',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '填写驳回理由（可选）：',
+                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              TextField(
+                controller: reasonController,
+                maxLines: 3,
+                minLines: 2,
+                decoration: InputDecoration(
+                  hintText: '请输入驳回材料的具体原因…',
+                  hintStyle: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textTertiary,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                  contentPadding: const EdgeInsets.all(AppSpacing.sm),
+                ),
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('取消'),
+            ),
+            AppButton(
+              label: '确认驳回',
+              variant: AppButtonVariant.danger,
+              size: AppButtonSize.sm,
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      reasonController.dispose();
+      return;
+    }
+
+    final reason = reasonController.text.trim();
+    reasonController.dispose();
+
+    setState(() {
+      _reviewing = true;
+      _reviewError = null;
+    });
+
+    try {
+      final updated = await widget.api.reviewEvidence(
+        packageId: package.id,
+        decision: 'rejected',
+        reason: reason.isEmpty ? null : reason,
+      );
+      if (!mounted) return;
+      setState(() {
+        _package = updated;
+        _reviewing = false;
+      });
+      showAppToast(context, '已驳回材料', type: ToastType.success);
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _reviewing = false;
+        _reviewError = error.message;
+      });
+      showAppToast(context, error.message, type: ToastType.error);
+    } catch (error) {
+      if (!mounted) return;
+      const msg = '驳回失败，请稍后重试';
+      setState(() {
+        _reviewing = false;
+        _reviewError = msg;
+      });
+      showAppToast(context, msg, type: ToastType.error);
+    }
   }
 
   @override
@@ -243,6 +386,108 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
               type: EvidenceBannerType.danger,
               icon: 'alert',
             ),
+          ],
+          if (package.status == 'pending_review' && package.suggestion != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            const EvidenceSectionTitle('系统建议（仅供参考）'),
+            EvidenceCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '系统建议：',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark
+                              ? AppColors.darkTextSecondary
+                              : AppColors.textSecondary,
+                        ),
+                      ),
+                      Text(
+                        package.suggestionLabel ?? package.suggestion!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: package.suggestion == 'adopted'
+                              ? AppColors.success
+                              : AppColors.danger,
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.xs),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppColors.darkSurfaceVariant
+                              : const Color(0xFFF0F2F5),
+                          borderRadius:
+                              BorderRadius.circular(AppSpacing.radiusSm),
+                        ),
+                        child: Text(
+                          '建议',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark
+                                ? AppColors.darkTextTertiary
+                                : AppColors.textTertiary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (package.suggestionReason != null) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      '理由：${package.suggestionReason}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: isDark
+                            ? AppColors.darkTextSecondary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+          if (package.canReview) ...[
+            const SizedBox(height: AppSpacing.md),
+            Row(
+              children: [
+                Expanded(
+                  child: AppButton(
+                    label: _reviewing ? '处理中…' : '确认采纳',
+                    variant: AppButtonVariant.primary,
+                    isLoading: _reviewing,
+                    onPressed: _reviewing ? null : _handleAdopt,
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: AppButton(
+                    label: '驳回',
+                    variant: AppButtonVariant.danger,
+                    isLoading: _reviewing,
+                    onPressed: _reviewing ? null : _handleRejectPrompt,
+                  ),
+                ),
+              ],
+            ),
+            if (_reviewError != null) ...[
+              const SizedBox(height: AppSpacing.sm),
+              EvidenceBanner(
+                message: _reviewError!,
+                type: EvidenceBannerType.danger,
+                icon: 'alert',
+              ),
+            ],
           ],
           const SizedBox(height: AppSpacing.lg),
           EvidenceSectionTitle('支撑文件（${package.files.length}）'),
