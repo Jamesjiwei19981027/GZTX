@@ -17,6 +17,8 @@ from app.models.tree import TreeNode, default_progress_json
 from app.services import evidence_service as evidence_service_module
 from app.services.evidence_judge import JudgeResult, RuleBasedEvidenceJudge
 from app.services.evidence_service import (
+    adopt_evidence_package,
+    reject_evidence_package,
     run_evidence_judge,
     save_upload_file,
     submit_evidence,
@@ -144,7 +146,7 @@ async def test_off_mode_behaves_like_before(db_session):
     assert extract_jobs == []
 
     await run_evidence_judge(db_session, job.id)
-    assert pkg.status == "adopted"
+    assert pkg.status == "pending_review"
     assert job.status == "succeeded"
     assert await _get_eft(db_session, ef.id) is None
     assert await _chunks_for_file(db_session, ef.id) == []
@@ -192,6 +194,8 @@ async def test_sync_mode_txt_extract_judge_and_chunks(db_session, monkeypatch):
     assert captured["files_texts"][0]["name"] == ef.original_name
     assert "数据库迁移" in captured["files_texts"][0]["text"]
 
+    assert pkg.status == "pending_review"
+    await adopt_evidence_package(db_session, package_id=pkg.id, reviewer_user_id=1)
     assert pkg.status == "adopted"
     assert await _chunks_for_file(db_session, ef.id), "采纳后应有知识块"
     results = await search_chunks(
@@ -232,6 +236,8 @@ async def test_rejected_package_text_persisted_but_no_chunk(db_session, monkeypa
 
     eft = await _get_eft(db_session, ef.id)
     assert eft is not None and eft.status == "succeeded", "正文抽取结果应持久化"
+    assert pkg.status == "pending_review"
+    await reject_evidence_package(db_session, package_id=pkg.id, reviewer_user_id=1)
     assert pkg.status == "rejected"
     assert await _chunks_for_file(db_session, ef.id) == [], "未采纳不得入检索层"
 
@@ -244,6 +250,8 @@ async def test_rejected_package_text_persisted_but_no_chunk(db_session, monkeypa
     pkg2, job2 = await _submit(db_session, node=node, file_ids=None, summary=None)
     await extract_package(db_session, pkg2.id)
     await run_evidence_judge(db_session, job2.id)
+    assert pkg2.status == "pending_review"
+    await reject_evidence_package(db_session, package_id=pkg2.id, reviewer_user_id=1)
     assert pkg2.status == "rejected"
     assert (
         await db_session.execute(select(KnowledgeChunk))
@@ -269,6 +277,8 @@ async def test_unsupported_format_skipped_and_judge_unblocked(db_session, monkey
     eft = await _get_eft(db_session, ef.id)
     assert eft is not None and eft.status == "skipped"
     assert job.status == "succeeded"
+    assert pkg.status == "pending_review"
+    await adopt_evidence_package(db_session, package_id=pkg.id, reviewer_user_id=1)
     assert pkg.status == "adopted"
     assert await _chunks_for_file(db_session, ef.id) == [], "无正文不入检索层"
 
@@ -302,6 +312,8 @@ async def test_worker_chain_extract_then_judge(db_session, monkeypatch):
 
     assert extract_job.status == "succeeded"
     assert judge_job.status == "succeeded"
+    assert pkg.status == "pending_review"
+    await adopt_evidence_package(db_session, package_id=pkg.id, reviewer_user_id=1)
     assert pkg.status == "adopted"
     eft = await _get_eft(db_session, ef.id)
     assert eft is not None and eft.status == "succeeded"
@@ -326,6 +338,8 @@ async def test_extract_after_adopt_backfills_chunks(db_session, monkeypatch):
 
     # 判定先完成（此时尚无正文，files_texts 为空）
     await run_evidence_judge(db_session, judge_job.id)
+    assert pkg.status == "pending_review"
+    await adopt_evidence_package(db_session, package_id=pkg.id, reviewer_user_id=1)
     assert pkg.status == "adopted"
     assert await _chunks_for_file(db_session, ef.id) == []
 
