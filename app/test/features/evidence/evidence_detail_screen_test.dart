@@ -1,7 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/core/models/project.dart';
+import 'package:worktodo_app/design/widgets/app_toast.dart';
 import 'package:worktodo_app/features/evidence/screens/evidence_detail_screen.dart';
 
 import '../../helpers/mock_api_client.dart';
@@ -179,5 +181,226 @@ void main() {
 
     expect(find.text('供应链协同平台'), findsOneWidget);
     expect(find.textContaining('项目 #'), findsNothing);
+  });
+
+  tearDown(() {
+    resetToastForTesting();
+  });
+
+  testWidgets('can_review 为 false 时不展示审核操作按钮', (tester) async {
+    final helper = baseHelper();
+    helper.whenGet(
+      '/evidence/91',
+      packageJson(
+        status: 'pending_review',
+        canReview: false,
+      ),
+    );
+
+    await pumpEvidenceScreen(
+      tester,
+      EvidenceDetailScreen(
+        api: buildEvidenceApi(helper),
+        packageId: 91,
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text('待负责人确认'), findsNWidgets(2));
+    expect(find.text('确认采纳'), findsNothing);
+    expect(find.text('驳回'), findsNothing);
+  });
+
+  testWidgets('pending_review 且有建议时展示系统建议卡片与理由', (tester) async {
+    final helper = baseHelper();
+    helper.whenGet(
+      '/evidence/91',
+      packageJson(
+        status: 'pending_review',
+        suggestion: 'adopted',
+        judgeResult: {
+          'decision': 'adopted',
+          'reason': '材料完整，符合研发验收标准',
+        },
+      ),
+    );
+
+    await pumpEvidenceScreen(
+      tester,
+      EvidenceDetailScreen(
+        api: buildEvidenceApi(helper),
+        packageId: 91,
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text('系统建议（仅供参考）'), findsOneWidget);
+    expect(find.text('系统建议：'), findsOneWidget);
+    expect(find.text('采纳'), findsOneWidget);
+    expect(find.text('建议'), findsOneWidget);
+    expect(find.text('理由：材料完整，符合研发验收标准'), findsOneWidget);
+  });
+
+  testWidgets('can_review 为 true 时显示按钮，点击确认采纳调用正确接口与参数并刷新', (tester) async {
+    final helper = baseHelper();
+    helper.whenGet(
+      '/evidence/91',
+      packageJson(
+        status: 'pending_review',
+        canReview: true,
+      ),
+    );
+    helper.whenPost(
+      '/evidence/91/review',
+      packageJson(
+        status: 'adopted',
+        canReview: false,
+      ),
+    );
+
+    await pumpEvidenceScreen(
+      tester,
+      EvidenceDetailScreen(
+        api: buildEvidenceApi(helper),
+        packageId: 91,
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text('确认采纳'), findsOneWidget);
+    expect(find.text('驳回'), findsOneWidget);
+
+    await tester.tap(find.text('确认采纳'));
+    await settle(tester);
+
+    final reviewReq = helper.history.firstWhere((r) => r.method == 'POST');
+    expect(reviewReq.url.path, endsWith('/evidence/91/review'));
+    expect(reviewReq.body, {'decision': 'adopted'});
+
+    expect(find.text('已采纳'), findsNWidgets(2));
+    expect(find.text('确认采纳'), findsNothing);
+    expect(find.text('已确认采纳'), findsOneWidget);
+    resetToastForTesting();
+  });
+
+  testWidgets('点击驳回弹框可填写理由，点击确认驳回调用正确接口与参数并刷新', (tester) async {
+    final helper = baseHelper();
+    helper.whenGet(
+      '/evidence/91',
+      packageJson(
+        status: 'pending_review',
+        canReview: true,
+      ),
+    );
+    helper.whenPost(
+      '/evidence/91/review',
+      packageJson(
+        status: 'rejected',
+        canReview: false,
+      ),
+    );
+
+    await pumpEvidenceScreen(
+      tester,
+      EvidenceDetailScreen(
+        api: buildEvidenceApi(helper),
+        packageId: 91,
+      ),
+    );
+    await settle(tester);
+
+    await tester.tap(find.text('驳回'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('驳回材料'), findsOneWidget);
+    expect(find.text('填写驳回理由（可选）：'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '文档缺少关键设计规范说明');
+    await tester.tap(find.text('确认驳回'));
+    await settle(tester);
+
+    final reviewReq = helper.history.firstWhere((r) => r.method == 'POST');
+    expect(reviewReq.url.path, endsWith('/evidence/91/review'));
+    expect(reviewReq.body, {
+      'decision': 'rejected',
+      'reason': '文档缺少关键设计规范说明',
+    });
+
+    expect(find.text('已驳回'), findsNWidgets(2));
+    expect(find.text('驳回'), findsNothing);
+    expect(find.text('已驳回材料'), findsOneWidget);
+    resetToastForTesting();
+  });
+
+  testWidgets('确认采纳遇到 403 权限不足显示后端错误文案', (tester) async {
+    final helper = baseHelper();
+    helper.whenGet(
+      '/evidence/91',
+      packageJson(
+        status: 'pending_review',
+        canReview: true,
+      ),
+    );
+    helper.whenPost(
+      '/evidence/91/review',
+      {'code': 40302, 'message': '无确认材料权限', 'data': null},
+      statusCode: 403,
+    );
+
+    await pumpEvidenceScreen(
+      tester,
+      EvidenceDetailScreen(
+        api: buildEvidenceApi(helper),
+        packageId: 91,
+      ),
+    );
+    await settle(tester);
+
+    await tester.tap(find.text('确认采纳'));
+    await settle(tester);
+
+    expect(find.textContaining('无确认材料权限'), findsWidgets);
+    resetToastForTesting();
+  });
+
+  testWidgets('驳回遇到 409 状态冲突显示后端错误文案', (tester) async {
+    final helper = baseHelper();
+    helper.whenGet(
+      '/evidence/91',
+      packageJson(
+        status: 'pending_review',
+        canReview: true,
+      ),
+    );
+    helper.whenPost(
+      '/evidence/91/review',
+      {
+        'code': 40901,
+        'message': '材料状态为 submitted，只有 pending_review 状态能确认',
+        'data': null,
+      },
+      statusCode: 409,
+    );
+
+    await pumpEvidenceScreen(
+      tester,
+      EvidenceDetailScreen(
+        api: buildEvidenceApi(helper),
+        packageId: 91,
+      ),
+    );
+    await settle(tester);
+
+    await tester.tap(find.text('驳回'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('确认驳回'));
+    await settle(tester);
+
+    expect(
+      find.textContaining('只有 pending_review 状态能确认'),
+      findsWidgets,
+    );
+    resetToastForTesting();
   });
 }

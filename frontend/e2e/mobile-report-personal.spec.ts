@@ -176,7 +176,7 @@ test('Mobile personal report flow: AI chat, draft editor, submit & delivery stat
   await expect(page.getByText('我的汇报')).toBeVisible();
 
   // 2. 点击 "告诉 AI 最新进展" 进入 ID 36：与我的 AI 对话
-  await page.getByRole('button', { name: '告诉 AI 最新进展' }).click();
+  await page.getByRole('button', { name: '记录进展' }).click();
   await expect(page.getByText('与我的 AI 对话')).toBeVisible();
 
   // 发送对话消息

@@ -42,6 +42,7 @@ from app.api.v1 import calls as calls_api
 from app.api.v1 import external_mail as external_mail_api
 from app.api.v1 import notify as notify_api
 from app.api.v1 import events as events_api
+from app.api.v1 import record_progress as record_progress_api
 from app.core.collab_errors import CollabError
 
 # Email check lock to prevent concurrent email processing
@@ -644,6 +645,7 @@ app.include_router(calls_api.router, prefix="/api/v1")
 app.include_router(external_mail_api.router, prefix="/api/v1")
 app.include_router(notify_api.router, prefix="/api/v1")
 app.include_router(events_api.router, prefix="/api/v1")
+app.include_router(record_progress_api.router, prefix="/api/v1")
 
 
 @app.get("/api/v1/health", tags=["系统"])

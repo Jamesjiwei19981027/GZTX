@@ -77,3 +77,6 @@ data/
 !app/lib/**/data/
 !app/test/**/data/
 backups/
+
+# 内测本机部署的真实环境变量（含密钥，勿提交）
+.env.beta

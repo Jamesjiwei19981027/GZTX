@@ -242,7 +242,7 @@ test('work has one search, task creation and AI progress entry without duplicate
   await expect(page.getByRole('button',{name:/搜索/})).toHaveCount(1);
   await expect(page.getByRole('button',{name:'新建任务',exact:true})).toContainText('新建任务');
   await expect(page.getByRole('button',{name:'快速添加',exact:true})).toHaveCount(0);
-  await expect(page.getByRole('button',{name:'告诉 AI 最新进展',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'记录进展',exact:true})).toBeVisible();
 });
 
 test('project manager without assigned node is never labelled as a different employee', async ({page}) => {
@@ -456,7 +456,7 @@ test('all-projects: opening a responsibility item enters the material page of th
   await expect(page.getByRole('heading',{name:'我的职责',exact:true})).toBeVisible();
   await page.getByText('移动端责任事项').first().click();
   await expect(page.getByText('请先选择项目')).toHaveCount(0);
-  expect(await page.evaluate(() => (window as any).__MOBILE_NAV__.activeRoute.screen)).toBe('axis-evidence-submit');
+  expect(await page.evaluate(() => (window as any).__MOBILE_NAV__.activeRoute.screen)).toBe('record-progress');
   expect(await page.evaluate(() => (window as any).__selected)).toBe('1');
   expect(urls.filter(u => /\/projects\/NaN/.test(u))).toEqual([]);
 });

@@ -27,6 +27,7 @@ export type PersonalKnowledgeSpaceProps = {
   onOpenSource?: (entry: PersonalKnowledgeEntry) => void
   initialSpace?: 'personal' | 'project'
   onAskKnowledge?: () => void
+  onRecordProgress?: () => void
 }
 type WikiNode = Node<{ title: string; excerpt: string; tags: string[] }, 'wiki'>
 const sourceNames: Record<PersonalKnowledgeEntry['source_type'], string> = {
@@ -62,12 +63,12 @@ export function PersonalKnowledgeSpace(props: PersonalKnowledgeSpaceProps) {
       }}><option value="" disabled>请选择具体项目</option>{projects.filter(p => concreteProject(String(p.id))).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
     </header>
     {valid && props.onAskKnowledge && <button type="button" className="pk-ask" onClick={props.onAskKnowledge}>问知识助手</button>}
-    {valid ? React.createElement(KnowledgeSpaceTabs, { key: `${props.userId ?? 'authenticated'}:${currentProject.id}`, projectId: Number(currentProject.id), userId: props.userId, onOpenSource: props.onOpenSource, initialSpace: props.initialSpace })
+    {valid ? React.createElement(KnowledgeSpaceTabs, { key: `${props.userId ?? 'authenticated'}:${currentProject.id}`, projectId: Number(currentProject.id), userId: props.userId, onOpenSource: props.onOpenSource, initialSpace: props.initialSpace, onRecordProgress: props.onRecordProgress })
       : <div className="pk-empty"><span aria-hidden="true">◇</span><h2>先选择一个项目</h2><p>选择项目后，就能记录、整理和查找自己的知识。</p></div>}
   </section>
 }
 
-function KnowledgeSpaceTabs({ projectId, userId, onOpenSource, initialSpace = 'personal' }: { projectId: number; userId?: string; onOpenSource?: (entry: PersonalKnowledgeEntry) => void; initialSpace?: 'personal' | 'project' }) {
+function KnowledgeSpaceTabs({ projectId, userId, onOpenSource, initialSpace = 'personal', onRecordProgress }: { projectId: number; userId?: string; onOpenSource?: (entry: PersonalKnowledgeEntry) => void; initialSpace?: 'personal' | 'project'; onRecordProgress?: () => void }) {
   const [space, setSpace] = useState<'personal' | 'project'>(initialSpace)
   const [projectVisited, setProjectVisited] = useState(initialSpace === 'project')
   const [personalVisited, setPersonalVisited] = useState(initialSpace === 'personal')
@@ -77,12 +78,12 @@ function KnowledgeSpaceTabs({ projectId, userId, onOpenSource, initialSpace = 'p
       <button type="button" role="tab" id="pk-personal-tab" aria-controls="pk-personal-panel" aria-selected={space === 'personal'} onClick={() => { setPersonalVisited(true); setSpace('personal') }}>我的知识</button>
       <button type="button" role="tab" id="pk-project-tab" aria-controls="pk-project-panel" aria-selected={space === 'project'} onClick={() => { setProjectVisited(true); setSpace('project') }}>项目知识</button>
     </div>
-    <div role="tabpanel" id="pk-personal-panel" aria-labelledby="pk-personal-tab" hidden={space !== 'personal'}>{personalVisited && <ScopedKnowledgeSpace active={space === 'personal'} projectId={projectId} userId={userId} onOpenSource={onOpenSource} reloadToken={reloadToken} />}</div>
+    <div role="tabpanel" id="pk-personal-panel" aria-labelledby="pk-personal-tab" hidden={space !== 'personal'}>{personalVisited && <ScopedKnowledgeSpace active={space === 'personal'} projectId={projectId} userId={userId} onOpenSource={onOpenSource} reloadToken={reloadToken} onRecordProgress={onRecordProgress} />}</div>
     <div role="tabpanel" id="pk-project-panel" aria-labelledby="pk-project-tab" hidden={space !== 'project'}>{projectVisited && <ProjectKnowledgeSpace active={space === 'project'} projectId={projectId} userId={userId} onSaved={() => { setReloadToken(value => value + 1); setPersonalVisited(true); setSpace('personal') }} />}</div>
   </>
 }
 
-function ScopedKnowledgeSpace({ projectId, userId, onOpenSource, reloadToken, active }: { projectId: number; userId?: string; onOpenSource?: (entry: PersonalKnowledgeEntry) => void; reloadToken: number; active: boolean }) {
+function ScopedKnowledgeSpace({ projectId, userId, onOpenSource, reloadToken, active, onRecordProgress }: { projectId: number; userId?: string; onOpenSource?: (entry: PersonalKnowledgeEntry) => void; reloadToken: number; active: boolean; onRecordProgress?: () => void }) {
   const [entries, setEntries] = useState<PersonalKnowledgeEntry[]>([])
   const [catalogScope, setCatalogScope] = useState<{ company_id: number; project_id: number } | null>(null)
   const [links, setLinks] = useState<PersonalKnowledgeLink[]>([])
@@ -247,7 +248,7 @@ function ScopedKnowledgeSpace({ projectId, userId, onOpenSource, reloadToken, ac
 
   return <>
     <div className="pk-scope-note"><span aria-hidden="true">◈</span> 仅自己可见 <span>AI 帮你找关联，原始资料保留</span></div>
-    <div className="pk-main-actions"><button type="button" className="pk-primary" disabled={disabled} onClick={() => { setSelectedId('new'); setDraft(emptyDraft()); setTagsText(''); setConfirmDelete(false); setNotice(''); setError('') }}>记一条</button><button type="button" disabled={disabled} onClick={organize}>{organizing ? 'AI 正在整理…' : 'AI 整理'}</button><details className="pk-more"><summary>更多</summary><div><button type="button" onClick={() => setRelationsOpen(true)}>手动调整关联</button><button type="button" disabled={disabled} onClick={() => void operate(() => syncPersonalKnowledge(projectId), result => { setNotice(`已收集 ${result.created} 条新资料`); void load() })}>仅收集资料</button></div></details></div>
+    <div className="pk-main-actions"><button type="button" className="pk-primary" disabled={disabled} onClick={() => { if (onRecordProgress) { onRecordProgress(); return; } setSelectedId('new'); setDraft(emptyDraft()); setTagsText(''); setConfirmDelete(false); setNotice(''); setError('') }}>记一条</button><button type="button" disabled={disabled} onClick={organize}>{organizing ? 'AI 正在整理…' : 'AI 整理'}</button><details className="pk-more"><summary>更多</summary><div><button type="button" onClick={() => setRelationsOpen(true)}>手动调整关联</button><button type="button" disabled={disabled} onClick={() => void operate(() => syncPersonalKnowledge(projectId), result => { setNotice(`已收集 ${result.created} 条新资料`); void load() })}>仅收集资料</button></div></details></div>
     <div className="pk-toolbar">
       <label className="pk-search"><span aria-hidden="true">⌕</span><input aria-label="搜索知识" type="search" placeholder="搜索标题、正文或标签" value={search} onChange={event => setSearch(event.target.value)} /></label>
       <div className="pk-view-toggle" aria-label="知识视图"><button type="button" aria-pressed={view === 'list'} onClick={() => setView('list')}>笔记与资料</button><button type="button" aria-pressed={view === 'graph'} onClick={() => setView('graph')}>关联图</button></div>

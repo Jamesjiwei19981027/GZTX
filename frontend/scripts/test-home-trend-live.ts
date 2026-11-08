@@ -90,8 +90,8 @@ try {
     await expect(trend.getByRole('img')).toHaveAccessibleName(/2026-10-01/);
     checks.push(label + '：首页顺序、月度和真实季度趋势'); console.log('PASS ' + checks.at(-1));
 
-    await tap(ai.getByRole('button', { name: '告诉 AI 最新进展', exact: true }));
-    if (mobile) await expect.poll(() => page.evaluate(() => (window as any).__MOBILE_NAV__.activeRoute.screen)).toBe('ai-chat');
+    await tap(ai.getByRole('button', { name: '记录进展', exact: true }));
+    if (mobile) await expect.poll(() => page.evaluate(() => (window as any).__MOBILE_NAV__.activeRoute.screen)).toBe('record-progress');
     else await expect(page.getByRole('region', { name: '我的项目助手' })).toBeVisible();
     await backHome();
     await tap(ai.getByRole('button', { name: '查看汇报', exact: true }));
