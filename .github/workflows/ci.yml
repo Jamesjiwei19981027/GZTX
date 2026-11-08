@@ -59,6 +59,61 @@ jobs:
         env:
           DATABASE_URL: sqlite:///./data/ci_migration_check.db
 
+  backend-pg:
+    name: Backend (pytest on PostgreSQL)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: wt
+          POSTGRES_PASSWORD: wt
+          POSTGRES_DB: wt_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install deps
+        run: pip install -r requirements-dev.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/wiki-engine/package-lock.json
+
+      - name: Build wiki engine
+        # 项目 Wiki 测试会调用 wiki-engine/dist/wiki.js，与 Dockerfile 的 wiki-build 阶段一致
+        working-directory: backend/wiki-engine
+        run: npm ci && npm run build
+
+      - name: Alembic upgrade on empty DB
+        # 对空 PG 库执行迁移升至 head
+        run: alembic upgrade head
+        env:
+          DATABASE_URL: postgresql://wt:wt@localhost:5432/wt_test
+
+      - name: Run tests
+        run: pytest -q -m "not sqlite_only"
+        env:
+          DEBUG: 'true'
+          TEST_DATABASE_URL: postgresql+asyncpg://wt:wt@localhost:5432/wt_test
+
   frontend:
     name: Frontend (typecheck + vitest + build)
     runs-on: ubuntu-latest
