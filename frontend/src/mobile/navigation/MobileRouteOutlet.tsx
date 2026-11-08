@@ -43,15 +43,6 @@ import {
   MobileThirdPartyBindingsScreen,
 } from '../features/settings/MobileSettingsScreens';
 import {
-  AdminNotifyChannelsScreen,
-  AdminLlmConfigScreen,
-  AdminOrgSsoScreen,
-  AdminPushCertsScreen,
-  AdminModelKeysScreen,
-  AdminAsrConfigScreen,
-  AdminSsoConfigScreen,
-} from '../features/settings/AdminIntegrationScreens';
-import {
   AdaptAccountDeleteScreen,
 } from '../features/adaptation/MobileAdaptationScreens';
 import {
@@ -838,29 +829,6 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               lang={lang}
             />
           );
-        }
-
-        // T11 企业管理与基础设施集成
-        if (activeRoute.screen === 'admin-notify-channels') {
-          return <AdminNotifyChannelsScreen {...props} />;
-        }
-        if (activeRoute.screen === 'admin-llm-config') {
-          return <AdminLlmConfigScreen {...props} />;
-        }
-        if (activeRoute.screen === 'admin-org-sso') {
-          return <AdminOrgSsoScreen {...props} />;
-        }
-        if (activeRoute.screen === 'admin-push-certs') {
-          return <AdminPushCertsScreen {...props} />;
-        }
-        if (activeRoute.screen === 'admin-model-keys') {
-          return <AdminModelKeysScreen {...props} />;
-        }
-        if (activeRoute.screen === 'admin-asr-config') {
-          return <AdminAsrConfigScreen {...props} />;
-        }
-        if (activeRoute.screen === 'admin-sso-config') {
-          return <AdminSsoConfigScreen {...props} />;
         }
 
         // T12 账号注销确认

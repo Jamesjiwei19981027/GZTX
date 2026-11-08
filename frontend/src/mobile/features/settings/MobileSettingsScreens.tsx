@@ -186,61 +186,13 @@ export const MobileMeScreen: React.FC<SettingsSharedProps> = ({
           />
         </MobileListGroup>
 
-        {/* 企业级管理与集成 */}
-        <MobileListGroup
-          title="企业集成与管理"
-          footer={isAdmin ? '您拥有企业级管理员权限，可配置基础设施服务' : '普通成员视图仅供查看，修改配置需企业管理员权限'}
-        >
-          <MobileListItem
-            leading={<AppIcon name="mail" size={18} className="text-blue-500" />}
-            title="通知渠道配置"
-            subtitle="SMTP 邮件服务器、WebPush 与微信"
-            onClick={() => push({ screen: 'admin-notify-channels', title: '通知渠道配置' })}
-          />
-          <MobileListItem
-            leading={<AppIcon name="cpu" size={18} className="text-indigo-600" />}
-            title="AI 模型与语音配置"
-            subtitle="LLM 提供商、API 连通性与 ASR 绑定"
-            onClick={() => push({ screen: 'admin-llm-config', title: 'AI 模型配置' })}
-          />
-          <MobileListItem
-            leading={<AppIcon name="globe" size={18} className="text-teal-600" />}
-            title="组织与登录集成"
-            subtitle="企业微信/钉钉/飞书组织架构与 SSO"
-            onClick={() => push({ screen: 'admin-org-sso', title: '组织与登录集成' })}
-          />
-          <MobileListItem
-            leading={<AppIcon name="share" size={18} className="text-emerald-500" />}
-            title="第三方服务绑定"
-            subtitle="微信提醒服务号、协同账号关联"
-            onClick={() => push({ screen: 'me-integrations', title: '第三方服务绑定' })}
-          />
-          <MobileListItem
-            leading={<AppIcon name="smartphone" size={18} className="text-orange-500" />}
-            title="推送证书状态"
-            subtitle="APNs (iOS) / FCM (Android) 证书诊断"
-            onClick={() => push({ screen: 'admin-push-certs', title: '推送证书状态' })}
-          />
-          <MobileListItem
-            leading={<AppIcon name="key" size={18} className="text-amber-600" />}
-            title="模型密钥配置"
-            subtitle="OpenAI / DeepSeek / Claude 密匙管理"
-            onClick={() => push({ screen: 'admin-model-keys', title: '模型密钥配置' })}
-          />
-          <MobileListItem
-            leading={<AppIcon name="mic" size={18} className="text-rose-500" />}
-            title="语音识别配置 (ASR)"
-            subtitle="Whisper 引擎、转写采样率与权限"
-            onClick={() => push({ screen: 'admin-asr-config', title: '语音识别配置' })}
-          />
-          <MobileListItem
-            leading={<AppIcon name="server" size={18} className="text-slate-600" />}
-            title="单点登录配置 (SSO)"
-            subtitle="OIDC 客户端凭据与 SAML 2.0"
-            showDivider={false}
-            onClick={() => push({ screen: 'admin-sso-config', title: '单点登录配置' })}
-          />
-        </MobileListGroup>
+        {/* 企业配置只读提示（仅管理员可见） */}
+        {isAdmin && (
+          <div className="p-3.5 bg-slate-100 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 text-xs text-slate-600 dark:text-slate-400">
+            <AppIcon name="shield" size={16} className="text-[#0058BE] shrink-0" />
+            <span>企业配置请在电脑端「设置 → 企业管理」中操作</span>
+          </div>
+        )}
 
         {/* 服务与支持 */}
         <MobileListGroup title="支持与记录">
@@ -248,14 +200,8 @@ export const MobileMeScreen: React.FC<SettingsSharedProps> = ({
             leading={<AppIcon name="help" size={18} className="text-cyan-600" />}
             title="隐私与帮助"
             subtitle="数据导出与桌面快捷键"
-            onClick={() => push({ screen: 'me-billing-help', title: '隐私与帮助' })}
-          />
-          <MobileListItem
-            leading={<AppIcon name="clock" size={18} className="text-blue-500" />}
-            title="通知发送记录"
-            subtitle="最近 50 条消息送达状态与失败分析"
             showDivider={false}
-            onClick={() => push({ screen: 'me-notify-logs', title: '通知发送记录' })}
+            onClick={() => push({ screen: 'me-billing-help', title: '隐私与帮助' })}
           />
         </MobileListGroup>
 

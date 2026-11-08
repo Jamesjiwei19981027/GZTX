@@ -108,14 +108,6 @@ export const REGISTERED_SCREENS: Record<MobileTab, ReadonlySet<string>> = {
     'me-team',
     'me-help',
     'me-about',
-    // T11 企业管理员与基础设施集成
-    'admin-notify-channels',
-    'admin-llm-config',
-    'admin-org-sso',
-    'admin-push-certs',
-    'admin-model-keys',
-    'admin-asr-config',
-    'admin-sso-config',
     // T12 账号注销确认
     'adapt-account-delete',
   ]),
