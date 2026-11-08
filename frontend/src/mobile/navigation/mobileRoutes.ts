@@ -66,8 +66,7 @@ export const REGISTERED_SCREENS: Record<MobileTab, ReadonlySet<string>> = {
     'project-invite',
     'invite-accept',
     'ai-root', 'ai-chat', 'ai-report-create', 'ai-report-submitted', 'ai-report-detail',
-    'ai-inbox', 'ai-project-contrast', 'ai-project-aggregate', 'ai-leadership',
-    'ai-agent-bindings', 'ai-review-followup', 'ai-review-conflict',
+    'ai-inbox', 'ai-project-aggregate', 'ai-leadership',
   ]),
   axis: new Set([
     'axis-root',
@@ -198,7 +197,7 @@ export function mapLegacyViewToMobileRoute(
     case 'calendar':
       return { tab: 'work', screen: 'work-calendar', presentation: 'page', params: routeParams, title: '日程日历' };
     case 'reports':
-      return { tab: 'work', screen: 'ai-root', presentation: 'page', params: routeParams, title: 'AI 汇报与助手' };
+      return { tab: 'work', screen: 'ai-root', presentation: 'page', params: routeParams, title: '汇报' };
     case 'trash':
       return { tab: 'work', screen: 'work-trash', presentation: 'page', params: routeParams, title: '回收站' };
     case 'people-axis':
@@ -219,7 +218,7 @@ export function mapLegacyViewToMobileRoute(
     case 'me-knowledge':
       return { tab: 'knowledge', screen: 'knowledge-root', presentation: 'page', params: routeParams, title: '知识' };
     case 'ai':
-      return { tab: 'work', screen: 'ai-root', presentation: 'page', params: routeParams, title: 'AI 汇报与助手' };
+      return { tab: 'work', screen: 'ai-root', presentation: 'page', params: routeParams, title: '汇报' };
     default:
       return createDefaultRoute('work', routeParams);
   }
