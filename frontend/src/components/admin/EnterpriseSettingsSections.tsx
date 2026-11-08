@@ -855,10 +855,11 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
           {asrEngine !== 'builtin' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+                <label htmlFor="asr-base-url" className="block text-xs font-semibold text-on-surface-variant mb-1">
                   {lang === 'zh' ? '语音服务地址' : 'ASR Service URL'}
                 </label>
                 <input
+                  id="asr-base-url"
                   type="text"
                   disabled={!isAdmin || savingAsr}
                   value={asrBaseUrl}
@@ -884,7 +885,7 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
 
               <div className="md:col-span-2">
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-on-surface-variant">
+                  <label htmlFor="asr-api-key" className="block text-xs font-semibold text-on-surface-variant">
                     {lang === 'zh' ? '语音服务密钥' : 'ASR API Key'}
                   </label>
                   <span className="text-[11px] font-mono text-on-surface-variant">
@@ -892,6 +893,7 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
                   </span>
                 </div>
                 <input
+                  id="asr-api-key"
                   type="password"
                   disabled={!isAdmin || savingAsr}
                   value={asrApiKey}

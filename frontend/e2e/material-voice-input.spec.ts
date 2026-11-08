@@ -84,6 +84,7 @@ test('failed transcription preserves typed text and allows retry of the same aud
 
 test('ASR settings report success only after the configuration is actually saved',async({page})=>{
   let saved:any, finish:(()=>void)|undefined;
+  await page.route('**/api/v1/notifications/llm-config',route=>route.fulfill({json:{code:200,data:{provider:'openai',base_url:'',model:'gpt-4o',enabled:false,configured:false,has_api_key:false}}}));
   await page.route('**/api/v1/companies/3/bindings',route=>route.fulfill({json:{code:200,data:{asr:{provider_id:'builtin',config_json:null}}}}));
   await page.route('**/api/v1/companies/3/bindings/asr',async route=>{
     saved=route.request().postDataJSON();
@@ -93,13 +94,13 @@ test('ASR settings report success only after the configuration is actually saved
   await page.route((url:URL)=>url.pathname==='/',route=>route.fulfill({contentType:'text/html',body:`<!doctype html><html><meta charset="utf-8"><body><div id="root"></div>
     <script type="module">import RefreshRuntime from '/@react-refresh';RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>(type)=>type;window.__vite_plugin_react_preamble_installed__=true;</script>
     <script type="module">import React from '/node_modules/.vite/deps/react.js';import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
-    import {MobileNavigationProvider} from '/src/mobile/navigation/MobileNavigationProvider.tsx';import {AdminAsrConfigScreen} from '/src/mobile/features/settings/AdminIntegrationScreens.tsx';
-    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(MobileNavigationProvider,null,React.createElement(AdminAsrConfigScreen,{user:{role:'admin'},companyId:3})));</script></body></html>`}));
+    import {AdminAiServicesSection} from '/src/components/admin/EnterpriseSettingsSections.tsx';
+    ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(AdminAiServicesSection,{isAdmin:true,companyId:3,lang:'zh'}));</script></body></html>`}));
   await page.goto('/');
   await page.getByRole('button',{name:'Whisper 兼容服务',exact:true}).click();
   await page.getByLabel('语音服务地址',{exact:true}).fill('https://speech.example.test/v1');
   await page.getByLabel('语音服务密钥',{exact:true}).fill('test-voice-key');
-  await page.getByRole('button',{name:'保存 ASR 语音转写配置',exact:true}).click();
+  await page.getByRole('button',{name:'保存 ASR 语音配置',exact:true}).click();
   await expect.poll(()=>!!saved).toBe(true);
   await expect(page.getByText('语音识别引擎参数已更新！',{exact:true})).toHaveCount(0);
   expect(saved.provider_id).toBe('cloud:whisper');
