@@ -114,6 +114,27 @@ class EvidenceApi {
     return EvidencePackage.fromJson(data.cast<String, dynamic>());
   }
 
+  Future<EvidencePackage> reviewEvidence({
+    required int packageId,
+    required String decision,
+    String? reason,
+  }) async {
+    final body = <String, dynamic>{
+      'decision': decision,
+    };
+    if (reason != null && reason.trim().isNotEmpty) {
+      body['reason'] = reason.trim();
+    }
+    final dynamic data = await _client.post(
+      '/evidence/$packageId/review',
+      body: body,
+    );
+    if (data is! Map) {
+      throw ApiException('审核结果返回格式异常');
+    }
+    return EvidencePackage.fromJson(data.cast<String, dynamic>());
+  }
+
   Future<SubmitOutcome> submitEvidence({
     required int nodeId,
     required String summary,

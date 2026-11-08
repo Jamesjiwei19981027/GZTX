@@ -7,6 +7,8 @@ import 'package:worktodo_app/features/evidence/models/evidence_models.dart';
 import 'package:worktodo_app/features/evidence/services/evidence_draft_store.dart';
 import 'package:worktodo_app/features/evidence/services/job_poller.dart';
 
+import 'helpers/scripted_evidence_api.dart';
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -72,6 +74,41 @@ void main() {
       expect(package.kindLabel, '设计稿');
       expect(package.statusLabel, '待验收');
       expect(package.files.single.sizeLabel, '1 KB');
+    });
+
+    test('解析 pending_review 状态、系统建议与 can_review 权限', () {
+      final pkgAdopted = EvidencePackage.fromJson({
+        'id': 101,
+        'node_id': 7,
+        'project_id': 3,
+        'status': 'pending_review',
+        'suggestion': 'adopted',
+        'can_review': true,
+        'judge_result': {
+          'decision': 'adopted',
+          'reason': '材料详实，满足交付要求',
+        },
+      });
+      expect(pkgAdopted.statusLabel, '待负责人确认');
+      expect(pkgAdopted.suggestion, 'adopted');
+      expect(pkgAdopted.suggestionLabel, '采纳');
+      expect(pkgAdopted.suggestionReason, '材料详实，满足交付要求');
+      expect(pkgAdopted.canReview, isTrue);
+
+      final pkgRejectedFallback = EvidencePackage.fromJson({
+        'id': 102,
+        'node_id': 7,
+        'project_id': 3,
+        'status': 'pending_review',
+        'judge_result': {
+          'decision': 'rejected',
+          'reason': '缺少关键性能指标测试报告',
+        },
+      });
+      expect(pkgRejectedFallback.suggestion, 'rejected');
+      expect(pkgRejectedFallback.suggestionLabel, '驳回');
+      expect(pkgRejectedFallback.suggestionReason, '缺少关键性能指标测试报告');
+      expect(pkgRejectedFallback.canReview, isFalse);
     });
 
     test('知识库目录优先选择可整理的材料', () {
@@ -339,6 +376,58 @@ void main() {
         ),
       );
       expect(await store.load(userId: 11, projectId: 3, nodeId: 7), isNull);
+    });
+  });
+
+  group('EvidenceApi 审核接口', () {
+    test('reviewEvidence 成功调用 POST /evidence/{id}/review 并解析结果', () async {
+      final api = buildScriptedEvidenceApi((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/api/v1/evidence/91/review');
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['decision'], 'adopted');
+        return envelopeResponse({
+          'id': 91,
+          'node_id': 7,
+          'project_id': 3,
+          'status': 'adopted',
+          'can_review': false,
+        });
+      });
+
+      final result = await api.reviewEvidence(
+        packageId: 91,
+        decision: 'adopted',
+      );
+      expect(result.id, 91);
+      expect(result.status, 'adopted');
+      expect(result.statusLabel, '已采纳');
+      expect(result.canReview, isFalse);
+    });
+
+    test('reviewEvidence 驳回时携带理由', () async {
+      final api = buildScriptedEvidenceApi((request) async {
+        expect(request.method, 'POST');
+        expect(request.url.path, '/api/v1/evidence/91/review');
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        expect(body['decision'], 'rejected');
+        expect(body['reason'], '附件格式不正确');
+        return envelopeResponse({
+          'id': 91,
+          'node_id': 7,
+          'project_id': 3,
+          'status': 'rejected',
+          'can_review': false,
+        });
+      });
+
+      final result = await api.reviewEvidence(
+        packageId: 91,
+        decision: 'rejected',
+        reason: '附件格式不正确',
+      );
+      expect(result.status, 'rejected');
+      expect(result.statusLabel, '已驳回');
     });
   });
 }
