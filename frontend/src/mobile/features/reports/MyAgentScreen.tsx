@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { AutoGrowingTextarea } from '../../../components/AutoGrowingTextarea';
 import { useKeyboardAvoidance } from '../../runtime/useKeyboardViewport';
-import { Project, UserProfile } from '../../../types';
+import { Project, UserProfile, PeopleAxisNode } from '../../../types';
 import { ReportProjectSelector } from './ReportProjectSelector';
 import { AppIcon } from '../../ui/AppIcon';
 import { MobileTopBar } from '../../ui/MobileTopBar';
@@ -11,11 +11,17 @@ import {
   listAgentReports,
   listReportAgentBindings,
   listReportInbox,
+  markReportRead,
+  latestReportByUser,
   AgentReport,
   ReportAgentBinding,
 } from '../../../api/reports';
+import { getProjectTree } from '../../../api/backend';
+import { mapTreeToPeopleAxis } from '../../../api/mappers';
+import { getMyPermissions, MyProjectPermissions } from '../../../api/shell';
 import { agentChat } from '../../../api/agents';
 import { loadLocalDraft, saveLocalDraft } from './reportCapabilities';
+import { parseApiDateTime } from '../../../utils/datetime';
 
 export interface MyAgentScreenProps {
   user: UserProfile;
@@ -34,6 +40,17 @@ interface ChatMessage {
   content: string;
   time: string;
   sourceText?: string;
+}
+
+function formatReportTime(timeStr?: string | null): string {
+  if (!timeStr) return '';
+  const d = parseApiDateTime(timeStr);
+  if (isNaN(d.getTime())) return '';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${mm}-${dd} ${hh}:${min}`;
 }
 
 export const MyAgentScreen: React.FC<MyAgentScreenProps> = (props) => (
@@ -62,8 +79,11 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [bindings, setBindings] = useState<ReportAgentBinding[]>([]);
+  const [allReports, setAllReports] = useState<AgentReport[]>([]);
   const [myReports, setMyReports] = useState<AgentReport[]>([]);
   const [inboxReports, setInboxReports] = useState<AgentReport[]>([]);
+  const [axisNodes, setAxisNodes] = useState<PeopleAxisNode[]>([]);
+  const [permissions, setPermissions] = useState<MyProjectPermissions | null>(null);
 
   // 聊天对话状态
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -74,7 +94,7 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
   const active = useRef(true);
   useEffect(() => { active.current = true; return () => { active.current = false; }; }, []);
 
-  // 初始化加载当前项目汇报与智能体数据
+  // 初始化加载当前项目汇报、职责树与权限数据
   useEffect(() => {
     let cancelled = false;
     if (!numericProjectId) return;
@@ -83,14 +103,20 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
     setError(null);
 
     Promise.all([
+      getProjectTree(numericProjectId).catch(() => ({ nodes: [] })),
+      getMyPermissions(numericProjectId).catch(() => null),
       listReportAgentBindings(numericProjectId).catch(() => ({ items: [] as ReportAgentBinding[] })),
       listAgentReports(numericProjectId).catch(() => ({ items: [] as AgentReport[] })),
       listReportInbox().catch(() => ({ items: [] as AgentReport[] })),
     ])
-      .then(([bindingsRes, reportsRes, inboxRes]) => {
+      .then(([treeRes, permRes, bindingsRes, reportsRes, inboxRes]) => {
         if (cancelled) return;
+        const mapped = mapTreeToPeopleAxis(treeRes.nodes || [], undefined, 'vertical');
+        setAxisNodes(mapped);
+        setPermissions(permRes);
         setBindings(bindingsRes.items || []);
         const allR = reportsRes.items || [];
+        setAllReports(allR);
         setMyReports(allR.filter((r) => String(r.author_user_id) === String(user.id)));
         const projectReportIds = new Set(allR.map((report) => report.id));
         setInboxReports((inboxRes.items || []).filter((report) => projectReportIds.has(report.id)));
@@ -107,17 +133,38 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
     };
   }, [numericProjectId, user.id]);
 
-  // 判定当前用户权限角色
-  const isManager =
-    bindings.some((b) => b.role === 'project' && String(b.user_id) === String(user.id)) ||
+  // 计算“我”的节点与直属下属（复用“我的职责”同一数据源）
+  const currentUserIdNum = Number(user.id);
+  const selfNode = useMemo(() => {
+    return (
+      axisNodes.find(
+        (n) =>
+          n.ownerUserIds?.includes(currentUserIdNum) ||
+          String(n.person?.id) === String(user.id),
+      ) || null
+    );
+  }, [axisNodes, currentUserIdNum, user.id]);
+
+  const subordinateNodes = useMemo(() => {
+    if (!selfNode) return [];
+    return axisNodes.filter((n) => n.parentId === selfNode.id);
+  }, [axisNodes, selfNode]);
+
+  // 项目负责人判断（项目汇总与发布按钮权限）
+  const isProjectLead = Boolean(
+    permissions?.is_pm ||
+    permissions?.is_superadmin ||
     user.role === 'Admin' ||
     user.role === 'Owner' ||
-    user.role === 'PM';
+    user.role === 'PM' ||
+    bindings.some((b) => b.role === 'project' && String(b.user_id) === String(user.id))
+  );
 
   const myDraft = numericProjectId ? loadLocalDraft(user.id || 'me', numericProjectId) : null;
-  const draftCount = myDraft?.summary ? 1 : 0;
-  const historyCount = myReports.filter((r) => r.status === 'submitted' || r.status === 'aggregated').length;
-  const unreadInboxCount = inboxReports.filter((r) => !r.read && !r.read_at).length;
+  const hasDraft = Boolean(myDraft?.summary?.trim());
+  const mySubmittedReports = myReports.filter((r) => r.status === 'submitted' || r.status === 'aggregated');
+  const latestMyReport = latestReportByUser(mySubmittedReports, user.id);
+  const myLatestRead = Boolean(latestMyReport?.read || latestMyReport?.read_at);
 
   // 智能体聊天发送消息
   const handleSendMessage = async (customText?: string) => {
@@ -181,14 +228,35 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
       draftReportId: existing?.draftReportId,
     });
 
-    push({ screen: 'ai-report-create', title: '编辑我的 AI 汇报' });
+    push({ screen: 'ai-report-create', title: '写汇报' });
+  };
+
+  // 查看下属汇报详情并同步已读状态
+  const handleOpenSubordinateReport = async (report: AgentReport) => {
+    if (!report.read && !report.read_at) {
+      try {
+        await markReportRead(report.id);
+        setInboxReports((prev) =>
+          prev.map((r) =>
+            r.id === report.id ? { ...r, read: true, read_at: new Date().toISOString() } : r,
+          ),
+        );
+      } catch (err) {
+        console.warn('markReportRead error', err);
+      }
+    }
+    push({
+      screen: 'ai-report-detail',
+      title: '汇报详情与版本',
+      params: { reportId: String(report.id), fromManager: '1' },
+    });
   };
 
   // 项目隔离阻断界面
   if (isAllProjects || !numericProjectId) {
     return (
       <div className="flex flex-col h-full bg-[#f7f8fa] dark:bg-slate-950">
-        <MobileTopBar title="AI 汇报与助手" showBack={!!onBack} onBack={onBack} />
+        <MobileTopBar title="汇报" showBack={!!onBack} onBack={onBack} />
         <ReportProjectSelector currentProject={currentProject} projects={projects} onSelectProject={onSelectProject} />
         <div className="flex-1 p-6 flex flex-col items-center justify-center">
           <MobileEmptyState
@@ -202,7 +270,7 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
   }
 
   // -------------------------------------------------------------
-  // 视图 B：与我的 AI 对话 (Design ID 36)
+  // 视图 B：与我的 AI 对话
   // -------------------------------------------------------------
   if (viewMode === 'chat') {
     return (
@@ -339,14 +407,14 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
   }
 
   // -------------------------------------------------------------
-  // 视图 A：项目内 AI 入口 (Design ID 35)
+  // 视图 A：汇报主界面
   // -------------------------------------------------------------
   return (
     <div className="flex flex-col h-full bg-[#f7f8fa] dark:bg-slate-950 overflow-y-auto select-none">
-      <MobileTopBar title="AI 汇报与助手" showBack={!!onBack} onBack={onBack} />
-        <ReportProjectSelector currentProject={currentProject} projects={projects} onSelectProject={onSelectProject} />
+      <MobileTopBar title="汇报" showBack={!!onBack} onBack={onBack} />
+      <ReportProjectSelector currentProject={currentProject} projects={projects} onSelectProject={onSelectProject} />
 
-      {loading && <MobileLoadingState message="加载项目汇报配置…" />}
+      {loading && <MobileLoadingState message="加载汇报配置…" />}
       {error && <MobileErrorState message={error} />}
 
       <div className="p-4 space-y-4">
@@ -358,7 +426,7 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
           </span>
         </div>
 
-        {/* 我的项目 AI 主卡片 */}
+        {/* 知识空间快捷入口 */}
         <button
           type="button"
           onClick={() => push({ tab: 'knowledge', screen: 'knowledge-root', title: '知识' })}
@@ -367,6 +435,8 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
           <strong className="block text-slate-900 dark:text-white">我的知识空间</strong>
           <span className="text-xs text-slate-500 dark:text-slate-400">整理个人知识 与知识关系，供当前项目 AI 参考</span>
         </button>
+
+        {/* 我的项目 AI 助手（保持“告诉 AI 最新进展”入口） */}
         <div className="p-5 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-slate-900 dark:to-blue-950/30 border border-blue-200/60 dark:border-blue-900/40 rounded-2xl shadow-xs">
           <div className="flex items-center gap-2 text-[#0058BE] dark:text-blue-400 mb-2">
             <AppIcon name="ai" size={20} />
@@ -385,161 +455,172 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
           </button>
         </div>
 
-        {/* 汇报工作卡片列表 */}
+        {/* 第一块：我的汇报 */}
         <section className="space-y-2">
           <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
-            汇报工作
+            我的汇报
           </h3>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
-            {/* 整理本周汇报 */}
-            <div
-              onClick={() => push({ screen: 'ai-report-create', title: '编辑我的 AI 汇报' })}
-              className="flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100 transition-colors"
-            >
-              <div className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-950/50 text-[#0058BE] flex items-center justify-center shrink-0">
-                <AppIcon name="file" size={18} />
+          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-xs space-y-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  当前汇报状态
+                </span>
+                {hasDraft ? (
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
+                    草稿待提交
+                  </span>
+                ) : latestMyReport ? (
+                  <span
+                    className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                      myLatestRead
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200'
+                        : 'bg-blue-50 text-[#0058BE] dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200'
+                    }`}
+                  >
+                    {myLatestRead ? '已读' : '已提交未读'}
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    未提交
+                  </span>
+                )}
               </div>
-              <div className="flex-1 min-w-0">
-                <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 block truncate">
-                  整理本周汇报
-                </strong>
-                <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  {draftCount > 0 ? '已有 1 份草稿待提交' : '基于任务与进展生成'}
+
+              {hasDraft ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                  {myDraft?.summary || '已有保存的汇报草稿尚未正式提交'}
                 </p>
-              </div>
-              <AppIcon name="chevron-right" size={18} className="text-slate-400 shrink-0" />
+              ) : latestMyReport ? (
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                  最近提交：{formatReportTime(latestMyReport.submitted_at || latestMyReport.created_at)} · {latestMyReport.summary_text || '已提交工作汇报'}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  本周期暂无已提交的汇报记录，点击下方写汇报生成。
+                </p>
+              )}
             </div>
 
-            {/* 补充材料 */}
-            <div
-              onClick={() => push({ screen: 'work-root', title: '工作台' })}
-              className="flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100 transition-colors"
-            >
-              <div className="w-9 h-9 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 flex items-center justify-center shrink-0">
-                <AppIcon name="check-circle" size={18} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 block truncate">
-                  补充材料与任务
-                </strong>
-                <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  完善任务进度、成果材料与证据
-                </p>
-              </div>
-              <AppIcon name="chevron-right" size={18} className="text-slate-400 shrink-0" />
-            </div>
-
-            {/* 汇报历史 */}
-            <div
-              onClick={() => push({ screen: 'ai-report-detail', title: '汇报历史与版本' })}
-              className="flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100 transition-colors"
-            >
-              <div className="w-9 h-9 rounded-xl bg-purple-50 dark:bg-purple-950/50 text-purple-600 flex items-center justify-center shrink-0">
-                <AppIcon name="clock" size={18} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 block truncate">
-                  汇报历史与版本
-                </strong>
-                <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                  已提交 {historyCount} 份不可变记录
-                </p>
-              </div>
-              <AppIcon name="chevron-right" size={18} className="text-slate-400 shrink-0" />
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => push({ screen: 'ai-report-create', title: '写汇报' })}
+                className="flex-1 min-h-[42px] rounded-xl bg-[#0058BE] text-white text-xs font-semibold flex items-center justify-center gap-1.5 active:bg-blue-800 cursor-pointer shadow-xs transition-colors"
+              >
+                <AppIcon name="edit" size={15} />
+                <span>{hasDraft ? '继续编辑' : '写汇报'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => push({ screen: 'ai-report-detail', title: '汇报历史与版本' })}
+                className="min-h-[42px] px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-slate-200 cursor-pointer transition-colors"
+              >
+                <AppIcon name="clock" size={15} />
+                <span>历史</span>
+              </button>
             </div>
           </div>
         </section>
 
-        {/* 管理者能力（仅授权管理者可见） */}
-        {isManager && (
+        {/* 第二块：下属汇报（只有有下属的人可见） */}
+        {subordinateNodes.length > 0 && (
           <section className="space-y-2">
             <div className="flex items-center justify-between px-1">
               <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                管理者能力
+                下属汇报 ({subordinateNodes.length})
               </h3>
-              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">已授权</span>
+              {isProjectLead && (
+                <button
+                  type="button"
+                  onClick={() => push({ screen: 'ai-project-aggregate', title: '项目汇总与发布' })}
+                  className="text-xs font-semibold text-[#0058BE] dark:text-blue-400 flex items-center gap-1 cursor-pointer"
+                >
+                  <AppIcon name="ai" size={14} />
+                  <span>项目汇总与发布</span>
+                </button>
+              )}
             </div>
+
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
-              {/* 下属汇报收件箱 */}
-              <div
-                onClick={() => push({ screen: 'ai-inbox', title: '下属汇报收件箱' })}
-                className="flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100 transition-colors"
-              >
-                <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/50 text-amber-600 flex items-center justify-center shrink-0">
-                  <AppIcon name="bell" size={18} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 block truncate">
-                    下属汇报收件箱
-                  </strong>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                    {unreadInboxCount > 0 ? `${unreadInboxCount} 条未读汇报` : '查看下属提交的汇报'}
-                  </p>
-                </div>
-                {unreadInboxCount > 0 && (
-                  <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-red-500 text-white shrink-0">
-                    {unreadInboxCount}
-                  </span>
-                )}
-                <AppIcon name="chevron-right" size={18} className="text-slate-400 shrink-0" />
-              </div>
+              {subordinateNodes.map((sub) => {
+                const subUserId = sub.ownerUserIds?.[0] ?? (Number(sub.person?.id) || null);
+                const subSubmitted = allReports.filter(
+                  (r) =>
+                    String(r.author_user_id) === String(subUserId) &&
+                    (r.status === 'submitted' || r.status === 'aggregated'),
+                );
+                const latestSubReport = latestReportByUser(subSubmitted, subUserId);
+                const inboxItem = latestSubReport
+                  ? inboxReports.find((r) => r.id === latestSubReport.id)
+                  : null;
+                const isRead = Boolean(
+                  inboxItem ? inboxItem.read || inboxItem.read_at : latestSubReport?.read || latestSubReport?.read_at,
+                );
 
-              {/* 项目资料对照 */}
-              <div
-                onClick={() => push({ screen: 'ai-project-contrast', title: '项目资料对照' })}
-                className="flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100 transition-colors"
-              >
-                <div className="w-9 h-9 rounded-xl bg-sky-50 dark:bg-sky-950/50 text-sky-600 flex items-center justify-center shrink-0">
-                  <AppIcon name="filter" size={18} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 block truncate">
-                    项目资料对照
-                  </strong>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                    对比任务快照与资料冲突
-                  </p>
-                </div>
-                <AppIcon name="chevron-right" size={18} className="text-slate-400 shrink-0" />
-              </div>
+                const hasReport = Boolean(latestSubReport);
+                const subTimeStr = latestSubReport
+                  ? formatReportTime(latestSubReport.submitted_at || latestSubReport.created_at)
+                  : '';
 
-              {/* 项目汇总与发布 */}
-              <div
-                onClick={() => push({ screen: 'ai-project-aggregate', title: '项目汇总与发布' })}
-                className="flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100 transition-colors"
-              >
-                <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center shrink-0">
-                  <AppIcon name="ai" size={18} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 block truncate">
-                    项目汇总与发布
-                  </strong>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                    生成项目级汇报封装
-                  </p>
-                </div>
-                <AppIcon name="chevron-right" size={18} className="text-slate-400 shrink-0" />
-              </div>
+                return (
+                  <div
+                    key={sub.id}
+                    onClick={() => {
+                      if (latestSubReport) {
+                        void handleOpenSubordinateReport(latestSubReport);
+                      }
+                    }}
+                    className={`p-4 flex items-center gap-3 transition-colors ${
+                      hasReport
+                        ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100'
+                        : 'opacity-80'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 text-[#0058BE] dark:text-blue-300 font-bold flex items-center justify-center shrink-0 text-sm">
+                      {sub.person.name.slice(0, 1)}
+                    </div>
 
-              {/* 智能体绑定管理 */}
-              <div
-                onClick={() => push({ screen: 'ai-agent-bindings', title: '项目智能体绑定管理' })}
-                className="flex items-center gap-3 p-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100 transition-colors"
-              >
-                <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0">
-                  <AppIcon name="team" size={18} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 block truncate">
-                    智能体绑定管理
-                  </strong>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                    同步并管理项目内汇报智能体
-                  </p>
-                </div>
-                <AppIcon name="chevron-right" size={18} className="text-slate-400 shrink-0" />
-              </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                          {sub.person.name}
+                        </strong>
+                        <span className="text-xs text-slate-400 truncate">
+                          {sub.roleTitle || '团队成员'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                        {hasReport
+                          ? latestSubReport.summary_text.slice(0, 30) || '提交了工作汇报'
+                          : '本周期未提交'}
+                      </p>
+                      {hasReport && subTimeStr && (
+                        <span className="text-[11px] text-slate-400 block mt-0.5">
+                          {subTimeStr} 提交
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                          !hasReport
+                            ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                            : isRead
+                            ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                            : 'bg-blue-100 text-[#0058BE] dark:bg-blue-950 dark:text-blue-300'
+                        }`}
+                      >
+                        {!hasReport ? '本周期未提交' : isRead ? '已读' : '已提交未读'}
+                      </span>
+                      {hasReport && (
+                        <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </section>
         )}
