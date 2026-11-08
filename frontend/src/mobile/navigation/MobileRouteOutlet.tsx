@@ -859,7 +859,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
   // 工作 / 消息页面没有内部顶栏，继续由 Outlet 提供统一标题和返回入口。
   // 避免同一页面出现两套顶栏和重复 heading。
   const hideOuterTopBar = currentTab === 'axis' || currentTab === 'knowledge' || activeRoute.screen.startsWith('ai-') || currentTab === 'me'
-    || activeRoute.screen === 'messages-chat';
+    || activeRoute.screen === 'messages-chat' || activeRoute.screen === 'record-progress';
   const ownsContactsHeader = activeRoute.screen === 'messages-contacts' || activeRoute.screen === 'project-switch'
     || activeRoute.screen === 'project-overview';
 
