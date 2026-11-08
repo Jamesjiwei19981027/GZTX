@@ -12,7 +12,7 @@
  * - 90: 第三方服务绑定 (微信/企微/钉钉真实绑定状态与合规提示)
  */
 
-import { categoryLabel, priorityLabel } from '../../../utils/taskLabels';
+import { priorityLabel } from '../../../utils/taskLabels';
 import React, { useState, useEffect, useTransition } from 'react';
 import { useMobileNavigation } from '../../navigation/MobileNavigationProvider';
 import { useNativeRuntime } from '../../runtime/NativeRuntimeProvider';
@@ -1080,14 +1080,13 @@ export const MobileTaskDefaultsScreen: React.FC<SettingsSharedProps> = ({
 }) => {
   const { goBack } = useMobileNavigation();
   const [priority, setPriority] = useState<Priority>(settings.taskDefaults?.priority || 'Medium');
-  const [category, setCategory] = useState<Category>(settings.taskDefaults?.category || 'Work');
   const [savedMsg, setSavedMsg] = useState(false);
 
   const handleSave = () => {
     onUpdateSettings({
       taskDefaults: {
+        ...settings.taskDefaults,
         priority,
-        category,
       },
     });
     setSavedMsg(true);
@@ -1117,18 +1116,6 @@ export const MobileTaskDefaultsScreen: React.FC<SettingsSharedProps> = ({
               selected={priority === p}
               trailing={priority === p ? <AppIcon name="check" size={18} className="text-[#0058BE]" /> : null}
               onClick={() => setPriority(p)}
-            />
-          ))}
-        </MobileListGroup>
-
-        <MobileListGroup title="默认所属分类">
-          {(['Work', 'Personal', 'Documentation', 'Shopping', 'Health'] as Category[]).map((c) => (
-            <MobileListItem
-              key={c}
-              title={categoryLabel(c)}
-              selected={category === c}
-              trailing={category === c ? <AppIcon name="check" size={18} className="text-[#0058BE]" /> : null}
-              onClick={() => setCategory(c)}
             />
           ))}
         </MobileListGroup>

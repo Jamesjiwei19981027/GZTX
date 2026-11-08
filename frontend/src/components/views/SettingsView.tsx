@@ -729,7 +729,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="max-w-md">
                 <div>
                   <label className="block text-xs font-bold uppercase text-on-surface-variant mb-2">
                     {t.defaultPriority}
@@ -746,27 +746,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <option value="High">{t.priorityHigh}</option>
                     <option value="Medium">{t.priorityMedium}</option>
                     <option value="Low">{t.priorityLow}</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase text-on-surface-variant mb-2">
-                    {t.defaultCategory}
-                  </label>
-                  <select
-                    value={settings.taskDefaults.category}
-                    onChange={(e) =>
-                      onUpdateSettings({
-                        taskDefaults: { ...settings.taskDefaults, category: e.target.value as any },
-                      })
-                    }
-                    className="w-full px-4 py-3 bg-surface-container-low dark:bg-[#2e3132] border border-outline-variant rounded-xl text-sm font-semibold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
-                  >
-                    <option value="Work">{t.work}</option>
-                    <option value="Health">{t.health}</option>
-                    <option value="Personal">{t.personal}</option>
-                    <option value="Shopping">{t.shopping}</option>
-                    <option value="Documentation">{t.documentation}</option>
                   </select>
                 </div>
               </div>

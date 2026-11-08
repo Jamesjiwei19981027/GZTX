@@ -265,51 +265,17 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             </div>
           </div>
 
-          {/* Grid Row 2: Category & Due Date */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
-                {t.categoryLabel}
-              </label>
-              <select
-                value={categories.length ? String(categoryId ?? '') : category}
-                onChange={(e) => {
-                  if (categories.length) {
-                    const id = Number(e.target.value);
-                    setCategoryId(Number.isFinite(id) ? id : undefined);
-                    const selected = categories.find((item) => item.id === id);
-                    if (selected) setCategory(selected.name as Category);
-                  } else {
-                    setCategory(e.target.value as Category);
-                  }
-                }}
-                className="w-full px-3 py-2.5 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-bold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
-              >
-                {categories.length ? categories.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                )) : (
-                  <>
-                    <option value="Work">{t.work}</option>
-                    <option value="Health">{t.health}</option>
-                    <option value="Personal">{t.personal}</option>
-                    <option value="Shopping">{t.shopping}</option>
-                    <option value="Documentation">{t.documentation}</option>
-                  </>
-                )}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
-                {t.dueDate}
-              </label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-3 py-2 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-semibold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
-              />
-            </div>
+          {/* Due Date */}
+          <div>
+            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+              {t.dueDate}
+            </label>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
+              className="w-full px-3 py-2 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-semibold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+            />
           </div>
 
           {/* Recurrence */}

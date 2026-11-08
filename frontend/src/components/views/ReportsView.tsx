@@ -8,9 +8,6 @@ import {
   Area,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   Tooltip,
@@ -250,38 +247,6 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
     serverStats?.overdue ??
     tasks.filter((t) => t.status !== 'Done' && !!t.dueDate && t.dueDate < localToday).length;
 
-  // Category distribution for PieChart
-  const categories = ['Work', 'Health', 'Personal', 'Shopping', 'Documentation'] as const;
-  const categoryColors: Record<string, string> = {
-    Work: '#0058be',
-    Health: '#006c49',
-    Personal: '#b58300',
-    Shopping: '#00639b',
-    Documentation: '#93000a',
-  };
-
-  const pieData = categories
-    .map((cat) => {
-      const count = tasks.filter((t) => t.category === cat).length;
-      return {
-        name:
-          lang === 'zh'
-            ? cat === 'Work'
-              ? '工作研发'
-              : cat === 'Health'
-              ? '运动健康'
-              : cat === 'Personal'
-              ? '个人事务'
-              : cat === 'Shopping'
-              ? '采购清单'
-              : '文档资料'
-            : cat,
-        value: count,
-        color: categoryColors[cat],
-      };
-    })
-    .filter((d) => d.value > 0);
-
   // Workload distribution by assignee
   const workloadMap: Record<string, { total: number; done: number }> = {};
   tasks.forEach((t) => {
@@ -497,9 +462,9 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
       </div>
 
       {/* Main Charts Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Trend Area Chart - Two Columns */}
-        <div className="lg:col-span-2 bg-surface-container-lowest p-6 rounded-3xl border border-outline-variant/30 shadow-xs flex flex-col justify-between">
+      <div>
+        {/* Trend Area Chart */}
+        <div className="bg-surface-container-lowest p-6 rounded-3xl border border-outline-variant/30 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-lg font-bold text-on-surface flex items-center gap-2">
@@ -562,61 +527,6 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
                 />
               </AreaChart>
             </ResponsiveContainer>
-          </div>
-        </div>
-
-        {/* Category Distribution Pie Chart */}
-        <div className="bg-surface-container-lowest p-6 rounded-3xl border border-outline-variant/30 shadow-xs flex flex-col justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-on-surface flex items-center gap-2 mb-2">
-              <span className="material-symbols-outlined text-tertiary">pie_chart</span>
-              {lang === 'zh' ? '领域分类权重' : 'Category Distribution'}
-            </h3>
-            <p className="text-xs text-on-surface-variant mb-4">
-              {lang === 'zh' ? '工作与生活各大模块任务分布比例' : 'Task count breakdown across active categories.'}
-            </p>
-          </div>
-
-          <div className="h-60 w-full flex items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'var(--color-surface-container-highest-val)',
-                    borderRadius: '12px',
-                    border: 'none',
-                    color: 'var(--color-on-surface-val)',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="space-y-2 mt-4">
-            {pieData.map((item) => (
-              <div key={item.name} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="font-medium text-on-surface">{item.name}</span>
-                </div>
-                <span className="font-bold text-on-surface-variant">
-                  {item.value} {lang === 'zh' ? '项' : 'items'} ({Math.round((item.value / (pieData.reduce((sum, item) => sum + item.value, 0) || 1)) * 100)}%)
-                </span>
-              </div>
-            ))}
           </div>
         </div>
       </div>

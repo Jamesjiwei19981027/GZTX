@@ -1,5 +1,4 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { categoryLabel } from '../../../utils/taskLabels';
 import { TaskScheduleHistory } from '../../../components/TaskScheduleHistory';
 import {
   createTask,
@@ -135,12 +134,6 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
               >
                 {task.priority === 'High' ? '高优先级' : task.priority === 'Medium' ? '中优先级' : '低优先级'}
               </span>
-
-              {task.category && (
-                <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500">
-                  {categoryLabel(task.category)}
-                </span>
-              )}
             </div>
           </div>
 
