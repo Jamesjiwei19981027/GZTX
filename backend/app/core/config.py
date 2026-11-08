@@ -133,6 +133,7 @@ class Settings(BaseSettings):
 
     # 注册双验证（邮箱+手机）总开关；短信服务商：fake（开发桩）| 后续 aliyun/tencent
     REGISTER_VERIFICATION_REQUIRED: bool = True
+    PHONE_VERIFICATION_REQUIRED: bool = False
     SMS_PROVIDER: str = "fake"
 
     # —— 知识检索 / RAG（见 services/knowledge/，设计文档 docs/superpowers/specs/
@@ -271,6 +272,11 @@ class Settings(BaseSettings):
         if self.IMAP_USER and self._is_placeholder_secret(self.EMAIL_REPLY_SECRET):
             raise RuntimeError(
                 "EMAIL_REPLY_SECRET 是默认/占位值；启用邮件指令通道时必须设置强随机值"
+            )
+        if self.PHONE_VERIFICATION_REQUIRED and (self.SMS_PROVIDER or "").lower() == "fake":
+            raise RuntimeError(
+                "PHONE_VERIFICATION_REQUIRED=true 但 SMS_PROVIDER 为 fake；"
+                "生产环境启用手机验证时必须配置真实短信服务商，否则用户无法完成手机验证"
             )
 
 
