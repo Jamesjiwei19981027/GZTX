@@ -6,6 +6,7 @@ import '../errors/app_error.dart';
 import '../models/company.dart';
 import '../models/project.dart';
 import '../models/user.dart';
+import '../../features/projects/invite_link.dart';
 
 /// 认证与当前会话状态
 enum AuthStatus {
@@ -64,6 +65,23 @@ class AuthState extends ChangeNotifier {
     final location = _pendingAppLocation;
     _pendingAppLocation = null;
     return location;
+  }
+
+  String? get pendingInviteToken {
+    if (_pendingAppLocation == null) return null;
+    try {
+      final uri = Uri.parse(_pendingAppLocation!);
+      return readInviteTokenFromQuery(uri.queryParameters);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void clearPendingInviteToken() {
+    if (_pendingAppLocation != null &&
+        _pendingAppLocation!.startsWith('/projects/invite/accept')) {
+      _pendingAppLocation = null;
+    }
   }
 
   AuthStatus _status = AuthStatus.initial;

@@ -14,6 +14,7 @@ import '../utils/countdown_controller.dart';
 import '../widgets/auth_message_banner.dart';
 import '../widgets/code_field_row.dart';
 import '../widgets/send_code_button.dart';
+import '../../projects/invite_link.dart';
 
 /// 注册页
 ///
@@ -24,9 +25,10 @@ import '../widgets/send_code_button.dart';
 /// `REGISTER_VERIFICATION_REQUIRED` 默认为 True，缺少邮箱验证码会直接 422 拒绝，
 /// 因此原生端在表单层就要求填写，避免用户提交后才看到错误。
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key, this.api});
+  const RegisterScreen({super.key, this.api, this.inviteToken});
 
   final AuthApi? api;
+  final String? inviteToken;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -76,6 +78,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   AuthApi get _api => widget.api ?? AuthApi(context.read<AuthState>().api);
 
+  String? _resolveInviteToken() {
+    if (widget.inviteToken != null && widget.inviteToken!.trim().isNotEmpty) {
+      return widget.inviteToken!.trim();
+    }
+    return PendingInviteHolder.token ??
+        context.read<AuthState>().pendingInviteToken;
+  }
+
   bool get _canSubmit =>
       !_busy &&
       _username.text.trim().isNotEmpty &&
@@ -103,6 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         channel: channel,
         target: target,
         purpose: SendCodePurpose.register,
+        inviteToken: _resolveInviteToken(),
       );
       if (!mounted) return;
       if (channel == AuthChannel.email) {
@@ -167,6 +178,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         phone: _phone.text.trim(),
         phoneCode: _phoneCode.text.trim(),
         nickname: username,
+        inviteToken: _resolveInviteToken(),
       );
       if (!mounted) return;
       await AuthFlow(context.read<AuthState>())

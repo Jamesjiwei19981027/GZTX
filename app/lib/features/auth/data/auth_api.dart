@@ -49,6 +49,7 @@ class AuthApi {
     String? phone,
     String? phoneCode,
     String? nickname,
+    String? inviteToken,
   }) async {
     final body = <String, dynamic>{
       'username': username,
@@ -61,6 +62,9 @@ class AuthApi {
       body['phone_code'] = phoneCode;
     }
     if (nickname != null && nickname.isNotEmpty) body['nickname'] = nickname;
+    if (inviteToken != null && inviteToken.trim().isNotEmpty) {
+      body['invite_token'] = inviteToken.trim();
+    }
 
     final dynamic res = await _client.post('/auth/register', body: body);
     return _parseSession(res, fallbackMessage: '注册失败：未获取到访问令牌');
@@ -71,16 +75,31 @@ class AuthApi {
     required AuthChannel channel,
     required String target,
     required SendCodePurpose purpose,
+    String? inviteToken,
   }) async {
+    final body = <String, dynamic>{
+      'channel': channel.apiValue,
+      'target': target,
+      'purpose': purpose.apiValue,
+    };
+    if (inviteToken != null && inviteToken.trim().isNotEmpty) {
+      body['invite_token'] = inviteToken.trim();
+    }
     final dynamic res = await _client.post(
       '/auth/send-code',
-      body: {
-        'channel': channel.apiValue,
-        'target': target,
-        'purpose': purpose.apiValue,
-      },
+      body: body,
     );
     return SendCodeResult.fromJson(res);
+  }
+
+  /// 读取注册模式与手机必验配置（匿名）
+  Future<RegistrationConfig> fetchRegistrationConfig() async {
+    try {
+      final dynamic res = await _client.get('/auth/registration-config');
+      return RegistrationConfig.fromJson(res);
+    } catch (_) {
+      return const RegistrationConfig();
+    }
   }
 
   /// 登录后补验 / 换绑：发送验证码（需登录态）
@@ -124,11 +143,15 @@ class AuthApi {
   AuthSession _parseSession(dynamic res, {required String fallbackMessage}) {
     String? access;
     String? refresh;
+    int? projectId;
     if (res is Map) {
       final dynamic rawAccess = res['access_token'];
       final dynamic rawRefresh = res['refresh_token'];
       if (rawAccess is String) access = rawAccess;
       if (rawRefresh is String) refresh = rawRefresh;
+      if (res['project_id'] is num) {
+        projectId = (res['project_id'] as num).toInt();
+      }
     }
     if (access == null || access.isEmpty) {
       throw ApiException(fallbackMessage);
@@ -136,6 +159,7 @@ class AuthApi {
     return AuthSession(
       accessToken: access,
       refreshToken: (refresh != null && refresh.isNotEmpty) ? refresh : null,
+      projectId: projectId,
     );
   }
 }

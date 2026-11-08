@@ -31,7 +31,8 @@ class User {
     return username;
   }
 
-  bool get isFullyVerified => emailVerified && phoneVerified;
+  bool isFullyVerified([bool phoneRequired = false]) =>
+      phoneRequired ? (emailVerified && phoneVerified) : emailVerified;
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(

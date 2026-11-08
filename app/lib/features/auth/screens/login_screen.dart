@@ -15,6 +15,7 @@ import '../utils/countdown_controller.dart';
 import '../widgets/auth_message_banner.dart';
 import '../widgets/code_field_row.dart';
 import '../widgets/send_code_button.dart';
+import '../../projects/invite_link.dart';
 
 /// 登录方式
 enum LoginKind { password, code }
@@ -40,6 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
   late final CountdownController _countdown = CountdownController();
 
   LoginKind _kind = LoginKind.password;
+  RegistrationConfig _regConfig = const RegistrationConfig();
   bool _obscurePassword = true;
   bool _busy = false;
   String? _error;
@@ -52,6 +54,16 @@ class _LoginScreenState extends State<LoginScreen> {
     _password.addListener(_onFormChanged);
     _target.addListener(_onFormChanged);
     _code.addListener(_onFormChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadRegistrationConfig();
+    });
+  }
+
+  Future<void> _loadRegistrationConfig() async {
+    final cfg = await _api.fetchRegistrationConfig();
+    if (mounted) {
+      setState(() => _regConfig = cfg);
+    }
   }
 
   @override
@@ -184,8 +196,18 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  String? _resolveInviteToken() {
+    return PendingInviteHolder.token ??
+        context.read<AuthState>().pendingInviteToken;
+  }
+
   void _openRegister() {
-    context.push(AuthPaths.register);
+    final invite = _resolveInviteToken();
+    if (invite != null && invite.isNotEmpty) {
+      context.push('${AuthPaths.register}?invite=$invite');
+    } else {
+      context.push(AuthPaths.register);
+    }
   }
 
   Future<void> _openForgotHelp() async {
@@ -501,6 +523,23 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildRegisterEntry(BuildContext context, bool isDark) {
+    final inviteToken = _resolveInviteToken();
+    final bool isInviteOnly = _regConfig.isInviteOnly;
+    final bool canRegister =
+        !isInviteOnly || (inviteToken != null && inviteToken.isNotEmpty);
+
+    if (!canRegister) {
+      return Text(
+        '仅限受邀注册，请向管理员索取邀请链接',
+        key: const ValueKey('login-invite-only-hint'),
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 12,
+          color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+        ),
+      );
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
