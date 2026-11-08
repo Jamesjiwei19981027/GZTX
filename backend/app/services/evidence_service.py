@@ -218,108 +218,29 @@ async def run_evidence_judge(db: AsyncSession, job_id: int) -> AsyncJob:
             "decision": result.decision,
             "reason": result.reason,
             "confidence": result.confidence,
+            "progress_after": result.progress_after,
+            "wiki_draft": result.wiki_draft,
         }
         pkg.judged_at = datetime.now(timezone.utc)
+        pkg.status = "pending_review"
 
-        progress_record_id = None
-        in_wiki = False
         notify = NotificationService()
-        if result.decision == "adopted":
-            before = deepcopy(node.progress_json or {})
-            rec = await append_progress(
-                db,
-                company_id=pkg.company_id,
-                project_id=pkg.project_id,
-                node_id=pkg.node_id,
-                event_type="set_status",
-                source="pm_agent_auto",
-                before_json=before,
-                after_json=result.progress_after,
-                actor_user_id=None,
-                evidence_package_id=pkg.id,
-                reason=result.reason,
-            )
-            progress_record_id = rec.id
-            pkg.status = "adopted"
-            if result.wiki_draft:
-                db.add(
-                    ProjectWikiEntry(
-                        company_id=pkg.company_id,
-                        project_id=pkg.project_id,
-                        node_id=pkg.node_id,
-                        title=result.wiki_draft.get("title") or "材料采纳",
-                        body_text=result.wiki_draft.get("body_text"),
-                        source="evidence_adopt",
-                        evidence_package_id=pkg.id,
-                        created_by=pkg.submitter_user_id,
-                    )
-                )
-                in_wiki = True
-            # 采纳后知识沉淀：已抽取成功的正文切块入检索层（未采纳不入，见设计约束）
-            for f in files:
-                t = texts_by_file.get(f.id)
-                if t and (t.text_md or "").strip():
-                    await index_evidence_file(db, f, t.text_md, node_id=pkg.node_id)
-            await notify.enqueue(
-                db,
-                company_id=pkg.company_id,
-                user_ids=[pkg.submitter_user_id],
-                template_key="evidence.adopted",
-                payload={
-                    "package_id": pkg.id,
-                    "node_title": node.title,
-                    "node_id": node.id,
-                },
-                channels=["in_app", "wechat", "email"],
-                project_id=pkg.project_id,
-            )
-            try:
-                from app.services.progress_alert import check_and_alert
-
-                await check_and_alert(db, pkg.node_id)
-            except Exception:
-                pass
-        else:
-            pkg.status = "rejected"
-            db.add(
-                ReviewCase(
-                    company_id=pkg.company_id,
-                    project_id=pkg.project_id,
-                    node_id=pkg.node_id,
-                    case_type="rejection_review",
-                    status="open",
-                    opener_user_id=pkg.submitter_user_id,
-                    evidence_package_id=pkg.id,
-                    summary_text=result.reason,
-                )
-            )
-            await notify.enqueue(
-                db,
-                company_id=pkg.company_id,
-                user_ids=[pkg.submitter_user_id],
-                template_key="evidence.rejected",
-                payload={
-                    "package_id": pkg.id,
-                    "node_title": node.title,
-                    "node_id": node.id,
-                    "reason": result.reason or "",
-                },
-                channels=["in_app", "wechat", "email"],
-                project_id=pkg.project_id,
-            )
-
-        db.add(
-            AdoptionRecord(
-                company_id=pkg.company_id,
-                project_id=pkg.project_id,
-                node_id=pkg.node_id,
-                evidence_package_id=pkg.id,
-                progress_record_id=progress_record_id,
-                decision=result.decision,
-                reason=result.reason,
-                in_wiki=in_wiki,
-            )
+        await notify.enqueue(
+            db,
+            company_id=pkg.company_id,
+            user_ids=[pkg.submitter_user_id],
+            template_key="evidence.pending_review",
+            payload={
+                "package_id": pkg.id,
+                "node_title": node.title if node else "",
+                "node_id": pkg.node_id,
+                "suggestion": result.decision,
+                "reason": result.reason or "",
+            },
+            channels=["in_app", "wechat", "email"],
+            project_id=pkg.project_id,
         )
+
         db.add(
             AuditLog(
                 company_id=pkg.company_id,
@@ -336,7 +257,7 @@ async def run_evidence_judge(db: AsyncSession, job_id: int) -> AsyncJob:
         job.result_json = {
             "package_id": pkg.id,
             "decision": result.decision,
-            "progress_record_id": progress_record_id,
+            "status": pkg.status,
         }
         job.finished_at = datetime.now(timezone.utc)
         await db.flush()
@@ -347,3 +268,201 @@ async def run_evidence_judge(db: AsyncSession, job_id: int) -> AsyncJob:
         job.finished_at = datetime.now(timezone.utc)
         await db.flush()
         raise
+
+
+async def adopt_evidence_package(
+    db: AsyncSession,
+    *,
+    package_id: int,
+    reviewer_user_id: int,
+    reason: str | None = None,
+) -> EvidencePackage:
+    pkg = await db.get(EvidencePackage, package_id)
+    if not pkg:
+        raise ValueError("package_not_found")
+    node = await db.get(TreeNode, pkg.node_id)
+    if not node:
+        raise ValueError("node_not_found")
+
+    judge_result = pkg.judge_result_json or {}
+    progress_after = judge_result.get("progress_after")
+    before = deepcopy(node.progress_json or {})
+    if not progress_after:
+        progress_after = deepcopy(before)
+
+    fq = await db.execute(
+        select(EvidenceFile).where(EvidenceFile.package_id == pkg.id)
+    )
+    files = list(fq.scalars().all())
+    texts_by_file: dict[int, EvidenceFileText] = {}
+    if files:
+        tq = await db.execute(
+            select(EvidenceFileText).where(
+                EvidenceFileText.evidence_file_id.in_([f.id for f in files]),
+                EvidenceFileText.status == "succeeded",
+            )
+        )
+        texts_by_file = {t.evidence_file_id: t for t in tq.scalars().all()}
+
+    final_reason = reason or judge_result.get("reason")
+    rec = await append_progress(
+        db,
+        company_id=pkg.company_id,
+        project_id=pkg.project_id,
+        node_id=pkg.node_id,
+        event_type="set_status",
+        source="manual_review",
+        before_json=before,
+        after_json=progress_after,
+        actor_user_id=reviewer_user_id,
+        evidence_package_id=pkg.id,
+        reason=final_reason,
+    )
+    progress_record_id = rec.id
+    pkg.status = "adopted"
+
+    wiki_draft = judge_result.get("wiki_draft")
+    in_wiki = False
+    if wiki_draft:
+        db.add(
+            ProjectWikiEntry(
+                company_id=pkg.company_id,
+                project_id=pkg.project_id,
+                node_id=pkg.node_id,
+                title=wiki_draft.get("title") or "材料采纳",
+                body_text=wiki_draft.get("body_text"),
+                source="evidence_adopt",
+                evidence_package_id=pkg.id,
+                created_by=pkg.submitter_user_id,
+            )
+        )
+        in_wiki = True
+
+    for f in files:
+        t = texts_by_file.get(f.id)
+        if t and (t.text_md or "").strip():
+            await index_evidence_file(db, f, t.text_md, node_id=pkg.node_id)
+
+    notify = NotificationService()
+    await notify.enqueue(
+        db,
+        company_id=pkg.company_id,
+        user_ids=[pkg.submitter_user_id],
+        template_key="evidence.adopted",
+        payload={
+            "package_id": pkg.id,
+            "node_title": node.title if node else "",
+            "node_id": pkg.node_id,
+        },
+        channels=["in_app", "wechat", "email"],
+        project_id=pkg.project_id,
+    )
+    try:
+        from app.services.progress_alert import check_and_alert
+
+        await check_and_alert(db, pkg.node_id)
+    except Exception:
+        pass
+
+    db.add(
+        AdoptionRecord(
+            company_id=pkg.company_id,
+            project_id=pkg.project_id,
+            node_id=pkg.node_id,
+            evidence_package_id=pkg.id,
+            progress_record_id=progress_record_id,
+            decision="adopted",
+            reason=final_reason,
+            in_wiki=in_wiki,
+        )
+    )
+    db.add(
+        AuditLog(
+            company_id=pkg.company_id,
+            project_id=pkg.project_id,
+            actor_user_id=reviewer_user_id,
+            action="evidence.review",
+            resource_type="evidence_package",
+            resource_id=str(pkg.id),
+            detail_json={
+                "decision": "adopted",
+                "reason": final_reason,
+                "progress_record_id": progress_record_id,
+            },
+        )
+    )
+    await db.flush()
+    return pkg
+
+
+async def reject_evidence_package(
+    db: AsyncSession,
+    *,
+    package_id: int,
+    reviewer_user_id: int,
+    reason: str | None = None,
+) -> EvidencePackage:
+    pkg = await db.get(EvidencePackage, package_id)
+    if not pkg:
+        raise ValueError("package_not_found")
+    node = await db.get(TreeNode, pkg.node_id)
+    if not node:
+        raise ValueError("node_not_found")
+
+    final_reason = reason or (pkg.judge_result_json or {}).get("reason")
+    pkg.status = "rejected"
+    db.add(
+        ReviewCase(
+            company_id=pkg.company_id,
+            project_id=pkg.project_id,
+            node_id=pkg.node_id,
+            case_type="rejection_review",
+            status="open",
+            opener_user_id=pkg.submitter_user_id,
+            evidence_package_id=pkg.id,
+            summary_text=final_reason,
+        )
+    )
+    notify = NotificationService()
+    await notify.enqueue(
+        db,
+        company_id=pkg.company_id,
+        user_ids=[pkg.submitter_user_id],
+        template_key="evidence.rejected",
+        payload={
+            "package_id": pkg.id,
+            "node_title": node.title if node else "",
+            "node_id": pkg.node_id,
+            "reason": final_reason or "",
+        },
+        channels=["in_app", "wechat", "email"],
+        project_id=pkg.project_id,
+    )
+    db.add(
+        AdoptionRecord(
+            company_id=pkg.company_id,
+            project_id=pkg.project_id,
+            node_id=pkg.node_id,
+            evidence_package_id=pkg.id,
+            progress_record_id=None,
+            decision="rejected",
+            reason=final_reason,
+            in_wiki=False,
+        )
+    )
+    db.add(
+        AuditLog(
+            company_id=pkg.company_id,
+            project_id=pkg.project_id,
+            actor_user_id=reviewer_user_id,
+            action="evidence.review",
+            resource_type="evidence_package",
+            resource_id=str(pkg.id),
+            detail_json={
+                "decision": "rejected",
+                "reason": final_reason,
+            },
+        )
+    )
+    await db.flush()
+    return pkg
