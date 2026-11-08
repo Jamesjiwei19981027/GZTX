@@ -665,7 +665,7 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
 
             <div className="md:col-span-2">
               <div className="flex items-center justify-between mb-1">
-                <label className="block text-xs font-semibold text-on-surface-variant">
+                <label htmlFor="enterprise-llm-api-key" className="block text-xs font-semibold text-on-surface-variant">
                   {lang === 'zh' ? 'API Key 授权密钥' : 'API Key'}
                 </label>
                 <span className="text-[11px] font-mono text-on-surface-variant">
@@ -673,6 +673,7 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
                 </span>
               </div>
               <input
+                id="enterprise-llm-api-key"
                 type="password"
                 disabled={!isAdmin}
                 value={apiKey}
@@ -770,10 +771,11 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+            <label htmlFor="enterprise-model-secret" className="block text-xs font-semibold text-on-surface-variant mb-1">
               {lang === 'zh' ? '更新密钥' : 'Update Secret'}
             </label>
             <input
+              id="enterprise-model-secret"
               type="password"
               disabled={!isAdmin}
               value={newKey}
