@@ -27,7 +27,6 @@ import { ReportDetailScreen } from '../features/reports/ReportDetailScreen';
 import { ManagerReportInbox } from '../features/reports/ManagerReportInbox';
 import { ProjectReportScreen } from '../features/reports/ProjectReportScreen';
 import { LeadershipReportScreen } from '../features/reports/LeadershipReportScreen';
-import { ReportReviewScreen } from '../features/reports/ReportReviewScreen';
 import { MobileAxisScreens } from '../features/people-axis/MobileAxisScreens';
 import { MobileEvidenceScreens } from '../features/people-axis/MobileEvidenceScreens';
 import { MobileWikiScreens } from '../features/wiki/MobileWikiScreens';
@@ -384,7 +383,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             onNavigateToKanban={filter => push({ screen: 'work-kanban', title: '任务管理', params: { filter } })}
             onNavigateToCalendar={() => push({ screen: 'work-calendar', title: '日程日历' })}
             onNavigateToStatistics={() => push({ screen: 'work-statistics', title: '统计报表' })}
-            onNavigateToAssistant={action => push({ tab: 'work', screen: action === 'progress' ? 'ai-chat' : 'ai-root', title: action === 'progress' ? '告诉 AI 最新进展' : 'AI 汇报与助手' })}
+            onNavigateToAssistant={action => push({ tab: 'work', screen: action === 'progress' ? 'ai-chat' : 'ai-root', title: action === 'progress' ? '告诉 AI 最新进展' : '汇报' })}
             onNavigateToTrash={() => push({ screen: 'work-trash', title: '回收站' })}
             onNavigateToAxis={() => push({ tab: 'axis', screen: 'axis-root', title: '人轴' })}
             onOpenProject={(project) => {
@@ -603,21 +602,11 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             />
           );
         }
-        if (activeRoute.screen === 'ai-project-contrast') {
-          return (
-            <ProjectReportScreen
-              user={props.user}
-              currentProject={props.currentProject}
-              initialMode="contrast"
-            />
-          );
-        }
         if (activeRoute.screen === 'ai-project-aggregate') {
           return (
             <ProjectReportScreen
               user={props.user}
               currentProject={props.currentProject}
-              initialMode="aggregate"
             />
           );
         }
@@ -627,36 +616,6 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               user={props.user}
               companyId={props.companyId}
               projects={props.projects}
-            />
-          );
-        }
-        if (activeRoute.screen === 'ai-agent-bindings') {
-          return (
-            <ReportReviewScreen
-              user={props.user}
-              currentProject={props.currentProject}
-              projectMembers={props.projectMembers}
-              initialMode="bindings"
-            />
-          );
-        }
-        if (activeRoute.screen === 'ai-review-followup') {
-          return (
-            <ReportReviewScreen
-              user={props.user}
-              currentProject={props.currentProject}
-              projectMembers={props.projectMembers}
-              initialMode="followup"
-            />
-          );
-        }
-        if (activeRoute.screen === 'ai-review-conflict') {
-          return (
-            <ReportReviewScreen
-              user={props.user}
-              currentProject={props.currentProject}
-              projectMembers={props.projectMembers}
-              initialMode="conflict"
             />
           );
         }

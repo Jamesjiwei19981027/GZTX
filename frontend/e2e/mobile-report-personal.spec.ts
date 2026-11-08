@@ -170,10 +170,10 @@ test('Mobile personal report flow: AI chat, draft editor, submit & delivery stat
 
   await page.goto('/');
 
-  // 1. 验证 ID 35：项目内 AI 入口加载
+  // 1. 验证汇报入口加载
   await expect(page.getByText('我的项目 AI')).toBeVisible();
   await expect(page.getByText('林悦的汇报助手')).toBeVisible();
-  await expect(page.getByText('整理本周汇报')).toBeVisible();
+  await expect(page.getByText('我的汇报')).toBeVisible();
 
   // 2. 点击 "告诉 AI 最新进展" 进入 ID 36：与我的 AI 对话
   await page.getByRole('button', { name: '告诉 AI 最新进展' }).click();
@@ -187,9 +187,9 @@ test('Mobile personal report flow: AI chat, draft editor, submit & delivery stat
   // 收到 AI 确认消息
   await expect(page.getByText('已记录您的项目进展：完成员工端原型与交互说明。')).toBeVisible();
 
-  // 3. 点击 "加入汇报草稿" 进入 ID 37：编辑我的 AI 汇报
+  // 3. 点击 "加入汇报草稿" 进入写汇报
   await page.getByRole('button', { name: '加入汇报草稿' }).click();
-  await expect(page.getByText('编辑我的 AI 汇报')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '写汇报' })).toBeVisible();
   await expect(page.getByText('草稿 · 仅自己可见')).toBeVisible();
 
   // 没有服务器草稿时，接收人由后端按人轴确定

@@ -113,8 +113,8 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
         <MobileTopBar
           title="汇报提交与送达"
           showBack
-          onBack={() => push({ screen: 'ai-root', title: '项目内 AI 入口' })}
-          backLabel="AI 入口"
+          onBack={() => push({ screen: 'ai-root', title: '汇报' })}
+          backLabel="汇报"
         />
 
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
@@ -289,8 +289,8 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
                 title="暂无汇报记录"
                 description="您在当前项目中尚未提交任何汇报。可以在项目 AI 入口整理本周进展。"
                 action={{
-                  label: '整理本周汇报',
-                  onClick: () => push({ screen: 'ai-report-create', title: '编辑我的 AI 汇报' }),
+                  label: '写汇报',
+                  onClick: () => push({ screen: 'ai-report-create', title: '写汇报' }),
                 }}
               />
             ) : (

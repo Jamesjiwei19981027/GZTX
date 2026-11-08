@@ -121,12 +121,8 @@ const expectedScreens = [
   'ai-report-detail',
   'ai-chat',
   'ai-inbox',
-  'ai-project-contrast',
   'ai-project-aggregate',
   'ai-leadership',
-  'ai-agent-bindings',
-  'ai-review-followup',
-  'ai-review-conflict',
 ];
 
 for (const screen of expectedScreens) {
