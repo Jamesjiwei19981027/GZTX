@@ -4,6 +4,7 @@ import {
   submitEvidence,
   listNodeEvidence,
   getEvidencePackage,
+  reviewEvidencePackage,
   BackendEvidencePackage,
   getTreeNode,
   BackendTreeNode,
@@ -422,93 +423,123 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
   const [nodeTitle, setNodeTitle] = useState<string>('');
   const [submitterName, setSubmitterName] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [reviewing, setReviewing] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-
-    async function loadData() {
-      try {
-        let pkg: BackendEvidencePackage | null = null;
-        if (packageId) {
-          try {
-            pkg = await getEvidencePackage(packageId);
-          } catch {
-            // fallback if getEvidencePackage fails
-          }
+  const loadData = useCallback(async () => {
+    try {
+      let pkg: BackendEvidencePackage | null = null;
+      if (packageId) {
+        try {
+          pkg = await getEvidencePackage(packageId);
+        } catch {
+          // fallback if getEvidencePackage fails
         }
+      }
 
-        const currentNodeId = nodeId || pkg?.node_id;
-        if (!pkg && currentNodeId) {
-          const listRes = await listNodeEvidence(currentNodeId).catch(() => null);
-          if (listRes?.items?.length) {
-            const found = packageId
-              ? listRes.items.find((i) => i.id === packageId)
-              : listRes.items[0];
-            if (found) {
-              try {
-                pkg = await getEvidencePackage(found.id);
-              } catch {
-                pkg = found as BackendEvidencePackage;
-              }
+      const currentNodeId = nodeId || pkg?.node_id;
+      if (!pkg && currentNodeId) {
+        const listRes = await listNodeEvidence(currentNodeId).catch(() => null);
+        if (listRes?.items?.length) {
+          const found = packageId
+            ? listRes.items.find((i) => i.id === packageId)
+            : listRes.items[0];
+          if (found) {
+            try {
+              pkg = await getEvidencePackage(found.id);
+            } catch {
+              pkg = found as BackendEvidencePackage;
             }
           }
         }
-
-        if (!active) return;
-        setDetail(pkg);
-
-        if (currentNodeId) {
-          getTreeNode(currentNodeId)
-            .then((n) => {
-              if (active && n?.title) setNodeTitle(n.title);
-            })
-            .catch(() => {});
-        }
-
-        if (projectId) {
-          listProjectMembers(projectId)
-            .then((mRes) => {
-              if (!active) return;
-              const members = mRes?.items || [];
-              const subId = pkg?.submitter_user_id;
-              if (subId) {
-                const foundMem = members.find((m) => m.user_id === subId);
-                const memName = foundMem?.display_name || foundMem?.nickname || foundMem?.username;
-                if (memName) {
-                  setSubmitterName(memName);
-                  return;
-                }
-              }
-              // 只有提交人就是当前用户时才用当前用户姓名，不把别人的材料署成自己
-              if (currentUser && subId != null && String(currentUser.id) === String(subId)) {
-                setSubmitterName(currentUser.name || currentUser.username || '');
-              }
-            })
-            .catch(() => {
-              if (active && currentUser && pkg?.submitter_user_id != null && String(currentUser.id) === String(pkg.submitter_user_id)) {
-                setSubmitterName(currentUser.name || currentUser.username || '');
-              }
-            });
-        } else if (currentUser && pkg?.submitter_user_id != null && String(currentUser.id) === String(pkg.submitter_user_id)) {
-          setSubmitterName(currentUser.name || currentUser.username || '');
-        }
-      } finally {
-        if (active) setLoading(false);
       }
-    }
 
-    loadData();
-    return () => {
-      active = false;
-    };
+      setDetail(pkg);
+
+      if (currentNodeId) {
+        getTreeNode(currentNodeId)
+          .then((n) => {
+            if (n?.title) setNodeTitle(n.title);
+          })
+          .catch(() => {});
+      }
+
+      if (projectId) {
+        listProjectMembers(projectId)
+          .then((mRes) => {
+            const members = mRes?.items || [];
+            const subId = pkg?.submitter_user_id;
+            if (subId) {
+              const foundMem = members.find((m) => m.user_id === subId);
+              const memName = foundMem?.display_name || foundMem?.nickname || foundMem?.username;
+              if (memName) {
+                setSubmitterName(memName);
+                return;
+              }
+            }
+            if (currentUser && subId != null && String(currentUser.id) === String(subId)) {
+              setSubmitterName(currentUser.name || currentUser.username || '');
+            }
+          })
+          .catch(() => {
+            if (currentUser && pkg?.submitter_user_id != null && String(currentUser.id) === String(pkg.submitter_user_id)) {
+              setSubmitterName(currentUser.name || currentUser.username || '');
+            }
+          });
+      } else if (currentUser && pkg?.submitter_user_id != null && String(currentUser.id) === String(pkg.submitter_user_id)) {
+        setSubmitterName(currentUser.name || currentUser.username || '');
+      }
+    } finally {
+      setLoading(false);
+    }
   }, [packageId, nodeId, projectId, currentUser]);
+
+  useEffect(() => {
+    setLoading(true);
+    loadData();
+  }, [loadData]);
+
+  const handleAdopt = async () => {
+    if (!detail?.id) return;
+    setReviewing(true);
+    setReviewError(null);
+    try {
+      await reviewEvidencePackage(detail.id, { decision: 'adopted' });
+      await loadData();
+    } catch (err: any) {
+      setReviewError(err?.message || '确认采纳失败');
+    } finally {
+      setReviewing(false);
+    }
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!detail?.id) return;
+    setReviewing(true);
+    setReviewError(null);
+    try {
+      await reviewEvidencePackage(detail.id, {
+        decision: 'rejected',
+        reason: rejectReason.trim() || undefined,
+      });
+      setRejectModalOpen(false);
+      setRejectReason('');
+      await loadData();
+    } catch (err: any) {
+      setReviewError(err?.message || '驳回失败');
+    } finally {
+      setReviewing(false);
+    }
+  };
 
   if (loading) {
     return <MobileLoadingState message="正在加载证据包详情…" fullScreen />;
   }
 
   const statusMap: Record<string, string> = {
+    pending_review: '待负责人确认',
     adopted: '已采纳',
     submitted: '已提交',
     rejected: '已驳回',
@@ -518,6 +549,18 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
   const statusText = (detail?.status && statusMap[detail.status]) || detail?.status || '已提交';
   const version = detail?.version ?? (detail?.structured as any)?.version;
   const badgeText = version != null ? `${statusText} · 版本 ${version}` : statusText;
+
+  const badgeColor =
+    detail?.status === 'adopted'
+      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+      : detail?.status === 'rejected'
+      ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
+      : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+
+  const suggestionDecision = detail?.suggestion || detail?.judge_result?.decision;
+  const suggestionReason = detail?.judge_result?.reason;
+  const suggestionLabel =
+    suggestionDecision === 'adopted' ? '采纳' : suggestionDecision === 'rejected' ? '驳回' : suggestionDecision;
 
   const files = detail?.files || [];
   const rawDate = detail?.submitted_at || detail?.created_at;
@@ -536,7 +579,7 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
       <div className="flex-1 overflow-y-auto p-4 space-y-4 mobile-scroll-container">
         {/* 状态徽标与标题 */}
         <div>
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 mb-2">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${badgeColor} mb-2`}>
             {badgeText}
           </span>
           <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
@@ -547,6 +590,108 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
             {formattedTime ? ` · ${formattedTime}` : ''}
           </p>
         </div>
+
+        {/* 系统建议（明确标注是建议） */}
+        {Boolean(suggestionDecision) && (
+          <section className="space-y-1.5" data-testid="evidence-suggestion-section">
+            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              系统建议（仅供参考）
+            </h2>
+            <div className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-xs space-y-1 shadow-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-slate-500 dark:text-slate-400">系统建议：</span>
+                <span
+                  className={`font-semibold ${
+                    suggestionDecision === 'adopted'
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-rose-600 dark:text-rose-400'
+                  }`}
+                >
+                  {suggestionLabel}
+                </span>
+                <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                  建议
+                </span>
+              </div>
+              {Boolean(suggestionReason) && (
+                <p className="text-slate-600 dark:text-slate-300 leading-relaxed pt-0.5">
+                  理由：{suggestionReason}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* 审核操作区：can_review 为真时显示“确认采纳”“驳回” */}
+        {detail?.can_review && (
+          <section className="space-y-2 pt-1" data-testid="evidence-review-actions">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={reviewing}
+                onClick={handleAdopt}
+                className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 active:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                <AppIcon name="check" size={16} />
+                <span>{reviewing ? '处理中…' : '确认采纳'}</span>
+              </button>
+              <button
+                type="button"
+                disabled={reviewing}
+                onClick={() => {
+                  setReviewError(null);
+                  setRejectModalOpen(true);
+                }}
+                className="flex-1 min-h-[44px] rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 active:bg-rose-100 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+              >
+                <AppIcon name="cross" size={16} />
+                <span>驳回</span>
+              </button>
+            </div>
+
+            {rejectModalOpen && (
+              <div className="p-3.5 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/50 rounded-2xl space-y-2 shadow-xs">
+                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  填写驳回理由（可选）：
+                </label>
+                <textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="请输入驳回材料的具体原因…"
+                  rows={3}
+                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-rose-500 text-slate-800 dark:text-slate-200"
+                />
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    disabled={reviewing}
+                    onClick={() => {
+                      setRejectModalOpen(false);
+                      setRejectReason('');
+                    }}
+                    className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="button"
+                    disabled={reviewing}
+                    onClick={handleRejectConfirm}
+                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold active:bg-rose-700"
+                  >
+                    {reviewing ? '提交中…' : '确认驳回'}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {reviewError && (
+              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-600 dark:text-rose-400">
+                {reviewError}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* 真实提交说明：没有说明就不显示这一块，不许编造 */}
         {Boolean(detail?.summary_text?.trim()) && (
@@ -611,7 +756,7 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
           </section>
         )}
 
-        {detail?.status !== 'adopted' && (
+        {detail?.status === 'pending_review' && (
           <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
             <AppIcon name="info" size={16} className="shrink-0" />
             <span>材料提交后进入待验收状态，请等待授权负责人确认。</span>
