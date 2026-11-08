@@ -178,70 +178,15 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
     if (package == null || _reviewing) return;
     setState(() => _reviewError = null);
 
-    final reasonController = TextEditingController();
     final isDark = isDarkMode(context);
-
-    final confirmed = await showDialog<bool>(
+    final reason = await showDialog<String?>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: isDark ? AppColors.darkSurface : AppColors.surface,
-          title: const Text(
-            '驳回材料',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '填写驳回理由（可选）：',
-                style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TextField(
-                controller: reasonController,
-                maxLines: 3,
-                minLines: 2,
-                decoration: InputDecoration(
-                  hintText: '请输入驳回材料的具体原因…',
-                  hintStyle: const TextStyle(
-                    fontSize: 13,
-                    color: AppColors.textTertiary,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                    borderSide: const BorderSide(color: AppColors.border),
-                  ),
-                  contentPadding: const EdgeInsets.all(AppSpacing.sm),
-                ),
-                style: const TextStyle(fontSize: 13),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('取消'),
-            ),
-            AppButton(
-              label: '确认驳回',
-              variant: AppButtonVariant.danger,
-              size: AppButtonSize.sm,
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-            ),
-          ],
-        );
-      },
+      builder: (dialogContext) => _RejectReasonDialog(isDark: isDark),
     );
 
-    if (confirmed != true) {
-      reasonController.dispose();
+    if (reason == null) {
       return;
     }
-
-    final reason = reasonController.text.trim();
-    reasonController.dispose();
 
     setState(() {
       _reviewing = true;
@@ -651,6 +596,83 @@ class _MetaRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _RejectReasonDialog extends StatefulWidget {
+  const _RejectReasonDialog({required this.isDark});
+
+  final bool isDark;
+
+  @override
+  State<_RejectReasonDialog> createState() => _RejectReasonDialogState();
+}
+
+class _RejectReasonDialogState extends State<_RejectReasonDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: widget.isDark ? AppColors.darkSurface : AppColors.surface,
+      title: const Text(
+        '驳回材料',
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '填写驳回理由（可选）：',
+            style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _controller,
+            maxLines: 3,
+            minLines: 2,
+            decoration: InputDecoration(
+              hintText: '请输入驳回材料的具体原因…',
+              hintStyle: const TextStyle(
+                fontSize: 13,
+                color: AppColors.textTertiary,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                borderSide: const BorderSide(color: AppColors.border),
+              ),
+              contentPadding: const EdgeInsets.all(AppSpacing.sm),
+            ),
+            style: const TextStyle(fontSize: 13),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: const Text('取消'),
+        ),
+        AppButton(
+          label: '确认驳回',
+          variant: AppButtonVariant.danger,
+          size: AppButtonSize.sm,
+          onPressed: () => Navigator.of(context).pop(_controller.text.trim()),
+        ),
+      ],
     );
   }
 }
