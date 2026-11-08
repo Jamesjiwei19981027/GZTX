@@ -280,13 +280,11 @@ test('Mobile Screen Coverage: Full Screen Reachability & Action Button Verificat
   await goToScreen('me', 'me-security');
   await expect(page.locator('text=账号安全')).toBeVisible();
 
-  // 检查企业基础设施 - ASR 语音配置
-  await goToScreen('me', 'admin-asr-config');
-  await expect(page.locator('text=语音识别配置').first()).toBeVisible({ timeout: 5000 });
-
-  // 检查企业基础设施 - 单点登录 SSO
-  await goToScreen('me', 'admin-sso-config');
-  await expect(page.locator('text=单点登录配置').first()).toBeVisible({ timeout: 5000 });
+  // 检查手机端只留个人设置，企业配置只在电脑端管理（验证管理员提示）
+  await goToScreen('me', 'me-root');
+  await expect(
+    page.locator('text=企业配置请在电脑端「设置 → 企业管理」中操作').first(),
+  ).toBeVisible({ timeout: 5000 });
 
   // ==========================================
   // 7. 异常场景与全尺寸自适应 (Me Tab - T12)
