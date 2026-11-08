@@ -253,7 +253,7 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
   if (isAllProjects || !numericProjectId) {
     return (
       <div className="flex flex-col h-full bg-[#f7f8fa] dark:bg-slate-950">
-        <MobileTopBar title="编辑我的 AI 汇报" showBack onBack={goBack} />
+        <MobileTopBar title="写汇报" showBack onBack={goBack} />
         <ReportProjectSelector currentProject={currentProject} projects={projects} onSelectProject={onSelectProject} />
         <div className="flex-1 p-6 flex flex-col items-center justify-center">
           <p className="text-sm text-slate-500">请先在具体项目中编辑与提交个人汇报</p>
@@ -265,7 +265,7 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
   return (
     <div ref={keyboard.ref} style={{ paddingBottom: keyboard.overlap }} className="flex flex-col h-full min-h-0 bg-[#f7f8fa] dark:bg-slate-950 select-none">
       <MobileTopBar
-        title="编辑我的 AI 汇报"
+        title="写汇报"
         showBack
         onBack={goBack}
         backLabel="返回"
