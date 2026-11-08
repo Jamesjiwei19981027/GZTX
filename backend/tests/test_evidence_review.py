@@ -221,3 +221,26 @@ async def test_duplicate_review_conflict_409(async_client, seed_ids, db_session)
         json={"decision": "rejected"},
     )
     assert r2.status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_pm_notified_when_evidence_awaits_review(async_client, seed_ids, db_session):
+    from app.models.notify import NotifyJob
+
+    resp = await async_client.post(
+        f"/api/v1/nodes/{seed_ids['node_id']}/evidence",
+        headers=seed_ids["member_headers"],
+        json={"summary_text": "待负责人确认的材料", "file_ids": []},
+    )
+    assert resp.status_code == 200, resp.text
+    await run_evidence_judge(db_session, int(resp.json()["data"]["job_id"]))
+    await db_session.commit()
+    jobs = (
+        await db_session.execute(
+            select(NotifyJob).where(
+                NotifyJob.template_key == "evidence.awaiting_review",
+                NotifyJob.user_id == seed_ids["pm_user_id"],
+            )
+        )
+    ).scalars().all()
+    assert jobs, "材料进入待确认后应通知项目负责人"

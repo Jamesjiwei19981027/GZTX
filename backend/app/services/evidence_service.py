@@ -240,6 +240,26 @@ async def run_evidence_judge(db: AsyncSession, job_id: int) -> AsyncJob:
             channels=["in_app", "wechat", "email"],
             project_id=pkg.project_id,
         )
+        # 通知项目负责人去确认（否则没人知道有材料待确认）
+        from app.models.project import Project
+
+        project = await db.get(Project, pkg.project_id)
+        pm_id = getattr(project, "pm_user_id", None) if project else None
+        if pm_id and pm_id != pkg.submitter_user_id:
+            await notify.enqueue(
+                db,
+                company_id=pkg.company_id,
+                user_ids=[pm_id],
+                template_key="evidence.awaiting_review",
+                payload={
+                    "package_id": pkg.id,
+                    "node_title": node.title if node else "",
+                    "node_id": pkg.node_id,
+                    "suggestion": result.decision,
+                },
+                channels=["in_app", "wechat", "email"],
+                project_id=pkg.project_id,
+            )
 
         db.add(
             AuditLog(
