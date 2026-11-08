@@ -26,21 +26,35 @@ settings.LICENSE_PUBLIC_KEY = "dev-secret-key-for-tests-only"
 settings.LICENSE_VERIFY_MODE = "hmac"
 settings.DEPLOY_MODE = "single_company"
 
+import os
+test_db_url = os.environ.get("TEST_DATABASE_URL")
+if test_db_url:
+    settings.DATABASE_URL = test_db_url
+
 
 @pytest_asyncio.fixture
 async def async_engine():
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
     # import all models
     import app.models  # noqa: F401
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    await engine.dispose()
+    test_db_url = os.environ.get("TEST_DATABASE_URL")
+    if test_db_url:
+        engine = create_async_engine(test_db_url)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+        yield engine
+        await engine.dispose()
+    else:
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        yield engine
+        await engine.dispose()
 
 
 @pytest_asyncio.fixture

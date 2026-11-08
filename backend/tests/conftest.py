@@ -13,6 +13,10 @@ from app.core.config import settings
 if not settings.INTEGRATION_SECRET_KEY:
     settings.INTEGRATION_SECRET_KEY = "test-integration-secret-key-32-chars-long!"
 
+test_db_url = os.environ.get("TEST_DATABASE_URL")
+if test_db_url:
+    settings.DATABASE_URL = test_db_url
+
 from app.core.dependencies import get_db
 from app.core.security import create_access_token, get_password_hash
 from app.db.base import Base
@@ -24,15 +28,24 @@ import app.models  # noqa: F401 — register all tables
 
 @pytest_asyncio.fixture
 async def async_engine():
-    engine = create_async_engine(
-        "sqlite+aiosqlite:///:memory:",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield engine
-    await engine.dispose()
+    test_db_url = os.environ.get("TEST_DATABASE_URL")
+    if test_db_url:
+        engine = create_async_engine(test_db_url)
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.run_sync(Base.metadata.create_all)
+        yield engine
+        await engine.dispose()
+    else:
+        engine = create_async_engine(
+            "sqlite+aiosqlite:///:memory:",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        yield engine
+        await engine.dispose()
 
 
 @pytest.fixture
@@ -41,15 +54,29 @@ def sync_db_session():
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
+    test_db_url = os.environ.get("TEST_DATABASE_URL")
+    if test_db_url:
+        sync_url = (
+            test_db_url.replace("sqlite+aiosqlite://", "sqlite://")
+            .replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+            .replace("+asyncpg", "+psycopg2")
+            .replace("+aiosqlite", "")
+        )
+        engine = create_engine(sync_url)
+        Base.metadata.drop_all(engine)
+        Base.metadata.create_all(engine)
+    else:
+        engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(engine)
     session = sessionmaker(bind=engine)()
     yield session
     session.close()
+    if test_db_url:
+        Base.metadata.drop_all(engine)
     engine.dispose()
 
 
