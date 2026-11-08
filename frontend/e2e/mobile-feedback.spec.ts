@@ -352,12 +352,12 @@ test('my duty screen: shows no false report row, zero evidence count, and overdu
   await expect(page.getByText(/逾期/)).toBeVisible();
 });
 
-test('my duty report row opens the AI report page with the shown project instead of the select-project prompt', async ({ page }) => {
+test('my duty report row opens the record-progress page with the shown project instead of the select-project prompt', async ({ page }) => {
   await open(page, 'work', false, '2', true, undefined, true);
   await page.evaluate(() => (window as any).__MOBILE_NAV__.push({tab:'axis',screen:'axis-root',title:'人轴'}));
   await expect(page.getByRole('heading',{name:'我的职责',exact:true})).toBeVisible();
   await page.getByText('暂无汇报').last().click();
-  await expect(page.getByRole('heading',{name:'与我的 AI 对话'})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'记录进展'})).toBeVisible();
   await expect(page.getByText('请选择具体项目')).toHaveCount(0);
   expect(await page.evaluate(() => (window as any).__selected)).toBe('1');
 });

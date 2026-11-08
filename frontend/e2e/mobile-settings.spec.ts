@@ -4,11 +4,11 @@ import { expect, test } from '@playwright/test';
  * T11 移动端设置中心与管理员配置 E2E 验证
  * 覆盖设计 ID:
  * 53 (我的), 54 (个人资料), 55 (账号安全), 56 (外观与语言), 57 (通知与免打扰),
- * 58 (任务默认值), 59 (通知渠道), 60 (AI 模型), 61 (组织与登录), 62 (套餐帮助),
- * 63 (通知记录), 90 (第三方绑定), 91 (推送证书), 92 (模型密钥), 93 (ASR), 94 (SSO)
+ * 58 (任务默认值), 62 (隐私与帮助), 63 (通知记录，仅从通知页进入)。
+ * 59-61、90-94 的企业配置已挪到电脑端“设置 → 企业管理”，这里只断言手机端不再有入口。
  */
 
-test('Mobile Settings & Admin Integration: 16 Screens Reachability, Role Access & Security', async ({ page }) => {
+test('Mobile Settings & Admin Integration: Retained Personal Screens Reachability, Role Access & Security', async ({ page }) => {
   const apiCalls: string[] = [];
 
   page.on('pageerror', (err) => console.log(`settings-pageerror: ${err.message}`));
@@ -202,25 +202,12 @@ test('Mobile Settings & Admin Integration: 16 Screens Reachability, Role Access 
   await expect(page.locator('text=中优先级')).toBeVisible();
   await page.click('button[aria-label="返回"]');
 
-  // 7. 点击进入 59 (通知渠道配置)
-  await page.click('text=通知渠道配置');
-  await expect(page.locator('text=SMTP 邮件发送服务')).toBeVisible();
-  await expect(page.locator('input[placeholder="smtp.example.com"]')).toHaveValue('smtp.mailgun.org');
-  await expect(page.locator('text=保存 SMTP 配置')).toBeVisible();
-  await page.click('button[aria-label="返回"]');
-
-  // 8. 点击进入 60 (AI 模型配置)
-  await page.click('text=AI 模型与语音配置');
-  await expect(page.locator('text=企业统一智能体与大模型')).toBeVisible();
-  await expect(page.locator('text=OpenAI').first()).toBeVisible();
-  await expect(page.locator('text=连通性测试')).toBeVisible();
-  await page.click('button[aria-label="返回"]');
-
-  // 9. 点击进入 61 (组织与登录集成)
-  await page.click('text=组织与登录集成');
-  await expect(page.locator('text=全量组织架构同步')).toBeVisible();
-  await expect(page.locator('text=企业微信 (WeCom)')).toBeVisible();
-  await page.click('button[aria-label="返回"]');
+  // 7. 手机端只留个人设置：企业配置（通知渠道、AI 服务、组织与登录、模型密钥、语音识别、单点登录）
+  //    已挪到电脑端“设置 → 企业管理”，手机“我的”页不再有这些入口，只给管理员一条电脑端操作提示
+  await expect(page.locator('text=企业配置请在电脑端「设置 → 企业管理」中操作').first()).toBeVisible();
+  for (const removed of ['通知渠道配置', 'AI 模型与语音配置', '组织与登录集成', '模型密钥配置', '语音识别配置 (ASR)', '单点登录配置 (SSO)', '企业集成与管理']) {
+    await expect(page.getByText(removed, { exact: true })).toHaveCount(0);
+  }
 
   // 10. 点击进入 62 (隐私与帮助)
   await page.click('text=隐私与帮助');
@@ -230,44 +217,20 @@ test('Mobile Settings & Admin Integration: 16 Screens Reachability, Role Access 
   await expect(page.locator('text=全局智能搜索')).toBeVisible();
   await page.click('button[aria-label="返回"]');
 
-  // 11. 点击进入 63 (通知发送记录)
-  await page.click('text=通知发送记录');
+  // 11. “我的”页不再直接列出通知发送记录，只能从“通知与免打扰”页里进入
+  await expect(page.getByText('通知发送记录', { exact: true })).toHaveCount(0);
+  await page.click('text=通知与免打扰');
+  await page.click('text=前往查看历史通知发送记录');
   await expect(page.locator('text=全部 (2)')).toBeVisible();
   await expect(page.locator('text=项目周报生成')).toBeVisible();
   await expect(page.locator('text=Push subscription expired')).toBeVisible();
   await page.click('button[aria-label="返回"]');
-
-  // 12. 点击进入 90 (第三方服务绑定)
-  await page.click('text=第三方服务绑定');
-  await expect(page.locator('text=微信公众服务号')).toBeVisible();
   await page.click('button[aria-label="返回"]');
 
-  // 13. 点击进入 91 (推送证书状态)
-  await page.click('text=推送证书状态');
-  await expect(page.locator('text=Apple Push Notification service')).toBeVisible();
-  await expect(page.locator('text=Firebase Cloud Messaging')).toBeVisible();
-  await page.click('button[aria-label="返回"]');
+  // 12. 第三方服务绑定、推送证书状态在手机“我的”页没有入口
+  for (const removed of ['第三方服务绑定', '推送证书状态']) {
+    await expect(page.getByText(removed, { exact: true })).toHaveCount(0);
+  }
 
-  // 14. 点击进入 92 (模型密钥配置)
-  await page.click('text=模型密钥配置');
-  await expect(page.locator('text=多厂商模型密钥管理')).toBeVisible();
-  // 配置状态来自接口真实返回（此处接口给出已配置），不再写死“已保存”
-  await expect(page.getByText('当前配置状态')).toBeVisible();
-  await expect(page.getByText('已配置', { exact: true })).toBeVisible();
-  await expect(page.getByText('(已保存)')).toHaveCount(0);
-  await page.click('button[aria-label="返回"]');
-
-  // 15. 点击进入 93 (语音识别配置 ASR)
-  await page.click('text=语音识别配置 (ASR)');
-  await expect(page.locator('text=ASR 转写引擎')).toBeVisible();
-  await expect(page.getByText('小程序优先使用 16000 Hz 单声道；Web 与 APP 由设备选择录音编码。')).toBeVisible();
-  await page.click('button[aria-label="返回"]');
-
-  // 16. 点击进入 94 (单点登录配置 SSO)
-  await page.click('text=单点登录配置 (SSO)');
-  await expect(page.locator('text=OIDC / OAuth 2.0')).toBeVisible();
-  await expect(page.locator('text=SAML 2.0 企业联合')).toBeVisible();
-  await page.click('button[aria-label="返回"]');
-
-  console.log('✓ All 16 T11 screens verified successfully in Playwright E2E test!');
+  console.log('✓ All retained T11 screens verified successfully in Playwright E2E test!');
 });

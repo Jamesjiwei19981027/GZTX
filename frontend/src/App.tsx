@@ -313,7 +313,8 @@ export default function App() {
         Promise.all([listCategories(), listTags()]).catch(() => null),
         getUiPrefs().catch(() => null),
       ]);
-      setUser(mapUser(me));
+      // 角色来自企业成员关系：超级管理员才能看到电脑端“企业管理”和手机端的电脑端操作提示
+      setUser({ ...mapUser(me), role: companies.items?.[0]?.my_membership?.is_super_admin ? '管理员' : '成员' });
       const notifyPref = me.notify_pref || {};
       const channels = (notifyPref.channels || {}) as Record<string, Record<string, unknown>>;
       const quietHours = (notifyPref.quiet_hours || {}) as Record<string, unknown>;
@@ -1191,7 +1192,7 @@ export default function App() {
               nickname: updated.name,
               avatar_url: updated.avatar,
             });
-            setUser(mapUser(saved));
+            setUser((prev) => ({ ...mapUser(saved), role: prev.role }));
           }}
           onUploadAvatar={async (file) => {
             const saved = await uploadAvatar(file);
@@ -1416,7 +1417,7 @@ export default function App() {
                     nickname: updated.name,
                     avatar_url: updated.avatar,
                   });
-                   setUser(mapUser(saved));
+                   setUser((prev) => ({ ...mapUser(saved), role: prev.role }));
                  }}
                  onUploadAvatar={async (file) => {
                    const saved = await uploadAvatar(file);

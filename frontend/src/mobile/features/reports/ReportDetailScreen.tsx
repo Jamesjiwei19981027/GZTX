@@ -255,7 +255,7 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
           else if (mode === 'detail') setMode('history');
           else goBack();
         }}
-        backLabel={mode === 'detail' ? '列表' : '返回'}
+        backLabel={mode === 'detail' && activeRoute.params.fromManager !== '1' ? '列表' : '返回'}
       />
 
       {loading && <MobileLoadingState message="加载汇报历史…" />}

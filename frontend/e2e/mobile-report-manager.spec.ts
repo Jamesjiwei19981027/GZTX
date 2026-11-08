@@ -24,15 +24,17 @@ test('Mobile manager report flow: Inbox, contrast, rollup, leadership overview &
           {
             id: 1,
             title: '负责人',
+            node_type_key: 'person',
             user_ids: [9],
-            assignees: [{ user_id: 9, role_key: 'primary' }],
+            assignees: [{ user_id: 9, role_key: 'primary', display_name: '王宁' }],
             children: [
               {
                 id: 2,
                 title: '产品设计',
+                node_type_key: 'person',
                 parent_id: 1,
                 user_ids: [7],
-                assignees: [{ user_id: 7, role_key: 'primary' }],
+                assignees: [{ user_id: 7, role_key: 'primary', display_name: '林悦' }],
                 children: [],
               },
             ],
