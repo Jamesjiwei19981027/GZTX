@@ -3,10 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/core/models/user.dart';
 import 'package:worktodo_app/features/auth/auth_paths.dart';
-import 'package:worktodo_app/features/auth/data/auth_api.dart';
 import 'package:worktodo_app/features/auth/models/auth_models.dart';
-import 'package:worktodo_app/features/auth/screens/login_screen.dart';
-import 'package:worktodo_app/features/auth/screens/register_screen.dart';
 import 'package:worktodo_app/features/projects/invite_link.dart';
 import 'package:worktodo_app/router/app_links.dart';
 
