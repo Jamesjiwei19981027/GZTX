@@ -90,6 +90,7 @@ import { ShortcutHelpModal } from './components/modals/ShortcutHelpModal';
 import { clearInviteToken, readInviteToken } from './utils/invite';
 import { toApiDueDate } from './utils/datetime';
 import { readDeepLink, writeDeepLink } from './utils/deepLink';
+import { RecordProgressModal } from './components/RecordProgressModal';
 
 // 重视图按需分包：人轴（@xyflow/react）、报表（recharts）等只在切到对应视图时才加载
 const KanbanView = React.lazy(() =>
@@ -259,6 +260,7 @@ export default function App() {
   const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [assistantFocus, setAssistantFocus] = useState<'progress' | 'reports'>('reports');
+  const [recordProgressOpen, setRecordProgressOpen] = useState(false);
   const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
   const [isShortcutHelpOpen, setIsShortcutHelpOpen] = useState(false);
 
@@ -1154,6 +1156,15 @@ export default function App() {
         </div>
       )}
 
+      <RecordProgressModal
+        isOpen={recordProgressOpen && !isMobileView}
+        onClose={() => setRecordProgressOpen(false)}
+        projectId={String(currentProject.id)}
+        companyId={companyId}
+        currentUser={user}
+        projects={displayProjects}
+      />
+
       {isMobileView ? (
         <MobileAppShell
           user={user}
@@ -1249,7 +1260,7 @@ export default function App() {
                 onOpenNewTask={handleOpenNewTask}
                 onNavigateToTasks={() => { setTaskWorkspaceScope('all'); switchView('tasks'); }}
                 onNavigateToKanban={scope => { setTaskWorkspaceScope(scope || 'all'); switchView('kanban'); }}
-                onNavigateToAssistant={action => { setAssistantFocus(action); switchView('reports'); }}
+                onNavigateToAssistant={action => { if (action === 'progress') { setRecordProgressOpen(true); return; } setAssistantFocus(action); switchView('reports'); }}
                 onNavigateToPeopleAxis={() => switchView('people-axis')}
                 lang={settings.language}
               />

@@ -33,7 +33,7 @@ try {
     while(queue.length){const node=queue.shift();if(node.node_type_key==='work_item'||node.node_type_key==='milestone')return String(node.id);queue.push(...(node.children||[]));}
     throw new Error('No seeded work item');
   });
-  await page.evaluate(id=>(window as any).__MOBILE_NAV__.push({tab:'axis',screen:'axis-evidence-submit',params:{nodeId:id}}),nodeId);
+  await page.evaluate(id=>(window as any).__MOBILE_NAV__.push({tab:'axis',screen:'record-progress',params:{nodeId:id}}),nodeId);
   const input=page.getByRole('textbox',{name:'文字材料',exact:true});
   await input.fill('保留的文字材料，附件可选。');
   await expect(page.getByRole('button',{name:'提交材料',exact:true})).toBeEnabled();

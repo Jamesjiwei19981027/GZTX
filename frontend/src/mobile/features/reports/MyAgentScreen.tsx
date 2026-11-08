@@ -447,11 +447,17 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
           </p>
           <button
             type="button"
-            onClick={() => setViewMode('chat')}
+            onClick={() =>
+              push({
+                screen: 'record-progress',
+                title: '记录进展',
+                params: { projectId: numericProjectId ? String(numericProjectId) : undefined },
+              })
+            }
             className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white text-sm font-semibold flex items-center justify-center gap-2 active:bg-blue-800 transition-colors cursor-pointer shadow-xs"
           >
             <AppIcon name="messages" size={17} />
-            <span>告诉 AI 最新进展</span>
+            <span>记录进展</span>
           </button>
         </div>
 

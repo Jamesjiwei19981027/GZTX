@@ -42,7 +42,7 @@ test('five destinations keep knowledge independent and work owns AI flows', asyn
   await page.evaluate(() => (window as any).__MOBILE_NAV__.push({tab:'ai',screen:'ai-root'}))
   await expect(page.getByRole('heading',{name:'汇报',exact:true})).toBeVisible()
   await expect(navigation.getByRole('tab',{name:'工作',exact:true})).toHaveAttribute('aria-selected','true')
-  await page.evaluate(() => (window as any).__MOBILE_NAV__.push({tab:'ai',screen:'ai-chat'}))
+  await page.evaluate(() => (window as any).__MOBILE_NAV__.push({tab:'ai',screen:'record-progress'}))
   await expect(page.getByRole('heading',{name:'与我的 AI 对话',exact:true})).toBeVisible()
   await page.getByRole('button',{name:'返回',exact:true}).click()
   await expect(page.getByRole('heading',{name:'汇报',exact:true})).toBeVisible()

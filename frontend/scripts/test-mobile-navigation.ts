@@ -101,7 +101,12 @@ assert.equal(mapLegacyViewToMobileRoute('knowledge').screen, 'knowledge-root');
 assert.equal(mapLegacyViewToMobileRoute('ai').tab, 'work');
 assert.equal(mapLegacyViewToMobileRoute('ai').screen, 'ai-root');
 assert.equal(normalizeMobileRoute({tab:'ai', screen:'ai-inbox', params:{reportId:'5'}}).tab, 'work');
-assert.equal(normalizeMobileRoute({tab:'axis', screen:'ai-chat'}).tab, 'work');
+assert.equal(normalizeMobileRoute({tab:'ai', screen:'ai-chat'}).tab, 'work');
+assert.equal(normalizeMobileRoute({tab:'ai', screen:'ai-chat'}).screen, 'record-progress');
+assert.equal(normalizeMobileRoute({tab:'axis', screen:'axis-evidence-submit'}).screen, 'record-progress');
+assert.equal(normalizeMobileRoute({tab:'axis', screen:'record-progress'}).tab, 'axis');
+assert.equal(normalizeMobileRoute({tab:'knowledge', screen:'record-progress'}).tab, 'knowledge');
+assert.equal(normalizeMobileRoute({screen:'record-progress'}).tab, 'work');
 assert.deepEqual(normalizeMobileRoute({tab:'me', screen:'me-knowledge', params:{knowledgeScope:'project'}}),
   {tab:'knowledge',screen:'knowledge-root',params:{knowledgeScope:'project'},presentation:'page'});
 
