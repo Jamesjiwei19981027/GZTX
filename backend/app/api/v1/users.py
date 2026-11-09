@@ -379,6 +379,8 @@ async def confirm_bind_code(data: VerifyConfirmRequest, db: DbSession, user: Cur
     return ResponseData(
         message="验证成功",
         data={
+            "email": user.email or "",
+            "phone": user.phone or "",
             "email_verified": user.email_verified,
             "phone_verified": user.phone_verified,
             "is_verified": user.is_verified,

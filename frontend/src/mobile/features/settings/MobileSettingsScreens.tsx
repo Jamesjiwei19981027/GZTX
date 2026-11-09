@@ -281,6 +281,12 @@ export const MobileProfileScreen: React.FC<SettingsSharedProps> = ({
       .catch(() => {});
   }, []);
 
+  // 头像以全局用户资料为准：上传成功后 user.avatar 会更新，本地显示必须跟着换，
+  // 否则点“保存”会把旧头像又写回去
+  useEffect(() => {
+    setAvatarUrl(user.avatar || '');
+  }, [user.avatar]);
+
   const handleAvatarFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -324,7 +330,8 @@ export const MobileProfileScreen: React.FC<SettingsSharedProps> = ({
     setErrorMsg(null);
     try {
       await updateMe({ nickname: nickname.trim() });
-      await onUpdateUser({ name: nickname.trim(), avatar: avatarUrl });
+      // 只提交昵称；头像由上传接口单独写入，保存资料不再带头像字段
+      await onUpdateUser({ name: nickname.trim() });
       setSuccessMsg('个人资料已保存');
       setTimeout(() => setSuccessMsg(null), 3000);
     } catch (err) {
@@ -534,7 +541,7 @@ export const MobileSecurityScreen: React.FC<SettingsSharedProps> = ({ user }) =>
     setErrorMsg(null);
     try {
       const updated = await confirmBindCode(bindingChannel, bindTarget.trim(), bindCode.trim());
-      setVStatus(updated);
+      setVStatus((prev) => ({ ...(prev || {}), ...updated }) as VerificationStatus);
       setSuccessMsg('绑定验证成功！');
       setBindingChannel(null);
       setBindTarget('');

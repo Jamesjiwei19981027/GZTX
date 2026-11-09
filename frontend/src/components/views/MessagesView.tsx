@@ -30,6 +30,7 @@ import {
 } from '../../api/shell';
 import type { CallConfig, CollabFile, DirectConversation, CommunicationSummary } from '../../api/shell';
 import { getToken } from '../../api/client';
+import { hasMoreOlderMessages } from '../../utils/messagePaging';
 
 interface MessagesViewProps {
   user: UserProfile;
@@ -116,6 +117,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** 单调递增的 load 序号，用来丢弃过期请求的结果 */
   const loadSeqRef = useRef(0);
+  // 消息超过 100 条：向前翻页加载更早的（页码 1 = 最新一页）
+  const olderPageRef = useRef(1);
+  const [canLoadOlder, setCanLoadOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
 
   const channels = [
     { id: 'general' as const, labelZh: '# 全员交流大厅', labelEn: '# general', icon: 'tag' },
@@ -153,6 +158,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     setLoading(true);
     setError(null);
     setLoadFailed(false);
+    olderPageRef.current = 1;
+    setCanLoadOlder(false);
     try {
       const pid = projectId && projectId !== 'all' ? Number(projectId) : undefined;
       const chRes = await listChannels(companyId, Number.isFinite(pid) ? pid : undefined);
@@ -169,6 +176,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         if (!conversationId) { setMessages([]); return; }
         const msgRes = await listDirectMessages(conversationId);
         if (isStale()) return;
+        setCanLoadOlder(hasMoreOlderMessages((msgRes.items || []).length));
         setMessages((msgRes.items || []).map((m) => ({
           id: String(m.id),
           senderName: m.sender_name,
@@ -189,6 +197,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       }
       const msgRes = await listChannelMessages(chId);
       if (isStale()) return;
+      setCanLoadOlder(hasMoreOlderMessages((msgRes.items || []).length));
       setMessages(
         (msgRes.items || []).map((m) => ({
           id: String(m.id),
@@ -211,6 +220,39 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       if (!isStale()) setLoading(false);
     }
   }, [companyId, projectId, activeChannel, activeConversationId, lang, user.avatar]);
+
+  const loadOlderMessages = async () => {
+    if (loadingOlder || !canLoadOlder) return;
+    setLoadingOlder(true);
+    try {
+      const page = olderPageRef.current + 1;
+      const isDirect = activeChannel === 'direct';
+      const scopeId = isDirect ? activeConversationId : channelMap[activeChannel];
+      if (!scopeId) return;
+      const res = isDirect ? await listDirectMessages(scopeId, page) : await listChannelMessages(scopeId, page);
+      const older: MessageItem[] = (res.items || []).map((m) => ({
+        id: String(m.id),
+        senderName: m.sender_name,
+        senderAvatar: m.sender_avatar || user.avatar,
+        content: m.body,
+        timestamp: formatMessageTime(m.created_at, lang),
+        channel: activeChannel,
+        likes: 'likes' in m ? Number((m as { likes?: number }).likes || 0) : 0,
+        repliesCount: 0,
+        attachments: mapAttachments(m.attachments),
+      }));
+      olderPageRef.current = page;
+      setCanLoadOlder(hasMoreOlderMessages((res.items || []).length));
+      setMessages((prev) => {
+        const seen = new Set(prev.map((x) => x.id));
+        return [...older.filter((x) => !seen.has(x.id)), ...prev];
+      });
+    } catch {
+      setError('加载更早消息失败，请重试');
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   const summarizeCurrentConversation = async () => {
     const scopeId = activeChannel === 'direct' ? activeConversationId : channelMap[activeChannel];
@@ -735,6 +777,19 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 
         <div className="lg:col-span-6 bg-surface-container-lowest rounded-3xl border border-outline-variant/30 shadow-xs flex flex-col">
           <div className="flex-1 overflow-y-auto p-5 space-y-4 max-h-[520px]">
+            {canLoadOlder && (
+              <div className="text-center">
+                <button
+                  type="button"
+                  data-testid="messages-load-older"
+                  disabled={loadingOlder}
+                  onClick={() => void loadOlderMessages()}
+                  className="px-4 py-1.5 rounded-full bg-surface-container text-xs font-bold text-primary cursor-pointer disabled:opacity-50"
+                >
+                  {loadingOlder ? '正在加载…' : '加载更早的消息'}
+                </button>
+              </div>
+            )}
             {filteredMessages.length === 0 && (
               <p className="text-sm text-on-surface-variant text-center py-12">
                 {lang === 'zh' ? '暂无消息，发送第一条吧' : 'No messages yet'}

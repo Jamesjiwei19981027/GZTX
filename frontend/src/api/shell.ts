@@ -24,7 +24,7 @@ export async function listChannels(companyId: number, projectId?: number) {
   )
 }
 
-export async function listChannelMessages(channelId: number) {
+export async function listChannelMessages(channelId: number, page = 1) {
   return apiRequest<{
     items: {
       id: number
@@ -38,7 +38,7 @@ export async function listChannelMessages(channelId: number) {
        attachments?: { file_id?: number; name?: string; original_name?: string; url?: string; download_url?: string; mime_type?: string; size?: number; size_bytes?: number }[]
       created_at?: string
     }[]
-  }>(`/channels/${channelId}/messages?page_size=100`)
+  }>(`/channels/${channelId}/messages?page_size=100&page=${page}`)
 }
 
 export async function postChannelMessage(channelId: number, body: string, fileIds: number[] = []) {
@@ -269,8 +269,8 @@ export async function createDirectConversation(companyId: number, body: { member
   })
 }
 
-export async function listDirectMessages(conversationId: number) {
-  return apiRequest<{ items: { id: number; conversation_id: number; user_id: number; sender_name: string; sender_avatar?: string; body: string; message_type?: string; attachments?: Record<string, unknown>[]; created_at?: string }[] }>(`/conversations/${conversationId}/messages?page_size=100`)
+export async function listDirectMessages(conversationId: number, page = 1) {
+  return apiRequest<{ items: { id: number; conversation_id: number; user_id: number; sender_name: string; sender_avatar?: string; body: string; message_type?: string; attachments?: Record<string, unknown>[]; created_at?: string }[] }>(`/conversations/${conversationId}/messages?page_size=100&page=${page}`)
 }
 
 export async function postDirectMessage(conversationId: number, body: string, attachments: Record<string, unknown>[] = [], fileIds: number[] = []) {

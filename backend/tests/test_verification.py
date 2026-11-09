@@ -180,6 +180,8 @@ async def test_bind_flow_completes_verification(client: AsyncClient, db_session,
     )
     assert r.status_code == 200
     assert r.json()["data"]["email_verified"] is True
+    # WR-25：绑定成功立即回显已绑定的邮箱，页面不用刷新
+    assert r.json()["data"]["email"] == "unverified2@example.com"
 
     # 补验手机
     r = await client.post(
@@ -196,6 +198,8 @@ async def test_bind_flow_completes_verification(client: AsyncClient, db_session,
     )
     assert r.status_code == 200
     assert r.json()["data"]["is_verified"] is True
+    assert r.json()["data"]["phone"] == "13911110002"
+    assert r.json()["data"]["email"] == "unverified2@example.com"
 
     # 解除受限
     r = await client.post(
