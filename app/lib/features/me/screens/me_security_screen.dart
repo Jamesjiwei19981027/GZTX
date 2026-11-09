@@ -150,7 +150,13 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
     );
     if (updated == null || !mounted) return;
     setState(() {
-      _verification = updated;
+      _verification = MeVerificationStatus(
+        email: updated.email ?? _verification?.email,
+        phone: updated.phone ?? _verification?.phone,
+        emailVerified: updated.emailVerified,
+        phoneVerified: updated.phoneVerified,
+        isVerified: updated.isVerified,
+      );
       _successMessage = '绑定验证成功';
     });
   }
@@ -173,7 +179,8 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
                       children: [
                         if (_errorMessage != null)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                            padding:
+                                const EdgeInsets.only(bottom: AppSpacing.md),
                             child: MeBanner(
                               message: _errorMessage!,
                               tone: MeTone.danger,
@@ -181,7 +188,8 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
                           ),
                         if (_successMessage != null)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                            padding:
+                                const EdgeInsets.only(bottom: AppSpacing.md),
                             child: MeBanner(
                               message: _successMessage!,
                               tone: MeTone.success,
@@ -413,7 +421,6 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
     );
   }
 }
-
 
 /// 绑定 / 验证邮箱或手机的底部面板（自持控制器，随面板销毁释放）
 class _MeBindSheet extends StatefulWidget {

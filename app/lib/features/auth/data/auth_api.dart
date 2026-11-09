@@ -93,11 +93,16 @@ class AuthApi {
   }
 
   /// 读取注册模式与手机必验配置（匿名）
-  Future<RegistrationConfig> fetchRegistrationConfig() async {
+  Future<RegistrationConfig> fetchRegistrationConfig({int? companyId}) async {
     try {
-      final dynamic res = await _client.get('/auth/registration-config');
+      final dynamic res = await _client.get('/auth/registration-config',
+          query: companyId == null ? null : {'company_id': '$companyId'});
+      if (companyId != null && (res is! Map || res['login_methods'] is! Map)) {
+        throw ApiException('企业登录方式配置尚不可用，请联系管理员更新服务');
+      }
       return RegistrationConfig.fromJson(res);
     } catch (_) {
+      if (companyId != null) rethrow;
       return const RegistrationConfig();
     }
   }

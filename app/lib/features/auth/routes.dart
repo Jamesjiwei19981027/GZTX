@@ -15,7 +15,11 @@ final List<RouteBase> authRoutes = [
   GoRoute(
     path: AuthPaths.login,
     name: 'auth-login',
-    builder: (context, state) => const LoginScreen(),
+    builder: (context, state) => LoginScreen(
+      companyId: int.tryParse(state.uri.queryParameters['companyId'] ??
+          state.uri.queryParameters['company_id'] ??
+          ''),
+    ),
     routes: [
       GoRoute(
         path: 'register',

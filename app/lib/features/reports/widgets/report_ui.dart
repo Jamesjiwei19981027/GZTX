@@ -28,7 +28,8 @@ class ReportCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: dark ? AppColors.darkSurface : AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(color: dark ? AppColors.darkBorder : AppColors.border),
+        border:
+            Border.all(color: dark ? AppColors.darkBorder : AppColors.border),
       ),
       child: child,
     );
@@ -55,7 +56,9 @@ class ReportSectionTitle extends StatelessWidget {
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.4,
-                color: dark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                color: dark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
               ),
             ),
           ),
@@ -150,7 +153,8 @@ class ReportInfoBanner extends StatelessWidget {
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: 12.5, height: 1.45, color: effectiveFg),
+              style:
+                  TextStyle(fontSize: 12.5, height: 1.45, color: effectiveFg),
             ),
           ),
         ],
@@ -263,7 +267,9 @@ class ReportProjectBar extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
-                  color: dark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                  color: dark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -274,7 +280,9 @@ class ReportProjectBar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 14,
-                    color: dark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                    color: dark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.textPrimary,
                   ),
                 ),
               ),
@@ -282,7 +290,9 @@ class ReportProjectBar extends StatelessWidget {
                 AppIcon(
                   'chevron-down',
                   size: 18,
-                  color: dark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                  color: dark
+                      ? AppColors.darkTextTertiary
+                      : AppColors.textTertiary,
                 ),
             ],
           ),
@@ -336,6 +346,13 @@ class ReportSourcesList extends StatelessWidget {
     final items = <({String key, String type, String title, String detail})>[];
     for (var index = 0; index < sources.length; index++) {
       final source = sources[index];
+      if ((source.sourceType == 'task' &&
+              taskSnapshots.any((task) => task.id == source.sourceId)) ||
+          (const ['evidence', 'evidence_package'].contains(source.sourceType) &&
+              evidenceSnapshots
+                  .any((evidence) => evidence.id == source.sourceId))) {
+        continue;
+      }
       items.add((
         key: 'source-${source.id ?? index}',
         type: source.sourceType,
@@ -343,25 +360,23 @@ class ReportSourcesList extends StatelessWidget {
         detail: source.detail,
       ));
     }
-    if (items.isEmpty) {
-      for (final task in taskSnapshots) {
-        items.add((
-          key: 'task-${task.id}',
-          type: 'task',
-          title: task.title,
-          detail: '任务快照 · 状态：${task.status?.trim().isNotEmpty == true ? task.status! : '进行中'}',
-        ));
-      }
-      for (final evidence in evidenceSnapshots) {
-        final summary = evidence.summary?.trim();
-        items.add((
-          key: 'evidence-${evidence.id}',
-          type: 'evidence',
-          title: summary != null && summary.isNotEmpty ? summary : '项目材料证据',
-          detail:
-              '材料快照 · 状态：${evidence.status?.trim().isNotEmpty == true ? evidence.status! : '已归档'}',
-        ));
-      }
+    for (final task in taskSnapshots) {
+      items.add((
+        key: 'task-${task.id}',
+        type: 'task',
+        title: task.title,
+        detail: '任务快照 · 状态：${task.statusLabel}',
+      ));
+    }
+    for (final evidence in evidenceSnapshots) {
+      final summary = evidence.summary?.trim();
+      items.add((
+        key: 'evidence-${evidence.id}',
+        type: 'evidence',
+        title: summary != null && summary.isNotEmpty ? summary : '项目材料证据',
+        detail:
+            '材料快照 · 状态：${evidence.statusLabel} · 附件：${evidence.fileCount} 个',
+      ));
     }
 
     final dark = isDarkMode(context);
@@ -405,7 +420,9 @@ class ReportSourcesList extends StatelessWidget {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: dark ? const Color(0xFF16233A) : const Color(0xFFEAF1FD),
+                      color: dark
+                          ? const Color(0xFF16233A)
+                          : const Color(0xFFEAF1FD),
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     ),
                     child: Center(

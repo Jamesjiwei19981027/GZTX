@@ -162,6 +162,7 @@ class ProjectPermissions {
     required this.viaDelegation,
     required this.canMove,
     required this.canDelete,
+    this.canInvite,
   });
 
   final String role;
@@ -171,6 +172,7 @@ class ProjectPermissions {
   final bool viaDelegation;
   final bool canMove;
   final bool canDelete;
+  final bool? canInvite;
 
   factory ProjectPermissions.fromJson(Map<String, dynamic> json) {
     return ProjectPermissions(
@@ -181,18 +183,14 @@ class ProjectPermissions {
       viaDelegation: _asBool(json['via_delegation']),
       canMove: _asBool(json['can_move']),
       canDelete: _asBool(json['can_delete']),
+      canInvite: json['can_invite'] is bool ? json['can_invite'] as bool : null,
     );
   }
 
   /// 邀请成员入口可见性。
   ///
-  /// 后端 `POST /projects/{id}/invitations` 要求 ACL `member.pull`
-  /// （PM / 超管 / 含该动作的委托）。`GET /projects/{id}/my-permissions`
-  /// 只透出 `can_edit_all`(tree.edit_subtree) 与 `can_move`/`can_delete`
-  /// (tree.edit_any)，没有暴露 `member.pull`，所以这里只能确定 PM 与超管；
-  /// 仅持有 `member.pull` 的委托目前无法判断，宁可暂不显示入口，
-  /// 也不显示一个点下去必然 403 的按钮（接口补齐 `can_invite` 后放开）。
-  bool get canInviteMembers => isPm || isSuperadmin;
+  /// 服务端按 member.pull 计算，包含委托；旧版本缺字段时保留角色兜底。
+  bool get canInviteMembers => canInvite ?? (isPm || isSuperadmin);
 
   /// 归档入口可见性。
   ///

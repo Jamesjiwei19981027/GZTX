@@ -35,7 +35,9 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
   bool _loading = true;
   Object? _error;
   MeWechatStatus _wechat = const MeWechatStatus();
-  String _asrProvider = 'builtin';
+  String? _asrProvider;
+  String? _asrLoadError;
+  bool _asrLoading = false;
   bool _savingWechat = false;
   bool _savingAsr = false;
   String? _errorMessage;
@@ -62,12 +64,36 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
         _wechat = wechat;
         _loading = false;
       });
+      await _loadAsr();
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _error = e;
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadAsr() async {
+    if (_asrLoading || _savingAsr) return;
+    final companyId = _auth?.currentCompany?.id;
+    if (companyId == null) return;
+    setState(() => _asrLoading = true);
+    try {
+      final binding = await _api.fetchUserAsr(companyId);
+      if (!mounted || _auth?.currentCompany?.id != companyId) return;
+      setState(() {
+        _asrProvider = binding?.providerId;
+        _asrLoadError = null;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _asrProvider = null;
+        _asrLoadError = '无法读取已保存的个人语音识别设置，请重试或联系管理员';
+      });
+    } finally {
+      if (mounted) setState(() => _asrLoading = false);
     }
   }
 
@@ -95,6 +121,7 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
   }
 
   Future<void> _saveAsr(String providerId) async {
+    if (_asrLoading || _savingAsr) return;
     final companyId = (_auth?.currentCompany)?.id;
     if (companyId == null) {
       setState(() {
@@ -113,6 +140,7 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
       if (!mounted) return;
       setState(() {
         _asrProvider = providerId;
+        _asrLoadError = null;
         _savingAsr = false;
         _successMessage = '个人语音识别偏好已保存';
       });
@@ -239,9 +267,29 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
                         title: '个人语音识别',
                         footer: '仅保存个人偏好；实际转写能力由企业语音服务提供，录音结束后才发送音频。',
                         children: [
+                          if (_asrLoading)
+                            const MeBanner(
+                                message: '正在读取个人语音识别设置…', tone: MeTone.neutral)
+                          else if (_asrLoadError != null)
+                            MeBanner(
+                                message: _asrLoadError!,
+                                tone: MeTone.warning,
+                                onRetry: _loadAsr)
+                          else if (_asrProvider == null)
+                            const MeBanner(
+                                message: '未设置个人偏好，沿用企业默认语音服务',
+                                tone: MeTone.neutral),
+                          if (_asrProvider != null &&
+                              !_asrOptions
+                                  .any((option) => option.$1 == _asrProvider))
+                            const MeBanner(
+                                message: '已使用企业提供的其他个人语音服务',
+                                tone: MeTone.neutral),
                           for (final (id, label) in _asrOptions)
                             InkWell(
-                              onTap: _savingAsr ? null : () => _saveAsr(id),
+                              onTap: _savingAsr || _asrLoading
+                                  ? null
+                                  : () => _saveAsr(id),
                               borderRadius:
                                   BorderRadius.circular(AppSpacing.radiusMd),
                               child: Padding(

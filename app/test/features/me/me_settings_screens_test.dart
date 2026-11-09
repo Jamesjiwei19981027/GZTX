@@ -202,7 +202,7 @@ void main() {
       expect(find.text('任务数据'), findsOneWidget);
       expect(find.text('3 条'), findsOneWidget);
       expect(find.text('导出我的数据'), findsOneWidget);
-      expect(find.text('180 天'), findsOneWidget);
+      expect(find.textContaining('已产生的任务与协作记录保留在所属项目中'), findsWidgets);
     });
 
     testWidgets('未填写密码或确认词时注销按钮不可用', (tester) async {
@@ -215,16 +215,19 @@ void main() {
 
       expect(button().onPressed, isNull);
 
-      await tester.enterText(find.byKey(const Key('me-delete-password')), 'pass');
+      await tester.enterText(
+          find.byKey(const Key('me-delete-password')), 'pass');
       await tester.pumpAndSettle();
       expect(button().onPressed, isNull);
 
       // 关键词必须为大写 DELETE
-      await tester.enterText(find.byKey(const Key('me-delete-keyword')), 'delete');
+      await tester.enterText(
+          find.byKey(const Key('me-delete-keyword')), 'delete');
       await tester.pumpAndSettle();
       expect(button().onPressed, isNull);
 
-      await tester.enterText(find.byKey(const Key('me-delete-keyword')), 'DELETE');
+      await tester.enterText(
+          find.byKey(const Key('me-delete-keyword')), 'DELETE');
       await tester.pumpAndSettle();
       expect(button().onPressed, isNotNull);
 
@@ -235,8 +238,10 @@ void main() {
       MeTestHarness.useTallSurface(tester);
       final harness = await pumpDelete(tester);
 
-      await tester.enterText(find.byKey(const Key('me-delete-password')), 'pass');
-      await tester.enterText(find.byKey(const Key('me-delete-keyword')), 'DELETE');
+      await tester.enterText(
+          find.byKey(const Key('me-delete-password')), 'pass');
+      await tester.enterText(
+          find.byKey(const Key('me-delete-keyword')), 'DELETE');
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(AppButton, '永久注销此账号'));
       await tester.pumpAndSettle();
@@ -254,8 +259,10 @@ void main() {
       harness.helper.whenPost('/users/me/delete', {'deleted': true});
       harness.helper.whenPost('/auth/logout', {'ok': true});
 
-      await tester.enterText(find.byKey(const Key('me-delete-password')), 'pass');
-      await tester.enterText(find.byKey(const Key('me-delete-keyword')), 'DELETE');
+      await tester.enterText(
+          find.byKey(const Key('me-delete-password')), 'pass');
+      await tester.enterText(
+          find.byKey(const Key('me-delete-keyword')), 'DELETE');
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(AppButton, '永久注销此账号'));
       await tester.pumpAndSettle();
@@ -282,8 +289,10 @@ void main() {
         statusCode: 400,
       );
 
-      await tester.enterText(find.byKey(const Key('me-delete-password')), 'bad');
-      await tester.enterText(find.byKey(const Key('me-delete-keyword')), 'DELETE');
+      await tester.enterText(
+          find.byKey(const Key('me-delete-password')), 'bad');
+      await tester.enterText(
+          find.byKey(const Key('me-delete-keyword')), 'DELETE');
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(AppButton, '永久注销此账号'));
       await tester.pumpAndSettle();

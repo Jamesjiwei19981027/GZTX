@@ -4,6 +4,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../core/auth/auth_state.dart';
+import '../data/me_api.dart';
+
 /// 主题模式：跟随系统 / 浅色 / 深色
 enum MeThemeMode {
   system('system', '跟随系统'),
@@ -29,13 +32,10 @@ enum MeThemeMode {
   }
 }
 
-/// 外观设置状态（深色模式 + 字号），本地持久化，供全 APP 复用。
+/// 外观设置状态：主题以云端为准，本地仅缓存；字号保留设备偏好。
 ///
-/// 底座（T00）尚未在 `main.dart` 里接入外观状态，因此本模块：
-/// 1. 提供 [MeAppearanceController] 作为唯一状态源（跨重启持久化）；
-/// 2. 提供 [MeAppearanceHost]，宿主接入后整包立即跟随（见回传报告「共享改动申请」）；
-/// 3. T09 页面内用 [MeScreenAppearance] 立即生效，且对宿主已应用的值保持幂等，
-///    不会出现「重复加深色 / 字号翻倍」。
+/// main.dart 通过 [MeAppearanceSessionSync] 回读云端、通过 [MeAppearanceHost]
+/// 在全应用生效；隔离渲染的页面由 [MeScreenAppearance] 提供幂等兜底。
 class MeAppearanceController extends ChangeNotifier {
   MeAppearanceController();
 
@@ -77,6 +77,17 @@ class MeAppearanceController extends ChangeNotifier {
   bool get isLoaded => _loaded;
 
   Future<void>? _loading;
+  int _themeRevision = 0;
+
+  Future<void> syncFromCloud(MeApi api, {bool Function()? isCurrent}) async {
+    await ensureLoaded();
+    final revision = ++_themeRevision;
+    final prefs = await api.fetchUiPrefs();
+    if (revision != _themeRevision || (isCurrent != null && !isCurrent())) {
+      return;
+    }
+    await setThemeMode(MeThemeMode.fromStorage(prefs.themeMode));
+  }
 
   /// 首次读取本地持久化值；重复调用复用同一个 Future。
   Future<void> ensureLoaded() => _loading ??= _load();
@@ -86,9 +97,8 @@ class MeAppearanceController extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       _themeMode = MeThemeMode.fromStorage(prefs.getString(themeModeKey));
       final stored = prefs.getDouble(textScaleKey);
-      _textScale = (stored != null && textScalePresets.contains(stored))
-          ? stored
-          : null;
+      _textScale =
+          (stored != null && textScalePresets.contains(stored)) ? stored : null;
     } catch (e) {
       // 读取本地设置失败不阻断界面，按默认（跟随系统）渲染
       debugPrint('MeAppearanceController 读取本地外观设置失败: $e');
@@ -100,6 +110,7 @@ class MeAppearanceController extends ChangeNotifier {
 
   /// 设置主题模式并落本地；返回是否写入成功。
   Future<bool> setThemeMode(MeThemeMode mode) async {
+    _themeRevision++;
     if (_themeMode != mode) {
       _themeMode = mode;
       notifyListeners();
@@ -149,6 +160,41 @@ class MeAppearanceController extends ChangeNotifier {
     _loading = null;
     _loaded = true;
     notifyListeners();
+  }
+}
+
+/// 冷启动恢复会话、登录或换账号后回读云端；迟到的旧会话响应不覆盖当前账号。
+class MeAppearanceSessionSync {
+  MeAppearanceSessionSync(this.auth, this.appearance) {
+    auth.addListener(_sync);
+    _sync();
+  }
+
+  final AuthState auth;
+  final MeAppearanceController appearance;
+  String? _session;
+  bool _disposed = false;
+
+  void _sync() {
+    final key = auth.isAuthenticated
+        ? '${auth.currentUser?.id}:${auth.api.tokens.sessionGeneration}'
+        : null;
+    if (_session == key) return;
+    _session = key;
+    if (key == null) return;
+    unawaited(appearance
+        .syncFromCloud(
+      MeApi(auth.api),
+      isCurrent: () => !_disposed && _session == key,
+    )
+        .catchError((Object e) {
+      debugPrint('云端主题暂不可用，沿用本机缓存：$e');
+    }));
+  }
+
+  void dispose() {
+    _disposed = true;
+    auth.removeListener(_sync);
   }
 }
 

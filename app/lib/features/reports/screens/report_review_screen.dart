@@ -25,6 +25,8 @@ class ReportReviewScreen extends StatefulWidget {
     this.projectId,
     this.projectName,
     this.mode = ReportReviewMode.bindings,
+    this.reportId,
+    this.nodeId,
   });
 
   final ReportsApi? api;
@@ -32,6 +34,8 @@ class ReportReviewScreen extends StatefulWidget {
   final int? projectId;
   final String? projectName;
   final ReportReviewMode mode;
+  final int? reportId;
+  final int? nodeId;
 
   @override
   State<ReportReviewScreen> createState() => _ReportReviewScreenState();
@@ -89,8 +93,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
     _conflicts = const [];
     _error = null;
     _notice = null;
-    _comment.text =
-        widget.mode == ReportReviewMode.conflict ? '已完成员工端，管理者端仍待评审。' : '';
+    _comment.clear();
     _load();
   }
 
@@ -165,13 +168,6 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
     } finally {
       if (mounted) setState(() => _syncing = false);
     }
-  }
-
-  void _recordVerification() {
-    setState(() {
-      _notice = '核验意见已记录在当前页面，但核验裁决的持久化写入需要后端接口扩展。'
-          '任务完成状态请在责任事项中单独确认，本页不会把未保存的操作显示为成功。';
-    });
   }
 
   @override
@@ -406,7 +402,15 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
                 label: '上传材料',
                 variant: AppButtonVariant.secondary,
                 icon: const AppIcon('file', size: 17, color: AppColors.primary),
-                onPressed: () => context.goNamed('work-root'),
+                onPressed: () => context.push(
+                  Uri(path: '/evidence/submit', queryParameters: {
+                    'projectId': '$projectId',
+                    if (widget.nodeId != null) 'nodeId': '${widget.nodeId}',
+                    if (widget.reportId != null)
+                      'reportId': '${widget.reportId}',
+                  }).toString(),
+                  extra: {'summary': _comment.text.trim()},
+                ),
               ),
             ),
             const SizedBox(width: AppSpacing.md),
@@ -414,8 +418,14 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
               child: AppButton(
                 label: '更新汇报草稿',
                 icon: const AppIcon('edit', size: 17, color: Colors.white),
-                onPressed: () =>
-                    context.push('/reports/create?projectId=$projectId'),
+                onPressed: () => context.push(
+                  Uri(path: '/reports/create', queryParameters: {
+                    'projectId': '$projectId',
+                    if (widget.reportId != null)
+                      'draftReportId': '${widget.reportId}',
+                  }).toString(),
+                  extra: {'supplement': _comment.text.trim()},
+                ),
               ),
             ),
           ],
@@ -524,14 +534,14 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
           onValueChanged: (value) => setState(() => _resolution = value),
         ),
         const SizedBox(height: AppSpacing.lg),
-        AppButton(
+        const AppButton(
           label: '记录核验意见',
-          icon: const AppIcon('check', size: 17, color: Colors.white),
-          onPressed: _recordVerification,
+          icon: AppIcon('check', size: 17, color: Colors.white),
+          onPressed: null,
         ),
         const SizedBox(height: AppSpacing.lg),
         const ReportInfoBanner(
-          '核验意见会保留在当前页面。核验裁决的持久化写入需要后端接口扩展，'
+          '服务端暂不支持保存核验意见及通过或退回结果，因此此操作暂不可用。'
           '任务状态请在责任事项中单独确认。',
         ),
         const SizedBox(height: AppSpacing.lg),

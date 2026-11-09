@@ -87,7 +87,21 @@ class MeApi {
       '/users/me/verification/confirm',
       body: {'channel': channel, 'target': target, 'code': code},
     );
-    return MeVerificationStatus.fromJson(_asMap(data));
+    return MeVerificationStatus.fromJson({
+      ..._asMap(data),
+      if (channel == 'email') 'email': target.trim(),
+      if (channel == 'sms') 'phone': target.trim(),
+    });
+  }
+
+  Future<Map<String, dynamic>> exportMyData() async {
+    final data = await _client.get('/users/me/export');
+    if (data is! Map<String, dynamic> ||
+        data['user'] is! Map ||
+        data['tasks'] is! List) {
+      throw ApiException('数据导出响应不完整，请稍后重试');
+    }
+    return data;
   }
 
   Future<void> changePassword({
@@ -447,6 +461,19 @@ class MeApi {
   }
 
   /// 个人语音识别绑定（PUT /users/me/bindings/asr，provider_id + company_id）
+  Future<MeAsrBinding?> fetchUserAsr(int companyId) async {
+    final data = await _client.get(
+      '/users/me/bindings/asr',
+      query: {'company_id': '$companyId'},
+    );
+    if (data == null) return null;
+    final map = _asMap(data);
+    if (map['provider_id'] is! String) {
+      throw ApiException('个人语音识别状态返回不完整');
+    }
+    return MeAsrBinding.fromJson(map);
+  }
+
   Future<void> saveUserAsr({
     required int companyId,
     required String providerId,

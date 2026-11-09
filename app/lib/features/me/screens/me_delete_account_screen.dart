@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_state.dart';
@@ -8,6 +7,7 @@ import '../appearance/me_appearance.dart';
 import '../data/me_api.dart';
 import '../data/me_models.dart';
 import '../state/me_runtime.dart';
+import '../services/me_data_exporter.dart';
 import '../widgets/me_common.dart';
 
 /// 注销账号（对应网页 `AdaptAccountDeleteScreen`，设计 ID 96）
@@ -20,11 +20,13 @@ class MeDeleteAccountScreen extends StatefulWidget {
     this.api,
     this.authState,
     this.appearance,
+    this.exporter,
   });
 
   final MeApi? api;
   final AuthState? authState;
   final MeAppearanceController? appearance;
+  final MeDataExporter? exporter;
 
   @override
   State<MeDeleteAccountScreen> createState() => _MeDeleteAccountScreenState();
@@ -38,6 +40,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
   Object? _loadError;
   MePrivacySummary? _privacy;
   bool _submitting = false;
+  bool _exporting = false;
   String? _errorMessage;
 
   MeApi get _api => resolveMeApi(context, widget.api);
@@ -82,14 +85,39 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
   }
 
   Future<void> _exportData() async {
-    final endpoint = (_privacy?.exportEndpoint ?? '').trim();
-    if (endpoint.isEmpty) {
-      showAppToast(context, '服务端未提供数据导出通道', type: ToastType.warning);
-      return;
+    if (_exporting || _submitting) return;
+    final box = context.findRenderObject() as RenderBox?;
+    final origin =
+        box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    setState(() {
+      _exporting = true;
+      _errorMessage = null;
+    });
+    try {
+      final data = await _api.exportMyData();
+      if (!mounted) return;
+      final message = await (widget.exporter ?? MeDataExporter())
+          .saveAndShare(data, origin: origin);
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('数据导出'),
+          scrollable: true,
+          content: Text(message),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('知道了'))
+          ],
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _errorMessage = '导出失败：${meErrorMessage(e)}');
+    } finally {
+      if (mounted) setState(() => _exporting = false);
     }
-    await Clipboard.setData(ClipboardData(text: endpoint));
-    if (!mounted) return;
-    showAppToast(context, '导出接口地址已复制：$endpoint', type: ToastType.info);
   }
 
   Future<void> _submit() async {
@@ -99,7 +127,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '永久注销此账号？',
-      message: '所有个人数据、责任链身份与访问凭据将立即销毁，且不可恢复。',
+      message: '账号将被停用、无法再登录；已产生的任务与协作记录保留在所属项目中。请先导出需要保留的数据。',
       confirmLabel: '永久注销',
       isDestructive: true,
     );
@@ -152,7 +180,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                       ),
                     MeCard(
                       title: '我的数据概览',
-                      footer: '注销前请先确认已导出的数据；注销后上述数据无法恢复。',
+                      footer: '注销前请先导出需要保留的数据；已产生的任务与协作记录保留在所属项目中。',
                       children: [
                         for (final entry
                             in (_privacy?.storedData ?? const {}).entries)
@@ -160,11 +188,9 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                             label: _storedDataLabel(entry.key),
                             value: _storedDataValue(entry.value),
                           ),
-                        MeInfoRow(
+                        const MeInfoRow(
                           label: '数据保留说明',
-                          value: (_privacy?.retention ?? '').trim().isEmpty
-                              ? '按企业合规归档'
-                              : _privacy!.retention,
+                          value: '账号停用后，已产生的任务与协作记录保留在所属项目中',
                           showDivider: false,
                         ),
                         const SizedBox(height: AppSpacing.md),
@@ -173,7 +199,9 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                           variant: AppButtonVariant.secondary,
                           isFullWidth: true,
                           icon: const AppIcon('folder', size: 16),
-                          onPressed: _exportData,
+                          isLoading: _exporting,
+                          onPressed:
+                              _exporting || _submitting ? null : _exportData,
                         ),
                       ],
                     ),
@@ -181,8 +209,10 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.cardPadding),
                       decoration: BoxDecoration(
-                        color: isDark ? AppColors.darkSurface : AppColors.surface,
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                        color:
+                            isDark ? AppColors.darkSurface : AppColors.surface,
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusLg),
                         border: Border.all(color: AppColors.danger, width: 1),
                       ),
                       child: Column(
@@ -219,7 +249,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                           ),
                           const SizedBox(height: AppSpacing.sm),
                           Text(
-                            '账号删除为最终不可逆操作，以下内容将被即刻销毁：',
+                            '账号将被停用、无法再登录。请确认以下影响：',
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.5,
@@ -230,9 +260,9 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           for (final item in const [
-                            '个人创建的所有私有待办任务与未同步草稿',
-                            '在所有项目人轴责任链中的责任人身份',
-                            '已签发的全部 API Token 与会话凭证',
+                            '已产生的任务与协作记录保留在所属项目中',
+                            '已签发的登录会话凭证将失效',
+                            '需要保留的数据请在注销前导出',
                           ])
                             Padding(
                               padding: const EdgeInsets.only(top: 2),
@@ -285,8 +315,9 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                             isFullWidth: true,
                             size: AppButtonSize.lg,
                             isLoading: _submitting,
-                            onPressed:
-                                _canSubmit && !_submitting ? _submit : null,
+                            onPressed: _canSubmit && !_submitting && !_exporting
+                                ? _submit
+                                : null,
                           ),
                         ],
                       ),

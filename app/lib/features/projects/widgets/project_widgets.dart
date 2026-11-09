@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:worktodo_app/design/design.dart';
 
 import '../models/project_models.dart';
+import '../../me/widgets/me_common.dart' show meAbsoluteUrl;
 
 /// 项目首字头像（网页版为蓝色浅底 + 项目名首字）
 class ProjectAvatar extends StatelessWidget {
@@ -45,7 +46,7 @@ class MemberAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final url = member.avatarUrl;
+    final url = meAbsoluteUrl(member.avatarUrl);
     return ClipOval(
       child: SizedBox(
         width: size,
@@ -157,7 +158,8 @@ class ProjectChip extends StatelessWidget {
         background = AppColors.primary.withValues(alpha: isDark ? 0.24 : 0.10);
         foreground = isDark ? AppColors.primaryLight : AppColors.primary;
       case ProjectChipTone.neutral:
-        background = isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant;
+        background =
+            isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant;
         foreground =
             isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
     }
