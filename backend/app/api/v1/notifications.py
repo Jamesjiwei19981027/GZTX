@@ -167,10 +167,8 @@ async def send_test_email_notification(
         )
 
     from app.utils.email import _send_smtp
-    from app.services.smtp_settings import resolve_smtp, smtp_from_user, smtp_from_env
-
-    # notifications 路由当前为同步 Session；用户级可直接读，公司级在 async 路径更完整
-    resolved = smtp_from_user(current_user) or smtp_from_env()
+    from app.services.smtp_settings import resolve_smtp
+    resolved = await resolve_smtp(db, user=current_user)
     if not resolved or not resolved.is_complete():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

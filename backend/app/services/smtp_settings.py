@@ -206,26 +206,32 @@ async def resolve_smtp(
     user=None,
     company_id: int | None = None,
 ) -> ResolvedSmtp | None:
-    """优先级：用户前端 SMTP > 公司前端 SMTP > 环境变量。"""
+    """优先级：用户 > 所属/指定公司 > 默认公司 > 环境变量。"""
     u = smtp_from_user(user)
     if u and u.is_complete():
         return u
-    if db is not None and company_id:
-        c = await smtp_from_company(db, company_id)
-        if c and c.is_complete():
-            return c
-    # 无 company_id 时尝试默认公司（单公司部署欢迎信）
-    if db is not None and not company_id:
-        try:
-            from app.services.register_join import get_default_company
+    if db is not None:
+        if company_id is None and getattr(user, "id", None):
+            from app.models.company import CompanyMembership
+            company_id = (await db.execute(select(CompanyMembership.company_id).where(
+                CompanyMembership.user_id == user.id, CompanyMembership.status == "active"
+            ).order_by(CompanyMembership.id).limit(1))).scalar_one_or_none()
+        return await smtp_for_system(db, company_id)
+    return smtp_from_env()
 
-            co = await get_default_company(db)
-            if co:
-                c = await smtp_from_company(db, co.id)
-                if c and c.is_complete():
-                    return c
-        except Exception:
-            pass
+
+def resolve_smtp_sync(db=None, *, user=None, company_id: int | None = None) -> ResolvedSmtp | None:
+    """同步调度器与邮件回执使用相同优先级。"""
+    resolved = smtp_from_user(user)
+    if resolved and resolved.is_complete():
+        return resolved
+    if db is not None:
+        if company_id is None and getattr(user, "id", None):
+            from app.models.company import CompanyMembership
+            company_id = db.execute(select(CompanyMembership.company_id).where(
+                CompanyMembership.user_id == user.id, CompanyMembership.status == "active"
+            ).order_by(CompanyMembership.id).limit(1)).scalar_one_or_none()
+        return smtp_for_system_sync(db, company_id)
     return smtp_from_env()
 
 

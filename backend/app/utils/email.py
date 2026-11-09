@@ -124,6 +124,10 @@ def send_email(
     html_content: Optional[str] = None,
     message_id: Optional[str] = None,
     in_reply_to: Optional[str] = None,
+    *,
+    db=None,
+    user=None,
+    company_id: int | None = None,
 ) -> bool:
     """Send email via SMTP using global settings.
 
@@ -138,21 +142,22 @@ def send_email(
     Returns:
         True if sent successfully
     """
-    if not settings.SMTP_USER or not settings.SMTP_PASSWORD:
+    from app.services.smtp_settings import resolve_smtp_sync
+    resolved = resolve_smtp_sync(db, user=user, company_id=company_id)
+    if not resolved or not resolved.is_complete():
         logger.warning("[EMAIL] SMTP not configured, skipping email send")
         return False
 
-    from_addr = settings.SMTP_FROM or settings.SMTP_USER
     return _send_smtp(
         to_email=to_email,
-        from_addr=from_addr,
+        from_addr=resolved.from_addr,
         subject=subject,
         text_body=content,
         html_body=html_content or content,
-        smtp_host=settings.SMTP_HOST,
-        smtp_port=settings.SMTP_PORT,
-        smtp_user=settings.SMTP_USER,
-        smtp_password=settings.SMTP_PASSWORD,
+        smtp_host=resolved.host,
+        smtp_port=resolved.port,
+        smtp_user=resolved.user,
+        smtp_password=resolved.password,
         message_id=message_id,
         in_reply_to=in_reply_to,
     )

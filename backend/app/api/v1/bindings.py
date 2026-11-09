@@ -519,9 +519,26 @@ async def reply_collab_notification(
         from app.core.collab_errors import fail
 
         return fail(404, 40400, "通知不存在")
+    from app.api.deps_collab import assert_collaboration_write
+    await assert_collaboration_write(db, message.company_id, project_id=(message.payload_json or {}).get("project_id"), user_id=user.id)
     message.reply_text = body.text.strip()
     message.replied_at = datetime.now(timezone.utc)
     message.is_read = True
+    if message.sender_user_id is not None and message.sender_user_id != user.id:
+        db.add(CollabInboxMessage(
+            company_id=message.company_id,
+            user_id=message.sender_user_id,
+            sender_user_id=user.id,
+            recipient_user_ids=[message.sender_user_id],
+            template_key="notification.reply",
+            payload_json={
+                "reply_to_message_id": message.id,
+                "project_id": (message.payload_json or {}).get("project_id"),
+                "sender_user_id": user.id,
+                "text": message.reply_text,
+            },
+            body_text=message.reply_text,
+        ))
     await db.commit()
     return ResponseData(
         data={

@@ -4,11 +4,11 @@ from math import ceil
 from fastapi import APIRouter, File, Form, Query, UploadFile
 from sqlalchemy import func, select
 
-from app.api.deps_collab import assert_company_write, get_client_channel
+from app.api.deps_collab import assert_company_write, assert_collaboration_write, get_client_channel
 from app.core.collab_errors import CollabError, fail
 from app.core.dependencies import CurrentUser, DbSession, CollaborationUser
 from app.models.evidence import AsyncJob, EvidenceFile, EvidencePackage
-from app.models.progress import ProgressRecord
+from app.models.progress import AdoptionRecord, ProgressRecord
 from app.models.project import Project
 from app.models.tree import TreeNode
 from app.models.wiki import ProjectWikiEntry
@@ -397,6 +397,7 @@ def _pkg_dto(
     pkg: EvidencePackage,
     files: list[EvidenceFile] | None = None,
     can_review: bool = False,
+    reject_reason: str | None = None,
 ) -> dict:
     structured = pkg.structured_json or {}
     links = pkg.links_json or []
@@ -412,6 +413,7 @@ def _pkg_dto(
         "node_id": pkg.node_id,
         "submitter_user_id": pkg.submitter_user_id,
         "status": pkg.status,
+        "reject_reason": reject_reason if pkg.status == "rejected" else None,
         "summary_text": pkg.summary_text,
         "structured": structured,
         "links": links,
@@ -436,6 +438,19 @@ def _pkg_dto(
         "judged_at": pkg.judged_at.isoformat() if pkg.judged_at else None,
         "created_at": pkg.created_at.isoformat() if pkg.created_at else None,
     }
+
+
+async def _rejection_reasons(db, packages) -> dict[int, str]:
+    ids = [p.id for p in packages if p.status == "rejected"]
+    if not ids:
+        return {}
+    records = (await db.execute(select(AdoptionRecord).where(
+        AdoptionRecord.evidence_package_id.in_(ids), AdoptionRecord.decision == "rejected"
+    ).order_by(AdoptionRecord.id.desc()))).scalars().all()
+    reasons = {}
+    for record in records:
+        reasons.setdefault(record.evidence_package_id, record.reason or "负责人未采纳该材料")
+    return reasons
 
 
 async def _can_user_review_package(
@@ -470,7 +485,8 @@ async def get_evidence(package_id: int, db: DbSession, user: CurrentUser):
         await db.execute(select(EvidenceFile).where(EvidenceFile.package_id == pkg.id))
     ).scalars().all()
     can_review, _ = await _can_user_review_package(db, user.id, pkg)
-    return ResponseData(data=_pkg_dto(pkg, list(files), can_review=can_review))
+    reasons = await _rejection_reasons(db, [pkg])
+    return ResponseData(data=_pkg_dto(pkg, list(files), can_review=can_review, reject_reason=reasons.get(pkg.id)))
 
 
 @router.post("/evidence/{package_id}/review")
@@ -484,6 +500,8 @@ async def review_evidence(
     pkg = await db.get(EvidencePackage, package_id)
     if not pkg:
         return fail(404, 40400, "材料不存在")
+
+    await assert_collaboration_write(db, pkg.company_id, project_id=pkg.project_id, user_id=user.id, feature="project_tree")
 
     if pkg.status != "pending_review":
         return fail(409, 40901, f"材料状态为 {pkg.status}，只有 pending_review 状态能确认")
@@ -521,7 +539,8 @@ async def review_evidence(
         await db.execute(select(EvidenceFile).where(EvidenceFile.package_id == pkg.id))
     ).scalars().all()
     can_rev, _ = await _can_user_review_package(db, user.id, pkg)
-    return ResponseData(data=_pkg_dto(pkg, list(files), can_review=can_rev))
+    reasons = await _rejection_reasons(db, [pkg])
+    return ResponseData(data=_pkg_dto(pkg, list(files), can_review=can_rev, reject_reason=reasons.get(pkg.id)))
 
 
 @router.get("/nodes/{node_id}/evidence")
@@ -556,10 +575,11 @@ async def list_evidence(
             .limit(page_size)
         )
     ).scalars().all()
+    reasons = await _rejection_reasons(db, rows)
     items = []
     for p in rows:
         can_rev, _ = await _can_user_review_package(db, user.id, p)
-        items.append(_pkg_dto(p, can_review=can_rev))
+        items.append(_pkg_dto(p, can_review=can_rev, reject_reason=reasons.get(p.id)))
     return ResponseData(
         data={
             "items": items,

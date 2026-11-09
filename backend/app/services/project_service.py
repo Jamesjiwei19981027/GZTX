@@ -155,6 +155,8 @@ class ProjectService:
         invitee_user_id: int | None = None,
         invitee_email: str | None = None,
     ) -> ProjectInvitation:
+        from app.api.deps_collab import assert_collaboration_write
+        await assert_collaboration_write(db, project.company_id, project_id=project.id)
         token = secrets.token_urlsafe(32)
         inv = ProjectInvitation(
             project_id=project.id,
@@ -197,6 +199,8 @@ class ProjectService:
         project = await db.get(Project, inv.project_id)
         if not project:
             raise ValueError("项目不存在")
+        from app.api.deps_collab import assert_collaboration_write
+        await assert_collaboration_write(db, project.company_id, project_id=project.id)
         # 接受一封有效的项目邀请就是加入该公司的授权依据。首次受邀者此前
         # 不会有 CompanyMembership，若仍要求先由管理员手工加入公司，会让
         # 「邀请链接 → 加入项目」的标准协作链断在半路。已有但已停用/离职的

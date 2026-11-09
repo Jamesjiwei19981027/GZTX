@@ -6,6 +6,7 @@ import { MobileLoadingState, MobileErrorState } from '../../ui/MobileState';
 import { useMobileNavigation } from '../../navigation/MobileNavigationProvider';
 import {
   aggregateAgentReports,
+  getLatestProjectAgentReport,
   listAgentReports,
   AgentReport,
 } from '../../../api/reports';
@@ -42,12 +43,15 @@ export const ProjectReportScreen: React.FC<ProjectReportScreenProps> = ({
 
     setLoading(true);
     setError(null);
+    setEnvelopeSummary('');
+    setSubordinateReports([]);
 
-    listAgentReports(numericProjectId)
-      .then((res) => {
+    Promise.all([listAgentReports(numericProjectId), getLatestProjectAgentReport(numericProjectId)])
+      .then(([res, latest]) => {
         if (cancelled) return;
         const reports = res.items || [];
         setSubordinateReports(reports);
+        setEnvelopeSummary(latest?.summary_text || '');
       })
       .catch((err) => {
         if (!cancelled) setError(err instanceof Error ? err.message : '加载项目汇报记录失败');
