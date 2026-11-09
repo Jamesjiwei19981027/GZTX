@@ -1,9 +1,10 @@
 """汇报策略与手工运行 §13"""
 from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 
 from app.core.collab_errors import fail
+from app.api.deps_collab import assert_collaboration_write
 from app.core.dependencies import CurrentUser, DbSession
 from app.models.project import Project, ProjectMember
 from app.models.report import ReportPolicy
@@ -106,6 +107,7 @@ async def run_report(
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
+    await assert_collaboration_write(db, p.company_id, project_id=p.id, user_id=user.id)
     from app.api.deps_collab import assert_company_write
     from app.core.collab_errors import CollabError
 
@@ -150,6 +152,7 @@ async def ensure_report_agent_bindings(project_id: int, db: DbSession, user: Cur
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
+    await assert_collaboration_write(db, p.company_id, project_id=p.id, user_id=user.id)
     is_pm = await acl.can(db, user.id, p.company_id, "progress.write_formal", project_id=p.id)
     if is_pm:
         try:
@@ -210,6 +213,18 @@ def _binding_dto(binding: ProjectAgentBinding) -> dict:
     }
 
 
+async def _report_visibility(db, project: Project, user_id: int):
+    """草稿始终归作者；项目读权限不能授予个人汇报读权限。"""
+    membership = await acl._membership(db, user_id, project.company_id)
+    member = await acl._project_member(db, project.id, user_id)
+    manager = bool(membership and membership.is_super_admin) or bool(member and member.role == "pm") or project.pm_user_id == user_id
+    submitted = AgentReport.status.in_(("submitted", "aggregated"))
+    return or_(
+        AgentReport.author_user_id == user_id,
+        and_(submitted, True if manager else AgentReport.parent_user_id == user_id),
+    )
+
+
 @router.post("/projects/{project_id}/agent-reports")
 async def submit_agent_report(
     project_id: int, body: AgentReportSubmitBody, db: DbSession, user: CurrentUser
@@ -218,6 +233,7 @@ async def submit_agent_report(
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
+    await assert_collaboration_write(db, p.company_id, project_id=p.id, user_id=user.id)
     if not await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id):
         return fail(403, 40300, "非项目成员")
     binding = await db.get(ProjectAgentBinding, body.binding_id)
@@ -253,6 +269,7 @@ async def generate_agent_report(
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
+    await assert_collaboration_write(db, p.company_id, project_id=p.id, user_id=user.id)
     if not await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id):
         return fail(403, 40300, "非项目成员")
     stmt = select(ProjectAgentBinding).where(
@@ -311,14 +328,18 @@ async def list_agent_reports(project_id: int, db: DbSession, user: CurrentUser):
         return fail(403, 40300, "非项目成员")
     rows = (
         await db.execute(
-            select(AgentReport).where(AgentReport.project_id == p.id).order_by(AgentReport.id.desc())
+            select(AgentReport).where(
+                AgentReport.project_id == p.id,
+                await _report_visibility(db, p, user.id),
+            ).order_by(AgentReport.id.desc())
         )
     ).scalars().all()
     source_rows = []
-    if rows:
+    own_report_ids = [r.id for r in rows if r.author_user_id == user.id]
+    if own_report_ids:
         source_rows = (
             await db.execute(
-                select(AgentReportSource).where(AgentReportSource.report_id.in_([r.id for r in rows])).order_by(AgentReportSource.id)
+                select(AgentReportSource).where(AgentReportSource.report_id.in_(own_report_ids)).order_by(AgentReportSource.id)
             )
         ).scalars().all()
     sources_by_report: dict[int, list[dict]] = {}
@@ -339,7 +360,10 @@ async def list_agent_reports(project_id: int, db: DbSession, user: CurrentUser):
                 "parent_user_id": r.parent_user_id,
                 "status": r.status,
                 "summary_text": r.summary_text,
-                "payload_json": r.payload_json,
+                "payload_json": r.payload_json if r.author_user_id == user.id else {
+                    k: v for k, v in (r.payload_json or {}).items()
+                    if k in ("context_scope", "grounded", "model_provider", "node_status", "progress_status", "status_label", "conflicts", "conflict")
+                },
                 "source_count": len(sources_by_report.get(r.id, [])),
                 "sources": sources_by_report.get(r.id, []),
                 "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None,
@@ -357,6 +381,7 @@ async def aggregate_agent_reports(project_id: int, db: DbSession, user: CurrentU
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
+    await assert_collaboration_write(db, p.company_id, project_id=p.id, user_id=user.id)
     if not await acl.can(db, user.id, p.company_id, "progress.write_formal", project_id=p.id):
         return fail(403, 40300, "需要项目管理者")
     try:
@@ -375,12 +400,39 @@ async def aggregate_agent_reports(project_id: int, db: DbSession, user: CurrentU
     })
 
 
+@router.get("/projects/{project_id}/agent-reports/latest")
+async def latest_project_agent_report(project_id: int, db: DbSession, user: CurrentUser):
+    """回读已保存的最新项目汇总（桌面与移动端共用）。"""
+    p = await db.get(Project, project_id)
+    if not p:
+        return fail(404, 40400, "项目不存在")
+    if not await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id):
+        return fail(403, 40300, "无权查看项目汇总")
+    membership = await acl._membership(db, user.id, p.company_id)
+    member = await acl._project_member(db, p.id, user.id)
+    if not (membership and membership.is_super_admin) and not (member and member.role == "pm") and p.pm_user_id != user.id:
+        return fail(403, 40300, "需要项目管理者")
+    envelope = (await db.execute(select(ProjectReportEnvelope).where(
+        ProjectReportEnvelope.project_id == p.id
+    ).order_by(ProjectReportEnvelope.id.desc()).limit(1))).scalar_one_or_none()
+    if not envelope:
+        return ResponseData(data=None)
+    return ResponseData(data={
+        "id": envelope.id, "project_id": envelope.project_id, "status": envelope.status,
+        "summary_text": envelope.summary_text, "payload_json": envelope.payload_json,
+        "report_ids": (envelope.payload_json or {}).get("report_ids", []),
+        "source_count": (envelope.payload_json or {}).get("source_count", 0),
+        "created_at": envelope.created_at.isoformat() if envelope.created_at else None,
+    })
+
+
 @router.post("/projects/{project_id}/agent-reports/rollup")
 async def rollup_agent_reports(project_id: int, db: DbSession, user: CurrentUser):
     """逐级上报智能体汇报"""
     p = await db.get(Project, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
+    await assert_collaboration_write(db, p.company_id, project_id=p.id, user_id=user.id)
     if not await acl.can(db, user.id, p.company_id, "progress.write_formal", project_id=p.id):
         return fail(403, 40300, "需要项目管理者")
     totals = {"project_id": project_id, "created": 0, "skipped": 0, "failed": 0}
@@ -468,12 +520,12 @@ async def latest_leadership_report(company_id: int, db: DbSession, user: Current
 
 # Compatibility aliases used by Flutter and WeChat clients.  They map to the
 # same project-scoped agent report records as the explicit hierarchy routes.
-async def _legacy_report_dto(db, report: AgentReport) -> dict:
+async def _legacy_report_dto(db, report: AgentReport, *, viewer_user_id: int) -> dict:
     sources = (
         await db.execute(
             select(AgentReportSource).where(AgentReportSource.report_id == report.id).order_by(AgentReportSource.id)
         )
-    ).scalars().all()
+    ).scalars().all() if report.author_user_id == viewer_user_id else []
     return {
         "id": report.id,
         "report_id": report.id,
@@ -511,7 +563,7 @@ async def legacy_my_reports(db: DbSession, user: CurrentUser, project_id: int | 
         .where(*filters)
         .order_by(AgentReport.id.desc())
     )).scalars().all()
-    return ResponseData(data={"items": [await _legacy_report_dto(db, r) for r in rows]})
+    return ResponseData(data={"items": [await _legacy_report_dto(db, r, viewer_user_id=user.id) for r in rows]})
 
 
 @router.get("/reports/inbox")
@@ -530,7 +582,7 @@ async def legacy_report_inbox(db: DbSession, user: CurrentUser):
             .order_by(AgentReport.id.desc())
         )
     ).scalars().all()
-    return ResponseData(data={"items": [await _legacy_report_dto(db, r) for r in rows]})
+    return ResponseData(data={"items": [await _legacy_report_dto(db, r, viewer_user_id=user.id) for r in rows]})
 
 
 @router.get("/reports/{report_id}")
@@ -542,7 +594,12 @@ async def legacy_get_report(report_id: int, db: DbSession, user: CurrentUser):
     project = await db.get(Project, report.project_id)
     if not project or not await acl.can(db, user.id, report.company_id, "progress.read", project_id=report.project_id):
         return fail(403, 40300, "无权查看汇报")
-    return ResponseData(data=await _legacy_report_dto(db, report))
+    visible = (await db.execute(select(AgentReport.id).where(
+        AgentReport.id == report.id, await _report_visibility(db, project, user.id)
+    ))).scalar_one_or_none()
+    if visible is None:
+        return fail(403, 40300, "无权查看汇报")
+    return ResponseData(data=await _legacy_report_dto(db, report, viewer_user_id=user.id))
 
 
 @router.post("/reports/generate")
@@ -582,6 +639,7 @@ async def legacy_generate_report(body: LegacyReportGenerateBody, db: DbSession, 
             return fail(404, 40400, "项目不存在")
         if not await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id):
             return fail(403, 40300, "非项目成员")
+        await assert_collaboration_write(db, p.company_id, project_id=p.id, user_id=user.id)
         try:
             binding = await ensure_member_agent_binding(db, project_id=target_project_id, user_id=user.id)
             await db.flush()
@@ -589,6 +647,7 @@ async def legacy_generate_report(body: LegacyReportGenerateBody, db: DbSession, 
             return fail(403, 40300, "非项目成员")
         except ValueError as e:
             return fail(422, 42200, str(e))
+    await assert_collaboration_write(db, binding.company_id, project_id=binding.project_id, user_id=user.id)
     try:
         draft = await generate_member_report_draft(
             db, binding_id=binding.id, author_user_id=user.id
@@ -603,7 +662,7 @@ async def legacy_generate_report(body: LegacyReportGenerateBody, db: DbSession, 
             return fail(502, 50230, msg)
         return fail(422, 42200, msg)
     await db.commit()
-    return ResponseData(data=await _legacy_report_dto(db, draft))
+    return ResponseData(data=await _legacy_report_dto(db, draft, viewer_user_id=user.id))
 
 
 @router.post("/reports/{report_id}/submit")
@@ -616,8 +675,9 @@ async def legacy_submit_report(report_id: int, body: LegacyReportSubmitBody, db:
         return fail(403, 40300, "只能提交自己的汇报")
     if not await acl.can(db, user.id, report.company_id, "progress.read", project_id=report.project_id):
         return fail(403, 40300, "已不具备该项目权限")
+    await assert_collaboration_write(db, report.company_id, project_id=report.project_id, user_id=user.id)
     if report.status == "submitted" and not body.summary and not body.sources:
-        return ResponseData(data=await _legacy_report_dto(db, report))
+        return ResponseData(data=await _legacy_report_dto(db, report, viewer_user_id=user.id))
     summary = (body.summary or report.summary_text or "").strip()
     if not summary:
         summary = "已提交当前项目智能体掌握的资料，待补充详细进展。"
@@ -634,7 +694,7 @@ async def legacy_submit_report(report_id: int, body: LegacyReportSubmitBody, db:
     except ValueError as e:
         return fail(422, 42200, str(e))
     await db.commit()
-    return ResponseData(data=await _legacy_report_dto(db, submitted))
+    return ResponseData(data=await _legacy_report_dto(db, submitted, viewer_user_id=user.id))
 
 
 @router.put("/reports/inbox/{report_id}/read")

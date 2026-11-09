@@ -126,6 +126,10 @@ export async function aggregateAgentReports(projectId: number) {
   return apiRequest<{ id: number; project_id: number; status: string; summary_text: string; payload_json?: Record<string, unknown> }>(`/projects/${projectId}/agent-reports/aggregate`, { method: 'POST', body: '{}' })
 }
 
+export async function getLatestProjectAgentReport(projectId: number) {
+  return apiRequest<{ id: number; project_id: number; status: string; summary_text: string; payload_json?: Record<string, unknown> } | null>(`/projects/${projectId}/agent-reports/latest`)
+}
+
 export async function aggregateLeadershipReport(companyId: number, projectIds?: number[]) {
   return apiRequest<LeadershipReport>(`/companies/${companyId}/leadership-reports/aggregate`, {
     method: 'POST',

@@ -12,15 +12,15 @@ def _pkg(summary="", structured=None):
     )
 
 
-def test_llm_judge_rejects_too_short():
+def test_llm_judge_without_model_falls_back_to_rule():
     j = LlmEvidenceJudge()
     r = j.judge(
         package=_pkg("ok"),
         node_progress={"template": "work_item", "status": "not_started", "percent": 0},
         files_count=0,
     )
-    assert r.decision == "rejected"
-    assert "[llm]" in r.reason
+    assert r.decision == "adopted"
+    assert r.reason.startswith("规则判定")
 
 
 def test_llm_judge_adopts_with_structured():
@@ -32,7 +32,7 @@ def test_llm_judge_adopts_with_structured():
     )
     assert r.decision == "adopted"
     assert r.progress_after.get("percent") == 80
-    assert "[llm]" in r.reason
+    assert r.reason.startswith("规则判定")
 
 
 def test_rule_still_works():

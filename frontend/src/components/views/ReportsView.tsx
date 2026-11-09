@@ -15,6 +15,7 @@ import {
   Legend,
 } from 'recharts';
 import { getTaskStats, getTaskTrend } from '../../api/shell';
+import { getLatestProjectAgentReport } from '../../api/reports';
 import { aggregateAgentReports, aggregateLeadershipReport, ensureReportAgentBindings, generateMyReportDraft, getLatestLeadershipReport, listAgentReports, listProjectReportPolicies, listReportAgentBindings, listReportInbox, markReportRead, runProjectReport, submitAgentReport, submitReportEdit, type AgentReport, type LeadershipReport, type ProjectReportRun, type ReportAgentBinding, type ReportPolicy } from '../../api/reports';
 
 interface ReportsViewProps {
@@ -75,6 +76,9 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
     setLeadershipError(null);
     setReportError(null);
     if (!numericProjectId) return () => { cancelled = true; };
+    void getLatestProjectAgentReport(numericProjectId)
+      .then((report) => { if (!cancelled) setAgentSummary(report?.summary_text || null); })
+      .catch(() => { /* 非项目管理者无权读取项目汇总。 */ });
     void Promise.all([listProjectReportPolicies(numericProjectId), listReportAgentBindings(numericProjectId), listAgentReports(numericProjectId), listReportInbox().catch(() => ({ items: [] as AgentReport[] }))])
       .then(([policies, bindings, reports, inbox]) => {
         if (cancelled) return;

@@ -482,7 +482,7 @@ async def list_project_members(project_id: int, db: DbSession, user: CurrentUser
         await db.execute(
             select(ProjectMember, User)
             .join(User, User.id == ProjectMember.user_id)
-            .where(ProjectMember.project_id == p.id)
+            .where(ProjectMember.project_id == p.id, ProjectMember.left_at.is_(None))
         )
     ).all()
     items = [

@@ -90,7 +90,7 @@ class AgentReport(Base):
     status = Column(String(24), nullable=False, default="submitted")  # draft|submitted|aggregated
     summary_text = Column(Text, nullable=False)
     payload_json = Column(JSON, nullable=False, default=dict)
-    submitted_at = Column(UTCDateTime(), server_default=func.now())
+    submitted_at = Column(UTCDateTime(), nullable=True)
     created_at = Column(UTCDateTime(), server_default=func.now())
     read_at = Column(UTCDateTime(), nullable=True)
 

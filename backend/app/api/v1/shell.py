@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.collab_errors import CollabError, fail
+from app.api.deps_collab import assert_collaboration_write
 from app.core.dependencies import CurrentUser, DbSession
 from app.core.config import settings
 from app.models.collab_file import CollabFile
@@ -448,6 +449,7 @@ async def post_message(
         return fail(404, 40400, "频道不存在")
     try:
         await _require_channel_scope(db, user.id, ch.company_id, ch.project_id)
+        await assert_collaboration_write(db, ch.company_id, project_id=ch.project_id, user_id=user.id)
     except CollabError as e:
         return fail(e.http_status, e.code, e.message)
     m = TeamChannelMessage(
@@ -861,7 +863,8 @@ async def post_direct_message(
 ):
     """发送私聊消息"""
     try:
-        await _require_direct_member(db, user.id, conversation_id)
+        conversation = await _require_direct_member(db, user.id, conversation_id)
+        await assert_collaboration_write(db, conversation.company_id, project_id=conversation.project_id, user_id=user.id)
     except CollabError as e:
         return fail(e.http_status, e.code, e.message)
     message = DirectMessage(

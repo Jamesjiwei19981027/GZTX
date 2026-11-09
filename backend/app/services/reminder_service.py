@@ -261,35 +261,15 @@ class ReminderService:
         if not user.email:
             return False
 
-        # Determine SMTP config: user-level first, then global env
-        from app.services.user_secrets import unseal
+        from sqlalchemy.orm import object_session
+        from app.services.smtp_settings import resolve_smtp_sync
 
-        config = ReminderService._get_channel_config(user, "email")
-        smtp_host = config.get("smtp_host")
-        smtp_user = config.get("smtp_user")
-        smtp_password = unseal(config.get("smtp_password"))
-        smtp_port = int(config.get("smtp_port") or 465)
-        smtp_from = config.get("smtp_from") or smtp_user
-        if not all([smtp_host, smtp_user, smtp_password]):
-            # 个人未配：任务所属公司 > 默认公司 > 环境变量（企业管理页填写的是公司级）
-            from sqlalchemy.orm import object_session
-
-            from app.services.smtp_settings import smtp_for_system_sync, smtp_from_env
-
-            sess = object_session(task) or object_session(user)
-            resolved = (
-                smtp_for_system_sync(sess, getattr(task, "company_id", None))
-                if sess is not None
-                else smtp_from_env()
-            )
-            if resolved:
-                smtp_host, smtp_user, smtp_password = resolved.host, resolved.user, resolved.password
-                smtp_port, smtp_from = resolved.port, resolved.from_addr
-
-        if not all([smtp_host, smtp_user, smtp_password]):
-            logger.warning("[EMAIL] Not configured (user / company / env)")
+        resolved = resolve_smtp_sync(object_session(task) or object_session(user), user=user, company_id=task.company_id)
+        if not resolved or not resolved.is_complete():
+            logger.warning("[EMAIL] Not configured (user / company / default / env)")
             return False
-
+        smtp_host, smtp_user, smtp_password = resolved.host, resolved.user, resolved.password
+        smtp_port, smtp_from = resolved.port, resolved.from_addr
         from app.utils.email import build_reminder_email, _send_smtp
 
         subject, html_body, reply_to, message_id = build_reminder_email(

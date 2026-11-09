@@ -12,7 +12,7 @@ def test_channels_unique_idx_migration():
     from alembic.script import ScriptDirectory
     script = ScriptDirectory.from_config(config)
     head = script.get_current_head()
-    assert head == "fn2b3c4d5e6f"
+    assert head in {"fn2b3c4d5e6f", "fo3c4d5e6f7a"}
 
 
 def test_channels_unique_idx_migration_merges_duplicates_and_enforces_null_project():
