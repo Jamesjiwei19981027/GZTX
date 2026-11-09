@@ -393,6 +393,9 @@ async def put_integration(
     return ResponseData(data=_integration_dto(acc))
 
 
+ORG_SYNC_PROVIDERS = ("wecom", "dingtalk", "feishu", "generic_scim", "generic")
+
+
 @router.post("/{company_id}/org-sync", response_model=ResponseData)
 async def trigger_org_sync(
     db: DbSession,
@@ -402,7 +405,13 @@ async def trigger_org_sync(
     provider: str | None = Query(None, description="指定集成；默认取最近一条可同步账号"),
 ):
     """触发组织架构同步"""
-    q = select(IntegrationAccount).where(IntegrationAccount.company_id == company.id)
+    # 只在组织类集成里选，绝不能取到发信/AI 等同表记录
+    if provider and provider not in ORG_SYNC_PROVIDERS:
+        raise CollabError(422, 42200, f"provider={provider} 不支持组织同步（仅 SSO）")
+    q = select(IntegrationAccount).where(
+        IntegrationAccount.company_id == company.id,
+        IntegrationAccount.provider.in_(ORG_SYNC_PROVIDERS),
+    )
     if provider:
         q = q.where(IntegrationAccount.provider == provider)
     q = q.order_by(IntegrationAccount.id.desc()).limit(1)

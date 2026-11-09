@@ -19,13 +19,39 @@ class TestSendBody(BaseModel):
     channel: Literal["email", "webpush"]
 
 
+async def _serialize_records(db, rows, user_names: dict[int, str] | None = None) -> list[dict]:
+    task_ids = {r.task_id for r in rows if r.task_id is not None}
+    titles: dict[int, str] = {}
+    if task_ids:
+        pairs = await db.execute(
+            select(Task.id, Task.title).where(Task.id.in_(task_ids))
+        )
+        titles = dict(pairs.all())
+    items = []
+    for r in rows:
+        item = {
+            "id": r.id,
+            "channel": r.channel,
+            "status": r.status,
+            "error": r.error,
+            "task_id": r.task_id,
+            "task_title": titles.get(r.task_id) if r.task_id else None,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        if user_names is not None:
+            item["user_id"] = r.user_id
+            item["user_name"] = user_names.get(r.user_id)
+        items.append(item)
+    return items
+
+
 @router.get("/records", response_model=ResponseData)
 async def get_notification_records(
     db: DbSession,
     user: CurrentUser,
     limit: int = Query(50, ge=1, le=200),
 ):
-    """当前用户最近的通知发送记录（失败带原因，附任务标题若有）。"""
+    """当前用户最近的通知发送记录（失败带原因，附任务标题若有）。只含本人。"""
     rows = (
         await db.execute(
             select(NotificationRecord)
@@ -34,31 +60,55 @@ async def get_notification_records(
             .limit(limit)
         )
     ).scalars().all()
+    return ResponseData(data={"items": await _serialize_records(db, rows)})
 
-    task_ids = {r.task_id for r in rows if r.task_id is not None}
-    titles: dict[int, str] = {}
-    if task_ids:
-        pairs = await db.execute(
-            select(Task.id, Task.title).where(Task.id.in_(task_ids))
+
+@router.get("/company-records", response_model=ResponseData)
+async def get_company_notification_records(
+    db: DbSession,
+    user: CurrentUser,
+    company_id: int = Query(..., ge=1),
+    limit: int = Query(50, ge=1, le=200),
+):
+    """全公司最近的通知发送记录：仅该公司超级管理员可看，按公司成员过滤。"""
+    from app.core.collab_errors import CollabError
+    from app.models.company import CompanyMembership
+    from app.models.user import User
+
+    me = (
+        await db.execute(
+            select(CompanyMembership).where(
+                CompanyMembership.company_id == company_id,
+                CompanyMembership.user_id == user.id,
+                CompanyMembership.status == "active",
+            )
         )
-        titles = dict(pairs.all())
+    ).scalar_one_or_none()
+    if not me:
+        raise CollabError(403, 40302, "非本公司成员")
+    if not me.is_super_admin:
+        raise CollabError(403, 40303, "需要公司超级管理员")
 
-    return ResponseData(
-        data={
-            "items": [
-                {
-                    "id": r.id,
-                    "channel": r.channel,
-                    "status": r.status,
-                    "error": r.error,
-                    "task_id": r.task_id,
-                    "task_title": titles.get(r.task_id) if r.task_id else None,
-                    "created_at": r.created_at.isoformat() if r.created_at else None,
-                }
-                for r in rows
-            ]
-        }
+    member_ids = select(CompanyMembership.user_id).where(
+        CompanyMembership.company_id == company_id,
+        CompanyMembership.status == "active",
     )
+    rows = (
+        await db.execute(
+            select(NotificationRecord)
+            .where(NotificationRecord.user_id.in_(member_ids))
+            .order_by(NotificationRecord.id.desc())
+            .limit(limit)
+        )
+    ).scalars().all()
+    uids = {r.user_id for r in rows}
+    names: dict[int, str] = {}
+    if uids:
+        for uid, nick, uname in (
+            await db.execute(select(User.id, User.nickname, User.username).where(User.id.in_(uids)))
+        ).all():
+            names[uid] = nick or uname
+    return ResponseData(data={"items": await _serialize_records(db, rows, names)})
 
 
 async def _test_send_email(db, user) -> tuple[bool, Optional[str]]:
