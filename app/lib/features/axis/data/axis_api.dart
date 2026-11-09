@@ -146,6 +146,15 @@ class AxisApi {
     );
   }
 
+  /// 事项沿用节点写路径，由后端 TreeService 执行权限和形态校验。
+  Future<void> updateMatter(int nodeId, Map<String, dynamic> patch) =>
+      _client.patch('/nodes/$nodeId', body: patch);
+
+  Future<void> deleteMatter(int nodeId) => _client.delete('/nodes/$nodeId');
+
+  Future<void> restoreMatter(int nodeId) =>
+      _client.post('/nodes/$nodeId/restore', body: const {});
+
   /// 保存卡片位置（`PUT /nodes/{id}/layout`）。
   Future<void> saveNodeLayout(
     int nodeId, {
@@ -155,9 +164,8 @@ class AxisApi {
   }) {
     final body = <String, dynamic>{'offset_x': offsetX, 'offset_y': offsetY};
     if (orientation != null) {
-      body['orientation'] = orientation == AxisOrientation.horizontal
-          ? 'horizontal'
-          : 'vertical';
+      body['orientation'] =
+          orientation == AxisOrientation.horizontal ? 'horizontal' : 'vertical';
     }
     return _client.put(
       '/nodes/$nodeId/layout',

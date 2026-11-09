@@ -19,6 +19,28 @@ class ReportsApi {
 
   final ApiClient _client;
 
+  Future<ReportSummaryList> listSummaries(int projectId) async {
+    final data = await _client.get('/projects/$projectId/report-summaries');
+    return ReportSummaryList(
+        items: _parseItems(data, PublishedReportSummary.fromJson),
+        canPublish: data is Map && data['can_publish'] == true);
+  }
+
+  Future<PublishedReportSummary> publishSummary(
+      int projectId, int summaryId) async {
+    final data = await _client.post(
+        '/projects/$projectId/report-summaries/$summaryId/publish',
+        body: const <String, dynamic>{});
+    return _parseObject(data, PublishedReportSummary.fromJson, '项目汇总发布');
+  }
+
+  Future<AgentReport> reviewReport(int reportId,
+      {required String decision, required String comment}) async {
+    final data = await _client.post('/reports/$reportId/review',
+        body: {'decision': decision, 'comment': comment.trim()});
+    return _parseObject(data, AgentReport.fromJson, '汇报核验');
+  }
+
   Future<List<ReportAgentBinding>> listBindings(int projectId) async {
     final data =
         await _client.get('/projects/$projectId/report-agents/bindings');

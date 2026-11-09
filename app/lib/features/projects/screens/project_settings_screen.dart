@@ -1,9 +1,4 @@
-/// 项目设置（含归档与退出项目）
-///
-/// 网页真源：`MobileProjectScreens.tsx` 中的 `MobileProjectSettingsScreen`（10）。
-/// 与网页版的差异：网页的「归档」只是本地提示（没有调用接口），原生版调用
-/// `POST /projects/{id}/archive`；「退出项目」网页手机版缺失，原生版按任务范围补齐，
-/// 调用 `POST /projects/{id}/leave`。
+/// 项目设置：项目信息、负责人交接、汇报策略与归档。
 library;
 
 import 'package:flutter/material.dart';
@@ -12,6 +7,7 @@ import 'package:worktodo_app/design/design.dart';
 
 import '../data/projects_repository.dart';
 import '../models/project_models.dart';
+import 'project_report_policy_screen.dart';
 import '../widgets/project_error_view.dart';
 import '../widgets/project_widgets.dart';
 
@@ -63,8 +59,196 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     });
   }
 
-  ProjectsRepository get _repo =>
-      ProjectsRepository(context.authStateRead.api);
+  ProjectsRepository get _repo => ProjectsRepository(context.authStateRead.api);
+
+  bool get _canManage =>
+      _permissions?.isPm == true ||
+      _permissions?.isSuperadmin == true ||
+      (_project?.createdBy != null &&
+          _project?.createdBy == context.authStateRead.currentUser?.id);
+
+  Future<void> _rename() async {
+    final projectId = widget.projectId;
+    var name = _project?.name ?? '';
+    String? error;
+    final value = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+          builder: (context, update) => AlertDialog(
+                title: const Text('修改项目名称'),
+                content: TextFormField(
+                  initialValue: name,
+                  autofocus: true,
+                  maxLength: 200,
+                  decoration:
+                      InputDecoration(labelText: '项目名称', errorText: error),
+                  onChanged: (value) => name = value,
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('取消')),
+                  TextButton(
+                      onPressed: () {
+                        if (name.trim().isEmpty) {
+                          update(() => error = '项目名称不能为空');
+                          return;
+                        }
+                        Navigator.pop(dialogContext, name.trim());
+                      },
+                      child: const Text('保存名称')),
+                ],
+              )),
+    );
+    if (!mounted ||
+        projectId != widget.projectId ||
+        value == null ||
+        !_canManage) {
+      return;
+    }
+    await _saveProject(projectId, name: value);
+  }
+
+  Future<void> _changeOwner() async {
+    final projectId = widget.projectId;
+    final companyId = _project?.companyId;
+    if (companyId == null) return;
+    setState(() {
+      _busy = true;
+      _actionError = null;
+    });
+    try {
+      final members = await _repo.fetchCompanyMembers(companyId);
+      if (!mounted || projectId != widget.projectId) return;
+      setState(() => _busy = false);
+      final candidates = members
+          .where((m) =>
+              m.canBeProjectOwner && m.userId != _project?.finalOwnerUserId)
+          .toList();
+      final selected = await showDialog<int>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+                title: const Text('选择新负责人'),
+                content: SizedBox(
+                    width: double.maxFinite,
+                    child: candidates.isEmpty
+                        ? const Text('暂无可交接的在职企业成员，请先邀请成员加入。')
+                        : ListView(shrinkWrap: true, children: [
+                            for (final member in candidates)
+                              ListTile(
+                                  title: Text(member.name),
+                                  onTap: () => Navigator.pop(
+                                      dialogContext, member.userId)),
+                          ])),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text('取消'))
+                ],
+              ));
+      if (!mounted ||
+          projectId != widget.projectId ||
+          selected == null ||
+          !_canManage) {
+        return;
+      }
+      final confirmed = await showAppConfirmDialog(
+          context: context,
+          title: '确认更换项目负责人？',
+          message: '交接后新负责人将获得项目管理权限，原负责人恢复为项目成员。',
+          confirmLabel: '确认交接');
+      if (!mounted ||
+          !confirmed ||
+          projectId != widget.projectId ||
+          !_canManage) {
+        return;
+      }
+      await _saveProject(projectId, pmUserId: selected);
+    } catch (error) {
+      if (!mounted || projectId != widget.projectId) return;
+      setState(() {
+        _busy = false;
+        _actionError = projectErrorMessage(error);
+      });
+    }
+  }
+
+  Future<void> _saveProject(int projectId,
+      {String? name, int? pmUserId}) async {
+    final seq = ++_loadSeq;
+    setState(() {
+      _busy = true;
+      _actionError = null;
+      _message = null;
+    });
+    final auth = context.authStateRead;
+    try {
+      final detail =
+          await _repo.updateProject(projectId, name: name, pmUserId: pmUserId);
+      if (!mounted || seq != _loadSeq) return;
+      setState(() {
+        _project = detail;
+        _permissions = null;
+      });
+      final permissions = await _repo.fetchPermissions(projectId);
+      final refreshed = await auth.refreshProjects();
+      if (!mounted || seq != _loadSeq) return;
+      setState(() {
+        _permissions = permissions;
+        _busy = false;
+        _message = pmUserId == null ? '项目名称已更新' : '项目负责人已交接';
+        if (!refreshed) _actionError = '修改已保存，项目列表刷新失败，请稍后重试';
+      });
+    } catch (error) {
+      if (!mounted || seq != _loadSeq) return;
+      setState(() {
+        _busy = false;
+        _actionError = projectErrorMessage(error);
+      });
+    }
+  }
+
+  Future<void> _unarchive() async {
+    final projectId = widget.projectId;
+    final confirmed = await showAppConfirmDialog(
+        context: context,
+        title: '确认取消归档？',
+        message: '取消归档后将恢复项目编辑与汇报。',
+        confirmLabel: '确认取消归档');
+    if (!confirmed ||
+        !mounted ||
+        projectId != widget.projectId ||
+        !_canManage) {
+      return;
+    }
+    final seq = ++_loadSeq;
+    setState(() {
+      _busy = true;
+      _actionError = null;
+      _message = null;
+    });
+    final auth = context.authStateRead;
+    try {
+      await _repo.unarchiveProject(projectId);
+      final detail = await _repo.fetchProject(projectId);
+      final permissions = await _repo.fetchPermissions(projectId);
+      final refreshed = await auth.refreshProjects();
+      if (!mounted || seq != _loadSeq) return;
+      setState(() {
+        _project = detail;
+        _permissions = permissions;
+        _busy = false;
+        _message = '项目已取消归档，恢复编辑';
+        if (!refreshed) _actionError = '项目已恢复，项目列表刷新失败，请稍后重试';
+      });
+    } catch (error) {
+      if (!mounted || seq != _loadSeq) return;
+      setState(() {
+        _busy = false;
+        _actionError = projectErrorMessage(error);
+      });
+    }
+  }
 
   Future<void> _load() async {
     // 序号用于丢弃旧参数请求的迟到结果
@@ -200,6 +384,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     final project = _project;
     final canArchive = _permissions?.canArchive ?? false;
     final isPm = _permissions?.isPm ?? false;
+    final archived = project?.isArchived ?? false;
 
     return ListView(
       padding: const EdgeInsets.only(
@@ -247,6 +432,10 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
               showChevron: false,
             ),
             AppListTile(
+                title: '项目负责人',
+                subtitle: project?.finalOwnerName ?? '尚未指定',
+                showChevron: false),
+            AppListTile(
               title: '当前角色',
               subtitle: _permissions?.roleLabel ?? '未知',
               showChevron: false,
@@ -258,7 +447,27 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             ),
           ],
         ),
-        if (canArchive)
+        if (_canManage && !archived)
+          AppListSection(header: '项目管理', children: [
+            AppListTile(title: '修改项目名称', onTap: _busy ? null : _rename),
+            AppListTile(title: '更换项目负责人', onTap: _busy ? null : _changeOwner),
+          ]),
+        if ((_permissions?.isPm == true ||
+                _permissions?.isSuperadmin == true) &&
+            !archived)
+          AppListSection(header: '汇报设置', children: [
+            AppListTile(
+                title: '汇报策略',
+                subtitle: '设置周期、截止时间与提醒',
+                onTap: _busy
+                    ? null
+                    : () {
+                        Navigator.of(context).push(MaterialPageRoute<void>(
+                            builder: (_) => ProjectReportPolicyScreen(
+                                projectId: widget.projectId)));
+                      }),
+          ]),
+        if ((canArchive && !archived) || (_canManage && archived))
           AppListSection(
             header: '危险操作区',
             children: [
@@ -268,10 +477,10 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
                   size: 20,
                   color: AppColors.danger,
                 ),
-                title: '归档此项目',
-                subtitle: '归档后项目变为只读，不再接收新的 AI 汇报与修改',
+                title: archived ? '取消归档' : '归档此项目',
+                subtitle: archived ? '恢复项目编辑与汇报' : '归档后项目变为只读，不再接收新的 AI 汇报与修改',
                 showChevron: false,
-                onTap: _busy ? null : _archive,
+                onTap: _busy ? null : (archived ? _unarchive : _archive),
               ),
             ],
           ),

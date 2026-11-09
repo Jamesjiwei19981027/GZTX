@@ -13,6 +13,7 @@ import '../data/projects_repository.dart';
 import '../models/project_models.dart';
 import '../widgets/project_error_view.dart';
 import '../widgets/project_widgets.dart';
+import 'project_settings_screen.dart';
 
 class ProjectOverviewScreen extends StatefulWidget {
   const ProjectOverviewScreen({super.key, required this.projectId});
@@ -159,7 +160,12 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       actions: [
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => context.push('/projects/${widget.projectId}/settings'),
+          onTap: () async {
+            final projectId = widget.projectId;
+            await Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => ProjectSettingsScreen(projectId: projectId)));
+            if (mounted && projectId == widget.projectId) _loadAll();
+          },
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 12),
             child: AppIcon('settings', size: 20),

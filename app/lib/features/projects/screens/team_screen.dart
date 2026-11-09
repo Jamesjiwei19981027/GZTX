@@ -13,6 +13,7 @@ import '../data/projects_repository.dart';
 import '../models/project_models.dart';
 import '../widgets/project_error_view.dart';
 import '../widgets/project_widgets.dart';
+import 'company_members_screen.dart';
 
 enum TeamRoleFilter { all, manager, member }
 
@@ -60,8 +61,7 @@ class _TeamScreenState extends State<TeamScreen> {
     });
   }
 
-  ProjectsRepository get _repo =>
-      ProjectsRepository(context.authStateRead.api);
+  ProjectsRepository get _repo => ProjectsRepository(context.authStateRead.api);
 
   Future<void> _load() async {
     // 序号用于丢弃旧参数请求的迟到结果
@@ -116,13 +116,11 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   /// 现任成员（`left_at` 为空）；已退出成员单列，不计入角色统计
-  List<ProjectMember> get _activeMembers => _members
-      .where((member) => member.isActive)
-      .toList(growable: false);
+  List<ProjectMember> get _activeMembers =>
+      _members.where((member) => member.isActive).toList(growable: false);
 
-  List<ProjectMember> get _departedMembers => _members
-      .where((member) => member.hasLeft)
-      .toList(growable: false);
+  List<ProjectMember> get _departedMembers =>
+      _members.where((member) => member.hasLeft).toList(growable: false);
 
   List<ProjectMember> get _filtered {
     final keyword = _search.trim().toLowerCase();
@@ -154,8 +152,22 @@ class _TeamScreenState extends State<TeamScreen> {
   int get _managerCount =>
       _activeMembers.where((member) => member.isManager).length;
 
+  int? get _manageableCompanyId {
+    final auth = context.authStateRead;
+    for (final project in auth.projects) {
+      if (project.id != widget.projectId) continue;
+      for (final company in auth.companies) {
+        if (company.id == project.companyId && company.isSuperAdmin) {
+          return company.id;
+        }
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    context.authState;
     return AppScaffold(
       title: '项目团队与成员',
       body: _buildBody(),
@@ -189,6 +201,18 @@ class _TeamScreenState extends State<TeamScreen> {
 
     return Column(
       children: [
+        if (_manageableCompanyId != null)
+          AppListTile(
+              title: '企业成员管理',
+              subtitle: '角色、启用停用与移出企业',
+              onTap: () async {
+                final companyId = _manageableCompanyId;
+                if (companyId == null) return;
+                await Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) =>
+                        CompanyMembersScreen(companyId: companyId)));
+                if (mounted) _load();
+              }),
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.lg,

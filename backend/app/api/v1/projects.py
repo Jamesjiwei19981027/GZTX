@@ -247,7 +247,8 @@ async def get_my_permissions(project_id: int, db: DbSession, user: CurrentUser):
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
-    if not await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id):
+    can_invite = await acl.can(db, user.id, p.company_id, "member.pull", project_id=p.id)
+    if not await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id) and not can_invite:
         return fail(403, 40301, "非项目成员")
 
     m = await _active_membership(db, p.company_id, user.id)
@@ -305,6 +306,7 @@ async def get_my_permissions(project_id: int, db: DbSession, user: CurrentUser):
             "is_pm": is_pm,
             "is_superadmin": is_superadmin,
             "can_edit_all": can_edit_all,
+            "can_invite": can_invite,
             "owned_node_ids": sorted(owned_node_ids),
             "via_delegation": via_delegation,
             "can_move": can_move_delete,

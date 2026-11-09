@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/features/auth/data/auth_api.dart';
 import 'package:worktodo_app/features/auth/screens/login_screen.dart';
+import 'package:worktodo_app/features/auth/screens/reset_password_screen.dart';
 import 'package:worktodo_app/features/me/appearance/me_appearance.dart';
 import 'package:worktodo_app/features/me/screens/me_integrations_screen.dart';
 import 'package:worktodo_app/features/me/screens/me_notifications_screen.dart';
@@ -116,19 +118,31 @@ void main() {
   });
 
   for (final companyId in [null, 7]) {
-    testWidgets('WR-36 企业$companyId禁用验证码时不显示验证码表单和帮助旁路', (tester) async {
+    testWidgets('WR-36 企业$companyId禁用验证码时隐藏免密旁路并使用真实重置表单', (tester) async {
       final helper = MockApiClientHelper();
       helper.whenGet('/auth/registration-config', {
         'login_methods': {'password': true, 'code': false}
       });
-      await tester.pumpWidget(MaterialApp(
-          home: LoginScreen(
-              api: AuthApi(helper.buildClient()), companyId: companyId)));
+      final api = AuthApi(helper.buildClient());
+      final router = GoRouter(initialLocation: '/login', routes: [
+        GoRoute(
+            path: '/login',
+            builder: (_, state) => LoginScreen(api: api, companyId: companyId),
+            routes: [
+              GoRoute(
+                  path: 'reset-password',
+                  builder: (_, state) => ResetPasswordScreen(api: api)),
+            ]),
+      ]);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(MaterialApp.router(routerConfig: router));
       await tester.pumpAndSettle();
       expect(find.text('验证码免密登录'), findsNothing);
       expect(find.byKey(const ValueKey('login-target')), findsNothing);
-      await tester.tap(find.text('找回密码帮助'));
+      await tester.tap(find.text('忘记密码'));
       await tester.pumpAndSettle();
+      expect(find.byType(ResetPasswordScreen), findsOneWidget);
+      expect(find.byKey(const ValueKey('reset-new-password')), findsOneWidget);
       expect(find.text('使用验证码直接登录'), findsNothing);
       expect(find.text('免密验证码登录：'), findsNothing);
       if (companyId != null) {
@@ -175,7 +189,9 @@ void main() {
     expect(find.byKey(const ValueKey('login-username')), findsNothing);
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('login-target')), findsOneWidget);
+    expect(find.byKey(const ValueKey('login-target')), findsNothing);
+    expect(find.byKey(const ValueKey('login-username')), findsNothing);
+    expect(find.textContaining('请联系管理员使用企业登录入口'), findsOneWidget);
   });
 
   testWidgets('WR-36 切换企业后旧策略响应不能覆盖新策略', (tester) async {
@@ -201,6 +217,7 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('login-username')), findsNothing);
-    expect(find.byKey(const ValueKey('login-target')), findsOneWidget);
+    expect(find.byKey(const ValueKey('login-target')), findsNothing);
+    expect(find.textContaining('请联系管理员使用企业登录入口'), findsOneWidget);
   });
 }

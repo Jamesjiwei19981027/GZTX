@@ -19,7 +19,8 @@ console.log('✓ normalizeTaskScope semantic rules verified.');
 // 2. Static Code Audits across Auth, Project, Task, Work, Message components
 console.log('\n2. Static Audits of Implemented Mobile Screens...');
 const root = process.cwd();
-const authCode = fs.readFileSync(path.join(root, 'src/mobile/features/auth/MobileAuthScreens.tsx'), 'utf8');
+const authCode = fs.readFileSync(path.join(root, 'src/components/LoginGate.tsx'), 'utf8');
+const verifyCode = fs.readFileSync(path.join(root, 'src/components/VerifyGate.tsx'), 'utf8');
 const projectCode = fs.readFileSync(path.join(root, 'src/mobile/features/projects/MobileProjectScreens.tsx'), 'utf8');
 const teamCode = fs.readFileSync(path.join(root, 'src/mobile/features/projects/MobileTeamScreens.tsx'), 'utf8');
 const workCode = fs.readFileSync(path.join(root, 'src/mobile/features/work/MobileWorkScreens.tsx'), 'utf8');
@@ -32,11 +33,11 @@ const outletCode = fs.readFileSync(path.join(root, 'src/mobile/navigation/Mobile
 const routesCode = fs.readFileSync(path.join(root, 'src/mobile/navigation/mobileRoutes.ts'), 'utf8');
 
 // Auth Screen Checks
-assert.ok(authCode.includes('MobileAuthScreens'), 'MobileAuthScreens unified component exists');
+assert.ok(authCode.includes('LoginGate'), 'Shared desktop/mobile LoginGate exists');
 assert.ok(authCode.includes('handlePasswordLogin'), 'handlePasswordLogin (01) implemented');
 assert.ok(authCode.includes('handleRegister'), 'handleRegister (02) implemented');
-assert.ok(authCode.includes('handleVerifyEmail'), 'handleVerifyEmail (03) implemented');
-assert.ok(authCode.includes('handleVerifyPhone'), 'handleVerifyPhone (04) implemented');
+assert.ok(verifyCode.includes('confirmBindCode'), 'Shared VerifyGate confirms email/phone ownership');
+assert.ok(authCode.includes('handleResetPassword'), 'Shared LoginGate resets forgotten passwords');
 assert.ok(authCode.includes('handleCodeLogin'), 'handleCodeLogin (79) implemented');
 assert.ok(authCode.includes('detectChannel'), 'detectChannel phone/email detection exists');
 assert.ok(authCode.includes('loginWithCode'), 'loginWithCode API wired');

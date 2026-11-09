@@ -16,9 +16,9 @@ async def ensure_default_policy(
 ) -> ReportPolicy:
     q = await db.execute(
         select(ReportPolicy).where(
+            ReportPolicy.company_id == company_id,
             ReportPolicy.project_id == project_id,
-            ReportPolicy.enabled.is_(True),
-        ).limit(1)
+        ).order_by(ReportPolicy.id).limit(1)
     )
     pol = q.scalar_one_or_none()
     if pol:

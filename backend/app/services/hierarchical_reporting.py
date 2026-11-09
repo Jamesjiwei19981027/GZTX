@@ -355,6 +355,8 @@ async def submit_member_report(
         user_id=author_user_id,
         project_manager_id=project.pm_user_id,
     )
+    # 核验结果只由 review 写路径产生，客户端提交不能伪造或覆盖。
+    payload = {key: value for key, value in (payload or {}).items() if key not in ("review", "review_history")}
     normalized_sources = []
     for source in sources or []:
         metadata = source.get("metadata") or {}
@@ -383,7 +385,7 @@ async def submit_member_report(
         report.submitted_at = datetime.now(timezone.utc)
         report.summary_text = summary
         report.payload_json = {
-            **(report.payload_json or {}),
+            **{key: value for key, value in (report.payload_json or {}).items() if key not in ("review", "review_history")},
             **(payload or {}),
             "context_scope": {"company_id": binding.company_id, "project_id": binding.project_id},
         }
@@ -452,6 +454,59 @@ async def submit_member_report(
             channels=["in_app"],
             project_id=project.id,
         )
+    await db.flush()
+    return report
+
+
+async def is_member_report_reviewer(db: AsyncSession, *, report: AgentReport, reviewer_user_id: int) -> bool:
+    """核验仅限仍在职的项目 PM 或该份汇报保存的接收上级；不授予超管旁路。"""
+    from app.services.acl import AclService
+
+    if report.author_user_id == reviewer_user_id:
+        return False
+    project = await db.get(Project, report.project_id)
+    if not project or project.company_id != report.company_id:
+        return False
+    acl = AclService()
+    membership = await acl._membership(db, reviewer_user_id, report.company_id)
+    member = await acl._project_member(db, report.project_id, reviewer_user_id)
+    if not membership or membership.employment_status != "active" or not member:
+        return False
+    return bool(report.parent_user_id == reviewer_user_id or project.pm_user_id == reviewer_user_id or member.role == "pm")
+
+
+async def review_member_report(db: AsyncSession, *, report_id: int, reviewer_user_id: int, decision: str, comment: str) -> AgentReport:
+    from app.api.deps_collab import assert_collaboration_write
+
+    report = (await db.execute(select(AgentReport).where(AgentReport.id == report_id).with_for_update())).scalar_one_or_none()
+    if not report:
+        raise ValueError("report_not_found")
+    if not await is_member_report_reviewer(db, report=report, reviewer_user_id=reviewer_user_id):
+        raise PermissionError("report_review_forbidden")
+    await assert_collaboration_write(db, report.company_id, project_id=report.project_id, user_id=reviewer_user_id)
+    if report.status not in ("submitted", "aggregated"):
+        raise ValueError("report_not_reviewable")
+    if decision not in ("approved", "returned"):
+        raise ValueError("report_review_decision_invalid")
+    comment = comment.strip()
+    if not comment:
+        raise ValueError("report_review_comment_required")
+    payload = dict(report.payload_json or {})
+    previous = payload.get("review")
+    if isinstance(previous, dict) and all(previous.get(key) == value for key, value in {
+        "decision": decision, "comment": comment, "reviewer_user_id": reviewer_user_id,
+    }.items()):
+        return report
+    review = {"decision": decision, "comment": comment, "reviewer_user_id": reviewer_user_id, "reviewed_at": datetime.now(timezone.utc).isoformat()}
+    history = list(payload.get("review_history") or [])
+    if isinstance(previous, dict):
+        history.append(previous)
+    report.payload_json = {**payload, "review": review, "review_history": history}
+    await NotificationService().enqueue(
+        db, company_id=report.company_id, user_ids=[report.author_user_id], template_key="agent.report.reviewed",
+        payload={"project_id": report.project_id, "report_id": report.id, **review, "decision_label": "通过" if decision == "approved" else "退回"},
+        channels=["in_app"], project_id=report.project_id,
+    )
     await db.flush()
     return report
 

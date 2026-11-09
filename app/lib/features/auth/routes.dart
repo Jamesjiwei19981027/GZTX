@@ -4,6 +4,8 @@ import 'auth_paths.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/verify_screen.dart';
+import 'screens/reset_password_screen.dart';
+import 'screens/sso_callback_screen.dart';
 
 /// T01 登录注册模块路由。
 ///
@@ -21,6 +23,16 @@ final List<RouteBase> authRoutes = [
           ''),
     ),
     routes: [
+      GoRoute(
+        path: 'reset-password',
+        builder: (context, state) => ResetPasswordScreen(
+            initialTarget: state.uri.queryParameters['target'] ?? ''),
+      ),
+      GoRoute(
+        path: 'sso-callback',
+        builder: (context, state) => SsoCallbackScreen(
+            ticket: state.uri.queryParameters['ticket'] ?? ''),
+      ),
       GoRoute(
         path: 'register',
         name: 'auth-register',

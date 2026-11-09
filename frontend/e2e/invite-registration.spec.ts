@@ -5,7 +5,7 @@ const password = 'invite-password-123';
 const email = 'member@example.test';
 const backendError = '邀请已失效，请联系管理员重新获取邀请链接';
 
-/** 独立加载正式手机认证组件，覆盖 MobileAuthScreens 自己的配置分支和表单处理器。
+/** 手机与桌面正式入口共用 LoginGate，独立加载同一个组件覆盖配置和表单处理器。
  * 完整 App 的项目跳转另有桌面 / ?mobile=1 两条用例，不在 harness 内模拟跳转。
  */
 async function mountMobileAuth(page: Page, invite = false) {
@@ -15,16 +15,8 @@ async function mountMobileAuth(page: Page, invite = false) {
     body: `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
       <body><div id="root"></div>
       <script type="module">import RefreshRuntime from '/@react-refresh';RefreshRuntime.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;</script>
-      <script type="module">
-        import React from '/node_modules/.vite/deps/react.js';
-        import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
-        import '/src/index.css';import '/src/mobile/mobile.css';
-        import {MobileAuthScreens} from '/src/mobile/features/auth/MobileAuthScreens.tsx';
-        function Harness(){const [result,setResult]=React.useState(null);return React.createElement(React.Fragment,null,
-          React.createElement(MobileAuthScreens,{onLoggedIn:setResult}),
-          result?React.createElement('output',{'aria-label':'登录结果'},JSON.stringify(result)):null);}
-        ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Harness));
-      </script><style>html,body,#root{height:100%;margin:0}</style></body></html>`,
+      <script type="module" src="/e2e/helpers/shared-auth-harness.tsx"></script>
+      <style>html,body,#root{height:100%;margin:0}</style></body></html>`,
   }));
   await page.goto(invite ? '/?mobile=1&invite=abc' : '/?mobile=1');
 }
@@ -39,12 +31,7 @@ async function fillDesktopRegistration(page: Page) {
 }
 
 async function fillMobileRegistration(page: Page) {
-  await expect(page.getByRole('heading', { name: '注册新账号', exact: true })).toBeVisible();
-  await page.getByPlaceholder('请输入用户名', { exact: true }).fill('invited_member');
-  await page.getByPlaceholder('name@company.com', { exact: true }).fill(email);
-  await page.getByPlaceholder('输入 6 位验证码', { exact: true }).fill('123456');
-  await page.getByPlaceholder('至少 6 位密码', { exact: true }).fill(password);
-  await page.getByPlaceholder('再次输入密码', { exact: true }).fill(password);
+  await fillDesktopRegistration(page);
 }
 
 async function mockRegistration(page: Page, reject = false) {
@@ -79,8 +66,8 @@ for (const mobile of [false, true]) {
       await page.setViewportSize({ width: 1440, height: 1000 });
       await page.goto('/');
     }
-    await page.getByRole('button', { name: mobile ? '立即注册新账号' : '注册', exact: true }).click();
-    await expect(page.getByRole('heading', { name: mobile ? '注册新账号' : '创建账户', exact: true })).toBeVisible();
+    await page.getByRole('button', { name: '注册', exact: true }).click();
+    await expect(page.getByRole('heading', { name: '创建账户', exact: true })).toBeVisible();
   });
 
   test(`${platform}：邀请制且没有 token 时隐藏注册入口并提示仅限受邀注册`, async ({ page }) => {
@@ -92,9 +79,9 @@ for (const mobile of [false, true]) {
     }
     // 等后端配置反映到 UI 后再做否定断言，避免命中配置尚未加载的初始态。
     await expect(page.getByText('仅限受邀注册，请向管理员索取邀请链接', { exact: true })).toBeVisible();
-    await expect(page.getByRole('button', { name: mobile ? '立即注册新账号' : '注册', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: mobile ? '立即注册' : '注册并登录', exact: true })).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: mobile ? '注册新账号' : '创建账户', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '注册', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '注册并登录', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: '创建账户', exact: true })).toHaveCount(0);
   });
 
   test(`${platform}：注册接口返回 403 时展示后端文案并保留用户输入`, async ({ page }) => {
@@ -108,12 +95,12 @@ for (const mobile of [false, true]) {
       await page.goto('/?invite=abc');
       await fillDesktopRegistration(page);
     }
-    await page.getByRole('button', { name: mobile ? '立即注册' : '注册并登录', exact: true }).click();
+    await page.getByRole('button', { name: '注册并登录', exact: true }).click();
     await expect(page.getByText(backendError, { exact: true })).toBeVisible();
     expect(requests.registrations).toHaveLength(1);
     expect(requests.registrations[0]).toMatchObject({ invite_token: 'abc', username: 'invited_member' });
-    await expect(mobile ? page.getByPlaceholder('请输入用户名', { exact: true }) : page.getByLabel('用户名', { exact: true })).toHaveValue('invited_member');
-    await expect(page.getByRole('button', { name: mobile ? '立即注册' : '注册并登录', exact: true })).toBeEnabled();
+    await expect(page.getByLabel('用户名', { exact: true })).toHaveValue('invited_member');
+    await expect(page.getByRole('button', { name: '注册并登录', exact: true })).toBeEnabled();
     await expect(page).toHaveURL(url => url.searchParams.get('invite') === 'abc');
     expect(await page.evaluate(() => localStorage.getItem('access_token'))).toBeNull();
   });
@@ -139,6 +126,8 @@ for (const mobile of [false, true]) {
       await expect(page.getByRole('tab', { name: '我的', exact: true })).toBeVisible();
       // 通过真实工作台的当前项目按钮验证项目选择，不只断言注册回调或项目列表中存在项目。
       await page.getByRole('tab', { name: '工作', exact: true }).click();
+      await expect(page.getByRole('heading', { name: invitedProject.name, exact: true, level: 1 })).toBeVisible();
+      await page.getByRole('button', { name: '返回', exact: true }).click();
       await expect(page.getByRole('button', { name: '项目列表', exact: true })).toHaveText(invitedProject.name);
     } else {
       await expect(page.getByRole('heading', { name: /团队成员/ })).toBeVisible();
@@ -156,18 +145,16 @@ test('手机认证组件：带邀请直接显示注册，邮件与短信发送�
   await mountMobileAuth(page, true);
   await fillMobileRegistration(page);
   // 邮箱、手机号各自有同名发送按钮，用输入框所在行限定作用域。
-  await page.getByPlaceholder('name@company.com', { exact: true }).locator('..').locator('..')
-    .getByRole('button', { name: '发验证码', exact: true }).click();
-  await expect(page.getByRole('status')).toContainText('验证码已发送');
-  await page.getByPlaceholder('手机号', { exact: true }).fill('13800138000');
-  await page.getByPlaceholder('手机号', { exact: true }).locator('..').locator('..')
-    .getByRole('button', { name: '发验证码', exact: true }).click();
+  await page.getByRole('button', { name: '获取验证码', exact: true }).click();
+  await expect(page.getByText('验证码已发送', { exact: true })).toBeVisible();
+  await page.getByLabel('手机号（可选）', { exact: true }).fill('13800138000');
+  await page.getByRole('button', { name: '获取验证码', exact: true }).click();
   await expect.poll(() => requests.codes).toEqual([
     { channel: 'email', target: email, purpose: 'register', invite_token: 'abc' },
     { channel: 'sms', target: '13800138000', purpose: 'register', invite_token: 'abc' },
   ]);
-  await page.getByPlaceholder('输入短信验证码', { exact: true }).fill('654321');
-  await page.getByRole('button', { name: '立即注册', exact: true }).click();
+  await page.locator('input[maxlength="6"]').last().fill('654321');
+  await page.getByRole('button', { name: '注册并登录', exact: true }).click();
   await expect(page.getByLabel('登录结果', { exact: true })).toContainText('"project_id":73');
   expect(requests.registrations).toEqual([expect.objectContaining({
     invite_token: 'abc', email_code: '123456', phone: '13800138000', phone_code: '654321',

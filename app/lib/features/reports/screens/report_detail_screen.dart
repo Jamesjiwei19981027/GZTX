@@ -8,6 +8,7 @@ import '../data/reports_api.dart';
 import '../models/report_capabilities.dart';
 import '../models/report_models.dart';
 import '../widgets/report_ui.dart';
+import '../widgets/report_review_card.dart';
 import 'report_scope.dart';
 
 enum ReportDetailMode { history, detail, submitted }
@@ -430,6 +431,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           taskSnapshots: report.taskSnapshots,
           evidenceSnapshots: report.evidenceSnapshots,
         ),
+        const SizedBox(height: AppSpacing.lg),
+        ReportReviewCard(
+            key: ValueKey('review-${report.id}'),
+            report: report,
+            api: _api!,
+            onSaved: (saved) => setState(() => _selected = saved)),
         const SizedBox(height: AppSpacing.lg),
         if (widget.fromManager)
           AppButton(

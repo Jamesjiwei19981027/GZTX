@@ -9,6 +9,7 @@ import 'package:worktodo_app/core/models/company.dart';
 import 'package:worktodo_app/core/models/project.dart';
 
 import '../models/project_models.dart';
+import '../models/project_management_models.dart';
 
 class ProjectsRepository {
   ProjectsRepository(this._api);
@@ -173,6 +174,63 @@ class ProjectsRepository {
     await _api.post('/projects/$projectId/archive');
   }
 
+  Future<void> unarchiveProject(int projectId) async {
+    await _api.post('/projects/$projectId/unarchive');
+  }
+
+  Future<ProjectDetail> updateProject(int projectId,
+      {String? name, int? pmUserId}) async {
+    final dynamic data = await _api.patch('/projects/$projectId', body: {
+      if (name != null) 'name': name,
+      if (pmUserId != null) 'pm_user_id': pmUserId,
+    });
+    return ProjectDetail.fromJson(_mapOf(data));
+  }
+
+  /// 分页拉取企业成员，保留停用成员以支持重新启用。
+  Future<List<CompanyMember>> fetchCompanyMembers(int companyId) async {
+    final members = <CompanyMember>[];
+    for (var page = 1; page <= 100; page++) {
+      final dynamic data = await _api.get('/companies/$companyId/members',
+          query: {'page': '$page', 'page_size': '100'});
+      final map = _mapOf(data);
+      final items = map['items'] as List? ?? const [];
+      members.addAll(items.map((item) => CompanyMember.fromJson(_mapOf(item))));
+      final total = (map['total'] as num?)?.toInt();
+      if (items.isEmpty ||
+          (total != null && members.length >= total) ||
+          (total == null && items.length < 100)) {
+        return members;
+      }
+    }
+    throw const FormatException('企业成员过多，请缩小查询范围后重试');
+  }
+
+  Future<CompanyMember> updateCompanyMember(
+      int companyId, int userId, Map<String, dynamic> changes) async {
+    final dynamic data = await _api
+        .patch('/companies/$companyId/members/$userId', body: changes);
+    return CompanyMember.fromJson(_mapOf(data));
+  }
+
+  Future<void> removeCompanyMember(int companyId, int userId) async {
+    await _api.delete('/companies/$companyId/members/$userId');
+  }
+
+  Future<ProjectReportPolicy> fetchReportPolicy(int projectId) async {
+    final dynamic data = await _api.get('/projects/$projectId/report-policies');
+    final items = _mapOf(data)['items'] as List? ?? const [];
+    if (items.isEmpty) return const ProjectReportPolicy();
+    return ProjectReportPolicy.fromJson(_mapOf(items.first));
+  }
+
+  Future<ProjectReportPolicy> saveReportPolicy(
+      int projectId, ProjectReportPolicy policy) async {
+    final dynamic data = await _api.put('/projects/$projectId/report-policy',
+        body: policy.toJson());
+    return ProjectReportPolicy.fromJson(_mapOf(data));
+  }
+
   /// 退出项目（`POST /projects/{id}/leave`）
   Future<void> leaveProject(int projectId) async {
     await _api.post('/projects/$projectId/leave');
@@ -204,7 +262,8 @@ class ProjectTasksResult {
   bool get isNotEmpty => tasks.isNotEmpty;
 }
 
-Map<String, dynamic> _mapOf(dynamic value) => _mapOrNull(value) ?? <String, dynamic>{};
+Map<String, dynamic> _mapOf(dynamic value) =>
+    _mapOrNull(value) ?? <String, dynamic>{};
 
 Map<String, dynamic>? _mapOrNull(dynamic value) {
   if (value is Map<String, dynamic>) return value;

@@ -240,6 +240,30 @@ async def put_company_model(
     return ResponseData(data=_summary_model(binding))
 
 
+@router.get("/users/me/bindings/asr", response_model=ResponseData)
+async def get_user_asr(
+    db: DbSession, user: CurrentUser, company_id: int = Query(..., gt=0),
+):
+    """只读取本人在指定企业的个人选择；未选择时返回空，不冒充企业默认。"""
+    from app.models.company import CompanyMembership
+
+    company = await db.get(Company, company_id)
+    if not company:
+        raise CollabError(404, 40400, "公司不存在")
+    membership = (await db.execute(select(CompanyMembership).where(
+        CompanyMembership.company_id == company_id,
+        CompanyMembership.user_id == user.id,
+        CompanyMembership.status == "active",
+        CompanyMembership.employment_status == "active",
+    ))).scalar_one_or_none()
+    if not membership:
+        raise CollabError(403, 40302, "非本公司在职成员")
+    binding = (await db.execute(select(AsrBinding).where(
+        AsrBinding.company_id == company_id, AsrBinding.user_id == user.id,
+    ).order_by(AsrBinding.id.desc()).limit(1))).scalar_one_or_none()
+    return ResponseData(data=_summary_asr(binding) if binding else None)
+
+
 @router.put("/users/me/bindings/asr", response_model=ResponseData)
 async def put_user_asr(body: UserAsrBody, db: DbSession, user: CurrentUser):
     """设置个人语音识别绑定"""

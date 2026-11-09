@@ -8,6 +8,7 @@ import '../data/reports_api.dart';
 import '../models/report_capabilities.dart';
 import '../models/report_models.dart';
 import '../widgets/report_ui.dart';
+import '../widgets/report_review_card.dart';
 import 'report_scope.dart';
 
 enum ReportReviewMode { bindings, followup, conflict }
@@ -58,7 +59,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
   List<ReportAgentBinding> _bindings = const [];
   List<ReportMember> _members = const [];
   List<ReportConflict> _conflicts = const [];
-  String _resolution = 'keep_ask';
+  List<AgentReport> _reviewableReports = const [];
 
   @override
   void didChangeDependencies() {
@@ -91,6 +92,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
     _mode = widget.mode;
     _bindings = const [];
     _conflicts = const [];
+    _reviewableReports = const [];
     _error = null;
     _notice = null;
     _comment.clear();
@@ -129,6 +131,11 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
         if (_disposed || version != _version) return;
         setState(() {
           _conflicts = detectReportConflicts(reports);
+          _reviewableReports = reports
+              .where((report) =>
+                  report.canReview &&
+                  (widget.reportId == null || report.id == widget.reportId))
+              .toList();
           _loading = false;
         });
       } else {
@@ -512,38 +519,16 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
             const SizedBox(height: AppSpacing.md),
           ],
         const SizedBox(height: AppSpacing.sm),
-        const ReportSectionTitle('管理者核验意见'),
-        const SizedBox(height: AppSpacing.sm),
-        AppTextField(
-          controller: _comment,
-          minLines: 3,
-          maxLines: 6,
-          keyboardType: TextInputType.multiline,
-          clearButtonEnabled: false,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        const ReportSectionTitle('本次处理方式'),
-        const SizedBox(height: AppSpacing.sm),
-        AppSegmentedControl<String>(
-          segments: const {
-            'keep_ask': '要求补材料',
-            'pass': '核验通过',
-            'reject': '退回修改',
-          },
-          selectedValue: _resolution,
-          onValueChanged: (value) => setState(() => _resolution = value),
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        const AppButton(
-          label: '记录核验意见',
-          icon: AppIcon('check', size: 17, color: Colors.white),
-          onPressed: null,
-        ),
-        const SizedBox(height: AppSpacing.lg),
-        const ReportInfoBanner(
-          '服务端暂不支持保存核验意见及通过或退回结果，因此此操作暂不可用。'
-          '任务状态请在责任事项中单独确认。',
-        ),
+        if (_reviewableReports.isEmpty)
+          const ReportInfoBanner('暂无可核验的成员汇报。只有汇报接收上级或项目负责人可以记录核验意见。'),
+        for (final report in _reviewableReports) ...[
+          Text('成员汇报 ${report.id}',
+              style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text(report.summaryPreview),
+          ReportReviewCard(
+              key: ValueKey('review-${report.id}'), report: report, api: _api!),
+          const SizedBox(height: AppSpacing.md),
+        ],
         const SizedBox(height: AppSpacing.lg),
         AppButton(
           label: '查看项目资料对照',

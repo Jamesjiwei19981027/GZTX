@@ -219,6 +219,7 @@ export async function listUserActivity(limit = 50) {
 }
 
 export type MyProjectPermissions = {
+  can_invite?: boolean
   role: 'pm' | 'superadmin' | 'member' | 'outsider'
   is_pm: boolean
   is_superadmin: boolean

@@ -115,6 +115,7 @@ class ProjectDetail {
     this.archivedAt,
     this.finalOwnerName,
     this.finalOwnerUserId,
+    this.createdBy,
   });
 
   final int id;
@@ -126,6 +127,7 @@ class ProjectDetail {
   final String? archivedAt;
   final String? finalOwnerName;
   final int? finalOwnerUserId;
+  final int? createdBy;
 
   factory ProjectDetail.fromJson(Map<String, dynamic> json) {
     final owner = _asMap(json['final_owner']);
@@ -140,7 +142,10 @@ class ProjectDetail {
       finalOwnerName: owner == null
           ? null
           : (_asString(owner['nickname']) ?? _asString(owner['username'])),
-      finalOwnerUserId: owner == null ? null : _asInt(owner['user_id']),
+      finalOwnerUserId: _asInt(json['pm_user_id']) ??
+          _asInt(json['final_owner_user_id']) ??
+          (owner == null ? null : _asInt(owner['user_id'])),
+      createdBy: _asInt(json['created_by']),
     );
   }
 
