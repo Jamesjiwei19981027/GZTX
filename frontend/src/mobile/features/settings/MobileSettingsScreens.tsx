@@ -38,6 +38,8 @@ import {
 import {
   sendNotifyTest,
   listNotifyRecords,
+  isNotifyRecordSent,
+  isNotifyRecordFailed,
   NotifyRecord,
 } from '../../../api/notifications';
 import { MobileTopBar } from '../../ui/MobileTopBar';
@@ -1183,8 +1185,8 @@ export const MobileNotificationLogsScreen: React.FC<SettingsSharedProps> = () =>
   }, []);
 
   const filteredItems = items.filter((item) => {
-    if (filter === 'success') return item.status === 'success' || item.status === 'delivered';
-    if (filter === 'failed') return item.status === 'failed' || Boolean(item.error);
+    if (filter === 'success') return isNotifyRecordSent(item);
+    if (filter === 'failed') return isNotifyRecordFailed(item);
     return true;
   });
 

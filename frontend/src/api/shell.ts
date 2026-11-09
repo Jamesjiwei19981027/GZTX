@@ -426,8 +426,27 @@ export async function listIntegrations(companyId: number) {
   }>(`/companies/${companyId}/integrations`)
 }
 
-export async function triggerOrgSync(companyId: number) {
-  return apiRequest(`/companies/${companyId}/org-sync`, {
+/** 组织同步只针对组织类集成（企微/钉钉/飞书/通用）；不指定时自动选已配置密钥的那一个 */
+export const ORG_SYNC_PROVIDERS = ['wecom', 'dingtalk', 'feishu', 'generic_scim', 'generic'] as const
+
+export function pickOrgSyncProvider(
+  items: { provider: string; has_credentials?: boolean; enabled?: boolean }[],
+): string | undefined {
+  const orgItems = items.filter((x) => (ORG_SYNC_PROVIDERS as readonly string[]).includes(x.provider))
+  return (orgItems.find((x) => x.has_credentials && x.enabled !== false) || orgItems[0])?.provider
+}
+
+export async function triggerOrgSync(companyId: number, provider?: string) {
+  let target = provider
+  if (!target) {
+    try {
+      target = pickOrgSyncProvider((await listIntegrations(companyId)).items || [])
+    } catch {
+      target = undefined
+    }
+  }
+  const qs = target ? `?provider=${encodeURIComponent(target)}` : ''
+  return apiRequest(`/companies/${companyId}/org-sync${qs}`, {
     method: 'POST',
     body: '{}',
   })

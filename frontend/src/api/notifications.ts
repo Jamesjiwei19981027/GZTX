@@ -92,11 +92,28 @@ export async function sendNotifyTest(channel: 'email' | 'webpush') {
 }
 
 export type NotifyRecord = {
+  id?: number
   channel: string
   status: string
   error?: string | null
   task_title?: string | null
   created_at: string
+  /** 公司范围记录才有：发送对象 */
+  user_id?: number
+  user_name?: string | null
+  recipient?: string | null
+  target?: string | null
+  title?: string | null
+  content_preview?: string | null
+}
+
+/** 后端 status 只有 sent / failed；成功按 sent 统计 */
+export function isNotifyRecordSent(r: Pick<NotifyRecord, 'status'>): boolean {
+  return r.status === 'sent'
+}
+
+export function isNotifyRecordFailed(r: Pick<NotifyRecord, 'status'>): boolean {
+  return r.status === 'failed'
 }
 
 /** 当前用户最近的通知发送记录（失败行带原因） */
@@ -104,9 +121,25 @@ export async function listNotifyRecords(limit = 50) {
   return apiRequest<{ items: NotifyRecord[] }>(`/notify/records?limit=${limit}`)
 }
 
+/** 全公司最近的通知发送记录（仅超级管理员；后端按公司成员过滤） */
+export async function listCompanyNotifyRecords(companyId: number | string, limit = 50) {
+  return apiRequest<{ items: NotifyRecord[] }>(
+    `/notify/company-records?company_id=${encodeURIComponent(String(companyId))}&limit=${limit}`,
+  )
+}
+
 // ---- 公司级配置（企业管理页使用；验证码、AI 建议、材料研判都读公司级）----
 type SmtpView = { smtp_host: string; smtp_port: number; smtp_user: string; smtp_from: string; has_password: boolean }
-type LlmView = { provider: string; base_url: string; model: string; enabled: boolean; configured: boolean; has_api_key: boolean }
+export type LlmPreset = { label: string; default_base_url: string; default_model: string; needs_key: boolean }
+export type LlmView = {
+  provider: string
+  base_url: string
+  model: string
+  enabled: boolean
+  configured: boolean
+  has_api_key: boolean
+  presets?: Record<string, LlmPreset>
+}
 
 export async function getCompanySmtpConfig(companyId: number | string) {
   return apiRequest<SmtpView>(`/companies/${companyId}/smtp`)
