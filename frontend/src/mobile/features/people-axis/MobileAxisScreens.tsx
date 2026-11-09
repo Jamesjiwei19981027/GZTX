@@ -757,7 +757,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   aria-label="定位我"
                   className="px-2 py-1 rounded-lg text-xs font-medium bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
                 >
-                  <AppIcon name="user" size={18} />
+                  <AppIcon name="user" size={16} />
                   <span className="hidden min-[420px]:inline">定位我</span>
                 </button>
 
@@ -769,7 +769,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   className="px-2 py-1 rounded-lg text-xs font-medium bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
                   aria-label="适应屏幕"
                 >
-                  <Maximize size={18} aria-hidden="true" />
+                  <Maximize size={16} aria-hidden="true" />
                   <span className="hidden min-[420px]:inline">适应屏幕</span>
                 </button>
               </div>

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
-async function openOverview(page: Page, kind: 'mobile-home' | 'desktop-home' | 'project') {
+async function openOverview(page: Page, kind: 'mobile-home' | 'desktop-home' | 'project', role: 'member' | 'pm' | 'delegated-inviter' = 'member') {
   await page.setViewportSize({width:kind==='desktop-home'?1280:390,height:844});
   await page.clock.install({time:new Date('2026-10-20T10:00:00+08:00')});
   await page.route('**/api/v1/**',async route=>{
@@ -9,6 +9,10 @@ async function openOverview(page: Page, kind: 'mobile-home' | 'desktop-home' | '
     if(url.pathname.endsWith('/tree'))data={nodes:[]};
     if(url.pathname.endsWith('/my-permissions'))data={is_pm:true};
     if(url.pathname.endsWith('/projects/1'))data={id:1,name:'测试项目',status:'active'};
+    if(url.pathname.endsWith('/projects/1/my-permissions'))data={
+      role:role==='pm'?'pm':'member',is_pm:role==='pm',is_superadmin:false,
+      can_invite:role!=='member',via_delegation:role==='delegated-inviter',
+    };
     if(url.pathname.endsWith('/projects/1/tasks'))data=url.searchParams.get('page')==='2'
       ?{items:[{id:3,title:'团队已完成事项',status:2,priority:1,project_id:1}],total:3}
       :{items:[{id:1,title:'团队待办事项',status:0,priority:1,project_id:1},{id:2,title:'团队进行中事项',status:1,priority:2,project_id:1}],total:3};
@@ -29,7 +33,7 @@ async function openOverview(page: Page, kind: 'mobile-home' | 'desktop-home' | '
       const props={user:{id:'1',name:'测试用户',role:'成员'},tasks:[],projects:[project],currentProject:project,activities:[],lang:'zh',onSelectTask:task=>{document.body.dataset.task=task.id},onOpenNewTask:noop,onOpenQuickAdd:noop,onOpenSearch:noop,onNavigateToTasks:noop,onNavigateToCalendar:noop,onNavigateToKanban:noop,onNavigateToStatistics:noop,onNavigateToTrash:noop};
       const kind='${kind}';
       const component=kind==='project'?MobileProjectOverviewScreen:kind==='desktop-home'?DashboardView:MobileWorkbenchScreen;
-      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(component,kind==='project'?{projectId:1,onSelectTask:props.onSelectTask,onNavigateToInvite:noop,onNavigateToKnowledge:()=>{document.body.dataset.knowledgeProject='1'}}:props));
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(component,kind==='project'?{projectId:1,onSelectTask:props.onSelectTask,onNavigateToInvite:()=>{document.body.dataset.inviteProject='1'},onNavigateToKnowledge:()=>{document.body.dataset.knowledgeProject='1'}}:props));
     </script><style>html,body,#root{height:100%;margin:0}#root{display:flex;flex-direction:column}</style></body></html>`}));
   await page.goto('/');
 }
@@ -57,10 +61,10 @@ for(const kind of ['mobile-home','desktop-home'] as const){
   });
 }
 
-test('project opens invitation, all paginated tasks and expanded status board',async({page})=>{
-  await openOverview(page,'project');
+for (const role of ['member', 'pm', 'delegated-inviter'] as const) {
+test(`${role} project overview respects invite permission and opens all paginated tasks and expanded status board`,async({page})=>{
+  await openOverview(page,'project',role);
   const invite=page.getByRole('button',{name:/邀请新成员加入/});
-  await expect(invite).toBeVisible();
   const list=page.getByRole('region',{name:'项目任务待办'});
   await expect(list.getByRole('heading',{name:'项目任务待办 · 3'})).toBeVisible();
   const board=page.getByRole('region',{name:'项目任务看板'});
@@ -68,10 +72,18 @@ test('project opens invitation, all paginated tasks and expanded status board',a
     await expect(list.getByText(title,{exact:true})).toHaveCount(1);
     await expect(board.getByText(title,{exact:true})).toHaveCount(1);
   }
-  expect((await invite.boundingBox())!.y).toBeLessThan((await list.boundingBox())!.y);
+  if(role==='member') {
+    await expect(invite).toHaveCount(0);
+  } else {
+    await expect(invite).toBeVisible();
+    expect((await invite.boundingBox())!.y).toBeLessThan((await list.boundingBox())!.y);
+    await invite.click();
+    await expect(page.locator('body')).toHaveAttribute('data-invite-project','1');
+  }
   await list.getByRole('button',{name:/团队已完成事项/}).click();
   await expect(page.locator('body')).toHaveAttribute('data-task','3');
   await page.getByText('项目知识空间', {exact:true}).click();
   await expect(page.locator('body')).toHaveAttribute('data-knowledge-project','1');
 });
+}
 

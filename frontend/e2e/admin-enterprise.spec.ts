@@ -34,7 +34,11 @@ test('公司超级管理员可从电脑端设置打开企业管理的五个子�
     // 等待异步内容落地，避免只断言静态标题而漏掉加载时异常。
     if (entry === '通知渠道') await expect(main.getByRole('button', { name: '保存 SMTP 配置', exact: true })).toBeVisible();
     if (entry === 'AI 服务配置') await expect(main.getByLabel('API Key 授权密钥', { exact: true })).toBeVisible();
-    if (entry === '组织与登录') await expect(main.getByRole('button', { name: '保存钉钉配置', exact: true })).toBeVisible();
+    if (entry === '组织与登录') {
+      await expect(main.getByLabel('钉钉应用密钥', { exact: true })).toBeVisible();
+      await expect(main.getByRole('button', { name: '保存通用单点登录', exact: true })).toBeVisible();
+      await expect(main.getByRole('button', { name: '保存登录方式', exact: true })).toBeVisible();
+    }
     if (entry === '第三方服务绑定') await expect(main.getByRole('heading', { name: '办公生态与代码平台', exact: true })).toBeVisible();
     if (entry === '通知发送记录') await expect(main.getByText('暂无符合条件的通知记录', { exact: true })).toBeVisible();
   }
@@ -67,7 +71,7 @@ test('AI 模型配置和快捷密钥保存后均只显示已配置，不回显�
   await expect(key).toHaveAttribute('placeholder', '未配置 (请输入 API Key)');
   await key.fill(secret);
   await main.getByRole('button', { name: '保存模型配置', exact: true }).click();
-  await expect(main.getByText('AI 大模型接入参数已成功保存', { exact: true })).toBeVisible();
+  await expect(main.getByText('AI 大模型接入参数已成功保存！', { exact: true })).toBeVisible();
   expect(writes).toEqual([expect.objectContaining({ provider: 'openai', api_key: secret })]);
   await expect(key).toHaveValue('');
   await expect(key).toHaveAttribute('placeholder', '已配置 (留空保留原密钥)');
@@ -79,6 +83,7 @@ test('AI 模型配置和快捷密钥保存后均只显示已配置，不回显�
   await main.getByRole('button', { name: '更新密钥并加密入库', exact: true }).click();
   await expect(main.getByText('OpenAI密钥更新成功，当前厂商与模型保持不变。', { exact: true })).toBeVisible();
   expect(writes).toHaveLength(2);
+  // 快捷更新不能覆盖现有厂商、模型或地址。
   expect(writes[1]).toEqual({ api_key: 'sk-e2e-replacement-secret' });
   await expect(quickKey).toHaveValue('');
   await expect(main.getByText(/已配置 \(AES-256 加密\)$/)).toBeVisible();

@@ -949,7 +949,7 @@ test('mobile web appearance: cards, hint bubble and zoom controls are styled', a
   expect(parseFloat(pill.radius)).toBeGreaterThan(0)
 })
 
-for (const width of [320, 360]) {
+for (const width of [320, 360, 390, 420]) {
   test(`mobile web toolbar fits on one row at ${width}px without scrolling`, async ({ page }) => {
     await page.setViewportSize({ width, height: 640 })
     await openMobileWorkspace(page, true, 1, true)
@@ -958,7 +958,7 @@ for (const width of [320, 360]) {
     await expect(fit).toBeVisible()
     const result = await fit.evaluate(el => {
       const bar = el.parentElement!.parentElement!
-      const buttons = [...bar.querySelectorAll('button')].map(b => b.getBoundingClientRect())
+      const buttons = [...bar.querySelectorAll('button, select')].map(b => b.getBoundingClientRect())
       return {
         maxRight: Math.max(...buttons.map(b => b.right)),
         minLeft: Math.min(...buttons.map(b => b.left)),
@@ -974,6 +974,13 @@ for (const width of [320, 360]) {
     expect(result.rows).toBeLessThan(8)
     await expect(page.getByRole('button', { name: '定位我', exact: true })).toBeVisible()
     await expect(fit).toHaveAttribute('aria-label', '适应屏幕')
+    const sort = page.getByRole('combobox', { name: '人轴排序', exact: true })
+    await expect(sort).toBeVisible()
+    await sort.selectOption('time')
+    await expect(sort).toHaveValue('time')
+    await page.getByRole('button', { name: '横向', exact: true }).click()
+    await fit.click()
+    await page.getByRole('button', { name: '定位我', exact: true }).click()
   })
 }
 
