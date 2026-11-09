@@ -354,7 +354,7 @@ async def test_invite_only_send_code_and_register(
         },
     )
     assert res_code_mismatch.status_code == 403
-    assert "当前仅支持受邀注册" in res_code_mismatch.json()["detail"]
+    assert res_code_mismatch.json()["detail"] == "请使用收到邀请的邮箱注册"  # A-10：令牌有效但邮箱不匹配
 
     # 5.3 send-code 有效邀请发码成功
     res_code_ok = await client.post(
@@ -394,7 +394,7 @@ async def test_invite_only_send_code_and_register(
         },
     )
     assert res_reg_mismatch.status_code == 403
-    assert "当前仅支持受邀注册" in res_reg_mismatch.json()["detail"]
+    assert res_reg_mismatch.json()["detail"] == "请使用收到邀请的邮箱注册"  # A-10：令牌有效但邮箱不匹配
 
     # 5.6 注册：邀请过期 403
     res_reg_expired = await client.post(

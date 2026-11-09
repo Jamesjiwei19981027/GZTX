@@ -20,6 +20,7 @@ import {
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { TaskWorkspaceToolbar } from './components/TaskWorkspaceToolbar';
+import { pickActiveCompany } from './utils/activeCompany';
 import { summarizeBatchReschedule } from './utils/batchReschedule';
 import { filterTaskWorkspace, type TaskWorkspaceScope } from './utils/taskWorkspace';
 import { PhoneVerificationReminder } from './components/PhoneVerificationReminder';
@@ -229,6 +230,8 @@ export default function App() {
   const [projectMembers, setProjectMembers] = useState<import('./types').TeamMember[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [companyId, setCompanyId] = useState<number | null>(null);
+  /** 刚接受另一家公司的项目邀请后，刷新时要停留在该公司身份 */
+  const preferredCompanyIdRef = useRef<number | null>(null);
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project>(ALL_PROJECT_ITEM);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -316,7 +319,8 @@ export default function App() {
         getUiPrefs().catch(() => null),
       ]);
       // 角色来自企业成员关系：超级管理员才能看到电脑端“企业管理”和手机端的电脑端操作提示
-      setUser({ ...mapUser(me), role: companies.items?.[0]?.my_membership?.is_super_admin ? '管理员' : '成员' });
+      const activeCompany = pickActiveCompany(companies.items, preferredCompanyIdRef.current);
+      setUser({ ...mapUser(me), role: activeCompany?.my_membership?.is_super_admin ? '管理员' : '成员' });
       const notifyPref = me.notify_pref || {};
       const channels = (notifyPref.channels || {}) as Record<string, Record<string, unknown>>;
       const quietHours = (notifyPref.quiet_hours || {}) as Record<string, unknown>;
@@ -333,9 +337,9 @@ export default function App() {
           weekendMute: typeof notifyPref.weekend_mute === 'boolean' ? Boolean(notifyPref.weekend_mute) : prev.notifications.weekendMute,
         },
       }));
-      const cid = companies.items?.[0]?.id ?? null;
+      const cid = activeCompany?.id ?? null;
       setCompanyId(cid);
-      setIsCompanyAdmin(Boolean(companies.items?.[0]?.my_membership?.is_super_admin));
+      setIsCompanyAdmin(Boolean(activeCompany?.my_membership?.is_super_admin));
       let mappedProjects: Project[] = [];
       if (cid) {
         const projPage = await listProjects(cid);
@@ -495,6 +499,16 @@ export default function App() {
         const accepted = await acceptProjectInvitation(token);
         if (cancelled) return;
         clearInviteToken();
+        // 先取项目详情，知道它属于哪家公司；刷新时切到该公司身份，项目列表才会包含新项目
+        let joinedDetail: Awaited<ReturnType<typeof getProject>> | null = null;
+        if (accepted.project_id) {
+          try {
+            joinedDetail = await getProject(accepted.project_id);
+            if (joinedDetail?.company_id) preferredCompanyIdRef.current = joinedDetail.company_id;
+          } catch {
+            /* 拿不到详情就沿用当前公司 */
+          }
+        }
         const refreshOk = await refreshFromBackend();
         if (accepted.project_id) {
           // 取真实项目名：以前直接钉「受邀项目」占位，顶栏会一直显示这个假名字
@@ -505,11 +519,7 @@ export default function App() {
             color: '#0058be',
             active: true,
           };
-          try {
-            joined = mapProject(await getProject(accepted.project_id));
-          } catch {
-            /* 拿不到详情就先用占位名，不挡住加入流程 */
-          }
+          if (joinedDetail) joined = mapProject(joinedDetail);
           if (cancelled) return;
           setCurrentProject(joined);
           switchView('team');
@@ -1102,7 +1112,13 @@ export default function App() {
           if (payload?.project_id) {
             clearInviteToken();
             const pid = payload.project_id;
-            void refreshFromBackend().then(() => {
+            void getProject(pid)
+              .then((p) => {
+                if (p.company_id) preferredCompanyIdRef.current = p.company_id;
+              })
+              .catch(() => undefined)
+              .then(() => refreshFromBackend())
+              .then(() => {
               void getProject(pid)
                 .then((p) => {
                   setCurrentProject(mapProject(p));

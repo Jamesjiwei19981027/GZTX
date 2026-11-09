@@ -32,6 +32,7 @@ router = APIRouter(prefix="/auth", tags=["认证"])
 
 
 INVITE_ONLY_DETAIL = "当前仅支持受邀注册，请向管理员索取邀请链接"
+INVITE_EMAIL_MISMATCH_DETAIL = "请使用收到邀请的邮箱注册"
 
 
 def _is_invite_only() -> bool:
@@ -40,7 +41,20 @@ def _is_invite_only() -> bool:
     return (settings.REGISTRATION_MODE or "").strip().lower() == "invite_only"
 
 
-async def _find_valid_invitation(db, token: str, email: str | None):
+async def _invitation_email_mismatch(db, token: str, email: str | None) -> bool:
+    """邀请令牌本身有效（待处理、未过期），但邀请指定了邮箱且与所填邮箱不一致。"""
+    if not (token or "").strip():
+        return False
+    if await _find_valid_invitation(db, token, email) is not None:
+        return False
+    # 忽略邮箱再查一次：能查到说明令牌有效，失败原因只可能是邮箱不匹配
+    probe = await _find_valid_invitation(db, token, None, check_email=False)
+    if probe is None or not probe.invitee_email:
+        return False
+    return (email or "").strip().lower() != probe.invitee_email.strip().lower()
+
+
+async def _find_valid_invitation(db, token: str, email: str | None, *, check_email: bool = True):
     """返回有效邀请（pending、未过期、邀请邮箱与 email 一致），否则 None。"""
     from datetime import datetime, timezone
 
@@ -59,7 +73,7 @@ async def _find_valid_invitation(db, token: str, email: str | None):
         return None
     if inv.expires_at and as_utc(inv.expires_at) < datetime.now(timezone.utc):
         return None
-    if inv.invitee_email:
+    if inv.invitee_email and check_email:
         if (email or "").strip().lower() != inv.invitee_email.strip().lower():
             return None
     return inv
@@ -112,6 +126,10 @@ async def send_verification_code(data: dict, db: DbSession, request: Request):
             db, data.get("invite_token") or "", target if channel == "email" else None
         )
         if inv is None:
+            if channel == "email" and await _invitation_email_mismatch(
+                db, data.get("invite_token") or "", target
+            ):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INVITE_EMAIL_MISMATCH_DETAIL)
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INVITE_ONLY_DETAIL)
 
     from app.services.rate_limit import enforce_send_code
@@ -170,6 +188,8 @@ async def register(data: UserRegister, db: DbSession):
     valid_invitation = None
     if data.invite_token or _is_invite_only():
         valid_invitation = await _find_valid_invitation(db, data.invite_token or "", data.email)
+        if valid_invitation is None and await _invitation_email_mismatch(db, data.invite_token or "", data.email):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INVITE_EMAIL_MISMATCH_DETAIL)
         if valid_invitation is None and _is_invite_only():
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INVITE_ONLY_DETAIL)
 

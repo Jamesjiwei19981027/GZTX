@@ -4,6 +4,7 @@ import fs from 'node:fs'
 import { mapEvidenceStatus, EVIDENCE_STATUS_LABEL } from '../src/api/mappers'
 import { effectiveNodeId, saveRecordProgress } from '../src/api/recordProgress'
 import { summarizeBatchReschedule } from '../src/utils/batchReschedule'
+import { pickActiveCompany } from '../src/utils/activeCompany'
 import { notificationTarget, notificationTitle } from '../src/utils/notificationText'
 
 const read = (p: string) => fs.readFileSync(p, 'utf8')
@@ -88,5 +89,13 @@ ok(r1.message === '已顺延 2 条任务至 2026-12-01，1 条只读任务未顺
 const r2 = summarizeBatchReschedule(['1', '2'], { updated_count: 2, skipped_readonly: 0, skipped_task_ids: [] }, '2026-12-01')
 ok(r2.applied.length === 2 && r2.skippedCount === 0 && !r2.message.includes('只读'), 'WR-44 无跳过')
 ok(app.includes('summarizeBatchReschedule(taskIds, res, dueDate)'), 'WR-44 App 接线')
+
+// WR-20：接受另一家公司邀请后切到该公司身份
+const cos = [{ id: 1 }, { id: 2 }]
+ok(pickActiveCompany(cos, null)?.id === 1, 'WR-20 默认第一家')
+ok(pickActiveCompany(cos, 2)?.id === 2, 'WR-20 切到邀请所属公司')
+ok(pickActiveCompany(cos, 9)?.id === 1, 'WR-20 指定公司不在名单时回退')
+ok(pickActiveCompany([], 2) === null && pickActiveCompany(undefined, null) === null, 'WR-20 空名单')
+ok(app.includes('preferredCompanyIdRef.current = joinedDetail.company_id') && app.includes('pickActiveCompany(companies.items, preferredCompanyIdRef.current)'), 'WR-20 App 接线')
 
 console.log(`r2 web flow: ${n} assertions passed`)
