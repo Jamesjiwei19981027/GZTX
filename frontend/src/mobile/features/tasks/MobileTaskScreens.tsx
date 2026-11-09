@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { TaskScheduleHistory } from '../../../components/TaskScheduleHistory';
 import {
   createTask,
@@ -313,6 +313,8 @@ export interface MobileTaskEditScreenProps {
   tags?: { id: number; name: string }[];
   defaultDate?: string;
   defaultStatus?: Status;
+  /** 个人设置里的默认优先级（ui.task_default_priority） */
+  defaultPriority?: Priority;
   lang?: Language;
 }
 
@@ -330,6 +332,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
   tags = [],
   defaultDate,
   defaultStatus,
+  defaultPriority = 'Medium',
   lang = 'zh',
 }) => {
   const isEditing = Boolean(editingTask);
@@ -359,6 +362,11 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [error]);
 
   // 初始化或回填表单
   useEffect(() => {
@@ -385,7 +393,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
       setTitle('');
       setDescription('');
       setStatus(defaultStatus || 'To Do');
-      setPriority('Medium');
+      setPriority(defaultPriority);
       setDueDate(defaultDate || '');
       setDueTime('');
       setSelectedCategoryId(undefined);
@@ -396,7 +404,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
       setSubtasks([]);
     }
     setError(null);
-  }, [editingTask, defaultDate, defaultStatus, isOpen]);
+  }, [editingTask, defaultDate, defaultStatus, defaultPriority, isOpen]);
 
   const handleAddSubtask = () => {
     if (!newSubtaskTitle.trim()) return;
@@ -477,13 +485,6 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
       defaultSnap="full"
     >
       <form onSubmit={handleSubmit} onChangeCapture={() => onDirtyChange?.(true)} className="flex flex-col gap-4 pb-12">
-        {error && (
-          <div className="p-3.5 rounded-xl bg-red-50 text-red-600 text-xs flex items-center gap-2">
-            <AppIcon name="alert" size={16} />
-            <span>{error}</span>
-          </div>
-        )}
-
         {/* 所属范围明确指示 */}
         <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] flex items-center gap-2">
           <AppIcon name="work" size={16} />
@@ -686,6 +687,19 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
             </div>
           </div>
         </MobileListGroup>
+
+        {/* 保存失败提示：紧贴保存按钮，长表单底部也能看到 */}
+        {error && (
+          <div
+            ref={errorRef}
+            role="alert"
+            data-testid="task-edit-error"
+            className="p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs flex items-center gap-2 mt-4"
+          >
+            <AppIcon name="alert" size={16} />
+            <span>{error}</span>
+          </div>
+        )}
 
         {/* 提交按钮 */}
         <button

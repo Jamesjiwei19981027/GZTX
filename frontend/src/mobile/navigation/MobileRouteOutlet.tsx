@@ -16,6 +16,7 @@ import {
 import { DashboardView } from '../../components/views/DashboardView';
 import { MyTasksView } from '../../components/views/MyTasksView';
 import { MobileTopBar } from '../ui/MobileTopBar';
+import { shouldHideOuterTopBar } from './mobileChrome';
 import { MobileEmptyState, MobileLoadingState } from '../ui/MobileState';
 import { AppIcon } from '../ui/AppIcon';
 import { TaskWorkspaceToolbar } from '../../components/TaskWorkspaceToolbar';
@@ -140,6 +141,9 @@ export interface MobileRouteOutletSharedProps {
   onLogout: () => Promise<void>;
   onOpenQuickAdd: () => void;
   onOpenSearch: () => void;
+  /** 受邀注册后要落到的项目；处理完调用 onInviteLandingHandled */
+  inviteLandingProjectId?: string | null;
+  onInviteLandingHandled?: () => void;
 }
 
 export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props) => {
@@ -167,6 +171,22 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
   const addScheduledTask = (date: string) => {
     setDetailTask(null); setCalendarEditor(true); setEditingTask(null); setNewTaskDate(date); setIsNewTaskOpen(true);
   };
+  // 受邀注册/接受邀请后：手机端落到被邀请项目的概览页，顶部项目芯片同步为该项目
+  const { inviteLandingProjectId, onInviteLandingHandled, projects: allProjects, currentProject: activeProject, onSelectProject } = props;
+  useEffect(() => {
+    if (!inviteLandingProjectId) return;
+    const target = allProjects.find((p) => String(p.id) === String(inviteLandingProjectId));
+    if (target && String(activeProject.id) !== String(target.id)) onSelectProject(target);
+    push({
+      tab: 'work',
+      screen: 'project-overview',
+      title: target?.name || activeProject.name,
+      params: { projectId: String(inviteLandingProjectId) },
+    });
+    onInviteLandingHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteLandingProjectId]);
+
   const closeTaskEditor = useCallback(() => {
     setIsNewTaskOpen(false); setEditingTask(null); setNewTaskDate(undefined);
     setNewTaskStatus(undefined); setCalendarEditor(false); setDirty(false);
@@ -842,7 +862,10 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={props.onOpenSearch}
+            onClick={() => {
+              // 手机端打开手机版搜索页，而不是桌面搜索浮层
+              if (activeRoute.screen !== 'work-search') push({ tab: 'work', screen: 'work-search', title: '全局搜索' });
+            }}
             aria-label="搜索"
             className="mobile-touch-target text-slate-700 dark:text-slate-300 active:opacity-60 cursor-pointer"
           >
@@ -858,10 +881,8 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
   // 人轴、AI 汇报和“我的”页面由各自 feature screen 绘制平台化顶栏；
   // 工作 / 消息页面没有内部顶栏，继续由 Outlet 提供统一标题和返回入口。
   // 避免同一页面出现两套顶栏和重复 heading。
-  const hideOuterTopBar = currentTab === 'axis' || currentTab === 'knowledge' || activeRoute.screen.startsWith('ai-') || currentTab === 'me'
-    || activeRoute.screen === 'messages-chat' || activeRoute.screen === 'record-progress';
-  const ownsContactsHeader = activeRoute.screen === 'messages-contacts' || activeRoute.screen === 'project-switch'
-    || activeRoute.screen === 'project-overview';
+  const hideOuterTopBar = shouldHideOuterTopBar(currentTab, activeRoute.screen);
+  const ownsContactsHeader = false;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F2F2F7] dark:bg-black">
@@ -924,6 +945,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
         projectName={props.projects.find(project => project.id === editingTask?.projectId)?.name || props.currentProject.name}
         defaultDate={newTaskDate}
         defaultStatus={newTaskStatus}
+        defaultPriority={props.settings.taskDefaults?.priority}
         members={projectMembersList}
         lang={lang}
       />

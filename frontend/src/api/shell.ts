@@ -398,16 +398,37 @@ export async function createPinnedLink(channelId: number, body: { title: string;
   })
 }
 
+export type InviteResult = {
+  id: number
+  token: string
+  status: string
+  expires_at?: string | null
+  invite_url?: string
+  /** sent=已发邮件；not_configured=公司未配发信；failed=发信失败；no_email=无对方邮箱 */
+  email_status?: 'sent' | 'not_configured' | 'failed' | 'no_email'
+  email_sent?: boolean
+}
+
+/** 邀请结果给用户看的说明：是否已发邮件，以及是否需要手动转发链接 */
+export function inviteDeliveryNotice(res: Pick<InviteResult, 'email_status'>, email?: string): string {
+  const to = email ? `（${email}）` : ''
+  switch (res.email_status) {
+    case 'sent':
+      return `已发送邀请邮件${to}，链接也可复制转发。`
+    case 'failed':
+      return '邀请邮件发送失败，请复制链接手动转发。'
+    case 'not_configured':
+      return '公司未配置发信，请复制链接手动转发给对方。'
+    default:
+      return '请复制链接手动转发给对方。'
+  }
+}
+
 export async function inviteProjectMember(
   projectId: number,
   body: { email?: string; user_id?: number },
 ) {
-  return apiRequest<{
-    id: number
-    token: string
-    status: string
-    expires_at?: string | null
-  }>(`/projects/${projectId}/invitations`, {
+  return apiRequest<InviteResult>(`/projects/${projectId}/invitations`, {
     method: 'POST',
     body: JSON.stringify(body),
   })

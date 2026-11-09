@@ -15,9 +15,11 @@ import {
 import {
   getMyPermissions,
   inviteProjectMember,
+  inviteDeliveryNotice,
   type MyProjectPermissions,
 } from '../../../api/shell';
 import { ApiError } from '../../../api/client';
+import { canManageProject } from './projectPermissions';
 import { mapTask } from '../../../api/mappers';
 import { Project, Language, Task } from '../../../types';
 import { AppIcon } from '../../ui/AppIcon';
@@ -313,6 +315,17 @@ export const MobileProjectOverviewScreen: React.FC<{
   const [taskAttempt, setTaskAttempt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [canManage, setCanManage] = useState(false);
+
+  // 项目设置齿轮和邀请按钮只给 PM / 超管；权限没拿到前默认不显示
+  useEffect(() => {
+    let active = true;
+    setCanManage(false);
+    getMyPermissions(projectId)
+      .then((perms) => { if (active) setCanManage(canManageProject(perms)); })
+      .catch(() => { if (active) setCanManage(false); });
+    return () => { active = false; };
+  }, [projectId]);
 
   useEffect(() => {
     let active = true;
@@ -385,7 +398,7 @@ export const MobileProjectOverviewScreen: React.FC<{
         <h1 className="text-base font-semibold truncate flex-1 text-center">
           {project.name}
         </h1>
-        {onNavigateToSettings && (
+        {canManage && onNavigateToSettings && (
           <button
             type="button"
             onClick={onNavigateToSettings}
@@ -398,7 +411,7 @@ export const MobileProjectOverviewScreen: React.FC<{
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {onNavigateToInvite && <button type="button" onClick={onNavigateToInvite}
+        {canManage && onNavigateToInvite && <button type="button" onClick={onNavigateToInvite}
           className="w-full min-h-[56px] px-4 rounded-2xl bg-[#0058BE] text-white shadow-sm flex items-center gap-3 text-left">
           <AppIcon name="team" size={22} /><span className="flex-1"><span className="block text-sm font-semibold">邀请新成员加入</span><span className="block text-xs text-blue-100 mt-1">添加项目成员，共同推进任务</span></span><AppIcon name="chevron-right" size={18} />
         </button>}
@@ -644,6 +657,8 @@ export const MobileProjectInviteScreen: React.FC<{
   const [inviteResult, setInviteResult] = useState<{
     token: string;
     expires_at?: string | null;
+    notice: string;
+    invite_url?: string;
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -659,7 +674,12 @@ export const MobileProjectInviteScreen: React.FC<{
     setError(null);
     try {
       const res = await inviteProjectMember(projectId, { email: inviteEmail.trim() });
-      setInviteResult({ token: res.token, expires_at: res.expires_at });
+      setInviteResult({
+        token: res.token,
+        expires_at: res.expires_at,
+        invite_url: res.invite_url,
+        notice: inviteDeliveryNotice(res, inviteEmail.trim()),
+      });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : '生成邀请失败');
     } finally {
@@ -668,7 +688,7 @@ export const MobileProjectInviteScreen: React.FC<{
   };
 
   const inviteLink = inviteResult
-    ? `${window.location.origin}?invite=${encodeURIComponent(inviteResult.token)}`
+    ? inviteResult.invite_url || `${window.location.origin}?invite=${encodeURIComponent(inviteResult.token)}`
     : '';
 
   const handleCopy = async () => {
@@ -710,7 +730,7 @@ export const MobileProjectInviteScreen: React.FC<{
         <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
           <h2 className="text-sm font-semibold mb-1">发送项目邀请</h2>
           <p className="text-xs text-slate-500 mb-4">
-            输入受邀同事的工作邮箱生成专属加入凭证。
+            输入受邀同事的工作邮箱。公司已配置发信时会自动发送邀请邮件，同时生成可转发的链接。
           </p>
 
           <form onSubmit={handleSendInvite} className="space-y-3">
@@ -730,7 +750,7 @@ export const MobileProjectInviteScreen: React.FC<{
               disabled={busy || !inviteEmail.trim()}
               className="min-h-[48px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-sm shadow-sm active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2"
             >
-              {busy ? '生成中…' : '生成邀请凭证'}
+              {busy ? '处理中…' : '生成并发送邀请'}
             </button>
           </form>
         </div>
@@ -748,7 +768,7 @@ export const MobileProjectInviteScreen: React.FC<{
 
             {/* 重要设计审查提示：不把复制链接当成自动发送 */}
             <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg leading-relaxed">
-              提示：复制链接后请通过工作邮件或聊天工具发送给同事。系统不会自动往外部邮箱发送未经配置的邮件。
+              {inviteResult?.notice}
             </p>
 
             <button
