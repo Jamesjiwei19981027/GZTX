@@ -24,6 +24,7 @@ import { AppIcon } from '../../ui/AppIcon';
 import { MobileField, MobileInput } from '../../ui/MobileField';
 import { MobileListGroup, MobileListItem } from '../../ui/MobileList';
 import { MobileConfirm } from '../../ui/MobileConfirm';
+import { archiveProjectRequest, unarchiveProjectRequest, updateProjectInfo, notifyProjectsChanged } from '../../../api/manage';
 import { MobileEmptyState, MobileLoadingState } from '../../ui/MobileState';
 
 export interface MobileProjectScreensProps {
@@ -536,7 +537,33 @@ export const MobileProjectSettingsScreen: React.FC<{
     };
   }, [projectId]);
 
+  const [nameDraft, setNameDraft] = useState('');
+  useEffect(() => { if (project) setNameDraft(project.name); }, [project?.name]);
   if (loading) return <MobileLoadingState message="检查权限与加载设置…" />;
+  const archived = project?.status === 'archived';
+  const saveName = async () => {
+    if (!nameDraft.trim() || nameDraft.trim() === project?.name) return;
+    setBusy(true);
+    try {
+      await updateProjectInfo(projectId, { name: nameDraft.trim() });
+      setProject(await getProject(projectId));
+      notifyProjectsChanged();
+      setMessage('项目名称已保存');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : '保存失败');
+    } finally { setBusy(false); }
+  };
+  const handleUnarchive = async () => {
+    setBusy(true);
+    try {
+      await unarchiveProjectRequest(projectId);
+      setProject(await getProject(projectId));
+      notifyProjectsChanged();
+      setMessage('已取消归档，项目恢复可编辑');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : '取消归档失败');
+    } finally { setBusy(false); }
+  };
 
   const canEdit = permissions?.is_pm || permissions?.is_superadmin || permissions?.can_edit_all;
 
@@ -544,10 +571,12 @@ export const MobileProjectSettingsScreen: React.FC<{
     setBusy(true);
     setConfirmArchiveOpen(false);
     try {
-      // 真实后端：若没有独立归档端点，提示并更新状态
-      setMessage('归档申请已提交，项目进入只读保护状态');
-    } catch {
-      setMessage('归档操作失败，请重试');
+      await archiveProjectRequest(projectId);
+      setProject(await getProject(projectId));
+      notifyProjectsChanged();
+      setMessage('项目已归档，现在是只读状态');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : '归档操作失败，请重试');
     } finally {
       setBusy(false);
     }
@@ -606,7 +635,21 @@ export const MobileProjectSettingsScreen: React.FC<{
           />
         </MobileListGroup>
 
-        {canEdit && (
+        {canEdit && !archived && (
+          <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex gap-2">
+            <input aria-label="项目名称" value={nameDraft} maxLength={200} onChange={(e) => setNameDraft(e.target.value)}
+              className="flex-1 min-h-[44px] px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm" />
+            <button type="button" disabled={busy} onClick={() => void saveName()} className="min-h-[44px] px-4 rounded-xl bg-[#0058BE] text-white text-sm font-medium disabled:opacity-40">保存名称</button>
+          </div>
+        )}
+
+        {canEdit && archived && (
+          <MobileListGroup title="项目已归档（只读）">
+            <MobileListItem title="取消归档" subtitle="恢复后项目可继续编辑" showChevron={false} showDivider={false} onClick={busy ? undefined : () => void handleUnarchive()} />
+          </MobileListGroup>
+        )}
+
+        {canEdit && !archived && (
           <MobileListGroup title="危险操作区">
             <MobileListItem
               destructive

@@ -9,6 +9,7 @@ import {
   listAgentReports,
   AgentReport,
 } from '../../../api/reports';
+import { listReportSummaries, publishReportSummary, type ReportSummary } from '../../../api/manage';
 
 export interface ProjectReportScreenProps {
   user: UserProfile;
@@ -33,6 +34,8 @@ export const ProjectReportScreen: React.FC<ProjectReportScreenProps> = ({
   const [notice, setNotice] = useState<string | null>(null);
 
   const [envelopeSummary, setEnvelopeSummary] = useState<string>('');
+  const [summaries, setSummaries] = useState<{ latest: ReportSummary | null; pending: ReportSummary | null; canPublish: boolean } | null>(null);
+  const [publishing, setPublishing] = useState(false);
   const [subordinateReports, setSubordinateReports] = useState<AgentReport[]>([]);
 
   // 载入当前项目下属汇报
@@ -43,6 +46,15 @@ export const ProjectReportScreen: React.FC<ProjectReportScreenProps> = ({
     setLoading(true);
     setError(null);
 
+    const loadSummaries = () => listReportSummaries(numericProjectId).then((r) => {
+      if (cancelled) return;
+      setSummaries({
+        latest: r.latest_published,
+        pending: r.items.find((i) => i.status !== 'published') || null,
+        canPublish: r.can_publish,
+      });
+    }).catch(() => undefined);
+    void loadSummaries();
     listAgentReports(numericProjectId)
       .then((res) => {
         if (cancelled) return;
@@ -71,6 +83,8 @@ export const ProjectReportScreen: React.FC<ProjectReportScreenProps> = ({
     try {
       const res = await aggregateAgentReports(numericProjectId);
       setEnvelopeSummary(res.summary_text || '');
+      const fresh = await listReportSummaries(numericProjectId);
+      setSummaries({ latest: fresh.latest_published, pending: fresh.items.find((i) => i.status !== 'published') || null, canPublish: fresh.can_publish });
       setNotice('已成功基于已提交的下属汇报生成最新项目汇总摘要');
     } catch (err) {
       setError(err instanceof Error ? err.message : '汇总项目汇报失败，请确认是否具备项目管理者权限');
@@ -80,10 +94,24 @@ export const ProjectReportScreen: React.FC<ProjectReportScreenProps> = ({
   };
 
   // 确认发布项目摘要（结合 G03 规范处理）
-  const handlePublishSummary = () => {
-    setNotice(
-      '【G03 规范提示】当前系统已生成并更新项目摘要封装。正式审批发布工作流待后端接口支持，未将未持久化的审批谎报为入库成功。',
-    );
+  const handlePublishSummary = async () => {
+    if (!numericProjectId || publishing) return;
+    const pending = summaries?.pending;
+    if (!pending) {
+      setError('没有待发布的项目汇总，请先点「生成 / 更新项目汇总」');
+      return;
+    }
+    setPublishing(true);
+    setError(null);
+    try {
+      const done = await publishReportSummary(numericProjectId, pending.id);
+      setSummaries((prev) => ({ latest: done, pending: null, canPublish: prev?.canPublish ?? true }));
+      setNotice('已发布，项目成员和上级可以在汇报页看到这一版');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '发布失败');
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const submittedCount = subordinateReports.filter(
@@ -177,6 +205,12 @@ export const ProjectReportScreen: React.FC<ProjectReportScreenProps> = ({
 
         {/* 操作按钮区 */}
         <div className="space-y-3 pt-2">
+          {summaries?.latest && (
+            <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900" data-testid="mobile-published-summary">
+              <div className="font-semibold mb-1">已发布版本 #{summaries.latest.id} · {(summaries.latest.published_at || '').slice(0, 16).replace('T', ' ')}</div>
+              <pre className="whitespace-pre-wrap font-sans">{summaries.latest.summary_text}</pre>
+            </div>
+          )}
           <button
             type="button"
             disabled={aggregating}
@@ -193,11 +227,12 @@ export const ProjectReportScreen: React.FC<ProjectReportScreenProps> = ({
 
           <button
             type="button"
-            onClick={handlePublishSummary}
+            disabled={publishing || !summaries?.pending}
+            onClick={() => void handlePublishSummary()}
             className="w-full min-h-[46px] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-slate-50 cursor-pointer shadow-2xs transition-colors"
           >
             <AppIcon name="send" size={17} />
-            <span>确认发布项目摘要</span>
+            <span>{publishing ? '发布中…' : '确认发布项目摘要'}</span>
           </button>
         </div>
       </div>
