@@ -1,4 +1,4 @@
-.project-wiki-panel{padding:28px 24px 24px;display:grid;gap:24px;color:var(--color-on-surface-val));font-size:14px;min-width:0}
+.project-wiki-panel{padding:28px 24px 24px;display:grid;gap:24px;color:var(--color-on-surface-val);font-size:14px;min-width:0}
 .project-wiki-heading{display:flex;gap:12px;align-items:center;padding-right:20px}
 .project-wiki-panel h2{font-size:20px;font-weight:500;margin:0;line-height:1.45}
 .project-wiki-panel h3{font-size:15px;font-weight:500;display:flex;gap:8px;align-items:center;margin:0 0 8px}

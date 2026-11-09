@@ -104,7 +104,7 @@ export const MatterEditForm: React.FC<EditProps> = ({ item, members, canChangeAs
       </label>
       {!canChangeAssignee && <p className="axis-muted">只有直属上级或项目负责人可以更换负责人。</p>}
       {error && (
-        <p role="alert" className="axis-muted" style={{ color: '#b3261e' }}>
+        <p role="alert" className="axis-muted" style={{ color: 'var(--color-error-val)' }}>
           {error}
         </p>
       )}
@@ -149,7 +149,7 @@ export const MatterDeleteConfirm: React.FC<DeleteProps> = ({ item, onClose, onDe
         即将删除「{item.title}」。删除后它会从人轴上消失，但可以在删除后马上点「撤销」恢复。
       </p>
       {error && (
-        <p role="alert" style={{ color: '#b3261e' }}>
+        <p role="alert" style={{ color: 'var(--color-error-val)' }}>
           {error}
         </p>
       )}
@@ -160,7 +160,6 @@ export const MatterDeleteConfirm: React.FC<DeleteProps> = ({ item, onClose, onDe
         <button
           type="button"
           className="axis-primary-button"
-          style={{ background: '#b3261e' }}
           onClick={() => void confirm()}
           disabled={busy}
         >

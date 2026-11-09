@@ -29,8 +29,8 @@ export function AxisMatter({ item, lang }: { item: AxisWorkItem; lang: Language 
   const active = item.status === 'In Progress'
   const Icon = done ? Check : item.type === 'milestone' ? Flag : active ? FileText : Circle
   return <div className="axis-matter">
-    <span className={`axis-matter-icon ${done ? 'is-done' : ''}`}><Icon size={17} /></span>
-    <span className="axis-matter-name">{item.title}</span>
+    <span className={`axis-matter-icon ${done ? 'is-done' : ''}`}><Icon size={18} /></span>
+    <span className={`axis-matter-name${done ? ' ink-done' : ''}`}>{item.title}</span>
     <span className={`axis-status ${done ? 'is-done' : active ? 'is-active' : ''}`}>
       {lang === 'zh' ? done ? '已完成' : active ? '进行中' : '待开始' : item.status}
     </span>

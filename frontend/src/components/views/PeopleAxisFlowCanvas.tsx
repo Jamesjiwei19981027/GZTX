@@ -117,7 +117,7 @@ const FoldedRowNode: React.FC<NodeProps<FoldedRowFlowNode>> = ({ data: d }) => {
         <span className="axis-folded-role">{n.roleTitle}</span>
         <span className="axis-folded-count">{zh ? `任务 ${total}` : `Tasks ${total}`}</span>
         {overdue > 0 ? <span className="axis-folded-over">{zh ? `逾期 ${overdue}` : `Overdue ${overdue}`}</span> : <span aria-hidden="true" />}
-        <ChevronDown size={16} aria-hidden="true" />
+        <ChevronDown size={18} aria-hidden="true" />
       </button>
     </div>
   )
@@ -193,7 +193,7 @@ const PersonCard: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
                   d.onAddChild(n.id)
                 }}
               >
-                <Plus size={14} />
+                <Plus size={18} />
               </button>
             )}
             {d.canReturn && !d.mobile && (
@@ -208,7 +208,7 @@ const PersonCard: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
                   d.onReturn?.(n.id)
                 }}
               >
-                <Undo2 size={14} />
+                <Undo2 size={18} />
               </button>
             )}
             {(d.canEdit || d.canRelink) && (!d.mobile || d.isSelected) && (
@@ -337,7 +337,7 @@ const PersonCard: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
                     }}
                   >
                     <i className={`axis-task-dot ${chip.tone}`} />
-                    <span className="axis-task-title">{item.title}</span>
+                    <span className={`axis-task-title${item.status === 'Done' ? ' ink-done' : ''}`}>{item.title}</span>
                     <span className={`axis-task-chip ${chip.tone}`}>{chip.text}</span>
                   </div>
                 )
@@ -446,13 +446,13 @@ const BranchEdge: React.FC<EdgeProps> = ({ source, target, data }) => {
     : floatingEdgePath(s, t)
 
   const emphasis = d?.emphasis || 'normal'
-  let stroke = subordinate ? 'var(--axis-extension, #278c7f)' : 'var(--axis-branch, #8daed5)'
-  let strokeWidth = 1.6
+  let stroke = 'var(--axis-muted)'
+  let strokeWidth = 1
   let opacity = 1
 
   if (emphasis === 'highlight') {
-    stroke = 'var(--axis-blue, #0058be)'
-    strokeWidth = 2.4
+    stroke = 'var(--axis-muted)'
+    strokeWidth = 1.5
   } else if (emphasis === 'dim') {
     opacity = 0.25
   }
@@ -476,8 +476,8 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = props => {
   const { data } = props
   if (!data.timelineItem) return <PersonCard {...props} />
   const item = data.timelineItem
-  return <button type="button" className="axis-timeline-matter nodrag nopan" data-testid={`axis-timeline-matter-${item.id}`} onClick={event => { event.stopPropagation(); data.onCardClick(data.node.id) }}>
-    <strong>{item.title}</strong><span>{data.node.person.name} · {item.dueDate}</span>
+  return <button type="button" className={`axis-timeline-matter nodrag nopan${item.status === 'Done' ? ' is-done' : ''}`} data-testid={`axis-timeline-matter-${item.id}`} onClick={event => { event.stopPropagation(); data.onCardClick(data.node.id) }}>
+    <strong className={item.status === 'Done' ? 'ink-done' : undefined}>{item.title}</strong><span>{data.node.person.name} · {item.dueDate}</span>
     <small>{item.type === 'milestone' ? '里程碑' : item.type === 'scope' ? '范围' : '工作项'} · {item.status === 'Done' ? '已完成' : `${item.progress || 0}%`}</small>
   </button>
 }
@@ -501,7 +501,7 @@ const LinkingPreview: React.FC<{ sourceId: string | null }> = ({ sourceId }) => 
   return (
     <ViewportPortal>
       <svg style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', pointerEvents: 'none', zIndex: 50 }}>
-        <path d={`M ${a.x} ${a.y} Q ${a.x} ${cursor.y} ${cursor.x} ${cursor.y}`} fill="none" stroke="var(--axis-blue)" strokeWidth={2} strokeDasharray="5 5" />
+        <path d={`M ${a.x} ${a.y} Q ${a.x} ${cursor.y} ${cursor.x} ${cursor.y}`} fill="none" stroke="var(--axis-muted)" strokeWidth={1} strokeDasharray="4 4" />
       </svg>
     </ViewportPortal>
   )
@@ -1142,7 +1142,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       className={`axis-flow${mobile ? ' axis-theme' : ''}`}
       data-testid={mobile ? 'mobile-axis-graph' : undefined}
     >
-      <Background color="var(--axis-dot, #dce2eb)" gap={22} size={1} />
+      <Background color="var(--axis-dot)" gap={24} size={1} />
       <LinkingPreview sourceId={linkingSourceNodeId} />
       {snapGuide && (
         <ViewportPortal>
@@ -1171,7 +1171,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       {linkingSourceNodeId && (
         <Panel position="top-center" className="axis-link-panel">
           <span>{lang === 'zh' ? '点击人员设为直属上级' : 'Tap the new parent'}</span>
-          <button aria-label={lang === 'zh' ? '取消连线' : 'Cancel linking'} onClick={onCancelLinking}><X size={16} /></button>
+          <button aria-label={lang === 'zh' ? '取消连线' : 'Cancel linking'} onClick={onCancelLinking}><X size={18} /></button>
         </Panel>
       )}
       {mobile && showMobileHint && (
@@ -1197,14 +1197,14 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
         {!mobile && <button className="axis-control-square" aria-label={lang === 'zh' ? '重置布局' : 'Reset layout'} onClick={() => { onResetLayout(); setTimeout(fit, 100) }}><LocateFixed size={18} /></button>}
       </Panel>
       {timeline.items.length > 0 && <ViewportPortal><svg className="axis-timeline-scale" data-testid="axis-timeline-scale" style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', pointerEvents: 'none' }}>
-        <line data-testid="axis-timeline-trunk" x1={orientation === 'horizontal' ? timeline.start : timelineCross} y1={orientation === 'horizontal' ? timelineCross : timeline.start} x2={orientation === 'horizontal' ? timeline.end : timelineCross} y2={orientation === 'horizontal' ? timelineCross : timeline.end} stroke="var(--axis-blue, #0058be)" strokeWidth={3} />
+        <line data-testid="axis-timeline-trunk" x1={orientation === 'horizontal' ? timeline.start : timelineCross} y1={orientation === 'horizontal' ? timelineCross : timeline.start} x2={orientation === 'horizontal' ? timeline.end : timelineCross} y2={orientation === 'horizontal' ? timelineCross : timeline.end} stroke="var(--axis-muted)" strokeWidth={1} />
         {timeline.ticks.map(tick => <g key={tick.date} transform={orientation === 'horizontal' ? `translate(${tick.along} ${timelineCross})` : `translate(${timelineCross} ${tick.along})`}>
-          <line x2={orientation === 'horizontal' ? 0 : 8} y2={orientation === 'horizontal' ? 8 : 0} stroke="var(--axis-blue, #0058be)" strokeWidth={2} />
-          <text x={orientation === 'horizontal' ? 0 : 12} y={orientation === 'horizontal' ? 24 : 4} textAnchor={orientation === 'horizontal' ? 'middle' : 'start'} fontSize={12} fill="var(--axis-blue, #0058be)">{tick.date}</text>
+          <line x2={orientation === 'horizontal' ? 0 : 8} y2={orientation === 'horizontal' ? 8 : 0} stroke="var(--axis-muted)" strokeWidth={1} />
+          <text x={orientation === 'horizontal' ? 0 : 12} y={orientation === 'horizontal' ? 24 : 4} textAnchor={orientation === 'horizontal' ? 'middle' : 'start'} fontSize={12} fill="var(--axis-muted)">{tick.date}</text>
         </g>)}
         {orderMode === 'time' && timeline.items.map(entry => <g key={entry.item.id} data-testid={`axis-timeline-anchor-${entry.item.id}`} data-along={entry.along} data-date={entry.item.dueDate}>
-          <line x1={orientation === 'horizontal' ? entry.along : timelineCross} y1={orientation === 'horizontal' ? timelineCross : entry.along} x2={orientation === 'horizontal' ? entry.along : timelineCross - 30 - entry.lane * 250} y2={orientation === 'horizontal' ? timelineCross - 42 - entry.lane * 110 : entry.along} stroke="#8daed5" />
-          <circle cx={orientation === 'horizontal' ? entry.along : timelineCross} cy={orientation === 'horizontal' ? timelineCross : entry.along} r={4} fill="var(--axis-blue, #0058be)" />
+          <line x1={orientation === 'horizontal' ? entry.along : timelineCross} y1={orientation === 'horizontal' ? timelineCross : entry.along} x2={orientation === 'horizontal' ? entry.along : timelineCross - 30 - entry.lane * 250} y2={orientation === 'horizontal' ? timelineCross - 42 - entry.lane * 110 : entry.along} stroke="var(--axis-muted)" />
+          <circle cx={orientation === 'horizontal' ? entry.along : timelineCross} cy={orientation === 'horizontal' ? timelineCross : entry.along} r={4} fill="var(--axis-muted)" />
         </g>)}
       </svg></ViewportPortal>}
       </ReactFlow>

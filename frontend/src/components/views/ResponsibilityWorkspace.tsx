@@ -40,7 +40,7 @@ export function AxisDialog({ title, onClose, children }: { title: string; onClos
     <div className="axis-sheet-backdrop" onClick={onClose} />
     <div className="axis-sheet" role="dialog" aria-modal="true" aria-label={title} tabIndex={-1} ref={ref}>
       <div className="axis-sheet-handle" />
-      <button className="axis-icon-button axis-sheet-close" aria-label="关闭" onClick={onClose}><X size={20} /></button>
+      <button className="axis-icon-button axis-sheet-close" aria-label="关闭" onClick={onClose}><X size={18} /></button>
       {children}
     </div>
   </div>, document.body)
@@ -120,7 +120,7 @@ const EvidenceRow: React.FC<{ ev: AxisEvidence & { item: string }; onReloaded: (
     } finally { setBusy(false) }
   }
   const canReview = ev.canReview === true && ev.status === 'awaiting_review'
-  return <div className="axis-evidence-row" data-testid={`axis-evidence-${ev.id}`}><FileText size={19} />
+  return <div className="axis-evidence-row" data-testid={`axis-evidence-${ev.id}`}><FileText size={18} />
     <div>{href ? <a href={href} target="_blank" rel="noopener noreferrer">{ev.title}</a> : <strong>{ev.title}</strong>}
       <small>{ev.item} · {ev.timestamp}</small>
       {ev.status === 'rejected' && ev.rejectReason && <small className="axis-reject-reason" data-testid="axis-reject-reason">驳回原因：{ev.rejectReason}</small>}
@@ -135,7 +135,7 @@ const EvidenceRow: React.FC<{ ev: AxisEvidence & { item: string }; onReloaded: (
       </span>}
       {error && <small role="alert" style={{ color: 'var(--error, #b3261e)' }}>{error}</small>}
     </div>
-    <span className="axis-status">{EVIDENCE_STATUS_LABEL[ev.status] || ev.status}</span>
+    <span className={`axis-status${ev.status === 'adopted' ? ' is-done' : ev.status === 'rejected' ? ' is-risk' : ev.status === 'awaiting_review' ? ' is-active' : ''}`}>{EVIDENCE_STATUS_LABEL[ev.status] || ev.status}</span>
   </div>
 }
 
@@ -164,8 +164,8 @@ function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onActio
       <span className={data.canAddWorkItem ? 'is-allowed' : ''}>{zh ? data.canAddWorkItem ? '可新增事项' : '不可新增事项' : data.canAddWorkItem ? 'Add work items' : 'No new work items'}</span>
     </div>}
     {data?.canEdit && <div className="axis-person-management">
-      {data.canAddSubordinate && <button className="axis-secondary-button" onClick={() => act(() => data.onAddChild(node.id))}><Plus size={16} />{zh ? '新增下级' : 'Add subordinate'}</button>}
-      <button className="axis-secondary-button" onClick={() => act(() => data.onEditPerson(node.id))}><Pencil size={15} />{zh ? '编辑人员' : 'Edit person'}</button>
+      {data.canAddSubordinate && <button className="axis-secondary-button" onClick={() => act(() => data.onAddChild(node.id))}><Plus size={18} />{zh ? '新增下级' : 'Add subordinate'}</button>}
+      <button className="axis-secondary-button" onClick={() => act(() => data.onEditPerson(node.id))}><Pencil size={18} />{zh ? '编辑人员' : 'Edit person'}</button>
     </div>}
     {node.aiContext?.summary && <p className="axis-detail-description">{node.aiContext.summary}</p>}
     <div className="axis-detail-progress"><strong>{progress}%</strong><AxisProgress value={progress} /></div>
@@ -187,7 +187,7 @@ function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onActio
         {!node.workItems.length && <p className="axis-empty-text">{zh ? '暂无事项，为这位负责人添加第一项工作。' : 'No work items yet.'}</p>}
       </div>}
       {tab === 'evidence' && <div className="axis-evidence-list">
-        {firstSubmissionItem && <button className="axis-primary-button" onClick={() => act(() => onAddEvidence(firstSubmissionItem.id))}><Plus size={16} />{zh ? '提交材料' : 'Submit evidence'}</button>}
+        {firstSubmissionItem && <button className="axis-primary-button" onClick={() => act(() => onAddEvidence(firstSubmissionItem.id))}><Plus size={18} />{zh ? '提交材料' : 'Submit evidence'}</button>}
         {evidence.map(ev => <EvidenceRow key={ev.id} ev={ev} onReloaded={onReloadEvidence} />)}
         {!evidence.length && <p className="axis-empty-text">{zh ? '暂无提交材料。可在事项下提交交付材料。' : 'No evidence submitted yet.'}</p>}
       </div>}
@@ -200,14 +200,14 @@ function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onActio
     </div>
     <div className="axis-detail-actions">
       {data?.canAddWorkItem ? <button className="axis-primary-button" onClick={() => act(() => data.onAddWorkItem(node.id))}><Plus size={18} />{zh ? '添加事项' : 'Add work item'}</button>
-        : <span className="axis-read-only"><ShieldCheck size={17} />{zh ? data?.canEdit ? '不可新增事项' : '只读' : data?.canEdit ? 'No new work items' : 'Read-only'}</span>}
-      {data?.canRelink && <button className="axis-text-button" onClick={() => act(() => data.onToggleLinking(node.id))}><GitBranch size={16} />{zh ? '管理责任关系' : 'Manage relationship'}</button>}
+        : <span className="axis-read-only"><ShieldCheck size={18} />{zh ? data?.canEdit ? '不可新增事项' : '只读' : data?.canEdit ? 'No new work items' : 'Read-only'}</span>}
+      {data?.canRelink && <button className="axis-text-button" onClick={() => act(() => data.onToggleLinking(node.id))}><GitBranch size={18} />{zh ? '管理责任关系' : 'Manage relationship'}</button>}
     </div>
   </div>
 }
 
 const PersonRow: React.FC<{ node: PeopleAxisNode; onClick: () => void }> = ({ node, onClick }) => {
-  return <button className="axis-person-row" onClick={onClick}><AxisAvatar person={node.person} small /><span><strong>{node.person.name}</strong><small>{node.roleTitle}</small></span><ChevronRight size={17} /></button>
+  return <button className="axis-person-row" onClick={onClick}><AxisAvatar person={node.person} small /><span><strong>{node.person.name}</strong><small>{node.roleTitle}</small></span><ChevronRight size={18} /></button>
 }
 
 export function ResponsibilityWorkspace(p: Props) {
@@ -251,12 +251,12 @@ export function ResponsibilityWorkspace(p: Props) {
             <span className="axis-chain-count">{node.workItems.length} {zh ? '个事项' : 'items'}{kids.length > 0 ? ` · ${kids.length} ${zh ? '位下级' : 'subordinates'}` : ''}</span>
           </button>
           {allData.get(node.id)?.canEdit && <div className="axis-chain-management">
-            {allData.get(node.id)?.canAddSubordinate && <button onClick={() => allData.get(node.id)?.onAddChild(node.id)}><Plus size={15} />{zh ? '新增下级' : 'Add subordinate'}</button>}
-            <button onClick={() => allData.get(node.id)?.onEditPerson(node.id)}><Pencil size={14} />{zh ? '编辑人员' : 'Edit person'}</button>
-            {allData.get(node.id)?.canRelink && <button onClick={() => allData.get(node.id)?.onToggleLinking(node.id)}><GitBranch size={14} />{zh ? '调整上级' : 'Change manager'}</button>}
+            {allData.get(node.id)?.canAddSubordinate && <button onClick={() => allData.get(node.id)?.onAddChild(node.id)}><Plus size={18} />{zh ? '新增下级' : 'Add subordinate'}</button>}
+            <button onClick={() => allData.get(node.id)?.onEditPerson(node.id)}><Pencil size={18} />{zh ? '编辑人员' : 'Edit person'}</button>
+            {allData.get(node.id)?.canRelink && <button onClick={() => allData.get(node.id)?.onToggleLinking(node.id)}><GitBranch size={18} />{zh ? '调整上级' : 'Change manager'}</button>}
           </div>}
           {kids.length > 0 && <button className="axis-chain-expand" aria-expanded={expanded} onClick={() => p.onToggleExpand(node.id)}>
-            {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}{zh ? `${expanded ? '收起' : '展开'}下级` : 'Subordinates'}
+            {expanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}{zh ? `${expanded ? '收起' : '展开'}下级` : 'Subordinates'}
           </button>}
         </article>
         {expanded && kids.map(child => render(child, depth + 1))}
@@ -275,20 +275,20 @@ export function ResponsibilityWorkspace(p: Props) {
             <option value="all">{zh ? '全部项目' : 'All projects'}</option>
             {p.projects?.filter(project => project.id !== 'all').map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
             {!p.projects?.some(project => project.id === p.projectId) && p.isProject && <option value={p.projectId}>{p.projectName}</option>}
-          </select><ChevronDown size={15} />
+          </select><ChevronDown size={18} />
         </label>
-        {p.isProject && <button className="axis-icon-button" aria-label={zh ? '项目知识' : 'Project knowledge'} onClick={p.onOpenWiki}><BookOpen size={20} /></button>}
-        {p.isProject && p.onOpenProjectSettings && <button className="axis-icon-button" data-testid="axis-project-settings" aria-label={zh ? '项目设置' : 'Project settings'} title={zh ? '项目设置' : 'Project settings'} onClick={p.onOpenProjectSettings}><Settings size={20} /></button>}
-        {p.isProject && <button className="axis-icon-button" aria-label={zh ? '画布设置' : 'Canvas settings'} onClick={() => setSettingsOpen(true)}><MoreHorizontal size={21} /></button>}
-        {p.canAdd && <button className="axis-primary-button" aria-label="添加责任人" onClick={p.onAdd}><Plus size={17} />{zh ? '添加成员' : 'Add person'}</button>}
+        {p.isProject && <button className="axis-icon-button" aria-label={zh ? '项目知识' : 'Project knowledge'} onClick={p.onOpenWiki}><BookOpen size={18} /></button>}
+        {p.isProject && p.onOpenProjectSettings && <button className="axis-icon-button" data-testid="axis-project-settings" aria-label={zh ? '项目设置' : 'Project settings'} title={zh ? '项目设置' : 'Project settings'} onClick={p.onOpenProjectSettings}><Settings size={18} /></button>}
+        {p.isProject && <button className="axis-icon-button" aria-label={zh ? '画布设置' : 'Canvas settings'} onClick={() => setSettingsOpen(true)}><MoreHorizontal size={18} /></button>}
+        {p.canAdd && <button className="axis-primary-button" aria-label="添加责任人" onClick={p.onAdd}><Plus size={18} />{zh ? '添加成员' : 'Add person'}</button>}
       </div>
     </header>
     {p.isProject && <nav className="axis-quick-actions" aria-label={zh ? '人轴协作与检查' : 'Delegation and review'}>
-      {p.onDelegate && <button className="axis-settings-row" onClick={p.onDelegate}><ShieldCheck size={19} />{zh ? '委托授权' : 'Manage delegations'}</button>}
-      <button className="axis-settings-row" disabled={p.auditing} onClick={p.onAudit}><Check size={19} />{zh ? p.auditing ? '审计中…' : 'AI 责任链审计' : 'AI responsibility audit'}</button>
+      {p.onDelegate && <button className="axis-settings-row" onClick={p.onDelegate}><ShieldCheck size={18} />{zh ? '委托授权' : 'Manage delegations'}</button>}
+      <button className="axis-settings-row" disabled={p.auditing} onClick={p.onAudit}><Check size={18} />{zh ? p.auditing ? '审计中…' : 'AI 责任链审计' : 'AI responsibility audit'}</button>
     </nav>}
     <div className="axis-summary"><div className="axis-summary-progress"><strong>{p.isProject ? (zh ? p.scope === 'mine' ? '我的职责' : '项目全貌' : 'Responsibility') : (zh ? `${p.projectSummaries.length} 个项目` : `${p.projectSummaries.length} projects`)}</strong><AxisProgress value={p.isProject ? p.progress : averagePeopleAxisProgress(summaryNodes)} /><b>{p.isProject ? p.progress : averagePeopleAxisProgress(summaryNodes)}%</b></div>
-      <span className="axis-summary-count"><Users size={16} />{summaryNodes.length} {zh ? '位负责人' : 'owners'}<span>·</span>{count} {zh ? '个事项' : 'items'}</span>
+      <span className="axis-summary-count"><Users size={18} />{summaryNodes.length} {zh ? '位负责人' : 'owners'}<span>·</span>{count} {zh ? '个事项' : 'items'}</span>
       <span className={`axis-sync ${p.syncing ? 'is-syncing' : ''}`} role="status"><i />{p.syncing ? (zh ? '同步中' : 'Syncing') : (zh ? '已同步' : 'Synced')}</span>
     </div>
     {p.error && <div className="axis-load-notice" role="status">{p.error}<button onClick={p.onReload}>{zh ? '重新加载' : 'Reload'}</button></div>}
@@ -305,11 +305,11 @@ export function ResponsibilityWorkspace(p: Props) {
         const roles = [...new Set(project.nodes.filter(n => direct.has(n.id)).map(n => n.roleTitle))]
         const role = project.myRole === 'pm' ? (zh ? '项目 PM · 统筹项目' : 'Project PM') : roles.join(' / ') || (zh ? '项目成员 · 尚未分配职责' : 'Member · no assigned responsibility')
         return <button className="axis-project-card" key={project.id} data-testid={`axis-project-${project.id}`} onClick={() => p.onSelectProject?.(p.projects?.find(item => item.id === project.id) || { id: project.id, name: project.name, color: '#0058BE', description: '', active: true })}>
-          <span className="axis-project-card-heading"><GitBranch size={22} /><strong>{project.name}</strong><ChevronRight size={19} /></span>
+          <span className="axis-project-card-heading"><GitBranch size={18} /><strong>{project.name}</strong><ChevronRight size={18} /></span>
           <span className="axis-project-role">{zh ? '我的岗位' : 'My role'} · {role}</span>
           <AxisProgress value={averagePeopleAxisProgress(project.nodes)} label />
           <span className="axis-summary-count">{project.nodes.length} {zh ? '位负责人' : 'owners'} · {project.nodes.reduce((sum, n) => sum + n.workItems.length, 0)} {zh ? '个事项' : 'items'}</span>
-          <span className="axis-project-enter">{zh ? '查看项目责任链' : 'Open responsibility chain'}<ArrowRight size={15} /></span>
+          <span className="axis-project-enter">{zh ? '查看项目责任链' : 'Open responsibility chain'}<ArrowRight size={18} /></span>
         </button>
       })}</div>
       {!p.projectSummaries.length && <p className="axis-empty-text">{p.syncing ? (zh ? '正在加载项目…' : 'Loading projects…') : (zh ? '暂无可查看的项目。' : 'No visible projects.')}</p>}
@@ -352,7 +352,7 @@ export function ResponsibilityWorkspace(p: Props) {
               </div>
             )}
             <PeopleAxisFlowCanvas {...p.canvas} edgeStyle={p.edgeStyle} mobile={false} focusNodeId={p.selectedId} focusToken={focusToken} />
-          </div> : <div className="axis-empty-state"><span className="axis-empty-icon"><GitBranch size={34} /></span>
+          </div> : <div className="axis-empty-state"><span className="axis-empty-icon"><GitBranch size={18} /></span>
             <h2>{p.syncing ? (zh ? '正在加载责任链…' : 'Loading…') : p.error ? (zh ? '暂时无法显示责任链' : 'Unable to load') : p.scope === 'mine' && !p.hasResponsibilities && !p.isProjectPM ? (zh ? '你在此项目尚未分配职责' : 'No assigned responsibilities') : (zh ? '从一位负责人开始' : 'Start with an owner')}</h2>
             <p>{zh ? p.scope === 'mine' && !p.hasResponsibilities && !p.isProjectPM ? '可切换项目全貌查看分工，或联系项目 PM 分配职责。' : '项目终责统筹，负责人逐级分工，事项落实到人。' : 'The project lead oversees a hierarchy of owners and their work.'}</p>
             {p.canAdd && !p.syncing && !(p.scope === 'mine' && !p.hasResponsibilities && !p.isProjectPM) && <><button className="axis-primary-button" onClick={p.onAdd}><Plus size={18} />{zh ? '先添加终责人' : 'Add final owner'}</button>
@@ -362,14 +362,14 @@ export function ResponsibilityWorkspace(p: Props) {
       </div>
       {selected && <aside className="axis-inspector" data-testid="axis-inspector"><div className="axis-inspector-title"><h2>{zh ? '节点详情' : 'Node details'}</h2>
         {selected && <button className="axis-icon-button" aria-label="关闭详情" onClick={() => p.onSelect(null)}><X size={18} /></button>}</div>
-        {detail || <div className="axis-inspector-empty"><Users size={30} /><p>{zh ? '选择一位负责人' : 'Select an owner'}</p><small>{zh ? '查看事项、材料与协作关系' : 'Explore work items, evidence and relationships'}</small></div>}
+        {detail || <div className="axis-inspector-empty"><Users size={18} /><p>{zh ? '选择一位负责人' : 'Select an owner'}</p><small>{zh ? '查看事项、材料与协作关系' : 'Explore work items, evidence and relationships'}</small></div>}
       </aside>}
     </div>}
     {settingsOpen && <AxisDialog title={zh ? '画布设置' : 'Canvas settings'} onClose={() => setSettingsOpen(false)}><div className="axis-settings"><h2>{zh ? '画布设置' : 'Canvas settings'}</h2>
       <p className="axis-muted">{zh ? '浏览方式随时切换，责任关系保持同步。' : 'Switch views while keeping the same responsibility data.'}</p>
-      <button className="axis-settings-row" onClick={() => { p.canvas.onResetLayout(); setSettingsOpen(false) }}><RefreshCw size={19} />{zh ? '重置卡片布局' : 'Reset card layout'}</button>
-      {p.onPullAll && <button className="axis-settings-row" data-testid="axis-pull-all" onClick={() => { p.onPullAll?.(); setSettingsOpen(false) }}><Users size={19} />{zh ? '全部拉到人轴' : 'Pull everyone to the axis'}</button>}
-      {p.onResetFold && <button className="axis-settings-row" data-testid="axis-reset-fold" onClick={() => { p.onResetFold?.(); setSettingsOpen(false) }}><RefreshCw size={19} />{zh ? '恢复默认折叠' : 'Restore default folding'}</button>}
+      <button className="axis-settings-row" onClick={() => { p.canvas.onResetLayout(); setSettingsOpen(false) }}><RefreshCw size={18} />{zh ? '重置卡片布局' : 'Reset card layout'}</button>
+      {p.onPullAll && <button className="axis-settings-row" data-testid="axis-pull-all" onClick={() => { p.onPullAll?.(); setSettingsOpen(false) }}><Users size={18} />{zh ? '全部拉到人轴' : 'Pull everyone to the axis'}</button>}
+      {p.onResetFold && <button className="axis-settings-row" data-testid="axis-reset-fold" onClick={() => { p.onResetFold?.(); setSettingsOpen(false) }}><RefreshCw size={18} />{zh ? '恢复默认折叠' : 'Restore default folding'}</button>}
     </div></AxisDialog>}
   </section>
 }
