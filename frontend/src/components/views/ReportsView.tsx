@@ -16,7 +16,14 @@ import {
 } from 'recharts';
 import { getTaskStats, getTaskTrend } from '../../api/shell';
 import { getLatestProjectAgentReport } from '../../api/reports';
-import { aggregateAgentReports, aggregateLeadershipReport, ensureReportAgentBindings, generateMyReportDraft, getLatestLeadershipReport, listAgentReports, listProjectReportPolicies, listReportAgentBindings, listReportInbox, markReportRead, runProjectReport, submitAgentReport, submitReportEdit, type AgentReport, type LeadershipReport, type ProjectReportRun, type ReportAgentBinding, type ReportPolicy } from '../../api/reports';
+import { ProjectSummaryPanel } from '../ProjectSummaryPanel';
+import { ProjectSettingsModal } from '../ProjectSettingsModal';
+import { getMyPermissions } from '../../api/shell';
+import { listProjectMembers } from '../../api/backend';
+import { mapMember } from '../../api/mappers';
+import { downloadCsv } from '../../api/manage';
+import { buildReportCsvRows } from '../../utils/reportExport';
+import { aggregateAgentReports, aggregateLeadershipReport, ensureReportAgentBindings, generateMyReportDraft, getLatestLeadershipReport, listAgentReports, listMyReports, listProjectReportPolicies, listReportAgentBindings, listReportInbox, markReportRead, runProjectReport, submitAgentReport, submitReportEdit, type AgentReport, type LeadershipReport, type ProjectReportRun, type ReportAgentBinding, type ReportPolicy } from '../../api/reports';
 
 interface ReportsViewProps {
   initialFocus?: 'progress' | 'reports';
@@ -61,6 +68,20 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
   const [leadershipBusy, setLeadershipBusy] = useState(false);
   const [leadershipError, setLeadershipError] = useState<string | null>(null);
 
+  const [policyDialog, setPolicyDialog] = useState<{ canManage: boolean; members: import('../../types').TeamMember[] } | null>(null);
+  const openPolicyDialog = async () => {
+    if (!numericProjectId) return;
+    try {
+      const [perm, mem] = await Promise.all([getMyPermissions(numericProjectId), listProjectMembers(numericProjectId)]);
+      setPolicyDialog({
+        canManage: Boolean(perm.is_pm || perm.is_superadmin || perm.can_edit_all),
+        members: (mem.items || []).map(mapMember),
+      });
+    } catch (error) {
+      setReportError(error instanceof Error ? error.message : '汇报策略加载失败');
+    }
+  };
+
   const numericProjectId = projectId && projectId !== 'all' && Number(projectId) > 0 ? Number(projectId) : null;
 
   useEffect(() => {
@@ -79,9 +100,11 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
     void getLatestProjectAgentReport(numericProjectId)
       .then((report) => { if (!cancelled) setAgentSummary(report?.summary_text || null); })
       .catch(() => { /* 非项目管理者无权读取项目汇总。 */ });
-    void Promise.all([listProjectReportPolicies(numericProjectId), listReportAgentBindings(numericProjectId), listAgentReports(numericProjectId), listReportInbox().catch(() => ({ items: [] as AgentReport[] }))])
-      .then(([policies, bindings, reports, inbox]) => {
+    void Promise.all([listProjectReportPolicies(numericProjectId), listReportAgentBindings(numericProjectId), listAgentReports(numericProjectId), listReportInbox().catch(() => ({ items: [] as AgentReport[] })), listMyReports(numericProjectId).catch(() => ({ items: [] as AgentReport[] }))])
+      .then(([policies, bindings, reports, inbox, mine]) => {
         if (cancelled) return;
+        const serverDraft = (mine.items || []).find((item) => item.status === 'draft' && (item.summary_text || '').trim());
+        if (serverDraft) { setDraftReportId(serverDraft.id); setAgentDraft(serverDraft.summary_text || ''); }
         setReportPolicies(policies.items || []);
         setAgentBindings(bindings.items || []);
         const readById = new Map((inbox.items || []).map((item) => [item.id, item]));
@@ -270,6 +293,23 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
     已完成: workloadMap[name].done,
   }));
 
+  const handleExport = () => {
+    const rangeLabel = timeRange === 'week' ? '本周' : timeRange === 'month' ? '本月度' : '本季度';
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    const rows = buildReportCsvRows({
+      projectName: projectName || (projectId === 'all' ? '全部项目' : `项目${projectId}`),
+      rangeLabel,
+      exportedAt: stamp,
+      kpis: { total: totalTasks, completed: completedTasks, inProgress: inProgressTasks, todo: todoTasks, overdue: overdueTasks, completionRate },
+      trend: trendData,
+      workload: workloadData.map((w) => ({ name: w.name, todo: w.待办执行, done: w.已完成 })),
+      tasks,
+    });
+    downloadCsv(`报表_${projectName || '全部项目'}_${rangeLabel}_${stamp.slice(0, 10)}.csv`, rows);
+  };
+
   return (
     <div className="space-y-8 animate-in pb-12">
       <ReportProjectSelector currentProject={{ id: projectId || 'all', name: projectName || '', active: true } as Project} projects={projects} onSelectProject={onSelectProject} />
@@ -287,7 +327,16 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
           </p>
         </div>
 
-        <div className="flex items-center bg-surface-container-highest p-1 rounded-2xl border border-outline-variant/40 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <button
+          type="button"
+          data-testid="report-export"
+          onClick={handleExport}
+          className="px-4 py-2 rounded-2xl border border-outline-variant/50 text-xs font-semibold cursor-pointer hover:border-primary/50"
+        >
+          {lang === 'zh' ? '导出报表' : 'Export'}
+        </button>
+        <div className="flex items-center bg-surface-container-highest p-1 rounded-2xl border border-outline-variant/40">
           {(['week', 'month', 'quarter'] as const).map((range) => (
             <button
               key={range}
@@ -312,6 +361,7 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
             </button>
           ))}
         </div>
+        </div>
       </div>
 
       {/* Human responsibility axis remains authoritative. This panel only summarizes project evidence and progress. */}
@@ -329,6 +379,7 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
                 : (lang === 'zh' ? '请选择一个具体项目后生成项目级 AI 汇报；跨项目总览不会混用项目上下文。' : 'Select a concrete project to run a project report. The cross-project overview never mixes project context.')}
             </p>
           </div>
+          <button type="button" data-testid="report-policy-open" disabled={!numericProjectId} onClick={() => void openPolicyDialog()} className="px-4 py-2 rounded-xl border border-outline-variant/50 text-sm font-semibold disabled:opacity-50 cursor-pointer">{lang === 'zh' ? '汇报周期与提醒' : 'Report schedule'}</button>
           <button type="button" disabled={!numericProjectId || reportLoading} onClick={() => void handleRunProjectReport()} className="px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold disabled:opacity-50">
             {reportLoading ? (lang === 'zh' ? '生成中…' : 'Generating…') : (lang === 'zh' ? '生成项目汇报' : 'Generate report')}
           </button>
@@ -356,6 +407,7 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
           {myBinding && <div className="rounded-xl bg-surface-container-low p-3 space-y-2"><div className="flex items-center gap-2"><label className="text-xs font-bold text-on-surface">{lang === 'zh' ? '我的 AI 汇报' : 'My AI report'}</label>{draftReportId && <span className="text-[10px] rounded-full bg-amber-500/10 text-amber-700 px-2 py-0.5">{lang === 'zh' ? '草稿可编辑' : 'Draft editable'}</span>}<button type="button" onClick={() => void handleGenerateMemberDraft()} disabled={draftGenerating || agentBusy} className="ml-auto px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-bold disabled:opacity-50">{draftGenerating ? (lang === 'zh' ? '生成中…' : 'Generating…') : (lang === 'zh' ? '生成 AI 草稿' : 'Generate AI draft')}</button></div><AutoGrowingTextarea aria-label="我的 AI 汇报正文" value={agentDraft} onChange={(event) => setAgentDraft(event.target.value)} rows={4} placeholder={lang === 'zh' ? '补充或修改进展、风险、阻塞、需要上级决策的事项…' : 'Add or edit progress, risks, blockers or decisions needed…'} className="w-full rounded-lg border border-outline-variant bg-surface px-3 py-2 text-sm" /><div className="flex items-center gap-2"><span className="text-[11px] text-on-surface-variant">{lang === 'zh' ? '提交后将沿人轴发送给直属领导，并写入其 AI 上下文。' : 'Submission follows the people axis to the direct leader and their AI context.'}</span><button type="button" onClick={() => void handleSubmitAgentReport()} disabled={agentBusy || !agentDraft.trim()} className="ml-auto px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold disabled:opacity-50">{lang === 'zh' ? '提交给直属领导' : 'Submit to direct leader'}</button></div></div>}
           {agentReports.length > 0 && <div className="space-y-2"><div className="flex items-center gap-2"><span className="text-xs font-bold text-on-surface-variant uppercase tracking-wider">{lang === 'zh' ? `项目内成员汇报（${agentReports.length}）` : `Member reports in this project (${agentReports.length})`}</span><button type="button" onClick={() => void handleAggregateAgentReports()} disabled={agentBusy} className="ml-auto text-xs font-bold text-primary disabled:opacity-50">{lang === 'zh' ? '汇总项目汇报' : 'Aggregate project report'}</button></div>{agentReports.map((report) => { const stale = reportIsStale(report); const conflict = reportHasConflict(report); const nodeStatus = reportNodeStatus(report); return <div key={report.id} onClick={() => void handleReadAgentReport(report)} className={`rounded-xl bg-surface-container-low p-3 ${!report.read && report.parent_user_id != null && String(report.parent_user_id) === String(userId) ? 'ring-1 ring-primary/40 cursor-pointer' : ''}`}><div className="flex flex-wrap items-center gap-2 text-[11px] text-on-surface-variant"><span className="font-bold">#{report.id}</span><span className={`rounded-full px-2 py-0.5 ${report.status === 'submitted' ? 'bg-emerald-500/10 text-emerald-700' : 'bg-surface-container-high'}`}>{report.status}</span>{!report.read && report.parent_user_id != null && String(report.parent_user_id) === String(userId) && <span className="rounded-full px-2 py-0.5 bg-primary/10 text-primary font-bold">{lang === 'zh' ? '未读' : 'Unread'}</span>}{stale && <span className="rounded-full px-2 py-0.5 bg-amber-500/10 text-amber-700 font-bold">{lang === 'zh' ? '过期' : 'Stale'}</span>}{conflict && <span className="rounded-full px-2 py-0.5 bg-error/10 text-error font-bold">{lang === 'zh' ? '有冲突' : 'Conflict'}</span>}{nodeStatus && <span className="rounded-full px-2 py-0.5 bg-surface-container-high text-on-surface-variant">{nodeStatus}</span>}<span className="ml-auto">{report.submitted_at ? report.submitted_at.slice(0, 16).replace('T', ' ') : '—'}</span></div><p className="mt-1 text-sm whitespace-pre-wrap text-on-surface">{report.summary_text || (lang === 'zh' ? '暂无汇报正文' : 'No report text')}</p><div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-on-surface-variant"><span className="material-symbols-outlined text-sm">source</span><span>{lang === 'zh' ? `${report.source_count || report.sources?.length || 0} 条资料来源` : `${report.source_count || report.sources?.length || 0} sources`}</span>{report.sources?.map((source) => <span key={`${report.id}-${source.id || source.source_id || source.source_type}`} className="rounded bg-surface px-2 py-0.5">{source.source_type}{source.excerpt ? `：${source.excerpt.slice(0, 36)}` : ''}</span>)}</div></div> })}</div>}
           {agentSummary && <div className="rounded-xl border border-primary/20 bg-primary/5 p-3"><div className="flex items-center gap-2"><span className="material-symbols-outlined text-primary text-base">summarize</span><div className="text-xs font-bold text-primary">{lang === 'zh' ? '项目智能体汇总 · 总领导项目摘要入口' : 'Project agent aggregate · leader summary'}</div></div><p className="mt-1 text-[11px] text-on-surface-variant">{lang === 'zh' ? '该摘要只包含当前项目封装结果，供总领导智能体按项目隔离读取。' : 'This envelope contains only the current project and can be read by the top leader agent with project isolation.'}</p><pre className="mt-2 text-sm whitespace-pre-wrap font-sans leading-6">{agentSummary}</pre></div>}
+          {numericProjectId && <ProjectSummaryPanel projectId={numericProjectId} refreshKey={agentSummary} />}
         </div>}
       </section>
 
@@ -572,6 +624,14 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
         </div>
       </div>
       </>}
+      {policyDialog && numericProjectId && (
+        <ProjectSettingsModal
+          projectId={numericProjectId}
+          canManage={policyDialog.canManage}
+          members={policyDialog.members}
+          onClose={() => setPolicyDialog(null)}
+        />
+      )}
     </div>
   );
 };

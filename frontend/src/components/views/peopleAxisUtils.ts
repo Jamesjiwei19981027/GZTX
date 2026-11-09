@@ -352,3 +352,62 @@ export function getDescendantNodeIds(nodeId: string, nodes: PeopleAxisNode[]): S
   }
   return descendants;
 }
+
+/* ───────── 树序 / 时间序 ───────── */
+
+export type AxisOrderMode = 'tree' | 'time'
+
+/** 一位负责人名下最早的未完成事项日期（YYYY-MM-DD）；没有日期返回 null。 */
+export function earliestOpenDueDate(node: PeopleAxisNode): string | null {
+  let best: string | null = null
+  for (const item of node.workItems) {
+    if (item.status === 'Done') continue
+    const m = (item.dueDate || '').match(/^\d{4}-\d{2}-\d{2}/)
+    if (m && (best === null || m[0] < best)) best = m[0]
+  }
+  return best
+}
+
+/**
+ * 时间序：同一上级下的下属，按各自最早未完成事项的日期从早到晚排列，
+ * 没有日期的排在最后；日期相同时保持原来的树序，保证结果稳定。
+ * 只改 orderOnAxis（同级内的次序），不改上下级关系。
+ */
+export function applyTimeOrder(nodes: PeopleAxisNode[]): PeopleAxisNode[] {
+  const groups = new Map<string, PeopleAxisNode[]>()
+  for (const n of nodes) {
+    const key = n.parentId ?? '__root__'
+    groups.set(key, [...(groups.get(key) || []), n])
+  }
+  const rank = new Map<string, number>()
+  groups.forEach(list => {
+    const sorted = [...list].sort((a, b) => {
+      const da = earliestOpenDueDate(a)
+      const db = earliestOpenDueDate(b)
+      if (da !== db) {
+        if (da === null) return 1
+        if (db === null) return -1
+        return da < db ? -1 : 1
+      }
+      return a.orderOnAxis - b.orderOnAxis || a.id.localeCompare(b.id)
+    })
+    sorted.forEach((n, i) => rank.set(n.id, i))
+  })
+  return nodes.map(n => ({ ...n, orderOnAxis: rank.get(n.id) ?? n.orderOnAxis }))
+}
+
+/**
+ * 松手时的换上级判定：已经停留够久算出了判定就直接用；
+ * 还没停够 300 毫秒就松手、但鼠标正好压在别人卡片上时，现场补算一次，
+ * 否则快速拖放永远触发不了换上级。
+ */
+export function resolveReleaseVerdict<V>(
+  decided: { targetId: string; verdict: V } | null,
+  hoverTargetId: string | null,
+  compute: (targetId: string) => V | null,
+): { targetId: string; verdict: V } | null {
+  if (decided) return decided
+  if (!hoverTargetId) return null
+  const verdict = compute(hoverTargetId)
+  return verdict ? { targetId: hoverTargetId, verdict } : null
+}

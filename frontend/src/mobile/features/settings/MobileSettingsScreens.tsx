@@ -156,6 +156,12 @@ export const MobileMeScreen: React.FC<SettingsSharedProps> = ({
             onClick={() => push({ tab: 'knowledge', screen: 'knowledge-root', title: '知识' })}
           />
           <MobileListItem
+            leading={<AppIcon name="user" size={18} className="text-emerald-600" />}
+            title="团队成员"
+            subtitle={isAdmin ? '查看成员，管理角色、停用与移除' : '查看项目团队成员'}
+            onClick={() => push({ screen: 'me-team', title: '组织团队' })}
+          />
+          <MobileListItem
             leading={<AppIcon name="user" size={18} className="text-[#0058BE]" />}
             title="个人资料"
             subtitle="头像、姓名与联系方式"

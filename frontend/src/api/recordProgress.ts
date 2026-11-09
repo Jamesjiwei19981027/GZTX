@@ -38,7 +38,8 @@ export interface RecordProgressSaveInput {
 }
 
 export interface RecordProgressSaveDeps {
-  agentChat: (body: { company_id: number; project_id: number; message: string; file_ids?: number[] }) => Promise<unknown>;
+  /** 存为汇报草稿：追加进本人在该项目的汇报草稿，出现在「我的汇报」 */
+  saveReportDraft: (projectId: number, text: string, fileIds?: number[]) => Promise<unknown>;
   submitEvidence: (nodeId: number, body: { summary: string; evidence_kind: any; file_ids: number[] }) => Promise<unknown>;
   createKnowledgeEntry: (projectId: number, body: { title: string; body_text: string; tags: string[]; file_ids?: number[] }) => Promise<unknown>;
 }
@@ -51,7 +52,7 @@ export async function saveRecordProgress(
 ): Promise<string> {
   const text = input.text.trim();
   if (target === 'report_draft') {
-    await deps.agentChat({ company_id: input.companyId, project_id: input.projectId, message: text, file_ids: input.fileIds });
+    await deps.saveReportDraft(input.projectId, text, input.fileIds);
   } else if (target === 'evidence') {
     if (!input.nodeId) throw new Error('未选事项，请先选择关联事项');
     await deps.submitEvidence(input.nodeId, { summary: text, evidence_kind: input.evidenceKind, file_ids: input.fileIds });

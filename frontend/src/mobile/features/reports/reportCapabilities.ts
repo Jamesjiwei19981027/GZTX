@@ -226,3 +226,17 @@ export function extractConflicts(payloadJson?: Record<string, unknown> | null) {
   }
   return [];
 }
+
+/**
+ * 合并本地暂存与服务端草稿：服务端草稿里有、本地没有的行（例如「记录进展」存进来的记录）
+ * 追加到末尾；本地为空时直接用服务端内容。已有的行不会重复。
+ */
+export function mergeDraftText(local: string, server: string): string {
+  const mine = (local || '').trim();
+  const have = new Set(mine.split('\n').map((line) => line.trim()).filter(Boolean));
+  const extra = (server || '')
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() && !have.has(line.trim()));
+  return [mine, ...extra].filter(Boolean).join('\n');
+}

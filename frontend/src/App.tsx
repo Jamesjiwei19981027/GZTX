@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { enqueuePrefWrite } from './api/serialQueue';
+import { PROJECTS_CHANGED_EVENT } from './api/manage';
 import {
   Task,
   Project,
@@ -595,6 +596,22 @@ export default function App() {
     },
     [refreshFromBackend, requirePhoneForCollab, settings.language, toast],
   );
+
+  // 改名 / 换负责人 / 归档后，各处通过事件通知这里重新取项目列表
+  useEffect(() => {
+    if (!companyId) return undefined;
+    const reload = () => {
+      void listProjects(companyId)
+        .then((page) => {
+          const mapped = (page.items || []).map(mapProject);
+          setProjects(mapped);
+          setCurrentProject((cur) => mapped.find((p) => p.id === cur.id) ?? cur);
+        })
+        .catch(() => undefined);
+    };
+    window.addEventListener(PROJECTS_CHANGED_EVENT, reload);
+    return () => window.removeEventListener(PROJECTS_CHANGED_EVENT, reload);
+  }, [companyId]);
 
   const handleCreateProject = useCallback(
     async (payload: { name: string }) => {
@@ -1211,6 +1228,7 @@ export default function App() {
         companyId={companyId}
         currentUser={user}
         projects={displayProjects}
+        onViewReports={() => { setRecordProgressOpen(false); setAssistantFocus('reports'); switchView('reports'); }}
       />
 
       {isMobileView ? (
@@ -1407,6 +1425,9 @@ export default function App() {
               <TeamView
                 companyId={companyId}
                 projectId={currentProject.id}
+                projectName={currentProject.name}
+                isCompanyAdmin={isCompanyAdmin}
+                currentUserId={Number(user.id) || null}
                 onCreateCompany={() => {
                   setWorkspaceError(null);
                   setWorkspaceModal('company');

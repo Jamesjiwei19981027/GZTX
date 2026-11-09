@@ -64,7 +64,7 @@ ok(rp.includes('effectiveNodeId(selectedNodeId'), 'WR-19 保存以当前选择�
 // WR-14：汇报草稿 / 个人知识带上附件 id
 const sent: Record<string, unknown> = {}
 const deps = {
-  agentChat: async (b: unknown) => { sent.chat = b },
+  saveReportDraft: async (_p: number, _t: string, fileIds?: number[]) => { sent.chat = { file_ids: fileIds } },
   submitEvidence: async () => {},
   createKnowledgeEntry: async (_p: number, b: unknown) => { sent.knowledge = b },
 }

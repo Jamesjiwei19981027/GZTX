@@ -267,3 +267,10 @@ class ProjectService:
         project.archived_at = datetime.now(timezone.utc)
         await db.flush()
         return project
+
+    async def unarchive(self, db: AsyncSession, project: Project) -> Project:
+        """取消归档：恢复为进行中，清除归档时间。"""
+        project.status = "active"
+        project.archived_at = None
+        await db.flush()
+        return project

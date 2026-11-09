@@ -20,6 +20,8 @@ TEMPLATES = {
     "agent.report.submitted": "项目 {project_id} 收到下属智能体汇报：{summary}",
     "project.report.aggregated": "项目 {project_id} 已汇总 {report_count} 份智能体汇报。",
     "notification.reply": "收到回复：{text}",
+    "project.report.published": "项目「{project_name}」已发布最新项目汇总，可在汇报页查看。",
+    "report.policy.reminder": "项目「{project_name}」的{period_label}汇报将于 {deadline} 截止，你本期还没有提交，请尽快完成。",
 }
 
 SUBJECTS = {

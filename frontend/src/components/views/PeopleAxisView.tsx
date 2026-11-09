@@ -14,7 +14,10 @@ import { mapMember, mapTreeToPeopleAxis, extraRootIds, asBackendId, enrichMatter
 import { withAxisPersonMetadata } from '../../api/axisPerson';
 import { getMyPermissions, getPeopleAxisAggregate, runAxisAudit, MyProjectPermissions } from '../../api/shell';
 import { fetchMe } from '../../api/auth';
-import { averagePeopleAxisProgress } from './peopleAxisUtils';
+import { averagePeopleAxisProgress, applyTimeOrder, type AxisOrderMode } from './peopleAxisUtils';
+import { MatterEditForm, MatterDeleteConfirm } from './MatterEditDialog';
+import { restoreMatterNode } from '../../api/manage';
+import { ProjectSettingsModal } from '../ProjectSettingsModal';
 import { responsibilityScope } from './peopleAxisFlowLayout';
 import {
   usePeopleAxisCanvas, ReparentConfirmDialog, computeEditableNodeIds, makeNodeCapabilityCheckers,
@@ -121,6 +124,29 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   useEffect(() => { setNewEvDescription(''); setNewEvFiles([]); }, [isAddingEvidence]);
 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const [isProjectSettingsOpen, setIsProjectSettingsOpen] = useState(false);
+  useEffect(() => { setIsProjectSettingsOpen(false); }, [projectId]);
+
+  // 事项编辑 / 删除 / 撤销
+  const [matterEdit, setMatterEdit] = useState<{ nodeId: string; itemId: string } | null>(null);
+  const [matterDelete, setMatterDelete] = useState<{ nodeId: string; itemId: string } | null>(null);
+  const [undoDelete, setUndoDelete] = useState<{ id: number; title: string } | null>(null);
+  useEffect(() => {
+    if (!undoDelete) return undefined;
+    const timer = setTimeout(() => setUndoDelete(null), 15000);
+    return () => clearTimeout(timer);
+  }, [undoDelete]);
+  useEffect(() => { setMatterEdit(null); setMatterDelete(null); setUndoDelete(null); }, [projectId]);
+
+  // 树序 / 时间序（记住上次选择）
+  const [orderMode, setOrderMode] = useState<AxisOrderMode>(() => {
+    try { return localStorage.getItem('people_axis_order_mode') === 'time' ? 'time' : 'tree'; } catch { return 'tree'; }
+  });
+  const handleOrderMode = useCallback((mode: AxisOrderMode) => {
+    setOrderMode(mode);
+    try { localStorage.setItem('people_axis_order_mode', mode); } catch { /* 忽略 */ }
+  }, []);
 
   // Custom Member Form Fields
   const [isCustomPerson, setIsCustomPerson] = useState(false);
@@ -454,8 +480,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     serverPerms ? new Set(serverPerms.owned_node_ids.map(String)) : null, meId), [nodes, serverPerms, meId]);
   const isProjectPM = serverPerms?.is_pm || meId != null && pmUserId === meId;
   const scope = scopeChoice === 'auto' ? (!canEditAny && myScope.direct.size > 0 ? 'mine' : 'project') : scopeChoice;
-  const scopedNodes = useMemo(() => scope === 'mine' && !isProjectPM
-    ? nodes.filter(n => myScope.visible.has(n.id)) : nodes, [scope, nodes, isProjectPM, myScope]);
+  const scopedNodes = useMemo(() => {
+    const visible = scope === 'mine' && !isProjectPM ? nodes.filter(n => myScope.visible.has(n.id)) : nodes;
+    return orderMode === 'time' ? applyTimeOrder(visible) : visible;
+  }, [scope, nodes, isProjectPM, myScope, orderMode]);
   const myRoleTitles = nodes.filter(n => myScope.direct.has(n.id)).map(n => n.roleTitle);
   const roleLabel = isProjectPM ? (lang === 'zh' ? '项目 PM · 统筹项目' : 'Project PM')
     : myRoleTitles.length ? [...new Set(myRoleTitles)].join(' / ')
@@ -892,6 +920,11 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         onPullAll={scope === 'project' ? pullAllToAxis : undefined}
         onResetFold={scope === 'project' ? resetFold : undefined}
         onLocate={handleLocate}
+        orderMode={orderMode}
+        onOrderMode={handleOrderMode}
+        onOpenProjectSettings={isBackendProject ? () => setIsProjectSettingsOpen(true) : undefined}
+        onEditMatter={isBackendProject ? (nodeId, itemId) => setMatterEdit({ nodeId, itemId }) : undefined}
+        onDeleteMatter={isBackendProject ? (nodeId, itemId) => setMatterDelete({ nodeId, itemId }) : undefined}
         onAddEvidence={id => { if (!canSubmitEvidence(id)) return; setIsAddingEvidence(id); setNewEvDescription(''); setNewEvFiles([]); }}
         onAudit={handleRunAxisAudit} auditing={auditLoading} onReload={() => setLoadVersion(version => version + 1)}
         onOpenWiki={() => setWikiProject({ id: backendProjectId,
@@ -921,6 +954,50 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           showToast(lang === 'zh' ? '人员与项目岗位已更新' : 'Person and project role updated');
         }} />
       </AxisDialog>}
+      {isProjectSettingsOpen && isBackendProject && (
+        <ProjectSettingsModal
+          projectId={backendProjectId}
+          canManage={Boolean(serverPerms?.is_pm || serverPerms?.is_superadmin || (meId != null && pmUserId === meId))}
+          members={memberOptions}
+          onClose={() => setIsProjectSettingsOpen(false)}
+          onChanged={() => { void reloadAxisFromBackend(); }}
+        />
+      )}
+      {matterEdit && (() => {
+        const item = nodes.find(n => n.id === matterEdit.nodeId)?.workItems.find(w => w.id === matterEdit.itemId);
+        if (!item) return null;
+        return <AxisDialog title="编辑事项" onClose={() => setMatterEdit(null)}>
+          <MatterEditForm item={item} members={memberOptions}
+            canChangeAssignee={serverPerms?.node_permissions?.[item.id]?.can_manage_assignees !== false}
+            onClose={() => setMatterEdit(null)}
+            onSaved={async () => { setMatterEdit(null); await reloadAxisFromBackend(); showToast('事项已更新'); }} />
+        </AxisDialog>;
+      })()}
+      {matterDelete && (() => {
+        const item = nodes.find(n => n.id === matterDelete.nodeId)?.workItems.find(w => w.id === matterDelete.itemId);
+        if (!item) return null;
+        return <AxisDialog title="删除事项" onClose={() => setMatterDelete(null)}>
+          <MatterDeleteConfirm item={item} onClose={() => setMatterDelete(null)}
+            onDeleted={async (deleted) => {
+              setMatterDelete(null);
+              setUndoDelete({ id: Number(deleted.id), title: deleted.title });
+              await reloadAxisFromBackend();
+            }} />
+        </AxisDialog>;
+      })()}
+      {undoDelete && (
+        <div role="status" data-testid="matter-undo-bar" className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 text-sm">
+          <span>已删除「{undoDelete.title}」</span>
+          <button type="button" className="font-bold text-cyan-300 underline cursor-pointer" onClick={() => {
+            const target = undoDelete;
+            setUndoDelete(null);
+            void restoreMatterNode(target.id)
+              .then(() => reloadAxisFromBackend())
+              .then(() => showToast('已撤销删除'))
+              .catch(err => showToast(err instanceof Error ? err.message : '撤销失败'));
+          }}>撤销</button>
+        </div>
+      )}
       {wikiProject && <ProjectWikiPanel projectId={wikiProject.id} projectName={wikiProject.name} lang={lang} onClose={() => setWikiProject(null)} />}
       {isAddingEvidence && (() => {
         const owner = nodes.find(n => n.workItems.some(w => w.id === isAddingEvidence));

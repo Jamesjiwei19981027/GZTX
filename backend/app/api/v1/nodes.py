@@ -205,6 +205,9 @@ async def delete_node(node_id: int, db: DbSession, user: CurrentUser,
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
+    if await tsvc.type_key_of(db, node) != 'person':
+        # 工作项 / 里程碑 / 范围：轻量删除，可通过 POST /nodes/{id}/restore 撤销
+        return await _delete_matter_node(db, node, user)
     project = await db.get(Project, node.project_id)
     access = await get_responsibility_access(db, project, user.id)
     if not access.for_node(node.id).get('can_delete_person'):
@@ -226,6 +229,65 @@ async def delete_node(node_id: int, db: DbSession, user: CurrentUser,
         return fail(422, 42200, str(e))
     await db.commit()
     return ResponseData(data={"id": node_id, "is_deleted": True, 'revoked_user_ids': revoked, 'handover_to_node_id': handover_to_node_id})
+
+
+async def _can_edit_matter(db, user, node: TreeNode) -> bool:
+    return await acl.can(
+        db, user.id, node.company_id, "tree.edit_any", project_id=node.project_id
+    ) or await acl.can(
+        db,
+        user.id,
+        node.company_id,
+        "tree.edit_subtree",
+        project_id=node.project_id,
+        node_id=node.id,
+    )
+
+
+async def _delete_matter_node(db, node: TreeNode, user):
+    """删除事项节点（软删除）。不动成员关系，也不动关联任务，随时可撤销。"""
+    if not await _can_edit_matter(db, user, node):
+        return fail(403, 40300, "无权删除该事项")
+    await assert_company_write(db, node.company_id, feature="project_tree")
+    await tsvc.soft_delete_node(db, node.id)
+    await db.commit()
+    return ResponseData(
+        data={"id": node.id, "is_deleted": True, "can_restore": True, "revoked_user_ids": []}
+    )
+
+
+@router.post("/nodes/{node_id}/restore")
+async def restore_node(node_id: int, db: DbSession, user: CurrentUser):
+    """撤销事项删除：把软删除的工作项 / 里程碑 / 范围恢复回人轴"""
+    node = await db.get(TreeNode, node_id)
+    if not node:
+        return fail(404, 40400, "节点不存在")
+    if not await _can_edit_matter(db, user, node):
+        return fail(403, 40300, "无权恢复该事项")
+    await assert_company_write(db, node.company_id, feature="project_tree")
+    if not node.is_deleted:
+        return ResponseData(data=await _node_dto(db, node))
+    if await tsvc.type_key_of(db, node) == 'person':
+        return fail(422, 42200, "人员节点不支持撤销删除")
+    parent = await db.get(TreeNode, node.parent_id) if node.parent_id else None
+    if not parent or parent.is_deleted:
+        return fail(409, 40907, "所属人员已被移除，无法恢复该事项")
+    node.is_deleted = False
+    # 事项下的子节点（如范围）随事项一起恢复
+    children = (
+        await db.execute(
+            select(TreeNode).where(
+                TreeNode.project_id == node.project_id,
+                TreeNode.path.like(f"{node.path}%"),
+                TreeNode.id != node.id,
+            )
+        )
+    ).scalars().all()
+    for child in children:
+        child.is_deleted = False
+    await db.commit()
+    await db.refresh(node)
+    return ResponseData(data=await _node_dto(db, node))
 
 
 @router.put("/nodes/{node_id}/assignees")
