@@ -6,6 +6,12 @@ import {
   putLlmConfig,
   testLlmConfig,
   sendNotifyTest,
+  getCompanySmtpConfig,
+  putCompanySmtpConfig,
+  testCompanySmtpConfig,
+  getCompanyLlmConfig,
+  putCompanyLlmConfig,
+  testCompanyLlmConfig,
   getVapidPublicKey,
   listNotifyRecords,
   NotifyRecord,
@@ -24,7 +30,9 @@ export interface EnterpriseSectionProps {
 // 1. 通知渠道配置 (Notification Channels)
 // 原推送证书状态并入这里，iOS 相关只读显示“下一期支持”
 // ==========================================
-export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ isAdmin, lang = 'zh' }) => {
+export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ isAdmin, companyId, lang = 'zh' }) => {
+  // 有公司时读写公司级发信配置（注册验证码、提醒都用它）；无公司才退回个人配置
+  const loadSmtp = () => (companyId ? getCompanySmtpConfig(companyId) : getSmtpConfig());
   const [smtpHost, setSmtpHost] = useState('');
   const [smtpPort, setSmtpPort] = useState(465);
   const [smtpUser, setSmtpUser] = useState('');
@@ -42,7 +50,7 @@ export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ i
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      getSmtpConfig().then((cfg) => {
+      loadSmtp().then((cfg) => {
         setSmtpHost(cfg.smtp_host || '');
         setSmtpPort(cfg.smtp_port || 465);
         setSmtpUser(cfg.smtp_user || '');
@@ -59,7 +67,8 @@ export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ i
         setMsg({ type: 'err', text: '读取通知渠道配置失败: ' + (err instanceof Error ? err.message : String(err)) });
       })
       .finally(() => setLoading(false));
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   const handleSaveSmtp = async () => {
     if (!isAdmin) return;
@@ -81,7 +90,11 @@ export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ i
       if (smtpPassword.trim()) {
         payload.smtp_password = smtpPassword.trim();
       }
-      await putSmtpConfig(payload);
+      if (companyId) {
+        await putCompanySmtpConfig(companyId, payload);
+      } else {
+        await putSmtpConfig(payload);
+      }
       setHasPassword(true);
       setSmtpPassword('');
       setMsg({ type: 'ok', text: '企业 SMTP 邮件渠道配置已成功保存！' });
@@ -96,6 +109,11 @@ export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ i
     setTesting(true);
     setMsg(null);
     try {
+      if (companyId) {
+        await testCompanySmtpConfig(companyId);
+        setMsg({ type: 'ok', text: '测试邮件已成功发出，请检查管理员邮箱（含垃圾邮件箱）！' });
+        return;
+      }
       const res = await sendNotifyTest('email');
       if (res.ok) {
         setMsg({ type: 'ok', text: '测试邮件已成功发出，请检查接收邮箱！' });
@@ -175,6 +193,7 @@ export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ i
             <input
               type="text"
               disabled={!isAdmin}
+              autoComplete="off"
               value={smtpHost}
               onChange={(e) => setSmtpHost(e.target.value)}
               placeholder="smtp.example.com"
@@ -203,6 +222,7 @@ export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ i
             <input
               type="text"
               disabled={!isAdmin}
+              autoComplete="off"
               value={smtpUser}
               onChange={(e) => setSmtpUser(e.target.value)}
               placeholder="notifications@example.com"
@@ -217,6 +237,7 @@ export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ i
             <input
               type="text"
               disabled={!isAdmin}
+              autoComplete="off"
               value={smtpFrom}
               onChange={(e) => setSmtpFrom(e.target.value)}
               placeholder="worktodo-noreply@example.com"
@@ -235,6 +256,7 @@ export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ i
             </div>
             <input
               type="password"
+              autoComplete="new-password"
               disabled={!isAdmin}
               value={smtpPassword}
               onChange={(e) => setSmtpPassword(e.target.value)}
@@ -422,7 +444,7 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
 
   const loadLlmConfig = useCallback(async () => {
     try {
-      const cfg = await getLlmConfig();
+      const cfg = companyId ? await getCompanyLlmConfig(companyId) : await getLlmConfig();
       setLlmConfig(cfg);
       setProvider(cfg.provider || 'openai');
       setBaseUrl(cfg.base_url || '');
@@ -432,7 +454,7 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
     } catch (e) {
       setLlmConfig(null);
     }
-  }, []);
+  }, [companyId]);
 
   const loadAsrConfig = useCallback(async () => {
     if (!companyId) return;
@@ -476,7 +498,11 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
       if (apiKey.trim()) {
         payload.api_key = apiKey.trim();
       }
-      await putLlmConfig(payload);
+      if (companyId) {
+        await putCompanyLlmConfig(companyId, payload);
+      } else {
+        await putLlmConfig(payload);
+      }
       setHasApiKey(true);
       setApiKey('');
       setLlmMsg({ type: 'ok', text: 'AI 大模型接入参数已成功保存！' });
@@ -493,7 +519,11 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
     setTestingLlm(true);
     setLlmMsg(null);
     try {
-      await testLlmConfig();
+      if (companyId) {
+        await testCompanyLlmConfig(companyId);
+      } else {
+        await testLlmConfig();
+      }
       setLlmMsg({ type: 'ok', text: 'AI 模型连通性测试通过！接口响应正常。' });
     } catch (err) {
       setLlmMsg({ type: 'err', text: err instanceof Error ? err.message : '连通测试失败，请检查 API Key 与 Base URL' });
@@ -508,7 +538,12 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
     setSavingKey(true);
     setKeyMsg(null);
     try {
-      await putLlmConfig({ provider: selectedProvider, api_key: newKey.trim() });
+      const keyPayload = { provider: selectedProvider, api_key: newKey.trim() };
+      if (companyId) {
+        await putCompanyLlmConfig(companyId, keyPayload);
+      } else {
+        await putLlmConfig(keyPayload);
+      }
       setKeyMsg({ type: 'ok', text: `${selectedProvider.toUpperCase()} 密钥更新成功！明文已加密入库。` });
       setNewKey('');
       await loadLlmConfig();
@@ -675,6 +710,7 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
               <input
                 id="enterprise-llm-api-key"
                 type="password"
+                autoComplete="new-password"
                 disabled={!isAdmin}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
@@ -777,6 +813,7 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
             <input
               id="enterprise-model-secret"
               type="password"
+              autoComplete="new-password"
               disabled={!isAdmin}
               value={newKey}
               onChange={(e) => setNewKey(e.target.value)}
@@ -897,6 +934,7 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
                 <input
                   id="asr-api-key"
                   type="password"
+                  autoComplete="new-password"
                   disabled={!isAdmin || savingAsr}
                   value={asrApiKey}
                   onChange={(e) => setAsrApiKey(e.target.value)}
@@ -1180,6 +1218,7 @@ export const AdminOrgSsoSection: React.FC<EnterpriseSectionProps> = ({
                 </div>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   disabled={!isAdmin}
                   value={clientSecret}
                   onChange={(e) => setClientSecret(e.target.value)}

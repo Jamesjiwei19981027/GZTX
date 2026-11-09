@@ -103,3 +103,34 @@ export type NotifyRecord = {
 export async function listNotifyRecords(limit = 50) {
   return apiRequest<{ items: NotifyRecord[] }>(`/notify/records?limit=${limit}`)
 }
+
+// ---- 公司级配置（企业管理页使用；验证码、AI 建议、材料研判都读公司级）----
+type SmtpView = { smtp_host: string; smtp_port: number; smtp_user: string; smtp_from: string; has_password: boolean }
+type LlmView = { provider: string; base_url: string; model: string; enabled: boolean; configured: boolean; has_api_key: boolean }
+
+export async function getCompanySmtpConfig(companyId: number | string) {
+  return apiRequest<SmtpView>(`/companies/${companyId}/smtp`)
+}
+
+export async function putCompanySmtpConfig(
+  companyId: number | string,
+  body: { smtp_host?: string; smtp_port?: number; smtp_user?: string; smtp_password?: string; smtp_from?: string },
+) {
+  return apiRequest<SmtpView>(`/companies/${companyId}/smtp`, { method: 'PUT', body: JSON.stringify(body) })
+}
+
+export async function testCompanySmtpConfig(companyId: number | string) {
+  return apiRequest(`/companies/${companyId}/smtp/test`, { method: 'POST', body: '{}' })
+}
+
+export async function getCompanyLlmConfig(companyId: number | string) {
+  return apiRequest<LlmView>(`/companies/${companyId}/llm`)
+}
+
+export async function putCompanyLlmConfig(companyId: number | string, body: Record<string, unknown>) {
+  return apiRequest<LlmView>(`/companies/${companyId}/llm`, { method: 'PUT', body: JSON.stringify(body) })
+}
+
+export async function testCompanyLlmConfig(companyId: number | string) {
+  return apiRequest(`/companies/${companyId}/llm/test`, { method: 'POST', body: '{}' })
+}

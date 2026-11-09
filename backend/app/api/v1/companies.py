@@ -267,7 +267,10 @@ async def test_company_smtp(
     resolved = await smtp_from_company(db, company_id)
     if not resolved or not resolved.is_complete():
         return fail(400, 40000, "公司 SMTP 未配置完整（主机/账号/密码）")
-    ok = _send_smtp(
+    import asyncio
+
+    ok = await asyncio.to_thread(
+        _send_smtp,
         to_email=user.email,
         from_addr=resolved.from_addr,
         subject="[WorkTodo] 公司 SMTP 测试",

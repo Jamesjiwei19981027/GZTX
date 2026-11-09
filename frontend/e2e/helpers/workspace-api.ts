@@ -50,12 +50,12 @@ export async function mockWorkspaceApi(page: Page, options: WorkspaceOptions = {
       data = { ui: { language: 'zh', theme_mode: 'light' } };
     } else if (path === '/health') {
       data = { status: 'ok', version: 'e2e' };
-    } else if (path === '/notifications/smtp-config') {
+    } else if ((path === '/notifications/smtp-config' || path === `/companies/${companyId}/smtp`)) {
       data = { smtp_host: 'smtp.example.test', smtp_port: 465,
         smtp_user: 'notify@example.test', smtp_from: 'notify@example.test', has_password: true };
     } else if (path === '/notifications/vapid-public-key') {
       data = { publicKey: '' };
-    } else if (path === '/notifications/llm-config') {
+    } else if ((path === '/notifications/llm-config' || path === `/companies/${companyId}/llm`)) {
       data = { provider: 'openai', base_url: 'https://llm.example.test/v1', model: 'test-model',
         enabled: true, configured: false, has_api_key: false };
     } else if (path === `/companies/${companyId}/bindings`) {
