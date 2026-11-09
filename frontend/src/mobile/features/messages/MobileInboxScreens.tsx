@@ -20,6 +20,7 @@ import { MobileInput, MobileTextarea } from '../../ui/MobileField';
 import { MobileListGroup, MobileListItem } from '../../ui/MobileList';
 import { MobileSheet } from '../../ui/MobileSheet';
 import { MobileEmptyState, MobileLoadingState } from '../../ui/MobileState';
+import { appendPageById, hasMoreByTotal } from '../../../utils/messagePaging';
 
 export interface MobileInboxScreenProps {
   companyId: number | null;
@@ -40,6 +41,10 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
   const [tab, setTab] = useState<'notifications' | 'external-mail'>('notifications');
   const [filterState, setFilterState] = useState<'active' | 'archived' | 'all'>('active');
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifTotal, setNotifTotal] = useState(0);
+  const [notifPage, setNotifPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [moreError, setMoreError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedNotif, setSelectedNotif] = useState<any | null>(null);
   const [busy, setBusy] = useState(false);
@@ -54,10 +59,31 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
     try {
       const res = await listCollabNotifications(1, filterState);
       setNotifications(res.items || []);
+      setNotifTotal(res.total ?? (res.items || []).length);
+      setNotifPage(1);
+      setMoreError(null);
     } catch {
       /* ignore */
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 按后端 total 分页：已加载数 < total 就还有下一页
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    setMoreError(null);
+    try {
+      const next = notifPage + 1;
+      const res = await listCollabNotifications(next, filterState);
+      setNotifications((prev) => appendPageById(prev, res.items || []));
+      setNotifTotal(res.total ?? notifTotal);
+      setNotifPage(next);
+    } catch (err) {
+      setMoreError(err instanceof ApiError ? err.message : '加载更多失败');
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -283,6 +309,20 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
                   />
                 ))}
               </MobileListGroup>
+            )}
+            {!loading && notifications.length > 0 && hasMoreByTotal(notifications.length, notifTotal) && (
+              <div className="text-center pt-1">
+                <button
+                  type="button"
+                  data-testid="inbox-load-more"
+                  disabled={loadingMore}
+                  onClick={() => void handleLoadMore()}
+                  className="min-h-[40px] px-5 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-[#0058BE] disabled:opacity-50"
+                >
+                  {loadingMore ? '正在加载…' : `加载更多（已显示 ${notifications.length} / ${notifTotal}）`}
+                </button>
+                {moreError && <p className="text-[11px] text-red-600 mt-1">{moreError}</p>}
+              </div>
             )}
           </div>
         </>

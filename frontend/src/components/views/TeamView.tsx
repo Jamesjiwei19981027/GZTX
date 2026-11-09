@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { TeamMember, Language } from '../../types';
 import { listProjectMembers } from '../../api/backend';
 import { mapMember } from '../../api/mappers';
-import { inviteProjectMember, listPresence } from '../../api/shell';
+import { inviteDeliveryNotice, inviteProjectMember, listPresence } from '../../api/shell';
 import { inviteAcceptUrl } from '../../utils/invite';
 
 interface TeamViewProps {
@@ -29,6 +29,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const backendPid =
@@ -103,10 +104,11 @@ export const TeamView: React.FC<TeamViewProps> = ({
     if (!inviteEmail.trim() || !backendPid) return;
     try {
       const invited = await inviteProjectMember(backendPid, { email: inviteEmail.trim() });
-      const link = inviteAcceptUrl(invited.token);
+      const link = invited.invite_url || inviteAcceptUrl(invited.token);
       setInviteLink(link);
+      setInviteNotice(inviteDeliveryNotice(invited, inviteEmail.trim()));
       setInviteEmail('');
-      setError(lang === 'zh' ? '邀请已创建，可复制链接发给对方' : 'Invite created. Copy the link and send it.');
+      setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : '邀请失败');
     }
@@ -259,6 +261,9 @@ export const TeamView: React.FC<TeamViewProps> = ({
               placeholder="email@example.com"
               className="w-full p-3 rounded-xl bg-surface-container border border-outline-variant/40 text-sm"
             />
+            {inviteNotice && (
+              <p data-testid="invite-delivery-notice" className="text-xs text-on-surface-variant">{inviteNotice}</p>
+            )}
             {inviteLink && (
               <div className="rounded-xl bg-surface-container p-3 text-xs break-all">
                 <div className="font-semibold mb-1">{lang === 'zh' ? '邀请链接' : 'Invite link'}</div>
@@ -277,7 +282,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
                 {lang === 'zh' ? '取消' : 'Cancel'}
               </button>
               <button type="submit" className="px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold cursor-pointer">
-                {lang === 'zh' ? '发送邀请' : 'Send'}
+                {lang === 'zh' ? '生成并发送邀请' : 'Send'}
               </button>
             </div>
           </form>

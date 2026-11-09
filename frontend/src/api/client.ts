@@ -49,6 +49,9 @@ export function setRefreshToken(token: string | null) {
   else localStorage.removeItem(REFRESH_KEY)
 }
 
+/** 429：触发后端限流，统一给用户看的中文提示 */
+export const RATE_LIMIT_MESSAGE = '操作太频繁，请稍后再试'
+
 export class ApiError extends Error {
   code: number
   constructor(code: number, message: string) {
@@ -148,6 +151,10 @@ export async function apiRequest<T>(
       headers.set('Authorization', `Bearer ${getToken()}`)
       res = await fetch(`${getApiBase()}${path}`, { ...init, headers })
     }
+  }
+
+  if (res.status === 429) {
+    throw new ApiError(429, RATE_LIMIT_MESSAGE)
   }
 
   let body: ApiBody<T> | null = null

@@ -14,8 +14,13 @@ import {
   testCompanyLlmConfig,
   getVapidPublicKey,
   listNotifyRecords,
+  listCompanyNotifyRecords,
+  isNotifyRecordSent,
+  isNotifyRecordFailed,
   NotifyRecord,
+  LlmPreset,
 } from '../../api/notifications';
+import { providerOptions, keyOnlyPayload, integrationBadge } from './enterpriseHelpers';
 import { listIntegrations, triggerOrgSync } from '../../api/shell';
 import { apiRequest } from '../../api/client';
 import { saveIntegration, type EnterpriseIntegration } from '../../api/sso';
@@ -388,8 +393,8 @@ export const AdminNotifyChannelsSection: React.FC<EnterpriseSectionProps> = ({ i
               </p>
             </div>
           </div>
-          <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-            已接入
+          <span className="text-xs px-2.5 py-0.5 rounded-full font-semibold bg-surface-container-high text-on-surface-variant">
+            按成员绑定生效
           </span>
         </div>
       </div>
@@ -419,7 +424,6 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
   const [llmMsg, setLlmMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   // ---- 区块 2: 模型密钥快速管理 ----
-  const [selectedProvider, setSelectedProvider] = useState<'openai' | 'deepseek' | 'claude'>('openai');
   const [newKey, setNewKey] = useState('');
   const [savingKey, setSavingKey] = useState(false);
   const [keyMsg, setKeyMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
@@ -428,6 +432,7 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
     has_api_key?: boolean;
     configured?: boolean;
     enabled?: boolean;
+    presets?: Record<string, LlmPreset>;
   } | null>(null);
 
   // ---- 区块 3: 语音识别配置 (ASR) ----
@@ -539,13 +544,13 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
     setSavingKey(true);
     setKeyMsg(null);
     try {
-      const keyPayload = { provider: selectedProvider, api_key: newKey.trim() };
+      const keyPayload = keyOnlyPayload(newKey);
       if (companyId) {
         await putCompanyLlmConfig(companyId, keyPayload);
       } else {
         await putLlmConfig(keyPayload);
       }
-      setKeyMsg({ type: 'ok', text: `${selectedProvider.toUpperCase()} 密钥更新成功！明文已加密入库。` });
+      setKeyMsg({ type: 'ok', text: `${currentProviderLabel}密钥更新成功，当前厂商与模型保持不变。` });
       setNewKey('');
       await loadLlmConfig();
     } catch (err) {
@@ -588,6 +593,8 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
   };
 
   const isModelConfigured = Boolean(llmConfig?.configured || llmConfig?.has_api_key);
+  const providerChoices = providerOptions(llmConfig?.presets);
+  const currentProviderLabel = providerChoices.find((x) => x.id === provider)?.label || provider;
 
   if (loadingAll) {
     return <div className="p-8 text-center text-sm text-on-surface-variant">获取 AI 服务配置中…</div>;
@@ -647,17 +654,20 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
             <label className="block text-xs font-semibold text-on-surface-variant mb-2">
               {lang === 'zh' ? '模型提供商 (Provider)' : 'Provider'}
             </label>
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { id: 'openai', label: 'OpenAI' },
-                { id: 'deepseek', label: 'DeepSeek' },
-                { id: 'custom', label: '自定义兼容端点' },
-              ].map((item) => (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {providerChoices.map((item) => (
                 <button
                   key={item.id}
                   type="button"
                   disabled={!isAdmin}
-                  onClick={() => setProvider(item.id)}
+                  onClick={() => {
+                    const preset = llmConfig?.presets?.[item.id];
+                    if (preset && item.id !== provider) {
+                      setBaseUrl(preset.default_base_url || '');
+                      setModelName(preset.default_model || '');
+                    }
+                    setProvider(item.id);
+                  }}
                   className={`py-2 px-3 rounded-xl text-xs font-semibold border text-center transition-all ${
                     provider === item.id
                       ? 'bg-primary text-on-primary border-primary shadow-xs'
@@ -772,27 +782,11 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
         )}
 
         <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-2">
-              {lang === 'zh' ? '选择厂商' : 'Vendor'}
-            </label>
-            <div className="grid grid-cols-3 gap-3">
-              {(['openai', 'deepseek', 'claude'] as const).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  disabled={!isAdmin}
-                  onClick={() => setSelectedProvider(p)}
-                  className={`py-2 px-3 rounded-xl text-xs font-semibold border text-center transition-all ${
-                    selectedProvider === p
-                      ? 'bg-primary text-on-primary border-primary shadow-xs'
-                      : 'bg-surface dark:bg-[#191c1d] text-on-surface border-outline-variant hover:bg-surface-container-high'
-                  }`}
-                >
-                  {p.toUpperCase()}
-                </button>
-              ))}
-            </div>
+          <div className="flex items-center justify-between p-3 bg-surface dark:bg-[#191c1d] rounded-xl border border-outline-variant/60 text-xs">
+            <span className="text-on-surface-variant">当前厂商与模型（在上方区块修改）:</span>
+            <span className="font-semibold text-on-surface dark:text-[#f0f1f2]">
+              {currentProviderLabel}{modelName ? ` · ${modelName}` : ''}
+            </span>
           </div>
 
           <div className="flex items-center justify-between p-3 bg-surface dark:bg-[#191c1d] rounded-xl border border-outline-variant/60 text-xs font-mono">
@@ -1097,8 +1091,40 @@ export const AdminOrgSsoSection: React.FC<EnterpriseSectionProps> = ({ isAdmin, 
 // ==========================================
 // 4. 第三方服务绑定 (Third-Party Services)
 // ==========================================
-export const AdminIntegrationsSection: React.FC<EnterpriseSectionProps> = ({ lang = 'zh' }) => {
+export const AdminIntegrationsSection: React.FC<EnterpriseSectionProps> = ({ companyId, lang = 'zh' }) => {
   const [bindNotice, setBindNotice] = useState<string | null>(null);
+  const [integrations, setIntegrations] = useState<
+    Array<{ provider: string; enabled?: boolean; status?: string; last_sync_at?: string; has_credentials?: boolean }>
+  >([]);
+  const [integrationsError, setIntegrationsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!companyId) return;
+    let alive = true;
+    listIntegrations(Number(companyId))
+      .then((res) => {
+        if (alive) setIntegrations(res.items || []);
+      })
+      .catch((e) => {
+        if (alive) setIntegrationsError(e instanceof Error ? e.message : '读取集成状态失败');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [companyId]);
+
+  const badgeOf = (provider: string) => integrationBadge(integrations.find((x) => x.provider === provider));
+  const badgeClass = (tone: 'ok' | 'warn' | 'none') =>
+    tone === 'ok' ? 'text-emerald-600' : tone === 'warn' ? 'text-amber-600' : 'text-on-surface-variant';
+  const renderBadge = (provider: string) => {
+    const b = badgeOf(provider);
+    return (
+      <div className="text-right">
+        <span className={`text-xs font-semibold ${badgeClass(b.tone)}`}>{b.label}</span>
+        {b.detail && <div className="text-[10px] text-on-surface-variant mt-0.5">{b.detail}</div>}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -1123,6 +1149,12 @@ export const AdminIntegrationsSection: React.FC<EnterpriseSectionProps> = ({ lan
           >
             关闭
           </button>
+        </div>
+      )}
+
+      {integrationsError && (
+        <div className="p-3 bg-error-container text-on-error-container border border-error/30 text-xs rounded-xl">
+          {integrationsError}
         </div>
       )}
 
@@ -1158,7 +1190,7 @@ export const AdminIntegrationsSection: React.FC<EnterpriseSectionProps> = ({ lan
                 <div className="text-xs text-on-surface-variant mt-0.5">企业微信工作台自建应用与提醒</div>
               </div>
             </div>
-            <span className="text-xs font-semibold text-emerald-600">已接入</span>
+            {renderBadge('wecom')}
           </div>
         </div>
       </div>
@@ -1172,13 +1204,19 @@ export const AdminIntegrationsSection: React.FC<EnterpriseSectionProps> = ({ lan
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-surface dark:bg-[#191c1d] rounded-xl border border-outline-variant/60">
             <span className="material-symbols-outlined text-blue-500 text-2xl mb-2">send</span>
-            <div className="text-sm font-bold text-on-surface dark:text-[#f0f1f2]">钉钉 (DingTalk)</div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="text-sm font-bold text-on-surface dark:text-[#f0f1f2]">钉钉 (DingTalk)</div>
+              {renderBadge('dingtalk')}
+            </div>
             <p className="text-xs text-on-surface-variant mt-1">协同考勤与群机器人工作通知推送</p>
           </div>
 
           <div className="p-4 bg-surface dark:bg-[#191c1d] rounded-xl border border-outline-variant/60">
             <span className="material-symbols-outlined text-cyan-500 text-2xl mb-2">share</span>
-            <div className="text-sm font-bold text-on-surface dark:text-[#f0f1f2]">飞书 (Feishu)</div>
+            <div className="flex items-start justify-between gap-2">
+              <div className="text-sm font-bold text-on-surface dark:text-[#f0f1f2]">飞书 (Feishu)</div>
+              {renderBadge('feishu')}
+            </div>
             <p className="text-xs text-on-surface-variant mt-1">飞书互动卡片与日历日程自动对齐</p>
           </div>
 
@@ -1196,7 +1234,7 @@ export const AdminIntegrationsSection: React.FC<EnterpriseSectionProps> = ({ lan
 // ==========================================
 // 5. 通知发送记录 (Delivery Logs)
 // ==========================================
-export const AdminNotifyLogsSection: React.FC<EnterpriseSectionProps> = ({ lang = 'zh' }) => {
+export const AdminNotifyLogsSection: React.FC<EnterpriseSectionProps> = ({ companyId, lang = 'zh' }) => {
   const [items, setItems] = useState<NotifyRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'success' | 'failed'>('all');
@@ -1206,22 +1244,23 @@ export const AdminNotifyLogsSection: React.FC<EnterpriseSectionProps> = ({ lang 
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await listNotifyRecords(50);
+      // 企业管理里看全公司（超管），接口按公司成员过滤；无公司上下文时退回只看自己的
+      const res = companyId ? await listCompanyNotifyRecords(companyId, 50) : await listNotifyRecords(50);
       setItems(res.items || []);
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : '获取通知记录失败');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [companyId]);
 
   useEffect(() => {
     void fetchRecords();
   }, [fetchRecords]);
 
   const filteredItems = items.filter((item) => {
-    if (filter === 'success') return item.status === 'success' || item.status === 'delivered';
-    if (filter === 'failed') return item.status === 'failed' || Boolean(item.error);
+    if (filter === 'success') return isNotifyRecordSent(item);
+    if (filter === 'failed') return isNotifyRecordFailed(item);
     return true;
   });
 
@@ -1234,7 +1273,7 @@ export const AdminNotifyLogsSection: React.FC<EnterpriseSectionProps> = ({ lang 
           </h2>
           <p className="text-xs text-on-surface-variant mt-1">
             {lang === 'zh'
-              ? '展示企业最近 50 条消息外发状态与投递分析，失败记录标红并展示具体原因。'
+              ? '展示全公司最近 50 条消息外发状态，失败记录标红并展示具体原因。'
               : 'Recent 50 delivery records with failure analysis.'}
           </p>
         </div>
@@ -1262,11 +1301,11 @@ export const AdminNotifyLogsSection: React.FC<EnterpriseSectionProps> = ({ lang 
             { id: 'all', label: `全部 (${items.length})` },
             {
               id: 'success',
-              label: `成功 (${items.filter((i) => i.status === 'success' || i.status === 'delivered').length})`,
+              label: `成功 (${items.filter(isNotifyRecordSent).length})`,
             },
             {
               id: 'failed',
-              label: `失败 (${items.filter((i) => i.status === 'failed' || Boolean(i.error)).length})`,
+              label: `失败 (${items.filter(isNotifyRecordFailed).length})`,
             },
           ] as const
         ).map((tab) => (
@@ -1294,7 +1333,7 @@ export const AdminNotifyLogsSection: React.FC<EnterpriseSectionProps> = ({ lang 
         ) : (
           <div className="divide-y divide-outline-variant/40">
             {filteredItems.map((item) => {
-              const isFail = item.status === 'failed' || Boolean(item.error);
+              const isFail = isNotifyRecordFailed(item);
               return (
                 <div key={item.id} className="p-4 hover:bg-surface-container-high/40 transition-colors">
                   <div className="flex items-center justify-between">
@@ -1303,7 +1342,7 @@ export const AdminNotifyLogsSection: React.FC<EnterpriseSectionProps> = ({ lang 
                         {item.channel}
                       </span>
                       <span className="text-xs text-on-surface-variant font-medium">
-                        {item.recipient || item.target || '系统广播'}
+                        {item.user_name || item.recipient || item.target || '系统广播'}
                       </span>
                     </div>
                     <span
@@ -1318,7 +1357,7 @@ export const AdminNotifyLogsSection: React.FC<EnterpriseSectionProps> = ({ lang 
                   </div>
 
                   <div className="text-xs text-on-surface mt-2 font-medium">
-                    {item.title || item.content_preview || '无标题消息'}
+                    {item.task_title || item.title || item.content_preview || '测试通知'}
                   </div>
 
                   {isFail && item.error && (

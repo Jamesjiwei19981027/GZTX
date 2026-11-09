@@ -209,6 +209,8 @@ export default function App() {
   const [regConfig, setRegConfig] = useState<RegistrationConfig>(DEFAULT_REGISTRATION_CONFIG);
   const [inviteNotice, setInviteNotice] = useState<string | null>(null);
   const [inviteRefreshFailed, setInviteRefreshFailed] = useState(false);
+  // 受邀注册/接受邀请后，手机端要落到被邀请项目（桌面端走 switchView('team')）
+  const [inviteLandingProjectId, setInviteLandingProjectId] = useState<string | null>(null);
   const [workspaceModal, setWorkspaceModal] = useState<WorkspaceSetupMode | null>(null);
   const [workspaceBusy, setWorkspaceBusy] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
@@ -522,6 +524,7 @@ export default function App() {
           if (joinedDetail) joined = mapProject(joinedDetail);
           if (cancelled) return;
           setCurrentProject(joined);
+          setInviteLandingProjectId(joined.id);
           switchView('team');
         }
         setInviteRefreshFailed(!refreshOk);
@@ -1122,6 +1125,7 @@ export default function App() {
               void getProject(pid)
                 .then((p) => {
                   setCurrentProject(mapProject(p));
+                  setInviteLandingProjectId(String(p.id));
                   switchView('team');
                 })
                 .catch(() => {
@@ -1132,6 +1136,7 @@ export default function App() {
                     color: '#0058be',
                     active: true,
                   });
+                  setInviteLandingProjectId(String(pid));
                   switchView('team');
                 });
             });
@@ -1215,6 +1220,8 @@ export default function App() {
           projects={displayProjects}
           currentProject={currentProject}
           onSelectProject={setCurrentProject}
+          inviteLandingProjectId={inviteLandingProjectId}
+          onInviteLandingHandled={() => setInviteLandingProjectId(null)}
           activities={activities}
           settings={settings}
           companyId={companyId}

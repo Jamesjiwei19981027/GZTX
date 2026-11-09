@@ -6,6 +6,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../../api/shell';
+import { appendPageById, hasMoreByTotal } from '../../utils/messagePaging';
 
 interface NotificationsModalProps {
   isOpen: boolean;
@@ -51,6 +52,9 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const [notifications, setNotifications] = useState<(NotificationItem & { target?: NotificationTarget })[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all');
   const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -58,6 +62,8 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
       try {
         const res = await listCollabNotifications(1);
         setNotifications((res.items || []).map(mapNotif));
+        setTotal(res.total ?? (res.items || []).length);
+        setPage(1);
         setError(null);
       } catch (e) {
         setError(e instanceof Error ? e.message : '加载通知失败');
@@ -66,6 +72,28 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // 按后端 total 分页：已加载数 < total 就还有下一页
+  const handleLoadMore = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const next = page + 1;
+      const res = await listCollabNotifications(next);
+      setNotifications((prev) =>
+        appendPageById(
+          prev.map((n) => ({ ...n, id: Number(n.id) })),
+          (res.items || []).map(mapNotif).map((n) => ({ ...n, id: Number(n.id) })),
+        ).map((n) => ({ ...n, id: String(n.id) })),
+      );
+      setTotal(res.total ?? total);
+      setPage(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '加载更多通知失败');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleMarkAsRead = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -216,6 +244,19 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               )}
             </button>
           ))}
+          {hasMoreByTotal(notifications.length, total) && (
+            <div className="text-center pt-1">
+              <button
+                type="button"
+                data-testid="notifications-load-more"
+                disabled={loadingMore}
+                onClick={() => void handleLoadMore()}
+                className="px-4 py-2 rounded-xl bg-surface-container text-xs font-bold text-primary cursor-pointer disabled:opacity-50"
+              >
+                {loadingMore ? '正在加载…' : `加载更多（已显示 ${notifications.length} / ${total}）`}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

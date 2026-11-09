@@ -135,7 +135,9 @@ export function normalizeMobileRoute(input: MobileRouteInput, fallback: MobileTa
   if (screen === 'ai-chat' || screen === 'axis-evidence-submit') {
     screen = 'record-progress';
   }
+  // 没指定 Tab 时，优先留在当前 Tab（如人轴里“记录进展”返回要回到人轴，而不是跳到工作台栈）
   const owner = MOBILE_TABS.find(item => item.id === input.tab && REGISTERED_SCREENS[item.id].has(screen))
+    ?? (input.tab == null ? MOBILE_TABS.find(item => item.id === fallback && REGISTERED_SCREENS[item.id].has(screen)) : undefined)
     ?? MOBILE_TABS.find(item => REGISTERED_SCREENS[item.id].has(screen));
   const tab = owner?.id ?? (input.tab === 'ai' ? 'work' : input.tab) ?? fallback;
   return { ...input, tab, screen, presentation: input.presentation ?? 'page', params: input.params ?? {} };

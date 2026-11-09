@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useRef, useMemo } from 'react';
 import {
   listChannels,
   listChannelMessages,
@@ -16,7 +16,15 @@ import {
   createPinnedLink,
   type DirectConversation,
   type CollabFile,
+  downloadCollabFile,
 } from '../../../api/shell';
+import {
+  formatFileSize,
+  hasMoreOlderMessages,
+  mergeMessagesById,
+  normalizeAttachments,
+  replaceLatestPage,
+} from '../../../utils/messagePaging';
 import { ApiError } from '../../../api/client';
 import { UserProfile, TeamMember, Language, Task } from '../../../types';
 import { AppIcon } from '../../ui/AppIcon';
@@ -241,30 +249,89 @@ export const MobileChatDetailScreen: React.FC<{
   const [summary, setSummary] = useState<CommunicationSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // 上滑加载更早消息：olderPage 是已加载到的最老一页（1 = 只有最新一页）
+  const olderPageRef = useRef(1);
+  const [canLoadOlder, setCanLoadOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderError, setOlderError] = useState<string | null>(null);
+  const restoreScrollRef = useRef<{ height: number; top: number } | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const fetchMessages = async () => {
     try {
-      if (type === 'channel') {
-        const res = await listChannelMessages(id);
-        setMessages(res.items || []);
-      } else {
-        const res = await listDirectMessages(id);
-        setMessages(res.items || []);
-      }
+      const res = type === 'channel' ? await listChannelMessages(id) : await listDirectMessages(id);
+      const items: any[] = res.items || [];
+      if (olderPageRef.current === 1) setCanLoadOlder(hasMoreOlderMessages(items.length));
+      setMessages((prev) => replaceLatestPage(prev, items));
     } catch {
       /* ignore */
     }
   };
 
+  const loadOlder = async () => {
+    if (loadingOlder || !canLoadOlder) return;
+    setLoadingOlder(true);
+    setOlderError(null);
+    try {
+      const page = olderPageRef.current + 1;
+      const res = type === 'channel' ? await listChannelMessages(id, page) : await listDirectMessages(id, page);
+      const items: any[] = res.items || [];
+      const el = scrollRef.current;
+      if (el) restoreScrollRef.current = { height: el.scrollHeight, top: el.scrollTop };
+      olderPageRef.current = page;
+      setCanLoadOlder(hasMoreOlderMessages(items.length));
+      setMessages((prev) => mergeMessagesById(items, prev));
+    } catch (err) {
+      setOlderError(err instanceof Error ? err.message : '加载更早消息失败');
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
+
   useEffect(() => {
+    olderPageRef.current = 1;
+    setCanLoadOlder(false);
+    setMessages([]);
     fetchMessages();
     const interval = setInterval(fetchMessages, 6000);
     return () => clearInterval(interval);
   }, [type, id]);
 
+  // 加载更早消息后保持当前阅读位置；其余情况新消息到了才滚到底
+  useLayoutEffect(() => {
+    const restore = restoreScrollRef.current;
+    const el = scrollRef.current;
+    if (restore && el) {
+      el.scrollTop = el.scrollHeight - restore.height + restore.top;
+      restoreScrollRef.current = null;
+    }
+  }, [messages]);
+
+  const lastMessageId = messages.length ? messages[messages.length - 1].id : 0;
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+    bottomRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+  }, [lastMessageId]);
+
+  const handleDownloadAttachment = async (att: { fileId?: number; name: string; url?: string }) => {
+    setDownloadError(null);
+    try {
+      if (!att.fileId) {
+        if (att.url) window.open(att.url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      // 下载接口需要登录凭证，不能直接用 <a href>：先 fetch 成 blob 再保存
+      const blob = await downloadCollabFile(att.fileId);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = att.name;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      setDownloadError(err instanceof Error ? `附件下载失败：${err.message}` : '附件下载失败');
+    }
+  };
 
   const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -381,7 +448,29 @@ export const MobileChatDetailScreen: React.FC<{
       )}
 
       {/* 消息流单列 (45) */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3.5">
+      <div
+        ref={scrollRef}
+        data-testid="chat-scroll"
+        onScroll={(e) => {
+          if (e.currentTarget.scrollTop < 40 && canLoadOlder && !loadingOlder) void loadOlder();
+        }}
+        className="flex-1 overflow-y-auto p-4 space-y-3.5"
+      >
+        {canLoadOlder && (
+          <div className="text-center">
+            <button
+              type="button"
+              data-testid="chat-load-older"
+              onClick={() => void loadOlder()}
+              disabled={loadingOlder}
+              className="min-h-[36px] px-4 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-[#0058BE] disabled:opacity-50"
+            >
+              {loadingOlder ? '正在加载…' : '加载更早的消息'}
+            </button>
+            {olderError && <p className="text-[11px] text-red-600 mt-1">{olderError}</p>}
+          </div>
+        )}
+        {downloadError && <p role="alert" className="text-center text-[11px] text-red-600">{downloadError}</p>}
         {messages.length === 0 ? (
           <div className="py-20 text-center text-xs text-slate-400">
             暂无消息，发送一条消息开启讨论吧
@@ -418,6 +507,26 @@ export const MobileChatDetailScreen: React.FC<{
                     }`}
                   >
                     {msg.body}
+
+                    {/* 附件：显示在气泡里，下载带登录凭证 */}
+                    {normalizeAttachments(msg.attachments).map((att, idx) => (
+                      <button
+                        key={`${att.fileId ?? att.name}-${idx}`}
+                        type="button"
+                        data-testid="chat-attachment"
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          void handleDownloadAttachment(att);
+                        }}
+                        className={`mt-2 w-full min-h-[40px] px-3 py-2 rounded-xl flex items-center gap-2 text-left text-xs ${
+                          isMe ? 'bg-white/15 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200'
+                        }`}
+                      >
+                        <AppIcon name="file" size={16} />
+                        <span className="flex-1 min-w-0 truncate">{att.name}</span>
+                        {att.sizeBytes != null && <span className="shrink-0 opacity-80">{formatFileSize(att.sizeBytes)}</span>}
+                      </button>
+                    ))}
 
                     {/* 消息点赞计数 */}
                     {msg.likes > 0 && (

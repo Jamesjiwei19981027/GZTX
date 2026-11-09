@@ -165,15 +165,29 @@ export async function sendBindCode(channel: 'email' | 'sms', target: string) {
   })
 }
 
+/** 绑定成功后，刚绑定的邮箱/手机立即写进状态，页面不用刷新就能显示已绑定地址 */
+export function withBoundTarget(
+  status: VerificationStatus,
+  channel: 'email' | 'sms',
+  target: string,
+): VerificationStatus {
+  return {
+    ...status,
+    email: channel === 'email' ? status.email || target : status.email,
+    phone: channel === 'sms' ? status.phone || target : status.phone,
+  }
+}
+
 export async function confirmBindCode(
   channel: 'email' | 'sms',
   target: string,
   code: string,
 ) {
-  return apiRequest<VerificationStatus>('/users/me/verification/confirm', {
+  const status = await apiRequest<VerificationStatus>('/users/me/verification/confirm', {
     method: 'POST',
     body: JSON.stringify({ channel, target, code }),
   })
+  return withBoundTarget(status, channel, target)
 }
 
 export async function fetchMe() {

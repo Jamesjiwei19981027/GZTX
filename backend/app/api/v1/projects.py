@@ -7,6 +7,7 @@ from sqlalchemy import func, select
 
 from app.api.deps_collab import assert_company_write
 from app.core.collab_errors import fail
+from app.core.config import settings
 from app.core.dependencies import CurrentUser, DbSession, CollaborationUser
 from app.models.company import Company, CompanyMembership
 from app.models.project import Project, ProjectMember
@@ -410,15 +411,72 @@ async def create_invitation(
     inv = await psvc.create_invitation(
         db, p, invitee_user_id=body.user_id, invitee_email=body.email
     )
+    to_email = (body.email or "").strip()
+    if not to_email and body.user_id:
+        invitee = await db.get(User, body.user_id)
+        to_email = ((invitee.email if invitee else "") or "").strip()
+    invite_url = f"{settings.APP_URL.rstrip('/')}/?invite={inv.token}"
+    inviter_name = getattr(user, "nickname", None) or user.username
+    project_name, token_val, inv_id = p.name, inv.token, inv.id
+    status_val, expires_at = inv.status, inv.expires_at
     await db.commit()
+    email_status = await _send_invite_email(
+        db, p.company_id, to_email, inviter_name, project_name, invite_url
+    )
     return ResponseData(
         data={
-            "id": inv.id,
-            "token": inv.token,
-            "status": inv.status,
-            "expires_at": inv.expires_at.isoformat() if inv.expires_at else None,
+            "id": inv_id,
+            "token": token_val,
+            "status": status_val,
+            "expires_at": expires_at.isoformat() if expires_at else None,
+            "invite_url": invite_url,
+            # sent=已发邮件；not_configured=公司未配发信；failed=发信失败；no_email=没有对方邮箱
+            "email_status": email_status,
+            "email_sent": email_status == "sent",
         }
     )
+
+
+async def _send_invite_email(
+    db, company_id, to_email: str, inviter: str, project_name: str, invite_url: str
+) -> str:
+    """公司发信已配置就发送邀请邮件；任何失败都不影响链接返回。"""
+    if not to_email:
+        return "no_email"
+    import asyncio
+
+    from app.services.smtp_settings import smtp_for_system
+    from app.utils import email as email_utils
+
+    try:
+        resolved = await smtp_for_system(db, company_id)
+        if not resolved or not resolved.is_complete():
+            return "not_configured"
+        subject = f"{inviter} 邀请你加入项目「{project_name}」"
+        text_body = (
+            f"{inviter} 邀请你加入项目「{project_name}」。\n"
+            f"点击链接接受邀请（7 天内有效）：{invite_url}"
+        )
+        html_body = (
+            f"<p>{inviter} 邀请你加入项目「{project_name}」。</p>"
+            f'<p><a href="{invite_url}">点击这里接受邀请</a>（7 天内有效）</p>'
+            f"<p>{invite_url}</p>"
+        )
+        ok = await asyncio.to_thread(
+            email_utils._send_smtp,
+            to_email=to_email,
+            from_addr=resolved.from_addr,
+            subject=subject,
+            text_body=text_body,
+            html_body=html_body,
+            smtp_host=resolved.host,
+            smtp_port=resolved.port,
+            smtp_user=resolved.user,
+            smtp_password=resolved.password,
+        )
+        return "sent" if ok else "failed"
+    except Exception:
+        return "failed"
 
 
 @router.post("/projects/invitations/{token}/accept")
