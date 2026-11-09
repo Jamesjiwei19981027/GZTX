@@ -765,7 +765,7 @@ async def get_trash(
     )
 
 
-@router.post("/{task_id}/restore", response_model=ResponseData)
+@router.post("/{task_id:int}/restore", response_model=ResponseData)
 async def restore_task(task_id: int, db: DbSession, user: CurrentUser):
     """从回收站恢复任务（仅本人的软删任务）。"""
     result = await db.execute(
@@ -789,7 +789,7 @@ async def restore_task(task_id: int, db: DbSession, user: CurrentUser):
     return ResponseData(data=_serialize_task(task))
 
 
-@router.get("/{task_id}", response_model=ResponseData)
+@router.get("/{task_id:int}", response_model=ResponseData)
 async def get_task(task_id: int, db: DbSession, user: CurrentUser):
     """获取任务详情（本人或被指派人可见）"""
     query = (
@@ -962,7 +962,7 @@ async def create_task(data: TaskCreate, db: DbSession, user: EmailVerifiedUser):
     return ResponseData(data=_serialize_task(task))
 
 
-@router.get("/{task_id}/schedule-history", response_model=ResponseData)
+@router.get("/{task_id:int}/schedule-history", response_model=ResponseData)
 async def task_schedule_history(task_id: int, db: DbSession, user: CurrentUser):
     """查看任务的排期变更历史"""
     task = await db.scalar(select(Task).where(Task.id == task_id, Task.is_deleted.is_(False), task_visibility_filter(user.id)))
@@ -976,7 +976,7 @@ async def task_schedule_history(task_id: int, db: DbSession, user: CurrentUser):
         "created_at": iso(row.created_at)} for row in rows]})
 
 
-@router.put("/{task_id}", response_model=ResponseData)
+@router.put("/{task_id:int}", response_model=ResponseData)
 async def update_task(task_id: int, data: TaskUpdate, db: DbSession, user: CurrentUser):
     """更新任务"""
     result = await db.execute(
@@ -1216,7 +1216,7 @@ async def _spawn_next_recurring_instance(
     return _serialize_task(instance)
 
 
-@router.patch("/{task_id}/complete", response_model=ResponseData)
+@router.patch("/{task_id:int}/complete", response_model=ResponseData)
 async def complete_task(task_id: int, data: TaskComplete, db: DbSession, user: CurrentUser):
     """标记任务完成（含完成评价）"""
     result = await db.execute(
@@ -1280,7 +1280,7 @@ async def complete_task(task_id: int, data: TaskComplete, db: DbSession, user: C
     return ResponseData(data=payload)
 
 
-@router.patch("/{task_id}/uncomplete", response_model=ResponseData)
+@router.patch("/{task_id:int}/uncomplete", response_model=ResponseData)
 async def uncomplete_task(task_id: int, db: DbSession, user: CurrentUser):
     """取消任务完成"""
     result = await db.execute(
@@ -1303,7 +1303,7 @@ async def uncomplete_task(task_id: int, db: DbSession, user: CurrentUser):
     return ResponseData(data=_serialize_task(task))
 
 
-@router.delete("/{task_id}", response_model=ResponseData)
+@router.delete("/{task_id:int}", response_model=ResponseData)
 async def delete_task(task_id: int, db: DbSession, user: CurrentUser):
     """删除任务（软删除）"""
     result = await db.execute(
@@ -1344,6 +1344,7 @@ async def batch_complete(data: BatchAction, db: DbSession, user: CurrentUser):
         data={
             "completed_count": len(editable),
             "skipped_readonly": len(tasks) - len(editable),
+            "skipped_task_ids": [t.id for t in tasks if t not in editable],
         }
     )
 
@@ -1385,6 +1386,7 @@ async def batch_reschedule(data: BatchReschedule, db: DbSession, user: CurrentUs
         data={
             "updated_count": len(editable),
             "skipped_readonly": len(tasks) - len(editable),
+            "skipped_task_ids": [t.id for t in tasks if t not in editable],
         }
     )
 

@@ -154,7 +154,12 @@ export interface AxisEvidence {
   url: string;
   timestamp: string;
   verifiedBy?: string;
-  status: 'verified' | 'pending' | 'rejected';
+  /** verified=已采纳 awaiting_review=待负责人确认 rejected=已驳回 superseded=已被新版本替代 pending=判定中 */
+  status: 'verified' | 'pending' | 'rejected' | 'awaiting_review' | 'superseded';
+  /** 当前用户能否确认该材料（后端 can_review） */
+  canReview?: boolean;
+  /** 驳回原因（后端 reject_reason，缺省不显示） */
+  rejectReason?: string;
 }
 
 export interface AxisWorkItem {
@@ -164,6 +169,8 @@ export interface AxisWorkItem {
   status: Status;
   progress: number;
   dueDate: string;
+  /** 事项负责人（后端 node_assignments 的 user_id），用于编辑时预选 */
+  assigneeUserIds?: number[];
   linkedTaskId?: string;
   evidences: AxisEvidence[];
   aiAnalysis?: string;

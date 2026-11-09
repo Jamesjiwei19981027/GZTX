@@ -234,7 +234,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   subtitle: message.likes > 0
                       ? '当前 ${message.likes} 个赞'
                       : '让同事知道这条消息有用',
-                  leading: const AppIcon('thumbs-up', size: 20),
+                  leading: const AppIcon('thumbs-up', size: 18),
                   showChevron: false,
                   onTap: () async {
                     Navigator.of(sheetContext).pop();
@@ -251,7 +251,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                 ),
               AppListTile(
                 title: '复制消息文本',
-                leading: const AppIcon('copy', size: 20),
+                leading: const AppIcon('copy', size: 18),
                 showChevron: false,
                 onTap: () async {
                   Navigator.of(sheetContext).pop();
@@ -263,7 +263,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               const SizedBox(height: AppSpacing.md),
               AppListTile(
                 title: '转为任务草稿',
-                leading: const AppIcon('work', size: 20),
+                leading: const AppIcon('work', size: 18),
                 showChevron: false,
                 onTap: () {
                   Navigator.of(sheetContext).pop();
@@ -320,22 +320,22 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
         IconButton(
           tooltip: '语音通话',
           onPressed: controller == null ? null : () => _openCall('audio'),
-          icon: const AppIcon('phone', size: 19),
+          icon: const AppIcon('phone', size: 18),
         ),
         IconButton(
           tooltip: '视频通话',
           onPressed: controller == null ? null : () => _openCall('video'),
-          icon: const AppIcon('video', size: 20),
+          icon: const AppIcon('video', size: 18),
         ),
         IconButton(
           tooltip: 'AI 总结聊天记录',
           onPressed: controller == null ? null : _summarize,
-          icon: const AppIcon('ai', size: 20),
+          icon: const AppIcon('ai', size: 18),
         ),
         IconButton(
           tooltip: '会话资料',
           onPressed: _openProfile,
-          icon: const AppIcon('info', size: 20),
+          icon: const AppIcon('info', size: 18),
         ),
       ],
       body: controller == null
@@ -405,8 +405,8 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       if (controller.isForbidden) {
         return PermissionNotice(
           title: '暂无频道访问权限',
-          message: controller.error ?? '您暂时无法查看这个会话。',
-          hint: '次级人员默认不能进入频道；如需进入，请联系项目管理人员开通项目频道访问授权。',
+          message: controller.error ?? '您暂时无法查看这个会话',
+          hint: '次级人员默认不能进入频道；如需进入，请联系项目管理人员开通项目频道访问授权',
         );
       }
       return AppErrorState(
@@ -488,7 +488,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               '重新生成',
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color: AppColors.primary,
               ),
             ),
@@ -504,7 +504,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
             'AI 聊天总结 · ${summary.sourceCount} 条来源',
             style: const TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: AppColors.primary,
             ),
           ),
@@ -527,7 +527,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
           const SizedBox(height: AppSpacing.xs),
           Text(
             '生成方式：${summary.providerLabel}',
-            style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+            style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
         ],
       );
@@ -567,12 +567,16 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
       ),
       child: Row(
         children: [
-          AppIcon('warning', size: 16, color: AppColors.onDangerContainerOf(isDarkMode(context))),
+          AppIcon('warning',
+              size: 18,
+              color: AppColors.onDangerContainerOf(isDarkMode(context))),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: 12, color: AppColors.onDangerContainerOf(isDarkMode(context))),
+              style: TextStyle(
+                  fontSize: 12,
+                  color: AppColors.onDangerContainerOf(isDarkMode(context))),
             ),
           ),
           if (actionLabel != null && onAction != null)
@@ -584,7 +588,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   actionLabel,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.onDangerContainerOf(isDarkMode(context)),
                   ),
                 ),
@@ -595,7 +599,9 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
               onTap: onDismiss,
               child: Padding(
                 padding: const EdgeInsets.only(left: AppSpacing.xs),
-                child: AppIcon('close', size: 14, color: AppColors.onDangerContainerOf(isDarkMode(context))),
+                child: AppIcon('close',
+                    size: 18,
+                    color: AppColors.onDangerContainerOf(isDarkMode(context))),
               ),
             ),
         ],

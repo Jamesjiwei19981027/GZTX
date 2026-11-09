@@ -40,6 +40,7 @@ class ChatBody(BaseModel):
     agent_definition_id: int | None = None
     channel: str = "web"
     message: str
+    file_ids: list[int] = Field(default_factory=list, max_length=20)
 
 
 def _agent_dto(a: AgentDefinition) -> dict:
@@ -221,7 +222,14 @@ async def agent_chat(body: ChatBody, db: DbSession, user: CollaborationUser):
     )
     db.add(session)
     await db.flush()
-    msg = await runtime.chat(db, session=session, user_text=body.message)
+    from app.services.progress_attachments import resolve_attachments
+
+    attachments = await resolve_attachments(
+        db, user_id=user.id, file_ids=body.file_ids, company_id=body.company_id
+    )
+    msg = await runtime.chat(
+        db, session=session, user_text=body.message, attachments=attachments
+    )
     await db.commit()
     return ResponseData(
         data={

@@ -17,15 +17,15 @@ export const MobileListGroup: React.FC<MobileListGroupProps> = ({
   return (
     <div className={`w-full mb-4 last:mb-0 ${className}`}>
       {title && (
-        <div className="px-4 pb-2 text-[13px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider select-none">
+        <div className="px-4 pb-2 text-[13px] font-medium text-on-surface-variant select-none">
           {title}
         </div>
       )}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
+      <div className="bg-surface-container-lowest rounded-[var(--radius-ink-card)] border border-outline-variant shadow-xs overflow-hidden">
         {children}
       </div>
       {footer && (
-        <div className="px-4 pt-2 text-xs text-slate-400 dark:text-slate-500 font-normal leading-relaxed">
+        <div className="px-4 pt-2 text-xs text-on-surface-variant font-normal leading-relaxed">
           {footer}
         </div>
       )}
@@ -67,10 +67,10 @@ export const MobileListItem: React.FC<MobileListItemProps> = ({
     <div
       className={`relative flex items-center min-h-[52px] px-4 py-3 gap-3.5 transition-colors select-none ${
         isInteractive
-          ? 'active:bg-slate-100 dark:active:bg-slate-800/70 cursor-pointer'
+          ? 'active:bg-surface-container cursor-pointer'
           : ''
       } ${disabled ? 'opacity-40 cursor-not-allowed' : ''} ${
-        selected ? 'bg-blue-50/70 dark:bg-blue-950/30' : ''
+        selected ? 'bg-primary-container/60' : ''
       } ${className}`}
       onClick={isInteractive ? onClick : undefined}
       role={isInteractive ? 'button' : undefined}
@@ -87,7 +87,7 @@ export const MobileListItem: React.FC<MobileListItemProps> = ({
       }
     >
       {leading && (
-        <div className="shrink-0 flex items-center justify-center text-slate-600 dark:text-slate-300">
+        <div className="shrink-0 flex items-center justify-center text-on-surface-variant">
           {leading}
         </div>
       )}
@@ -96,31 +96,31 @@ export const MobileListItem: React.FC<MobileListItemProps> = ({
         <div
           className={`text-[16px] leading-snug font-normal truncate ${
             destructive
-              ? 'text-red-600 dark:text-red-400 font-medium'
-              : 'text-slate-900 dark:text-slate-100'
+              ? 'text-error font-medium'
+              : 'text-on-surface'
           }`}
         >
           {title}
         </div>
         {subtitle && (
-          <div className="text-[13px] text-slate-500 dark:text-slate-400 leading-tight truncate mt-0.5">
+          <div className="text-[13px] text-on-surface-variant leading-tight truncate mt-0.5">
             {subtitle}
           </div>
         )}
       </div>
 
       {(trailing || shouldShowChevron) && (
-        <div className="shrink-0 flex items-center gap-2 text-slate-400">
+        <div className="shrink-0 flex items-center gap-2 text-on-surface-variant">
           {trailing}
           {shouldShowChevron && (
-            <AppIcon name="chevron-right" size={18} className="text-slate-300 dark:text-slate-600 shrink-0" />
+            <AppIcon name="chevron-right" size={18} className="text-on-surface-variant shrink-0" />
           )}
         </div>
       )}
 
       {showDivider && (
         <div
-          className={`absolute bottom-0 right-0 h-px bg-slate-100 dark:bg-slate-800 pointer-events-none ${
+          className={`absolute bottom-0 right-0 h-px bg-outline-variant pointer-events-none ${
             leading ? 'left-14' : 'left-4'
           }`}
         />

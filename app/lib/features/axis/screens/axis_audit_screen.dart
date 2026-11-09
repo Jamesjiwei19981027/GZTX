@@ -142,7 +142,7 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
                                 '未配置审计模型',
                                 style: TextStyle(
                                   fontSize: 15,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w500,
                                   color: AppColors.warning,
                                 ),
                               ),
@@ -151,8 +151,8 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         const Text(
-                          '当前项目或企业尚未在设置中配置并启用可用的审计模型。'
-                          '真实审计功能需要配置模型后方可执行。',
+                          '当前项目或企业尚未在设置中配置并启用可用的审计模型'
+                          '真实审计功能需要配置模型后方可执行',
                           style: TextStyle(fontSize: 12, height: 1.5),
                         ),
                         const SizedBox(height: AppSpacing.sm),
@@ -178,7 +178,7 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
                         ? const Padding(
                             padding: EdgeInsets.all(AppSpacing.lg),
                             child: Text(
-                              '本次审计未发现需要处理的责任链风险。',
+                              '本次审计未发现需要处理的责任链风险',
                               style: TextStyle(fontSize: 13),
                             ),
                           )
@@ -196,7 +196,7 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   const AxisInfoBanner(
-                    text: 'AI 结果交由管理者确认，可在核验后处理责任和任务。',
+                    text: 'AI 结果交由管理者确认，可在核验后处理责任和任务',
                   ),
                 ],
                 const SizedBox(height: AppSpacing.lg),
@@ -228,12 +228,12 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, size: 18, color: AppColors.primary),
+              const Icon(Icons.description_outlined, size: 18),
               const SizedBox(width: AppSpacing.sm),
               const Expanded(
                 child: Text(
                   '责任链审计完成',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                 ),
               ),
               AxisStatusChip(
@@ -282,14 +282,14 @@ class _AuditNodeRow extends StatelessWidget {
                   node.title,
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
               AxisStatusChip(label: '${node.riskLabel}风险', color: color),
             ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             node.summary,
             style: TextStyle(
@@ -302,7 +302,7 @@ class _AuditNodeRow extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             for (final action in node.suggestedActions)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.only(top: 4),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [

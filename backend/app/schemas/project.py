@@ -14,6 +14,12 @@ class AssignPmBody(BaseModel):
     user_id: int
 
 
+class ProjectPatch(BaseModel):
+    """修改项目：名称 / 负责人（PM），只传要改的字段"""
+    name: Optional[str] = Field(default=None, max_length=200)
+    pm_user_id: Optional[int] = None
+
+
 class FinalOwnerPositionBody(BaseModel):
     """终责卡片沿主干方向的偏移量（像素，非负）"""
     along_delta: int = Field(ge=0, le=100000)

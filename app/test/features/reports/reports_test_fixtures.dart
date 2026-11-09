@@ -324,6 +324,13 @@ class ReportsTestHarness {
     });
 
     // 默认注册 reports 相关标准接口响应
+    for (final projectId in [
+      ReportsTestFixtures.projectId,
+      ReportsTestFixtures.otherProjectId
+    ]) {
+      helper.whenGet('/projects/$projectId/report-summaries',
+          {'items': [], 'can_publish': true});
+    }
     helper.whenGet(
       '/projects/${ReportsTestFixtures.projectId}/report-agents/bindings',
       {'items': ReportsTestFixtures.bindingsJson},

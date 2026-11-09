@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -11,6 +12,8 @@ import '../data/axis_models.dart';
 import '../data/axis_rules.dart';
 import '../data/axis_tree_mapper.dart';
 import '../widgets/axis_common.dart';
+import '../widgets/axis_matter_form.dart';
+import '../data/axis_matter_patch.dart';
 
 /// 人员 / 事项详情（axis-person-detail、axis-node-detail）。
 ///
@@ -43,6 +46,10 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   List<AxisPersonNode> _tree = const [];
   AxisPermissions _permissions = AxisPermissions.empty;
   int? _projectId;
+  bool _matterDeleted = false;
+  bool _canUndoMatter = false;
+  bool _matterBusy = false;
+  Timer? _undoTimer;
 
   @override
   void didChangeDependencies() {
@@ -63,6 +70,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
     // 必须作废进行中的请求、清掉旧节点数据，再按新参数重新加载，
     // 否则会“旧数据配新 ID”，进度与材料入口指向另一个节点。
     _epoch++;
+    _undoTimer?.cancel();
     setState(() {
       _nodeJson = null;
       _tree = const [];
@@ -70,6 +78,9 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
       _projectId = null;
       _error = null;
       _loading = true;
+      _matterDeleted = false;
+      _canUndoMatter = false;
+      _matterBusy = false;
     });
     _load();
   }
@@ -77,6 +88,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   @override
   void dispose() {
     _epoch++;
+    _undoTimer?.cancel();
     super.dispose();
   }
 
@@ -169,6 +181,87 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
     await context.push(_evidenceSubmitLocation);
   }
 
+  Future<void> _editMatter() async {
+    final epoch = _epoch;
+    final projectId = _projectId;
+    if (projectId == null || _nodeJson == null) return;
+    final original = _nodeJson!;
+    try {
+      final members = await _api!.fetchMembers(projectId);
+      if (!mounted || epoch != _epoch) return;
+      final saved = await showAppBottomSheet<bool>(
+          context: context,
+          title: '编辑事项',
+          builder: (ctx) => AxisMatterForm(
+                api: _api!,
+                original: original,
+                members: members,
+                canChangeAssignee:
+                    _permissions.nodePermissions[widget.nodeId.toString()]
+                            ?['can_manage_assignees'] ??
+                        (_permissions.isPm || _permissions.isSuperAdmin),
+                onSaved: () => Navigator.of(ctx).pop(true),
+              ));
+      if (saved == true && mounted && epoch == _epoch) {
+        await _load();
+        _toast('事项已更新');
+      }
+    } catch (error) {
+      _toast(axisErrorMessage(error), type: ToastType.error);
+    }
+  }
+
+  Future<void> _deleteMatter() async {
+    final epoch = _epoch;
+    final confirmed = await showAppConfirmDialog(
+        context: context,
+        title: '删除事项',
+        message: '即将删除「${_nodeJson?['title'] ?? ''}」。删除后可在15秒内撤销恢复。',
+        confirmLabel: '确认删除');
+    if (confirmed != true || !mounted || epoch != _epoch) return;
+    setState(() => _matterBusy = true);
+    try {
+      await _api!.deleteMatter(widget.nodeId);
+      if (!mounted || epoch != _epoch) return;
+      setState(() {
+        _matterDeleted = true;
+        _canUndoMatter = true;
+        _matterBusy = false;
+      });
+      _undoTimer?.cancel();
+      _undoTimer = Timer(const Duration(seconds: 15), () {
+        if (mounted) setState(() => _canUndoMatter = false);
+      });
+    } catch (error) {
+      if (mounted && epoch == _epoch) {
+        setState(() => _matterBusy = false);
+        _toast(axisErrorMessage(error), type: ToastType.error);
+      }
+    }
+  }
+
+  Future<void> _restoreMatter() async {
+    final epoch = _epoch;
+    setState(() => _matterBusy = true);
+    try {
+      await _api!.restoreMatter(widget.nodeId);
+      if (!mounted || epoch != _epoch) return;
+      _undoTimer?.cancel();
+      setState(() {
+        _matterDeleted = false;
+        _canUndoMatter = false;
+        _matterBusy = false;
+      });
+      await _load();
+      _toast('已撤销删除');
+    } catch (error) {
+      if (mounted && epoch == _epoch) {
+        setState(() => _matterBusy = false);
+        _toast(axisErrorMessage(error), type: ToastType.error);
+      }
+    }
+  }
+
   Future<void> _showPermissions(AxisPersonNode person) async {
     var allowAddSubordinates =
         person.responsibilityPermissions['allow_add_subordinates'] != false;
@@ -229,14 +322,14 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                           : '${person.name} · ${person.roleTitle.trim()}',
                       style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
                     Text(
                       '权限作用于当前项目的人轴节点',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: AppColors.textTertiaryOf(isDark),
                       ),
                     ),
@@ -293,7 +386,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const AxisInfoBanner(text: '保存后按最新权限生效，其他设备同步更新。'),
+              const AxisInfoBanner(text: '保存后按最新权限生效，其他设备同步更新'),
               const SizedBox(height: AppSpacing.lg),
               AppButton(
                 label: '保存权限',
@@ -347,7 +440,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
             padding: const EdgeInsets.all(AppSpacing.lg),
             children: [
               const AxisInfoBanner(
-                text: '调整后，新提交汇报走新链路；历史报告保留原接收关系。',
+                text: '调整后，新提交汇报走新链路；历史报告保留原接收关系',
                 isWarning: true,
               ),
               if (error != null) ...[
@@ -363,7 +456,9 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                       leading: const Icon(Icons.vertical_align_top),
                       title: const Text('设为顶层负责人（无上级）'),
                       trailing: selected == null
-                          ? const Icon(Icons.check, color: AppColors.primary)
+                          ? const Icon(
+                              Icons.check,
+                            )
                           : null,
                       onTap: () => setSheetState(() => selected = null),
                     ),
@@ -378,7 +473,9 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                               : candidate.roleTitle,
                         ),
                         trailing: selected == candidate.id
-                            ? const Icon(Icons.check, color: AppColors.primary)
+                            ? const Icon(
+                                Icons.check,
+                              )
                             : null,
                         onTap: () =>
                             setSheetState(() => selected = candidate.id),
@@ -516,7 +613,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                     '涉及 ${data.affectedUserIds.length} 位成员、'
                     '${data.descendantCount} 个下级节点、'
                     '${data.affectedTaskCount} 项任务、'
-                    '${data.affectedEvidenceCount} 份材料。',
+                    '${data.affectedEvidenceCount} 份材料',
                     style: const TextStyle(fontSize: 13, height: 1.5),
                   ),
                 ),
@@ -548,7 +645,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                 const SizedBox(height: AppSpacing.md),
                 const Text(
                   '交接给',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 AxisCard(
@@ -558,7 +655,9 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                       ListTile(
                         title: const Text('不交接（级联移除）'),
                         trailing: handoverId == null && cascade
-                            ? const Icon(Icons.check, color: AppColors.primary)
+                            ? const Icon(
+                                Icons.check,
+                              )
                             : null,
                         onTap: () => setSheetState(() {
                           handoverId = null;
@@ -569,8 +668,9 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                         ListTile(
                           title: Text(candidate.title),
                           trailing: handoverId == candidate.id
-                              ? const Icon(Icons.check,
-                                  color: AppColors.primary)
+                              ? const Icon(
+                                  Icons.check,
+                                )
                               : null,
                           onTap: () => setSheetState(() {
                             handoverId = candidate.id;
@@ -581,7 +681,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                         const Padding(
                           padding: EdgeInsets.all(AppSpacing.md),
                           child: Text(
-                            '暂无可交接人员，只能级联移除。',
+                            '暂无可交接人员，只能级联移除',
                             style: TextStyle(fontSize: 12),
                           ),
                         ),
@@ -595,7 +695,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                   controlAffinity: ListTileControlAffinity.leading,
                   title: const Text(
                     '我已知悉：一并移除下级，关联任务移入回收站，'
-                    '并撤销被移除成员的项目沟通权限。',
+                    '并撤销被移除成员的项目沟通权限',
                     style: TextStyle(fontSize: 12, color: AppColors.danger),
                   ),
                   onChanged: (v) => setSheetState(() {
@@ -652,7 +752,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
           title: '责任详情',
           body: AppErrorState(
             title: '节点已不在人轴上',
-            message: '该人员可能已被移除，请返回人轴刷新。',
+            message: '该人员可能已被移除，请返回人轴刷新',
             onRetry: _load,
           ),
         );
@@ -703,7 +803,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                                 person.name,
                                 style: const TextStyle(
                                   fontSize: 17,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                               if (person.isTerminalPm)
@@ -719,7 +819,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 3),
+                          const SizedBox(height: 4),
                           Text(
                             '${person.roleTitle.isEmpty ? '岗位未指定' : person.roleTitle}'
                             ' · ${person.department.isEmpty ? '项目部门' : person.department}',
@@ -747,7 +847,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                       child: Text(
                         supervisor.isEmpty ? '无（顶层负责人）' : supervisor.first.name,
                         style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600),
+                            fontSize: 13, fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -769,7 +869,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                             ? '无'
                             : subordinates.map((s) => s.name).join('、'),
                         style: const TextStyle(
-                            fontSize: 13, fontWeight: FontWeight.w600),
+                            fontSize: 13, fontWeight: FontWeight.w500),
                       ),
                     ),
                   ],
@@ -780,7 +880,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
           const SizedBox(height: AppSpacing.md),
           AxisWideAction(
             label: '查看 AI 汇报与材料对照',
-            icon: const Icon(Icons.auto_awesome),
+            icon: const Icon(Icons.description_outlined),
             onPressed: () => context.pushNamed('ai-root'),
           ),
           if (canEdit) ...[
@@ -817,6 +917,9 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
             person: person,
             projectId: _projectId,
             onOpenProgress: _openProgress,
+            onMatterChanged: () async {
+              if (mounted) await _load();
+            },
           ),
           const SizedBox(height: AppSpacing.lg),
           const AxisSectionTitle('人员权限与交接'),
@@ -826,13 +929,13 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
               children: [
                 Text(
                   person.isPrimary
-                      ? '主轴人员：由项目经理管理。'
+                      ? '主轴人员：由项目经理管理'
                       : '次级人员：仅所属主轴负责人可以移除。默认不开放项目频道。',
                   style: const TextStyle(fontSize: 12, height: 1.5),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '人轴最多四级。',
+                  '人轴最多四级',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textTertiaryOf(isDark),
@@ -864,7 +967,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                 else
                   Text(
                     '你没有移除该人员的权限。次级人员只能由其主轴负责人移除；'
-                    '项目经理可移除所有主轴人员。',
+                    '项目经理可移除所有主轴人员',
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.textTertiaryOf(isDark),
@@ -875,7 +978,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
           const AxisInfoBanner(
-            text: '材料提交与项目 AI 知识库由「材料」模块负责，本页只提供入口。',
+            text: '材料提交与项目 AI 知识库由「材料」模块负责，本页只提供入口',
           ),
           const SizedBox(height: AppSpacing.sm),
           AppButton(
@@ -897,6 +1000,30 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   }
 
   Widget _buildMatter(BuildContext context) {
+    if (_matterDeleted) {
+      return AppScaffold(
+          title: '事项详情',
+          body: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Center(
+                        child: Text('事项已删除',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.w500))),
+                    const SizedBox(height: AppSpacing.lg),
+                    if (_canUndoMatter)
+                      AppButton(
+                          key: const Key('axis-matter-undo'),
+                          label: '撤销删除',
+                          isFullWidth: true,
+                          isLoading: _matterBusy,
+                          onPressed: _matterBusy ? null : _restoreMatter)
+                    else
+                      const Text('撤销时间已结束，可返回人轴查看'),
+                  ])));
+    }
     final isDark = isDarkMode(context);
     final json = _nodeJson ?? const <String, dynamic>{};
     final workItem = AxisWorkItem.fromJson(json);
@@ -907,6 +1034,11 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
     for (final node in _tree) {
       if (node.id == parentId) owner = node;
     }
+    final canEdit = _permissions.nodePermissions[widget.nodeId.toString()]
+            ?['can_edit_person'] ??
+        (_permissions.canEditAll ||
+            _permissions.ownedNodeIds.contains(widget.nodeId) ||
+            _permissions.nodeCan(owner, 'can_edit_person'));
 
     return AppScaffold(
       title: '事项详情',
@@ -922,9 +1054,14 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                     Expanded(
                       child: Text(
                         workItem.title.isEmpty ? '未命名事项' : workItem.title,
-                        style: const TextStyle(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w700,
+                        style: completedTitleStyle(
+                          isDark: isDark,
+                          completed: workItem.isDone,
+                          base: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(context).colorScheme.onSurface,
+                          ),
                         ),
                       ),
                     ),
@@ -960,7 +1097,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                               ? owner.name
                               : '${owner.name} · ${owner.roleTitle.trim()}',
                           style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600),
+                              fontSize: 13, fontWeight: FontWeight.w500),
                         ),
                       ),
                     ],
@@ -969,6 +1106,27 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
               ],
             ),
           ),
+          const SizedBox(height: AppSpacing.lg),
+          Text(
+              '截止日期：${workItem.dueAt == null ? '未设置' : axisDateLabel(workItem.dueAt)}'),
+          if (canEdit) ...[
+            const SizedBox(height: AppSpacing.md),
+            AppButton(
+                key: const Key('axis-matter-edit'),
+                label: '编辑事项',
+                isFullWidth: true,
+                onPressed: _matterBusy ? null : _editMatter),
+          ],
+          if (_permissions.canDelete) ...[
+            const SizedBox(height: AppSpacing.sm),
+            AppButton(
+                key: const Key('axis-matter-delete'),
+                label: '删除事项',
+                variant: AppButtonVariant.danger,
+                isLoading: _matterBusy,
+                isFullWidth: true,
+                onPressed: _matterBusy ? null : _deleteMatter),
+          ],
           const SizedBox(height: AppSpacing.lg),
           AppButton(
             label: '查看进度与记录',
@@ -984,7 +1142,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
           const AxisInfoBanner(
-            text: '事项只能挂在人下面；若需要调整责任人，请在项目全貌画布上拖动卡片。',
+            text: '事项归属人员的责任链；有权限时可编辑事项名称、截止日期与负责人',
           ),
         ],
       ),
@@ -996,6 +1154,7 @@ class _PersonTabs extends StatefulWidget {
   const _PersonTabs({
     required this.person,
     required this.onOpenProgress,
+    required this.onMatterChanged,
     this.projectId,
   });
 
@@ -1004,6 +1163,7 @@ class _PersonTabs extends StatefulWidget {
   /// 详情页解析出的项目 ID；材料提交链接必须带上，不能落回全局选中项目。
   final int? projectId;
   final Future<void> Function() onOpenProgress;
+  final Future<void> Function() onMatterChanged;
 
   @override
   State<_PersonTabs> createState() => _PersonTabsState();
@@ -1042,10 +1202,12 @@ class _PersonTabsState extends State<_PersonTabs> {
                       trailing: const Icon(Icons.chevron_right, size: 18),
                       onTap: () {
                         final projectId = widget.projectId;
-                        context.push(
-                          '/axis/node/${item.id}/progress'
-                          '${projectId == null ? '' : '?projectId=$projectId'}',
-                        );
+                        context
+                            .push(
+                              '/axis/node/${item.id}'
+                              '${projectId == null ? '' : '?projectId=$projectId'}',
+                            )
+                            .then((_) => widget.onMatterChanged());
                       },
                     ),
                   ),
@@ -1056,12 +1218,14 @@ class _PersonTabsState extends State<_PersonTabs> {
           AxisCard(
             child: Column(
               children: [
-                const Icon(Icons.folder_outlined,
-                    size: 30, color: AppColors.primary),
+                const Icon(
+                  Icons.folder_outlined,
+                  size: 18,
+                ),
                 const SizedBox(height: AppSpacing.sm),
                 const Text(
                   '材料由「材料提交」模块统一管理',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 AppButton(
@@ -1085,7 +1249,7 @@ class _PersonTabsState extends State<_PersonTabs> {
               children: [
                 const Text(
                   '综合进展',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 Builder(

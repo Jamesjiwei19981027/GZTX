@@ -28,7 +28,8 @@ class ReportCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: dark ? AppColors.darkSurface : AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-        border: Border.all(color: dark ? AppColors.darkBorder : AppColors.border),
+        border:
+            Border.all(color: dark ? AppColors.darkBorder : AppColors.border),
       ),
       child: child,
     );
@@ -53,9 +54,11 @@ class ReportSectionTitle extends StatelessWidget {
               title,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 letterSpacing: 0.4,
-                color: dark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                color: dark
+                    ? AppColors.darkTextSecondary
+                    : AppColors.textSecondary,
               ),
             ),
           ),
@@ -145,12 +148,12 @@ class ReportInfoBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          icon ?? AppIcon(iconName, size: 17, color: effectiveFg),
+          icon ?? AppIcon(iconName, size: 18, color: effectiveFg),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: 12.5, height: 1.45, color: effectiveFg),
+              style: TextStyle(fontSize: 13, height: 1.45, color: effectiveFg),
             ),
           ),
         ],
@@ -195,14 +198,14 @@ class ReportStatusChip extends StatelessWidget {
         ),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: fg),
       ),
     );
   }
@@ -262,8 +265,10 @@ class ReportProjectBar extends StatelessWidget {
                 '汇报项目',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: dark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+                  fontWeight: FontWeight.w500,
+                  color: dark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary,
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
@@ -274,7 +279,9 @@ class ReportProjectBar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 14,
-                    color: dark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+                    color: dark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.textPrimary,
                   ),
                 ),
               ),
@@ -282,7 +289,9 @@ class ReportProjectBar extends StatelessWidget {
                 AppIcon(
                   'chevron-down',
                   size: 18,
-                  color: dark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                  color: dark
+                      ? AppColors.darkTextTertiary
+                      : AppColors.textTertiary,
                 ),
             ],
           ),
@@ -333,35 +342,49 @@ class ReportSourcesList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final items = <({String key, String type, String title, String detail})>[];
+    final items = <({
+      String key,
+      String type,
+      String title,
+      String detail,
+      bool completed
+    })>[];
     for (var index = 0; index < sources.length; index++) {
       final source = sources[index];
+      if ((source.sourceType == 'task' &&
+              taskSnapshots.any((task) => task.id == source.sourceId)) ||
+          (const ['evidence', 'evidence_package'].contains(source.sourceType) &&
+              evidenceSnapshots
+                  .any((evidence) => evidence.id == source.sourceId))) {
+        continue;
+      }
       items.add((
         key: 'source-${source.id ?? index}',
         type: source.sourceType,
         title: source.title,
         detail: source.detail,
+        completed: false,
       ));
     }
-    if (items.isEmpty) {
-      for (final task in taskSnapshots) {
-        items.add((
-          key: 'task-${task.id}',
-          type: 'task',
-          title: task.title,
-          detail: '任务快照 · 状态：${task.status?.trim().isNotEmpty == true ? task.status! : '进行中'}',
-        ));
-      }
-      for (final evidence in evidenceSnapshots) {
-        final summary = evidence.summary?.trim();
-        items.add((
-          key: 'evidence-${evidence.id}',
-          type: 'evidence',
-          title: summary != null && summary.isNotEmpty ? summary : '项目材料证据',
-          detail:
-              '材料快照 · 状态：${evidence.status?.trim().isNotEmpty == true ? evidence.status! : '已归档'}',
-        ));
-      }
+    for (final task in taskSnapshots) {
+      items.add((
+        key: 'task-${task.id}',
+        type: 'task',
+        title: task.title,
+        detail: '任务快照 · 状态：${task.statusLabel}',
+        completed: task.statusLabel == '已完成',
+      ));
+    }
+    for (final evidence in evidenceSnapshots) {
+      final summary = evidence.summary?.trim();
+      items.add((
+        key: 'evidence-${evidence.id}',
+        type: 'evidence',
+        title: summary != null && summary.isNotEmpty ? summary : '项目材料证据',
+        detail:
+            '材料快照 · 状态：${evidence.statusLabel} · 附件：${evidence.fileCount} 个',
+        completed: false,
+      ));
     }
 
     final dark = isDarkMode(context);
@@ -405,14 +428,15 @@ class ReportSourcesList extends StatelessWidget {
                     width: 32,
                     height: 32,
                     decoration: BoxDecoration(
-                      color: dark ? const Color(0xFF16233A) : const Color(0xFFEAF1FD),
+                      color: dark
+                          ? AppColors.darkSurfaceVariant
+                          : AppColors.surfaceVariant,
                       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     ),
                     child: Center(
                       child: AppIcon(
                         reportSourceIcon(items[index].type),
-                        size: 16,
-                        color: AppColors.primary,
+                        size: 18,
                       ),
                     ),
                   ),
@@ -425,21 +449,25 @@ class ReportSourcesList extends StatelessWidget {
                           items[index].title,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            color: dark
-                                ? AppColors.darkTextPrimary
-                                : AppColors.textPrimary,
+                          style: completedTitleStyle(
+                            isDark: dark,
+                            completed: items[index].completed,
+                            base: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: dark
+                                  ? AppColors.darkTextPrimary
+                                  : AppColors.textPrimary,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
                           items[index].detail,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: dark
                                 ? AppColors.darkTextTertiary
                                 : AppColors.textTertiary,

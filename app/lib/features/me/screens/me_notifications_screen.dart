@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_state.dart';
 import '../../../core/models/user.dart';
+import '../../../core/errors/app_error.dart';
 import '../../../design/design.dart';
 import '../appearance/me_appearance.dart';
 import '../data/me_api.dart';
@@ -141,9 +142,8 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
       setState(() {
         _testing = false;
         if (result.ok) {
-          _successMessage = channel == 'email'
-              ? '测试邮件已发送，请检查收件箱'
-              : '测试推送已发送';
+          _successMessage =
+              channel == 'email' ? '测试邮件已发送，请检查收件箱' : '测试站内通知已发送，请在消息中查看';
         } else {
           _errorMessage = result.error ?? '测试发送失败，请检查服务配置';
         }
@@ -153,7 +153,12 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
       if (!mounted) return;
       setState(() {
         _testing = false;
-        _errorMessage = '测试发送失败：${meErrorMessage(e)}';
+        _errorMessage = channel == 'in_app' &&
+                (e is ValidationException ||
+                    e is ApiException &&
+                        (e.statusCode == 404 || e.statusCode == 422))
+            ? '服务端暂不支持站内通知测试，请联系管理员更新服务'
+            : '测试发送失败：${meErrorMessage(e)}';
       });
     }
   }
@@ -167,7 +172,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
         actions: [
           IconButton(
             tooltip: '刷新',
-            icon: const AppIcon('refresh', size: 20),
+            icon: const AppIcon('refresh', size: 18),
             onPressed: _loading ? null : _load,
           ),
         ],
@@ -183,7 +188,8 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
                       children: [
                         if (_errorMessage != null)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                            padding:
+                                const EdgeInsets.only(bottom: AppSpacing.md),
                             child: MeBanner(
                               message: _errorMessage!,
                               tone: MeTone.danger,
@@ -191,7 +197,8 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
                           ),
                         if (_successMessage != null)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                            padding:
+                                const EdgeInsets.only(bottom: AppSpacing.md),
                             child: MeBanner(
                               message: _successMessage!,
                               tone: MeTone.success,
@@ -212,7 +219,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
   Widget _channelsCard() {
     return MeCard(
       title: '接收渠道',
-      footer: '渠道开关会同步到个人通知偏好；系统推送还需要在系统设置中授予通知权限。',
+      footer: 'App 打开时接收通知；切到后台或关闭后不提供系统推送。其他渠道开关会同步到个人通知偏好。',
       children: [
         _switchRow(
           title: '邮件通知',
@@ -223,15 +230,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
             successMessage: value ? '已开启邮件通知' : '已关闭邮件通知',
           ),
         ),
-        _switchRow(
-          title: '系统推送',
-          subtitle: '任务分配、会话提及与紧急提醒',
-          value: _pref.push,
-          onChanged: (value) => _savePref(
-            _pref.copyWith(push: value),
-            successMessage: value ? '已开启系统推送' : '已关闭系统推送',
-          ),
-        ),
+        const MeInfoRow(label: '站内通知', value: 'App 打开时接收通知'),
         _switchRow(
           title: '微信服务号提醒',
           subtitle: '需先在「第三方服务绑定」中完成微信绑定',
@@ -255,7 +254,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
   }) {
     final isDark = isDarkMode(context);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: showDivider
           ? BoxDecoration(
               border: Border(
@@ -276,17 +275,17 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
                   title,
                   style: TextStyle(
                     fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 12,
                     color: isDark
                         ? AppColors.darkTextSecondary
                         : AppColors.textSecondary,
@@ -307,7 +306,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
   Widget _quietHoursCard() {
     return MeCard(
       title: '免打扰模式',
-      footer: '免打扰时段内除加急任务外静默接收；周末静音可关闭周六与周日的主动推送。',
+      footer: '免打扰时段内除加急任务外静默接收；周末静音可关闭周六与周日的主动推送',
       children: [
         Row(
           children: [
@@ -368,7 +367,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
   Widget _testCard() {
     return MeCard(
       title: '测试发送与记录',
-      footer: '测试发送会真实调用后端渠道，并写入「通知发送记录」。',
+      footer: '测试发送会真实调用后端渠道，并写入「通知发送记录」',
       children: [
         AppButton(
           label: '发送测试邮件',
@@ -378,17 +377,17 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
         ),
         const SizedBox(height: AppSpacing.sm),
         AppButton(
-          label: '发送测试推送',
+          label: '发送测试站内通知',
           variant: AppButtonVariant.secondary,
           isFullWidth: true,
-          onPressed: _testing ? null : () => _sendTest('webpush'),
+          onPressed: _testing ? null : () => _sendTest('in_app'),
         ),
         const SizedBox(height: AppSpacing.sm),
         AppButton(
           label: '查看通知发送记录',
           variant: AppButtonVariant.secondary,
           isFullWidth: true,
-          icon: const AppIcon('clock', size: 15),
+          icon: const AppIcon('clock', size: 18),
           onPressed: () => context.push('/me/notify-logs'),
         ),
       ],

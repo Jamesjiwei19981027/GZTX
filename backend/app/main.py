@@ -198,6 +198,23 @@ async def run_scheduled_hierarchical_reports():
             return {"error": str(e)}
 
 
+async def run_report_policy_reminders():
+    """按各项目保存的汇报策略（周期 / 截止时间 / 提醒）提醒未提交的成员。"""
+    from app.db.session import async_session_factory
+    from app.services.report_policy_schedule import run_policy_reminders
+
+    try:
+        async with async_session_factory() as db:
+            result = await run_policy_reminders(db)
+            await db.commit()
+        if result.get("users"):
+            print(f"[ReportPolicyReminders] {result}")
+        return result
+    except Exception as e:
+        print(f"[ReportPolicyReminders] Task failed: {e}")
+        return {"error": str(e)}
+
+
 _notify_drain_lock = asyncio.Lock()
 
 # 单批最多处理多少条，避免积压时一次占满事件循环
@@ -447,27 +464,22 @@ async def send_daily_digest():
                         f"今日待办: {len(today_tasks)} | 已逾期: {len(overdue_tasks)} | 昨日完成: {completed_count}\n"
                     )
 
-                    # SMTP config
-                    smtp_host = app_settings.SMTP_HOST
-                    smtp_user = app_settings.SMTP_USER
-                    smtp_password = app_settings.SMTP_PASSWORD
-                    smtp_port = app_settings.SMTP_PORT
-                    smtp_from = app_settings.SMTP_FROM or smtp_user
-
-                    if not all([smtp_host, smtp_user, smtp_password]):
+                    from app.services.smtp_settings import resolve_smtp_sync
+                    resolved = resolve_smtp_sync(db, user=user)
+                    if not resolved or not resolved.is_complete():
                         print(f"[DailyDigest] SMTP not configured, skipping user {user.id}")
                         continue
 
                     success = _send_smtp(
                         to_email=user.email,
-                        from_addr=smtp_from,
+                        from_addr=resolved.from_addr,
                         subject=subject,
                         text_body=text_body,
                         html_body=html_body,
-                        smtp_host=smtp_host,
-                        smtp_port=smtp_port,
-                        smtp_user=smtp_user,
-                        smtp_password=smtp_password,
+                        smtp_host=resolved.host,
+                        smtp_port=resolved.port,
+                        smtp_user=resolved.user,
+                        smtp_password=resolved.password,
                     )
 
                     if success:
@@ -546,6 +558,12 @@ def create_scheduler():
         "interval",
         seconds=900,
         id="run_scheduled_hierarchical_reports",
+    )
+    scheduler.add_job(
+        run_report_policy_reminders,
+        "interval",
+        seconds=300,
+        id="run_report_policy_reminders",
     )
     digest_utc_hour = (settings.DAILY_DIGEST_HOUR - settings.USER_TIMEZONE_OFFSET) % 24
     scheduler.add_job(

@@ -18,8 +18,33 @@ TEMPLATES = {
     "review.awaiting_pm": "有复核待你确认：{summary}",
     "auth.welcome": "欢迎加入 {company_name}！请使用账号 {username} 登录 {app_url}。",
     "agent.report.submitted": "项目 {project_id} 收到下属智能体汇报：{summary}",
+    "agent.report.reviewed": "你的项目汇报已被{decision_label}，核验意见：{comment}",
     "project.report.aggregated": "项目 {project_id} 已汇总 {report_count} 份智能体汇报。",
+    "notification.reply": "收到回复：{text}",
+    "project.report.published": "项目「{project_name}」已发布最新项目汇总，可在汇报页查看。",
+    "report.policy.reminder": "项目「{project_name}」的{period_label}汇报将于 {deadline} 截止，你本期还没有提交，请尽快完成。",
 }
+
+SUBJECTS = {
+    "evidence.adopted": "材料已采纳",
+    "evidence.rejected": "材料未采纳",
+    "evidence.pending_review": "材料预审完成",
+    "evidence.awaiting_review": "待确认材料",
+    "progress.auto_write_alert": "项目进度提醒",
+    "review.awaiting_pm": "待确认复核",
+    "auth.welcome": "欢迎加入 {company_name}",
+    "agent.report.submitted": "收到成员汇报",
+    "agent.report.reviewed": "汇报核验结果",
+    "project.report.aggregated": "项目汇总已生成",
+    "notification.reply": "收到通知回复",
+}
+
+
+def email_subject(template_key: str, payload: dict) -> str:
+    subject = SUBJECTS.get(template_key, "工作通知")
+    if template_key == "auth.welcome":
+        return subject.format(company_name=payload.get("company_name") or "工作团队")
+    return subject
 
 
 def render_template(template_key: str, payload: dict[str, Any]) -> str:
@@ -90,10 +115,13 @@ async def send_email_channel(
         return True
     try:
         from app.core.config import settings
-        from app.services.smtp_settings import resolve_smtp
+        from app.services.smtp_settings import resolve_smtp, smtp_for_system, smtp_from_env
         from app.utils.email import _send_smtp
 
-        resolved = await resolve_smtp(db, user=user, company_id=company_id)
+        if template_key == "auth.welcome":
+            resolved = await smtp_for_system(db, company_id) if db is not None else smtp_from_env()
+        else:
+            resolved = await resolve_smtp(db, user=user, company_id=company_id)
         if not resolved or not resolved.is_complete():
             if settings.DEBUG:
                 logger.info(
@@ -111,7 +139,7 @@ async def send_email_channel(
             _send_smtp(
                 to_email=email,
                 from_addr=resolved.from_addr or resolved.user,
-                subject=f"[WorkTodo] {template_key}",
+                subject=email_subject(template_key, payload),
                 text_body=body,
                 html_body=f"<p>{safe_html}</p>",
                 smtp_host=resolved.host,

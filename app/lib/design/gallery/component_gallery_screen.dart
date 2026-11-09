@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../design.dart';
 
@@ -49,7 +49,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('分段切换器 (SegmentedControl)',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   const SizedBox(height: AppSpacing.sm),
                   AppSegmentedControl<String>(
                     selectedValue: _selectedSegment,
@@ -72,7 +72,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('按钮系列 (AppButton)',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   const SizedBox(height: AppSpacing.sm),
                   Wrap(
                     spacing: 8,
@@ -112,7 +112,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('输入框 (AppTextField)',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   const SizedBox(height: AppSpacing.sm),
                   AppTextField(
                     label: '任务标题',
@@ -139,7 +139,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 children: [
                   const Expanded(
                     child: Text('开关选项 (AppSwitch)',
-                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   ),
                   const SizedBox(width: AppSpacing.md),
                   AppSwitch(
@@ -199,7 +199,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text('模态弹窗与操作菜单',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   const SizedBox(height: AppSpacing.sm),
                   Wrap(
                     spacing: 8,
@@ -267,7 +267,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
               padding: EdgeInsets.symmetric(horizontal: AppSpacing.pageHorizontal),
               child: Row(
                 children: [
-                  Text('加载指示器: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text('加载指示器: ', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   SizedBox(width: AppSpacing.md),
                   AppLoading(),
                 ],
@@ -291,7 +291,7 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('图标集预览 (AppIcon)',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                   SizedBox(height: AppSpacing.sm),
                   Wrap(
                     spacing: 12,
@@ -322,3 +322,4 @@ class _ComponentGalleryScreenState extends State<ComponentGalleryScreen> {
     );
   }
 }
+

@@ -199,20 +199,21 @@ async def run_evidence_judge(db: AsyncSession, job_id: int) -> AsyncJob:
         ]
 
         prefer_llm = False
+        cfg = None
         try:
             from app.services.llm_settings import llm_from_company
 
             cfg = await llm_from_company(db, pkg.company_id)
-            prefer_llm = bool(cfg and cfg.enabled and cfg.use_for_judge and cfg.is_usable())
+            prefer_llm = bool(cfg and cfg.provider != "fake" and cfg.enabled and cfg.use_for_judge and cfg.is_usable())
         except Exception:
             prefer_llm = False
-        judge = get_judge(prefer_llm=prefer_llm)
-        result = judge.judge(
-            package=pkg,
-            node_progress=node.progress_json or {},
-            files_count=len(files),
-            files_texts=files_texts or None,
-        )
+        judge_args = dict(package=pkg, node_progress=node.progress_json or {},
+                          files_count=len(files), files_texts=files_texts or None)
+        if prefer_llm:
+            from app.services.llm_evidence_judge import LlmEvidenceJudge
+            result = await LlmEvidenceJudge().judge_with_model(llm=cfg, **judge_args)
+        else:
+            result = get_judge(prefer_llm=False).judge(**judge_args)
 
         pkg.judge_result_json = {
             "decision": result.decision,
@@ -429,7 +430,7 @@ async def reject_evidence_package(
     if not node:
         raise ValueError("node_not_found")
 
-    final_reason = reason or (pkg.judge_result_json or {}).get("reason")
+    final_reason = (reason or "").strip() or "负责人未采纳该材料"
     pkg.status = "rejected"
     db.add(
         ReviewCase(

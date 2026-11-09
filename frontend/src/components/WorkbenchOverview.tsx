@@ -81,59 +81,59 @@ export const WorkbenchOverview: React.FC<{
   };
   const moveMonth = (delta: number) => { const day=parseDay(`${displayMonth}-01`);day.setMonth(day.getMonth()+delta);setDisplayMonth(dateKey(day).slice(0,7));setSelected(dateKey(day));lastTap.current=null; };
   return <div className="flex flex-col gap-4">
-    <section aria-label="首页日程日历" className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 min-w-0">
+    <section aria-label="首页日程日历" className="rounded-[var(--radius-ink-card)] border border-outline-variant bg-surface-container-lowest dark:bg-surface-container p-4 min-w-0">
       <div className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">日程日历</h2>
-        <div className="flex items-center gap-1 text-xs text-blue-700 dark:text-blue-300">
+        <h2 className="text-base font-medium text-on-surface tabular-nums">日程日历</h2>
+        <div className="flex items-center gap-1 text-xs text-primary">
           <button type="button" className="min-h-[44px] px-2" onClick={()=>{setSelected(today);setDisplayMonth(today.slice(0,7));lastTap.current=null;}}>今天</button>
           {onOpenCalendar && <button type="button" className="min-h-[44px] px-2" onClick={onOpenCalendar}>完整日历</button>}
         </div>
       </div>
-      <div className="flex items-center justify-between mb-2 text-sm text-slate-700 dark:text-slate-200">
+      <div className="flex items-center justify-between mb-2 text-sm text-on-surface">
         <button type="button" aria-label="上个月" className="min-h-[44px] min-w-[44px] rounded-lg" onClick={()=>moveMonth(-1)}>‹</button>
         <span>{parseDay(`${displayMonth}-01`).getFullYear()}年{parseDay(`${displayMonth}-01`).getMonth()+1}月</span>
         <button type="button" aria-label="下个月" className="min-h-[44px] min-w-[44px] rounded-lg" onClick={()=>moveMonth(1)}>›</button>
       </div>
-      <div className="grid grid-cols-7 gap-1 mb-1" aria-hidden="true">{['一','二','三','四','五','六','日'].map(label=><span key={label} className="text-center text-xs text-slate-500 py-2">{label}</span>)}</div>
+      <div className="grid grid-cols-7 gap-1 mb-1" aria-hidden="true">{['一','二','三','四','五','六','日'].map(label=><span key={label} className="text-center text-xs text-on-surface-variant py-2">{label}</span>)}</div>
       <div className="grid grid-cols-7 gap-1" data-testid="home-month-calendar">
         {days.map(day=> <button key={day} type="button" aria-label={day} aria-pressed={day===selected}
-          onClick={()=>selectDay(day)} style={{touchAction:'manipulation'}} className={`min-h-[48px] min-w-0 rounded-xl flex flex-col items-center justify-center gap-1 text-xs ${day===selected ? 'bg-blue-700 text-white' : day.slice(0,7)===displayMonth ? 'text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800' : 'text-slate-400 dark:text-slate-600'}`}>
-          <span className="text-sm font-semibold">{parseDay(day).getDate()}</span>
-          <span className={`h-1 w-1 rounded-full ${tasks.some(task=>task.dueDate===day) ? day===selected ? 'bg-white' : 'bg-blue-600 dark:bg-blue-300' : 'bg-transparent'}`} />
+          onClick={()=>selectDay(day)} style={{touchAction:'manipulation'}} className={`min-h-[48px] min-w-0 rounded-[var(--radius-ink-control)] flex flex-col items-center justify-center gap-1 text-xs ${day===selected ? 'bg-primary text-on-primary' : day.slice(0,7)===displayMonth ? 'text-on-surface bg-surface-container-low' : 'text-on-surface-variant'}`}>
+          <span className="text-sm font-medium tabular-nums">{parseDay(day).getDate()}</span>
+          <span className={`h-1 w-1 rounded-full ${tasks.some(task=>task.dueDate===day) ? day===selected ? 'bg-on-primary' : 'bg-primary' : 'bg-transparent'}`} />
         </button>)}
       </div>
       <div className="mt-3 space-y-1 text-sm" aria-live="polite">
-        <div className="flex items-center justify-between gap-2"><p className="text-xs text-slate-500 dark:text-slate-400">{selected} · {scheduledTasks.length} 项安排</p>
-          {onOpenNewTaskWithDate && <button type="button" onClick={()=>onOpenNewTaskWithDate(selected)} className="min-h-[44px] text-xs text-blue-700 dark:text-blue-300">添加当天日程</button>}</div>
-        <p className="text-xs text-slate-400">单击日期查看，双击新增日程；点击时间或任务修改，过去日期也可补录</p>
-        {!scheduledTasks.length ? <p className="text-slate-500 dark:text-slate-400 py-2">当天暂无日程</p> : scheduledTasks.map(task=><button
-          type="button" key={task.id} onClick={()=>(onEditScheduledTask || onSelectTask)(task)} className="w-full min-h-[44px] text-left flex items-center gap-3 rounded-lg px-2 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100">
-          <span className="text-blue-700 dark:text-blue-300 text-xs shrink-0">{task.dueTime || '全天'}</span>
-          <span className={`truncate flex-1 ${task.status==='Done' ? 'line-through text-slate-400' : ''}`}>{task.title}</span>
-          {task.status==='Done' && <span className="text-xs text-emerald-600">已完成</span>}
+        <div className="flex items-center justify-between gap-2"><p className="text-xs text-on-surface-variant">{selected} · {scheduledTasks.length} 项安排</p>
+          {onOpenNewTaskWithDate && <button type="button" onClick={()=>onOpenNewTaskWithDate(selected)} className="min-h-[44px] text-xs text-primary">添加当天日程</button>}</div>
+        <p className="text-xs text-on-surface-variant">单击日期查看，双击新增日程；点击时间或任务修改，过去日期也可补录</p>
+        {!scheduledTasks.length ? <p className="text-on-surface-variant py-2">当天暂无日程</p> : scheduledTasks.map(task=><button
+          type="button" key={task.id} onClick={()=>(onEditScheduledTask || onSelectTask)(task)} className="w-full min-h-[44px] text-left flex items-center gap-3 rounded-lg px-2 hover:bg-surface-container-low text-on-surface">
+          <span className="text-primary text-xs shrink-0">{task.dueTime || '全天'}</span>
+          <span className={`truncate flex-1 ${task.status==='Done' ? 'ink-done' : ''}`}>{task.title}</span>
+          {task.status==='Done' && <span className="text-xs text-secondary">已完成</span>}
         </button>)}
       </div>
     </section>
-    <section aria-label="项目进度简介" className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 min-w-0">
-      <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">项目进度简介</h2>
-      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 mb-3">根据项目人轴事项与里程碑的正式进度汇总</p>
-      {loading && <p role="status" className="text-sm text-slate-500">正在同步项目进度…</p>}
-      {!loading && !visibleProjects.length && <p className="text-sm text-slate-500">暂无可见项目</p>}
+    <section aria-label="项目进度简介" className="rounded-[var(--radius-ink-card)] border border-outline-variant bg-surface-container-lowest dark:bg-surface-container p-4 min-w-0">
+      <h2 className="text-base font-medium text-on-surface tabular-nums">项目进度简介</h2>
+      <p className="text-xs text-on-surface-variant mt-1 mb-3">根据项目人轴事项与里程碑的正式进度汇总</p>
+      {loading && <p role="status" className="text-sm text-on-surface-variant">正在同步项目进度…</p>}
+      {!loading && !visibleProjects.length && <p className="text-sm text-on-surface-variant">暂无可见项目</p>}
       <div className="space-y-4">
         {visibleProjects.map(project=>{
           const summary=summaries[project.id];
-          return <article key={project.id} className="space-y-2 text-slate-800 dark:text-slate-100">
-            <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold truncate">{project.name}</h3>
-              {summary && <span className="text-sm font-bold text-blue-700 dark:text-blue-300">{summary.total ? `${summary.percent}%` : '暂无事项'}</span>}
+          return <article key={project.id} className="space-y-2 text-on-surface">
+            <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-medium truncate tabular-nums">{project.name}</h3>
+              {summary && <span className="text-sm font-medium text-primary tabular-nums">{summary.total ? `${summary.percent}%` : '暂无事项'}</span>}
             </div>
             {summary && <>
-              <div role="progressbar" aria-label={`${project.name}进度`} aria-valuenow={summary.percent} aria-valuemin={0} aria-valuemax={100} className="h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden"><div className="h-full rounded-full bg-blue-600 transition-all" style={{width:`${summary.percent}%`}} /></div>
-              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400"><span>已完成 {summary.completed} / {summary.total} 项</span>
-                <span className={summary.overdue ? 'text-red-600 dark:text-red-300' : ''}>逾期 {summary.overdue} 项</span></div>
-              {summary.next && <p className="text-xs text-slate-600 dark:text-slate-300">待推进：{summary.next}</p>}
-              {onOpenProject && <button type="button" onClick={()=>onOpenProject(project)} className="min-h-[44px] text-xs text-blue-700 dark:text-blue-300">查看项目详情</button>}
+              <div role="progressbar" aria-label={`${project.name}进度`} aria-valuenow={summary.percent} aria-valuemin={0} aria-valuemax={100} className="h-2 rounded-full bg-surface-container overflow-hidden"><div className="h-full rounded-md bg-primary " style={{width:`${summary.percent}%`}} /></div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-on-surface-variant"><span>已完成 {summary.completed} / {summary.total} 项</span>
+                <span className={summary.overdue ? 'text-error' : ''}>逾期 {summary.overdue} 项</span></div>
+              {summary.next && <p className="text-xs text-on-surface-variant">待推进：{summary.next}</p>}
+              {onOpenProject && <button type="button" onClick={()=>onOpenProject(project)} className="min-h-[44px] text-xs text-primary">查看项目详情</button>}
             </>}
-            {failed.includes(project.id) && <button type="button" onClick={()=>setAttempt(value=>value+1)} className="min-h-[44px] text-sm text-red-600">进度加载失败，点击重试</button>}
+            {failed.includes(project.id) && <button type="button" onClick={()=>setAttempt(value=>value+1)} className="min-h-[44px] text-sm text-error">进度加载失败，点击重试</button>}
           </article>;
         })}
       </div>

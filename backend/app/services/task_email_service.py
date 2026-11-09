@@ -108,7 +108,8 @@ class TaskEmailService:
                 command=command,
                 result=result,
                 params=params,
-                original_message_id=original_message_id
+                original_message_id=original_message_id,
+                db=db, user=user, company_id=task.company_id,
             )
 
         return result
@@ -256,7 +257,8 @@ class TaskEmailService:
         command: str,
         result: Dict,
         params: Dict,
-        original_message_id: Optional[str] = None
+        original_message_id: Optional[str] = None,
+        db=None, user=None, company_id: int | None = None,
     ):
         """Send confirmation email with threading support"""
         import time as time_mod
@@ -288,4 +290,5 @@ class TaskEmailService:
             msg_body,
             message_id=message_id,
             in_reply_to=original_message_id,
+            db=db, user=user, company_id=company_id,
         )

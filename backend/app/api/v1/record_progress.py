@@ -7,8 +7,11 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from app.core.dependencies import CurrentUser, DbSession
+from app.core.collab_errors import fail
 from app.models.company import CompanyMembership
 from app.models.project import Project
+from app.models.tree import TreeNode
+from app.services.acl import AclService
 from app.schemas.common import ResponseData
 from app.services.llm_settings import chat_completion, llm_from_company
 from sqlalchemy import select
@@ -87,14 +90,6 @@ async def _resolve_company_id(
     ).scalar_one_or_none()
     if membership:
         return membership
-    try:
-        from app.services.register_join import get_default_company
-
-        co = await get_default_company(db)
-        if co:
-            return co.id
-    except Exception:
-        pass
     return None
 
 
@@ -108,10 +103,20 @@ async def suggest_record_target(
     根据进展内容智能建议去向：汇报草稿 / 证据材料 / 个人知识。
     不落库，只给建议。要求登录。
     """
-    company_id = getattr(user, "company_id", None)
-    if not company_id:
-        company_id = await _resolve_company_id(db, user.id, body.project_id)
-    llm = await llm_from_company(db, company_id or 1)
+    project_id = body.project_id
+    if body.node_id is not None:
+        node = await db.get(TreeNode, body.node_id)
+        if not node or node.is_deleted or (project_id is not None and node.project_id != project_id):
+            return fail(403, 40300, "无权访问该项目节点")
+        project_id = node.project_id
+    if project_id is not None:
+        project = await db.get(Project, project_id)
+        if not project or not await AclService().can(db, user.id, project.company_id, "progress.read", project_id=project.id):
+            return fail(403, 40300, "无权访问该项目")
+        company_id = project.company_id
+    else:
+        company_id = await _resolve_company_id(db, user.id)
+    llm = await llm_from_company(db, company_id)
 
     # provider=fake 或不可用或未配置时一律走规则，source="rule"
     if not llm or llm.provider == "fake" or not llm.is_usable():

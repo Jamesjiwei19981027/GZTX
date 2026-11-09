@@ -49,6 +49,7 @@ export type NotificationPreferenceUpdate = {
 export type RegistrationConfig = {
   mode: 'open' | 'invite_only'
   phone_required: boolean
+  login_methods?: Record<string, boolean>
 }
 
 export const DEFAULT_REGISTRATION_CONFIG: RegistrationConfig = {
@@ -62,6 +63,9 @@ export async function getRegistrationConfig(): Promise<RegistrationConfig> {
     return {
       mode: data?.mode === 'invite_only' ? 'invite_only' : 'open',
       phone_required: Boolean(data?.phone_required),
+      login_methods: data?.login_methods && typeof data.login_methods === 'object'
+        ? Object.fromEntries(Object.entries(data.login_methods).filter(([, value]) => typeof value === 'boolean'))
+        : undefined,
     }
   } catch {
     return DEFAULT_REGISTRATION_CONFIG
@@ -134,6 +138,26 @@ export async function sendLoginCode(channel: 'email' | 'sms', target: string) {
   })
 }
 
+/** 忘记密码：发验证码（走公司发信）。无论账号是否存在，后端返回同样提示。 */
+export async function sendResetCode(channel: 'email' | 'sms', target: string) {
+  return apiRequest<SendCodeResult>('/auth/send-code', {
+    method: 'POST',
+    body: JSON.stringify({ channel, target, purpose: 'reset_password' }),
+  })
+}
+
+export async function resetPassword(body: {
+  channel: 'email' | 'sms'
+  target: string
+  code: string
+  new_password: string
+}) {
+  return apiRequest<null>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
 export async function getVerificationStatus() {
   return apiRequest<VerificationStatus>('/users/me/verification')
 }
@@ -145,15 +169,29 @@ export async function sendBindCode(channel: 'email' | 'sms', target: string) {
   })
 }
 
+/** 绑定成功后，刚绑定的邮箱/手机立即写进状态，页面不用刷新就能显示已绑定地址 */
+export function withBoundTarget(
+  status: VerificationStatus,
+  channel: 'email' | 'sms',
+  target: string,
+): VerificationStatus {
+  return {
+    ...status,
+    email: channel === 'email' ? status.email || target : status.email,
+    phone: channel === 'sms' ? status.phone || target : status.phone,
+  }
+}
+
 export async function confirmBindCode(
   channel: 'email' | 'sms',
   target: string,
   code: string,
 ) {
-  return apiRequest<VerificationStatus>('/users/me/verification/confirm', {
+  const status = await apiRequest<VerificationStatus>('/users/me/verification/confirm', {
     method: 'POST',
     body: JSON.stringify({ channel, target, code }),
   })
+  return withBoundTarget(status, channel, target)
 }
 
 export async function fetchMe() {

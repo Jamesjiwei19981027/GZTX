@@ -81,7 +81,7 @@ class ChatInputBar extends StatelessWidget {
                     tooltip: '发送文件',
                     onPressed:
                         enabled && !sending && !uploading ? onPickFile : null,
-                    icon: const AppIcon('paperclip', size: 21),
+                    icon: const AppIcon('paperclip', size: 18),
                   ),
                   Expanded(
                     child: AppTextField(

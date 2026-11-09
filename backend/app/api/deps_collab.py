@@ -103,6 +103,26 @@ async def assert_company_write(
     return company
 
 
+async def assert_collaboration_write(
+    db: AsyncSession, company_id: int, *, project_id: int | None = None,
+    user_id: int | None = None, feature: str | None = None,
+) -> Company:
+    """协作写入统一门禁：公司可写、项目未归档、操作者仍在职。"""
+    company = await assert_company_write(db, company_id, feature=feature)
+    if project_id is not None:
+        from app.models.project import Project
+        project = await db.get(Project, project_id)
+        if not project or project.company_id != company_id:
+            raise CollabError(403, 40301, "无权写入该项目")
+        if project.status == "archived":
+            raise CollabError(403, 40311, "项目已归档，禁止写入")
+    if user_id is not None:
+        membership = await get_membership_for(db, company_id, user_id)
+        if not membership or membership.employment_status != "active":
+            raise CollabError(403, 40314, "在职状态无效，已禁止写入")
+    return company
+
+
 async def require_super_admin(
     membership: CompanyMembership = Depends(require_company_member),
 ) -> CompanyMembership:

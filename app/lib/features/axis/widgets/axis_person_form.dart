@@ -156,7 +156,9 @@ class _AxisPersonFormState extends State<AxisPersonForm> {
                   ListTile(
                     title: Text(item.label),
                     trailing: item.id == _parentId
-                        ? const Icon(Icons.check, color: AppColors.primary)
+                        ? const Icon(
+                            Icons.check,
+                          )
                         : null,
                     onTap: () => Navigator.of(ctx).pop(item),
                   ),
@@ -309,7 +311,7 @@ class _AxisPersonFormState extends State<AxisPersonForm> {
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpacing.sm),
             child: Text(
-              '直属上级由主管项目的项目经理设置。',
+              '直属上级由主管项目的项目经理设置',
               style: TextStyle(
                 fontSize: 12,
                 color: isDark
@@ -376,7 +378,7 @@ class _FieldLabel extends StatelessWidget {
         text,
         style: TextStyle(
           fontSize: 13,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           color: isDarkMode(context)
               ? AppColors.darkTextSecondary
               : AppColors.textSecondary,

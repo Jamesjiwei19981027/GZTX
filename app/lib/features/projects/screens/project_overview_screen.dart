@@ -13,6 +13,7 @@ import '../data/projects_repository.dart';
 import '../models/project_models.dart';
 import '../widgets/project_error_view.dart';
 import '../widgets/project_widgets.dart';
+import 'project_settings_screen.dart';
 
 class ProjectOverviewScreen extends StatefulWidget {
   const ProjectOverviewScreen({super.key, required this.projectId});
@@ -159,10 +160,15 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       actions: [
         GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: () => context.push('/projects/${widget.projectId}/settings'),
+          onTap: () async {
+            final projectId = widget.projectId;
+            await Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => ProjectSettingsScreen(projectId: projectId)));
+            if (mounted && projectId == widget.projectId) _loadAll();
+          },
           child: const Padding(
             padding: EdgeInsets.symmetric(horizontal: 12),
-            child: AppIcon('settings', size: 20),
+            child: AppIcon('settings', size: 18),
           ),
         ),
       ],
@@ -218,7 +224,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
         if (_permissionsError != null) ...[
           InfoBanner(
             message:
-                '权限信息加载失败（${projectErrorMessage(_permissionsError!)}），管理入口暂不可用。',
+                '权限信息加载失败（${projectErrorMessage(_permissionsError!)}），管理入口暂不可用',
             tone: InfoBannerTone.warning,
             icon: 'alert',
           ),
@@ -254,7 +260,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
         ),
         child: const Row(
           children: [
-            AppIcon('team', size: 22, color: Colors.white),
+            AppIcon('team', size: 18, color: Colors.white),
             SizedBox(width: AppSpacing.md),
             Expanded(
               child: Column(
@@ -264,7 +270,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                     '邀请新成员加入',
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: Colors.white,
                     ),
                   ),
@@ -305,7 +311,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 17,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
@@ -358,7 +364,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                   project.finalOwnerName!,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDarkMode(context)
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
@@ -397,7 +403,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
     final total = _tasksTotal;
     final totalText = total == null ? '' : '（共 $total 条）';
     return Text(
-      '仅显示前 ${_tasks.length} 条$what$totalText，完整数据请到任务列表查看。',
+      '仅显示前 ${_tasks.length} 条$what$totalText，完整数据请到任务列表查看',
       style: const TextStyle(fontSize: 12, color: AppColors.warning),
     );
   }
@@ -505,8 +511,9 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+        border: Border(
+            top: BorderSide(
+                color: isDark ? AppColors.darkBorder : AppColors.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,7 +522,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
             '$label · ${items.length}',
             style: TextStyle(
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: isDark
                   ? AppColors.darkTextSecondary
                   : AppColors.textSecondary,
@@ -545,17 +552,22 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                       vertical: AppSpacing.sm,
                     ),
                     decoration: BoxDecoration(
-                      color: isDark ? AppColors.darkSurface : Colors.white,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                      border: Border.all(
-                        color: isDark ? AppColors.darkBorder : AppColors.border,
-                      ),
+                      border: Border(
+                          bottom: BorderSide(
+                              color: isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.border)),
                     ),
                     child: Text(
                       task.title,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 13),
+                      style: completedTitleStyle(
+                          isDark: isDark,
+                          completed: task.isDone,
+                          base: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).colorScheme.onSurface)),
                     ),
                   ),
                 ),
@@ -571,25 +583,34 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       margin: EdgeInsets.zero,
       children: [
         AppListTile(
-          leading: const AppIcon('work', size: 20, color: AppColors.primary),
+          leading: const AppIcon(
+            'work',
+            size: 18,
+          ),
           title: '任务待办',
           subtitle: '查看与分配当前项目的全部事项',
           onTap: () => _openProjectScoped('work-tasks'),
         ),
         AppListTile(
-          leading: const AppIcon('kanban', size: 20, color: AppColors.warning),
+          leading: const AppIcon('kanban', size: 18, color: AppColors.warning),
           title: '任务看板',
           subtitle: '按状态轻触流转事项进度',
           onTap: () => _openProjectScoped('work-kanban'),
         ),
         AppListTile(
-          leading: const AppIcon('axis', size: 20, color: Color(0xFF8B5CF6)),
+          leading: const AppIcon(
+            'axis',
+            size: 18,
+          ),
           title: '人轴责任链',
           subtitle: '直属领导、下属人员责任拓扑与汇报关系',
           onTap: () => _openProjectScoped('axis-root'),
         ),
         AppListTile(
-          leading: const AppIcon('file', size: 20, color: Color(0xFF6366F1)),
+          leading: const AppIcon(
+            'file',
+            size: 18,
+          ),
           title: '项目知识空间',
           subtitle: '共享知识、授权总结与个人知识沉淀',
           onTap: () => _openProjectScoped('knowledge-root'),
@@ -619,11 +640,10 @@ class _TaskRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.only(top: 4),
               child: AppIcon(
                 task.isDone ? 'check-circle' : 'work',
                 size: 18,
-                color: AppColors.primary,
               ),
             ),
             const SizedBox(width: AppSpacing.sm),
@@ -635,17 +655,16 @@ class _TaskRow extends StatelessWidget {
                     task.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      decoration: task.isDone
-                          ? TextDecoration.lineThrough
-                          : TextDecoration.none,
-                      color: task.isDone
-                          ? AppColors.textTertiary
-                          : (isDarkMode(context)
-                              ? AppColors.darkTextPrimary
-                              : AppColors.textPrimary),
+                    style: completedTitleStyle(
+                      isDark: isDarkMode(context),
+                      completed: task.isDone,
+                      base: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: isDarkMode(context)
+                            ? AppColors.darkTextPrimary
+                            : AppColors.textPrimary,
+                      ),
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xxs),

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { TaskScheduleHistory } from '../../../components/TaskScheduleHistory';
 import {
   createTask,
@@ -104,32 +104,32 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
         <div className="flex items-start justify-between gap-3">
           <div className="flex-1 min-w-0">
             <h2
-              className={`text-lg font-bold leading-snug break-words ${
-                isDone ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'
+              className={`text-lg font-medium leading-snug break-words ${
+                isDone ? 'ink-done' : 'text-on-surface'
               }`}
             >
               {task.title}
             </h2>
-            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
               <span
-                className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${
+                className={`text-xs px-2 py-1 rounded-md font-medium ${
                   task.status === 'Done'
-                    ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'
+                    ? 'bg-surface-container text-[#2f7d4f] dark:bg-surface-container dark:text-[#6bbf8a]'
                     : task.status === 'In Progress'
-                      ? 'bg-blue-50 text-[#0058BE] dark:bg-blue-950 dark:text-blue-300'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                      ? 'bg-surface-container text-primary dark:bg-surface-container dark:text-primary'
+                      : 'bg-surface-container text-on-surface-variant dark:bg-surface-container-lowest dark:text-outline'
                 }`}
               >
                 {task.status === 'Done' ? '已完成' : task.status === 'In Progress' ? '进行中' : '待办'}
               </span>
 
               <span
-                className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${
+                className={`text-xs px-2 py-1 rounded-md font-medium ${
                   task.priority === 'High'
-                    ? 'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400'
+                    ? 'bg-error-container text-error dark:bg-error dark:text-error'
                     : task.priority === 'Medium'
-                      ? 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400'
-                      : 'bg-slate-100 text-slate-500 dark:bg-slate-800'
+                      ? 'bg-surface-container text-[#a86412] dark:bg-surface-container dark:text-[#d9a35b]'
+                      : 'bg-surface-container text-on-surface-variant dark:bg-surface-container-lowest'
                 }`}
               >
                 {task.priority === 'High' ? '高优先级' : task.priority === 'Medium' ? '中优先级' : '低优先级'}
@@ -143,26 +143,26 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
               type="button"
               disabled={busy}
               onClick={() => onToggleCompletion(task)}
-              className={`min-h-[44px] min-w-[44px] rounded-xl flex items-center justify-center shrink-0 border ${
+              className={`min-h-[44px] min-w-[44px] rounded-lg flex items-center justify-center shrink-0 border ${
                 isDone
-                  ? 'bg-green-50 border-green-200 text-green-600 dark:bg-green-950/40 dark:border-green-800'
-                  : 'bg-white border-slate-300 dark:bg-slate-800 dark:border-slate-700 text-slate-400'
+                  ? 'bg-surface-container border-outline-variant text-[#2f7d4f] dark:bg-surface-container dark:border-[#6bbf8a]'
+                  : 'bg-surface-container-lowest border-outline-variant dark:bg-surface-container-lowest dark:border-outline-variant text-outline'
               }`}
               aria-label={isDone ? '标为未完成' : '完成任务'}
             >
-              <AppIcon name={isDone ? 'check-circle' : 'check'} size={20} />
+              <AppIcon name={isDone ? 'check-circle' : 'check'} size={18} />
             </button>
           )}
         </div>
 
         {/* 关键设计：人轴责任关联只读任务提示 */}
         {isLinkedToAxis && (
-          <div className="p-3.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-900/60 text-purple-900 dark:text-purple-300 text-xs flex flex-col gap-2">
-            <div className="flex items-center gap-2 font-semibold">
-              <AppIcon name="axis" size={16} className="text-purple-600" />
+          <div className="p-4 rounded-xl bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant text-on-surface-variant dark:text-on-surface-variant text-xs flex flex-col gap-2">
+            <div className="flex items-center gap-2 font-medium tabular-nums">
+              <AppIcon name="axis" size={18} className="text-inherit" />
               <span>人轴责任链关联事项 (只读)</span>
             </div>
-            <p className="text-[11px] leading-relaxed text-purple-800 dark:text-purple-300/90">
+            <p className="text-xs leading-relaxed text-on-surface-variant dark:text-on-surface-variant">
               此任务由人轴事项节点同步生成，其实施状态与交付证据由责任链统一把控，不可在待办中单独直接勾结完成。
             </p>
             {onNavigateToNode && task.linkedNodeId && (
@@ -172,10 +172,10 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
                   onNavigateToNode(task.linkedNodeId!);
                   onClose();
                 }}
-                className="min-h-[38px] px-3 rounded-lg bg-purple-600 text-white font-medium text-xs flex items-center justify-center gap-1 self-start mt-1 active:opacity-90"
+                className="min-h-[40px] px-3 rounded-lg bg-surface-container text-on-surface font-medium text-xs flex items-center justify-center gap-1 self-start mt-1 active:opacity-90 tabular-nums"
               >
                 <span>前往责任节点 #{task.linkedNodeId}</span>
-                <AppIcon name="arrow-right" size={14} />
+                <AppIcon name="arrow-right" size={18} />
               </button>
             )}
           </div>
@@ -183,7 +183,7 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
 
         {/* 描述内容 */}
         {task.description && (
-          <div className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap bg-slate-50 dark:bg-slate-900 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+          <div className="text-sm text-on-surface dark:text-outline leading-relaxed whitespace-pre-wrap bg-surface-container-lowest dark:bg-surface-container p-3 rounded-xl border border-outline-variant dark:border-outline-variant">
             {task.description}
           </div>
         )}
@@ -191,10 +191,10 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
         {/* 属性列表 */}
         <MobileListGroup title="事项属性">
           <MobileListItem
-            leading={<AppIcon name="calendar" size={18} className="text-slate-400" />}
+            leading={<AppIcon name="calendar" size={18} className="text-inherit" />}
             title="截止时间"
             trailing={
-              <span className="text-xs text-slate-600 dark:text-slate-300">
+              <span className="text-xs text-on-surface-variant dark:text-outline">
                 {task.dueDate ? `${task.dueDate} ${task.dueTime || ''}` : '未指定'}
               </span>
             }
@@ -202,10 +202,10 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
           />
           {task.isRecurring && (
             <MobileListItem
-              leading={<AppIcon name="refresh" size={18} className="text-slate-400" />}
+              leading={<AppIcon name="refresh" size={18} className="text-inherit" />}
               title="重复规则"
               trailing={
-                <span className="text-xs text-[#0058BE]">
+                <span className="text-xs text-primary">
                   {task.recurrenceRule || '周期重复'}
                 </span>
               }
@@ -213,10 +213,10 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
             />
           )}
           <MobileListItem
-            leading={<AppIcon name="team" size={18} className="text-slate-400" />}
+            leading={<AppIcon name="team" size={18} className="text-inherit" />}
             title="执行人员"
             trailing={
-              <span className="text-xs text-slate-600 dark:text-slate-300">
+              <span className="text-xs text-on-surface-variant dark:text-outline">
                 {task.assignees && task.assignees.length > 0
                   ? task.assignees.map((a) => a.name).join('、')
                   : task.assignee?.name || '未指派'}
@@ -236,15 +236,15 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
                   <div
                     className={`w-4 h-4 rounded-md border flex items-center justify-center ${
                       st.completed
-                        ? 'bg-green-500 border-green-500 text-white'
-                        : 'border-slate-300 dark:border-slate-600'
+                        ? 'bg-[#2f7d4f] border-[#2f7d4f] text-on-primary'
+                        : 'border-outline-variant dark:border-outline-variant'
                     }`}
                   >
-                    {st.completed && <AppIcon name="check" size={12} />}
+                    {st.completed && <AppIcon name="check" size={18} />}
                   </div>
                 }
                 title={
-                  <span className={st.completed ? 'line-through text-slate-400' : ''}>
+                  <span className={st.completed ? 'ink-done' : ''}>
                     {st.title}
                   </span>
                 }
@@ -263,9 +263,9 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
                 onEditTask(task);
                 onClose();
               }}
-              className="flex-1 min-h-[48px] rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center gap-1.5 shadow-xs active:opacity-90"
+              className="flex-1 min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center gap-2 shadow-sm dark:shadow-none active:opacity-90 tabular-nums"
             >
-              <AppIcon name="edit" size={16} />
+              <AppIcon name="edit" size={18} />
               <span>编辑任务</span>
             </button>
           )}
@@ -274,9 +274,9 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
             <button
               type="button"
               onClick={() => setConfirmDelete(true)}
-              className="min-h-[48px] px-4 rounded-xl border border-red-200 dark:border-red-900/60 text-red-600 dark:text-red-400 text-sm font-semibold flex items-center justify-center gap-1.5 active:bg-red-50"
+              className="min-h-[48px] px-4 rounded-lg border border-outline-variant dark:border-outline-variant text-error dark:text-error text-sm font-medium flex items-center justify-center gap-2 active:bg-error-container tabular-nums"
             >
-              <AppIcon name="trash" size={16} />
+              <AppIcon name="trash" size={18} />
               <span>删除</span>
             </button>
           )}
@@ -313,6 +313,8 @@ export interface MobileTaskEditScreenProps {
   tags?: { id: number; name: string }[];
   defaultDate?: string;
   defaultStatus?: Status;
+  /** 个人设置里的默认优先级（ui.task_default_priority） */
+  defaultPriority?: Priority;
   lang?: Language;
 }
 
@@ -330,6 +332,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
   tags = [],
   defaultDate,
   defaultStatus,
+  defaultPriority = 'Medium',
   lang = 'zh',
 }) => {
   const isEditing = Boolean(editingTask);
@@ -359,6 +362,11 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  }, [error]);
 
   // 初始化或回填表单
   useEffect(() => {
@@ -385,7 +393,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
       setTitle('');
       setDescription('');
       setStatus(defaultStatus || 'To Do');
-      setPriority('Medium');
+      setPriority(defaultPriority);
       setDueDate(defaultDate || '');
       setDueTime('');
       setSelectedCategoryId(undefined);
@@ -396,7 +404,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
       setSubtasks([]);
     }
     setError(null);
-  }, [editingTask, defaultDate, defaultStatus, isOpen]);
+  }, [editingTask, defaultDate, defaultStatus, defaultPriority, isOpen]);
 
   const handleAddSubtask = () => {
     if (!newSubtaskTitle.trim()) return;
@@ -477,16 +485,9 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
       defaultSnap="full"
     >
       <form onSubmit={handleSubmit} onChangeCapture={() => onDirtyChange?.(true)} className="flex flex-col gap-4 pb-12">
-        {error && (
-          <div className="p-3.5 rounded-xl bg-red-50 text-red-600 text-xs flex items-center gap-2">
-            <AppIcon name="alert" size={16} />
-            <span>{error}</span>
-          </div>
-        )}
-
         {/* 所属范围明确指示 */}
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] flex items-center gap-2">
-          <AppIcon name="work" size={16} />
+        <div className="p-3 bg-surface-container-lowest dark:bg-surface-container rounded-xl text-xs text-primary flex items-center gap-2">
+          <AppIcon name="work" size={18} />
           <span>
             {taskScope.origin === 'personal'
               ? '任务所属范围：个人私有待办（跨项目总览可见）'
@@ -520,7 +521,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as Priority)}
-              className="w-full min-h-[48px] px-3 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+              className="w-full min-h-[48px] px-3 text-sm bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant rounded-lg"
             >
               <option value="Low">低优先级</option>
               <option value="Medium">中优先级</option>
@@ -532,7 +533,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as Status)}
-              className="w-full min-h-[48px] px-3 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+              className="w-full min-h-[48px] px-3 text-sm bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant rounded-lg"
             >
               <option value="To Do">待办</option>
               <option value="In Progress">进行中</option>
@@ -543,7 +544,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
 
         {/* 82 日期与重复规则 */}
         <MobileListGroup title="截止时间与周期重复">
-          <div className="p-3.5 space-y-3">
+          <div className="p-4 space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <MobileField label="截止日期">
                 <input
@@ -551,7 +552,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
                   aria-label="截止日期"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full min-h-[44px] px-3 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                  className="w-full min-h-[44px] px-3 text-xs bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant rounded-lg"
                 />
               </MobileField>
               <MobileField label="截止时刻 (可选)">
@@ -560,14 +561,14 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
                   aria-label="截止时刻"
                   value={dueTime}
                   onChange={(e) => setDueTime(e.target.value)}
-                  className="w-full min-h-[44px] px-3 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                  className="w-full min-h-[44px] px-3 text-xs bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant rounded-lg"
                 />
               </MobileField>
             </div>
 
             {editingTask && <TaskScheduleHistory taskId={editingTask.id} revision={`${editingTask.dueDate}:${editingTask.dueTime}`} />}
             <div className="flex items-center justify-between pt-1">
-              <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
+              <span className="text-xs font-medium text-on-surface dark:text-outline tabular-nums">
                 周期性重复任务 (RRULE)
               </span>
               <input
@@ -582,7 +583,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
               <select
                 value={recurrenceRule}
                 onChange={(e) => setRecurrenceRule(e.target.value)}
-                className="w-full min-h-[44px] px-3 text-xs bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl"
+                className="w-full min-h-[44px] px-3 text-xs bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant rounded-lg"
               >
                 <option value="daily">每天重复</option>
                 <option value="weekdays">每个工作日</option>
@@ -598,14 +599,14 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
           title="执行人员"
           footer="多选成员限定在当前项目范围内，支持随时清空指派。"
         >
-          <div className="p-3.5 space-y-2">
-            <div className="flex justify-between items-center text-xs text-slate-500 mb-1">
+          <div className="p-4 space-y-2">
+            <div className="flex justify-between items-center text-xs text-on-surface-variant mb-1">
               <span>选择执行人 (已选 {assigneeUserIds.length} 人)</span>
               {assigneeUserIds.length > 0 && (
                 <button
                   type="button"
                   onClick={() => { onDirtyChange?.(true); setAssigneeUserIds([]); }}
-                  className="text-red-500 hover:underline"
+                  className="text-error hover:underline"
                 >
                   清空已选执行人
                 </button>
@@ -613,7 +614,7 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
             </div>
 
             {members.length === 0 ? (
-              <div className="text-xs text-slate-400 py-1">当前项目无可选成员</div>
+              <div className="text-xs text-outline py-1">当前项目无可选成员</div>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {members.map((m) => {
@@ -629,14 +630,14 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
                           isSelected ? prev.filter((id) => id !== uid) : [...prev, uid],
                         );
                       }}
-                      className={`min-h-[36px] px-3 rounded-full text-xs font-medium border flex items-center gap-1.5 transition-colors ${
+                      className={`min-h-[36px] px-3 rounded-lg text-xs font-medium border flex items-center gap-2 transition-ink-colors ${
                         isSelected
-                          ? 'bg-blue-50 border-[#0058BE] text-[#0058BE] dark:bg-blue-950 dark:border-blue-500'
-                          : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+                          ? 'bg-surface-container border-primary text-primary dark:bg-surface-container dark:border-primary'
+                          : 'border-outline-variant dark:border-outline-variant text-on-surface dark:text-outline'
                       }`}
                     >
                       <span>{m.name}</span>
-                      {isSelected && <AppIcon name="check" size={14} />}
+                      {isSelected && <AppIcon name="check" size={18} />}
                     </button>
                   );
                 })}
@@ -647,17 +648,17 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
 
         {/* 清单 / 子任务 */}
         <MobileListGroup title="子任务清单">
-          <div className="p-3.5 space-y-2.5">
+          <div className="p-4 space-y-2">
             {subtasks.map((st) => (
               <div key={st.id} className="flex items-center justify-between gap-2 text-xs">
                 <span className="flex-1 truncate">{st.title}</span>
                 <button
                   type="button"
                   onClick={() => handleRemoveSubtask(st.id)}
-                  className="p-1 text-slate-400 hover:text-red-500"
+                  className="p-1 text-outline hover:text-error"
                   aria-label="删除清单项"
                 >
-                  <AppIcon name="close" size={14} />
+                  <AppIcon name="close" size={18} />
                 </button>
               </div>
             ))}
@@ -674,12 +675,12 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
                     handleAddSubtask();
                   }
                 }}
-                className="flex-1 min-h-[40px] px-3 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl"
+                className="flex-1 min-h-[40px] px-3 text-xs bg-surface dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant rounded-lg"
               />
               <button
                 type="button"
                 onClick={handleAddSubtask}
-                className="min-h-[40px] px-3 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium"
+                className="min-h-[40px] px-3 rounded-lg bg-surface-container dark:bg-surface-container-lowest text-on-surface dark:text-outline text-xs font-medium tabular-nums"
               >
                 添加
               </button>
@@ -687,11 +688,24 @@ export const MobileTaskEditScreen: React.FC<MobileTaskEditScreenProps> = ({
           </div>
         </MobileListGroup>
 
+        {/* 保存失败提示：紧贴保存按钮，长表单底部也能看到 */}
+        {error && (
+          <div
+            ref={errorRef}
+            role="alert"
+            data-testid="task-edit-error"
+            className="p-4 rounded-xl bg-error-container dark:bg-error text-error dark:text-error text-xs flex items-center gap-2 mt-4"
+          >
+            <AppIcon name="alert" size={18} />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* 提交按钮 */}
         <button
           type="submit"
           disabled={busy || !title.trim()}
-          className="min-h-[48px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-base shadow-sm active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 mt-4"
+          className="min-h-[48px] w-full rounded-lg bg-primary text-on-primary font-medium text-base shadow-sm dark:shadow-none active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 mt-4 tabular-nums"
         >
           {busy ? '正在保存…' : isEditing ? '确认更新任务' : '创建任务'}
         </button>
@@ -755,14 +769,14 @@ export const MobileQuickAddSheet: React.FC<{
       defaultSnap="half"
     >
       <form onSubmit={handleSubmit} className="flex flex-col gap-3 pb-6">
-        <div className="text-xs text-[#0058BE]">
+        <div className="text-xs text-primary">
           {scope.origin === 'personal'
             ? '归属：个人待办事项'
             : `归属：${projectName || `项目 #${scope.project_id}`}`}
         </div>
 
         {error && (
-          <div className="p-3 rounded-xl bg-red-50 text-red-600 text-xs">
+          <div className="p-3 rounded-xl bg-error-container text-error text-xs">
             {error}
           </div>
         )}
@@ -780,7 +794,7 @@ export const MobileQuickAddSheet: React.FC<{
         <button
           type="submit"
           disabled={busy || !title.trim()}
-          className="min-h-[48px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-sm active:opacity-90 disabled:opacity-40"
+          className="min-h-[48px] w-full rounded-lg bg-primary text-on-primary font-medium text-sm active:opacity-90 disabled:opacity-40 tabular-nums"
         >
           {busy ? '正在创建…' : '立即添加'}
         </button>
@@ -875,13 +889,13 @@ export const MobileTaskExtractChatSheet: React.FC<{
     >
       <div className="flex flex-col gap-4 pb-12">
         {error && (
-          <div className="p-3 rounded-xl bg-red-50 text-red-600 text-xs flex items-center gap-2">
-            <AppIcon name="alert" size={16} />
+          <div className="p-3 rounded-xl bg-error-container text-error text-xs flex items-center gap-2">
+            <AppIcon name="alert" size={18} />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-on-surface-variant">
           粘贴聊天消息或会议结论，AI 将解析任务标题、优先级与截止日期草稿。
         </div>
 
@@ -896,30 +910,30 @@ export const MobileTaskExtractChatSheet: React.FC<{
           type="button"
           disabled={extracting || !chatText.trim()}
           onClick={handleExtract}
-          className="min-h-[48px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center gap-2 active:opacity-90 disabled:opacity-40"
+          className="min-h-[48px] w-full rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center gap-2 active:opacity-90 disabled:opacity-40 tabular-nums"
         >
           <AppIcon name="ai" size={18} />
           <span>{extracting ? '智能解析中…' : '开始智能提取任务'}</span>
         </button>
 
         {draft && (
-          <div className="p-4 bg-slate-50 dark:bg-slate-900 rounded-2xl border border-blue-200 dark:border-blue-900 space-y-3 mt-2">
-            <div className="flex items-center gap-2 text-[#0058BE] text-xs font-semibold">
-              <AppIcon name="check-circle" size={16} />
+          <div className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-primary dark:border-primary space-y-3 mt-2">
+            <div className="flex items-center gap-2 text-primary text-xs font-medium tabular-nums">
+              <AppIcon name="check-circle" size={18} />
               <span>已生成任务草稿 (需确认后入库)</span>
             </div>
 
             <div className="space-y-1">
-              <div className="text-sm font-bold text-slate-900 dark:text-white">
+              <div className="text-sm font-medium text-on-surface dark:text-on-surface tabular-nums">
                 {draft.title}
               </div>
               {draft.description && (
-                <div className="text-xs text-slate-600 dark:text-slate-300">
+                <div className="text-xs text-on-surface-variant dark:text-outline">
                   {draft.description}
                 </div>
               )}
               {draft.due_date && (
-                <div className="text-xs text-amber-600">截止日期: {draft.due_date}</div>
+                <div className="text-xs text-[#a86412]">截止日期: {draft.due_date}</div>
               )}
             </div>
 
@@ -928,14 +942,14 @@ export const MobileTaskExtractChatSheet: React.FC<{
                 type="button"
                 disabled={creating}
                 onClick={handleConfirmCreate}
-                className="flex-1 min-h-[44px] rounded-xl bg-[#0058BE] text-white font-semibold text-xs active:opacity-90"
+                className="flex-1 min-h-[44px] rounded-lg bg-primary text-on-primary font-medium text-xs active:opacity-90 tabular-nums"
               >
                 {creating ? '入库中…' : '确认创建任务'}
               </button>
               <button
                 type="button"
                 onClick={() => setDraft(null)}
-                className="min-h-[44px] px-3 rounded-xl border border-slate-300 dark:border-slate-700 text-xs"
+                className="min-h-[44px] px-3 rounded-lg border border-outline-variant dark:border-outline-variant text-xs"
               >
                 放弃草稿
               </button>
@@ -973,9 +987,9 @@ export const MobileKanbanScreen: React.FC<{
   const [movingTaskId, setMovingTaskId] = useState<string | null>(null);
 
   const columns: { status: Status; title: string; color: string }[] = [
-    { status: 'To Do', title: '待办事项', color: 'border-slate-400 text-slate-700' },
-    { status: 'In Progress', title: '进行中', color: 'border-blue-500 text-blue-600' },
-    { status: 'Done', title: '已完成', color: 'border-green-500 text-green-600' },
+    { status: 'To Do', title: '待办事项', color: 'border-outline-variant text-on-surface' },
+    { status: 'In Progress', title: '进行中', color: 'border-primary text-primary' },
+    { status: 'Done', title: '已完成', color: 'border-[#2f7d4f] text-[#2f7d4f]' },
   ];
 
   const columnTasks = useMemo(() => {
@@ -988,24 +1002,24 @@ export const MobileKanbanScreen: React.FC<{
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      {showHeader && <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface text-on-surface dark:text-on-surface">
+      {showHeader && <header className="h-14 px-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="返回"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <h1 className="text-base font-semibold">项目看板</h1>
+        <h1 className="text-base font-medium tabular-nums">项目看板</h1>
         <div className="w-10" />
       </header>}
 
       {/* 看板状态列切换 Tab */}
-      <div className="px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex gap-1.5 shrink-0">
+      <div className="px-4 py-2 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex gap-2 shrink-0">
         {columns.map((col) => {
           const count = tasks.filter((t) => t.status === col.status).length;
           const isActive = activeColumn === col.status;
@@ -1014,16 +1028,16 @@ export const MobileKanbanScreen: React.FC<{
               key={col.status}
               type="button"
               onClick={() => setActiveColumn(col.status)}
-              className={`flex-1 min-h-[40px] rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors ${
+              className={`flex-1 min-h-[40px] rounded-lg text-xs font-medium flex items-center justify-center gap-2 transition-ink-colors ${
                 isActive
-                  ? 'bg-[#0058BE] text-white shadow-xs'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                  : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
               }`}
             >
               <span>{col.title}</span>
               <span
-                className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-slate-200 dark:bg-slate-700'
+                className={`text-xs px-2 py-1 rounded-md ${
+                  isActive ? 'bg-surface-container-lowest/20 text-on-surface' : 'bg-surface-container dark:bg-surface-container-high'
                 }`}
               >
                 {count}
@@ -1047,26 +1061,26 @@ export const MobileKanbanScreen: React.FC<{
             <div
               key={task.id}
               onClick={() => onSelectTask(task)}
-              className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-2.5 active:bg-slate-50 dark:active:bg-slate-800 cursor-pointer"
+              className="p-4    border-b border-outline-variant/80 dark:border-outline-variant  space-y-2 active:bg-surface dark:active: cursor-pointer"
             >
               <div className="flex items-start justify-between gap-2">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white leading-snug">
+                <h3 className={`text-sm font-medium leading-snug ${task.status === 'Done' ? 'ink-done' : 'text-on-surface'}`}>
                   {task.title}
                 </h3>
                 {task.priority === 'High' && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-600 font-medium shrink-0">
+                  <span className="text-xs px-2 py-1 rounded bg-error-container text-error font-medium shrink-0 tabular-nums">
                     高优
                   </span>
                 )}
               </div>
 
               {task.description && (
-                <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                <p className="text-xs text-on-surface-variant line-clamp-2 leading-relaxed">
                   {task.description}
                 </p>
               )}
 
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+              <div className="flex items-center justify-between text-xs text-outline pt-1">
                 <span>{task.dueDate || '无截止日'}</span>
 
                 {/* 关键规范：轻触替代拖拽移动状态按钮 */}
@@ -1079,15 +1093,15 @@ export const MobileKanbanScreen: React.FC<{
                     onClick={() =>
                       setMovingTaskId(movingTaskId === task.id ? null : task.id)
                     }
-                    className="min-h-[34px] px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[11px] font-medium text-slate-700 dark:text-slate-300 flex items-center gap-1 active:bg-slate-100"
+                    className="min-h-[32px] px-2 rounded-lg border border-outline-variant dark:border-outline-variant bg-surface dark:bg-surface-container-lowest text-xs font-medium text-on-surface dark:text-outline flex items-center gap-1 active:bg-surface-container tabular-nums"
                   >
                     <span>移动状态</span>
-                    <AppIcon name="chevron-down" size={14} />
+                    <AppIcon name="chevron-down" size={18} />
                   </button>
 
                   {/* 弹出移动选择 */}
                   {movingTaskId === task.id && (
-                    <div className="absolute right-0 bottom-full mb-1 w-32 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-lg p-1 z-20 flex flex-col gap-1">
+                    <div className="absolute right-0 bottom-full mb-1 w-32 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl shadow-sm dark:shadow-none p-1 z-20 flex flex-col gap-1">
                       {columns
                         .filter((c) => c.status !== task.status)
                         .map((c) => (
@@ -1095,7 +1109,7 @@ export const MobileKanbanScreen: React.FC<{
                             key={c.status}
                             type="button"
                             onClick={() => handleMove(task.id, c.status)}
-                            className="min-h-[34px] px-2 text-left text-xs rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200"
+                            className="min-h-[32px] px-2 text-left text-xs rounded-lg hover:bg-surface-container dark:hover:bg-surface-container-high text-on-surface dark:text-outline"
                           >
                             移至 {c.title}
                           </button>
@@ -1152,24 +1166,24 @@ export const MobileCalendarScreen: React.FC<{
   }, [selectedDate]);
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface text-on-surface dark:text-on-surface">
+      <header className="h-14 px-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="返回"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <h1 className="text-base font-semibold">日程日历</h1>
+        <h1 className="text-base font-medium tabular-nums">日程日历</h1>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={() => setViewMode(viewMode === 'month' ? 'week' : 'month')}
-            className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-medium"
+            className="min-h-[36px] px-2 rounded-lg border border-outline-variant dark:border-outline-variant text-xs font-medium tabular-nums"
           >
             {viewMode === 'month' ? '周视图' : '月视图'}
           </button>
@@ -1177,8 +1191,8 @@ export const MobileCalendarScreen: React.FC<{
       </header>
 
       {/* 日历网格区 */}
-      <div className="p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
-        <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400 mb-2">
+      <div className="p-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant">
+        <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-outline mb-2 tabular-nums">
           <span>日</span>
           <span>一</span>
           <span>二</span>
@@ -1201,17 +1215,17 @@ export const MobileCalendarScreen: React.FC<{
                 key={idx}
                 type="button"
                 onClick={() => setSelectedDate(item.dateStr)}
-                className={`h-10 rounded-xl flex flex-col items-center justify-center text-xs font-medium transition-all ${
+                className={`h-10 rounded-lg flex flex-col items-center justify-center text-xs font-medium transition-ink-colors ${
                   isSelected
-                    ? 'bg-[#0058BE] text-white shadow-xs font-bold'
-                    : 'text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                    ? 'bg-primary text-on-primary shadow-sm dark:shadow-none font-medium'
+                    : 'text-on-surface dark:text-outline hover:bg-surface-container dark:hover:bg-surface-container-lowest'
                 }`}
               >
                 <span>{item.dayNum}</span>
                 {hasTasks && (
                   <span
-                    className={`w-1 h-1 rounded-full mt-0.5 ${
-                      isSelected ? 'bg-white' : 'bg-[#0058BE]'
+                    className={`w-1 h-1 rounded-full mt-1 ${
+                      isSelected ? 'bg-surface-container-lowest' : 'bg-primary'
                     }`}
                   />
                 )}
@@ -1224,23 +1238,23 @@ export const MobileCalendarScreen: React.FC<{
       {/* 所选日期的任务列表 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase">
+          <h3 className="text-xs font-medium text-on-surface-variant  tabular-nums">
             {selectedDate} 日程事项 ({selectedDateTasks.length})
           </h3>
           {onOpenNewTaskWithDate && (
             <button
               type="button"
               onClick={() => onOpenNewTaskWithDate(selectedDate)}
-              className="min-h-[32px] px-2 text-xs font-semibold text-[#0058BE] flex items-center gap-1"
+              className="min-h-[32px] px-2 text-xs font-medium text-primary flex items-center gap-1 tabular-nums"
             >
-              <AppIcon name="plus" size={14} />
+              <AppIcon name="plus" size={18} />
               <span>在此日期新建</span>
             </button>
           )}
         </div>
 
         {selectedDateTasks.length === 0 ? (
-          <div className="py-8 text-center text-xs text-slate-400">
+          <div className="py-8 text-center text-xs text-outline">
             当天暂无安排事项
           </div>
         ) : (
@@ -1251,7 +1265,7 @@ export const MobileCalendarScreen: React.FC<{
                 title={t.title}
                 subtitle={t.dueTime ? `时刻: ${t.dueTime}` : '全天事项'}
                 trailing={
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-xs text-outline">
                     {t.status === 'Done' ? '已完成' : '待办'}
                   </span>
                 }
@@ -1382,19 +1396,19 @@ export const MobileMyTasksScreen: React.FC<{
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      {showHeader && <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface text-on-surface dark:text-on-surface">
+      {showHeader && <header className="h-14 px-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="返回"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <h1 className="text-base font-semibold">我的任务</h1>
+        <h1 className="text-base font-medium tabular-nums">我的任务</h1>
         <div className="flex items-center gap-1">
           <button
             type="button"
@@ -1402,18 +1416,18 @@ export const MobileMyTasksScreen: React.FC<{
               setBatchMode(!batchMode);
               setSelectedIds([]);
             }}
-            className="min-h-[36px] px-2.5 text-xs font-semibold text-[#0058BE]"
+            className="min-h-[36px] px-2 text-xs font-medium text-primary tabular-nums"
           >
             {batchMode ? '退出批量' : '批量操作'}
           </button>
         </div>
       </header>}
 
-      {!showHeader && <div className="shrink-0 flex justify-end px-3 pt-2 bg-white dark:bg-slate-900"><button type="button"
+      {!showHeader && <div className="shrink-0 flex justify-end px-3 pt-2 bg-surface-container-lowest dark:bg-surface-container-lowest"><button type="button"
         onClick={() => { setBatchMode(!batchMode); setSelectedIds([]); }}
-        className="min-h-[40px] px-2 text-xs font-semibold text-[#0058BE] dark:text-blue-300">{batchMode ? '退出批量' : '批量操作'}</button></div>}
+        className="min-h-[40px] px-2 text-xs font-medium text-primary dark:text-primary tabular-nums">{batchMode ? '退出批量' : '批量操作'}</button></div>}
       {/* 搜索与筛选栏 */}
-      <div className="p-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 space-y-2 shrink-0">
+      <div className="p-3 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant space-y-2 shrink-0">
         <MobileInput
           placeholder="搜索事项标题…"
           value={search}
@@ -1427,10 +1441,10 @@ export const MobileMyTasksScreen: React.FC<{
           <button
             type="button"
             onClick={() => setFilterStatus('all')}
-            className={`min-h-[34px] px-3 rounded-full text-xs font-medium ${
+            className={`min-h-[32px] px-3 rounded-lg text-xs font-medium ${
               filterStatus === 'all'
-                ? 'bg-[#0058BE] text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                ? 'bg-primary text-on-primary'
+                : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
             }`}
           >
             全部 ({tasks.length})
@@ -1438,10 +1452,10 @@ export const MobileMyTasksScreen: React.FC<{
           <button
             type="button"
             onClick={() => setFilterStatus('pending')}
-            className={`min-h-[34px] px-3 rounded-full text-xs font-medium ${
+            className={`min-h-[32px] px-3 rounded-lg text-xs font-medium ${
               filterStatus === 'pending'
-                ? 'bg-[#0058BE] text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                ? 'bg-primary text-on-primary'
+                : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
             }`}
           >
             未完成
@@ -1449,10 +1463,10 @@ export const MobileMyTasksScreen: React.FC<{
           <button
             type="button"
             onClick={() => setFilterStatus('done')}
-            className={`min-h-[34px] px-3 rounded-full text-xs font-medium ${
+            className={`min-h-[32px] px-3 rounded-lg text-xs font-medium ${
               filterStatus === 'done'
-                ? 'bg-[#0058BE] text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                ? 'bg-primary text-on-primary'
+                : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
             }`}
           >
             已完成
@@ -1461,31 +1475,31 @@ export const MobileMyTasksScreen: React.FC<{
       </div>
 
       {batchError && (
-        <div className="m-3 p-3 rounded-xl bg-red-50 text-red-600 text-xs">
+        <div className="m-3 p-3 rounded-xl bg-error-container text-error text-xs">
           {batchError}
         </div>
       )}
 
       {/* 批量操作控制条 */}
       {batchMode && (
-        <div className="px-4 py-2.5 bg-blue-50 dark:bg-blue-950/40 border-b border-blue-200 dark:border-blue-900 flex items-center justify-between text-xs text-[#0058BE] shrink-0">
+        <div className="px-4 py-2 bg-surface-container dark:bg-surface-container border-b border-primary dark:border-primary flex items-center justify-between text-xs text-primary shrink-0">
           <div className="flex items-center gap-2">
             <button
               type="button"
               onClick={handleSelectAll}
-              className="font-semibold underline"
+              className="font-medium underline tabular-nums"
             >
               {selectedIds.length === filteredTasks.length ? '取消全选' : '全选本页'}
             </button>
             <span>已选 {selectedIds.length} 项</span>
           </div>
 
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-2">
             <button
               type="button"
               disabled={busy || selectedIds.length === 0}
               onClick={handleDoBatchComplete}
-              className="min-h-[34px] px-2.5 rounded-lg bg-green-600 text-white font-medium disabled:opacity-40"
+              className="min-h-[32px] px-2 rounded-lg bg-[#2f7d4f] text-on-primary font-medium disabled:opacity-40 tabular-nums"
             >
               完成
             </button>
@@ -1493,7 +1507,7 @@ export const MobileMyTasksScreen: React.FC<{
               type="button"
               disabled={busy || selectedIds.length === 0}
               onClick={() => setShowReschedulePicker(true)}
-              className="min-h-[34px] px-2.5 rounded-lg bg-[#0058BE] text-white font-medium disabled:opacity-40"
+              className="min-h-[32px] px-2 rounded-lg bg-primary text-on-primary font-medium disabled:opacity-40 tabular-nums"
             >
               顺延
             </button>
@@ -1501,7 +1515,7 @@ export const MobileMyTasksScreen: React.FC<{
               type="button"
               disabled={busy || selectedIds.length === 0}
               onClick={handleDoBatchDelete}
-              className="min-h-[34px] px-2.5 rounded-lg bg-red-600 text-white font-medium disabled:opacity-40"
+              className="min-h-[32px] px-2 rounded-lg bg-error text-on-error font-medium disabled:opacity-40 tabular-nums"
             >
               删除
             </button>
@@ -1542,36 +1556,36 @@ export const MobileMyTasksScreen: React.FC<{
                           e.stopPropagation();
                           onToggleCompletion(t);
                         }}
-                        className="min-h-[44px] min-w-[44px] -ml-2 flex items-center justify-center text-slate-400 hover:text-green-600"
+                        className="min-h-[44px] min-w-[44px] -ml-2 flex items-center justify-center text-outline hover:text-[#2f7d4f]"
                         aria-label={isDone ? '标为未完成' : '完成任务'}
                       >
                         <div
                           className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                             isDone
-                              ? 'bg-green-500 border-green-500 text-white'
-                              : 'border-slate-300 dark:border-slate-600'
+                              ? 'bg-[#2f7d4f] border-[#2f7d4f] text-on-primary'
+                              : 'border-outline-variant dark:border-outline-variant'
                           }`}
                         >
-                          {isDone && <AppIcon name="check" size={12} />}
+                          {isDone && <AppIcon name="check" size={18} />}
                         </div>
                       </button>
                     )
                   }
                   title={
-                    <span className={isDone ? 'line-through text-slate-400' : ''}>
+                    <span className={isDone ? 'ink-done' : ''}>
                       {t.title}
                     </span>
                   }
                   subtitle={
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {t.dueDate && <span className="text-[11px] text-slate-400">{t.dueDate}</span>}
+                    <div className="flex items-center gap-2 mt-1">
+                      {t.dueDate && <span className="text-xs text-outline">{t.dueDate}</span>}
                       {t.priority === 'High' && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-red-50 text-red-600 font-medium">
+                        <span className="text-xs px-2 py-1 rounded bg-error-container text-error font-medium tabular-nums">
                           高优
                         </span>
                       )}
                       {t.linkedNodeId && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-purple-50 text-purple-600 font-medium">
+                        <span className="text-xs px-2 py-1 rounded bg-surface-container text-on-surface-variant font-medium tabular-nums">
                           人轴
                         </span>
                       )}
@@ -1591,21 +1605,21 @@ export const MobileMyTasksScreen: React.FC<{
       {/* 顺延日期选择器弹窗 */}
       {showReschedulePicker && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 max-w-xs w-full shadow-xl space-y-4">
-            <h3 className="text-sm font-bold">批量顺延截止日期</h3>
+          <div className="bg-surface-container-lowest dark:bg-surface-container rounded-[var(--radius-ink-panel)] p-5 max-w-xs w-full shadow-sm dark:shadow-none space-y-4">
+            <h3 className="text-sm font-medium tabular-nums">批量顺延截止日期</h3>
             <MobileField label="目标日期">
               <input
                 type="date"
                 value={rescheduleDate}
                 onChange={(e) => setRescheduleDate(e.target.value)}
-                className="w-full min-h-[44px] px-3 text-xs bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl"
+                className="w-full min-h-[44px] px-3 text-xs bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant rounded-lg"
               />
             </MobileField>
             <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setShowReschedulePicker(false)}
-                className="flex-1 min-h-[40px] rounded-xl border border-slate-300 text-xs"
+                className="flex-1 min-h-[40px] rounded-lg border border-outline-variant text-xs"
               >
                 取消
               </button>
@@ -1613,7 +1627,7 @@ export const MobileMyTasksScreen: React.FC<{
                 type="button"
                 disabled={!rescheduleDate}
                 onClick={handleDoBatchReschedule}
-                className="flex-1 min-h-[40px] rounded-xl bg-[#0058BE] text-white text-xs font-semibold disabled:opacity-40"
+                className="flex-1 min-h-[40px] rounded-lg bg-primary text-on-primary text-xs font-medium disabled:opacity-40 tabular-nums"
               >
                 确认顺延
               </button>

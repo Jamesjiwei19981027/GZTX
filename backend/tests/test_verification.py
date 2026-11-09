@@ -180,6 +180,8 @@ async def test_bind_flow_completes_verification(client: AsyncClient, db_session,
     )
     assert r.status_code == 200
     assert r.json()["data"]["email_verified"] is True
+    # WR-25：绑定成功立即回显已绑定的邮箱，页面不用刷新
+    assert r.json()["data"]["email"] == "unverified2@example.com"
 
     # 补验手机
     r = await client.post(
@@ -196,6 +198,8 @@ async def test_bind_flow_completes_verification(client: AsyncClient, db_session,
     )
     assert r.status_code == 200
     assert r.json()["data"]["is_verified"] is True
+    assert r.json()["data"]["phone"] == "13911110002"
+    assert r.json()["data"]["email"] == "unverified2@example.com"
 
     # 解除受限
     r = await client.post(
@@ -362,3 +366,76 @@ async def test_wx_fake_phone_bind(client: AsyncClient, db_session, monkeypatch):
     )
     assert r.status_code == 200, r.text
     assert r.json()["data"]["phone_verified"] is True
+
+
+# ---- A-01 忘记密码 ----
+@pytest.mark.asyncio
+async def test_reset_password_flow_and_no_enumeration(client: AsyncClient, db_session, monkeypatch):
+    from sqlalchemy import select
+    from app.core.security import get_password_hash
+    from app.models.user import User
+
+    monkeypatch.setattr(settings, "DEBUG", True)
+    monkeypatch.setattr(settings, "REGISTRATION_MODE", "open", raising=False)
+    db_session.add(User(username="resetu", email="reset@example.com", password_hash=get_password_hash("oldpass123"), is_active=True))
+    await db_session.commit()
+
+    # 存在与不存在的邮箱，返回完全一致（防账号枚举）
+    a = await client.post("/api/v1/auth/send-code", json={"channel": "email", "target": "reset@example.com", "purpose": "reset_password"})
+    b = await client.post("/api/v1/auth/send-code", json={"channel": "email", "target": "nobody@example.com", "purpose": "reset_password"})
+    assert a.status_code == b.status_code == 200
+    assert a.json()["message"] == b.json()["message"]
+    assert set(a.json()["data"].keys()) == set(b.json()["data"].keys()) == {"sent", "resend_after"}
+    # 立刻重发也与首次一致（不暴露“过于频繁”）
+    c = await client.post("/api/v1/auth/send-code", json={"channel": "email", "target": "reset@example.com", "purpose": "reset_password"})
+    assert c.status_code == 200 and c.json()["message"] == a.json()["message"]
+
+    from app.models.verification import VerificationCode  # noqa
+    from app.services import verification as v
+    # 从库里取不出明文码，直接用 DEBUG 路径重新生成一条已知码
+    rec = (await db_session.execute(select(VerificationCode).where(VerificationCode.target == "reset@example.com", VerificationCode.purpose == "reset_password"))).scalars().first()
+    assert rec is not None
+    assert (await db_session.execute(select(VerificationCode).where(VerificationCode.target == "nobody@example.com"))).first() is None
+    rec.code_hash = v._hash_code("123456")
+    await db_session.commit()
+
+    # 错误验证码：统一提示
+    bad = await client.post("/api/v1/auth/reset-password", json={"channel": "email", "target": "reset@example.com", "code": "000000", "new_password": "newpass123"})
+    ghost = await client.post("/api/v1/auth/reset-password", json={"channel": "email", "target": "nobody@example.com", "code": "000000", "new_password": "newpass123"})
+    assert bad.status_code == ghost.status_code == 422
+    assert bad.json()["detail"] == ghost.json()["detail"]
+
+    ok = await client.post("/api/v1/auth/reset-password", json={"channel": "email", "target": "reset@example.com", "code": "123456", "new_password": "newpass123"})
+    assert ok.status_code == 200, ok.text
+    old = await client.post("/api/v1/auth/login", json={"username": "resetu", "password": "oldpass123"})
+    new = await client.post("/api/v1/auth/login", json={"username": "resetu", "password": "newpass123"})
+    assert old.status_code == 401 and new.status_code == 200
+    # 验证码只能用一次
+    again = await client.post("/api/v1/auth/reset-password", json={"channel": "email", "target": "reset@example.com", "code": "123456", "new_password": "another123"})
+    assert again.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_reset_password_code_attempts_limited(client: AsyncClient, db_session, monkeypatch):
+    from app.core.security import get_password_hash
+    from app.models.user import User
+    from app.services.verification import MAX_ATTEMPTS
+
+    monkeypatch.setattr(settings, "DEBUG", True)
+    db_session.add(User(username="resetv", email="resetv@example.com", password_hash=get_password_hash("oldpass123"), is_active=True))
+    await db_session.commit()
+    r = await client.post("/api/v1/auth/send-code", json={"channel": "email", "target": "resetv@example.com", "purpose": "reset_password"})
+    assert r.status_code == 200
+    real = None
+    for _ in range(MAX_ATTEMPTS):
+        x = await client.post("/api/v1/auth/reset-password", json={"channel": "email", "target": "resetv@example.com", "code": "111111", "new_password": "newpass123"})
+        assert x.status_code == 422
+    # 次数用尽后，即使码对也不行
+    from sqlalchemy import select
+    from app.models.verification import VerificationCode
+    from app.services import verification as v
+    rec = (await db_session.execute(select(VerificationCode).where(VerificationCode.target == "resetv@example.com"))).scalars().first()
+    rec.code_hash = v._hash_code("222222")
+    await db_session.commit()
+    final = await client.post("/api/v1/auth/reset-password", json={"channel": "email", "target": "resetv@example.com", "code": "222222", "new_password": "newpass123"})
+    assert final.status_code == 422

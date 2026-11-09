@@ -37,7 +37,7 @@ void main() {
 
       expect(find.text('未选择项目'), findsOneWidget);
       expect(find.text('请选择具体项目'), findsOneWidget);
-      expect(find.text('智能体会话与上下文按项目隔离，请先切换到具体项目。'), findsOneWidget);
+      expect(find.text('智能体会话与上下文按项目隔离，请先切换到具体项目'), findsOneWidget);
     });
 
     testWidgets('选定项目后展示隔离提示，并可发送对话接收回复', (tester) async {
@@ -56,7 +56,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('测试下属的项目 AI · 上下文仅限当前项目（AI 协同平台）'), findsOneWidget);
+      expect(find.textContaining('测试下属的项目 AI · 上下文仅限当前项目（AI 协同平台）'),
+          findsOneWidget);
 
       // 输入消息
       final inputFinder = find.byType(TextField);
@@ -222,7 +223,8 @@ void main() {
       expect(find.text('直属领导李四'), findsNothing);
     });
 
-    testWidgets('打开带显式 draftReportId 的草稿且本地有未关联 draftId 文本时提交保留显式草稿 ID (P2)', (tester) async {
+    testWidgets('打开带显式 draftReportId 的草稿且本地有未关联 draftId 文本时提交保留显式草稿 ID (P2)',
+        (tester) async {
       final harness = await ReportsTestHarness.create();
       // 本地有未关联 draftReportId 的草稿文字（例如从对话页一键存入的文字）
       await harness.draftStore.save(
@@ -259,7 +261,9 @@ void main() {
       expect(postPaths.where((p) => p.endsWith('/agent-reports')), isEmpty);
     });
 
-    testWidgets('本地关联 501 且服务器另有草稿 503 时，提交请求是 /reports/501/submit 且不带 503 的来源 (P2)', (tester) async {
+    testWidgets(
+        '本地关联 501 且服务器另有草稿 503 时，提交请求是 /reports/501/submit 且不带 503 的来源 (P2)',
+        (tester) async {
       final harness = await ReportsTestHarness.create();
       await harness.draftStore.save(
         userId: ReportsTestFixtures.currentUserId,
@@ -267,7 +271,8 @@ void main() {
         summary: '对已提交汇报501的本地修改',
         draftReportId: 501,
       );
-      harness.helper.whenPost('/reports/501/submit', ReportsTestFixtures.submittedReportJson);
+      harness.helper.whenPost(
+          '/reports/501/submit', ReportsTestFixtures.submittedReportJson);
 
       await tester.pumpWidget(
         harness.wrapRouted(
@@ -291,10 +296,11 @@ void main() {
       );
       final body = request.body as Map<String, dynamic>;
       expect(body['summary'], '对已提交汇报501的本地修改');
-      expect(body['sources'], isEmpty, reason: '来源不应混入服务器草稿 503 的来源');
+      expect(body['sources'] ?? [], isEmpty, reason: '来源不应混入服务器草稿 503 的来源');
     });
 
-    testWidgets('显式打开草稿 503 而本地缓存的是汇报 501 的文字时，不把 501 的文字提交到 503', (tester) async {
+    testWidgets('显式打开草稿 503 而本地缓存的是汇报 501 的文字时，不把 501 的文字提交到 503',
+        (tester) async {
       final harness = await ReportsTestHarness.create();
       await harness.draftStore.save(
         userId: ReportsTestFixtures.currentUserId,
@@ -323,9 +329,12 @@ void main() {
       await tester.pumpAndSettle();
 
       final posts = harness.helper.history.where((r) => r.method == 'POST');
-      expect(posts.where((r) => r.url.path.endsWith('/reports/501/submit')), isEmpty);
-      for (final request in posts.where((r) => r.url.path.endsWith('/reports/503/submit'))) {
-        expect((request.body as Map)['summary'], isNot(contains('对已提交汇报501的本地修改')));
+      expect(posts.where((r) => r.url.path.endsWith('/reports/501/submit')),
+          isEmpty);
+      for (final request
+          in posts.where((r) => r.url.path.endsWith('/reports/503/submit'))) {
+        expect((request.body as Map)['summary'],
+            isNot(contains('对已提交汇报501的本地修改')));
       }
     });
 
@@ -362,9 +371,11 @@ void main() {
       expect(local, isNull);
     });
 
-    testWidgets('在项目 10 发起生成，切到项目 20 后放行旧请求，项目 20 的生成和提交按钮都能正常使用 (P2)', (tester) async {
+    testWidgets('在项目 10 发起生成，切到项目 20 后放行旧请求，项目 20 的生成和提交按钮都能正常使用 (P2)',
+        (tester) async {
       final harness = await ReportsTestHarness.create();
-      final controllableApi = _ControllableReportsApi(harness.helper.buildClient());
+      final controllableApi =
+          _ControllableReportsApi(harness.helper.buildClient());
       final completer = Completer<AgentReport>();
       controllableApi.pendingGenerate = completer;
 
@@ -372,9 +383,12 @@ void main() {
         ...ReportsTestFixtures.membersJson,
         {'user_id': 20, 'display_name': '李四', 'role': 'pm', 'left_at': null},
       ];
-      harness.helper.whenGet('/projects/20/members', {'items': project20Members});
-      harness.helper.whenGet('/projects/20/report-agents/bindings', {'items': ReportsTestFixtures.project20BindingsJson});
-      harness.helper.whenGet('/reports/my', {'items': []}, query: {'project_id': '20'});
+      harness.helper
+          .whenGet('/projects/20/members', {'items': project20Members});
+      harness.helper.whenGet('/projects/20/report-agents/bindings',
+          {'items': ReportsTestFixtures.project20BindingsJson});
+      harness.helper
+          .whenGet('/reports/my', {'items': []}, query: {'project_id': '20'});
 
       await tester.pumpWidget(
         harness.wrapRouted(
@@ -419,7 +433,8 @@ void main() {
       await tester.pump();
 
       // 放行旧项目 10 的请求
-      completer.complete(AgentReport.fromJson(ReportsTestFixtures.draftReportJson));
+      completer
+          .complete(AgentReport.fromJson(ReportsTestFixtures.draftReportJson));
       await tester.pumpAndSettle();
 
       // 输入文字以满足提交的前置非空条件
@@ -428,11 +443,13 @@ void main() {
       await tester.pump();
 
       // 验证项目 20 的重新生成和确认提交按钮状态正常，均可使用
-      final generateBtn = tester.widget<AppButton>(find.widgetWithText(AppButton, '重新生成'));
+      final generateBtn =
+          tester.widget<AppButton>(find.widgetWithText(AppButton, '重新生成'));
       expect(generateBtn.isLoading, isFalse);
       expect(generateBtn.onPressed, isNotNull);
 
-      final submitBtn = tester.widget<AppButton>(find.widgetWithText(AppButton, '确认提交'));
+      final submitBtn =
+          tester.widget<AppButton>(find.widgetWithText(AppButton, '确认提交'));
       expect(submitBtn.isLoading, isFalse);
       expect(submitBtn.onPressed, isNotNull);
     });
@@ -958,7 +975,8 @@ void main() {
       expect(find.textContaining('资料差异'), findsWidgets);
     });
 
-    testWidgets('汇总后汇报状态变为 aggregated 时冲突核验页仍能展示冲突且不显示暂无资料差异 (P2)', (tester) async {
+    testWidgets('汇总后汇报状态变为 aggregated 时冲突核验页仍能展示冲突且不显示暂无资料差异 (P2)',
+        (tester) async {
       final harness = await ReportsTestHarness.create();
       final aggregatedReports = [
         {
@@ -1089,7 +1107,8 @@ void main() {
       expect(find.textContaining('AI 协同平台本周期整体完成度 85%'), findsOneWidget);
     });
 
-    testWidgets('没有状态为 submitted 的待汇总汇报时，生成汇总按钮置灰且说明暂无新提交的汇报 (P2)', (tester) async {
+    testWidgets('没有状态为 submitted 的待汇总汇报时，生成汇总按钮置灰且说明暂无新提交的汇报 (P2)',
+        (tester) async {
       tester.view.physicalSize = const Size(430, 2000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -1126,19 +1145,29 @@ void main() {
       expect(aggregateBtn.onPressed, isNull);
       expect(find.text('暂无新提交的汇报'), findsOneWidget);
 
-      final initialCount = harness.helper.history.where(
-        (r) => r.method == 'POST' && r.url.path.contains('/agent-reports/aggregate'),
-      ).length;
-      await tester.tap(find.widgetWithText(AppButton, '生成 / 更新项目汇总'), warnIfMissed: false);
+      final initialCount = harness.helper.history
+          .where(
+            (r) =>
+                r.method == 'POST' &&
+                r.url.path.contains('/agent-reports/aggregate'),
+          )
+          .length;
+      await tester.tap(find.widgetWithText(AppButton, '生成 / 更新项目汇总'),
+          warnIfMissed: false);
       await tester.pumpAndSettle();
 
-      final afterCount = harness.helper.history.where(
-        (r) => r.method == 'POST' && r.url.path.contains('/agent-reports/aggregate'),
-      ).length;
+      final afterCount = harness.helper.history
+          .where(
+            (r) =>
+                r.method == 'POST' &&
+                r.url.path.contains('/agent-reports/aggregate'),
+          )
+          .length;
       expect(afterCount, equals(initialCount));
     });
 
-    testWidgets('汇总生成一次后待汇总汇报变为 aggregated，按钮置灰且说明暂无新提交的汇报 (P2)', (tester) async {
+    testWidgets('汇总生成一次后待汇总汇报变为 aggregated，按钮置灰且说明暂无新提交的汇报 (P2)',
+        (tester) async {
       tester.view.physicalSize = const Size(430, 2000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -1322,7 +1351,8 @@ void main() {
   });
 
   group('Reports 路由与项目隔离切换测试 (P1)', () {
-    testWidgets('在写汇报页 /reports/create?projectId=10 切换到项目 20 时更新路由参数、项目名与提交请求', (tester) async {
+    testWidgets('在写汇报页 /reports/create?projectId=10 切换到项目 20 时更新路由参数、项目名与提交请求',
+        (tester) async {
       tester.view.physicalSize = const Size(430, 2000);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -1370,7 +1400,9 @@ void main() {
 
       // 验证网络请求包含对项目 20 (otherProjectId) 的提交
       final postRequests = harness.helper.history
-          .where((r) => r.method == 'POST' && r.url.path.contains('/projects/20/agent-reports'))
+          .where((r) =>
+              r.method == 'POST' &&
+              r.url.path.contains('/projects/20/agent-reports'))
           .toList();
       expect(postRequests.isNotEmpty, isTrue);
     });

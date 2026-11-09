@@ -279,8 +279,9 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                         ),
                       MeCard(
                         title: '企业统一智能体与大模型',
-                        footer: '支持 OpenAI 协议兼容端点（DeepSeek、Moonshot、本地 Ollama 等）。'
-                            '密钥在服务端加密保存，前端不回显明文；留空表示不修改。',
+                        footer:
+                            '支持 OpenAI 协议兼容端点（DeepSeek、Moonshot、本地 Ollama 等）'
+                            '密钥在服务端加密保存，前端不回显明文；留空表示不修改',
                         children: [
                           Row(
                             children: [
@@ -289,7 +290,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                                   '启用 AI 智能分析与汇报',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
@@ -312,7 +313,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
-                                      vertical: 7,
+                                      vertical: 8,
                                     ),
                                     decoration: BoxDecoration(
                                       color: _provider == id
@@ -335,7 +336,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                                       label,
                                       style: TextStyle(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.w600,
+                                        fontWeight: FontWeight.w500,
                                         color: _provider == id
                                             ? Colors.white
                                             : (isDarkMode(context)
@@ -374,7 +375,8 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                           AppTextField(
                             key: const Key('admin-llm-api-key'),
                             controller: _apiKeyController,
-                            placeholder: _config.hasApiKey ? 'sk-••••••••' : 'sk-...',
+                            placeholder:
+                                _config.hasApiKey ? 'sk-••••••••' : 'sk-...',
                             obscureText: true,
                           ),
                           const SizedBox(height: AppSpacing.md),
@@ -393,7 +395,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                                     const Flexible(
                                       child: Text(
                                         '用于判定',
-                                        style: TextStyle(fontSize: 12.5),
+                                        style: TextStyle(fontSize: 13),
                                       ),
                                     ),
                                   ],
@@ -412,7 +414,7 @@ class _AdminLlmConfigScreenState extends State<AdminLlmConfigScreen> {
                                     const Flexible(
                                       child: Text(
                                         '用于智能体',
-                                        style: TextStyle(fontSize: 12.5),
+                                        style: TextStyle(fontSize: 13),
                                       ),
                                     ),
                                   ],

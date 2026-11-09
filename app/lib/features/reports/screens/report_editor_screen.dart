@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_provider.dart';
+import '../../../core/errors/app_error.dart';
 import '../../../design/design.dart';
 import '../data/reports_api.dart';
 import '../models/report_capabilities.dart';
@@ -33,6 +34,7 @@ class ReportEditorScreen extends StatefulWidget {
     this.initialDraftReportId,
     this.periodLabel,
     this.now,
+    this.initialSupplement,
   });
 
   final ReportsApi? api;
@@ -46,6 +48,7 @@ class ReportEditorScreen extends StatefulWidget {
   final int? initialDraftReportId;
   final String? periodLabel;
   final DateTime? now;
+  final String? initialSupplement;
 
   @override
   State<ReportEditorScreen> createState() => _ReportEditorScreenState();
@@ -70,6 +73,9 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
   int _version = 0;
   bool _disposed = false;
   bool _submitted = false;
+  final _appliedSupplements = <(int, int, int?, String)>{};
+  int? _lastInitialDraftId;
+  String? _lastSupplement;
 
   int? _draftReportId;
   int? _myBindingId;
@@ -98,7 +104,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     if (oldWidget.projectId != widget.projectId ||
         oldWidget.api != widget.api ||
         oldWidget.userId != widget.userId ||
-        oldWidget.initialDraftReportId != widget.initialDraftReportId) {
+        oldWidget.initialDraftReportId != widget.initialDraftReportId ||
+        oldWidget.initialSupplement != widget.initialSupplement) {
       _sync();
     }
   }
@@ -112,6 +119,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
         userId == _userId &&
         api == _api &&
         store == _store &&
+        widget.initialDraftReportId == _lastInitialDraftId &&
+        widget.initialSupplement == _lastSupplement &&
         !_initialising) {
       return;
     }
@@ -147,6 +156,8 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     _userId = userId;
     _api = api;
     _store = store;
+    _lastInitialDraftId = widget.initialDraftReportId;
+    _lastSupplement = widget.initialSupplement;
     _generating = false;
     _submitting = false;
     _draftReportId = widget.initialDraftReportId;
@@ -226,6 +237,41 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       }
     }
 
+    if (targetReportId != null &&
+        matchedServerDraft != null &&
+        matchedServerDraft.payloadJson.isEmpty) {
+      try {
+        final detail = await _api!.getReport(targetReportId);
+        if (_disposed || version != _version) return;
+        if (detail.projectId != projectId ||
+            detail.authorUserId != userId ||
+            detail.status != 'draft') {
+          throw ApiException('该汇报不属于当前用户和项目');
+        }
+        final listed = matchedServerDraft;
+        matchedServerDraft = AgentReport(
+          id: listed.id,
+          projectId: listed.projectId,
+          bindingId: listed.bindingId,
+          authorUserId: listed.authorUserId,
+          parentUserId: listed.parentUserId,
+          status: listed.status,
+          summaryText: listed.summaryText,
+          payloadJson: detail.payloadJson,
+          sourceCount: listed.sourceCount,
+          sources: listed.sources,
+          read: listed.read,
+          readAt: listed.readAt,
+          createdAt: listed.createdAt,
+          submittedAt: listed.submittedAt,
+        );
+        resolvedParentUserId = matchedServerDraft.parentUserId;
+      } catch (cause) {
+        if (_disposed || version != _version) return;
+        warning ??= reportErrorMessage(cause, fallback: '未能读取草稿详情与快照');
+      }
+    }
+
     if (_disposed || version != _version) return;
 
     int? myBindingId;
@@ -239,9 +285,18 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     // 本地文字只在“未关联汇报”或“关联的就是目标汇报”时沿用，避免把别的汇报的文字提交到目标汇报上
     final localMatchesTarget = local != null &&
         (local.draftReportId == null || local.draftReportId == targetReportId);
-    final text = (localMatchesTarget ? local.summary : null) ??
+    final baseText = (localMatchesTarget ? local.summary : null) ??
         matchedServerDraft?.summaryText ??
         '';
+    final incomingSupplement = widget.initialSupplement?.trim() ?? '';
+    final supplementKey =
+        (userId, projectId, widget.initialDraftReportId, incomingSupplement);
+    final supplement =
+        _appliedSupplements.contains(supplementKey) ? '' : incomingSupplement;
+    if (supplement.isNotEmpty) _appliedSupplements.add(supplementKey);
+    final text = [baseText, if (supplement.isNotEmpty) '补充说明：$supplement']
+        .where((part) => part.isNotEmpty)
+        .join('\n\n');
     final parts = text.split('\n\n');
     final completed = parts.isNotEmpty ? parts[0] : '';
     final inProgress = parts.length > 1 ? parts.sublist(1).join('\n\n') : '';
@@ -260,6 +315,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       _initialising = false;
     });
     _hydrating = false;
+    if (supplement.isNotEmpty) await _persistDraft();
   }
 
   void _onTextChanged() {
@@ -362,7 +418,6 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
         result = await _api!.submitDraft(
           draftId,
           summary: summary,
-          sources: _sources,
         );
       } else if (_myBindingId != null) {
         result = await _api!.submitReport(
@@ -376,7 +431,6 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
         result = await _api!.submitDraft(
           draft.id,
           summary: summary,
-          sources: _sources,
         );
       }
       if (!mounted || _projectId != projectId || _version != version) return;
@@ -437,8 +491,11 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
             const Expanded(
               child: AppEmptyState(
                 title: '请先在具体项目中编辑汇报',
-                description: '汇报按项目隔离，切换到具体项目后才能写汇报。',
-                icon: AppIcon('folder', size: 44, color: AppColors.primary),
+                description: '汇报按项目隔离，切换到具体项目后才能写汇报',
+                icon: AppIcon(
+                  'folder',
+                  size: 18,
+                ),
               ),
             ),
           ],
@@ -498,7 +555,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                                 ),
                                 const AppIcon(
                                   'calendar',
-                                  size: 17,
+                                  size: 18,
                                   color: AppColors.textTertiary,
                                 ),
                               ],
@@ -534,8 +591,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                             trailing: Text(
                               '严格基于项目事实',
                               style: TextStyle(
-                                  fontSize: 10.5,
-                                  color: AppColors.textTertiary),
+                                  fontSize: 12, color: AppColors.textTertiary),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.sm),
@@ -589,8 +645,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.right,
-            style:
-                const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+            style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
         ),
       ],
@@ -602,7 +657,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       text,
       style: TextStyle(
         fontSize: 13,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
         color: isDarkMode(context)
             ? AppColors.darkTextPrimary
             : AppColors.textPrimary,
@@ -650,16 +705,16 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  SizedBox(height: 4),
                   Text(
                     '以人轴最新责任链实时流转，无需手动选择',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 11.5, color: AppColors.textTertiary),
+                    style:
+                        TextStyle(fontSize: 12, color: AppColors.textTertiary),
                   ),
                 ],
               ),
@@ -700,7 +755,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                   : '领',
               style: const TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
                 color: AppColors.primary,
               ),
             ),
@@ -719,7 +774,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -732,13 +787,12 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                     ],
                   ],
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 const Text(
                   '以草稿创建时的人轴关系为准，提交时系统会重新确认',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
                 ),
               ],
             ),
@@ -779,7 +833,10 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                 onPressed: _submitting ? null : _generate,
                 icon: _generating
                     ? null
-                    : const AppIcon('ai', size: 17, color: AppColors.primary),
+                    : const AppIcon(
+                        'ai',
+                        size: 18,
+                      ),
               ),
             ),
           ),
@@ -793,7 +850,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                 onPressed: isBlocked ? null : _submit,
                 icon: _submitting
                     ? null
-                    : const AppIcon('send', size: 17, color: Colors.white),
+                    : const AppIcon('send', size: 18, color: Colors.white),
               ),
             ),
           ),

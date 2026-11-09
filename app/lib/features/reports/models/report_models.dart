@@ -70,6 +70,13 @@ class ReportTaskSnapshot {
   final bool needsFollowUp;
   final String? comment;
 
+  String get statusLabel => switch (status) {
+        '0' || 'todo' || 'pending' => '待办',
+        '1' || 'in_progress' => '进行中',
+        '2' || 'done' || 'completed' => '已完成',
+        _ => '未知状态',
+      };
+
   factory ReportTaskSnapshot.fromJson(Map<String, dynamic> json) {
     return ReportTaskSnapshot(
       id: (json['id'] as num?)?.toInt() ?? 0,
@@ -96,6 +103,17 @@ class ReportEvidenceSnapshot {
   final String? summary;
   final String? status;
   final int fileCount;
+
+  String get statusLabel => switch (status) {
+        'adopted' => '已采纳',
+        'rejected' => '已退回',
+        'superseded' => '已被替代',
+        'verified' => '已核验',
+        'pending' => '待验收',
+        'submitted' || 'pending' || 'pending_review' => '待核验',
+        'draft' => '草稿',
+        _ => '未知状态',
+      };
 
   factory ReportEvidenceSnapshot.fromJson(Map<String, dynamic> json) {
     final files = json['files'];
@@ -132,7 +150,8 @@ class ReportSource {
     return '关联$typeLabel';
   }
 
-  String get detail => sourceId == null ? typeLabel : '$typeLabel · 编号 ${sourceId!}';
+  String get detail =>
+      sourceId == null ? typeLabel : '$typeLabel · 编号 ${sourceId!}';
 
   factory ReportSource.fromJson(Map<String, dynamic> json) {
     return ReportSource(
@@ -173,6 +192,8 @@ class AgentReport {
     this.readAt,
     this.createdAt,
     this.submittedAt,
+    this.canReview = false,
+    this.review,
   });
 
   final int id;
@@ -189,6 +210,8 @@ class AgentReport {
   final String? readAt;
   final String? createdAt;
   final String? submittedAt;
+  final bool canReview;
+  final ReportReviewResult? review;
 
   bool get isSubmitted => status == 'submitted' || status == 'aggregated';
   bool get isUnread => !read && (readAt == null || readAt!.isEmpty);
@@ -204,7 +227,8 @@ class AgentReport {
     if (raw is! List) return const [];
     return raw
         .whereType<Map>()
-        .map((item) => ReportTaskSnapshot.fromJson(item.cast<String, dynamic>()))
+        .map(
+            (item) => ReportTaskSnapshot.fromJson(item.cast<String, dynamic>()))
         .toList(growable: false);
   }
 
@@ -213,7 +237,8 @@ class AgentReport {
     if (raw is! List) return const [];
     return raw
         .whereType<Map>()
-        .map((item) => ReportEvidenceSnapshot.fromJson(item.cast<String, dynamic>()))
+        .map((item) =>
+            ReportEvidenceSnapshot.fromJson(item.cast<String, dynamic>()))
         .toList(growable: false);
   }
 
@@ -233,6 +258,8 @@ class AgentReport {
       readAt: readAt ?? this.readAt,
       createdAt: createdAt,
       submittedAt: submittedAt,
+      canReview: canReview,
+      review: review,
     );
   }
 
@@ -254,20 +281,86 @@ class AgentReport {
       authorUserId: (json['author_user_id'] as num?)?.toInt(),
       parentUserId: (json['parent_user_id'] as num?)?.toInt(),
       status: (json['status'] as String?) ?? 'draft',
-      summaryText: (json['summary_text'] ?? json['summary'] ?? json['content'] ?? '')
-          .toString(),
+      summaryText:
+          (json['summary_text'] ?? json['summary'] ?? json['content'] ?? '')
+              .toString(),
       payloadJson: json['payload_json'] is Map
           ? (json['payload_json'] as Map).cast<String, dynamic>()
           : const {},
       sourceCount: (json['source_count'] as num?)?.toInt() ?? sources.length,
       sources: sources,
-      read: json['read'] == true ||
-          (readAt != null && readAt.trim().isNotEmpty),
+      read:
+          json['read'] == true || (readAt != null && readAt.trim().isNotEmpty),
       readAt: readAt,
       createdAt: json['created_at'] as String?,
       submittedAt: json['submitted_at'] as String?,
+      canReview: json['can_review'] == true,
+      review: ReportReviewResult.parse(json['review'] ??
+          (json['payload_json'] is Map
+              ? json['payload_json']['review']
+              : null)),
     );
   }
+}
+
+class ReportReviewResult {
+  const ReportReviewResult(
+      {required this.decision,
+      required this.comment,
+      this.reviewerUserId,
+      this.reviewedAt});
+  final String decision;
+  final String comment;
+  final int? reviewerUserId;
+  final String? reviewedAt;
+  String get label => decision == 'approved'
+      ? '核验通过'
+      : decision == 'returned'
+          ? '退回修改'
+          : '待核验';
+  static ReportReviewResult? parse(dynamic value) {
+    if (value is! Map) return null;
+    return ReportReviewResult(
+        decision: '${value['decision'] ?? ''}',
+        comment: '${value['comment'] ?? ''}',
+        reviewerUserId: (value['reviewer_user_id'] as num?)?.toInt(),
+        reviewedAt: value['reviewed_at'] as String?);
+  }
+}
+
+class PublishedReportSummary {
+  const PublishedReportSummary(
+      {required this.id,
+      required this.projectId,
+      required this.status,
+      required this.summaryText,
+      this.createdAt,
+      this.publishedAt,
+      this.publisherName});
+  final int id;
+  final int projectId;
+  final String status;
+  final String summaryText;
+  final String? createdAt;
+  final String? publishedAt;
+  final String? publisherName;
+  bool get isPublished => status == 'published';
+  factory PublishedReportSummary.fromJson(Map<String, dynamic> json) =>
+      PublishedReportSummary(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        projectId: (json['project_id'] as num?)?.toInt() ?? 0,
+        status: '${json['status'] ?? ''}',
+        summaryText: '${json['summary_text'] ?? ''}',
+        createdAt: json['created_at'] as String?,
+        publishedAt: json['published_at'] as String?,
+        publisherName: json['published_by_name'] as String?,
+      );
+}
+
+class ReportSummaryList {
+  const ReportSummaryList({this.items = const [], this.canPublish = false});
+  final List<PublishedReportSummary> items;
+  final bool canPublish;
 }
 
 /// 项目汇报智能体绑定
@@ -337,11 +430,14 @@ class ReportMember {
   }
 
   factory ReportMember.fromJson(Map<String, dynamic> json) {
-    final name = (json['display_name'] ?? json['nickname'] ?? json['username'] ?? '')
-        .toString()
-        .trim();
+    final name =
+        (json['display_name'] ?? json['nickname'] ?? json['username'] ?? '')
+            .toString()
+            .trim();
     return ReportMember(
-      userId: (json['user_id'] as num?)?.toInt() ?? (json['id'] as num?)?.toInt() ?? 0,
+      userId: (json['user_id'] as num?)?.toInt() ??
+          (json['id'] as num?)?.toInt() ??
+          0,
       displayName: name.isEmpty ? '项目成员' : name,
       role: json['role'] as String?,
       leftAt: json['left_at'] as String?,
@@ -469,7 +565,8 @@ String formatReportTime(String? iso) {
 /// 汇报周期文案（本周一至周日），对齐网页版计算方式
 String reportPeriodLabel(DateTime now) {
   final day = now.weekday;
-  final monday = DateTime(now.year, now.month, now.day).subtract(Duration(days: day - 1));
+  final monday =
+      DateTime(now.year, now.month, now.day).subtract(Duration(days: day - 1));
   final sunday = monday.add(const Duration(days: 6));
   return '${monday.month} 月 ${monday.day} 日—${sunday.month} 月 ${sunday.day} 日';
 }

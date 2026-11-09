@@ -81,36 +81,37 @@ class _FoldHostState extends State<_FoldHost> {
         body: Align(
           alignment: Alignment.topLeft,
           child: SizedBox(
-          width: widget.width,
-          height: widget.height,
-          child: AxisCanvas(
-            viewportController: widget.controller,
-            nodes: tree(),
-            orientation: AxisOrientation.vertical,
-            spacing: AxisSpacing.standard,
-            sort: AxisSort.tree,
-            fold: AxisFoldSpec(
-              pulled: pulled,
-              expandedRows: expanded,
-              selfId: widget.selfId,
+            width: widget.width,
+            height: widget.height,
+            child: AxisCanvas(
+              viewportController: widget.controller,
+              nodes: tree(),
+              orientation: AxisOrientation.vertical,
+              spacing: AxisSpacing.standard,
+              sort: AxisSort.tree,
+              fold: AxisFoldSpec(
+                pulled: pulled,
+                expandedRows: expanded,
+                selfId: widget.selfId,
+              ),
+              onToggleFoldedRow: (id) => setState(() {
+                expanded = expanded.contains(id)
+                    ? ({...expanded}..remove(id))
+                    : {...expanded, id};
+              }),
+              onPullToAxis: (id) => setState(() {
+                pulled = {...pulled, id};
+                expanded = {...expanded}..remove(id);
+              }),
+              onReturnFromAxis: (id) => setState(() {
+                pulled = {...pulled}
+                  ..removeAll(pulledSubtree(tree(), id, pulled));
+              }),
+              onLayoutChanged: (node, offset) async =>
+                  widget.onLayout?.call(node, offset),
+              onReparentPerson: widget.onReparent,
             ),
-            onToggleFoldedRow: (id) => setState(() {
-              expanded = expanded.contains(id)
-                  ? ({...expanded}..remove(id))
-                  : {...expanded, id};
-            }),
-            onPullToAxis: (id) => setState(() {
-              pulled = {...pulled, id};
-              expanded = {...expanded}..remove(id);
-            }),
-            onReturnFromAxis: (id) => setState(() {
-              pulled = {...pulled}..removeAll(pulledSubtree(tree(), id, pulled));
-            }),
-            onLayoutChanged: (node, offset) async =>
-                widget.onLayout?.call(node, offset),
-            onReparentPerson: widget.onReparent,
           ),
-        ),
         ),
       ),
     );
@@ -158,7 +159,8 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: key('axis-folded-row-2'), matching: find.text('任务 0')),
+      find.descendant(
+          of: key('axis-folded-row-2'), matching: find.text('任务 0')),
       findsOneWidget,
     );
     // 逾期为 0 时不显示逾期。
@@ -451,10 +453,12 @@ void main() {
     );
     // 五字职责完整显示：列宽放得下，FittedBox 不需要缩小，也没有省略。
     for (final id in [2, 3]) {
-      final text = find.descendant(of: col(id, 'role'), matching: find.byType(Text));
+      final text =
+          find.descendant(of: col(id, 'role'), matching: find.byType(Text));
       final para = tester.renderObject<RenderParagraph>(text);
       expect(para.didExceedMaxLines, isFalse);
-      expect(para.size.width, lessThanOrEqualTo(col(id, 'role').evaluate().first.size!.width));
+      expect(para.size.width,
+          lessThanOrEqualTo(col(id, 'role').evaluate().first.size!.width));
       expect(tester.getSize(text).width, closeTo(para.size.width, 0.01));
     }
   });
@@ -724,7 +728,7 @@ void main() {
       of: key('axis-fold-3'),
       matching: find.byType(Text),
     ));
-    expect(foldText.style?.fontSize, 11);
+    expect(foldText.style?.fontSize, 12);
     expect(
       tester.getSize(key('axis-person-3')).height,
       closeTo(AxisFlowLayout.personCardSize.height, 0.01),

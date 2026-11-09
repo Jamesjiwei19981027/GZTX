@@ -143,7 +143,7 @@ void main() {
     expect(scaler.scale(10), 10);
   });
 
-  testWidgets('云端同步失败时本机仍然生效，并给出可见警告', (tester) async {
+  testWidgets('云端保存失败时保持云端原主题，并给出可见警告', (tester) async {
     MeTestHarness.useTallSurface(tester);
     SharedPreferences.setMockInitialValues({});
     final harness = await MeTestHarness.create();
@@ -165,8 +165,8 @@ void main() {
     await tester.tap(find.byKey(const Key('me-theme-dark')));
     await tester.pumpAndSettle();
 
-    expect(appearance.themeMode, MeThemeMode.dark);
-    expect(find.textContaining('云端同步失败'), findsOneWidget);
+    expect(appearance.themeMode, MeThemeMode.light);
+    expect(find.textContaining('云端保存失败'), findsOneWidget);
   });
 
   testWidgets('未接入宿主时 T09 页面内也能立即切换深色（兜底且幂等）', (tester) async {

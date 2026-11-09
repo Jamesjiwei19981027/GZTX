@@ -9,7 +9,7 @@ from copy import deepcopy
 from fastapi import APIRouter, HTTPException, Request, status, File, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.core.dependencies import CurrentUser, DbSession
 from app.core.security import verify_password, get_password_hash
@@ -37,39 +37,48 @@ async def get_me(user: CurrentUser):
     return ResponseData(data=UserDetail.model_validate(user).model_dump())
 
 
+def _merge_notify_pref(current_pref: dict | None, notify_pref: dict) -> dict:
+    """字段级合并：只改传入的开关/静音时段，保留 SMTP/LLM 凭证与 ui 偏好。"""
+    merged = deepcopy(current_pref or {})
+    incoming_channels = notify_pref.get("channels")
+    if incoming_channels is not None:
+        channels = merged.setdefault("channels", {})
+        for channel, values in incoming_channels.items():
+            current = dict(channels.get(channel) or {})
+            current.update(values or {})
+            channels[channel] = current
+    incoming_quiet_hours = notify_pref.get("quiet_hours")
+    if incoming_quiet_hours is not None:
+        quiet_hours = dict(merged.get("quiet_hours") or {})
+        quiet_hours.update(incoming_quiet_hours or {})
+        merged["quiet_hours"] = quiet_hours
+    if "weekend_mute" in notify_pref:
+        merged["weekend_mute"] = notify_pref["weekend_mute"]
+    return merged
+
+
 @router.put("/me", response_model=ResponseData)
 async def update_me(data: UserUpdate, db: DbSession, user: CurrentUser):
     """更新当前用户信息"""
+    from sqlalchemy.orm.attributes import flag_modified
+
+    from app.services.notify_pref_lock import locked_pref_update
+
     update_data = data.model_dump(exclude_unset=True)
     notify_pref = update_data.pop("notify_pref", None)
-    for key, value in update_data.items():
-        setattr(user, key, value)
+    if notify_pref is None:
+        for key, value in update_data.items():
+            setattr(user, key, value)
+        await db.flush()
+        return ResponseData(data=UserDetail.model_validate(user).model_dump())
 
-    if notify_pref is not None:
-        # Keep SMTP/LLM credentials written by their dedicated endpoints. The
-        # settings page only sends toggles and quiet-hours, so a shallow replace
-        # would silently erase credentials on every preference change.
-        merged = deepcopy(user.notify_pref or {})
-        incoming_channels = notify_pref.pop("channels", None)
-        if incoming_channels is not None:
-            channels = merged.setdefault("channels", {})
-            for channel, values in incoming_channels.items():
-                current = dict(channels.get(channel) or {})
-                current.update(values or {})
-                channels[channel] = current
-        incoming_quiet_hours = notify_pref.pop("quiet_hours", None)
-        if incoming_quiet_hours is not None:
-            quiet_hours = dict(merged.get("quiet_hours") or {})
-            quiet_hours.update(incoming_quiet_hours or {})
-            merged["quiet_hours"] = quiet_hours
-        if "weekend_mute" in notify_pref:
-            merged["weekend_mute"] = notify_pref["weekend_mute"]
-        user.notify_pref = merged
-        from sqlalchemy.orm.attributes import flag_modified
-
+    # notify_pref 与 ui-prefs 共用一列：加锁重读后再合并并立即提交
+    async with locked_pref_update(db, user):
+        for key, value in update_data.items():
+            setattr(user, key, value)
+        user.notify_pref = _merge_notify_pref(user.notify_pref, notify_pref)
         flag_modified(user, "notify_pref")
-
-    await db.flush()
+        await db.commit()
     return ResponseData(data=UserDetail.model_validate(user).model_dump())
 
 
@@ -189,6 +198,7 @@ async def delete_my_account(data: AccountDeleteRequest, db: DbSession, user: Cur
     from datetime import datetime, timezone
 
     from app.models.notify import PushSubscription
+    from app.models.sso import OrgDirectoryPerson, SsoBinding
 
     user.is_active = False
     user.nickname = "已删除用户"
@@ -198,6 +208,14 @@ async def delete_my_account(data: AccountDeleteRequest, db: DbSession, user: Cur
     # 且 /wx/login 会继续命中这条已删除记录。
     user.wx_openid = None
     user.wx_unionid = None
+    # 撤销外部身份绑定及通讯录到个人账户的链接，避免已注销用户的 IdP 身份永久占用。
+    for binding in (await db.scalars(select(SsoBinding).where(SsoBinding.user_id == user.id))).all():
+        await db.delete(binding)
+    await db.execute(
+        update(OrgDirectoryPerson)
+        .where(OrgDirectoryPerson.user_id == user.id)
+        .values(user_id=None)
+    )
     # 撤销全部已签发会话（access + refresh 一起），并作废 ICS 订阅地址
     user.sessions_revoked_at = datetime.now(timezone.utc)
     user.calendar_feed_token = None
@@ -379,6 +397,8 @@ async def confirm_bind_code(data: VerifyConfirmRequest, db: DbSession, user: Cur
     return ResponseData(
         message="验证成功",
         data={
+            "email": user.email or "",
+            "phone": user.phone or "",
             "email_verified": user.email_verified,
             "phone_verified": user.phone_verified,
             "is_verified": user.is_verified,

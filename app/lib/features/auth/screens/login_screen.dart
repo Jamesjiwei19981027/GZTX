@@ -8,6 +8,7 @@ import '../../../design/design.dart';
 import '../auth_paths.dart';
 import '../data/auth_api.dart';
 import '../data/auth_flow.dart';
+import '../data/native_sso.dart';
 import '../models/auth_models.dart';
 import '../utils/auth_error_message.dart';
 import '../utils/auth_validators.dart';
@@ -22,12 +23,14 @@ enum LoginKind { password, code }
 
 /// 登录页（账号密码登录 / 验证码免密登录）
 ///
-/// 功能真源：`frontend/src/mobile/features/auth/MobileAuthScreens.tsx` 模式 01 与 79。
+/// 与网页正式 LoginGate 共用认证接口与企业登录开关。
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.api});
+  const LoginScreen({super.key, this.api, this.companyId, this.sso});
 
   /// 测试注入用；生产从 `context.apiClient` 获取
   final AuthApi? api;
+  final int? companyId;
+  final NativeSso? sso;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -46,6 +49,16 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _busy = false;
   String? _error;
   String? _hint;
+  bool _configLoading = false;
+  String? _configError;
+  bool _configPrepared = false;
+  int _configRequest = 0;
+  int? _dingtalkCompanyId;
+
+  bool get _passwordAllowed =>
+      !_configLoading && _configError == null && _regConfig.passwordEnabled;
+  bool get _codeAllowed =>
+      !_configLoading && _configError == null && _regConfig.codeEnabled;
 
   @override
   void initState() {
@@ -59,12 +72,57 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_configPrepared) {
+      _configPrepared = true;
+      _configLoading = _api != null;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant LoginScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.companyId != widget.companyId ||
+        oldWidget.api != widget.api) {
+      _loadRegistrationConfig();
+    }
+  }
+
   Future<void> _loadRegistrationConfig() async {
+    final version = ++_configRequest;
     final api = _api;
     if (api == null) return;
-    final cfg = await api.fetchRegistrationConfig();
-    if (mounted) {
-      setState(() => _regConfig = cfg);
+    setState(() {
+      _configLoading = true;
+      _configError = null;
+      _dingtalkCompanyId = null;
+    });
+    try {
+      final cfg = await api.fetchRegistrationConfig(
+          companyId: widget.companyId ?? _authState?.currentCompany?.id);
+      int? dingtalkCompany;
+      if (cfg.loginMethods['dingtalk'] == true) {
+        try {
+          dingtalkCompany = await api.availableDingtalkCompany(
+              companyId: widget.companyId ?? _authState?.currentCompany?.id);
+        } catch (_) {/* 配置不可用时隐藏企业入口，保留其他可用登录方式。 */}
+      }
+      if (!mounted || version != _configRequest) return;
+      setState(() {
+        _regConfig = cfg;
+        _dingtalkCompanyId = dingtalkCompany;
+        _configLoading = false;
+        if (!cfg.passwordEnabled && cfg.codeEnabled) _kind = LoginKind.code;
+        if (!cfg.codeEnabled && cfg.passwordEnabled) _kind = LoginKind.password;
+      });
+    } catch (e) {
+      if (!mounted || version != _configRequest) return;
+      setState(() {
+        _configLoading = false;
+        _configError = '无法读取企业登录方式，请重试或联系管理员';
+      });
     }
   }
 
@@ -111,6 +169,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _target.text.trim().isNotEmpty && _code.text.trim().isNotEmpty;
 
   Future<void> _submitPassword() async {
+    if (!_passwordAllowed || _busy) return;
     final username = _username.text.trim();
     final password = _password.text;
     if (username.isEmpty || password.isEmpty) {
@@ -143,6 +202,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submitCode() async {
+    if (!_codeAllowed || _busy) return;
     final target = _target.text.trim();
     final code = _code.text.trim();
     final channel = AuthValidators.detectChannel(target);
@@ -181,6 +241,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _sendLoginCode() async {
+    if (!_codeAllowed || _busy) return;
     _clearMessages();
     final target = _target.text.trim();
     final channel = AuthValidators.detectChannel(target);
@@ -213,6 +274,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _switchKind(LoginKind kind) {
+    if ((kind == LoginKind.password && !_passwordAllowed) ||
+        (kind == LoginKind.code && !_codeAllowed)) {
+      return;
+    }
     if (_kind == kind) return;
     setState(() {
       _kind = kind;
@@ -235,84 +300,34 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _openForgotHelp() async {
-    await showAppBottomSheet<void>(
-      context: context,
-      title: '找回密码说明',
-      builder: (ctx) => SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(
-          AppSpacing.xl,
-          AppSpacing.md,
-          AppSpacing.xl,
-          AppSpacing.xl,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              '当前系统支持以下重置或登录渠道：',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            _helpItem(
-              ctx,
-              '免密验证码登录：',
-              '如果您的账号已绑定手机号或工作邮箱，可直接通过「验证码登录」快捷进入工作区。',
-            ),
-            _helpItem(
-              ctx,
-              '管理员密码重置：',
-              '企业或私有化部署环境下，系统管理员可在管理后台为您重置登录凭证。',
-            ),
-            _helpItem(
-              ctx,
-              '安全提示：',
-              '平台不会通过不可信链接请求您提供明文密码。',
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            AppButton(
-              label: '使用验证码直接登录',
-              isFullWidth: true,
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _switchKind(LoginKind.code);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
+    final result = await context.push<String>(Uri(
+        path: AuthPaths.resetPassword,
+        queryParameters: {'target': _username.text.trim()}).toString());
+    if (!mounted || result == null) return;
+    setState(() {
+      _username.text = result;
+      _password.clear();
+      _kind = LoginKind.password;
+      _error = null;
+      _hint = '密码已重置，请使用新密码登录';
+    });
   }
 
-  Widget _helpItem(BuildContext context, String title, String body) {
-    final isDark = isDarkMode(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            body,
-            style: TextStyle(
-              fontSize: 13,
-              height: 1.45,
-              color: isDark
-                  ? AppColors.darkTextSecondary
-                  : AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
+  Future<void> _startDingtalk() async {
+    if (_busy || _dingtalkCompanyId == null || _api == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+      _hint = null;
+    });
+    try {
+      await (widget.sso ?? NativeSso(_api!)).begin(_dingtalkCompanyId!);
+      if (mounted) setState(() => _hint = '请在系统浏览器完成钉钉授权，然后返回应用');
+    } catch (error) {
+      if (mounted) setState(() => _error = describeAuthError(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -351,8 +366,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     type: AuthBannerType.hint,
                   ),
                 const Text(
-                  '欢迎回来',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  '登录',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
@@ -365,19 +380,44 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                AppSegmentedControl<LoginKind>(
-                  segments: const {
-                    LoginKind.password: '账号密码登录',
-                    LoginKind.code: '验证码免密登录',
-                  },
-                  selectedValue: _kind,
-                  onValueChanged: _switchKind,
-                ),
+                if (_configLoading) const Center(child: AppLoading()),
+                if (_configError != null) ...[
+                  AuthMessageBanner(
+                      message: _configError!, type: AuthBannerType.error),
+                  AppButton(
+                      label: '重新读取登录方式', onPressed: _loadRegistrationConfig),
+                ],
+                if (_passwordAllowed && _codeAllowed)
+                  AppSegmentedControl<LoginKind>(
+                    segments: const {
+                      LoginKind.password: '账号密码登录',
+                      LoginKind.code: '验证码免密登录',
+                    },
+                    selectedValue: _kind,
+                    onValueChanged: _switchKind,
+                  ),
                 const SizedBox(height: AppSpacing.xl),
-                if (_kind == LoginKind.password)
+                if (_kind == LoginKind.password && _passwordAllowed)
                   _buildPasswordForm(context)
-                else
+                else if (_kind == LoginKind.code && _codeAllowed)
                   _buildCodeForm(context),
+                if (!_configLoading &&
+                    _configError == null &&
+                    !_passwordAllowed &&
+                    !_codeAllowed &&
+                    _dingtalkCompanyId == null)
+                  const AuthMessageBanner(
+                      message: '当前企业未开放本页支持的登录方式，请联系管理员使用企业登录入口',
+                      type: AuthBannerType.hint),
+                if (_dingtalkCompanyId != null) ...[
+                  const SizedBox(height: AppSpacing.lg),
+                  AppButton(
+                      key: const ValueKey('login-dingtalk'),
+                      label: '钉钉登录',
+                      isFullWidth: true,
+                      isLoading: _busy,
+                      onPressed: _busy ? null : _startDingtalk),
+                ],
                 const SizedBox(height: AppSpacing.xl),
                 _buildRegisterEntry(context, isDark),
                 const SizedBox(height: AppSpacing.lg),
@@ -385,7 +425,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   '继续操作即代表您已同意使用规范与工作数据保护声明',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: isDark
                         ? AppColors.darkTextTertiary
                         : AppColors.textTertiary,
@@ -404,23 +444,13 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
       child: Column(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            ),
-            child: const Center(
-              child: AppIcon('work', size: 30, color: AppColors.primary),
-            ),
-          ),
+          const AppBrandMark(size: 56),
           const SizedBox(height: AppSpacing.md),
           Text(
             Brand.name,
             style: TextStyle(
               fontSize: 24,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
@@ -429,8 +459,9 @@ class _LoginScreenState extends State<LoginScreen> {
             Brand.tagline,
             style: TextStyle(
               fontSize: 12,
-              color:
-                  isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
         ],
@@ -460,9 +491,8 @@ class _LoginScreenState extends State<LoginScreen> {
           placeholder: '请输入登录密码',
           obscureText: _obscurePassword,
           textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _canSubmitPassword && !_busy
-              ? _submitPassword()
-              : null,
+          onSubmitted: (_) =>
+              _canSubmitPassword && !_busy ? _submitPassword() : null,
           prefix: const AppIcon('lock', size: 18),
           enabled: !_busy,
           suffix: _buildEyeToggle(),
@@ -472,7 +502,7 @@ class _LoginScreenState extends State<LoginScreen> {
           alignment: Alignment.centerRight,
           child: TextButton(
             onPressed: _openForgotHelp,
-            child: const Text('找回密码帮助', style: TextStyle(fontSize: 12)),
+            child: const Text('忘记密码', style: TextStyle(fontSize: 12)),
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
@@ -571,7 +601,8 @@ class _LoginScreenState extends State<LoginScreen> {
           '还没有账号？',
           style: TextStyle(
             fontSize: 12,
-            color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+            color:
+                isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
           ),
         ),
         TextButton(

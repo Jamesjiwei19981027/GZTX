@@ -89,7 +89,7 @@ DICT_BODY_SCHEMAS: dict[tuple[str, str], dict[str, Any]] = {
         {
             "channel": {"type": "string", "enum": ["email", "sms"], "description": "发送渠道"},
             "target": {"type": "string", "description": "邮箱或手机号"},
-            "purpose": {"type": "string", "enum": ["register", "login"], "default": "register"},
+            "purpose": {"type": "string", "enum": ["register", "login", "reset_password"], "default": "register"},
         },
         ["channel", "target"],
     ),
@@ -100,6 +100,15 @@ DICT_BODY_SCHEMAS: dict[tuple[str, str], dict[str, Any]] = {
             "code": {"type": "string", "description": "收到的验证码"},
         },
         ["channel", "target", "code"],
+    ),
+    ("post", "/api/v1/auth/reset-password"): _obj(
+        {
+            "channel": {"type": "string", "enum": ["email", "sms"]},
+            "target": {"type": "string", "description": "注册时使用的邮箱或手机号"},
+            "code": {"type": "string", "description": "收到的验证码"},
+            "new_password": {"type": "string", "description": "新密码（至少 6 位）"},
+        },
+        ["channel", "target", "code", "new_password"],
     ),
     ("put", "/api/v1/categories/reorder"): _obj(
         {"category_ids": {"type": "array", "items": {"type": "integer"}, "description": "按新顺序排列的分类 ID"}},

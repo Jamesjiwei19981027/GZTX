@@ -17,6 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.collab_errors import CollabError, fail
+from app.api.deps_collab import assert_collaboration_write
 from app.core.dependencies import CurrentUser, DbSession
 from app.core.config import settings
 from app.models.collab_file import CollabFile
@@ -448,6 +449,7 @@ async def post_message(
         return fail(404, 40400, "频道不存在")
     try:
         await _require_channel_scope(db, user.id, ch.company_id, ch.project_id)
+        await assert_collaboration_write(db, ch.company_id, project_id=ch.project_id, user_id=user.id)
     except CollabError as e:
         return fail(e.http_status, e.code, e.message)
     m = TeamChannelMessage(
@@ -861,7 +863,8 @@ async def post_direct_message(
 ):
     """发送私聊消息"""
     try:
-        await _require_direct_member(db, user.id, conversation_id)
+        conversation = await _require_direct_member(db, user.id, conversation_id)
+        await assert_collaboration_write(db, conversation.company_id, project_id=conversation.project_id, user_id=user.id)
     except CollabError as e:
         return fail(e.http_status, e.code, e.message)
     message = DirectMessage(
@@ -1370,8 +1373,8 @@ async def task_stats_trend(
 @router.put("/users/me/ui-prefs", response_model=ResponseData)
 async def put_ui_prefs(body: UiPrefsBody, db: DbSession, user: CurrentUser):
     """保存界面偏好"""
-    pref = dict(user.notify_pref or {})
-    ui = dict(pref.get("ui") or {})
+    from app.services.notify_pref_lock import locked_pref_update
+
     data = body.model_dump(exclude_unset=True)
     if data.get("task_default_priority") is not None and data["task_default_priority"] not in (0, 1, 2):
         return fail(422, 42200, "task_default_priority must be 0, 1, or 2")
@@ -1384,11 +1387,14 @@ async def put_ui_prefs(body: UiPrefsBody, db: DbSession, user: CurrentUser):
         )
         if not category_exists:
             return fail(404, 40400, "default category not found")
-    ui.update({k: v for k, v in data.items() if v is not None})
-    pref["ui"] = ui
-    user.notify_pref = pref
-    flag_modified(user, "notify_pref")
-    await db.commit()
+    async with locked_pref_update(db, user):
+        pref = dict(user.notify_pref or {})
+        ui = dict(pref.get("ui") or {})
+        ui.update({k: v for k, v in data.items() if v is not None})
+        pref["ui"] = ui
+        user.notify_pref = pref
+        flag_modified(user, "notify_pref")
+        await db.commit()
     return ResponseData(data={"ui": ui})
 
 

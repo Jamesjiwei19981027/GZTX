@@ -13,6 +13,7 @@ import '../data/projects_repository.dart';
 import '../models/project_models.dart';
 import '../widgets/project_error_view.dart';
 import '../widgets/project_widgets.dart';
+import 'company_members_screen.dart';
 
 enum TeamRoleFilter { all, manager, member }
 
@@ -60,8 +61,7 @@ class _TeamScreenState extends State<TeamScreen> {
     });
   }
 
-  ProjectsRepository get _repo =>
-      ProjectsRepository(context.authStateRead.api);
+  ProjectsRepository get _repo => ProjectsRepository(context.authStateRead.api);
 
   Future<void> _load() async {
     // 序号用于丢弃旧参数请求的迟到结果
@@ -116,13 +116,11 @@ class _TeamScreenState extends State<TeamScreen> {
   }
 
   /// 现任成员（`left_at` 为空）；已退出成员单列，不计入角色统计
-  List<ProjectMember> get _activeMembers => _members
-      .where((member) => member.isActive)
-      .toList(growable: false);
+  List<ProjectMember> get _activeMembers =>
+      _members.where((member) => member.isActive).toList(growable: false);
 
-  List<ProjectMember> get _departedMembers => _members
-      .where((member) => member.hasLeft)
-      .toList(growable: false);
+  List<ProjectMember> get _departedMembers =>
+      _members.where((member) => member.hasLeft).toList(growable: false);
 
   List<ProjectMember> get _filtered {
     final keyword = _search.trim().toLowerCase();
@@ -154,8 +152,22 @@ class _TeamScreenState extends State<TeamScreen> {
   int get _managerCount =>
       _activeMembers.where((member) => member.isManager).length;
 
+  int? get _manageableCompanyId {
+    final auth = context.authStateRead;
+    for (final project in auth.projects) {
+      if (project.id != widget.projectId) continue;
+      for (final company in auth.companies) {
+        if (company.id == project.companyId && company.isSuperAdmin) {
+          return company.id;
+        }
+      }
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
+    context.authState;
     return AppScaffold(
       title: '项目团队与成员',
       body: _buildBody(),
@@ -189,6 +201,18 @@ class _TeamScreenState extends State<TeamScreen> {
 
     return Column(
       children: [
+        if (_manageableCompanyId != null)
+          AppListTile(
+              title: '企业成员管理',
+              subtitle: '角色、启用停用与移出企业',
+              onTap: () async {
+                final companyId = _manageableCompanyId;
+                if (companyId == null) return;
+                await Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) =>
+                        CompanyMembersScreen(companyId: companyId)));
+                if (mounted) _load();
+              }),
         Padding(
           padding: const EdgeInsets.fromLTRB(
             AppSpacing.lg,
@@ -243,7 +267,7 @@ class _TeamScreenState extends State<TeamScreen> {
             ),
             child: InfoBanner(
               message:
-                  '在线状态暂不可用（${projectErrorMessage(_presenceError!)}），成员列表不受影响。',
+                  '在线状态暂不可用（${projectErrorMessage(_presenceError!)}），成员列表不受影响',
               tone: InfoBannerTone.warning,
               icon: 'wifi-off',
             ),
@@ -257,8 +281,8 @@ class _TeamScreenState extends State<TeamScreen> {
     if (_members.isEmpty) {
       return AppEmptyState(
         title: '项目暂无成员',
-        description: '可在项目概览页点「邀请新成员加入」，把同事拉进本项目。',
-        icon: const AppIcon('team', size: 44, color: AppColors.textTertiary),
+        description: '可在项目概览页点「邀请新成员加入」，把同事拉进本项目',
+        icon: const AppIcon('team', size: 18, color: AppColors.textTertiary),
         actionLabel: '去项目概览',
         onAction: () => context.pushReplacement(
           '/projects/${widget.projectId}',
@@ -272,7 +296,7 @@ class _TeamScreenState extends State<TeamScreen> {
       return const AppEmptyState(
         title: '无匹配成员',
         description: '未找到符合搜索条件的成员',
-        icon: AppIcon('search', size: 40, color: AppColors.textTertiary),
+        icon: AppIcon('search', size: 18, color: AppColors.textTertiary),
       );
     }
 
@@ -365,7 +389,7 @@ class _FilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
@@ -377,7 +401,7 @@ class _FilterChip extends StatelessWidget {
               : (isDarkMode(context)
                   ? AppColors.darkSurfaceVariant
                   : AppColors.surfaceVariant),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         ),
         child: Text(
           label,

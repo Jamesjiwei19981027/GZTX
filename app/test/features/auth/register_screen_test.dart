@@ -264,7 +264,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
-      expect(find.text('欢迎回来'), findsOneWidget);
+      expect(find.text('登录'), findsOneWidget);
     });
   });
 }

@@ -164,7 +164,9 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
         : _reports;
     switch (_filter) {
       case 'unread':
-        return scoped.where((report) => report.isUnread).toList(growable: false);
+        return scoped
+            .where((report) => report.isUnread)
+            .toList(growable: false);
       case 'need_evidence':
         return scoped
             .where((report) => report.sourceCount == 0)
@@ -214,8 +216,11 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
         title: '下属汇报收件箱',
         body: AppEmptyState(
           title: '请选择具体项目',
-          description: '汇报按项目隔离，请先切换到具体项目。',
-          icon: AppIcon('folder', size: 44, color: AppColors.primary),
+          description: '汇报按项目隔离，请先切换到具体项目',
+          icon: AppIcon(
+            'folder',
+            size: 18,
+          ),
         ),
       );
     }
@@ -240,7 +245,7 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
       return const AppEmptyState(
         title: '无权访问管理者收件箱',
         description: '根据人轴责任原则，下属汇报仅限项目管理者或直属领导查阅。普通项目成员不可越权查看。',
-        icon: AppIcon('lock', size: 44, color: AppColors.warning),
+        icon: AppIcon('lock', size: 18, color: AppColors.warning),
       );
     }
 
@@ -270,8 +275,9 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
             title: _filter == 'unread' ? '暂无待阅汇报' : '当前筛选下暂无汇报',
             description: _filter == 'unread'
                 ? '所有下属提交的汇报均已阅读完成'
-                : '下属提交汇报后会出现在这里，可按未读或待补资料筛选。',
-            icon: const AppIcon('bell', size: 44, color: AppColors.textTertiary),
+                : '下属提交汇报后会出现在这里，可按未读或待补资料筛选',
+            icon:
+                const AppIcon('bell', size: 18, color: AppColors.textTertiary),
           )
         else
           ReportCard(
@@ -306,12 +312,12 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
         ),
         const SizedBox(height: AppSpacing.lg),
         const ReportInfoBanner(
-          '你与项目智能体会同时收到汇报提醒，已读状态会通过服务端同步到其他设备。',
+          '你与项目智能体会同时收到汇报提醒，已读状态会通过服务端同步到其他设备',
         ),
         const SizedBox(height: AppSpacing.lg),
         AppButton(
           label: '汇总项目汇报',
-          icon: const AppIcon('ai', size: 17, color: Colors.white),
+          icon: const AppIcon('ai', size: 18, color: Colors.white),
           onPressed: () => context.push(
             '/reports/project/aggregate?projectId=$projectId',
           ),
@@ -323,7 +329,7 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
 
   Widget _reportRow(BuildContext context, AgentReport report) {
     final author = _memberOf(report.authorUserId);
-    final name = author?.displayName ?? '成员（编号 ${report.authorUserId ?? '-' }）';
+    final name = author?.displayName ?? '成员（编号 ${report.authorUserId ?? '-'}）';
     return InkWell(
       onTap: () => _open(report),
       child: Padding(
@@ -339,7 +345,7 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
                 name.characters.first,
                 style: const TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.primary,
                 ),
               ),
@@ -353,21 +359,24 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
                     '$name · ${author?.roleLabel ?? '项目成员'}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w500),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     report.summaryPreview,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textSecondary),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     report.submittedAt == null
                         ? '提交时间未知'
                         : formatReportMonthDayTime(report.submittedAt),
-                    style: const TextStyle(fontSize: 10.5, color: AppColors.textTertiary),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textTertiary),
                   ),
                 ],
               ),
@@ -375,10 +384,13 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
             const SizedBox(width: AppSpacing.sm),
             ReportStatusChip(
               label: report.isUnread ? '未读' : '已读',
-              tone: report.isUnread ? ReportBannerTone.info : ReportBannerTone.neutral,
+              tone: report.isUnread
+                  ? ReportBannerTone.info
+                  : ReportBannerTone.neutral,
             ),
             const SizedBox(width: AppSpacing.xs),
-            const AppIcon('chevron-right', size: 16, color: AppColors.textTertiary),
+            const AppIcon('chevron-right',
+                size: 18, color: AppColors.textTertiary),
           ],
         ),
       ),
@@ -393,14 +405,14 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
             value,
             style: TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: warning ? AppColors.warning : AppColors.primary,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+            style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
         ],
       ),

@@ -80,7 +80,7 @@ class _MeNotifyLogsScreenState extends State<MeNotifyLogsScreen> {
         actions: [
           IconButton(
             tooltip: '刷新',
-            icon: const AppIcon('refresh', size: 20),
+            icon: const AppIcon('refresh', size: 18),
             onPressed: _loading ? null : _load,
           ),
         ],
@@ -107,12 +107,13 @@ class _MeNotifyLogsScreenState extends State<MeNotifyLogsScreen> {
               MeCard(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.symmetric(vertical: AppSpacing.xl),
+                    padding:
+                        const EdgeInsets.symmetric(vertical: AppSpacing.xl),
                     child: Column(
                       children: [
                         AppIcon(
                           'clock',
-                          size: 40,
+                          size: 18,
                           color: isDarkMode(context)
                               ? AppColors.darkTextTertiary
                               : AppColors.textTertiary,
@@ -122,14 +123,14 @@ class _MeNotifyLogsScreenState extends State<MeNotifyLogsScreen> {
                           '暂无通知记录',
                           style: TextStyle(
                             fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
                           '当前筛选条件下没有产生通知发送日志',
                           style: TextStyle(
-                            fontSize: 12.5,
+                            fontSize: 13,
                             color: isDarkMode(context)
                                 ? AppColors.darkTextSecondary
                                 : AppColors.textSecondary,
@@ -172,7 +173,7 @@ class _MeNotifyLogsScreenState extends State<MeNotifyLogsScreen> {
             Text(
               formatDisplayDateTime(record.createdAt),
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: isDark
                     ? AppColors.darkTextTertiary
                     : AppColors.textTertiary,
@@ -187,10 +188,9 @@ class _MeNotifyLogsScreenState extends State<MeNotifyLogsScreen> {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color:
-                  isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
         ],

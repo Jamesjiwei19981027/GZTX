@@ -114,7 +114,7 @@ class AppButton extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: fontSize,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color: fgColor,
               ),
             )),
@@ -136,7 +136,7 @@ class AppButton extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: fontSize,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: enabled ? fgColor : fgColor.withValues(alpha: 0.4),
             ),
           )),

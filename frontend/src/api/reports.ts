@@ -8,6 +8,12 @@ export type ReportPolicy = {
   trigger: string
   template_key: string
   enabled: boolean
+  /** 汇报策略：周期 / 截止时间 / 提醒（旧数据没有这些字段时按默认值显示） */
+  period?: 'daily' | 'weekly' | 'monthly'
+  deadline_time?: string
+  weekday?: number
+  month_day?: number
+  remind?: boolean
 }
 
 export type ProjectReportRun = {
@@ -38,6 +44,8 @@ export type ReportAgentBinding = {
 }
 
 export type AgentReport = {
+  can_review?: boolean
+  review?: { decision: 'approved' | 'returned'; comment: string; reviewer_user_id: number; reviewed_at: string } | null
   id: number
   binding_id: number
   author_user_id: number
@@ -108,6 +116,10 @@ export async function getReportDetail(reportId: number) {
   return apiRequest<AgentReport>(`/reports/${reportId}`)
 }
 
+export async function reviewReport(reportId: number, decision: 'approved' | 'returned', comment: string) {
+  return apiRequest<AgentReport>(`/reports/${reportId}/review`, { method: 'POST', body: JSON.stringify({ decision, comment: comment.trim() }) })
+}
+
 export async function submitReportEdit(reportId: number, body: { summary?: string; sources?: ReportSource[] } = {}) {
   return apiRequest<AgentReport>(`/reports/${reportId}/submit`, {
     method: 'POST',
@@ -124,6 +136,10 @@ export async function submitAgentReport(projectId: number, body: { binding_id: n
 
 export async function aggregateAgentReports(projectId: number) {
   return apiRequest<{ id: number; project_id: number; status: string; summary_text: string; payload_json?: Record<string, unknown> }>(`/projects/${projectId}/agent-reports/aggregate`, { method: 'POST', body: '{}' })
+}
+
+export async function getLatestProjectAgentReport(projectId: number) {
+  return apiRequest<{ id: number; project_id: number; status: string; summary_text: string; payload_json?: Record<string, unknown> } | null>(`/projects/${projectId}/agent-reports/latest`)
 }
 
 export async function aggregateLeadershipReport(companyId: number, projectIds?: number[]) {

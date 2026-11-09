@@ -11,6 +11,56 @@ class AuthApi {
 
   final ApiClient _client;
 
+  String get baseUrl => _client.baseUrl;
+
+  Future<void> resetPassword(
+      {required AuthChannel channel,
+      required String target,
+      required String code,
+      required String newPassword}) async {
+    await _client.post('/auth/reset-password', body: {
+      'channel': channel.apiValue,
+      'target': target.trim(),
+      'code': code.trim(),
+      'new_password': newPassword,
+    });
+  }
+
+  /// 只有后端确认凭据完整且启用的钉钉入口才展示。
+  Future<int?> availableDingtalkCompany({int? companyId}) async {
+    final dynamic res = await _client.get('/sso/options',
+        query: companyId == null ? null : {'company_id': '$companyId'});
+    if (res is Map && res['items'] is List) {
+      for (final item in res['items'] as List) {
+        if (item is Map &&
+            item['provider'] == 'dingtalk' &&
+            item['company_id'] is num) {
+          final id = (item['company_id'] as num).toInt();
+          if (companyId == null || id == companyId) return id;
+        }
+      }
+    }
+    return null;
+  }
+
+  Uri dingtalkBrowserUrl({required int companyId, required String challenge}) =>
+      Uri.parse('${baseUrl.replaceFirst(RegExp(r'/$'), '')}/sso/dingtalk')
+          .replace(queryParameters: {
+        'company_id': '$companyId',
+        'return_to': 'worktodo://sso/callback',
+        'code_challenge': challenge,
+        'code_challenge_method': 'S256',
+      });
+
+  Future<AuthSession> completeSso(
+      {required String ticket, required String verifier}) async {
+    final dynamic res = await _client.post('/sso/complete', body: {
+      'ticket': ticket,
+      'code_verifier': verifier,
+    });
+    return _parseSession(res, fallbackMessage: '企业登录失败：未获取到访问令牌');
+  }
+
   /// 账号密码登录（`username` 兼容用户名 / 邮箱 / 手机号）
   Future<AuthSession> loginWithPassword({
     required String username,
@@ -93,11 +143,16 @@ class AuthApi {
   }
 
   /// 读取注册模式与手机必验配置（匿名）
-  Future<RegistrationConfig> fetchRegistrationConfig() async {
+  Future<RegistrationConfig> fetchRegistrationConfig({int? companyId}) async {
     try {
-      final dynamic res = await _client.get('/auth/registration-config');
+      final dynamic res = await _client.get('/auth/registration-config',
+          query: companyId == null ? null : {'company_id': '$companyId'});
+      if (companyId != null && (res is! Map || res['login_methods'] is! Map)) {
+        throw ApiException('企业登录方式配置尚不可用，请联系管理员更新服务');
+      }
       return RegistrationConfig.fromJson(res);
     } catch (_) {
+      if (companyId != null) rethrow;
       return const RegistrationConfig();
     }
   }

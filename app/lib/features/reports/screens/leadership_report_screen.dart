@@ -57,7 +57,8 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
   @override
   void didUpdateWidget(covariant LeadershipReportScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.companyId != widget.companyId || oldWidget.api != widget.api) {
+    if (oldWidget.companyId != widget.companyId ||
+        oldWidget.api != widget.api) {
       _sync();
     }
   }
@@ -105,7 +106,8 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
         _loading = false;
         _forbidden = forbidden;
         _networkError = cause is NetworkException;
-        _error = forbidden ? null : reportErrorMessage(cause, fallback: '加载领导层总览失败');
+        _error =
+            forbidden ? null : reportErrorMessage(cause, fallback: '加载领导层总览失败');
       });
     }
   }
@@ -142,8 +144,8 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
         body: AppEmptyState(
           title: '需要总领导权限',
           description: '跨项目总览仅对组织总领导开放。系统保证总领导仅接收允许的项目摘要封装，'
-              '不合并各项目原始上下文。',
-          icon: AppIcon('lock', size: 44, color: AppColors.warning),
+              '不合并各项目原始上下文',
+          icon: AppIcon('lock', size: 18, color: AppColors.warning),
         ),
       );
     }
@@ -199,7 +201,7 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
           if (projects.isEmpty)
             const ReportCard(
               child: Text(
-                '当前企业暂无项目。',
+                '当前企业暂无项目',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
               ),
@@ -216,10 +218,14 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
                         color: isDarkMode(context)
                             ? const Color(0xFF16233A)
                             : const Color(0xFFEAF1FD),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
                       ),
                       child: const Center(
-                        child: AppIcon('folder', size: 17, color: AppColors.primary),
+                        child: AppIcon(
+                          'folder',
+                          size: 18,
+                        ),
                       ),
                     ),
                     const SizedBox(width: AppSpacing.md),
@@ -232,17 +238,17 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           const Text(
                             '项目摘要封装由项目汇总页生成，按项目隔离',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               color: AppColors.textTertiary,
                             ),
                           ),
@@ -257,7 +263,7 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
             ],
           const SizedBox(height: AppSpacing.sm),
           const ReportInfoBanner(
-            '总领导 AI 接收项目摘要封装，不合并各项目原始上下文。',
+            '总领导 AI 接收项目摘要封装，不合并各项目原始上下文',
           ),
           const SizedBox(height: AppSpacing.lg),
           AppButton(
@@ -265,7 +271,7 @@ class _LeadershipReportScreenState extends State<LeadershipReportScreen> {
             isLoading: _aggregating,
             icon: _aggregating
                 ? null
-                : const AppIcon('ai', size: 17, color: Colors.white),
+                : const AppIcon('ai', size: 18, color: Colors.white),
             onPressed: _aggregating ? null : _aggregate,
           ),
           const SizedBox(height: AppSpacing.xl),

@@ -13,6 +13,7 @@ import {
   submitAgentReport,
   listReportAgentBindings,
   getReportDetail,
+  listMyReports,
   AgentReport,
   ReportSource,
 } from '../../../api/reports';
@@ -21,6 +22,7 @@ import {
   loadLocalDraft,
   saveLocalDraft,
   clearLocalDraft,
+  mergeDraftText,
 } from './reportCapabilities';
 import { ReportSources } from './ReportSources';
 
@@ -118,6 +120,24 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
         })
         .catch(() => {});
     }
+
+    // 1.5 服务端草稿（含「记录进展」存进来的记录）并入编辑器，避免草稿只存在服务端、页面看不到
+    listMyReports(numericProjectId)
+      .then((res) => {
+        if (!active.current) return;
+        const serverDraft = (res.items || []).find((r) => r.status === 'draft' && (r.summary_text || '').trim());
+        if (!serverDraft) return;
+        const localCombined = local?.summary || '';
+        const merged = mergeDraftText(localCombined, serverDraft.summary_text || '');
+        if (merged !== localCombined.trim()) {
+          setCompletedText(merged);
+          setInProgressRiskText('');
+        }
+        setDraftReportId((prev) => prev ?? serverDraft.id);
+        if (serverDraft.sources?.length) setSources((prev) => (prev.length ? prev : serverDraft.sources || []));
+        if (serverDraft.parent_user_id != null) setParentUserId(serverDraft.parent_user_id);
+      })
+      .catch(() => {});
 
     // 2. 加载智能体绑定，确定 bindingId（直属领导仅由服务端草稿/人轴确定，前端不猜测）
     listReportAgentBindings(numericProjectId)
@@ -252,18 +272,18 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
 
   if (isAllProjects || !numericProjectId) {
     return (
-      <div className="flex flex-col h-full bg-[#f7f8fa] dark:bg-slate-950">
+      <div className="flex flex-col h-full bg-surface dark:bg-surface-container-lowest">
         <MobileTopBar title="写汇报" showBack onBack={goBack} />
         <ReportProjectSelector currentProject={currentProject} projects={projects} onSelectProject={onSelectProject} />
         <div className="flex-1 p-6 flex flex-col items-center justify-center">
-          <p className="text-sm text-slate-500">请先在具体项目中编辑与提交个人汇报</p>
+          <p className="text-sm text-on-surface-variant">请先在具体项目中编辑与提交个人汇报</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div ref={keyboard.ref} style={{ paddingBottom: keyboard.overlap }} className="flex flex-col h-full min-h-0 bg-[#f7f8fa] dark:bg-slate-950 select-none">
+    <div ref={keyboard.ref} style={{ paddingBottom: keyboard.overlap }} className="flex flex-col h-full min-h-0 bg-surface dark:bg-surface-container-lowest select-none">
       <MobileTopBar
         title="写汇报"
         showBack
@@ -275,44 +295,44 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
       <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {/* 顶部草稿状态标签 */}
         <div className="flex items-center justify-between">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800">
+          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-surface-container text-[#a86412] dark:bg-surface-container dark:text-[#d9a35b] border border-outline-variant dark:border-[#d9a35b] tabular-nums">
             草稿 · 仅自己可见
           </span>
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-outline">
             项目：{currentProject.name}
           </span>
         </div>
 
         {/* 错误提示条 */}
         {errorMessage && (
-          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-xs text-red-600 dark:text-red-400 flex items-start gap-2">
-            <AppIcon name="alert" size={16} className="shrink-0 mt-0.5 text-red-500" />
+          <div className="p-3 rounded-xl bg-error-container dark:bg-error border border-outline-variant dark:border-outline-variant text-xs text-error dark:text-error flex items-start gap-2">
+            <AppIcon name="alert" size={18} className="shrink-0 mt-1 text-inherit" />
             <div className="flex-1 leading-relaxed">{errorMessage}</div>
           </div>
         )}
 
         {/* 成功/信息提示条 */}
         {infoMessage && (
-          <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
-            <AppIcon name="check-circle" size={16} className="shrink-0 mt-0.5 text-emerald-500" />
+          <div className="p-3 rounded-xl bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-[#6bbf8a] text-xs text-[#2f7d4f] dark:text-[#6bbf8a] flex items-start gap-2">
+            <AppIcon name="check-circle" size={18} className="shrink-0 mt-1 text-inherit" />
             <div className="flex-1 leading-relaxed">{infoMessage}</div>
           </div>
         )}
 
         {/* 汇报周期 */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium text-on-surface dark:text-outline tabular-nums">
             汇报周期
           </label>
-          <div className="min-h-[46px] rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 px-3.5 py-2.5 flex items-center justify-between text-sm text-slate-800 dark:text-slate-200 shadow-2xs">
+          <div className="min-h-[48px] rounded-xl bg-surface-container-lowest dark:bg-surface-container border border-outline-variant/80 dark:border-outline-variant px-4 py-2 flex items-center justify-between text-sm text-on-surface dark:text-outline shadow-2xs">
             <span>{periodText}</span>
-            <AppIcon name="calendar" size={17} className="text-slate-400" />
+            <AppIcon name="calendar" size={18} className="text-inherit" />
           </div>
         </div>
 
         {/* 已完成 */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium text-on-surface dark:text-outline tabular-nums">
             已完成
           </label>
           <AutoGrowingTextarea
@@ -321,13 +341,13 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
             value={completedText}
             onChange={(e) => setCompletedText(e.target.value)}
             placeholder="描述本周已落地的具体成果、任务完成情况及评审结果…"
-            className="w-full rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-hidden focus:border-[#0058BE] transition-colors leading-relaxed shadow-2xs resize-none"
+            className="w-full rounded-lg bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant/80 dark:border-outline-variant p-3 text-sm text-on-surface dark:text-outline placeholder:text-outline outline-hidden focus:border-primary transition-ink-colors leading-relaxed shadow-2xs resize-none"
           />
         </div>
 
         {/* 进行中 / 风险 */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+        <div className="flex flex-col gap-2">
+          <label className="text-xs font-medium text-on-surface dark:text-outline tabular-nums">
             进行中 / 风险
           </label>
           <AutoGrowingTextarea
@@ -336,17 +356,17 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
             value={inProgressRiskText}
             onChange={(e) => setInProgressRiskText(e.target.value)}
             placeholder="描述当前阻塞问题、待决策事项或依赖外部的事项…"
-            className="w-full rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-3 text-sm text-slate-800 dark:text-slate-200 placeholder:text-slate-400 outline-hidden focus:border-[#0058BE] transition-colors leading-relaxed shadow-2xs resize-none"
+            className="w-full rounded-lg bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant/80 dark:border-outline-variant p-3 text-sm text-on-surface dark:text-outline placeholder:text-outline outline-hidden focus:border-primary transition-ink-colors leading-relaxed shadow-2xs resize-none"
           />
         </div>
 
         {/* 来源依据卡片 */}
         <section className="space-y-2">
           <div className="flex items-center justify-between px-1">
-            <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+            <h3 className="text-xs font-medium text-on-surface-variant dark:text-outline   tabular-nums">
               来源依据
             </h3>
-            <span className="text-[11px] text-slate-400">严格基于项目事实</span>
+            <span className="text-xs text-outline">严格基于项目事实</span>
           </div>
           <ReportSources
             sources={sources}
@@ -357,55 +377,55 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
 
         {/* 直属领导判定卡片 */}
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
+          <h3 className="text-xs font-medium text-on-surface-variant dark:text-outline   px-1 tabular-nums">
             提交接收人
           </h3>
           {parentUserId == null ? (
-            <div className="p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xs flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 flex items-center justify-center shrink-0">
-                <AppIcon name="user" size={20} />
+            <div className="p-4 rounded-xl border border-outline-variant/80 dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container shadow-2xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline flex items-center justify-center shrink-0">
+                <AppIcon name="user" size={18} />
               </div>
               <div className="flex-1 min-w-0">
-                <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 block truncate">
+                <strong className="text-sm font-medium text-on-surface dark:text-outline block truncate tabular-nums">
                   提交时由系统按人轴确定直属接收人
                 </strong>
-                <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                <p className="text-xs text-outline dark:text-on-surface-variant truncate mt-1">
                   以人轴最新责任链实时流转，无需手动选择
                 </p>
               </div>
-              <AppIcon name="check-circle" size={18} className="text-slate-300 dark:text-slate-600" />
+              <AppIcon name="check-circle" size={18} className="text-inherit text-inherit" />
             </div>
           ) : (
             <>
               <div
-                className={`p-3.5 rounded-2xl border flex items-center gap-3 bg-white dark:bg-slate-900 ${
+                className={`p-4 rounded-xl border flex items-center gap-3 bg-surface-container-lowest dark:bg-surface-container ${
                   parentUserId != null && supervisor.isSelf
-                    ? 'border-red-300 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20'
-                    : 'border-slate-200/80 dark:border-slate-800 shadow-2xs'
+                    ? 'border-outline-variant dark:border-outline-variant bg-error-container dark:bg-error'
+                    : 'border-outline-variant/80 dark:border-outline-variant shadow-2xs'
                 }`}
               >
-                <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/60 text-[#0058BE] dark:text-blue-300 font-bold flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-surface-container dark:bg-surface-container text-primary dark:text-primary font-medium flex items-center justify-center shrink-0 tabular-nums">
                   {supervisor.name ? supervisor.name.slice(0, 1) : '上'}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                    <strong className="text-sm font-medium text-on-surface dark:text-outline truncate tabular-nums">
                       {supervisor.name}
                     </strong>
                     {parentUserId != null && supervisor.isSelf && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">
+                      <span className="px-2 py-1 rounded text-xs font-medium bg-error-container text-error tabular-nums">
                         非法上级
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
+                  <p className="text-xs text-outline dark:text-on-surface-variant truncate mt-1">
                     {supervisor.role} · 人轴实时判定
                   </p>
                 </div>
-                <AppIcon name="check-circle" size={18} className={supervisor.isValid ? 'text-emerald-500' : 'text-slate-300'} />
+                <AppIcon name="check-circle" size={18} className={supervisor.isValid ? 'text-inherit' : 'text-inherit'} />
               </div>
               {parentUserId != null && supervisor.isSelf && (
-                <p className="text-xs text-red-600 px-1">
+                <p className="text-xs text-error px-1">
                   直属领导不能是自己。请在人轴画布或设置中指定您的直属上级后再提交。
                 </p>
               )}
@@ -415,17 +435,17 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
       </div>
 
       {/* 底部操作栏 */}
-      <div className="shrink-0 p-3 bg-white dark:bg-slate-900 border-t border-slate-200/80 dark:border-slate-800 flex items-center gap-3">
+      <div className="shrink-0 p-3 bg-surface-container-lowest dark:bg-surface-container-lowest border-t border-outline-variant/80 dark:border-outline-variant flex items-center gap-3">
         <button
           type="button"
           disabled={generating || submitting}
           onClick={() => void handleRegenerateDraft()}
-          className="flex-1 min-h-[46px] rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-slate-200 active:bg-slate-300 disabled:opacity-50 cursor-pointer transition-colors"
+          className="flex-1 min-h-[48px] rounded-lg bg-surface-container dark:bg-surface-container-lowest text-on-surface dark:text-outline text-sm font-medium flex items-center justify-center gap-2 hover:bg-surface-container active:bg-surface-container-high disabled:opacity-50 cursor-pointer transition-ink-colors tabular-nums"
         >
           {generating ? (
-            <div className="w-4 h-4 border-2 border-[#0058BE] border-t-transparent rounded-full animate-spin" />
+            <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
           ) : (
-            <AppIcon name="ai" size={17} className="text-[#0058BE]" />
+            <AppIcon name="ai" size={18} className="text-inherit" />
           )}
           <span>{generating ? '正在提取事实…' : '重新生成'}</span>
         </button>
@@ -434,12 +454,12 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
           type="button"
           disabled={submitting || generating || (parentUserId != null && supervisor.isSelf)}
           onClick={() => void handleSubmitReport()}
-          className="flex-1 min-h-[46px] rounded-xl bg-[#0058BE] text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 cursor-pointer shadow-xs transition-colors"
+          className="flex-1 min-h-[48px] rounded-lg bg-primary text-on-primary text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary/90 active:bg-primary/90 disabled:opacity-50 cursor-pointer shadow-sm dark:shadow-none transition-ink-colors tabular-nums"
         >
           {submitting ? (
             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
           ) : (
-            <AppIcon name="send" size={17} />
+            <AppIcon name="send" size={18} />
           )}
           <span>{submitting ? '正在提交…' : '确认提交'}</span>
         </button>

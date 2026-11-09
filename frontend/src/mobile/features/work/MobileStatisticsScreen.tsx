@@ -89,13 +89,13 @@ export const MobileStatisticsScreen: React.FC<MobileStatisticsScreenProps> = ({
   }, [trend]);
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface text-on-surface">
+      <header className="h-14 px-4 bg-surface-container-lowest border-b border-outline-variant flex items-center justify-between shrink-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="返回"
           >
             <AppIcon name="back" size={20} />
@@ -106,8 +106,8 @@ export const MobileStatisticsScreen: React.FC<MobileStatisticsScreenProps> = ({
       </header>
 
       {/* 时间周期切换器 */}
-      <div className="px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex justify-center">
-        <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl w-full max-w-xs">
+      <div className="px-4 py-3 bg-surface-container-lowest border-b border-outline-variant flex justify-center">
+        <div className="flex p-1 bg-surface-container rounded-xl w-full max-w-xs">
           {(['week', 'month', 'quarter'] as const).map((p) => {
             const label = p === 'week' ? '本周' : p === 'month' ? '本月' : '本季度';
             return (
@@ -115,10 +115,10 @@ export const MobileStatisticsScreen: React.FC<MobileStatisticsScreenProps> = ({
                 key={p}
                 type="button"
                 onClick={() => setPeriod(p)}
-                className={`flex-1 min-h-[36px] rounded-lg text-xs font-semibold transition-all ${
+                className={`flex-1 min-h-[36px] rounded-lg text-xs font-medium transition-ink ${
                   period === p
-                    ? 'bg-white dark:bg-slate-700 text-[#0058BE] shadow-xs'
-                    : 'text-slate-500'
+                    ? 'bg-surface-container-lowest text-primary shadow-xs'
+                    : 'text-on-surface-variant'
                 }`}
               >
                 {label}
@@ -135,20 +135,20 @@ export const MobileStatisticsScreen: React.FC<MobileStatisticsScreenProps> = ({
           <>
             {/* 核心指标统计卡片 */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-                <span className="text-xs text-slate-500">事项总数</span>
-                <div className="text-2xl font-bold text-slate-900 dark:text-white mt-1">
+              <div className="p-3.5 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-xs">
+                <span className="text-xs text-on-surface-variant">事项总数</span>
+                <div className="text-2xl font-bold text-on-surface mt-1">
                   {stats?.total ?? tasks.length}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">当前范围统计</div>
+                <div className="text-[11px] text-on-surface-variant mt-0.5">当前范围统计</div>
               </div>
 
-              <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <div className="p-3.5 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-xs">
                 <span className="text-xs text-green-600">已完成事项</span>
                 <div className="text-2xl font-bold text-green-600 mt-1">
                   {stats?.completed ?? 0}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">
+                <div className="text-[11px] text-on-surface-variant mt-0.5">
                   达成率{' '}
                   {stats && stats.total > 0
                     ? Math.round((stats.completed / stats.total) * 100)
@@ -157,117 +157,117 @@ export const MobileStatisticsScreen: React.FC<MobileStatisticsScreenProps> = ({
                 </div>
               </div>
 
-              <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
-                <span className="text-xs text-blue-600">进行中事项</span>
-                <div className="text-2xl font-bold text-blue-600 mt-1">
+              <div className="p-3.5 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-xs">
+                <span className="text-xs text-primary">进行中事项</span>
+                <div className="text-2xl font-bold text-primary mt-1">
                   {stats?.in_progress ?? 0}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">推进中</div>
+                <div className="text-[11px] text-on-surface-variant mt-0.5">推进中</div>
               </div>
 
-              <div className="p-3.5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <div className="p-3.5 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-xs">
                 <span className="text-xs text-red-500">逾期未结</span>
                 <div className="text-2xl font-bold text-red-500 mt-1">
                   {stats?.overdue ?? 0}
                 </div>
-                <div className="text-[11px] text-slate-400 mt-0.5">需重点督促</div>
+                <div className="text-[11px] text-on-surface-variant mt-0.5">需重点督促</div>
               </div>
             </div>
 
             {/* 纵向排列 1：状态分布比例条与说明 */}
-            <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
+            <div className="p-4 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-xs space-y-3">
               <h3 className="text-sm font-semibold">状态分布 (Status Distribution)</h3>
 
               {stats && stats.total > 0 ? (
                 <>
-                  <div className="h-4 w-full rounded-full bg-slate-100 dark:bg-slate-800 flex overflow-hidden">
+                  <div className="h-4 w-full rounded-full bg-surface-container flex overflow-hidden">
                     <div
                       style={{ width: `${(stats.completed / stats.total) * 100}%` }}
-                      className="bg-green-500 transition-all duration-300"
+                      className="bg-secondary transition-[width] duration-300"
                       title="已完成"
                     />
                     <div
                       style={{ width: `${(stats.in_progress / stats.total) * 100}%` }}
-                      className="bg-blue-500 transition-all duration-300"
+                      className="bg-primary transition-[width] duration-300"
                       title="进行中"
                     />
                     <div
                       style={{ width: `${(stats.pending / stats.total) * 100}%` }}
-                      className="bg-slate-400 transition-all duration-300"
+                      className="bg-on-surface-variant transition-[width] duration-300"
                       title="待办"
                     />
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 pt-2 text-xs">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-green-500" />
-                      <span className="text-slate-600 dark:text-slate-300">
+                    <span className="w-2.5 h-2.5 rounded-full bg-secondary" />
+                      <span className="text-on-surface-variant">
                         已完成: {stats.completed} ({Math.round((stats.completed / stats.total) * 100)}%)
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-                      <span className="text-slate-600 dark:text-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-primary" />
+                      <span className="text-on-surface-variant">
                         进行中: {stats.in_progress}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-                      <span className="text-slate-600 dark:text-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-on-surface-variant" />
+                      <span className="text-on-surface-variant">
                         待办: {stats.pending}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
-                      <span className="text-slate-600 dark:text-slate-300">
+                      <span className="text-on-surface-variant">
                         其中逾期: {stats.overdue}
                       </span>
                     </div>
                   </div>
                 </>
               ) : (
-                <div className="py-4 text-center text-xs text-slate-400">暂无事项数据</div>
+                <div className="py-4 text-center text-xs text-on-surface-variant">暂无事项数据</div>
               )}
             </div>
 
             {/* 纵向排列 2：任务动态趋势柱状图 */}
-            <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs space-y-3">
+            <div className="p-4 bg-surface-container-lowest rounded-2xl border border-outline-variant shadow-xs space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold">新增与完成趋势 (Trend)</h3>
                 <div className="flex items-center gap-3 text-[11px]">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#0058BE]" />
-                    <span className="text-slate-500">新增</span>
+                    <span className="w-2 h-2 rounded-full bg-on-surface-variant" />
+                    <span className="text-on-surface-variant">新增</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-green-500" />
-                    <span className="text-slate-500">完成</span>
+                    <span className="w-2 h-2 rounded-full bg-primary" />
+                    <span className="text-on-surface-variant">完成</span>
                   </div>
                 </div>
               </div>
 
               {trend.length === 0 ? (
-                <div className="py-8 text-center text-xs text-slate-400">暂无趋势采样</div>
+                <div className="py-8 text-center text-xs text-on-surface-variant">暂无趋势采样</div>
               ) : (
                 <div className="space-y-2.5 pt-2">
                   {trend.map((item, idx) => (
                     <div key={idx} className="flex flex-col gap-1 text-xs">
-                      <div className="flex justify-between text-[11px] text-slate-500">
+                      <div className="flex justify-between text-[11px] text-on-surface-variant">
                         <span>{item.date}</span>
                         <span>
                           + {item.created} 新增 / ✓ {item.completed} 完成
                         </span>
                       </div>
-                      <div className="flex gap-1 h-3 rounded-md bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div className="flex gap-1 h-3 rounded-md bg-surface-container overflow-hidden">
                         <div
                           style={{ width: `${(item.created / maxTrendValue) * 100}%` }}
-                          className="bg-[#0058BE] rounded-r-sm"
+                          className="bg-on-surface-variant rounded-r-sm"
                         />
                       </div>
-                      <div className="flex gap-1 h-3 rounded-md bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                      <div className="flex gap-1 h-3 rounded-md bg-surface-container overflow-hidden">
                         <div
                           style={{ width: `${(item.completed / maxTrendValue) * 100}%` }}
-                          className="bg-green-500 rounded-r-sm"
+                          className="bg-primary rounded-r-sm"
                         />
                       </div>
                     </div>
@@ -279,7 +279,7 @@ export const MobileStatisticsScreen: React.FC<MobileStatisticsScreenProps> = ({
             {/* 纵向排列 3：团队成员负载排行 */}
             <MobileListGroup title="团队成员事项负载 (Workload)">
               {memberLoads.length === 0 ? (
-                <div className="p-4 text-center text-xs text-slate-400">暂无团队人员事项</div>
+                <div className="p-4 text-center text-xs text-on-surface-variant">暂无团队人员事项</div>
               ) : (
                 memberLoads.map(({ member, count, completed }) => {
                   const rate = count > 0 ? Math.round((completed / count) * 100) : 0;
@@ -287,17 +287,17 @@ export const MobileStatisticsScreen: React.FC<MobileStatisticsScreenProps> = ({
                     <MobileListItem
                       key={member.id}
                       leading={
-                        <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-bold text-xs text-slate-700 dark:text-slate-300">
+                        <div className="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center font-bold text-xs text-on-surface">
                           {member.name.slice(0, 1)}
                         </div>
                       }
                       title={member.name}
                       subtitle={`已承接 ${count} 项 · 完成 ${completed} 项 (${rate}%)`}
                       trailing={
-                        <div className="w-16 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                        <div className="w-16 h-2 rounded-full bg-surface-container overflow-hidden">
                           <div
                             style={{ width: `${rate}%` }}
-                            className="h-full bg-[#0058BE] rounded-full"
+                            className="h-full bg-primary rounded-full"
                           />
                         </div>
                       }

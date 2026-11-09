@@ -64,8 +64,7 @@ class _ProjectInviteScreenState extends State<ProjectInviteScreen> {
     });
   }
 
-  ProjectsRepository get _repo =>
-      ProjectsRepository(context.authStateRead.api);
+  ProjectsRepository get _repo => ProjectsRepository(context.authStateRead.api);
 
   Future<void> _submit() async {
     final email = _email.text.trim();
@@ -142,12 +141,13 @@ class _ProjectInviteScreenState extends State<ProjectInviteScreen> {
               children: [
                 const Text(
                   '发送项目邀请',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 const Text(
-                  '输入受邀同事的工作邮箱生成专属加入凭证。',
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  '输入受邀同事的工作邮箱生成专属加入凭证',
+                  style:
+                      TextStyle(fontSize: 12, color: AppColors.textSecondary),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 AppTextField(
@@ -178,14 +178,15 @@ class _ProjectInviteScreenState extends State<ProjectInviteScreen> {
                 children: [
                   const Row(
                     children: [
-                      AppIcon('check-circle', size: 18, color: AppColors.success),
+                      AppIcon('check-circle',
+                          size: 18, color: AppColors.success),
                       SizedBox(width: AppSpacing.sm),
                       Expanded(
                         child: Text(
                           '邀请凭证已生成',
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: AppColors.success,
                           ),
                         ),
@@ -226,8 +227,7 @@ class _ProjectInviteScreenState extends State<ProjectInviteScreen> {
                   ],
                   const SizedBox(height: AppSpacing.md),
                   const InfoBanner(
-                    message:
-                        '提示：复制链接后请通过工作邮件或聊天工具发送给同事。系统不会自动往外部邮箱发送未经配置的邮件。',
+                    message: '提示：复制链接后请通过工作邮件或聊天工具发送给同事。系统不会自动往外部邮箱发送未经配置的邮件。',
                     tone: InfoBannerTone.warning,
                     icon: 'warning',
                   ),

@@ -76,7 +76,8 @@ class MeTestHarness {
         'total': withCompany ? 1 : 0,
       },
     );
-    helper.whenGet('/projects', {'items': <Map<String, dynamic>>[], 'total': 0});
+    helper
+        .whenGet('/projects', {'items': <Map<String, dynamic>>[], 'total': 0});
     helper.whenGet('/users/me/verification', verificationJson);
     helper.whenGet('/users/me/ui-prefs', {
       'ui': {
@@ -93,7 +94,11 @@ class MeTestHarness {
       'managed_by': '平台运维',
     });
     helper.whenGet('/users/me/privacy', {
-      'stored_data': {'tasks': 3, 'profile': true, 'notification_preferences': true},
+      'stored_data': {
+        'tasks': 3,
+        'profile': true,
+        'notification_preferences': true
+      },
       'retention': '180 天',
       'export_endpoint': '/api/v1/users/me/export',
       'delete_endpoint': '/api/v1/users/me/delete',
@@ -126,6 +131,8 @@ class MeTestHarness {
       'wx_bound': true,
       'subscription_enabled': false,
     });
+    helper.whenGet('/users/me/bindings/asr', {'code': 200, 'data': null},
+        query: {'company_id': '1'});
     helper.whenGet('/health', {
       'status': 'healthy',
       'database': 'ok',
@@ -202,7 +209,8 @@ class MeTestHarness {
             'provider': 'wecom',
             'has_credentials': true,
             'config': {
-              'redirect_uri': 'https://app.example.com/api/v1/sso/wecom/callback',
+              'redirect_uri':
+                  'https://app.example.com/api/v1/sso/wecom/callback',
               'auto_create_users': true,
             },
             'last_sync_at': '2026-10-30T01:00:00Z',
@@ -260,7 +268,8 @@ class MeTestHarness {
   }
 
   /// 断言最近一次请求
-  MockRequestRecord lastRequest(String method, String path) {    final matches = helper.history
+  MockRequestRecord lastRequest(String method, String path) {
+    final matches = helper.history
         .where((r) => r.method == method && r.url.path.endsWith(path))
         .toList();
     expect(

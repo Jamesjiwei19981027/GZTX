@@ -141,7 +141,7 @@ class _MeDefaultsScreenState extends State<MeDefaultsScreen> {
                         ),
                       MeCard(
                         title: '默认优先级',
-                        footer: '快速创建任务或从 AI 对话提取时，新任务默认使用该优先级。',
+                        footer: '快速创建任务或从 AI 对话提取时，新任务默认使用该优先级',
                         children: [
                           for (final (value, title, subtitle) in _priorities)
                             _optionRow(
@@ -156,12 +156,12 @@ class _MeDefaultsScreenState extends State<MeDefaultsScreen> {
                       MeCard(
                         title: '默认分类',
                         footer: _categories.isEmpty
-                            ? '当前账号还没有任务分类，仅保存优先级；分类在「工作」中创建后可再次设置。'
-                            : '新任务默认归入所选分类。',
+                            ? '当前账号还没有任务分类，仅保存优先级；分类在「工作」中创建后可再次设置'
+                            : '新任务默认归入所选分类',
                         children: [
                           if (_categories.isEmpty)
                             Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              padding: const EdgeInsets.symmetric(vertical: 8),
                               child: Text(
                                 '暂无可用分类',
                                 style: TextStyle(
@@ -207,7 +207,7 @@ class _MeDefaultsScreenState extends State<MeDefaultsScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
             Expanded(
@@ -218,7 +218,7 @@ class _MeDefaultsScreenState extends State<MeDefaultsScreen> {
                     title,
                     style: TextStyle(
                       fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
@@ -226,11 +226,11 @@ class _MeDefaultsScreenState extends State<MeDefaultsScreen> {
                   ),
                   if (subtitle != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         subtitle,
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: 12,
                           color: isDark
                               ? AppColors.darkTextSecondary
                               : AppColors.textSecondary,
@@ -241,9 +241,12 @@ class _MeDefaultsScreenState extends State<MeDefaultsScreen> {
               ),
             ),
             if (selected)
-              const AppIcon('check', size: 18, color: AppColors.primary)
+              const AppIcon(
+                'check',
+                size: 18,
+              )
             else
-              const SizedBox(width: 18),
+              const SizedBox(width: 20),
           ],
         ),
       ),

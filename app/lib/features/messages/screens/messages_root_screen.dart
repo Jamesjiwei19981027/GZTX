@@ -107,12 +107,12 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
         IconButton(
           tooltip: '通知与收件箱',
           onPressed: _openInbox,
-          icon: const AppIcon('bell', size: 21),
+          icon: const AppIcon('bell', size: 18),
         ),
         IconButton(
           tooltip: '新建私聊',
           onPressed: _openNewChat,
-          icon: const AppIcon('plus', size: 22),
+          icon: const AppIcon('plus', size: 18),
         ),
       ],
       body: _body(context),
@@ -123,8 +123,8 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
     if (_companyId == null) {
       return const AppEmptyState(
         title: '尚未加入企业',
-        description: '加入企业或团队后，就能看到项目频道与私聊。',
-        icon: AppIcon('messages', size: 48, color: AppColors.textTertiary),
+        description: '加入企业或团队后，就能看到项目频道与私聊',
+        icon: AppIcon('messages', size: 18, color: AppColors.textTertiary),
       );
     }
 
@@ -196,7 +196,7 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
             PermissionNotice(
               title: '无法进入项目频道',
               message: controller.channelError!,
-              hint: '次级人员默认不能进入频道；如需进入，请联系项目管理人员开通项目频道访问授权。',
+              hint: '次级人员默认不能进入频道；如需进入，请联系项目管理人员开通项目频道访问授权',
             ),
           ],
         );
@@ -218,9 +218,9 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
           SizedBox(height: MediaQuery.sizeOf(context).height * 0.08),
           AppEmptyState(
             title: '暂无项目频道',
-            description: '选择项目后可进入项目频道，也可以直接找工作联系人私聊。',
+            description: '选择项目后可进入项目频道，也可以直接找工作联系人私聊',
             icon: const AppIcon('messages',
-                size: 42, color: AppColors.textTertiary),
+                size: 18, color: AppColors.textTertiary),
             actionLabel: '选择工作联系人',
             onAction: _openNewChat,
           ),
@@ -269,9 +269,9 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
           SizedBox(height: MediaQuery.sizeOf(context).height * 0.08),
           AppEmptyState(
             title: '暂无直接私聊',
-            description: '点击右上角「+」选择工作联系人发起私聊。',
+            description: '点击右上角「+」选择工作联系人发起私聊',
             icon: const AppIcon('messages',
-                size: 42, color: AppColors.textTertiary),
+                size: 18, color: AppColors.textTertiary),
             actionLabel: '发起私聊',
             onAction: _openNewChat,
           ),

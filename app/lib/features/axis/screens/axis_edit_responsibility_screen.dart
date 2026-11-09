@@ -150,7 +150,7 @@ class _AxisEditResponsibilityScreenState
         title: '编辑人员职责',
         body: AppErrorState(
           title: '人员已不在人轴上',
-          message: '该人员可能已被移除，请返回人轴刷新。',
+          message: '该人员可能已被移除，请返回人轴刷新',
           onRetry: _load,
         ),
       );

@@ -94,5 +94,5 @@ async def test_welcome_email_uses_channel(monkeypatch):
     ok = await ch.send_welcome_email(user, company_name="演示公司", company_slug="demo")
     assert ok is True
     assert len(calls) == 1
-    assert "auth.welcome" in calls[0]["subject"] or "WorkTodo" in calls[0]["subject"]
+    assert calls[0]["subject"] == "欢迎加入 演示公司"
     assert "newu" in calls[0]["text_body"]

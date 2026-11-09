@@ -128,8 +128,7 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
       if (!mounted) return;
       setState(() {
         _syncing = false;
-        _successMessage =
-            '${target.displayName} 组织架构同步任务已触发，正在后台拉取人员与部门';
+        _successMessage = '${target.displayName} 组织架构同步任务已触发，正在后台拉取人员与部门';
       });
       await _load();
     } catch (e) {
@@ -213,7 +212,7 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
                       ),
                     MeCard(
                       title: '全量组织架构同步',
-                      footer: '从企业微信 / 钉钉 / 飞书自动对齐部门与人员，仅同步已加入企业的成员。',
+                      footer: '从企业微信 / 钉钉 / 飞书自动对齐部门与人员，仅同步已加入企业的成员',
                       children: [
                         Row(
                           children: [
@@ -239,11 +238,11 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
                     const SizedBox(height: AppSpacing.md),
                     MeCard(
                       title: '已支持的协同办公服务',
-                      footer: '集成账号需在企业微信 / 钉钉 / 飞书后台授权后由管理员配置，密钥不下发明文。',
+                      footer: '集成账号需在企业微信 / 钉钉 / 飞书后台授权后由管理员配置，密钥不下发明文',
                       children: [
                         if (_integrations.isEmpty)
                           Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            padding: const EdgeInsets.symmetric(vertical: 8),
                             child: Text(
                               '尚未配置任何组织集成',
                               style: TextStyle(
@@ -263,7 +262,6 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
                                   const AppIcon(
                                     'work',
                                     size: 18,
-                                    color: AppColors.primary,
                                   ),
                                   const SizedBox(width: AppSpacing.sm),
                                   Expanded(
@@ -275,10 +273,10 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
                                           item.displayName,
                                           style: const TextStyle(
                                             fontSize: 14,
-                                            fontWeight: FontWeight.w600,
+                                            fontWeight: FontWeight.w500,
                                           ),
                                         ),
-                                        const SizedBox(height: 2),
+                                        const SizedBox(height: 4),
                                         Text(
                                           item.lastSyncAt != null
                                               ? '上次同步：${formatDisplayDateTime(item.lastSyncAt)}'
@@ -286,7 +284,7 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
                                                   ? '配置于 ${formatDisplayDateTime(item.createdAt)}（尚未同步）'
                                                   : '尚未建立同步',
                                           style: TextStyle(
-                                            fontSize: 11.5,
+                                            fontSize: 12,
                                             color: isDarkMode(context)
                                                 ? AppColors.darkTextSecondary
                                                 : AppColors.textSecondary,
@@ -313,7 +311,7 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
                     const SizedBox(height: AppSpacing.md),
                     MeCard(
                       title: '可用登录方式',
-                      footer: '关闭某方式后，成员将无法使用该方式登录本企业（已登录会话仍有效）。',
+                      footer: '关闭某方式后，成员将无法使用该方式登录本企业（已登录会话仍有效）',
                       children: [
                         _loginSwitch(
                           title: '账号密码登录',
@@ -330,7 +328,8 @@ class _AdminOrgSsoScreenState extends State<AdminOrgSsoScreen> {
                         _loginSwitch(
                           title: '企业微信登录',
                           value: _loginMethods.wecom,
-                          onChanged: (value) => _updateLoginMethod(wecom: value),
+                          onChanged: (value) =>
+                              _updateLoginMethod(wecom: value),
                         ),
                         _loginSwitch(
                           title: '钉钉登录',

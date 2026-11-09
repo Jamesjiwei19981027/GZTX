@@ -150,7 +150,13 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
     );
     if (updated == null || !mounted) return;
     setState(() {
-      _verification = updated;
+      _verification = MeVerificationStatus(
+        email: updated.email ?? _verification?.email,
+        phone: updated.phone ?? _verification?.phone,
+        emailVerified: updated.emailVerified,
+        phoneVerified: updated.phoneVerified,
+        isVerified: updated.isVerified,
+      );
       _successMessage = '绑定验证成功';
     });
   }
@@ -173,7 +179,8 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
                       children: [
                         if (_errorMessage != null)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                            padding:
+                                const EdgeInsets.only(bottom: AppSpacing.md),
                             child: MeBanner(
                               message: _errorMessage!,
                               tone: MeTone.danger,
@@ -181,7 +188,8 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
                           ),
                         if (_successMessage != null)
                           Padding(
-                            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                            padding:
+                                const EdgeInsets.only(bottom: AppSpacing.md),
                             child: MeBanner(
                               message: _successMessage!,
                               tone: MeTone.success,
@@ -268,7 +276,7 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
 
     return MeCard(
       title: '安全验证与绑定',
-      footer: '已验证的邮箱与手机将显示为绿色徽标；未验证为灰色。',
+      footer: '已验证的邮箱与手机将显示为绿色徽标；未验证为灰色',
       children: [
         Row(
           children: [
@@ -280,9 +288,9 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
                 children: [
                   const Text(
                     '工作邮箱验证',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     email.isEmpty ? '尚未绑定邮箱' : email,
                     style: TextStyle(
@@ -321,9 +329,9 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
                 children: [
                   const Text(
                     '手机安全验证',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     phone.isEmpty ? '尚未绑定手机' : phone,
                     style: TextStyle(
@@ -362,7 +370,7 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
     };
     return MeCard(
       title: '登录设备',
-      footer: '服务端当前未提供登录设备列表接口（已上报总控）；此处仅展示本机信息。',
+      footer: '服务端当前未提供登录设备列表接口（已上报总控）；此处仅展示本机信息',
       children: [
         MeInfoRow(label: '本机平台', value: platformLabel),
         MeInfoRow(
@@ -385,7 +393,7 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
             final confirmed = await showAppConfirmDialog(
               context: context,
               title: '确认退出登录？',
-              message: '退出后本地草稿将被安全清理，下次登录需要重新输入身份凭据。',
+              message: '退出后本地草稿将被安全清理，下次登录需要重新输入身份凭据',
               confirmLabel: '确认退出',
               isDestructive: true,
             );
@@ -400,7 +408,7 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
   Widget _dangerCard() {
     return MeCard(
       title: '高风险操作',
-      footer: '注销账号将永久清除所有个人数据与权限，操作不可逆。',
+      footer: '注销账号将永久清除所有个人数据与权限，操作不可逆',
       children: [
         MeListRow(
           title: '注销此账号',
@@ -413,7 +421,6 @@ class _MeSecurityScreenState extends State<MeSecurityScreen> {
     );
   }
 }
-
 
 /// 绑定 / 验证邮箱或手机的底部面板（自持控制器，随面板销毁释放）
 class _MeBindSheet extends StatefulWidget {

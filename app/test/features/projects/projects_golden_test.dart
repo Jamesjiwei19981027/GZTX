@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
+import 'package:worktodo_app/design/app_theme.dart';
 import 'package:worktodo_app/core/auth/auth_state.dart';
 import 'package:worktodo_app/features/projects/screens/invite_accept_screen.dart';
 import 'package:worktodo_app/features/projects/screens/member_detail_screen.dart';
@@ -67,14 +68,15 @@ Future<void> _testGoldenAfterAction({
       CupertinoTheme(
         data: const CupertinoThemeData(textTheme: _goldenCupertinoTextTheme),
         child: MaterialApp(
-          theme: ThemeData(
-            platform: TargetPlatform.iOS,
-            fontFamily: _goldenFont,
-            fontFamilyFallback: const [_goldenFont, '.SF Pro Text'],
-            cupertinoOverrideTheme: const CupertinoThemeData(
-              textTheme: _goldenCupertinoTextTheme,
-            ),
-          ),
+          theme: appThemeFor(Brightness.light,
+              base: ThemeData(
+                platform: TargetPlatform.iOS,
+                fontFamily: _goldenFont,
+                fontFamilyFallback: const [_goldenFont, '.SF Pro Text'],
+                cupertinoOverrideTheme: const CupertinoThemeData(
+                  textTheme: _goldenCupertinoTextTheme,
+                ),
+              )),
           localizationsDelegates: const [
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
@@ -110,11 +112,12 @@ Future<void> _testGoldenAfterAction({
   await tester.pumpWidget(
     wrap(
       MaterialApp(
-        theme: ThemeData(
-          platform: TargetPlatform.android,
-          fontFamily: _goldenFont,
-          fontFamilyFallback: const [_goldenFont],
-        ),
+        theme: appThemeFor(Brightness.light,
+            base: ThemeData(
+              platform: TargetPlatform.android,
+              fontFamily: _goldenFont,
+              fontFamilyFallback: const [_goldenFont],
+            )),
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
@@ -285,7 +288,8 @@ void main() {
         tester: tester,
         widget: _wrap(
           auth,
-          const InviteAcceptScreen(initialToken: 'Ab3_-xYz9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0LzXcVbN'),
+          const InviteAcceptScreen(
+              initialToken: 'Ab3_-xYz9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0LzXcVbN'),
         ),
         goldenFileNamePrefix: 'invite_accept_screen',
       );
@@ -309,7 +313,8 @@ void main() {
       await _testGoldenAfterAction(
         tester: tester,
         auth: auth,
-        child: const InviteAcceptScreen(initialToken: 'Ab3_-xYz9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0LzXcVbN'),
+        child: const InviteAcceptScreen(
+            initialToken: 'Ab3_-xYz9Qw8Er7Ty6Ui5Op4As3Df2Gh1Jk0LzXcVbN'),
         goldenFileNamePrefix: 'invite_accept_sync_failed_screen',
         action: () async {
           await tester.tap(find.text('接受并进入项目'));
@@ -326,7 +331,8 @@ void main() {
       final auth = await harness.bootstrap();
       harness.helper.whenGet('/projects/11/members', {
         'items': [
-          memberJson(userId: 5, nickname: '王宁', username: 'wangning', role: 'pm'),
+          memberJson(
+              userId: 5, nickname: '王宁', username: 'wangning', role: 'pm'),
           memberJson(userId: 6, nickname: '林悦', username: 'linyue'),
         ],
       });
@@ -352,7 +358,8 @@ void main() {
       final auth = await harness.bootstrap();
       harness.helper.whenGet('/projects/11/members', {
         'items': [
-          memberJson(userId: 5, nickname: '王宁', username: 'wangning', role: 'pm'),
+          memberJson(
+              userId: 5, nickname: '王宁', username: 'wangning', role: 'pm'),
         ],
       });
       harness.helper.whenGet(

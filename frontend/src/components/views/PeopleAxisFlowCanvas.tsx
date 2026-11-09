@@ -5,17 +5,19 @@ import {
   type Node, type Edge, type NodeProps, type EdgeProps, type InternalNode,
 } from '@xyflow/react'
 import { ChevronDown, ChevronRight, Minus, Plus, Maximize, LocateFixed, Move, Pencil, GitBranch, X, Undo2 } from 'lucide-react'
-import type { PeopleAxisNode, Language } from '../../types'
+import type { PeopleAxisNode, Language, AxisWorkItem } from '../../types'
 // 样式跟着画布走：手机网页路径不经过 ResponsibilityWorkspace，不能依赖它去加载
 import './responsibility.css'
 import {
   borderAnchor, floatingEdgePath, straightEdgePath, highlightEdgeIds,
-  snapToParentAxis, reparentVerdict, calculateCanvasDefaultCenter, type RectCoords, type BorderAnchor,
+  snapToParentAxis, reparentVerdict, resolveReleaseVerdict, calculateCanvasDefaultCenter, type RectCoords, type BorderAnchor,
+  buildAxisTimeline, type AxisOrderMode,
 } from './peopleAxisUtils'
 import { type AxisOrientation, CARD_W, CARD_H, FOLDED_ROW_H, FOLDED_ROW_H_MOBILE } from './peopleAxisFlowLayout'
 import { summarizeCardTasks, cardTaskChip, cardOverdueCount } from '../../api/mappers'
 
 export interface PersonNodeData extends Record<string, unknown> {
+  timelineItem?: AxisWorkItem
   node: PeopleAxisNode
   lang: Language
   level: number
@@ -115,13 +117,13 @@ const FoldedRowNode: React.FC<NodeProps<FoldedRowFlowNode>> = ({ data: d }) => {
         <span className="axis-folded-role">{n.roleTitle}</span>
         <span className="axis-folded-count">{zh ? `任务 ${total}` : `Tasks ${total}`}</span>
         {overdue > 0 ? <span className="axis-folded-over">{zh ? `逾期 ${overdue}` : `Overdue ${overdue}`}</span> : <span aria-hidden="true" />}
-        <ChevronDown size={16} aria-hidden="true" />
+        <ChevronDown size={18} aria-hidden="true" />
       </button>
     </div>
   )
 }
 
-const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
+const PersonCard: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
   const { node: n, lang } = d
   const { zoom } = useViewport()
   const isCompact = zoom < 0.6
@@ -191,7 +193,7 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
                   d.onAddChild(n.id)
                 }}
               >
-                <Plus size={14} />
+                <Plus size={18} />
               </button>
             )}
             {d.canReturn && !d.mobile && (
@@ -206,7 +208,7 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
                   d.onReturn?.(n.id)
                 }}
               >
-                <Undo2 size={14} />
+                <Undo2 size={18} />
               </button>
             )}
             {(d.canEdit || d.canRelink) && (!d.mobile || d.isSelected) && (
@@ -335,7 +337,7 @@ const PersonNode: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
                     }}
                   >
                     <i className={`axis-task-dot ${chip.tone}`} />
-                    <span className="axis-task-title">{item.title}</span>
+                    <span className={`axis-task-title${item.status === 'Done' ? ' ink-done' : ''}`}>{item.title}</span>
                     <span className={`axis-task-chip ${chip.tone}`}>{chip.text}</span>
                   </div>
                 )
@@ -444,13 +446,13 @@ const BranchEdge: React.FC<EdgeProps> = ({ source, target, data }) => {
     : floatingEdgePath(s, t)
 
   const emphasis = d?.emphasis || 'normal'
-  let stroke = subordinate ? 'var(--axis-extension, #278c7f)' : 'var(--axis-branch, #8daed5)'
-  let strokeWidth = 1.6
+  let stroke = 'var(--axis-muted)'
+  let strokeWidth = 1
   let opacity = 1
 
   if (emphasis === 'highlight') {
-    stroke = 'var(--axis-blue, #0058be)'
-    strokeWidth = 2.4
+    stroke = 'var(--axis-muted)'
+    strokeWidth = 1.5
   } else if (emphasis === 'dim') {
     opacity = 0.25
   }
@@ -470,6 +472,15 @@ const BranchEdge: React.FC<EdgeProps> = ({ source, target, data }) => {
   )
 }
 
+const PersonNode: React.FC<NodeProps<PersonFlowNode>> = props => {
+  const { data } = props
+  if (!data.timelineItem) return <PersonCard {...props} />
+  const item = data.timelineItem
+  return <button type="button" className={`axis-timeline-matter nodrag nopan${item.status === 'Done' ? ' is-done' : ''}`} data-testid={`axis-timeline-matter-${item.id}`} onClick={event => { event.stopPropagation(); data.onCardClick(data.node.id) }}>
+    <strong className={item.status === 'Done' ? 'ink-done' : undefined}>{item.title}</strong><span>{data.node.person.name} · {item.dueDate}</span>
+    <small>{item.type === 'milestone' ? '里程碑' : item.type === 'scope' ? '范围' : '工作项'} · {item.status === 'Done' ? '已完成' : `${item.progress || 0}%`}</small>
+  </button>
+}
 const nodeTypes = { person: PersonNode, foldedRow: FoldedRowNode }
 const edgeTypes = { branch: BranchEdge }
 
@@ -490,13 +501,14 @@ const LinkingPreview: React.FC<{ sourceId: string | null }> = ({ sourceId }) => 
   return (
     <ViewportPortal>
       <svg style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', pointerEvents: 'none', zIndex: 50 }}>
-        <path d={`M ${a.x} ${a.y} Q ${a.x} ${cursor.y} ${cursor.x} ${cursor.y}`} fill="none" stroke="var(--axis-blue)" strokeWidth={2} strokeDasharray="5 5" />
+        <path d={`M ${a.x} ${a.y} Q ${a.x} ${cursor.y} ${cursor.x} ${cursor.y}`} fill="none" stroke="var(--axis-muted)" strokeWidth={1} strokeDasharray="4 4" />
       </svg>
     </ViewportPortal>
   )
 }
 
 export interface PeopleAxisFlowCanvasProps {
+  orderMode?: AxisOrderMode
   lang: Language
   nodes: AxisFlowNode[]
   edges: Edge[]
@@ -537,10 +549,30 @@ const ZoomReadout = () => {
 }
 
 const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
-  lang, nodes, edges, orientation, edgeStyle = 'curve', linkingSourceNodeId, onNodeDragStop, onPaneClick,
+  lang, nodes: sourceNodes, edges, orientation, edgeStyle = 'curve', linkingSourceNodeId, onNodeDragStop, onPaneClick,
   onResetLayout, onRequestReparent, onShowToast, resetToken, mobile, focusNodeId, focusToken, onCancelLinking,
-  fitToken, refitToken, centerMeToken, locate, onLocateDone,
+  fitToken, refitToken, centerMeToken, locate, onLocateDone, orderMode = 'tree',
 }) => {
+  const timeline = useMemo(() => buildAxisTimeline(sourceNodes.filter(node => !node.hidden).map(node => node.data.node)), [sourceNodes])
+  const timelineCross = useMemo(() => {
+    const visible = sourceNodes.filter(node => !node.hidden && !node.parentId)
+    return Math.min(0, ...visible.map(node => orientation === 'horizontal' ? node.position.y : node.position.x)) - 100
+  }, [sourceNodes, orientation])
+  const nodes = useMemo<AxisFlowNode[]>(() => {
+    if (orderMode !== 'time') return sourceNodes
+    const byId = new Map<string, AxisFlowNode>(sourceNodes.map(node => [node.data.node.id, node]))
+    return [...sourceNodes, ...timeline.items.flatMap(entry => {
+      const owner = byId.get(entry.nodeId)
+      if (!owner) return []
+      return [{ id: `timeline-${entry.item.id}`, type: 'person' as const,
+        position: orientation === 'horizontal'
+          ? { x: entry.along - 110, y: timelineCross - 130 - entry.lane * 110 }
+          : { x: timelineCross - 250 - entry.lane * 250, y: entry.along - 44 },
+        draggable: false, selectable: false, connectable: false,
+        data: { ...owner.data, timelineItem: entry.item, foldedMember: false },
+      }]
+    })]
+  }, [sourceNodes, timeline, orientation, orderMode, timelineCross])
   const { zoomIn, zoomOut, fitView, setCenter, getNode, getZoom, screenToFlowPosition, getViewport, setViewport } = useReactFlow()
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState<AxisFlowNode>(nodes)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
@@ -631,16 +663,16 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
   const lastOrientKey = useRef<string | null>(null)
   useEffect(() => {
     if (!initialized || !width || !height) return
-    const key = `${orientation}`
+    const key = `${orientation}:${orderMode}`
     if (lastOrientKey.current === key) return
     lastOrientKey.current = key
 
-    if (mobile) {
+    if (mobile && orderMode === 'tree') {
       centerOnTargetRef.current()
     } else {
       void fitView({ duration: 0, padding, minZoom: 0.05, maxZoom: 1 })
     }
-  }, [orientation, initialized, width, height, mobile, fitView, padding])
+  }, [orientation, orderMode, initialized, width, height, mobile, fitView, padding])
 
   // 电脑端在增删节点或重置时自适应
   const lastAutoFit = useRef('')
@@ -906,6 +938,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
         n.id !== node.id &&
         !n.hidden &&
         n.type === 'person' &&
+        !n.data.timelineItem &&
         !(n.data as PersonNodeData).foldedMember &&
         flowPos.x >= n.position.x &&
         flowPos.x <= n.position.x + CARD_W &&
@@ -1028,7 +1061,20 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       return n
     }))
 
-    const decided = dropVerdictRef.current
+    const decided = resolveReleaseVerdict(
+      dropVerdictRef.current,
+      currentDropTargetId.current,
+      (targetId) => {
+        const people = rfNodes.map(n => {
+          const d = n.data as PersonNodeData
+          return { ...d.node, isTerminal: Boolean(d.isOverallLeader || d.node.isTerminalPM) }
+        })
+        return reparentVerdict(people, node.id, targetId, {
+          canRelink: (id: string) => Boolean((rfNodes.find(n => n.id === id)?.data as PersonNodeData | undefined)?.canRelink),
+          lang,
+        })
+      },
+    )
     dropVerdictRef.current = null
     currentDropTargetId.current = null
 
@@ -1049,7 +1095,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
     lastSnappedPos.current.delete(node.id)
     const finalPos = snapped || node.position
     onNodeDragStop(node.id, finalPos)
-  }, [onNodeDragStop, onRequestReparent, onShowToast, setRfNodes])
+  }, [onNodeDragStop, onRequestReparent, onShowToast, setRfNodes, rfNodes, lang])
 
   return (
     <FoldedRowContext.Provider value={{ onFoldedRowExpand: handleFoldedRowExpand }}>
@@ -1074,7 +1120,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       onNodeMouseEnter={(_, n) => { setHoveredNodeId(n.id) }}
       onNodeMouseLeave={() => { setHoveredNodeId(null) }}
       onNodeClick={(_, n) => {
-        if (n.type === 'person') (n.data as PersonNodeData).onCardClick(n.id)
+        if (n.type === 'person') (n.data as PersonNodeData).onCardClick(n.data.timelineItem ? n.data.node.id : n.id)
       }}
       onPaneClick={() => {
         setHoveredNodeId(null)
@@ -1096,7 +1142,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       className={`axis-flow${mobile ? ' axis-theme' : ''}`}
       data-testid={mobile ? 'mobile-axis-graph' : undefined}
     >
-      <Background color="var(--axis-dot, #dce2eb)" gap={22} size={1} />
+      <Background color="var(--axis-dot)" gap={24} size={1} />
       <LinkingPreview sourceId={linkingSourceNodeId} />
       {snapGuide && (
         <ViewportPortal>
@@ -1125,7 +1171,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       {linkingSourceNodeId && (
         <Panel position="top-center" className="axis-link-panel">
           <span>{lang === 'zh' ? '点击人员设为直属上级' : 'Tap the new parent'}</span>
-          <button aria-label={lang === 'zh' ? '取消连线' : 'Cancel linking'} onClick={onCancelLinking}><X size={16} /></button>
+          <button aria-label={lang === 'zh' ? '取消连线' : 'Cancel linking'} onClick={onCancelLinking}><X size={18} /></button>
         </Panel>
       )}
       {mobile && showMobileHint && (
@@ -1150,6 +1196,17 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
         <button className="axis-control-square" aria-label={lang === 'zh' ? '适应屏幕' : 'Fit all nodes'} title={lang === 'zh' ? '适应屏幕' : 'Fit all nodes'} onClick={fit}><Maximize size={18} /></button>
         {!mobile && <button className="axis-control-square" aria-label={lang === 'zh' ? '重置布局' : 'Reset layout'} onClick={() => { onResetLayout(); setTimeout(fit, 100) }}><LocateFixed size={18} /></button>}
       </Panel>
+      {timeline.items.length > 0 && <ViewportPortal><svg className="axis-timeline-scale" data-testid="axis-timeline-scale" style={{ position: 'absolute', top: 0, left: 0, overflow: 'visible', pointerEvents: 'none' }}>
+        <line data-testid="axis-timeline-trunk" x1={orientation === 'horizontal' ? timeline.start : timelineCross} y1={orientation === 'horizontal' ? timelineCross : timeline.start} x2={orientation === 'horizontal' ? timeline.end : timelineCross} y2={orientation === 'horizontal' ? timelineCross : timeline.end} stroke="var(--axis-muted)" strokeWidth={1} />
+        {timeline.ticks.map(tick => <g key={tick.date} transform={orientation === 'horizontal' ? `translate(${tick.along} ${timelineCross})` : `translate(${timelineCross} ${tick.along})`}>
+          <line x2={orientation === 'horizontal' ? 0 : 8} y2={orientation === 'horizontal' ? 8 : 0} stroke="var(--axis-muted)" strokeWidth={1} />
+          <text x={orientation === 'horizontal' ? 0 : 12} y={orientation === 'horizontal' ? 24 : 4} textAnchor={orientation === 'horizontal' ? 'middle' : 'start'} fontSize={12} fill="var(--axis-muted)">{tick.date}</text>
+        </g>)}
+        {orderMode === 'time' && timeline.items.map(entry => <g key={entry.item.id} data-testid={`axis-timeline-anchor-${entry.item.id}`} data-along={entry.along} data-date={entry.item.dueDate}>
+          <line x1={orientation === 'horizontal' ? entry.along : timelineCross} y1={orientation === 'horizontal' ? timelineCross : entry.along} x2={orientation === 'horizontal' ? entry.along : timelineCross - 30 - entry.lane * 250} y2={orientation === 'horizontal' ? timelineCross - 42 - entry.lane * 110 : entry.along} stroke="var(--axis-muted)" />
+          <circle cx={orientation === 'horizontal' ? entry.along : timelineCross} cy={orientation === 'horizontal' ? timelineCross : entry.along} r={4} fill="var(--axis-muted)" />
+        </g>)}
+      </svg></ViewportPortal>}
       </ReactFlow>
     </FoldedRowContext.Provider>
   )

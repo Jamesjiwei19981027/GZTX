@@ -14,13 +14,16 @@ void main() {
       harness.helper.whenGet('/projects/11', projectJson());
       harness.helper.whenGet('/projects/11/my-permissions', permissionsJson());
 
-      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+      await harness.pumpScreen(
+          tester, const ProjectSettingsScreen(projectId: 11));
 
       expect(find.text('项目设置'), findsOneWidget);
       expect(find.text('项目负责人 (PM)'), findsOneWidget);
       expect(find.text('独立沙箱安全隔离'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('归档此项目'), 200);
       expect(find.text('危险操作区'), findsOneWidget);
       expect(find.text('归档此项目'), findsOneWidget);
+      await tester.scrollUntilVisible(find.textContaining('需先把 PM 转让'), 100);
       expect(find.textContaining('需先把 PM 转让'), findsOneWidget);
       expect(find.text('退出项目'), findsNothing);
     });
@@ -34,7 +37,8 @@ void main() {
         permissionsJson(role: 'member', isPm: false, canEditAll: false),
       );
 
-      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+      await harness.pumpScreen(
+          tester, const ProjectSettingsScreen(projectId: 11));
 
       expect(find.text('项目成员'), findsOneWidget);
       expect(
@@ -60,7 +64,8 @@ void main() {
         ),
       );
 
-      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+      await harness.pumpScreen(
+          tester, const ProjectSettingsScreen(projectId: 11));
 
       // can_edit_all 对应 tree.edit_subtree，归档需要 tree.edit_any
       expect(find.text('归档此项目'), findsNothing);
@@ -82,7 +87,8 @@ void main() {
         ),
       );
 
-      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+      await harness.pumpScreen(
+          tester, const ProjectSettingsScreen(projectId: 11));
 
       expect(find.text('归档此项目'), findsOneWidget);
       expect(find.text('危险操作区'), findsOneWidget);
@@ -98,13 +104,15 @@ void main() {
         'archived_at': '2026-11-01T02:00:00Z',
       });
 
-      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+      await harness.pumpScreen(
+          tester, const ProjectSettingsScreen(projectId: 11));
+      await tester.scrollUntilVisible(find.text('归档此项目'), 200);
       await tester.tap(find.text('归档此项目'));
       await tester.pumpAndSettle();
 
       expect(find.text('确认归档项目？'), findsOneWidget);
       expect(
-        find.text('归档后项目所有任务、人轴与资料将转为只读历史存档，普通成员不可再提交新汇报。'),
+        find.text('归档后项目所有任务、人轴与资料将转为只读历史存档，普通成员不可再提交新汇报'),
         findsOneWidget,
       );
 
@@ -119,6 +127,7 @@ void main() {
             .length,
         1,
       );
+      await tester.scrollUntilVisible(find.text('项目已归档，已转为只读历史存档'), -200);
       expect(find.text('项目已归档，已转为只读历史存档'), findsOneWidget);
     });
 
@@ -128,7 +137,9 @@ void main() {
       harness.helper.whenGet('/projects/11', projectJson());
       harness.helper.whenGet('/projects/11/my-permissions', permissionsJson());
 
-      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+      await harness.pumpScreen(
+          tester, const ProjectSettingsScreen(projectId: 11));
+      await tester.scrollUntilVisible(find.text('归档此项目'), 200);
       await tester.tap(find.text('归档此项目'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('取消'));
@@ -152,7 +163,8 @@ void main() {
         'left_at': '2026-11-01T02:00:00Z',
       });
 
-      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+      await harness.pumpScreen(
+          tester, const ProjectSettingsScreen(projectId: 11));
       await tester.tap(find.text('退出项目'));
       await tester.pumpAndSettle();
 
@@ -172,7 +184,8 @@ void main() {
       // 退出后重新拉取项目列表
       expect(
         harness.helper.history
-            .where((item) => item.method == 'GET' && item.url.path == '/api/v1/projects')
+            .where((item) =>
+                item.method == 'GET' && item.url.path == '/api/v1/projects')
             .length,
         greaterThan(1),
       );
@@ -191,7 +204,8 @@ void main() {
         statusCode: 403,
       );
 
-      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+      await harness.pumpScreen(
+          tester, const ProjectSettingsScreen(projectId: 11));
 
       expect(find.text('暂无访问权限'), findsOneWidget);
       expect(find.text('归档此项目'), findsNothing);
@@ -208,12 +222,15 @@ void main() {
         statusCode: 403,
       );
 
-      await harness.pumpScreen(tester, const ProjectSettingsScreen(projectId: 11));
+      await harness.pumpScreen(
+          tester, const ProjectSettingsScreen(projectId: 11));
+      await tester.scrollUntilVisible(find.text('归档此项目'), 200);
       await tester.tap(find.text('归档此项目'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('确认归档'));
       await tester.pumpAndSettle();
 
+      await tester.scrollUntilVisible(find.text('需要 PM 或超管'), -200);
       expect(find.text('需要 PM 或超管'), findsOneWidget);
     });
   });

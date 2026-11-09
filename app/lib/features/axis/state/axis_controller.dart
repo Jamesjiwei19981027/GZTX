@@ -24,12 +24,15 @@ class AxisController extends ChangeNotifier {
     required this.currentUserId,
     this.companyId,
     Future<SharedPreferences> Function()? prefsLoader,
-  }) : _projectId = projectId,
-       _prefsLoader = prefsLoader ?? SharedPreferences.getInstance;
+  })  : _projectId = projectId,
+        _prefsLoader = prefsLoader ?? SharedPreferences.getInstance;
 
   /// 读写线型偏好的入口，测试可注入失败的实现。
   final Future<SharedPreferences> Function() _prefsLoader;
   static const String edgeStyleKey = 'axis_edge_style';
+  static const String sortKey = 'people_axis_order_mode';
+  bool _sortRestored = false;
+  bool _sortTouched = false;
 
   final AxisApi api;
   final int? currentUserId;
@@ -143,9 +146,30 @@ class AxisController extends ChangeNotifier {
   }
 
   void setSort(AxisSort value) {
+    _sortTouched = true;
     if (sort == value) return;
     sort = value;
     notifyListeners();
+    unawaited(_persistSort(value));
+  }
+
+  Future<void> _persistSort(AxisSort value) async {
+    try {
+      final prefs = await _prefsLoader();
+      await prefs.setString(sortKey, value.name);
+    } catch (_) {/* 偏好保存失败不影响当前视图 */}
+  }
+
+  Future<void> _restoreSort() async {
+    if (_sortRestored) return;
+    _sortRestored = true;
+    try {
+      final prefs = await _prefsLoader();
+      if (!_disposed && !_sortTouched) {
+        sort =
+            prefs.getString(sortKey) == 'time' ? AxisSort.time : AxisSort.tree;
+      }
+    } catch (_) {/* 本地存储不可用时沿用默认树序 */}
   }
 
   void setSpacing(AxisSpacing value) {
@@ -201,9 +225,8 @@ class AxisController extends ChangeNotifier {
     notifyListeners();
   }
 
-  String? get _pulledKey => currentUserId == null
-      ? null
-      : 'axis_pulled_${currentUserId}_$_projectId';
+  String? get _pulledKey =>
+      currentUserId == null ? null : 'axis_pulled_${currentUserId}_$_projectId';
 
   /// 折叠行点一下就地展开 / 再点收起（只在内存里）。
   void togglePersonRow(int id) {
@@ -297,7 +320,10 @@ class AxisController extends ChangeNotifier {
       if (raw == null) return <int>{};
       final decoded = jsonDecode(raw);
       if (decoded is! List) return null;
-      return {for (final v in decoded) if (v is int) v};
+      return {
+        for (final v in decoded)
+          if (v is int) v
+      };
     } catch (_) {
       return null;
     }
@@ -314,7 +340,9 @@ class AxisController extends ChangeNotifier {
     for (final entry in map.entries.toList()) {
       if (entry.value == Offset.zero) continue;
       final node = nodeById(entry.key);
-      if (node == null || !permissions.nodeCan(node, 'can_edit_person')) continue;
+      if (node == null || !permissions.nodeCan(node, 'can_edit_person')) {
+        continue;
+      }
       targets[entry.key] = entry.value;
     }
     for (final id in targets.keys) {
@@ -359,6 +387,7 @@ class AxisController extends ChangeNotifier {
         api.fetchProject(_projectId),
         _restoreEdgeStyle(),
         _loadPulled(),
+        _restoreSort(),
       ]);
       if (!_isFresh(epoch)) return;
       final storedPulled = results[5] as Set<int>?;

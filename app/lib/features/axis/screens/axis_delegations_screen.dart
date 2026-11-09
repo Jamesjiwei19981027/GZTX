@@ -52,15 +52,11 @@ class _AxisDelegationsScreenState extends State<AxisDelegationsScreen> {
   bool _submitting = false;
   String? _formError;
 
-  int? get _companyId =>
-      widget.companyId ?? _auth?.currentCompany?.id;
-  int? get _projectId =>
-      widget.projectId ?? _auth?.currentProject?.id;
-  int? get _currentUserId =>
-      widget.currentUserId ?? _auth?.currentUser?.id;
+  int? get _companyId => widget.companyId ?? _auth?.currentCompany?.id;
+  int? get _projectId => widget.projectId ?? _auth?.currentProject?.id;
+  int? get _currentUserId => widget.currentUserId ?? _auth?.currentUser?.id;
 
-  bool get _canManage =>
-      _permissions.isPm || _permissions.isSuperAdmin;
+  bool get _canManage => _permissions.isPm || _permissions.isSuperAdmin;
 
   @override
   void didChangeDependencies() {
@@ -130,14 +126,12 @@ class _AxisDelegationsScreenState extends State<AxisDelegationsScreen> {
   }
 
   String _actionsLabel(List<String> actions) {
-    return actions
-        .map((key) {
-          for (final action in axisDelegationActions) {
-            if (action.key == key) return action.label;
-          }
-          return key;
-        })
-        .join('、');
+    return actions.map((key) {
+      for (final action in axisDelegationActions) {
+        if (action.key == key) return action.label;
+      }
+      return key;
+    }).join('、');
   }
 
   Future<void> _pickGrantee() async {
@@ -301,12 +295,14 @@ class _AxisDelegationsScreenState extends State<AxisDelegationsScreen> {
           AxisCard(
             child: Column(
               children: [
-                const Icon(Icons.lock_outline,
-                    size: 34, color: AppColors.primary),
+                const Icon(
+                  Icons.lock_outline,
+                  size: 18,
+                ),
                 const SizedBox(height: AppSpacing.sm),
                 const Text(
                   '暂无生效的委托授权记录',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 if (_canManage) ...[
                   const SizedBox(height: AppSpacing.md),
@@ -349,7 +345,7 @@ class _AxisDelegationsScreenState extends State<AxisDelegationsScreen> {
           ),
           const SizedBox(height: AppSpacing.md),
           const AxisInfoBanner(
-            text: '撤销立即生效；历史操作与审计记录保留。',
+            text: '撤销立即生效；历史操作与审计记录保留',
             isWarning: true,
           ),
         ],
@@ -365,7 +361,7 @@ class _AxisDelegationsScreenState extends State<AxisDelegationsScreen> {
           AxisErrorBanner(message: _formError!),
           const SizedBox(height: AppSpacing.md),
         ],
-        const Text('被授权人', style: TextStyle(fontWeight: FontWeight.w600)),
+        const Text('被授权人', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: AppSpacing.xs),
         InkWell(
           key: const Key('axis-delegation-grantee'),
@@ -407,22 +403,20 @@ class _AxisDelegationsScreenState extends State<AxisDelegationsScreen> {
         ),
         const SizedBox(height: AppSpacing.md),
         const Text('有效期至（不填为长期）',
-            style: TextStyle(fontWeight: FontWeight.w600)),
+            style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: AppSpacing.xs),
         AxisCard(
           padding: EdgeInsets.zero,
           child: ListTile(
             key: const Key('axis-delegation-valid-to'),
             title: Text(
-              _validTo == null
-                  ? '长期有效'
-                  : AxisRules.formatDateOnly(_validTo),
+              _validTo == null ? '长期有效' : AxisRules.formatDateOnly(_validTo),
             ),
             subtitle: _validTo == null
                 ? null
                 : const Text(
                     '所选日期当天 23:59:59 到期（本地时区）',
-                    style: TextStyle(fontSize: 11),
+                    style: TextStyle(fontSize: 12),
                   ),
             trailing: _validTo == null
                 ? const Icon(Icons.calendar_today_outlined, size: 18)
@@ -435,7 +429,7 @@ class _AxisDelegationsScreenState extends State<AxisDelegationsScreen> {
           ),
         ),
         const SizedBox(height: AppSpacing.md),
-        const Text('授权原因', style: TextStyle(fontWeight: FontWeight.w600)),
+        const Text('授权原因', style: TextStyle(fontWeight: FontWeight.w500)),
         const SizedBox(height: AppSpacing.xs),
         AppTextField(
           controller: _reason,
@@ -485,7 +479,7 @@ class _DelegationRow extends StatelessWidget {
                   '$granteeName · 代为执行',
                   style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -497,23 +491,23 @@ class _DelegationRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           Text(
             '$actionsLabel · 有效至 '
             '${delegation.validTo == null ? '长期' : AxisRules.formatDateOnly(delegation.validTo)}',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               height: 1.4,
               color: AppColors.textSecondaryOf(isDark),
             ),
           ),
           if (delegation.reason != null &&
               delegation.reason!.trim().isNotEmpty) ...[
-            const SizedBox(height: 3),
+            const SizedBox(height: 4),
             Text(
               '原因：${delegation.reason}',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: AppColors.textTertiaryOf(isDark),
               ),
             ),

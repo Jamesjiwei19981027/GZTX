@@ -32,13 +32,13 @@ class ReminderService:
     }
 
     @staticmethod
-    def check_and_send_reminders(db: Session) -> List[Dict[str, Any]]:
+    def check_and_send_reminders(db: Session, now: Optional[datetime] = None) -> List[Dict[str, Any]]:
         """Check pending reminders and send them.
 
         Returns list of reminder info that were sent.
         """
         # SQLite 存储为无时区字符串，使用 naive UTC 确保字符串比较一致
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = now or datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Find all reminders that should be sent
         pending_reminders = db.query(Reminder).filter(
@@ -72,14 +72,32 @@ class ReminderService:
                 logger.info("[ReminderCheck] Skipping reminder %s: user not found", reminder.id)
                 continue
 
+            # 读取用户通知偏好：静音时段 / 周末免打扰 -> 顺延，不发送
+            from app.services.notify_pref_gate import channel_enabled, deferred_until
+
+            defer_to = deferred_until(user.notify_pref, now)
+            if defer_to is not None:
+                logger.info("[ReminderCheck] Reminder %s deferred to %s (quiet hours / weekend mute)", reminder.id, defer_to)
+                reminder.remind_at = defer_to
+                db.commit()
+                continue
+
             logger.info(
                 "[ReminderCheck] Processing reminder %s for task '%s' (user %s), channels: %s",
                 reminder.id, task.title, user.id, reminder.notify_channels,
             )
 
             # 根据提醒方式发送通知
-            channels = reminder.notify_channels.split(",") if reminder.notify_channels else ["web_push"]
+            all_channels = [c.strip() for c in reminder.notify_channels.split(",") if c.strip()] if reminder.notify_channels else ["web_push"]
+            channels = [c for c in all_channels if channel_enabled(user.notify_pref, c)]
             sent_channels = []
+            if not channels:
+                # 用户在通知设置里关闭了该提醒用到的全部渠道：尊重偏好，不发送也不兜底
+                reminder.is_sent = True
+                reminder.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                reminder.last_error = "用户已关闭对应通知渠道，未发送"
+                db.commit()
+                continue
 
             # 构建通知内容（供 fallback 使用）
             title = f"任务提醒: {task.title}"
@@ -110,7 +128,7 @@ class ReminderService:
                     logger.warning("[ReminderCheck] Channel '%s' failed for reminder %s", channel, reminder.id)
 
             # C4: 如果所有渠道都失败，尝试 fallback 到 email
-            if not sent_channels and "email" not in channels:
+            if not sent_channels and "email" not in channels and channel_enabled(user.notify_pref, "email"):
                 fallback_success = ReminderService._send_email(user, task)
                 ReminderService.record_send(
                     db,
@@ -261,35 +279,15 @@ class ReminderService:
         if not user.email:
             return False
 
-        # Determine SMTP config: user-level first, then global env
-        from app.services.user_secrets import unseal
+        from sqlalchemy.orm import object_session
+        from app.services.smtp_settings import resolve_smtp_sync
 
-        config = ReminderService._get_channel_config(user, "email")
-        smtp_host = config.get("smtp_host")
-        smtp_user = config.get("smtp_user")
-        smtp_password = unseal(config.get("smtp_password"))
-        smtp_port = int(config.get("smtp_port") or 465)
-        smtp_from = config.get("smtp_from") or smtp_user
-        if not all([smtp_host, smtp_user, smtp_password]):
-            # 个人未配：任务所属公司 > 默认公司 > 环境变量（企业管理页填写的是公司级）
-            from sqlalchemy.orm import object_session
-
-            from app.services.smtp_settings import smtp_for_system_sync, smtp_from_env
-
-            sess = object_session(task) or object_session(user)
-            resolved = (
-                smtp_for_system_sync(sess, getattr(task, "company_id", None))
-                if sess is not None
-                else smtp_from_env()
-            )
-            if resolved:
-                smtp_host, smtp_user, smtp_password = resolved.host, resolved.user, resolved.password
-                smtp_port, smtp_from = resolved.port, resolved.from_addr
-
-        if not all([smtp_host, smtp_user, smtp_password]):
-            logger.warning("[EMAIL] Not configured (user / company / env)")
+        resolved = resolve_smtp_sync(object_session(task) or object_session(user), user=user, company_id=task.company_id)
+        if not resolved or not resolved.is_complete():
+            logger.warning("[EMAIL] Not configured (user / company / default / env)")
             return False
-
+        smtp_host, smtp_user, smtp_password = resolved.host, resolved.user, resolved.password
+        smtp_port, smtp_from = resolved.port, resolved.from_addr
         from app.utils.email import build_reminder_email, _send_smtp
 
         subject, html_body, reply_to, message_id = build_reminder_email(

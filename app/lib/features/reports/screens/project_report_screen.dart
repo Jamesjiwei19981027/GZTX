@@ -40,6 +40,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
   ReportsApi? _api;
   int _projectId = 0;
   int _version = 0;
+  int _scopeVersion = 0;
   bool _disposed = false;
   bool _synced = false;
   late ProjectReportMode _mode;
@@ -53,6 +54,14 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
   String? _notice;
   List<AgentReport> _reports = const [];
   ProjectReportAggregate? _aggregate;
+  ReportSummaryList _summaries = const ReportSummaryList();
+  bool _publishing = false;
+  PublishedReportSummary? get _pendingSummary {
+    for (final summary in _summaries.items) {
+      if (!summary.isPublished) return summary;
+    }
+    return null;
+  }
 
   @override
   void initState() {
@@ -90,7 +99,11 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
     _synced = true;
     _api = api;
     _projectId = projectId;
+    _scopeVersion++;
+    _aggregating = false;
     _aggregate = null;
+    _summaries = const ReportSummaryList();
+    _publishing = false;
     _notice = null;
     _actionError = null;
     _load();
@@ -110,10 +123,18 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
       _networkError = false;
     });
     try {
-      final reports = await _api!.listProjectReports(projectId);
+      final summaries = await _api!.listSummaries(projectId);
+      List<AgentReport> reports = const [];
+      try {
+        reports = await _api!.listProjectReports(projectId);
+      } on ApiException catch (error) {
+        // 企业上级可读已发布摘要，原始成员汇报仍按项目权限保护。
+        if (summaries.canPublish || error.statusCode != 403) rethrow;
+      }
       if (_disposed || version != _version) return;
       setState(() {
         _reports = reports;
+        _summaries = summaries;
         _loading = false;
       });
     } catch (cause) {
@@ -128,8 +149,14 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
   }
 
   Future<void> _aggregateReports() async {
-    if (_aggregating || _projectId <= 0 || !_hasPendingSubmissions) return;
+    if (_aggregating ||
+        _projectId <= 0 ||
+        !_hasPendingSubmissions ||
+        !_summaries.canPublish) {
+      return;
+    }
     final projectId = _projectId;
+    final scopeVersion = _scopeVersion;
     setState(() {
       _aggregating = true;
       _actionError = null;
@@ -137,29 +164,81 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
     });
     try {
       final result = await _api!.aggregateProject(projectId);
-      if (!mounted || projectId != _projectId) return;
+      if (!mounted || scopeVersion != _scopeVersion) return;
       setState(() {
         _aggregate = result;
         _notice = '已基于已提交的下属汇报生成最新项目汇总摘要';
       });
       await _load();
     } catch (cause) {
-      if (!mounted || projectId != _projectId) return;
+      if (!mounted || scopeVersion != _scopeVersion) return;
       setState(() {
-        _actionError = reportErrorMessage(cause, fallback: '汇总项目汇报失败，请确认项目管理者权限');
+        _actionError =
+            reportErrorMessage(cause, fallback: '汇总项目汇报失败，请确认项目管理者权限');
       });
     } finally {
-      if (mounted && projectId == _projectId) {
+      if (mounted && scopeVersion == _scopeVersion) {
         setState(() => _aggregating = false);
       }
     }
   }
 
-  void _publish() {
+  Future<void> _publish() async {
+    final summary = _pendingSummary;
+    final projectId = _projectId;
+    final scopeVersion = _scopeVersion;
+    if (summary == null || !_summaries.canPublish || _publishing) return;
+    final confirmed = await showAppConfirmDialog(
+        context: context,
+        title: '确认发布项目摘要？',
+        message: '发布后项目成员与接收上级可查看这一版项目摘要',
+        confirmLabel: '确认发布');
+    if (!confirmed || !mounted || scopeVersion != _scopeVersion) return;
     setState(() {
-      _notice = '项目摘要已生成并保存在项目汇总中。正式审批发布流程需要后端扩展，'
-          '本页不会把未持久化的审批显示为已归档。';
+      _publishing = true;
+      _actionError = null;
+      _notice = null;
     });
+    try {
+      final published = await _api!.publishSummary(projectId, summary.id);
+      if (!mounted || scopeVersion != _scopeVersion) return;
+      setState(() {
+        _summaries = ReportSummaryList(
+            canPublish: _summaries.canPublish,
+            items: _summaries.items
+                .map((item) => item.id == published.id ? published : item)
+                .toList());
+        _notice = '项目摘要已发布';
+      });
+    } catch (error) {
+      if (mounted && scopeVersion == _scopeVersion) {
+        setState(() =>
+            _actionError = reportErrorMessage(error, fallback: '发布失败，请重试'));
+      }
+    } finally {
+      if (mounted && scopeVersion == _scopeVersion) {
+        setState(() => _publishing = false);
+      }
+    }
+  }
+
+  void _viewSummary(PublishedReportSummary summary) {
+    showAppBottomSheet<void>(
+        context: context,
+        title: '已发布版本 ${summary.id}',
+        builder: (context) => SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                        '发布时间：${formatReportFullDateTime(summary.publishedAt)}'),
+                    if (summary.publisherName != null)
+                      Text('发布人：${summary.publisherName}'),
+                    const SizedBox(height: AppSpacing.md),
+                    SelectableText(summary.summaryText),
+                  ]),
+            ));
   }
 
   List<ReportConflict> get _conflicts {
@@ -174,21 +253,24 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
   bool get _hasPendingSubmissions =>
       _reports.any((report) => report.status == 'submitted');
 
-  int get _missingSourceCount =>
-      _reports.where((report) => report.isSubmitted && report.sourceCount == 0).length;
+  int get _missingSourceCount => _reports
+      .where((report) => report.isSubmitted && report.sourceCount == 0)
+      .length;
 
   @override
   Widget build(BuildContext context) {
     final projectId = ReportScope.projectId(context, widget.projectId);
-    final title =
-        _mode == ProjectReportMode.contrast ? '项目资料对照' : '项目汇总与发布';
+    final title = _mode == ProjectReportMode.contrast ? '项目资料对照' : '项目汇总与发布';
     if (projectId <= 0) {
       return AppScaffold(
         title: title,
         body: const AppEmptyState(
           title: '请选择具体项目',
-          description: '项目资料对照与汇报汇总按项目隔离，请先切换到具体项目。',
-          icon: AppIcon('folder', size: 44, color: AppColors.primary),
+          description: '项目资料对照与汇报汇总按项目隔离，请先切换到具体项目',
+          icon: AppIcon(
+            'folder',
+            size: 18,
+          ),
         ),
       );
     }
@@ -250,8 +332,8 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
         if (conflicts.isEmpty)
           const AppEmptyState(
             title: '暂未发现资料差异',
-            description: '当前项目内已提交汇报的任务状态一致；新的差异会在下次汇总时出现。',
-            icon: AppIcon('check-circle', size: 44, color: AppColors.success),
+            description: '当前项目内已提交汇报的任务状态一致；新的差异会在下次汇总时出现',
+            icon: AppIcon('check-circle', size: 18, color: AppColors.success),
           )
         else
           for (final conflict in conflicts) ...[
@@ -264,7 +346,8 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
                       Expanded(
                         child: Text(
                           conflict.typeLabel,
-                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w500),
                         ),
                       ),
                       const ReportStatusChip(
@@ -303,8 +386,9 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
           alignment: Alignment.center,
           child: AppButton(
             label: '记录核验意见与差异裁决',
-            icon: const AppIcon('edit', size: 17, color: Colors.white),
-            onPressed: () => context.push('/reports/review/conflict?projectId=$projectId'),
+            icon: const AppIcon('edit', size: 18, color: Colors.white),
+            onPressed: () =>
+                context.push('/reports/review/conflict?projectId=$projectId'),
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -319,9 +403,15 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
       children: [
         Row(
           children: [
-            const ReportStatusChip(
-              label: '待管理者确认',
-              tone: ReportBannerTone.warning,
+            ReportStatusChip(
+              label: _pendingSummary != null
+                  ? '待管理者确认'
+                  : _summaries.items.any((item) => item.isPublished)
+                      ? '已发布'
+                      : '尚未生成',
+              tone: _pendingSummary != null
+                  ? ReportBannerTone.warning
+                  : ReportBannerTone.info,
             ),
             const Spacer(),
             Flexible(
@@ -330,7 +420,8 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
-                style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+                style: const TextStyle(
+                    fontSize: 12, color: AppColors.textTertiary),
               ),
             ),
           ],
@@ -346,12 +437,12 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
         const SizedBox(height: AppSpacing.lg),
         const Text(
           '项目周报',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           ReportScope.projectName(context, widget.projectName),
-          style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+          style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
         ),
         const SizedBox(height: AppSpacing.lg),
         const ReportSectionTitle('完成情况'),
@@ -360,7 +451,12 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
           child: Text(
             _aggregate?.summaryText.trim().isNotEmpty == true
                 ? _aggregate!.summaryText
-                : '尚未生成项目汇总。点击下方按钮，基于已提交的下属汇报生成摘要。',
+                : _pendingSummary?.summaryText ??
+                    (_summaries.items
+                            .where((item) => item.isPublished)
+                            .firstOrNull
+                            ?.summaryText ??
+                        '尚未生成项目汇总。点击下方按钮，基于已提交的下属汇报生成摘要。'),
             style: const TextStyle(fontSize: 13, height: 1.55),
           ),
         ),
@@ -374,7 +470,8 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
               _linkRow(
                 context,
                 title: '资料差异与待补材料',
-                subtitle: conflicts.isEmpty ? '暂无差异项' : '${conflicts.length} 项待确认',
+                subtitle:
+                    conflicts.isEmpty ? '暂无差异项' : '${conflicts.length} 项待确认',
                 onTap: () => context.push(
                   '/reports/review/followup?projectId=$projectId',
                 ),
@@ -407,7 +504,8 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
                 context,
                 title: '下属已提交汇报',
                 subtitle: '$_submittedCount 份 · 查看明细',
-                onTap: () => context.push('/reports/inbox?projectId=$projectId'),
+                onTap: () =>
+                    context.push('/reports/inbox?projectId=$projectId'),
               ),
               Divider(
                 height: 1,
@@ -426,18 +524,21 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
         ),
         const SizedBox(height: AppSpacing.lg),
         const ReportInfoBanner(
-          '向上级提供项目级摘要封装；其他项目不能读取本项目原始对话与未归档材料。',
+          '向上级提供项目级摘要封装；其他项目不能读取本项目原始对话与未归档材料',
         ),
         const SizedBox(height: AppSpacing.lg),
-        AppButton(
-          label: _aggregating ? '正在汇总聚合…' : '生成 / 更新项目汇总',
-          isLoading: _aggregating,
-          icon: _aggregating
-              ? null
-              : const AppIcon('ai', size: 17, color: Colors.white),
-          onPressed: (_aggregating || !_hasPendingSubmissions) ? null : _aggregateReports,
-        ),
-        if (!_hasPendingSubmissions) ...[
+        if (_summaries.canPublish)
+          AppButton(
+            label: _aggregating ? '正在汇总聚合…' : '生成 / 更新项目汇总',
+            isLoading: _aggregating,
+            icon: _aggregating
+                ? null
+                : const AppIcon('ai', size: 18, color: Colors.white),
+            onPressed: (_aggregating || !_hasPendingSubmissions)
+                ? null
+                : _aggregateReports,
+          ),
+        if (_summaries.canPublish && !_hasPendingSubmissions) ...[
           const SizedBox(height: AppSpacing.xs),
           const Center(
             child: Text(
@@ -447,12 +548,27 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
           ),
         ],
         const SizedBox(height: AppSpacing.sm),
-        AppButton(
-          label: '确认发布项目摘要',
-          variant: AppButtonVariant.secondary,
-          icon: const AppIcon('send', size: 17, color: AppColors.primary),
-          onPressed: _publish,
-        ),
+        if (_summaries.canPublish && _pendingSummary != null)
+          AppButton(
+            label: '确认发布项目摘要',
+            variant: AppButtonVariant.secondary,
+            icon: const AppIcon(
+              'send',
+              size: 18,
+            ),
+            onPressed: _publishing ? null : _publish,
+          ),
+        if (_summaries.items.any((item) => item.isPublished)) ...[
+          const SizedBox(height: AppSpacing.lg),
+          const ReportSectionTitle('已发布版本'),
+          for (final summary
+              in _summaries.items.where((item) => item.isPublished))
+            ListTile(
+                title: Text('查看已发布版本 ${summary.id}'),
+                subtitle: Text(formatReportFullDateTime(summary.publishedAt)),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _viewSummary(summary)),
+        ],
         const SizedBox(height: AppSpacing.xl),
       ],
     );
@@ -476,17 +592,20 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w500),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+                    style: const TextStyle(
+                        fontSize: 12, color: AppColors.textTertiary),
                   ),
                 ],
               ),
             ),
-            const AppIcon('chevron-right', size: 16, color: AppColors.textTertiary),
+            const AppIcon('chevron-right',
+                size: 18, color: AppColors.textTertiary),
           ],
         ),
       ),
@@ -499,12 +618,13 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
         children: [
           Text(
             value,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700, color: color),
+            style: TextStyle(
+                fontSize: 20, fontWeight: FontWeight.w500, color: color),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+            style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
         ],
       ),

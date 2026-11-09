@@ -105,14 +105,14 @@ class _WorkContactsScreenState extends State<WorkContactsScreen> {
           IconButton(
             tooltip: '刷新联系人',
             onPressed: controller.loading ? null : controller.load,
-            icon: const AppIcon('refresh', size: 20),
+            icon: const AppIcon('refresh', size: 18),
           ),
       ],
       body: _companyId == null
           ? const AppEmptyState(
               title: '尚未加入企业',
-              description: '请先加入公司和项目。',
-              icon: AppIcon('team', size: 44, color: AppColors.textTertiary),
+              description: '请先加入公司和项目',
+              icon: AppIcon('team', size: 18, color: AppColors.textTertiary),
             )
           : controller == null
               ? const Center(child: AppLoading(size: 26))
@@ -199,10 +199,10 @@ class _WorkContactsScreenState extends State<WorkContactsScreen> {
                   title:
                       controller.query.trim().isEmpty ? '暂无可联系人员' : '没有匹配的联系人',
                   description: controller.query.trim().isEmpty
-                      ? '可通过项目频道与同事沟通，或请项目经理邀请成员。'
-                      : '换个姓名关键字再试试。',
+                      ? '可通过项目频道与同事沟通，或请项目经理邀请成员'
+                      : '换个姓名关键字再试试',
                   icon: const AppIcon('team',
-                      size: 42, color: AppColors.textTertiary),
+                      size: 18, color: AppColors.textTertiary),
                 )
               : ListView(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xl),

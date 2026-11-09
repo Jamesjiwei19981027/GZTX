@@ -7,7 +7,7 @@ console.log('--- Testing 记录进展 ---');
 
 const calls: string[] = [];
 const deps: RecordProgressSaveDeps = {
-  agentChat: async b => { calls.push(`chat:${b.project_id}:${b.message}`); },
+  saveReportDraft: async (pid, text) => { calls.push(`draft:${pid}:${text}`); },
   submitEvidence: async (id, b) => { calls.push(`evidence:${id}:${b.file_ids.join(',')}`); },
   createKnowledgeEntry: async (pid, b) => { calls.push(`knowledge:${pid}:${b.title}`); },
 };
@@ -18,7 +18,7 @@ const base = { text: ' 第一行\n第二行 ', companyId: 1, projectId: 7, nodeI
   assert.equal(await saveRecordProgress('report_draft', base, deps), '已存为汇报草稿');
   assert.equal(await saveRecordProgress('evidence', base, deps), '已存为证据材料');
   assert.equal(await saveRecordProgress('knowledge', base, deps), '已存为个人知识');
-  assert.deepEqual(calls, ['chat:7:第一行\n第二行', 'evidence:9:3,4', 'knowledge:7:第一行']);
+  assert.deepEqual(calls, ['draft:7:第一行\n第二行', 'evidence:9:3,4', 'knowledge:7:第一行']);
 
   // 证据未选事项：提示并且不调用接口
   calls.length = 0;
@@ -43,6 +43,16 @@ const base = { text: ' 第一行\n第二行 ', companyId: 1, projectId: 7, nodeI
   assert.match(read('../src/mobile/navigation/MobileRouteOutlet.tsx'), /initialTarget: 'knowledge'/);
   assert.match(read('../src/App.tsx'), /setRecordProgressOpen\(true\)/);
   assert.match(read('../src/components/WorkAssistantEntry.tsx'), /记录进展/);
+
+  // C-6：存为汇报草稿后给「去我的汇报查看」入口，并在我的汇报里读回服务端草稿
+  const screen = read('../src/mobile/features/progress/RecordProgressScreen.tsx');
+  assert.match(screen, /去我的汇报查看/);
+  assert.match(screen, /saveProgressNoteAsDraft/);
+  assert.doesNotMatch(screen, /agentChat/);
+  assert.match(read('../src/mobile/navigation/MobileRouteOutlet.tsx'), /onViewReports=\{\(\) => push\(\{ screen: 'ai-report-create'/);
+  assert.match(read('../src/App.tsx'), /onViewReports=\{\(\) => \{ setRecordProgressOpen\(false\)/);
+  assert.match(read('../src/components/views/ReportsView.tsx'), /listMyReports\(numericProjectId\)/);
+  assert.match(read('../src/mobile/features/reports/MyReportEditor.tsx'), /listMyReports\(numericProjectId\)/);
 
   console.log('✓ 记录进展 assertions PASSED');
 })();

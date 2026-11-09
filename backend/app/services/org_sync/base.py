@@ -20,6 +20,7 @@ class UserDTO:
     dept_external_ids: list[str] = field(default_factory=list)
     employment: str = "active"  # active|left
     title: str | None = None
+    union_id: str | None = None
 
 
 class OrgSyncProvider(Protocol):

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../core/time/time_utils.dart';
 import '../../../design/design.dart';
+import '../../axis/data/axis_api.dart';
 import '../data/evidence_api.dart';
 import '../models/evidence_models.dart';
 import '../services/attachment_picker.dart';
@@ -27,6 +28,7 @@ class EvidenceSubmitScreen extends StatefulWidget {
     required this.projectId,
     this.nodeId,
     this.initialNodeTitle,
+    this.initialSummary,
     this.attachmentPicker = const UnavailableAttachmentPicker(),
     this.voiceRecorder = const UnavailableVoiceRecorder(),
     this.draftStore,
@@ -41,6 +43,7 @@ class EvidenceSubmitScreen extends StatefulWidget {
   final int projectId;
   final int? nodeId;
   final String? initialNodeTitle;
+  final String? initialSummary;
   final AttachmentPicker attachmentPicker;
   final VoiceRecorder voiceRecorder;
   final EvidenceDraftStore? draftStore;
@@ -57,6 +60,10 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       widget.draftStore ?? EvidenceDraftStore();
 
   String? _nodeTitle;
+  int? _nodeId;
+  List<({int id, String title})> _nodeOptions = const [];
+  bool _nodesLoading = false;
+  String? _nodesError;
   final List<UploadedEvidenceFile> _files = [];
   bool _uploading = false;
   double _uploadProgress = 0;
@@ -85,7 +92,10 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
   void initState() {
     super.initState();
     _nodeTitle = widget.initialNodeTitle;
+    _nodeId = widget.nodeId;
+    _summary.text = widget.initialSummary ?? '';
     _loadNodeTitle();
+    if (_nodeId == null) _loadNodeOptions();
     _restoreDraft();
     _summary.addListener(_onSummaryChanged);
   }
@@ -105,11 +115,43 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
   bool get _isDirty => _summary.text.trim().isNotEmpty || _files.isNotEmpty;
 
   Future<void> _loadNodeTitle() async {
-    final nodeId = widget.nodeId;
+    final nodeId = _nodeId;
     if (nodeId == null) return;
     final title = await widget.api.loadNodeTitle(nodeId);
     if (!mounted || title == null) return;
     setState(() => _nodeTitle = title);
+  }
+
+  Future<void> _loadNodeOptions() async {
+    setState(() {
+      _nodesLoading = true;
+      _nodesError = null;
+    });
+    try {
+      final tree =
+          await AxisApi(widget.api.client).fetchProjectTree(widget.projectId);
+      if (!mounted) return;
+      final options = <({int id, String title})>[];
+      final seen = <int>{};
+      void visit(List<dynamic> nodes) {
+        for (final node in nodes.whereType<Map>()) {
+          final id = (node['id'] as num?)?.toInt();
+          if (id != null && id > 0 && seen.add(id)) {
+            final title = node['title']?.toString().trim() ?? '';
+            options.add((id: id, title: title.isEmpty ? '未命名事项' : title));
+            if (node['children'] is List) visit(node['children'] as List);
+          }
+        }
+      }
+
+      visit(tree);
+      setState(() => _nodeOptions = options);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _nodesError = '无法读取本项目责任事项，请重试');
+    } finally {
+      if (mounted) setState(() => _nodesLoading = false);
+    }
   }
 
   Future<void> _restoreDraft() async {
@@ -118,7 +160,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       projectId: widget.projectId,
       nodeId: widget.nodeId,
     );
-    if (!mounted || draft == null) return;
+    if (!mounted || draft == null || _isDirty) return;
     setState(() {
       _summary.text = draft.summary;
       _files
@@ -136,6 +178,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       await _drafts.save(
         userId: widget.userId,
         projectId: widget.projectId,
+        // 未指定节点的入口始终用 new 草稿键，重进该入口仍能恢复说明和附件。
         nodeId: widget.nodeId,
         draft: EvidenceDraft(
           summary: _summary.text.trim(),
@@ -148,7 +191,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       setState(() => _offlineDraftSaved = true);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = '草稿保存失败，请检查本机存储空间后重试。');
+      setState(() => _error = '草稿保存失败，请检查本机存储空间后重试');
     }
   }
 
@@ -241,7 +284,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       setState(() => _error = '请填写材料说明');
       return;
     }
-    final nodeId = widget.nodeId;
+    final nodeId = _nodeId;
     if (nodeId == null) {
       setState(() => _error = '缺少关联的责任节点');
       return;
@@ -294,7 +337,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
         generation,
       );
     } catch (error) {
-      _failWith('提交材料失败，请稍后重试。', generation);
+      _failWith('提交材料失败，请稍后重试', generation);
     }
   }
 
@@ -328,7 +371,8 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       if (!mounted || generation != _submitGeneration) return;
       setState(() {
         _pollTimedOut = true;
-        _error = error is AppException ? error.message : '后台处理状态查询失败，请稍后在材料详情查看。';
+        _error =
+            error is AppException ? error.message : '后台处理状态查询失败，请稍后在材料详情查看';
       });
     });
   }
@@ -370,6 +414,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
     final canSubmit = _summary.text.trim().isNotEmpty &&
+        _nodeId != null &&
         !_submitting &&
         !_uploading &&
         !_voiceBusy &&
@@ -393,12 +438,49 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
                     ),
                   ),
+                  if (widget.nodeId == null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    if (_nodesLoading)
+                      const AppLoading()
+                    else if (_nodesError != null)
+                      EvidenceBanner(
+                          message: _nodesError!,
+                          type: EvidenceBannerType.warning,
+                          actionLabel: '重试',
+                          onAction: _loadNodeOptions)
+                    else if (_nodeOptions.isEmpty)
+                      const Text('本项目暂无可关联的责任事项，请先在人轴中创建事项',
+                          style: TextStyle(fontSize: 12))
+                    else
+                      DropdownButton<int>(
+                        value: _nodeId,
+                        hint: const Text('请选择本项目责任事项'),
+                        isExpanded: true,
+                        items: [
+                          for (final node in _nodeOptions)
+                            DropdownMenuItem(
+                                value: node.id, child: Text(node.title))
+                        ],
+                        onChanged: _submitting || _uploading || _outcome != null
+                            ? null
+                            : (id) {
+                                if (id == null) return;
+                                setState(() {
+                                  _nodeId = id;
+                                  _nodeTitle = _nodeOptions
+                                      .firstWhere((node) => node.id == id)
+                                      .title;
+                                  _error = null;
+                                });
+                              },
+                      ),
+                  ],
                   const SizedBox(height: AppSpacing.xs),
                   Text(
                     '${widget.userName} · 当前责任事项材料提报',
@@ -439,7 +521,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
             if (_offlineDraftSaved) ...[
               const SizedBox(height: AppSpacing.md),
               const EvidenceBanner(
-                message: '已保存本地草稿，网络恢复后可继续提交。',
+                message: '已保存本地草稿，网络恢复后可继续提交',
                 type: EvidenceBannerType.warning,
                 icon: 'info',
               ),
@@ -482,7 +564,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
             const SizedBox(height: AppSpacing.lg),
             const EvidenceBanner(
               message: '文字可单独提交，也可附加文件。语音识别后可修改再提交，'
-                  '材料归属当前项目，供个人 AI 与汇报引用。',
+                  '材料归属当前项目，供个人 AI 与汇报引用',
             ),
             const SizedBox(height: AppSpacing.lg),
             if (_outcome == null)
@@ -510,7 +592,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       _nodeIdForRetry &&
       _summary.text.trim().isNotEmpty;
 
-  bool get _nodeIdForRetry => widget.nodeId != null;
+  bool get _nodeIdForRetry => _nodeId != null;
 
   Widget _buildPicker(bool isDark) {
     return Column(
@@ -526,24 +608,27 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
               vertical: AppSpacing.xl,
             ),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF10263F) : const Color(0xFFF2F7FF),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              border: Border.all(
-                color: isDark ? const Color(0xFF1C3F63) : const Color(0xFFB9D3F7),
-                width: 1.5,
-              ),
-            ),
+                color: isDark
+                    ? AppColors.darkSurfaceVariant
+                    : AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                border: Border.all(
+                    color: isDark ? AppColors.darkBorder : AppColors.border)),
             child: Column(
               children: [
                 Container(
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF1B3F63) : const Color(0xFFD7E3F7),
-                    shape: BoxShape.circle,
-                  ),
+                      color: isDark
+                          ? AppColors.darkSurfaceVariant
+                          : AppColors.surfaceVariant,
+                      shape: BoxShape.circle),
                   child: const Center(
-                    child: AppIcon('file', size: 20, color: AppColors.primary),
+                    child: AppIcon(
+                      'file',
+                      size: 18,
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -552,7 +637,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.primary,
                   ),
                 ),
@@ -561,7 +646,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
                   '支持 PDF、Excel、Word、图片等格式，大小以服务端限制为准',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     height: 1.4,
                     color: isDark
                         ? AppColors.darkTextTertiary
@@ -583,9 +668,8 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
             type: EvidenceBannerType.danger,
             icon: 'alert',
             actionLabel: _pendingUpload == null ? null : '重试上传',
-            onAction: _pendingUpload == null
-                ? null
-                : () => _upload(_pendingUpload!),
+            onAction:
+                _pendingUpload == null ? null : () => _upload(_pendingUpload!),
           ),
         ],
       ],
@@ -604,10 +688,10 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       message = job.statusLabel;
       type = EvidenceBannerType.danger;
     } else if (job.isSucceeded) {
-      message = '材料处理完成，可查看材料详情。';
+      message = '材料处理完成，可查看材料详情';
       type = EvidenceBannerType.info;
     } else if (_pollTimedOut) {
-      message = '后台仍在处理（${job.statusLabel}），可稍后在材料详情查看结果。';
+      message = '后台仍在处理（${job.statusLabel}），可稍后在材料详情查看结果';
       type = EvidenceBannerType.warning;
     } else {
       message = '材料已提交，${job.statusLabel}…';
@@ -620,14 +704,14 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
         children: [
           Row(
             children: [
-              const AppIcon('send', size: 16, color: AppColors.success),
+              const AppIcon('send', size: 18, color: AppColors.success),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   '材料编号 #${_outcome?.packageId ?? 0}',
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
@@ -643,7 +727,8 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
             ],
           ),
           const SizedBox(height: AppSpacing.md),
-          EvidenceBanner(message: message, type: type, isBusy: isBusy && !_pollTimedOut),
+          EvidenceBanner(
+              message: message, type: type, isBusy: isBusy && !_pollTimedOut),
           const SizedBox(height: AppSpacing.md),
           AppButton(
             label: '查看材料详情',
@@ -676,20 +761,21 @@ class _UploadProgress extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           child: SizedBox(
-            height: 6,
+            height: 8,
             child: LinearProgressIndicator(
               value: progress <= 0 ? null : progress.clamp(0.0, 1.0),
               backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              valueColor:
+                  const AlwaysStoppedAnimation<Color>(AppColors.primary),
             ),
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
           '上传进度 $percent%',
-          style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+          style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
         ),
       ],
     );

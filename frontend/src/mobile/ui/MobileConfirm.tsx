@@ -36,22 +36,22 @@ export const MobileConfirm: React.FC<MobileConfirmProps> = ({
     >
       {/* 遮罩 */}
       <div
-        className="fixed inset-0 bg-black/50 dark:bg-black/70 backdrop-blur-xs transition-opacity"
+        className="fixed inset-0 bg-on-surface/50 dark:bg-black/70 transition-opacity"
         onClick={loading ? undefined : onCancel}
         aria-hidden="true"
       />
 
       {/* 对话框主体（iOS 风格圆角卡片） */}
-      <div className="relative z-10 w-full max-w-xs bg-white dark:bg-slate-900 rounded-3xl shadow-2xl p-6 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-150">
+      <div className="relative z-10 w-full max-w-xs bg-surface-container-lowest rounded-[var(--radius-ink-panel)] shadow-2xl p-6 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-150">
         <h3
           id="confirm-title"
-          className="text-[17px] font-semibold text-slate-900 dark:text-slate-100 mb-2 leading-snug"
+          className="text-[17px] font-medium text-on-surface mb-2 leading-snug"
         >
           {title}
         </h3>
         <p
           id="confirm-desc"
-          className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed mb-6"
+          className="text-xs text-on-surface-variant leading-relaxed mb-6"
         >
           {message}
         </p>
@@ -64,7 +64,7 @@ export const MobileConfirm: React.FC<MobileConfirmProps> = ({
             className={`w-full min-h-[46px] rounded-xl font-medium text-[15px] flex items-center justify-center gap-2 cursor-pointer transition-colors ${
               destructive
                 ? 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white shadow-sm'
-                : 'bg-[#0058BE] hover:bg-blue-700 active:bg-blue-800 text-white shadow-sm'
+                : 'bg-primary hover:bg-primary/90 active:bg-primary/80 text-on-primary shadow-sm'
             } disabled:opacity-50`}
           >
             {loading ? (
@@ -77,7 +77,7 @@ export const MobileConfirm: React.FC<MobileConfirmProps> = ({
             type="button"
             disabled={loading}
             onClick={onCancel}
-            className="w-full min-h-[46px] rounded-xl font-medium text-[15px] bg-slate-100 hover:bg-slate-200 active:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer disabled:opacity-50"
+            className="w-full min-h-[46px] rounded-xl font-medium text-[15px] bg-surface-container hover:bg-surface-container-high active:bg-surface-container-highest text-on-surface-variant transition-ink-colors cursor-pointer disabled:opacity-50"
           >
             {cancelLabel}
           </button>

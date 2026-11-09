@@ -24,7 +24,7 @@ export async function listChannels(companyId: number, projectId?: number) {
   )
 }
 
-export async function listChannelMessages(channelId: number) {
+export async function listChannelMessages(channelId: number, page = 1) {
   return apiRequest<{
     items: {
       id: number
@@ -38,7 +38,7 @@ export async function listChannelMessages(channelId: number) {
        attachments?: { file_id?: number; name?: string; original_name?: string; url?: string; download_url?: string; mime_type?: string; size?: number; size_bytes?: number }[]
       created_at?: string
     }[]
-  }>(`/channels/${channelId}/messages?page_size=100`)
+  }>(`/channels/${channelId}/messages?page_size=100&page=${page}`)
 }
 
 export async function postChannelMessage(channelId: number, body: string, fileIds: number[] = []) {
@@ -219,6 +219,7 @@ export async function listUserActivity(limit = 50) {
 }
 
 export type MyProjectPermissions = {
+  can_invite?: boolean
   role: 'pm' | 'superadmin' | 'member' | 'outsider'
   is_pm: boolean
   is_superadmin: boolean
@@ -269,8 +270,8 @@ export async function createDirectConversation(companyId: number, body: { member
   })
 }
 
-export async function listDirectMessages(conversationId: number) {
-  return apiRequest<{ items: { id: number; conversation_id: number; user_id: number; sender_name: string; sender_avatar?: string; body: string; message_type?: string; attachments?: Record<string, unknown>[]; created_at?: string }[] }>(`/conversations/${conversationId}/messages?page_size=100`)
+export async function listDirectMessages(conversationId: number, page = 1) {
+  return apiRequest<{ items: { id: number; conversation_id: number; user_id: number; sender_name: string; sender_avatar?: string; body: string; message_type?: string; attachments?: Record<string, unknown>[]; created_at?: string }[] }>(`/conversations/${conversationId}/messages?page_size=100&page=${page}`)
 }
 
 export async function postDirectMessage(conversationId: number, body: string, attachments: Record<string, unknown>[] = [], fileIds: number[] = []) {
@@ -398,16 +399,37 @@ export async function createPinnedLink(channelId: number, body: { title: string;
   })
 }
 
+export type InviteResult = {
+  id: number
+  token: string
+  status: string
+  expires_at?: string | null
+  invite_url?: string
+  /** sent=已发邮件；not_configured=公司未配发信；failed=发信失败；no_email=无对方邮箱 */
+  email_status?: 'sent' | 'not_configured' | 'failed' | 'no_email'
+  email_sent?: boolean
+}
+
+/** 邀请结果给用户看的说明：是否已发邮件，以及是否需要手动转发链接 */
+export function inviteDeliveryNotice(res: Pick<InviteResult, 'email_status'>, email?: string): string {
+  const to = email ? `（${email}）` : ''
+  switch (res.email_status) {
+    case 'sent':
+      return `已发送邀请邮件${to}，链接也可复制转发。`
+    case 'failed':
+      return '邀请邮件发送失败，请复制链接手动转发。'
+    case 'not_configured':
+      return '公司未配置发信，请复制链接手动转发给对方。'
+    default:
+      return '请复制链接手动转发给对方。'
+  }
+}
+
 export async function inviteProjectMember(
   projectId: number,
   body: { email?: string; user_id?: number },
 ) {
-  return apiRequest<{
-    id: number
-    token: string
-    status: string
-    expires_at?: string | null
-  }>(`/projects/${projectId}/invitations`, {
+  return apiRequest<InviteResult>(`/projects/${projectId}/invitations`, {
     method: 'POST',
     body: JSON.stringify(body),
   })
@@ -422,12 +444,34 @@ export async function listIntegrations(companyId: number) {
       last_sync_at?: string
       config?: Record<string, unknown>
       has_credentials?: boolean
+      credentials?: Record<string, string | boolean>
+      callback_uri?: string
+      last_sync_report?: import('./sso').SyncReport
     }[]
   }>(`/companies/${companyId}/integrations`)
 }
 
-export async function triggerOrgSync(companyId: number) {
-  return apiRequest(`/companies/${companyId}/org-sync`, {
+/** 组织同步只针对组织类集成（企微/钉钉/飞书/通用）；不指定时自动选已配置密钥的那一个 */
+export const ORG_SYNC_PROVIDERS = ['wecom', 'dingtalk', 'feishu', 'generic_scim', 'generic'] as const
+
+export function pickOrgSyncProvider(
+  items: { provider: string; has_credentials?: boolean; enabled?: boolean }[],
+): string | undefined {
+  const orgItems = items.filter((x) => (ORG_SYNC_PROVIDERS as readonly string[]).includes(x.provider))
+  return (orgItems.find((x) => x.has_credentials && x.enabled !== false) || orgItems[0])?.provider
+}
+
+export async function triggerOrgSync(companyId: number, provider?: string) {
+  let target = provider
+  if (!target) {
+    try {
+      target = pickOrgSyncProvider((await listIntegrations(companyId)).items || [])
+    } catch {
+      target = undefined
+    }
+  }
+  const qs = target ? `?provider=${encodeURIComponent(target)}` : ''
+  return apiRequest<{ status: string; report?: import('./sso').SyncReport }>(`/companies/${companyId}/org-sync${qs}`, {
     method: 'POST',
     body: '{}',
   })

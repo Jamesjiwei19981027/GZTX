@@ -5,6 +5,7 @@ import '../core/auth/auth_state.dart';
 import '../design/design.dart';
 import '../design/gallery/component_gallery_screen.dart';
 import '../features/auth/routes.dart';
+import '../features/auth/auth_paths.dart';
 import '../features/axis/routes.dart';
 import '../features/evidence/routes.dart';
 import '../features/knowledge/routes.dart';
@@ -36,6 +37,8 @@ class AppRouter {
       if (normalized != null && normalized != state.uri.toString()) {
         return normalized;
       }
+      // 回调页负责等启动完成、PKCE 换票和 AuthFlow；刷新会话期间保留该页面。
+      if (state.matchedLocation == AuthPaths.ssoCallback) return null;
       final isGallery = state.matchedLocation == '/gallery';
       // 允许自由访问控件展示页进行组件验证
       if (isGallery) return null;

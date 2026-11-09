@@ -13,23 +13,28 @@ Color? _boxColorAround(WidgetTester tester, Finder text) {
   return (box.decoration as BoxDecoration?)?.color;
 }
 
+Color? _priorityDotColor(WidgetTester tester) {
+  final dot = tester.widget<Container>(find.byType(Container).first);
+  return (dot.decoration as BoxDecoration?)?.color;
+}
+
 void main() {
-  testWidgets('深色模式下高优徽标用深色底和浅色字', (tester) async {
+  testWidgets('深色模式下高优先级用危险色圆点和文字', (tester) async {
     await tester.pumpWidget(MaterialApp(
       theme: ThemeData.dark(useMaterial3: true),
       home: const Scaffold(body: WorkPriorityBadge(priority: 2)),
     ));
-    expect(_boxColorAround(tester, find.text('高优')), AppColors.darkDangerContainer);
-    expect(tester.widget<Text>(find.text('高优')).style?.color, AppColors.dangerLight);
+    expect(_priorityDotColor(tester), AppColors.darkDanger);
+    expect(tester.widget<Text>(find.text('高')).style?.color, AppColors.darkDanger);
   });
 
-  testWidgets('浅色模式下高优徽标保持原配色', (tester) async {
+  testWidgets('浅色模式下高优先级用危险色圆点和文字', (tester) async {
     await tester.pumpWidget(MaterialApp(
       theme: ThemeData.light(useMaterial3: true),
       home: const Scaffold(body: WorkPriorityBadge(priority: 2)),
     ));
-    expect(_boxColorAround(tester, find.text('高优')), AppColors.dangerLight);
-    expect(tester.widget<Text>(find.text('高优')).style?.color, AppColors.danger);
+    expect(_priorityDotColor(tester), AppColors.danger);
+    expect(tester.widget<Text>(find.text('高')).style?.color, AppColors.danger);
   });
 
   testWidgets('深色模式下回收站保留说明条不是浅蓝底', (tester) async {

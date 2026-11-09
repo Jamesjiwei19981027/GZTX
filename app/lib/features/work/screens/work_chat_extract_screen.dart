@@ -164,7 +164,7 @@ class _WorkChatExtractScreenState extends State<WorkChatExtractScreen> {
               ),
             ),
           Text(
-            '粘贴聊天消息或会议结论，AI 将解析任务标题、优先级与截止日期草稿。',
+            '粘贴聊天消息或会议结论，AI 将解析任务标题、优先级与截止日期草稿',
             style: TextStyle(
               fontSize: 12,
               height: 1.5,
@@ -202,7 +202,7 @@ class _WorkChatExtractScreenState extends State<WorkChatExtractScreen> {
                     _draft!.title,
                     style: const TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       height: 1.35,
                     ),
                   ),

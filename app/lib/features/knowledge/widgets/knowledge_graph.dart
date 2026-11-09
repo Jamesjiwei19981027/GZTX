@@ -101,14 +101,14 @@ class KnowledgeGraph extends StatefulWidget {
 
 class _KnowledgeGraphState extends State<KnowledgeGraph> {
   static const double _nodeWidth = 140;
-  static const double _baseNodeHeight = 78;
+  static const double _baseNodeHeight = 96;
   static const double _padding = 16;
 
   /// 系统字号放大时同步加高节点，避免文字被裁掉
   double _nodeHeightFor(BuildContext context) {
     final scale = MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.5);
     final height = _baseNodeHeight * (1 + (scale - 1) * 0.62);
-    return height.clamp(_baseNodeHeight, 140.0);
+    return height.clamp(_baseNodeHeight, 176.0);
   }
 
   final Map<String, Offset> _dragging = {};
@@ -284,7 +284,7 @@ class _GraphNodeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
     final card = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurface : Colors.white,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -301,18 +301,18 @@ class _GraphNodeCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Flexible(
             child: Text(
               node.subtitle,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: isDark
                     ? AppColors.darkTextSecondary
                     : AppColors.textSecondary,
@@ -324,7 +324,7 @@ class _GraphNodeCard extends StatelessWidget {
               node.badge,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 10, color: AppColors.primary),
+              style: const TextStyle(fontSize: 12, color: AppColors.primary),
             ),
         ],
       ),
@@ -395,7 +395,7 @@ class _EdgePainter extends CustomPainter {
       final painter = TextPainter(
         text: TextSpan(
           text: edge.label,
-          style: TextStyle(fontSize: 10, color: labelColor),
+          style: TextStyle(fontSize: 12, color: labelColor),
         ),
         textDirection: TextDirection.ltr,
         maxLines: 1,

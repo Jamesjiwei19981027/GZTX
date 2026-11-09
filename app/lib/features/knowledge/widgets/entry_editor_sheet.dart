@@ -98,7 +98,7 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
       final discard = await showAppConfirmDialog(
         context: context,
         title: '放弃未保存的内容？',
-        message: '关闭后本次填写的内容会丢失。',
+        message: '关闭后本次填写的内容会丢失',
         confirmLabel: '放弃修改',
         cancelLabel: '继续编辑',
         isDestructive: true,
@@ -137,7 +137,7 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除这条笔记？',
-      message: '原始材料、汇报和对话会保留。',
+      message: '原始材料、汇报和对话会保留',
       confirmLabel: '确认删除',
       isDestructive: true,
     );
@@ -313,7 +313,7 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
                         widget.isCreating ? '记一条' : '查看笔记',
                         style: TextStyle(
                           fontSize: 17,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: isDark
                               ? AppColors.darkTextPrimary
                               : AppColors.textPrimary,
@@ -325,7 +325,7 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
                       onPressed: busy ? null : _requestClose,
                       icon: AppIcon(
                         'close',
-                        size: 20,
+                        size: 18,
                         color: isDark
                             ? AppColors.darkTextSecondary
                             : AppColors.textSecondary,
@@ -358,14 +358,17 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         AppIcon('alert',
-                            size: 16, color: AppColors.onDangerContainerOf(isDarkMode(context))),
+                            size: 18,
+                            color: AppColors.onDangerContainerOf(
+                                isDarkMode(context))),
                         const SizedBox(width: AppSpacing.sm),
                         Expanded(
                           child: Text(
                             _error!,
                             style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.onDangerContainerOf(isDarkMode(context)),
+                              color: AppColors.onDangerContainerOf(
+                                  isDarkMode(context)),
                             ),
                           ),
                         ),
@@ -453,7 +456,7 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
             variant: AppButtonVariant.secondary,
             size: AppButtonSize.sm,
             isLoading: transcribing,
-            icon: const AppIcon('mic', size: 16),
+            icon: const AppIcon('mic', size: 18),
             onPressed:
                 busy || transcribing || _voicePhase == _VoicePhase.starting
                     ? null
@@ -490,13 +493,13 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
             '来源：${entry.sourceLabel}',
             style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            '从本人资料整理，原始材料保留。',
+            '从本人资料整理，原始材料保留',
             style: TextStyle(
               fontSize: 12,
               color: isDark
@@ -522,7 +525,7 @@ class _EntryEditorSheetState extends State<EntryEditorSheet> {
             Text(
               '更新于 ${_updatedLabel(entry)}',
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 color: isDark
                     ? AppColors.darkTextTertiary
                     : AppColors.textTertiary,

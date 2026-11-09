@@ -39,7 +39,7 @@ class NotificationTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 16,
-              fontWeight: item.read ? FontWeight.w500 : FontWeight.w700,
+              fontWeight: item.read ? FontWeight.w500 : FontWeight.w500,
               color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
@@ -47,14 +47,14 @@ class NotificationTile extends StatelessWidget {
         if (item.requiresReply && !item.hasReply) ...[
           const SizedBox(width: AppSpacing.xs),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
             decoration: BoxDecoration(
               color: AppColors.warningLight,
               borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             ),
             child: const Text(
               '需回复',
-              style: TextStyle(fontSize: 10, color: Color(0xFF7A4E00)),
+              style: TextStyle(fontSize: 12, color: Color(0xFF7A4E00)),
             ),
           ),
         ],
@@ -66,7 +66,7 @@ class NotificationTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                fontSize: 11,
+                fontSize: 12,
                 fontWeight: FontWeight.w400,
                 color: AppColors.textTertiary,
               ),
@@ -138,7 +138,7 @@ class NotificationTile extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             titleRow,
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             body,
           ],
         ),
@@ -148,7 +148,7 @@ class NotificationTile extends StatelessWidget {
             : IconButton(
                 tooltip: '通知详情与操作',
                 onPressed: onDetails,
-                icon: const Icon(Icons.more_horiz, size: 20)),
+                icon: const Icon(Icons.more_horiz, size: 18)),
       );
     }
 
@@ -160,7 +160,7 @@ class NotificationTile extends StatelessWidget {
       leading: leading,
       title: titleRow,
       subtitle: Padding(
-        padding: const EdgeInsets.only(top: 2),
+        padding: const EdgeInsets.only(top: 4),
         child: body,
       ),
       onTap: onTap,
@@ -169,7 +169,7 @@ class NotificationTile extends StatelessWidget {
           : IconButton(
               tooltip: '通知详情与操作',
               onPressed: onDetails,
-              icon: const Icon(Icons.more_horiz, size: 20)),
+              icon: const Icon(Icons.more_horiz, size: 18)),
     );
   }
 }

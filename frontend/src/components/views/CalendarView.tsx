@@ -59,17 +59,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         event.stopPropagation()
         onSelectTask(task)
       }}
-      className={`w-full text-left rounded px-1.5 py-1 text-[10px] font-semibold transition-transform hover:scale-[1.02] flex items-center gap-1 ${
+      className={`w-full text-left rounded px-2 py-1 text-xs font-medium transition-transform  flex items-center gap-1 ${
         task.status === 'Done'
-          ? 'bg-secondary/20 text-secondary line-through'
-          : task.priority === 'High'
-            ? 'bg-error-container text-on-error-container font-bold'
-            : 'bg-primary-fixed text-on-primary-fixed-variant'
+          ? 'bg-surface-container text-on-surface-variant'
+          : 'bg-surface-container text-on-surface'
       } ${compact ? '' : 'text-xs'}`}
       title={task.title}
     >
-      <span className="w-1 h-1 rounded-full bg-current flex-shrink-0"></span>
-      <span className="truncate">{task.title}</span>
+      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${task.priority === 'High' ? 'bg-error' : task.priority === 'Medium' ? 'bg-[#a86412]' : 'bg-outline'}`}></span>
+      <span className={`truncate ${task.status === 'Done' ? 'ink-done' : ''}`}>{task.title}</span>
     </button>
   )
 
@@ -109,28 +107,28 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     <div className="max-w-[1400px] mx-auto w-full pb-20 md:pb-8 animate-in fade-in duration-300">
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-extrabold text-on-surface dark:text-[#f0f1f2] tracking-tight flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-3xl">calendar_month</span>
+          <h1 className="text-3xl font-medium text-on-surface dark:text-on-surface  flex items-center gap-2 tabular-nums">
+            <span className="material-symbols-outlined text-inherit text-[18px]">calendar_month</span>
             <span>{label}</span>
           </h1>
-          <div className="flex items-center bg-surface-container dark:bg-[#191c1d] rounded-xl p-1 border border-outline-variant">
+          <div className="flex items-center bg-surface-container-lowest dark:bg-surface-container rounded-xl p-1 border border-outline-variant">
             <button
               onClick={() => moveCursor(-1)}
-              className="p-1 hover:bg-surface dark:hover:bg-[#2e3132] rounded-lg text-on-surface-variant transition-colors"
+              className="p-1 hover:bg-surface dark:hover:bg-surface-container-high rounded-lg text-on-surface-variant transition-ink-colors"
             >
-              <span className="material-symbols-outlined text-sm">chevron_left</span>
+              <span className="material-symbols-outlined text-[18px]">chevron_left</span>
             </button>
             <button
               onClick={() => setCursor(new Date(today.getFullYear(), today.getMonth(), today.getDate()))}
-              className="px-2.5 py-1 text-xs font-bold text-primary hover:bg-surface dark:hover:bg-[#2e3132] rounded-lg transition-colors"
+              className="px-2 py-1 text-xs font-medium text-primary hover:bg-surface dark:hover:bg-surface-container-high rounded-lg transition-ink-colors tabular-nums"
             >
               {t.today}
             </button>
             <button
               onClick={() => moveCursor(1)}
-              className="p-1 hover:bg-surface dark:hover:bg-[#2e3132] rounded-lg text-on-surface-variant transition-colors"
+              className="p-1 hover:bg-surface dark:hover:bg-surface-container-high rounded-lg text-on-surface-variant transition-ink-colors"
             >
-              <span className="material-symbols-outlined text-sm">chevron_right</span>
+              <span className="material-symbols-outlined text-[18px]">chevron_right</span>
             </button>
           </div>
         </div>
@@ -142,9 +140,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             )
           }}
           title={lang === 'zh' ? '导出 .ics（导入系统日历）' : 'Export .ics'}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant bg-surface-container dark:bg-[#191c1d] text-xs font-bold text-on-surface-variant hover:text-on-surface transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-outline-variant bg-surface-container dark:bg-surface-container-low text-xs font-medium text-on-surface-variant hover:text-on-surface transition-ink-colors tabular-nums"
         >
-          <span className="material-symbols-outlined text-sm">download</span>
+          <span className="material-symbols-outlined text-[18px]">download</span>
           <span className="hidden md:inline">{lang === 'zh' ? '导出日历' : 'Export'}</span>
         </button>
         <button
@@ -174,9 +172,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               )
           }}
           title={lang === 'zh' ? '复制 ICS 订阅地址（系统日历持续同步）' : 'Copy ICS subscription URL'}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant bg-surface-container dark:bg-[#191c1d] text-xs font-bold text-on-surface-variant hover:text-on-surface transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-outline-variant bg-surface-container dark:bg-surface-container-low text-xs font-medium text-on-surface-variant hover:text-on-surface transition-ink-colors tabular-nums"
         >
-          <span className="material-symbols-outlined text-sm">link</span>
+          <span className="material-symbols-outlined text-[18px]">link</span>
           <span className="hidden md:inline">{lang === 'zh' ? '订阅' : 'Subscribe'}</span>
         </button>
         <button
@@ -208,19 +206,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               )
           }}
           title={lang === 'zh' ? '重置 ICS 订阅地址（旧地址立即失效）' : 'Reset ICS subscription URL'}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-outline-variant bg-surface-container dark:bg-[#191c1d] text-xs font-bold text-on-surface-variant hover:text-on-surface transition-colors"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-outline-variant bg-surface-container dark:bg-surface-container-low text-xs font-medium text-on-surface-variant hover:text-on-surface transition-ink-colors tabular-nums"
         >
-          <span className="material-symbols-outlined text-sm">restart_alt</span>
+          <span className="material-symbols-outlined text-[18px]">restart_alt</span>
           <span className="hidden md:inline">{lang === 'zh' ? '重置订阅' : 'Reset'}</span>
         </button>
-        <div className="flex bg-surface-container dark:bg-[#191c1d] p-1 rounded-xl border border-outline-variant shadow-xs">
+        <div className="flex bg-surface-container-lowest dark:bg-surface-container p-1 rounded-xl border border-outline-variant shadow-sm dark:shadow-none">
           {(['month', 'week', 'day'] as const).map((mode) => (
             <button
               key={mode}
               onClick={() => setViewType(mode)}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
+              className={`px-4 py-2 rounded-lg text-xs font-medium capitalize transition-ink-colors ${
                 viewType === mode
-                  ? 'bg-primary text-on-primary shadow-sm'
+                  ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
                   : 'text-on-surface-variant hover:text-on-surface'
               }`}
             >
@@ -232,12 +230,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        <div className="lg:col-span-8 bg-surface dark:bg-[#191c1d] rounded-2xl border border-surface-variant dark:border-outline-variant p-4 md:p-6 shadow-sm">
+        <div className="lg:col-span-8 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-surface-variant dark:border-outline-variant p-4 md:p-6 shadow-sm dark:shadow-none">
           <div className={`grid gap-2 mb-3 text-center ${viewType === 'day' ? 'grid-cols-1' : 'grid-cols-7'}`}>
             {(viewType === 'day' ? [cursor] : visibleDays.slice(0, 7)).map((date, index) => (
               <div
                 key={formatDateLocal(date)}
-                className={`text-xs font-extrabold py-2 uppercase ${
+                className={`text-xs font-medium py-2  ${
                   viewType !== 'day' && (index === 0 || index === 6) ? 'text-error' : 'text-on-surface-variant'
                 }`}
               >
@@ -258,21 +256,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 <>
                   <div className="flex justify-between items-start">
                     <span
-                      className={`text-xs md:text-sm font-bold w-7 h-7 flex items-center justify-center rounded-full ${
+                      className={`text-xs md:text-sm font-medium w-7 h-7 flex items-center justify-center rounded-full ${
                         isSameDay(date, today)
-                          ? 'bg-primary text-on-primary shadow-sm ring-2 ring-primary/30'
+                          ? 'bg-primary text-on-primary shadow-sm dark:shadow-none ring-2 ring-primary/30'
                           : isSameDay(date, cursor)
-                            ? 'bg-primary/10 text-primary font-extrabold'
-                            : 'text-on-surface dark:text-[#f0f1f2]'
+                            ? 'bg-primary/10 text-primary font-medium'
+                            : 'text-on-surface dark:text-on-surface'
                       }`}
                     >
                       {date.getDate()}
                     </span>
-                    {dayTasks.length > 0 && <span className="text-[10px] bg-secondary-container text-on-secondary-container font-extrabold px-1.5 py-0.5 rounded-full">{dayTasks.length}</span>}
+                    {dayTasks.length > 0 && <span className="text-xs bg-secondary-container text-on-secondary-container font-medium px-2 py-1 rounded-md tabular-nums">{dayTasks.length}</span>}
                   </div>
                   <div className="space-y-1 mt-1 overflow-hidden">
                     {dayTasks.slice(0, viewType === 'day' ? 20 : 3).map((task) => renderTask(task, viewType !== 'day'))}
-                    {dayTasks.length > 3 && viewType !== 'day' && <div className="text-[9px] text-center font-bold text-on-surface-variant">+{dayTasks.length - 3} {lang === 'zh' ? '更多' : 'more'}</div>}
+                    {dayTasks.length > 3 && viewType !== 'day' && <div className="text-[9px] text-center font-medium text-on-surface-variant tabular-nums">+{dayTasks.length - 3} {lang === 'zh' ? '更多' : 'more'}</div>}
                   </div>
                   {/* Quick Add icon on hover */}
                   <button
@@ -280,42 +278,42 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       e.stopPropagation()
                       onOpenNewTaskWithDate(dateStr)
                     }}
-                    className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 p-0.5 bg-primary text-on-primary rounded-full shadow transition-opacity"
+                    className="absolute bottom-1 right-1 opacity-0 group-hover:opacity-100 p-1 bg-primary text-on-primary rounded-lg shadow transition-opacity"
                     title={lang === 'zh' ? '在此日添加任务' : 'Add task on this day'}
                   >
-                    <span className="material-symbols-outlined text-xs">add</span>
+                    <span className="material-symbols-outlined text-[18px]">add</span>
                   </button>
                 </>,
-                `${dayCellClass} rounded-xl p-2 transition-all cursor-pointer flex flex-col gap-2 border relative group overflow-hidden ${isSameDay(date, cursor) ? 'bg-primary-fixed/20 dark:bg-primary-container/30 border-primary shadow-md' : 'bg-surface-container-low dark:bg-[#2e3132] border-surface-variant hover:border-primary/50'}`,
+                `${dayCellClass} rounded-xl p-2 transition-ink-colors cursor-pointer flex flex-col gap-2 border relative group overflow-hidden ${isSameDay(date, cursor) ? 'bg-primary-fixed/20 dark:bg-primary-container/30 border-primary shadow-sm dark:shadow-none' : 'bg-surface-container-low dark:bg-surface-container-high border-surface-variant hover:border-primary/50'}`,
               )
             })}
           </div>
         </div>
 
         <div className="lg:col-span-4 space-y-6">
-          <div className="bg-gradient-to-br from-[#1d4ed8] to-[#1e40af] text-white p-6 rounded-2xl shadow-md">
-            <h3 className="text-xs font-bold uppercase tracking-wider opacity-80">{t.todayOutlook}</h3>
-            <p className="text-2xl font-extrabold mt-1">{selectedDate}</p>
-            <p className="text-xs font-medium bg-white/10 p-3 rounded-xl mt-4">{selectedTasks.length ? `${selectedTasks.length} ${lang === 'zh' ? '个任务已安排' : 'task(s) scheduled'}` : t.outlookDesc}</p>
+          <div className="bg-surface-container-lowest dark:bg-surface-container text-on-surface p-6 rounded-xl shadow-sm dark:shadow-none">
+            <h3 className="text-xs font-medium   opacity-80 tabular-nums">{t.todayOutlook}</h3>
+            <p className="text-2xl font-medium mt-1 tabular-nums">{selectedDate}</p>
+            <p className="text-xs font-normal bg-surface-container-lowest/10 p-3 rounded-xl mt-4 tabular-nums">{selectedTasks.length ? `${selectedTasks.length} ${lang === 'zh' ? '个任务已安排' : 'task(s) scheduled'}` : t.outlookDesc}</p>
           </div>
-          <div className="bg-surface dark:bg-[#191c1d] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm">
+          <div className="bg-surface-container-lowest dark:bg-surface-container p-6 rounded-xl border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none">
             <div className="flex justify-between items-center mb-4 pb-2 border-b border-surface-variant">
-              <h3 className="font-bold text-base text-on-surface dark:text-[#f0f1f2] flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">view_timeline</span>
+              <h3 className="font-medium text-base text-on-surface dark:text-on-surface flex items-center gap-2 tabular-nums">
+                <span className="material-symbols-outlined text-inherit">view_timeline</span>
                 <span>{lang === 'zh' ? `${selectedDate} 任务列表` : `Tasks for ${selectedDate}`}</span>
               </h3>
               <button
                 onClick={() => onOpenNewTaskWithDate(selectedDate)}
-                className="p-1.5 bg-primary/10 text-primary hover:bg-primary hover:text-on-primary rounded-lg transition-colors text-xs font-bold flex items-center gap-1"
+                className="p-2 bg-primary/10 text-primary hover:bg-primary/90 hover:text-on-primary rounded-lg transition-ink-colors text-xs font-medium flex items-center gap-1 tabular-nums"
               >
-                <span className="material-symbols-outlined text-sm">add</span>
+                <span className="material-symbols-outlined text-[18px]">add</span>
                 <span>{lang === 'zh' ? '增加' : 'Add'}</span>
               </button>
             </div>
             {selectedTasks.length === 0 ? (
               <div className="text-center py-10 text-on-surface-variant">
                 <span className="material-symbols-outlined text-4xl mb-1 opacity-50">event_available</span>
-                <p className="text-sm font-semibold">{lang === 'zh' ? '此日没有任何安排' : 'No tasks scheduled'}</p>
+                <p className="text-sm font-normal tabular-nums">{lang === 'zh' ? '此日没有任何安排' : 'No tasks scheduled'}</p>
                 <p className="text-xs mt-1">{lang === 'zh' ? '双击日期方格即可创建任务' : 'Double click any day to add tasks'}</p>
               </div>
             ) : (
@@ -326,10 +324,10 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     <div
                       key={task.id}
                       onClick={() => onSelectTask(task)}
-                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                      className={`p-4  border-b transition-ink-colors cursor-pointer flex items-center justify-between ${
                         isDone
-                          ? 'bg-surface-container-lowest border-surface-variant opacity-75'
-                          : 'bg-surface-container-low dark:bg-[#2e3132] border-transparent hover:border-primary/50 shadow-xs'
+                          ? ' border-surface-variant opacity-75'
+                          : 'bg-surface-container-low dark:bg-surface-container-high border-transparent hover:border-primary/50 '
                       }`}
                     >
                       <div className="flex items-center gap-3 overflow-hidden">
@@ -339,17 +337,17 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                           }`}
                         ></div>
                         <div className="overflow-hidden">
-                          <p className={`text-sm font-bold truncate ${isDone ? 'line-through text-on-surface-variant' : 'text-on-surface dark:text-[#f0f1f2]'}`}>
+                          <p className={`text-sm font-medium truncate ${isDone ? 'ink-done' : 'text-on-surface dark:text-on-surface'}`}>
                             {task.title}
                           </p>
-                          <div className="flex items-center gap-2 text-xs text-on-surface-variant mt-0.5">
-                            <span className="font-semibold text-primary">{task.dueTime || (lang === 'zh' ? '全天' : 'All day')}</span>
+                          <div className="flex items-center gap-2 text-xs text-on-surface-variant mt-1">
+                            <span className="font-medium text-primary tabular-nums">{task.dueTime || (lang === 'zh' ? '全天' : 'All day')}</span>
                             <span>•</span>
                             <span className="truncate">#{task.tag || task.category}</span>
                           </div>
                         </div>
                       </div>
-                      <span className="material-symbols-outlined text-on-surface-variant/60 text-lg flex-shrink-0 ml-2">
+                      <span className="material-symbols-outlined text-inherit text-[18px] flex-shrink-0 ml-2">
                         chevron_right
                       </span>
                     </div>
@@ -358,11 +356,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               </div>
             )}
           </div>
-          <div className="bg-surface dark:bg-[#191c1d] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm">
-            <div className="flex items-center justify-between mb-4 pb-2 border-b border-surface-variant"><h3 className="font-bold text-base text-on-surface dark:text-[#f0f1f2]">{lang === 'zh' ? '时间轴' : 'Time axis'}</h3><span className="text-xs text-on-surface-variant">{timelineTasks.length} {lang === 'zh' ? '项' : 'items'}</span></div>
+          <div className="bg-surface-container-lowest dark:bg-surface-container p-6 rounded-xl border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none">
+            <div className="flex items-center justify-between mb-4 pb-2 border-b border-surface-variant"><h3 className="font-medium text-base text-on-surface dark:text-on-surface tabular-nums">{lang === 'zh' ? '时间轴' : 'Time axis'}</h3><span className="text-xs text-on-surface-variant">{timelineTasks.length} {lang === 'zh' ? '项' : 'items'}</span></div>
             <div className="relative space-y-3">
               <div className="absolute left-[43px] top-1 bottom-1 w-px bg-outline-variant/60" />
-              {timelineTasks.length === 0 ? <p className="text-center py-4 text-xs text-on-surface-variant">{lang === 'zh' ? '暂无时间段安排' : 'No timed tasks'}</p> : timelineTasks.map((task) => <button type="button" key={task.id} onClick={() => onSelectTask(task)} className="relative z-10 w-full flex items-center gap-3 text-left"><span className="w-9 text-[10px] text-on-surface-variant text-right">{task.dueTime || '—'}</span><span className={`w-2.5 h-2.5 rounded-full ${task.status === 'Done' ? 'bg-secondary' : 'bg-primary'}`} /><span className="flex-1 p-2 rounded-lg bg-surface-container-low text-xs font-semibold truncate">{task.title}</span></button>)}
+              {timelineTasks.length === 0 ? <p className="text-center py-4 text-xs text-on-surface-variant">{lang === 'zh' ? '暂无时间段安排' : 'No timed tasks'}</p> : timelineTasks.map((task) => <button type="button" key={task.id} onClick={() => onSelectTask(task)} className="relative z-10 w-full flex items-center gap-3 text-left"><span className="w-9 text-xs text-on-surface-variant text-right">{task.dueTime || '—'}</span><span className={`w-2.5 h-2.5 rounded-full ${task.status === 'Done' ? 'bg-secondary' : 'bg-primary'}`} /><span className={`flex-1 py-2 text-xs font-medium truncate tabular-nums ${task.status === 'Done' ? 'ink-done' : 'text-on-surface'}`}>{task.title}</span></button>)}
             </div>
             <div className="mt-4 pt-3 border-t border-surface-variant text-xs text-on-surface-variant">{lang === 'zh' ? `完成 ${timelineTasks.filter((task) => task.status === 'Done').length} / ${timelineTasks.length}，效率 ${timelineTasks.length ? Math.round(timelineTasks.filter((task) => task.status === 'Done').length / timelineTasks.length * 100) : 0}%` : `${timelineTasks.filter((task) => task.status === 'Done').length}/${timelineTasks.length} complete · ${timelineTasks.length ? Math.round(timelineTasks.filter((task) => task.status === 'Done').length / timelineTasks.length * 100) : 0}% efficiency`}</div>
           </div>

@@ -1,4 +1,4 @@
-import React, { Suspense, useState, useEffect, useCallback } from 'react';
+import React, { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { WorkContactsPage } from '../../components/WorkContactsPage';
 const PersonalKnowledgeSpace = React.lazy(() =>
   import('../../components/PersonalKnowledgeSpace').then((m) => ({ default: m.PersonalKnowledgeSpace })),
@@ -16,11 +16,14 @@ import {
 import { DashboardView } from '../../components/views/DashboardView';
 import { MyTasksView } from '../../components/views/MyTasksView';
 import { MobileTopBar } from '../ui/MobileTopBar';
+import { shouldHideOuterTopBar } from './mobileChrome';
 import { MobileEmptyState, MobileLoadingState } from '../ui/MobileState';
 import { AppIcon } from '../ui/AppIcon';
 import { TaskWorkspaceToolbar } from '../../components/TaskWorkspaceToolbar';
 import { filterTaskWorkspace, normalizeTaskWorkspaceScope } from '../../utils/taskWorkspace';
-import { mapTask } from '../../api/mappers';
+import { mapProject, mapTask } from '../../api/mappers';
+import { getProject } from '../../api/backend';
+import { notifyProjectsChanged } from '../../api/manage';
 import { MyAgentScreen } from '../features/reports/MyAgentScreen';
 import { MyReportEditor } from '../features/reports/MyReportEditor';
 import { ReportDetailScreen } from '../features/reports/ReportDetailScreen';
@@ -41,6 +44,7 @@ import {
   MobileBillingHelpScreen,
   MobileNotificationLogsScreen,
   MobileThirdPartyBindingsScreen,
+  isUserAdmin,
 } from '../features/settings/MobileSettingsScreens';
 import {
   AdaptAccountDeleteScreen,
@@ -140,11 +144,25 @@ export interface MobileRouteOutletSharedProps {
   onLogout: () => Promise<void>;
   onOpenQuickAdd: () => void;
   onOpenSearch: () => void;
+  /** 受邀注册后要落到的项目；处理完调用 onInviteLandingHandled */
+  inviteLandingProjectId?: string | null;
+  onInviteLandingHandled?: () => void;
 }
 
 export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props) => {
-  const { currentTab, activeRoute, canGoBack, goBack, push, replace, openOverlay, closeOverlay, setDirty } = useMobileNavigation();
+  const { currentTab, activeRoute, canGoBack, goBack, push, replace, openOverlay, closeOverlay, unregisterOverlay, setDirty } = useMobileNavigation();
   const lang: Language = props.settings.language;
+  // 每次导航都作废旧邀请完成回调；离开后再回到同一页面也属于新一代。
+  const inviteNavigation = useRef({ route: activeRoute, tab: currentTab, generation: 0 });
+  if (inviteNavigation.current.route !== activeRoute || inviteNavigation.current.tab !== currentTab) {
+    inviteNavigation.current = { route: activeRoute, tab: currentTab, generation: inviteNavigation.current.generation + 1 };
+  }
+  const inviteGeneration = inviteNavigation.current.generation;
+  const inviteOutletMounted = useRef(true);
+  useEffect(() => {
+    inviteOutletMounted.current = true;
+    return () => { inviteOutletMounted.current = false; };
+  }, []);
 
   const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
@@ -154,6 +172,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
   const [calendarEditor, setCalendarEditor] = useState(false);
   const [isQuickAddOpen, setIsQuickAddOpen] = useState(false);
   const [isExtractChatOpen, setIsExtractChatOpen] = useState(false);
+  const closeExtractChat = useCallback(() => setIsExtractChatOpen(false), []);
   const [activeCall, setActiveCall] = useState<{ name: string; type: 'audio' | 'video'; conversationId?: number } | null>(null);
 
   const parsedCompanyId = props.companyId ? Number(props.companyId) : null;
@@ -167,6 +186,22 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
   const addScheduledTask = (date: string) => {
     setDetailTask(null); setCalendarEditor(true); setEditingTask(null); setNewTaskDate(date); setIsNewTaskOpen(true);
   };
+  // 受邀注册/接受邀请后：手机端落到被邀请项目的概览页，顶部项目芯片同步为该项目
+  const { inviteLandingProjectId, onInviteLandingHandled, projects: allProjects, currentProject: activeProject, onSelectProject } = props;
+  useEffect(() => {
+    if (!inviteLandingProjectId) return;
+    const target = allProjects.find((p) => String(p.id) === String(inviteLandingProjectId));
+    if (target && String(activeProject.id) !== String(target.id)) onSelectProject(target);
+    push({
+      tab: 'work',
+      screen: 'project-overview',
+      title: target?.name || activeProject.name,
+      params: { projectId: String(inviteLandingProjectId) },
+    });
+    onInviteLandingHandled?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [inviteLandingProjectId]);
+
   const closeTaskEditor = useCallback(() => {
     setIsNewTaskOpen(false); setEditingTask(null); setNewTaskDate(undefined);
     setNewTaskStatus(undefined); setCalendarEditor(false); setDirty(false);
@@ -176,6 +211,12 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
     openOverlay({ id: 'task-editor', type: 'sheet', onDismiss: closeTaskEditor });
     return () => closeOverlay();
   }, [isNewTaskOpen, openOverlay, closeOverlay, closeTaskEditor]);
+
+  useEffect(() => {
+    if (!isExtractChatOpen) return;
+    openOverlay({ id: 'extract-chat', type: 'sheet', onDismiss: closeExtractChat });
+    return () => unregisterOverlay('extract-chat');
+  }, [isExtractChatOpen, openOverlay, unregisterOverlay, closeExtractChat]);
 
   // 根据当前 activeRoute 确定页面渲染
   const renderScreenContent = () => {
@@ -191,6 +232,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               currentUser={props.user}
               projects={props.projects}
               onBack={goBack}
+              onViewReports={() => push({ screen: 'ai-report-create', title: '我的汇报' })}
             />
           );
         }
@@ -287,15 +329,15 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               companyId={parsedCompanyId}
               onSelectProject={props.onSelectProject}
               onCreateProjectClick={() => push({ screen: 'project-create', title: '新建项目' })}
+              onJoinProjectClick={() => push({ screen: 'invite-accept', title: '使用邀请加入项目' })}
               onClose={canGoBack ? goBack : undefined}
               lang={lang}
             />
           );
         }
-        if (activeRoute.screen === 'project-create' || activeRoute.screen === 'company-create') {
+        if (activeRoute.screen === 'project-create') {
           return (
             <MobileWorkspaceCreateScreen
-              initialMode={activeRoute.screen === 'company-create' ? 'company' : 'project'}
               companyId={parsedCompanyId}
               onCreated={(created) => {
                 if (created.kind === 'project') {
@@ -360,8 +402,16 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
           return (
             <MobileInviteAcceptScreen
               initialToken={activeRoute.params.token}
-              onAccepted={(res) => {
-                goBack();
+              onAccepted={async (res) => {
+                const isCurrentInvite = () => inviteOutletMounted.current && inviteNavigation.current.generation === inviteGeneration;
+                if (!isCurrentInvite()) return;
+                const project = await getProject(res.project_id).then(mapProject).catch(() => ({
+                  id: String(res.project_id), name: '受邀项目', description: '', color: '#0058BE', active: true,
+                }));
+                if (!isCurrentInvite()) return;
+                props.onSelectProject(project);
+                notifyProjectsChanged();
+                replace({ screen: 'project-overview', title: project.name, params: { projectId: String(res.project_id) } });
               }}
               onCancel={goBack}
               lang={lang}
@@ -420,6 +470,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               currentUser={props.user}
               projects={props.projects}
               onBack={goBack}
+              onViewReports={() => push({ screen: 'ai-report-create', title: '我的汇报' })}
             />
           );
         }
@@ -567,6 +618,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               currentUser={props.user}
               projects={props.projects}
               onBack={goBack}
+              onViewReports={() => push({ screen: 'ai-report-create', title: '我的汇报' })}
             />
           );
         }
@@ -724,6 +776,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             }
             onOpenInbox={() => push({ screen: 'messages-inbox', title: '通知与收件箱' })}
             onOpenContacts={() => push({screen:'messages-contacts',title:'工作联系人'})}
+            onOpenExtractChat={() => setIsExtractChatOpen(true)}
             onBack={canGoBack ? goBack : undefined}
             lang={lang}
           />
@@ -741,6 +794,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               currentUser={props.user}
               projects={props.projects}
               onBack={goBack}
+              onViewReports={() => push({ screen: 'ai-report-create', title: '我的汇报' })}
             />
           );
         }
@@ -794,8 +848,15 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             <MobileTeamScreen
               projectId={Number(props.currentProject.id)}
               companyId={parsedCompanyId}
+              isCompanyAdmin={isUserAdmin(props.user)}
               onSelectMember={(m) =>
-                push({ screen: 'me-member-detail', params: { memberId: String(m.user_id) } })
+                push({
+                  screen: 'me-member-detail',
+                  params: {
+                    memberId: String(m.user_id),
+                    memberName: m.display_name || m.nickname || m.username || '',
+                  },
+                })
               }
               onBack={canGoBack ? goBack : undefined}
               lang={lang}
@@ -810,11 +871,14 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             <MobileMemberDetailScreen
               member={{
                 user_id: Number(activeRoute.params.memberId || props.user.id),
-                display_name: targetMem?.name || props.user.name,
+                display_name: targetMem?.name || activeRoute.params.memberName || props.user.name,
                 role: targetMem?.role || props.user.role,
-                avatar_url: targetMem?.avatar || props.user.avatar,
+                avatar_url: targetMem?.avatar || (activeRoute.params.memberId ? undefined : props.user.avatar),
               }}
               projectId={Number(props.currentProject.id)}
+              companyId={parsedCompanyId}
+              currentUserId={Number(props.user.id) || null}
+              isCompanyAdmin={isUserAdmin(props.user)}
               onBack={goBack}
               lang={lang}
             />
@@ -842,7 +906,10 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={props.onOpenSearch}
+            onClick={() => {
+              // 手机端打开手机版搜索页，而不是桌面搜索浮层
+              if (activeRoute.screen !== 'work-search') push({ tab: 'work', screen: 'work-search', title: '全局搜索' });
+            }}
             aria-label="搜索"
             className="mobile-touch-target text-slate-700 dark:text-slate-300 active:opacity-60 cursor-pointer"
           >
@@ -858,10 +925,8 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
   // 人轴、AI 汇报和“我的”页面由各自 feature screen 绘制平台化顶栏；
   // 工作 / 消息页面没有内部顶栏，继续由 Outlet 提供统一标题和返回入口。
   // 避免同一页面出现两套顶栏和重复 heading。
-  const hideOuterTopBar = currentTab === 'axis' || currentTab === 'knowledge' || activeRoute.screen.startsWith('ai-') || currentTab === 'me'
-    || activeRoute.screen === 'messages-chat' || activeRoute.screen === 'record-progress';
-  const ownsContactsHeader = activeRoute.screen === 'messages-contacts' || activeRoute.screen === 'project-switch'
-    || activeRoute.screen === 'project-overview';
+  const hideOuterTopBar = shouldHideOuterTopBar(currentTab, activeRoute.screen);
+  const ownsContactsHeader = false;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 bg-[#F2F2F7] dark:bg-black">
@@ -924,6 +989,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
         projectName={props.projects.find(project => project.id === editingTask?.projectId)?.name || props.currentProject.name}
         defaultDate={newTaskDate}
         defaultStatus={newTaskStatus}
+        defaultPriority={props.settings.taskDefaults?.priority}
         members={projectMembersList}
         lang={lang}
       />
@@ -944,7 +1010,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
       {/* 17 从聊天提取任务 Sheet */}
       <MobileTaskExtractChatSheet
         isOpen={isExtractChatOpen}
-        onClose={() => setIsExtractChatOpen(false)}
+        onClose={closeExtractChat}
         onCreated={(t) => {
           props.onTaskSaved?.(t);
           setDetailTask(t);

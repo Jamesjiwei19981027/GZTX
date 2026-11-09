@@ -949,7 +949,7 @@ test('mobile web appearance: cards, hint bubble and zoom controls are styled', a
   expect(parseFloat(pill.radius)).toBeGreaterThan(0)
 })
 
-for (const width of [320, 360]) {
+for (const width of [320, 360, 390, 420]) {
   test(`mobile web toolbar fits on one row at ${width}px without scrolling`, async ({ page }) => {
     await page.setViewportSize({ width, height: 640 })
     await openMobileWorkspace(page, true, 1, true)
@@ -958,7 +958,7 @@ for (const width of [320, 360]) {
     await expect(fit).toBeVisible()
     const result = await fit.evaluate(el => {
       const bar = el.parentElement!.parentElement!
-      const buttons = [...bar.querySelectorAll('button')].map(b => b.getBoundingClientRect())
+      const buttons = [...bar.querySelectorAll('button, select')].map(b => b.getBoundingClientRect())
       return {
         maxRight: Math.max(...buttons.map(b => b.right)),
         minLeft: Math.min(...buttons.map(b => b.left)),
@@ -974,6 +974,13 @@ for (const width of [320, 360]) {
     expect(result.rows).toBeLessThan(8)
     await expect(page.getByRole('button', { name: '定位我', exact: true })).toBeVisible()
     await expect(fit).toHaveAttribute('aria-label', '适应屏幕')
+    const sort = page.getByRole('combobox', { name: '人轴排序', exact: true })
+    await expect(sort).toBeVisible()
+    await sort.selectOption('time')
+    await expect(sort).toHaveValue('time')
+    await page.getByRole('button', { name: '横向', exact: true }).click()
+    await fit.click()
+    await page.getByRole('button', { name: '定位我', exact: true }).click()
   })
 }
 
@@ -1200,7 +1207,7 @@ test('a manager can add a third-level person directly from any chain node', asyn
   await branch.getByRole('button', { name: '新增下级', exact: true }).click()
   const form = page.getByRole('dialog', { name: '添加责任人' })
   await expect(form.getByRole('combobox', { name: '直属上级' })).toHaveValue('4')
-  await form.getByPlaceholder('例如: 实时协同网关责任专家...').fill('客户端负责人')
+  await form.getByPlaceholder('岗位责任称号').fill('客户端负责人')
   const created = page.waitForRequest(r => r.method() === 'POST' && r.url().endsWith('/projects/1/nodes'))
   await form.locator('button[type="submit"]').click()
   expect((await created).postDataJSON().parent_id).toBe(4)
@@ -1379,5 +1386,5 @@ test('real phone canvas keeps the control margins set before the 767px rules wer
   const hint = page.getByTestId('axis-canvas-hint')
   await expect(hint).toBeVisible()
   const hintFont = await hint.evaluate(el => getComputedStyle(el).fontSize)
-  expect(hintFont).toBe('11px')
+  expect(hintFont).toBe('12px')
 })

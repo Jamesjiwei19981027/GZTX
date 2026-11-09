@@ -352,3 +352,98 @@ export function getDescendantNodeIds(nodeId: string, nodes: PeopleAxisNode[]): S
   }
   return descendants;
 }
+
+/* ───────── 树序 / 时间序 ───────── */
+
+export type AxisOrderMode = 'tree' | 'time'
+
+const DAY_MS = 86_400_000
+function validAxisDay(value: string): number | null {
+  const date = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+  if (!date) return null
+  const stamp = Date.parse(`${date}T00:00:00Z`)
+  return Number.isFinite(stamp) && new Date(stamp).toISOString().slice(0, 10) === date ? stamp / DAY_MS : null
+}
+
+/** 日期是唯一的轴向坐标；同日及相邻事项只在垂直于主干的方向分道。 */
+export function buildAxisTimeline(nodes: PeopleAxisNode[]) {
+  const dated = nodes.flatMap(node => node.workItems.flatMap(item => {
+    const day = validAxisDay(item.dueDate || '')
+    return day === null ? [] : [{ nodeId: node.id, ownerName: node.person.name, item, day }]
+  })).sort((a, b) => a.day - b.day || a.nodeId.localeCompare(b.nodeId) || a.item.id.localeCompare(b.item.id))
+  if (!dated.length) return { items: [], ticks: [], start: 0, end: 0 }
+  const min = dated[0].day, max = dated[dated.length - 1].day
+  const span = Math.max(640, Math.min(2400, dated.length * 180))
+  const scale = span / Math.max(1, max - min)
+  const lanes: number[] = []
+  const items = dated.map(entry => {
+    const along = 120 + (entry.day - min) * scale
+    let lane = lanes.findIndex(end => along - end >= 220)
+    if (lane < 0) lane = lanes.length
+    lanes[lane] = along
+    return { ...entry, along, lane }
+  })
+  const days = Math.max(1, max - min)
+  const count = Math.min(6, days)
+  const ticks = Array.from({ length: count + 1 }, (_, i) => {
+    const day = min + Math.round(days * i / count)
+    return { date: new Date(day * DAY_MS).toISOString().slice(0, 10), along: 120 + (day - min) * scale }
+  })
+  return { items, ticks, start: 80, end: 160 + Math.max(1, max - min) * scale }
+}
+
+/** 一位负责人名下最早的未完成事项日期（YYYY-MM-DD）；没有日期返回 null。 */
+export function earliestOpenDueDate(node: PeopleAxisNode): string | null {
+  let best: string | null = null
+  for (const item of node.workItems) {
+    if (item.status === 'Done') continue
+    const day = validAxisDay(item.dueDate || '')
+    const date = day === null ? null : new Date(day * DAY_MS).toISOString().slice(0, 10)
+    if (date && (best === null || date < best)) best = date
+  }
+  return best
+}
+
+/**
+ * 时间序：同一上级下的下属，按各自最早未完成事项的日期从早到晚排列，
+ * 没有日期的排在最后；日期相同时保持原来的树序，保证结果稳定。
+ * 只改 orderOnAxis（同级内的次序），不改上下级关系。
+ */
+export function applyTimeOrder(nodes: PeopleAxisNode[]): PeopleAxisNode[] {
+  const groups = new Map<string, PeopleAxisNode[]>()
+  for (const n of nodes) {
+    const key = n.parentId ?? '__root__'
+    groups.set(key, [...(groups.get(key) || []), n])
+  }
+  const rank = new Map<string, number>()
+  groups.forEach(list => {
+    const sorted = [...list].sort((a, b) => {
+      const da = earliestOpenDueDate(a)
+      const db = earliestOpenDueDate(b)
+      if (da !== db) {
+        if (da === null) return 1
+        if (db === null) return -1
+        return da < db ? -1 : 1
+      }
+      return a.orderOnAxis - b.orderOnAxis || a.id.localeCompare(b.id)
+    })
+    sorted.forEach((n, i) => rank.set(n.id, i))
+  })
+  return nodes.map(n => ({ ...n, orderOnAxis: rank.get(n.id) ?? n.orderOnAxis }))
+}
+
+/**
+ * 松手时的换上级判定：已经停留够久算出了判定就直接用；
+ * 还没停够 300 毫秒就松手、但鼠标正好压在别人卡片上时，现场补算一次，
+ * 否则快速拖放永远触发不了换上级。
+ */
+export function resolveReleaseVerdict<V>(
+  decided: { targetId: string; verdict: V } | null,
+  hoverTargetId: string | null,
+  compute: (targetId: string) => V | null,
+): { targetId: string; verdict: V } | null {
+  if (decided) return decided
+  if (!hoverTargetId) return null
+  const verdict = compute(hoverTargetId)
+  return verdict ? { targetId: hoverTargetId, verdict } : null
+}

@@ -6,6 +6,8 @@ member's direct leader is resolved from ``TreeNode.parent_id`` and
 axis changes the next reporting route automatically.
 """
 
+from datetime import datetime, timezone
+
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -353,6 +355,8 @@ async def submit_member_report(
         user_id=author_user_id,
         project_manager_id=project.pm_user_id,
     )
+    # 核验结果只由 review 写路径产生，客户端提交不能伪造或覆盖。
+    payload = {key: value for key, value in (payload or {}).items() if key not in ("review", "review_history")}
     normalized_sources = []
     for source in sources or []:
         metadata = source.get("metadata") or {}
@@ -361,14 +365,27 @@ async def submit_member_report(
             raise ValueError("source_project_mismatch")
         normalized_sources.append((source, metadata))
     report = await db.get(AgentReport, report_id) if report_id is not None else None
+    if report_id is not None and report is None:
+        raise ValueError("report_not_found")
     if report is not None:
-        if report.binding_id != binding.id or report.author_user_id != author_user_id or report.status not in ("draft", "submitted"):
+        if report.binding_id != binding.id or report.author_user_id != author_user_id or report.status not in ("draft", "submitted", "aggregated"):
             raise ValueError("report_not_editable")
+        if report.status in ("submitted", "aggregated"):
+            return report
+        # 原子认领草稿，保证重试/并发提交只产生一次通知和来源写入。
+        from sqlalchemy import update
+        claimed = await db.execute(update(AgentReport).where(
+            AgentReport.id == report.id, AgentReport.status == "draft"
+        ).values(status="submitted"))
+        if not claimed.rowcount:
+            await db.refresh(report)
+            return report
         report.parent_user_id = parent_user_id
         report.status = "submitted"
+        report.submitted_at = datetime.now(timezone.utc)
         report.summary_text = summary
         report.payload_json = {
-            **(report.payload_json or {}),
+            **{key: value for key, value in (report.payload_json or {}).items() if key not in ("review", "review_history")},
             **(payload or {}),
             "context_scope": {"company_id": binding.company_id, "project_id": binding.project_id},
         }
@@ -380,12 +397,22 @@ async def submit_member_report(
             author_user_id=author_user_id,
             parent_user_id=parent_user_id,
             status="submitted",
+            submitted_at=datetime.now(timezone.utc),
             summary_text=summary,
             payload_json={**(payload or {}), "context_scope": {"company_id": binding.company_id, "project_id": binding.project_id}},
         )
         db.add(report)
         await db.flush()
+    import json
+    existing_sources = (await db.execute(select(AgentReportSource).where(AgentReportSource.report_id == report.id))).scalars().all()
+    def source_key(source_type, source_id, excerpt, metadata):
+        return (source_type, source_id, excerpt, json.dumps(metadata, sort_keys=True, ensure_ascii=False))
+    seen = {source_key(s.source_type, s.source_id, s.excerpt, s.metadata_json or {}) for s in existing_sources}
     for source, metadata in normalized_sources:
+        key = source_key(str(source.get("source_type") or "unknown"), source.get("source_id"), source.get("excerpt"), metadata)
+        if key in seen:
+            continue
+        seen.add(key)
         db.add(
             AgentReportSource(
                 report_id=report.id,
@@ -427,6 +454,59 @@ async def submit_member_report(
             channels=["in_app"],
             project_id=project.id,
         )
+    await db.flush()
+    return report
+
+
+async def is_member_report_reviewer(db: AsyncSession, *, report: AgentReport, reviewer_user_id: int) -> bool:
+    """核验仅限仍在职的项目 PM 或该份汇报保存的接收上级；不授予超管旁路。"""
+    from app.services.acl import AclService
+
+    if report.author_user_id == reviewer_user_id:
+        return False
+    project = await db.get(Project, report.project_id)
+    if not project or project.company_id != report.company_id:
+        return False
+    acl = AclService()
+    membership = await acl._membership(db, reviewer_user_id, report.company_id)
+    member = await acl._project_member(db, report.project_id, reviewer_user_id)
+    if not membership or membership.employment_status != "active" or not member:
+        return False
+    return bool(report.parent_user_id == reviewer_user_id or project.pm_user_id == reviewer_user_id or member.role == "pm")
+
+
+async def review_member_report(db: AsyncSession, *, report_id: int, reviewer_user_id: int, decision: str, comment: str) -> AgentReport:
+    from app.api.deps_collab import assert_collaboration_write
+
+    report = (await db.execute(select(AgentReport).where(AgentReport.id == report_id).with_for_update())).scalar_one_or_none()
+    if not report:
+        raise ValueError("report_not_found")
+    if not await is_member_report_reviewer(db, report=report, reviewer_user_id=reviewer_user_id):
+        raise PermissionError("report_review_forbidden")
+    await assert_collaboration_write(db, report.company_id, project_id=report.project_id, user_id=reviewer_user_id)
+    if report.status not in ("submitted", "aggregated"):
+        raise ValueError("report_not_reviewable")
+    if decision not in ("approved", "returned"):
+        raise ValueError("report_review_decision_invalid")
+    comment = comment.strip()
+    if not comment:
+        raise ValueError("report_review_comment_required")
+    payload = dict(report.payload_json or {})
+    previous = payload.get("review")
+    if isinstance(previous, dict) and all(previous.get(key) == value for key, value in {
+        "decision": decision, "comment": comment, "reviewer_user_id": reviewer_user_id,
+    }.items()):
+        return report
+    review = {"decision": decision, "comment": comment, "reviewer_user_id": reviewer_user_id, "reviewed_at": datetime.now(timezone.utc).isoformat()}
+    history = list(payload.get("review_history") or [])
+    if isinstance(previous, dict):
+        history.append(previous)
+    report.payload_json = {**payload, "review": review, "review_history": history}
+    await NotificationService().enqueue(
+        db, company_id=report.company_id, user_ids=[report.author_user_id], template_key="agent.report.reviewed",
+        payload={"project_id": report.project_id, "report_id": report.id, **review, "decision_label": "通过" if decision == "approved" else "退回"},
+        channels=["in_app"], project_id=report.project_id,
+    )
     await db.flush()
     return report
 
@@ -805,7 +885,7 @@ async def aggregate_project_report(
     reports = (
         await db.execute(
             select(AgentReport)
-            .where(AgentReport.project_id == project_id, AgentReport.status == "submitted")
+            .where(AgentReport.project_id == project_id, AgentReport.status.in_(("submitted", "aggregated")))
             .order_by(AgentReport.created_at)
         )
     ).scalars().all()
@@ -1190,6 +1270,7 @@ async def rollup_member_reports(
             author_user_id=parent_user_id,
             parent_user_id=parent_parent_id,
             status="submitted",
+            submitted_at=datetime.now(timezone.utc),
             summary_text=str(result["content"]).strip(),
             payload_json={
                 "context_scope": {"company_id": project.company_id, "project_id": project_id},

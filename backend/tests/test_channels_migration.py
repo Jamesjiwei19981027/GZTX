@@ -12,7 +12,8 @@ def test_channels_unique_idx_migration():
     from alembic.script import ScriptDirectory
     script = ScriptDirectory.from_config(config)
     head = script.get_current_head()
-    assert head == "fn2b3c4d5e6f"
+    # 迁移链必须单一 head（并行分支合并后不得分叉）
+    assert len(script.get_heads()) == 1, script.get_heads()
 
 
 def test_channels_unique_idx_migration_merges_duplicates_and_enforces_null_project():

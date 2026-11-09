@@ -38,9 +38,10 @@ export interface RecordProgressSaveInput {
 }
 
 export interface RecordProgressSaveDeps {
-  agentChat: (body: { company_id: number; project_id: number; message: string }) => Promise<unknown>;
+  /** 存为汇报草稿：追加进本人在该项目的汇报草稿，出现在「我的汇报」 */
+  saveReportDraft: (projectId: number, text: string, fileIds?: number[]) => Promise<unknown>;
   submitEvidence: (nodeId: number, body: { summary: string; evidence_kind: any; file_ids: number[] }) => Promise<unknown>;
-  createKnowledgeEntry: (projectId: number, body: { title: string; body_text: string; tags: string[] }) => Promise<unknown>;
+  createKnowledgeEntry: (projectId: number, body: { title: string; body_text: string; tags: string[]; file_ids?: number[] }) => Promise<unknown>;
 }
 
 /** 按去向调用原有接口；证据去向未选事项时抛错。 */
@@ -51,13 +52,13 @@ export async function saveRecordProgress(
 ): Promise<string> {
   const text = input.text.trim();
   if (target === 'report_draft') {
-    await deps.agentChat({ company_id: input.companyId, project_id: input.projectId, message: text });
+    await deps.saveReportDraft(input.projectId, text, input.fileIds);
   } else if (target === 'evidence') {
     if (!input.nodeId) throw new Error('未选事项，请先选择关联事项');
     await deps.submitEvidence(input.nodeId, { summary: text, evidence_kind: input.evidenceKind, file_ids: input.fileIds });
   } else {
     const title = text.split('\n')[0].slice(0, 60) || '个人笔记';
-    await deps.createKnowledgeEntry(input.projectId, { title, body_text: text, tags: [] });
+    await deps.createKnowledgeEntry(input.projectId, { title, body_text: text, tags: [], file_ids: input.fileIds });
   }
   return `已存为${RECORD_PROGRESS_LABELS[target]}`;
 }
@@ -71,4 +72,15 @@ export function resolveSuggestedTarget(
     return { ...res, target: initialTarget, reason: '按你进入的入口预选为' + RECORD_PROGRESS_LABELS[initialTarget] };
   }
   return res;
+}
+
+/**
+ * 保存时实际使用的关联事项：切换项目后，旧项目的事项不在新项目事项列表里，必须丢弃。
+ * 事项列表还在加载（loaded=false）时无法判断，按当前选择放行。
+ */
+export function effectiveNodeId(selectedNodeId: string, nodeIds: string[], loaded: boolean): number | null {
+  if (!selectedNodeId) return null;
+  if (loaded && !nodeIds.includes(selectedNodeId)) return null;
+  const n = Number(selectedNodeId);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }

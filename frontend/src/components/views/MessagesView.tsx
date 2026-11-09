@@ -30,6 +30,7 @@ import {
 } from '../../api/shell';
 import type { CallConfig, CollabFile, DirectConversation, CommunicationSummary } from '../../api/shell';
 import { getToken } from '../../api/client';
+import { hasMoreOlderMessages } from '../../utils/messagePaging';
 
 interface MessagesViewProps {
   user: UserProfile;
@@ -116,6 +117,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   /** 单调递增的 load 序号，用来丢弃过期请求的结果 */
   const loadSeqRef = useRef(0);
+  // 消息超过 100 条：向前翻页加载更早的（页码 1 = 最新一页）
+  const olderPageRef = useRef(1);
+  const [canLoadOlder, setCanLoadOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
 
   const channels = [
     { id: 'general' as const, labelZh: '# 全员交流大厅', labelEn: '# general', icon: 'tag' },
@@ -153,6 +158,8 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     setLoading(true);
     setError(null);
     setLoadFailed(false);
+    olderPageRef.current = 1;
+    setCanLoadOlder(false);
     try {
       const pid = projectId && projectId !== 'all' ? Number(projectId) : undefined;
       const chRes = await listChannels(companyId, Number.isFinite(pid) ? pid : undefined);
@@ -169,6 +176,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
         if (!conversationId) { setMessages([]); return; }
         const msgRes = await listDirectMessages(conversationId);
         if (isStale()) return;
+        setCanLoadOlder(hasMoreOlderMessages((msgRes.items || []).length));
         setMessages((msgRes.items || []).map((m) => ({
           id: String(m.id),
           senderName: m.sender_name,
@@ -189,6 +197,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       }
       const msgRes = await listChannelMessages(chId);
       if (isStale()) return;
+      setCanLoadOlder(hasMoreOlderMessages((msgRes.items || []).length));
       setMessages(
         (msgRes.items || []).map((m) => ({
           id: String(m.id),
@@ -211,6 +220,39 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       if (!isStale()) setLoading(false);
     }
   }, [companyId, projectId, activeChannel, activeConversationId, lang, user.avatar]);
+
+  const loadOlderMessages = async () => {
+    if (loadingOlder || !canLoadOlder) return;
+    setLoadingOlder(true);
+    try {
+      const page = olderPageRef.current + 1;
+      const isDirect = activeChannel === 'direct';
+      const scopeId = isDirect ? activeConversationId : channelMap[activeChannel];
+      if (!scopeId) return;
+      const res = isDirect ? await listDirectMessages(scopeId, page) : await listChannelMessages(scopeId, page);
+      const older: MessageItem[] = (res.items || []).map((m) => ({
+        id: String(m.id),
+        senderName: m.sender_name,
+        senderAvatar: m.sender_avatar || user.avatar,
+        content: m.body,
+        timestamp: formatMessageTime(m.created_at, lang),
+        channel: activeChannel,
+        likes: 'likes' in m ? Number((m as { likes?: number }).likes || 0) : 0,
+        repliesCount: 0,
+        attachments: mapAttachments(m.attachments),
+      }));
+      olderPageRef.current = page;
+      setCanLoadOlder(hasMoreOlderMessages((res.items || []).length));
+      setMessages((prev) => {
+        const seen = new Set(prev.map((x) => x.id));
+        return [...older.filter((x) => !seen.has(x.id)), ...prev];
+      });
+    } catch {
+      setError('加载更早消息失败，请重试');
+    } finally {
+      setLoadingOlder(false);
+    }
+  };
 
   const summarizeCurrentConversation = async () => {
     const scopeId = activeChannel === 'direct' ? activeConversationId : channelMap[activeChannel];
@@ -620,10 +662,10 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
 
   return (
     <div className="space-y-6 animate-in pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-low p-6 rounded-3xl border border-outline-variant/30 shadow-xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-container-lowest dark:bg-surface-container p-6 rounded-xl border border-outline-variant/30 shadow-sm dark:shadow-none">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-3xl">forum</span>
+          <h1 className="text-2xl font-medium  text-on-surface flex items-center gap-2 tabular-nums">
+            <span className="material-symbols-outlined text-inherit text-[18px]">forum</span>
             {lang === 'zh' ? '消息中心' : 'Messages'}
           </h1>
           {!companyId && (
@@ -639,25 +681,25 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             <button
               type="button"
               onClick={onCreateCompany}
-              className="px-4 py-2.5 rounded-2xl bg-primary text-on-primary text-sm font-semibold cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium cursor-pointer tabular-nums"
             >
               {lang === 'zh' ? '创建公司' : 'Create company'}
             </button>
           )}
-          <button type="button" onClick={() => void startCall('voice')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-xs font-bold text-on-surface-variant hover:text-primary" title="Voice call"><span className="material-symbols-outlined text-base">call</span></button>
-          <button type="button" onClick={() => void startCall('video')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-xs font-bold text-on-surface-variant hover:text-primary" title="Video call"><span className="material-symbols-outlined text-base">videocam</span></button>
-          <button type="button" onClick={() => void summarizeCurrentConversation()} disabled={summaryLoading} className="px-2.5 py-2 rounded-xl border border-primary/30 text-xs font-bold text-primary hover:bg-primary/5 disabled:opacity-50" title="AI 总结聊天记录"><span className="material-symbols-outlined text-base">auto_awesome</span></button>
+          <button type="button" onClick={() => void startCall('voice')} className="px-2 py-2 rounded-lg border border-outline-variant text-xs font-medium text-on-surface-variant hover:text-primary tabular-nums" title="Voice call"><span className="material-symbols-outlined text-[18px]">call</span></button>
+          <button type="button" onClick={() => void startCall('video')} className="px-2 py-2 rounded-lg border border-outline-variant text-xs font-medium text-on-surface-variant hover:text-primary tabular-nums" title="Video call"><span className="material-symbols-outlined text-[18px]">videocam</span></button>
+          <button type="button" onClick={() => void summarizeCurrentConversation()} disabled={summaryLoading} className="px-2 py-2 rounded-lg border border-primary/30 text-xs font-medium text-primary hover:bg-primary/5 disabled:opacity-50 tabular-nums" title="AI 总结聊天记录"><span className="material-symbols-outlined text-[18px]">description</span></button>
         </div>
       </div>
 
       {callMode !== 'idle' && <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-xl border border-primary/30 bg-primary/5 text-xs">
         <div className="flex items-center gap-2 w-full">
-          <span className="font-bold text-primary">{callMode === 'video' ? 'Video call' : 'Voice call'} · {callParticipants.length} participant(s)</span>
-          {remoteConnected && <span className="text-emerald-700">Connected</span>}
+          <span className="font-medium text-primary tabular-nums">{callMode === 'video' ? 'Video call' : 'Voice call'} · {callParticipants.length} participant(s)</span>
+          {remoteConnected && <span className="text-[#2f7d4f]">Connected</span>}
           {!remoteConnected && <span className="text-on-surface-variant">Waiting for peer…</span>}
-          {!callConfig?.configured && <span className="text-amber-700">STUN/TURN not configured; local browser defaults may be limited.</span>}
+          {!callConfig?.configured && <span className="text-[#a86412]">STUN/TURN not configured; local browser defaults may be limited.</span>}
           {callConfig?.configured && <span className="text-on-surface-variant">ICE servers ready</span>}
-          <button type="button" onClick={endCall} className="ml-auto px-3 py-1.5 rounded-lg bg-error text-on-error font-bold">End</button>
+          <button type="button" onClick={endCall} className="ml-auto px-3 py-2 rounded-lg bg-error text-on-error font-medium tabular-nums">End</button>
         </div>
         <div className="flex gap-2 w-full">
           <video ref={localMediaRef} autoPlay muted playsInline className={callMode === 'video' ? 'w-32 h-20 rounded-lg bg-black object-cover' : 'hidden'} aria-label="Local video preview" />
@@ -667,33 +709,33 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       </div>}
 
       {error && (
-        <div className="px-4 py-2 rounded-xl bg-amber-50 text-amber-900 text-sm border border-amber-200 flex items-center justify-between gap-3">
+        <div className="px-4 py-2 rounded-xl bg-surface-container-lowest dark:bg-surface-container text-[#a86412] text-sm border border-outline-variant flex items-center justify-between gap-3">
           <span>{error}</span>
           {loadFailed && (
-            <button type="button" onClick={() => void load()} className="px-3 py-1 rounded-lg bg-amber-100 font-semibold cursor-pointer">重试</button>
+            <button type="button" onClick={() => void load()} className="px-3 py-1 rounded-lg bg-surface-container font-medium cursor-pointer tabular-nums">重试</button>
           )}
         </div>
       )}
 
       {communicationSummary && (
-        <section className="px-4 py-3 rounded-2xl bg-primary/5 border border-primary/20 text-sm space-y-1">
-          <div className="font-bold text-primary">AI 聊天总结 · {communicationSummary.source_count} 条来源</div>
+        <section className="px-4 py-3 rounded-xl bg-primary/5 border border-primary/20 text-sm space-y-1">
+          <div className="font-medium text-primary tabular-nums">AI 聊天总结 · {communicationSummary.source_count} 条来源</div>
           <p className="whitespace-pre-wrap text-on-surface">{communicationSummary.summary_text}</p>
-          <div className="text-[11px] text-on-surface-variant">生成方式：{communicationSummary.provider}</div>
+          <div className="text-xs text-on-surface-variant">生成方式：{communicationSummary.provider}</div>
         </section>
       )}
       {callSummary && (
-        <section className="px-4 py-3 rounded-2xl bg-emerald-50 border border-emerald-200 text-sm space-y-1">
-          <div className="font-bold text-emerald-800">AI 通话总结 · {callSummary.source_count} 条转写来源</div>
-          <p className="whitespace-pre-wrap text-emerald-950">{callSummary.summary_text}</p>
-          <div className="text-[11px] text-emerald-700">生成方式：{callSummary.provider}</div>
+        <section className="px-4 py-3 rounded-xl bg-surface-container-lowest dark:bg-surface-container border border-outline-variant text-sm space-y-1">
+          <div className="font-medium text-[#2f7d4f] tabular-nums">AI 通话总结 · {callSummary.source_count} 条转写来源</div>
+          <p className="whitespace-pre-wrap text-[#2f7d4f]">{callSummary.summary_text}</p>
+          <div className="text-xs text-[#2f7d4f]">生成方式：{callSummary.provider}</div>
         </section>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
-        <div className="lg:col-span-3 bg-surface-container-lowest p-5 rounded-3xl border border-outline-variant/30 shadow-xs">
+        <div className="lg:col-span-3 bg-surface-container-lowest dark:bg-surface-container p-5 rounded-xl border border-outline-variant/30 shadow-sm dark:shadow-none">
           <div className="relative mb-4">
-            <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline text-lg">
+            <span className="material-symbols-outlined absolute left-3 top-2.5 text-inherit text-[18px]">
               search
             </span>
             <input
@@ -701,7 +743,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
               placeholder={lang === 'zh' ? '搜索聊天内容...' : 'Search...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-surface-container border border-outline-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/40 text-on-surface"
+              className="w-full pl-9 pr-3 py-2 text-xs rounded-lg bg-surface-container border border-outline-variant/40 focus:outline-none focus:ring-2 focus:ring-primary/40 text-on-surface"
             />
           </div>
           <div className="space-y-1">
@@ -710,7 +752,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                 key={ch.id}
                 type="button"
                 onClick={() => setActiveChannel(ch.id)}
-                className={`w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-ink-colors cursor-pointer ${
                   activeChannel === ch.id
                     ? 'bg-primary text-on-primary'
                     : 'text-on-surface-variant hover:bg-surface-container'
@@ -721,20 +763,33 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
             ))}
             {activeChannel === 'direct' && (
               <div className="mt-3 pt-3 border-t border-outline-variant/30 space-y-1">
-                <button type="button" onClick={() => setNewChatOpen(true)} className="w-full px-3 py-2 rounded-lg text-primary text-left text-sm font-bold">{lang === 'zh' ? '新建私聊' : 'New private chat'}</button>
+                <button type="button" onClick={() => setNewChatOpen(true)} className="w-full px-3 py-2 rounded-lg text-primary text-left text-sm font-medium tabular-nums">{lang === 'zh' ? '新建私聊' : 'New private chat'}</button>
                 {conversations.map((conversation) => (
-                  <button key={conversation.id} type="button" onClick={() => setActiveConversationId(conversation.id)} className={`w-full text-left px-3 py-2 rounded-lg text-xs ${activeConversationId === conversation.id ? 'bg-primary/10 text-primary font-bold' : 'text-on-surface-variant hover:bg-surface-container'}`}>
+                  <button key={conversation.id} type="button" onClick={() => setActiveConversationId(conversation.id)} className={`w-full text-left px-3 py-2 rounded-lg text-xs ${activeConversationId === conversation.id ? 'bg-primary/10 text-primary font-medium' : 'text-on-surface-variant hover:bg-surface-container'}`}>
                     {conversation.title || conversation.members.map((member) => member.name).join(', ') || (lang === 'zh' ? '私信会话' : 'Direct conversation')}
                   </button>
                 ))}
-                {!conversations.length && <p className="text-[11px] text-on-surface-variant px-3">{lang === 'zh' ? '暂无私信会话，请选择工作联系人。' : 'Choose a work contact to start a chat.'}</p>}
+                {!conversations.length && <p className="text-xs text-on-surface-variant px-3">{lang === 'zh' ? '暂无私信会话，请选择工作联系人。' : 'Choose a work contact to start a chat.'}</p>}
               </div>
             )}
           </div>
         </div>
 
-        <div className="lg:col-span-6 bg-surface-container-lowest rounded-3xl border border-outline-variant/30 shadow-xs flex flex-col">
+        <div className="lg:col-span-6 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant/30 shadow-sm dark:shadow-none flex flex-col">
           <div className="flex-1 overflow-y-auto p-5 space-y-4 max-h-[520px]">
+            {canLoadOlder && (
+              <div className="text-center">
+                <button
+                  type="button"
+                  data-testid="messages-load-older"
+                  disabled={loadingOlder}
+                  onClick={() => void loadOlderMessages()}
+                  className="px-4 py-2 rounded-lg bg-surface-container text-xs font-medium text-primary cursor-pointer disabled:opacity-50 tabular-nums"
+                >
+                  {loadingOlder ? '正在加载…' : '加载更早的消息'}
+                </button>
+              </div>
+            )}
             {filteredMessages.length === 0 && (
               <p className="text-sm text-on-surface-variant text-center py-12">
                 {lang === 'zh' ? '暂无消息，发送第一条吧' : 'No messages yet'}
@@ -749,23 +804,23 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                     className="w-10 h-10 rounded-full object-cover bg-surface-container"
                   />
                 ) : (
-                  <span className="w-10 h-10 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
+                  <span className="w-10 h-10 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center tabular-nums">
                     {msg.senderName ? msg.senderName.slice(0, 1) : '?'}
                   </span>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-baseline gap-2">
-                    <span className="text-sm font-bold text-on-surface">{msg.senderName}</span>
-                    <span className="text-[10px] text-on-surface-variant">{msg.timestamp}</span>
+                    <span className="text-sm font-medium text-on-surface tabular-nums">{msg.senderName}</span>
+                    <span className="text-xs text-on-surface-variant">{msg.timestamp}</span>
                   </div>
                    <p className="text-sm text-on-surface mt-1 whitespace-pre-wrap">{msg.content}</p>
                    {msg.attachments?.length ? (
-                     <div className="mt-2 space-y-1.5">
+                     <div className="mt-2 space-y-2">
                        {msg.attachments.map((attachment, index) => (
-                         <button key={`${attachment.fileId || attachment.url || attachment.name}-${index}`} type="button" onClick={() => void handleDownload(attachment)} className="flex items-center gap-2 max-w-full px-2.5 py-2 rounded-lg bg-surface-container text-left hover:bg-primary/10">
-                           <span className="material-symbols-outlined text-primary text-base">description</span>
-                           <span className="text-xs font-semibold truncate">{attachment.originalName || attachment.name || 'shared file'}</span>
-                           {attachment.sizeBytes ? <span className="text-[10px] text-on-surface-variant">{Math.ceil(attachment.sizeBytes / 1024)} KB</span> : null}
+                         <button key={`${attachment.fileId || attachment.url || attachment.name}-${index}`} type="button" onClick={() => void handleDownload(attachment)} className="flex items-center gap-2 max-w-full px-2 py-2 rounded-lg bg-surface-container text-left hover:bg-primary/10">
+                           <span className="material-symbols-outlined text-inherit text-[18px]">description</span>
+                           <span className="text-xs font-medium truncate tabular-nums">{attachment.originalName || attachment.name || 'shared file'}</span>
+                           {attachment.sizeBytes ? <span className="text-xs text-on-surface-variant">{Math.ceil(attachment.sizeBytes / 1024)} KB</span> : null}
                          </button>
                        ))}
                      </div>
@@ -773,7 +828,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
                    <button
                     type="button"
                     onClick={() => void handleLike(msg.id)}
-                    className="mt-2 text-xs font-semibold text-on-surface-variant hover:text-primary cursor-pointer"
+                    className="mt-2 text-xs font-medium text-on-surface-variant hover:text-primary cursor-pointer tabular-nums"
                   >
                     ♥ {msg.likes || 0}
                   </button>
@@ -786,63 +841,63 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder={lang === 'zh' ? '输入消息…' : 'Type a message…'}
-               className="flex-1 px-4 py-2.5 rounded-xl bg-surface-container border border-outline-variant/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+               className="flex-1 px-4 py-2 rounded-lg bg-surface-container border border-outline-variant/40 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
              />
              <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(event) => setSelectedFiles(Array.from(event.target.files || []))} />
              <div className="relative">
-               <button type="button" onClick={() => setShowEmojiPicker((value) => !value)} className="px-2.5 py-2 rounded-xl border border-outline-variant text-on-surface-variant" title={lang === 'zh' ? '表情' : 'Emoji'}>😊</button>
-               {showEmojiPicker && <div className="absolute bottom-12 right-0 z-20 p-2 rounded-xl bg-surface border border-outline-variant shadow-lg flex gap-1">{['😀', '👍', '🎉', '✅', '🙏', '🔥'].map((emoji) => <button key={emoji} type="button" onClick={() => appendEmoji(emoji)} className="p-1.5 hover:bg-surface-container rounded">{emoji}</button>)}</div>}
+               <button type="button" onClick={() => setShowEmojiPicker((value) => !value)} className="px-2 py-2 rounded-lg border border-outline-variant text-on-surface-variant" title={lang === 'zh' ? '表情' : 'Emoji'}>😊</button>
+               {showEmojiPicker && <div className="absolute bottom-12 right-0 z-20 p-2 rounded-xl bg-surface-container-lowest dark:bg-surface-container border border-outline-variant shadow-sm dark:shadow-none flex gap-1">{['😀', '👍', '🎉', '✅', '🙏', '🔥'].map((emoji) => <button key={emoji} type="button" onClick={() => appendEmoji(emoji)} className="p-2 hover:bg-surface-container rounded">{emoji}</button>)}</div>}
              </div>
-             <button type="button" onClick={() => fileInputRef.current?.click()} className="px-2.5 py-2 rounded-xl border border-outline-variant text-on-surface-variant" title={lang === 'zh' ? '上传文件' : 'Upload file'}><span className="material-symbols-outlined text-base">attach_file</span></button>
-            <input value={attachmentUrl} onChange={(e) => setAttachmentUrl(e.target.value)} placeholder={lang === 'zh' ? '附件链接（可选）' : 'Attachment URL'} className="hidden xl:block w-36 px-2 py-2 rounded-xl bg-surface-container border border-outline-variant/40 text-[11px]" />
-            <button type="button" onClick={() => setAttachmentUrl(window.prompt(lang === 'zh' ? '输入附件 URL' : 'Attachment URL') || '')} className="px-2.5 py-2 rounded-xl border border-outline-variant text-on-surface-variant" title={lang === 'zh' ? '添加附件' : 'Attach'}><span className="material-symbols-outlined text-base">attach_file</span></button>
-             {selectedFiles.length > 0 && <span className="absolute -mt-10 ml-2 max-w-[220px] truncate text-[10px] text-on-surface-variant">{selectedFiles.map((file) => file.name).join(', ')}</span>}
+             <button type="button" onClick={() => fileInputRef.current?.click()} className="px-2 py-2 rounded-lg border border-outline-variant text-on-surface-variant" title={lang === 'zh' ? '上传文件' : 'Upload file'}><span className="material-symbols-outlined text-[18px]">attach_file</span></button>
+            <input value={attachmentUrl} onChange={(e) => setAttachmentUrl(e.target.value)} placeholder={lang === 'zh' ? '附件链接（可选）' : 'Attachment URL'} className="hidden xl:block w-36 px-2 py-2 rounded-lg bg-surface-container border border-outline-variant/40 text-xs" />
+            <button type="button" onClick={() => setAttachmentUrl(window.prompt(lang === 'zh' ? '输入附件 URL' : 'Attachment URL') || '')} className="px-2 py-2 rounded-lg border border-outline-variant text-on-surface-variant" title={lang === 'zh' ? '添加附件' : 'Attach'}><span className="material-symbols-outlined text-[18px]">attach_file</span></button>
+             {selectedFiles.length > 0 && <span className="absolute -mt-10 ml-2 max-w-[220px] truncate text-xs text-on-surface-variant">{selectedFiles.map((file) => file.name).join(', ')}</span>}
              <button
                type="submit"
                disabled={uploadingFiles || (!inputText.trim() && selectedFiles.length === 0 && !attachmentUrl.trim())}
-               className="px-5 py-2.5 rounded-xl bg-primary text-on-primary text-sm font-bold cursor-pointer disabled:opacity-50"
+               className="px-5 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium cursor-pointer disabled:opacity-50 tabular-nums"
              >
               {lang === 'zh' ? '发送' : 'Send'}
             </button>
           </form>
         </div>
-        <aside className="lg:col-span-3 bg-surface-container-lowest p-5 rounded-3xl border border-outline-variant/30 shadow-xs space-y-5">
+        <aside className="lg:col-span-3 bg-surface-container-lowest p-5 rounded-xl border border-outline-variant/30 shadow-sm dark:shadow-none space-y-5">
           <div>
-            <h2 className="text-sm font-bold text-on-surface">{lang === 'zh' ? '频道成员' : 'Members'}</h2>
+            <h2 className="text-sm font-medium text-on-surface tabular-nums">{lang === 'zh' ? '频道成员' : 'Members'}</h2>
             <p className="text-xs text-on-surface-variant mt-1">{members.length} {lang === 'zh' ? '位成员' : 'members'}</p>
           </div>
           <div className="space-y-2">
             {members.slice(0, 8).map((member) => (
               <div key={member.id} className="flex items-center gap-2">
-                <span className={`w-2 h-2 rounded-full ${presence[member.id] === 'online' ? 'bg-secondary' : presence[member.id] === 'busy' ? 'bg-amber-500' : 'bg-outline-variant'}`} />
+                <span className={`w-2 h-2 rounded-full ${presence[member.id] === 'online' ? 'bg-secondary' : presence[member.id] === 'busy' ? 'bg-[#a86412]' : 'bg-outline-variant'}`} />
                 {member.avatar ? (
                   <img src={member.avatar} alt="" className="w-7 h-7 rounded-full bg-surface-container object-cover" />
                 ) : (
-                  <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
+                  <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center tabular-nums">
                     {member.name.slice(0, 1)}
                   </span>
                 )}
-                <span className="text-xs font-semibold truncate">{member.name}</span>
+                <span className="text-xs font-medium truncate tabular-nums">{member.name}</span>
               </div>
             ))}
             {!members.length && <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无成员数据' : 'No member data'}</p>}
           </div>
           <div className="pt-4 border-t border-outline-variant/30">
-            <div className="flex gap-1 mb-3">{(['files', 'tasks', 'about'] as const).map((tab) => <button key={tab} type="button" onClick={() => setRightTab(tab)} className={`px-2 py-1 rounded-lg text-[11px] font-bold ${rightTab === tab ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>{tab === 'files' ? (lang === 'zh' ? '文件' : 'Files') : tab === 'tasks' ? (lang === 'zh' ? '任务' : 'Tasks') : (lang === 'zh' ? '关于' : 'About')}</button>)}</div>
-            {rightTab === 'files' && <div className="space-y-2">{files.length ? files.map((file, index) => <button key={`${file.message_id || file.id}-${index}`} type="button" onClick={() => void handleDownload(file)} className="w-full text-left block p-2 rounded-lg bg-surface-container text-xs text-primary truncate">{file.original_name || 'shared file'}</button>) : <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无最近分享文件' : 'No shared files yet'}</p>}{pinnedLinks.map((link) => <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="block p-2 rounded-lg bg-primary/5 text-xs text-primary truncate">📌 {link.title}</a>)}{channelMap[activeChannel] && <button type="button" onClick={() => { const title = window.prompt(lang === 'zh' ? '链接标题' : 'Link title'); const url = window.prompt(lang === 'zh' ? '链接 URL' : 'Link URL'); if (title && url) void createPinnedLink(channelMap[activeChannel], { title, url }).then((link) => setPinnedLinks((prev) => [link, ...prev])); }} className="text-[11px] font-bold text-primary">+ {lang === 'zh' ? '固定链接' : 'Pin link'}</button>}</div>}
+            <div className="flex gap-1 mb-3">{(['files', 'tasks', 'about'] as const).map((tab) => <button key={tab} type="button" onClick={() => setRightTab(tab)} className={`px-2 py-1 rounded-lg text-xs font-medium ${rightTab === tab ? 'bg-primary text-on-primary' : 'bg-surface-container text-on-surface-variant'}`}>{tab === 'files' ? (lang === 'zh' ? '文件' : 'Files') : tab === 'tasks' ? (lang === 'zh' ? '任务' : 'Tasks') : (lang === 'zh' ? '关于' : 'About')}</button>)}</div>
+            {rightTab === 'files' && <div className="space-y-2">{files.length ? files.map((file, index) => <button key={`${file.message_id || file.id}-${index}`} type="button" onClick={() => void handleDownload(file)} className="w-full text-left block p-2 rounded-lg bg-surface-container text-xs text-primary truncate">{file.original_name || 'shared file'}</button>) : <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无最近分享文件' : 'No shared files yet'}</p>}{pinnedLinks.map((link) => <a key={link.id} href={link.url} target="_blank" rel="noreferrer" className="block p-2 rounded-lg bg-primary/5 text-xs text-primary truncate">📌 {link.title}</a>)}{channelMap[activeChannel] && <button type="button" onClick={() => { const title = window.prompt(lang === 'zh' ? '链接标题' : 'Link title'); const url = window.prompt(lang === 'zh' ? '链接 URL' : 'Link URL'); if (title && url) void createPinnedLink(channelMap[activeChannel], { title, url }).then((link) => setPinnedLinks((prev) => [link, ...prev])); }} className="text-xs font-medium text-primary tabular-nums">+ {lang === 'zh' ? '固定链接' : 'Pin link'}</button>}</div>}
             {rightTab === 'tasks' && <>
-            <h2 className="text-sm font-bold text-on-surface">{lang === 'zh' ? '项目任务' : 'Project tasks'}</h2>
+            <h2 className="text-sm font-medium text-on-surface tabular-nums">{lang === 'zh' ? '项目任务' : 'Project tasks'}</h2>
             <div className="space-y-2 mt-3">
               {tasks.slice(0, 5).map((task) => (
                 <button key={task.id} type="button" onClick={() => onSelectTask?.(task)} className="w-full text-left p-2 rounded-lg hover:bg-surface-container text-xs">
-                  <span className="font-semibold line-clamp-2">{task.title}</span>
+                  <span className={`font-medium line-clamp-2 ${task.status === 'Done' ? 'ink-done' : ''}`}>{task.title}</span>
                   <span className="text-on-surface-variant">{task.status}</span>
                 </button>
               ))}
               {!tasks.length && <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无关联任务' : 'No linked tasks'}</p>}
             </div>
             </>}
-            {rightTab === 'about' && <div className="space-y-2">{activityItems.length ? activityItems.slice(0, 8).map((item) => <div key={item.id} className="relative pl-4 py-2 rounded-lg bg-surface-container text-xs"><span className="absolute left-1.5 top-3 w-1.5 h-1.5 rounded-full bg-primary" /><p className="font-semibold text-on-surface">{item.title || item.type}</p><p className="text-[10px] text-on-surface-variant mt-1">{item.created_at ? item.created_at.slice(5, 16).replace('T', ' ') : ''}</p></div>) : <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无活动记录' : 'No activity yet'}</p>}</div>}
+            {rightTab === 'about' && <div className="space-y-2">{activityItems.length ? activityItems.slice(0, 8).map((item) => <div key={item.id} className="relative pl-4 py-2 rounded-lg bg-surface-container text-xs"><span className="absolute left-1.5 top-3 w-1.5 h-1.5 rounded-full bg-primary" /><p className="font-normal text-on-surface tabular-nums">{item.title || item.type}</p><p className="text-xs text-on-surface-variant mt-1">{item.created_at ? item.created_at.slice(5, 16).replace('T', ' ') : ''}</p></div>) : <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '暂无活动记录' : 'No activity yet'}</p>}</div>}
           </div>
         </aside>
       </div>

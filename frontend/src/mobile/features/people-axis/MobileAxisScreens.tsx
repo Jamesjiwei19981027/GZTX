@@ -30,7 +30,9 @@ import {
   supervisorReportStatus,
   type AgentReport,
 } from '../../../api/reports';
-import { averagePeopleAxisProgress } from '../../../components/views/peopleAxisUtils';
+import { averagePeopleAxisProgress, applyTimeOrder, type AxisOrderMode } from '../../../components/views/peopleAxisUtils';
+import { MatterEditForm, MatterDeleteConfirm } from '../../../components/views/MatterEditDialog';
+import { restoreMatterNode } from '../../../api/manage';
 import { getMyPermissions, MyProjectPermissions } from '../../../api/shell';
 import { AppIcon } from '../../ui/AppIcon';
 import { Maximize } from 'lucide-react';
@@ -96,6 +98,15 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     Number(projectId) ||
     Number(projects.find((project) => String(project.id) !== 'all')?.id) ||
     Number(currentProject.id);
+  // 每次进入项目都有独立身份；A→B→A 也不能接纳第一次 A 的异步结果。
+  const projectScope = useMemo(() => ({ pid }), [pid, companyId, currentUser.id]);
+  const activeScopeRef = useRef<typeof projectScope | null>(projectScope);
+  activeScopeRef.current = projectScope;
+  const loadRequestRef = useRef(0);
+  useEffect(() => {
+    activeScopeRef.current = projectScope;
+    return () => { if (activeScopeRef.current === projectScope) activeScopeRef.current = null; };
+  }, [projectScope]);
 
   // 核心业务数据状态
   const [loading, setLoading] = useState(true);
@@ -109,6 +120,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   // 视图控制
   const [activeTab, setActiveTab] = useState<AxisViewTab>('mine');
   const [orientation, setOrientation] = useState<AxisOrientation>('vertical');
+  const [orderMode, setOrderMode] = useState<AxisOrderMode>(() => {
+    try { return localStorage.getItem('people_axis_order_mode') === 'time' ? 'time' : 'tree'; } catch { return 'tree'; }
+  });
   const [showAiStatus, setShowAiStatus] = useState(true);
   const [expandSubordinates, setExpandSubordinates] = useState(true);
   const [spacing, setSpacing] = useState<AxisSpacing>('standard');
@@ -135,11 +149,31 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [layoutRevision, setLayoutRevision] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [matterAction, setMatterAction] = useState<{ mode: 'edit' | 'delete'; item: AxisWorkItem } | null>(null);
+  const [undoDelete, setUndoDelete] = useState<AxisWorkItem | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  useEffect(() => {
+    if (!undoDelete) return;
+    const timer = setTimeout(() => setUndoDelete(null), 15000);
+    return () => clearTimeout(timer);
+  }, [undoDelete]);
+  useEffect(() => {
+    setMatterAction(null); setUndoDelete(null); setDetailNode(null); setPreviewNode(null);
+    setEditPersonTarget(null); setPermissionTargetNode(null); setMoveSupervisorTargetNode(null);
+    setRestoring(false); setToastMessage(null); setSelectedNodeId(null);
+    setAxisNodes([]); setProjectMembers([]); setPermissions(null); setAgentReports([]); setReportsLoadFailed(false);
+  }, [projectScope]);
+  const changeOrderMode = (mode: AxisOrderMode) => {
+    setOrderMode(mode);
+    try { localStorage.setItem('people_axis_order_mode', mode); } catch { /* 本地存储不可用 */ }
+    setFitToken(token => token + 1);
+  };
 
   const showToast = useCallback((msg: string) => {
+    if (activeScopeRef.current !== projectScope) return;
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  }, []);
+    setTimeout(() => { if (activeScopeRef.current === projectScope) setToastMessage(null); }, 3000);
+  }, [projectScope]);
 
   useEffect(() => {
     if (!moreMenuOpen) return;
@@ -154,6 +188,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
 
   // 刷新人轴核心数据
   const loadData = useCallback(async () => {
+    if (activeScopeRef.current !== projectScope) return;
+    const request = ++loadRequestRef.current;
+    const isCurrent = () => activeScopeRef.current === projectScope && loadRequestRef.current === request;
     if (!pid) {
       setLoading(false);
       return;
@@ -167,6 +204,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
         getMyPermissions(pid).catch(() => null),
         listAgentReports(pid).catch(() => null),
       ]);
+      if (!isCurrent()) return;
       const mapped = mapTreeToPeopleAxis(treeRes.nodes || [], undefined, orientation);
       setAxisNodes(mapped);
       setProjectMembers(membersRes.items || []);
@@ -179,17 +217,18 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       }
       try {
         const enriched = await enrichMattersWithEvidence(mapped);
-        setAxisNodes(enriched);
+        if (isCurrent()) setAxisNodes(enriched);
       } catch {
         // 材料获取失败时保留已映射节点
       }
     } catch (err: unknown) {
+      if (!isCurrent()) return;
       const message = err instanceof Error ? err.message : '加载人轴责任链失败';
       setError(message);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [pid]);
+  }, [pid, projectScope]);
 
   useEffect(() => {
     loadData();
@@ -222,8 +261,11 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   }, []);
 
   const canvasNodes = useMemo(
-    () => (expandSubordinates ? axisNodes : axisNodes.filter(node => !node.parentId)),
-    [expandSubordinates, axisNodes],
+    () => {
+      const visible = expandSubordinates ? axisNodes : axisNodes.filter(node => !node.parentId);
+      return orderMode === 'time' ? applyTimeOrder(visible) : visible;
+    },
+    [expandSubordinates, axisNodes, orderMode],
   );
   const flowCanvas = usePeopleAxisCanvas({
     nodes: canvasNodes,
@@ -231,7 +273,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     edgeStyle,
     lang: 'zh',
     mobile: true,
-    foldSubordinates: true,
+    foldSubordinates: orderMode === 'tree',
     isBackendProject: true,
     backendProjectId: pid,
     serverPerms: permissions,
@@ -287,7 +329,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
 
   if (!pid) {
     return (
-      <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e]">
+      <div className="axis-theme tabular-nums flex flex-col flex-1 h-full w-full bg-surface dark:bg-surface">
         <MobileTopBar title={activeTab === 'mine' ? '我的职责' : '项目全貌'} />
         <MobileEmptyState
           iconName="folder"
@@ -316,29 +358,29 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   }
 
   return (
-    <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden relative">
+    <div className="axis-theme tabular-nums flex flex-col flex-1 h-full w-full bg-surface dark:bg-surface select-none overflow-hidden relative">
       {/* 顶部导航条 */}
       <MobileTopBar
         title={activeTab === 'mine' ? '我的职责' : '项目全貌'}
         rightAction={
           <div className="flex items-center gap-1">
-            {canChangeSupervisor && <button type="button" aria-label="新增主轴人员" onClick={()=>setEditPersonTarget({mode:'add'})} className="mobile-touch-target p-2 text-[#0058BE] dark:text-blue-400"><AppIcon name="plus" size={22}/></button>}
+            {canChangeSupervisor && <button type="button" aria-label="新增主轴人员" onClick={()=>setEditPersonTarget({mode:'add'})} className="mobile-touch-target p-2 text-on-surface-variant dark:text-on-surface-variant"><AppIcon name="plus" size={18}/></button>}
             <button
               type="button"
               aria-label="画布设置"
               onClick={() => setShowSettingsSheet(true)}
-              className="mobile-touch-target p-2 text-slate-600 dark:text-slate-300 active:opacity-60 cursor-pointer"
+              className="mobile-touch-target p-2 text-on-surface-variant dark:text-on-surface-variant active:opacity-60 cursor-pointer"
             >
-              <AppIcon name="more-horizontal" size={22} />
+              <AppIcon name="more-horizontal" size={18} />
             </button>
           </div>
         }
       />
 
-      <div className="px-4 py-2 bg-white dark:bg-slate-900 shrink-0">
+      <div className="px-4 py-2 bg-surface-container-lowest dark:bg-surface-container shrink-0">
             {projects.length > 0 && onSelectProject && (
               <label className="mobile-axis-project-picker flex items-center w-full">
-                <span className="shrink-0 text-xs text-slate-500 mr-3">当前项目</span>
+                <span className="shrink-0 text-xs text-outline mr-3">当前项目</span>
                 <select
                   aria-label="选择项目"
                   value={String(pid)}
@@ -346,7 +388,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                     const next = projects.find((project) => String(project.id) === event.target.value);
                     if (next) onSelectProject(next);
                   }}
-                  className="w-full min-h-[40px] rounded-xl border border-slate-200 bg-white px-2 text-xs font-medium text-slate-700 outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+                  className="w-full min-h-[40px] rounded-lg border border-outline-variant bg-surface-container-lowest px-2 text-xs font-medium text-on-surface-variant outline-none dark:border-outline-variant dark:bg-surface-container dark:text-on-surface"
                 >
                   {projects.filter(project => String(project.id) !== 'all').map((project) => (
                     <option key={String(project.id)} value={String(project.id)}>
@@ -358,24 +400,24 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
             )}
       </div>
 
-      <nav aria-label="人轴协作与检查" className="grid grid-cols-2 gap-2 px-4 pb-2 bg-white dark:bg-slate-900 shrink-0">
-        {onOpenDelegation && <button type="button" onClick={() => onOpenDelegation(pid)} className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0058BE] dark:text-blue-300 text-xs font-semibold">
-          <AppIcon name="lock" size={17} />委托授权
+      <nav aria-label="人轴协作与检查" className="grid grid-cols-2 gap-2 px-4 pb-2 bg-surface-container-lowest dark:bg-surface-container shrink-0">
+        {onOpenDelegation && <button type="button" onClick={() => onOpenDelegation(pid)} className="min-h-[44px] flex items-center justify-center gap-2 rounded-lg bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant text-xs font-medium">
+          <AppIcon name="lock" size={18} />委托授权
         </button>}
-        {onOpenAudit && <button type="button" onClick={() => onOpenAudit(pid)} className="min-h-[44px] flex items-center justify-center gap-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0058BE] dark:text-blue-300 text-xs font-semibold">
-          <AppIcon name="ai" size={17} />AI 责任链审计
+        {onOpenAudit && <button type="button" onClick={() => onOpenAudit(pid)} className="min-h-[44px] flex items-center justify-center gap-2 rounded-lg bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant text-xs font-medium">
+          <AppIcon name="file" size={18} />AI 责任链审计
         </button>}
       </nav>
 
       {/* 视图切换 Tabs */}
-      <div className="flex bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 shrink-0">
+      <div className="flex bg-surface-container-lowest dark:bg-surface-container border-b border-outline-variant dark:border-outline-variant px-4 shrink-0">
         <button
           type="button"
           onClick={() => setActiveTab('mine')}
-          className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors cursor-pointer ${
+          className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-ink-colors cursor-pointer ${
             activeTab === 'mine'
-              ? 'border-[#0058BE] text-[#0058BE] dark:text-blue-400 font-bold'
-              : 'border-transparent text-slate-500 dark:text-slate-400'
+              ? 'border-primary text-on-surface-variant dark:text-on-surface-variant font-medium'
+              : 'border-transparent text-outline dark:text-outline'
           }`}
         >
           我的职责
@@ -383,10 +425,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('overview')}
-          className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors cursor-pointer ${
+          className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-ink-colors cursor-pointer ${
             activeTab === 'overview'
-              ? 'border-[#0058BE] text-[#0058BE] dark:text-blue-400 font-bold'
-              : 'border-transparent text-slate-500 dark:text-slate-400'
+              ? 'border-primary text-on-surface-variant dark:text-on-surface-variant font-medium'
+              : 'border-transparent text-outline dark:text-outline'
           }`}
         >
           项目全貌
@@ -401,8 +443,8 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
           /* ========================================================= */
           <div className="h-full overflow-y-auto px-4 py-4 space-y-4 mobile-scroll-container">
             {/* 说明提示 */}
-            <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/40 text-[#0058BE] dark:text-blue-300 rounded-xl text-xs leading-relaxed border border-blue-100 dark:border-blue-900/50">
-              <AppIcon name="info" size={16} className="shrink-0" />
+            <div className="flex items-center gap-2 p-3 bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant rounded-xl text-xs leading-relaxed border border-outline-variant dark:border-outline-variant">
+              <AppIcon name="info" size={18} className="shrink-0" />
               <span>汇报路径由人轴决定，AI 辅助整理与递交。</span>
             </div>
 
@@ -413,22 +455,22 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   setSelectedNodeId(supervisorNode.id);
                   setPreviewNode(supervisorNode);
                 }}
-                className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 shadow-xs cursor-pointer active:scale-[0.99] transition-transform"
+                className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl p-3  cursor-pointer  transition-transform"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-900/50 text-[#0058BE] dark:text-blue-300 font-bold flex items-center justify-center text-sm shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant font-medium flex items-center justify-center text-sm shrink-0">
                     {supervisorNode.person.name.slice(0, 1)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <strong className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                      <strong className="text-sm font-medium text-on-surface dark:text-on-surface truncate">
                         {supervisorNode.person.name}
                       </strong>
-                      <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-0.5">
-                        <AppIcon name="ai" size={14} />
+                      <span className="text-xs text-on-surface-variant dark:text-on-surface-variant flex items-center gap-0">
+                        <AppIcon name="file" size={18} />
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                    <p className="text-xs text-outline dark:text-outline truncate mt-0">
                       直属领导 · {supervisorNode.roleTitle || '管理者'}
                     </p>
                   </div>
@@ -440,7 +482,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                       e.stopPropagation();
                       onNavigateToReport?.(undefined, supervisorNode.id, pid);
                     }}
-                    className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-xs font-medium"
+                    className="mt-3 pt-2 border-t border-outline-variant dark:border-outline-variant flex items-center justify-between text-xs font-medium"
                   >
                     {(() => {
                       const supervisorReport = supervisorReportStatus(
@@ -450,24 +492,24 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                       );
                       const tone = supervisorReport.tone;
                       return (
-                        <span className={`flex items-center gap-1.5 truncate ${tone.textClass}`}>
-                          {tone.iconName && <AppIcon name={tone.iconName} size={14} />}
+                        <span className={`flex items-center gap-1 truncate ${tone.textClass}`}>
+                          {tone.iconName && <AppIcon name={tone.iconName} size={18} />}
                           {supervisorReport.label}
                         </span>
                       );
                     })()}
-                    <AppIcon name="chevron-right" size={14} className="shrink-0 text-slate-400" />
+                    <AppIcon name="chevron-right" size={18} className="shrink-0 text-inherit" />
                   </div>
                 )}
               </div>
             ) : (
-              <div className="p-3 bg-slate-100/70 dark:bg-slate-800/40 rounded-xl text-center text-xs text-slate-400">
+              <div className="p-3 bg-surface-container dark:bg-surface-container rounded-xl text-center text-xs text-outline">
                 {selfNode ? '当前为项目顶层负责人，无直属上级' : '你尚未关联本项目的人员节点，可切换项目全貌查看。'}
               </div>
             )}
 
             {/* 连接竖线 */}
-            <div className="w-0.5 h-5 bg-blue-200 dark:bg-blue-800 mx-auto" />
+            <div className="w-px h-5 bg-outline mx-auto" />
 
             {/* 2. 我的节点 (Self Node - 明显高亮) */}
             {selfNode ? (
@@ -476,23 +518,23 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   setSelectedNodeId(selfNode.id);
                   setDetailNode(selfNode);
                 }}
-                className="bg-blue-50/70 dark:bg-blue-950/40 border-2 border-blue-400 dark:border-blue-600 rounded-2xl p-4 shadow-sm cursor-pointer active:scale-[0.99] transition-transform"
+                className="bg-surface dark:bg-surface-container border-2 border-outline-variant dark:border-outline-variant rounded-xl p-4  cursor-pointer  transition-transform"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-[#0058BE] text-white font-bold flex items-center justify-center text-base shrink-0 shadow-xs">
+                  <div className="w-12 h-12 rounded-full bg-surface-container text-on-surface-variant font-medium flex items-center justify-center text-base shrink-0 ">
                     {selfNode.person.name.slice(0, 1)}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <strong className="text-base font-bold text-slate-900 dark:text-slate-100 truncate">
+                      <strong className="text-base font-medium text-on-surface dark:text-on-surface truncate">
                         {selfNode.person.name} · 我
                       </strong>
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300">
-                        <AppIcon name="ai" size={12} />
+                      <span className="inline-flex items-center gap-1 px-2 py-0 rounded-lg text-xs font-medium bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant">
+                        <AppIcon name="file" size={18} />
                         当前责任人
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 truncate mt-0.5">
+                    <p className="text-xs text-on-surface-variant dark:text-outline truncate mt-0">
                       {selfNode.roleTitle || '岗位未指定'} · {selfNode.person.department || '项目团队'}
                     </p>
                   </div>
@@ -504,32 +546,32 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                       e.stopPropagation();
                       onNavigateToReport?.(undefined, undefined, pid);
                     }}
-                    className="mt-3.5 pt-2.5 border-t border-blue-200/80 dark:border-blue-900/60 flex items-center justify-between text-xs text-[#0058BE] dark:text-blue-400 font-semibold"
+                    className="mt-3 pt-2 border-t border-outline-variant dark:border-outline-variant flex items-center justify-between text-xs text-on-surface-variant dark:text-on-surface-variant font-medium"
                   >
                     {(() => {
                       const selfReport = latestReportByUser(agentReports, currentUserIdNum)
                       const tone = reportStatusTone(selfReport)
                       return (
-                        <span className={`flex items-center gap-1.5 truncate ${tone.textClass}`}>
-                          {tone.iconName && <AppIcon name={tone.iconName} size={14} />}
+                        <span className={`flex items-center gap-1 truncate ${tone.textClass}`}>
+                          {tone.iconName && <AppIcon name={tone.iconName} size={18} />}
                           {reportStatusLabel(selfReport)}
                         </span>
                       )
                     })()}
-                    <AppIcon name="chevron-right" size={14} className="shrink-0 text-[#0058BE]" />
+                    <AppIcon name="chevron-right" size={18} className="shrink-0 text-inherit" />
                   </div>
                 )}
               </div>
             ) : null}
 
             {/* 连接竖线 */}
-            <div className="w-0.5 h-5 bg-blue-200 dark:bg-blue-800 mx-auto" />
+            <div className="w-px h-5 bg-outline mx-auto" />
 
             {/* 3. 直属下级分支 */}
             {subordinateNodes.length > 0 ? (
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 <div className="flex items-center justify-between px-1">
-                  <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <span className="text-xs font-medium text-outline dark:text-outline  ">
                     直属下属 ({subordinateNodes.length})
                   </span>
                   {nodeCan(selfNode, 'can_add_subordinate') && (
@@ -541,15 +583,15 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                           parentSuggestedId: selfNode?.id,
                         })
                       }
-                      className="text-xs font-semibold text-[#0058BE] dark:text-blue-400 flex items-center gap-0.5 cursor-pointer"
+                      className="text-xs font-medium text-on-surface-variant dark:text-on-surface-variant flex items-center gap-0 cursor-pointer"
                     >
-                      <AppIcon name="plus" size={14} />
+                      <AppIcon name="plus" size={18} />
                       新增下属
                     </button>
                   )}
                 </div>
 
-                <div className="grid grid-cols-1 gap-2.5">
+                <div className="grid grid-cols-1 gap-2">
                   {subordinateNodes.map((sub) => (
                     <div
                       key={sub.id}
@@ -557,36 +599,36 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                         setSelectedNodeId(sub.id);
                         setPreviewNode(sub);
                       }}
-                      className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3 shadow-xs cursor-pointer active:scale-[0.99] transition-transform"
+                      className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl p-3  cursor-pointer  transition-transform"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold flex items-center justify-center text-xs shrink-0">
+                        <div className="w-9 h-9 rounded-full bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant font-medium flex items-center justify-center text-xs shrink-0">
                           {sub.person.name.slice(0, 1)}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <strong className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                          <strong className="text-sm font-medium text-on-surface dark:text-on-surface truncate block">
                             {sub.person.name}
                           </strong>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                          <p className="text-xs text-outline dark:text-outline truncate mt-0">
                             {sub.roleTitle || '团队成员'} · 我的直属下属
                           </p>
                         </div>
-                        <AppIcon name="chevron-right" size={16} className="text-slate-400 shrink-0" />
+                        <AppIcon name="chevron-right" size={18} className="text-inherit shrink-0" />
                       </div>
 
                       {showAiStatus && !reportsLoadFailed && (
-                        <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between">
+                        <div className="mt-2 pt-2 border-t border-outline-variant dark:border-outline-variant text-xs text-outline dark:text-outline flex items-center justify-between">
                           {(() => {
                             const subReport = latestReportByUser(agentReports, sub.ownerUserIds?.[0])
                             const tone = reportStatusTone(subReport)
                             return (
                               <span className={`flex items-center gap-1 truncate ${tone.textClass}`}>
-                                {tone.iconName && <AppIcon name={tone.iconName} size={12} />}
+                                {tone.iconName && <AppIcon name={tone.iconName} size={18} />}
                                 {reportStatusLabel(subReport)}
                               </span>
                             )
                           })()}
-                          <span className="text-[10px] text-slate-400">点击查看</span>
+                          <span className="text-xs text-outline">点击查看</span>
                         </div>
                       )}
                     </div>
@@ -594,8 +636,8 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="p-3 bg-white dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-800 rounded-xl text-center">
-                <p className="text-xs text-slate-400 dark:text-slate-500 mb-2">暂无直属下属</p>
+              <div className="p-3 bg-surface-container-lowest dark:bg-surface-container border border-dashed border-outline-variant dark:border-outline-variant rounded-xl text-center">
+                <p className="text-xs text-outline dark:text-outline mb-2">暂无直属下属</p>
                 {nodeCan(selfNode, 'can_add_subordinate') && (
                   <button
                     type="button"
@@ -605,9 +647,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                         parentSuggestedId: selfNode?.id,
                       })
                     }
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950 text-[#0058BE] dark:text-blue-400 text-xs font-semibold cursor-pointer"
+                    className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant text-xs font-medium cursor-pointer"
                   >
-                    <AppIcon name="plus" size={14} />
+                    <AppIcon name="plus" size={18} />
                     添加下级人员
                   </button>
                 )}
@@ -616,34 +658,34 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
 
             {/* 4. 我的责任事项列表 */}
             <div className="mt-4 pt-2">
-              <div className="flex items-center justify-between mb-2.5 px-1">
-                <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">我的责任事项</h2>
+              <div className="flex items-center justify-between mb-2 px-1">
+                <h2 className="text-sm font-medium text-on-surface dark:text-on-surface">我的责任事项</h2>
                 <button
                   type="button"
                   onClick={() => {
                     if (selfNode) setDetailNode(selfNode);
                   }}
-                  className="text-xs font-semibold text-[#0058BE] dark:text-blue-400 cursor-pointer"
+                  className="text-xs font-medium text-on-surface-variant dark:text-on-surface-variant cursor-pointer"
                 >
                   查看全部
                 </button>
               </div>
 
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden">
+              <div className="bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant dark:border-outline-variant  divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden">
                 {selfNode && selfNode.workItems.length > 0 ? (
                   selfNode.workItems.map((item) => (
                     <div
                       key={item.id}
                       onClick={() => onOpenEvidence?.(item.id)}
-                      className="p-3.5 flex items-center gap-3 cursor-pointer active:bg-slate-50 dark:active:bg-slate-800/50"
+                      className="p-3 flex items-center gap-3 cursor-pointer active:bg-surface dark:active:opacity-80"
                     >
-                      <div className="w-5 h-5 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center shrink-0">
+                      <div className="w-2 h-2 rounded-full bg-outline flex items-center justify-center shrink-0">
                         {item.status === 'Done' && (
-                          <div className="w-2.5 h-2.5 rounded-full bg-[#0058BE]" />
+                          <div className="w-2 h-2 rounded-full bg-[var(--axis-green)]" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <strong className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate block">
+                        <strong className={`text-sm font-medium truncate block${item.status === 'Done' ? ' ink-done' : ' text-on-surface'}`}>
                           {item.title}
                         </strong>
                         {(() => {
@@ -651,8 +693,8 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                           const isOverdue = isWorkItemOverdue(item);
                           const overdueDays = isOverdue ? getWorkItemOverdueDays(item) : 0;
                           return (
-                            <p className="text-xs text-slate-400 dark:text-slate-500 truncate mt-0.5">
-                              <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                            <p className="text-xs text-outline dark:text-outline truncate mt-0">
+                              <span className={isOverdue ? 'text-error dark:text-error font-medium' : ''}>
                                 {isDone ? '已完成' : isOverdue ? `逾期 ${overdueDays} 天` : '进行中'}
                               </span>
                               {' · '}
@@ -661,11 +703,11 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                           );
                         })()}
                       </div>
-                      <AppIcon name="chevron-right" size={16} className="text-slate-400 shrink-0" />
+                      <AppIcon name="chevron-right" size={18} className="text-inherit shrink-0" />
                     </div>
                   ))
                 ) : (
-                  <div className="p-4 text-center text-xs text-slate-400">暂无待办责任事项</div>
+                  <div className="p-4 text-center text-xs text-outline">暂无待办责任事项</div>
                 )}
               </div>
             </div>
@@ -676,17 +718,17 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
           /* ========================================================= */
           <div className="h-full flex flex-col relative select-none">
             {/* 顶部工具栏（只占一行） */}
-            <div className="flex items-center justify-between px-3 py-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-b border-slate-200/80 dark:border-slate-800 z-10 shrink-0 gap-2">
-              <div className="flex items-center gap-1.5 min-w-0">
+            <div className="axis-mobile-toolbar flex items-center justify-between px-3 py-2 bg-surface-container-lowest dark:bg-surface-container border-b border-outline-variant dark:border-outline-variant z-10 shrink-0 gap-2">
+              <div className="flex items-center gap-1 min-w-0">
                 {/* 方向切换（两段式） */}
-                <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full p-0.5 shrink-0">
+                <div className="flex items-center bg-surface-container dark:bg-surface-container rounded-lg p-0 shrink-0">
                   <button
                     type="button"
                     onClick={() => setOrientation('vertical')}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
+                    className={`px-2 py-1 rounded-lg text-xs font-medium cursor-pointer transition-ink-colors ${
                       orientation === 'vertical'
-                        ? 'bg-white dark:bg-slate-900 text-[#0058BE] dark:text-blue-300 font-bold shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400'
+                        ? 'bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant font-medium '
+                        : 'text-on-surface-variant dark:text-outline'
                     }`}
                   >
                     纵向
@@ -694,25 +736,29 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   <button
                     type="button"
                     onClick={() => setOrientation('horizontal')}
-                    className={`px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
+                    className={`px-2 py-1 rounded-lg text-xs font-medium cursor-pointer transition-ink-colors ${
                       orientation === 'horizontal'
-                        ? 'bg-white dark:bg-slate-900 text-[#0058BE] dark:text-blue-300 font-bold shadow-sm'
-                        : 'text-slate-600 dark:text-slate-400'
+                        ? 'bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant font-medium '
+                        : 'text-on-surface-variant dark:text-outline'
                     }`}
                   >
                     横向
                   </button>
                 </div>
 
+                <select aria-label="人轴排序" value={orderMode} onChange={event => changeOrderMode(event.target.value as AxisOrderMode)} className="min-h-[44px] rounded-lg bg-surface-container dark:bg-surface-container px-2 text-xs text-on-surface-variant dark:text-on-surface">
+                  <option value="tree">树序</option>
+                  <option value="time">时间序</option>
+                </select>
                 {/* 定位我 */}
                 <button
                   type="button"
                   onClick={handleLocateMe}
                   aria-label="定位我"
-                  className="px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-[#0058BE] dark:text-blue-400 flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
+                  className="px-2 py-1 rounded-lg text-xs font-medium bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
                 >
-                  <AppIcon name="user" size={13} />
-                  <span className="hidden min-[360px]:inline">定位我</span>
+                  <AppIcon name="user" size={16} />
+                  <span className="hidden min-[420px]:inline">定位我</span>
                 </button>
 
                 {/* 适应屏幕 */}
@@ -720,11 +766,11 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   type="button"
                   data-testid="toolbar-fit-screen"
                   onClick={handleFitScreen}
-                  className="px-2.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
+                  className="px-2 py-1 rounded-lg text-xs font-medium bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface flex items-center gap-1 active:opacity-60 cursor-pointer shrink-0"
                   aria-label="适应屏幕"
                 >
-                  <Maximize size={13} aria-hidden="true" />
-                  <span className="hidden min-[360px]:inline">适应屏幕</span>
+                  <Maximize size={16} aria-hidden="true" />
+                  <span className="hidden min-[420px]:inline">适应屏幕</span>
                 </button>
               </div>
 
@@ -734,23 +780,23 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   type="button"
                   aria-label="更多画布设置"
                   onClick={() => setMoreMenuOpen(prev => !prev)}
-                  className="w-8 h-8 rounded-full flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 active:opacity-60 cursor-pointer"
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-on-surface-variant dark:text-on-surface-variant hover:bg-surface-container dark:hover:bg-surface-container-high active:opacity-60 cursor-pointer"
                 >
                   <AppIcon name="more-horizontal" size={18} />
                 </button>
 
                 {moreMenuOpen && (
-                  <div className="absolute right-0 top-full mt-1.5 w-48 bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-2 z-50 text-xs space-y-2">
+                  <div className="absolute right-0 top-full mt-1 w-48 bg-surface-container-lowest dark:bg-surface-container rounded-xl  border border-outline-variant dark:border-outline-variant p-2 z-50 text-xs space-y-2">
                     <div>
-                      <span className="text-[11px] text-slate-400 px-2 font-medium">连线样式</span>
+                      <span className="text-xs text-outline px-2 font-medium">连线样式</span>
                       <div className="grid grid-cols-2 gap-1 mt-1">
                         <button
                           type="button"
                           onClick={() => { setEdgeStyle('curve'); setMoreMenuOpen(false); }}
-                          className={`py-1.5 rounded-lg text-center font-medium cursor-pointer ${
+                          className={`py-1 rounded-lg text-center font-medium cursor-pointer ${
                             edgeStyle === 'curve'
-                              ? 'bg-blue-50 dark:bg-blue-950 text-[#0058BE] font-bold'
-                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                              ? 'bg-surface dark:bg-surface-container text-on-surface-variant font-medium'
+                              : 'text-on-surface-variant dark:text-outline hover:bg-surface'
                           }`}
                         >
                           曲线
@@ -758,10 +804,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                         <button
                           type="button"
                           onClick={() => { setEdgeStyle('straight'); setMoreMenuOpen(false); }}
-                          className={`py-1.5 rounded-lg text-center font-medium cursor-pointer ${
+                          className={`py-1 rounded-lg text-center font-medium cursor-pointer ${
                             edgeStyle === 'straight'
-                              ? 'bg-blue-50 dark:bg-blue-950 text-[#0058BE] font-bold'
-                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                              ? 'bg-surface dark:bg-surface-container text-on-surface-variant font-medium'
+                              : 'text-on-surface-variant dark:text-outline hover:bg-surface'
                           }`}
                         >
                           直线
@@ -769,12 +815,12 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                       </div>
                     </div>
 
-                    <div className="border-t border-slate-100 dark:border-slate-800 pt-1.5 space-y-1">
+                    <div className="border-t border-outline-variant dark:border-outline-variant pt-1 space-y-1">
                       <button
                         type="button"
                         data-testid="axis-pull-all"
                         onClick={() => { flowCanvas.pullAllToAxis(); setMoreMenuOpen(false); }}
-                        className="w-full min-h-[40px] px-2 rounded-lg text-left font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                        className="w-full min-h-[40px] px-2 rounded-lg text-left font-medium text-on-surface-variant dark:text-on-surface hover:bg-surface dark:hover:bg-surface-container-high cursor-pointer"
                       >
                         全部拉到人轴
                       </button>
@@ -782,14 +828,14 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                         type="button"
                         data-testid="axis-reset-fold"
                         onClick={() => { flowCanvas.resetFold(); setMoreMenuOpen(false); }}
-                        className="w-full min-h-[40px] px-2 rounded-lg text-left font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 cursor-pointer"
+                        className="w-full min-h-[40px] px-2 rounded-lg text-left font-medium text-on-surface-variant dark:text-on-surface hover:bg-surface dark:hover:bg-surface-container-high cursor-pointer"
                       >
                         恢复默认折叠
                       </button>
                     </div>
 
-                    <div className="border-t border-slate-100 dark:border-slate-800 pt-1.5">
-                      <span className="text-[11px] text-slate-400 px-2 font-medium">节点间距</span>
+                    <div className="border-t border-outline-variant dark:border-outline-variant pt-1">
+                      <span className="text-xs text-outline px-2 font-medium">节点间距</span>
                       <div className="grid grid-cols-3 gap-1 mt-1">
                         {(['compact', 'standard', 'loose'] as AxisSpacing[]).map((sp) => (
                           <button
@@ -798,8 +844,8 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                             onClick={() => { setSpacing(sp); setMoreMenuOpen(false); }}
                             className={`py-1 rounded-lg text-center font-medium cursor-pointer ${
                               spacing === sp
-                                ? 'bg-blue-50 dark:bg-blue-950 text-[#0058BE] font-bold'
-                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50'
+                                ? 'bg-surface dark:bg-surface-container text-on-surface-variant font-medium'
+                                : 'text-on-surface-variant dark:text-outline hover:bg-surface'
                             }`}
                           >
                             {sp === 'compact' ? '紧凑' : sp === 'standard' ? '标准' : '宽松'}
@@ -812,9 +858,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
               </div>
             </div>
 
-            <div className="flex-1 w-full min-h-0 bg-[#eef2f7] dark:bg-[#151c24] relative">
+            <div className="flex-1 w-full min-h-0 bg-surface relative">
               <PeopleAxisFlowCanvas
                 lang="zh"
+                orderMode={orderMode}
                 nodes={flowCanvas.rfNodes}
                 edges={flowCanvas.rfEdges}
                 orientation={orientation}
@@ -844,51 +891,52 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       {/* 底部 Sheet 1: 节点预览与定位 (设计 ID 87)                */}
       {/* ========================================================= */}
       <MobileSheet
+        className="axis-theme axis-mobile-sheet"
         isOpen={Boolean(previewNode)}
         onClose={() => setPreviewNode(null)}
         title="责任节点预览"
       >
         {previewNode && (
-          <div className="p-4 space-y-4">
-            <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-              <div className="w-12 h-12 rounded-full bg-[#0058BE] text-white font-bold flex items-center justify-center text-base shrink-0">
+          <div className="axis-theme tabular-nums p-4 space-y-4">
+            <div className="flex items-center gap-3 p-3 bg-surface dark:bg-surface-container rounded-xl border border-outline-variant dark:border-outline-variant">
+              <div className="w-12 h-12 rounded-full bg-surface-container text-on-surface-variant font-medium flex items-center justify-center text-base shrink-0">
                 {previewNode.person.name.slice(0, 1)}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <strong className="text-base font-bold text-slate-900 dark:text-slate-100 truncate">
+                  <strong className="text-base font-medium text-on-surface dark:text-on-surface truncate">
                     {previewNode.person.name}
                   </strong>
                   {previewNode.id === selfNode?.id && (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300 font-bold">
+                    <span className="px-1 py-0 rounded text-xs bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant font-medium">
                       我
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                <p className="text-xs text-outline dark:text-outline truncate mt-0">
                   {previewNode.roleTitle || '岗位未指定'} · {previewNode.person.department || '团队'}
                 </p>
               </div>
             </div>
 
             {/* 关键信息栅格 */}
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl">
-                <span className="text-slate-400 block mb-1">责任事项</span>
-                <strong className="text-sm text-slate-900 dark:text-slate-100">
+            <div className="divide-y divide-outline-variant text-xs">
+              <div className="py-3">
+                <span className="text-outline block mb-1">责任事项</span>
+                <strong className="text-sm text-on-surface dark:text-on-surface">
                   {previewNode.workItems.length} 项
                 </strong>
               </div>
-              <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl">
-                <span className="text-slate-400 block mb-1">直属下属</span>
-                <strong className="text-sm text-slate-900 dark:text-slate-100">
+              <div className="py-3">
+                <span className="text-outline block mb-1">直属下属</span>
+                <strong className="text-sm text-on-surface dark:text-on-surface">
                   {axisNodes.filter((n) => n.parentId === previewNode.id).length} 人
                 </strong>
               </div>
             </div>
 
             <PersonMembershipActions node={previewNode} capabilities={permissions?.node_permissions?.[previewNode.id]}
-              onChanged={async()=>{setPreviewNode(null);await loadData();}} />
+              onChanged={async()=>{if (activeScopeRef.current !== projectScope) return; setPreviewNode(null);await loadData();}} />
             {/* 操作按钮区 */}
             <div className="space-y-2 pt-2">
               <button
@@ -898,9 +946,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   setPreviewNode(null);
                   setDetailNode(target);
                 }}
-                className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center gap-2 active:bg-blue-700 cursor-pointer"
+                className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center gap-2 active:opacity-80 cursor-pointer"
               >
-                <AppIcon name="file" size={16} />
+                <AppIcon name="file" size={18} />
                 查看完整责任详情
               </button>
 
@@ -915,7 +963,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                     // 收回后画布会自动适应，目标回到折叠行并留在视口内
                     flowCanvas.returnFromAxis(target.id);
                   }}
-                  className="w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-sm flex items-center justify-center gap-2 active:bg-slate-50 cursor-pointer"
+                  className="w-full min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface font-medium text-sm flex items-center justify-center gap-2 active:bg-surface cursor-pointer"
                 >
                   收回到折叠
                 </button>
@@ -930,9 +978,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                     locateNode(previewNode.id);
                     setActiveTab('overview');
                   }}
-                  className="min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-xs flex items-center justify-center gap-1.5 active:bg-slate-50 cursor-pointer"
+                  className="min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface font-medium text-xs flex items-center justify-center gap-1 active:bg-surface cursor-pointer"
                 >
-                  <AppIcon name="axis" size={14} />
+                  <AppIcon name="axis" size={18} />
                   定位到画布
                 </button>
 
@@ -944,9 +992,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                       setPreviewNode(null);
                       setEditPersonTarget({ mode: 'add', parentSuggestedId: target.id });
                     }}
-                    className="min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-xs flex items-center justify-center gap-1.5 active:bg-slate-50 cursor-pointer"
+                    className="min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface font-medium text-xs flex items-center justify-center gap-1 active:bg-surface cursor-pointer"
                   >
-                    <AppIcon name="plus" size={14} />
+                    <AppIcon name="plus" size={18} />
                     新增下级
                   </button>
                 )}
@@ -961,9 +1009,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                       setPreviewNode(null);
                       setEditPersonTarget({ mode: 'edit', node: target });
                     }}
-                    className="min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-xs flex items-center justify-center gap-1.5 active:bg-slate-50 cursor-pointer"
+                    className="min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface font-medium text-xs flex items-center justify-center gap-1 active:bg-surface cursor-pointer"
                   >
-                    <AppIcon name="edit" size={14} />
+                    <AppIcon name="edit" size={18} />
                     编辑人员
                   </button>
 
@@ -974,9 +1022,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                       setPreviewNode(null);
                       setMoveSupervisorTargetNode(target);
                     }}
-                    className="min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-medium text-xs flex items-center justify-center gap-1.5 active:bg-slate-50 cursor-pointer"
+                    className="min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface font-medium text-xs flex items-center justify-center gap-1 active:bg-surface cursor-pointer"
                   >
-                    <AppIcon name="arrow-right" size={14} />
+                    <AppIcon name="arrow-right" size={18} />
                     调整上级
                   </button>}
                 </div>
@@ -990,6 +1038,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       {/* 底部 Sheet 2: 人员 / 责任节点详情 (设计 ID 22)           */}
       {/* ========================================================= */}
       <MobileSheet
+        className="axis-theme axis-mobile-sheet"
         isOpen={Boolean(detailNode)}
         onClose={() => setDetailNode(null)}
         title={detailNode ? `${detailNode.person.name} · 责任详情` : ''}
@@ -997,13 +1046,17 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       >
         {detailNode && (
           <NodeDetailContent
-            node={detailNode}
+            node={axisNodes.find(node => node.id === detailNode.id) || detailNode}
             allNodes={axisNodes}
             agentReports={agentReports}
             reportsLoadFailed={reportsLoadFailed}
             canEdit={nodeCan(detailNode, 'can_edit_person')}
             canManagePermissions={nodeCan(detailNode, 'can_manage_permissions')}
             canChangeSupervisor={canChangeSupervisor && nodeCan(detailNode,'can_move_person')}
+            canEditMatter={(item) => permissions?.node_permissions?.[item.id]?.can_edit_person ?? Boolean(permissions?.can_edit_all || permissions?.owned_node_ids?.includes(Number(item.id)) || nodeCan(detailNode, 'can_edit_person'))}
+            canDeleteMatter={() => Boolean(permissions?.can_delete)}
+            onEditMatter={(item) => { setDetailNode(null); setMatterAction({ mode: 'edit', item }); }}
+            onDeleteMatter={(item) => { setDetailNode(null); setMatterAction({ mode: 'delete', item }); }}
             onOpenEvidence={onOpenEvidence}
             onNavigateToReport={onNavigateToReport}
             onEditPerson={() => {
@@ -1029,6 +1082,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       {/* 底部 Sheet 3: 新增 / 编辑人员 (设计 ID 23)               */}
       {/* ========================================================= */}
       <MobileSheet
+        className="axis-theme axis-mobile-sheet"
         isOpen={Boolean(editPersonTarget)}
         onClose={() => setEditPersonTarget(null)}
         title={editPersonTarget?.mode === 'add' ? '新增人员' : '编辑人员'}
@@ -1044,6 +1098,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
             allNodes={axisNodes}
             members={projectMembers}
             onSuccess={async () => {
+              if (activeScopeRef.current !== projectScope) return;
               setEditPersonTarget(null);
               showToast('人员信息保存成功');
               await loadData();
@@ -1064,6 +1119,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       {/* 底部 Sheet 4: 节点权限配置 (设计 ID 24)                  */}
       {/* ========================================================= */}
       <MobileSheet
+        className="axis-theme axis-mobile-sheet"
         isOpen={Boolean(permissionTargetNode)}
         onClose={() => setPermissionTargetNode(null)}
         title="节点权限"
@@ -1072,6 +1128,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
           <NodePermissionsForm
             node={permissionTargetNode}
             onSuccess={async () => {
+              if (activeScopeRef.current !== projectScope) return;
               setPermissionTargetNode(null);
               showToast('节点权限已更新');
               await loadData();
@@ -1085,6 +1142,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       {/* 底部 Sheet 5: 调整直属上级 (设计 ID 25 - 防循环)         */}
       {/* ========================================================= */}
       <MobileSheet
+        className="axis-theme axis-mobile-sheet"
         isOpen={Boolean(moveSupervisorTargetNode)}
         onClose={() => setMoveSupervisorTargetNode(null)}
         title="调整直属上级"
@@ -1094,6 +1152,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
             targetNode={moveSupervisorTargetNode}
             allNodes={axisNodes}
             onSuccess={async () => {
+              if (activeScopeRef.current !== projectScope) return;
               setMoveSupervisorTargetNode(null);
               showToast('直属上级调整成功');
               await loadData();
@@ -1107,18 +1166,19 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       {/* 底部 Sheet 6: 画布设置 (设计 ID 30)                      */}
       {/* ========================================================= */}
       <MobileSheet
+        className="axis-theme axis-mobile-sheet"
         isOpen={showSettingsSheet}
         onClose={() => setShowSettingsSheet(false)}
         title="画布设置"
       >
-        <div className="p-4 space-y-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
-            <div className="p-3.5 flex items-center justify-between">
+        <div className="axis-theme tabular-nums p-4 space-y-4">
+          <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden">
+            <div className="p-3 flex items-center justify-between">
               <div>
-                <strong className="text-sm text-slate-900 dark:text-slate-100 block">
+                <strong className="text-sm text-on-surface dark:text-on-surface block">
                   显示 AI 汇报状态
                 </strong>
-                <p className="text-xs text-slate-400 mt-0.5">节点上展示草稿、已提交与未读</p>
+                <p className="text-xs text-outline mt-0">节点上展示草稿、已提交与未读</p>
               </div>
               <MobileSwitch
                 checked={showAiStatus}
@@ -1127,12 +1187,12 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
               />
             </div>
 
-            <div className="p-3.5 flex items-center justify-between">
+            <div className="p-3 flex items-center justify-between">
               <div>
-                <strong className="text-sm text-slate-900 dark:text-slate-100 block">
+                <strong className="text-sm text-on-surface dark:text-on-surface block">
                   展开直属下属
                 </strong>
-                <p className="text-xs text-slate-400 mt-0.5">默认聚焦当前责任范围</p>
+                <p className="text-xs text-outline mt-0">默认聚焦当前责任范围</p>
               </div>
               <MobileSwitch
                 checked={expandSubordinates}
@@ -1149,10 +1209,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 <button
                   type="button"
                   onClick={() => setOrientation('vertical')}
-                  className={`py-2.5 rounded-xl text-xs font-semibold border cursor-pointer ${
+                  className={`py-2 rounded-lg text-xs font-medium border cursor-pointer ${
                     orientation === 'vertical'
-                      ? 'border-[#0058BE] bg-blue-50 dark:bg-blue-950 text-[#0058BE] dark:text-blue-400'
-                      : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600'
+                      ? 'border-primary bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant'
+                      : 'border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant'
                   }`}
                 >
                   纵向树状
@@ -1160,10 +1220,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 <button
                   type="button"
                   onClick={() => setOrientation('horizontal')}
-                  className={`py-2.5 rounded-xl text-xs font-semibold border cursor-pointer ${
+                  className={`py-2 rounded-lg text-xs font-medium border cursor-pointer ${
                     orientation === 'horizontal'
-                      ? 'border-[#0058BE] bg-blue-50 dark:bg-blue-950 text-[#0058BE] dark:text-blue-400'
-                      : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600'
+                      ? 'border-primary bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant'
+                      : 'border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant'
                   }`}
                 >
                   横向总览
@@ -1178,10 +1238,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                     key={sp}
                     type="button"
                     onClick={() => setSpacing(sp)}
-                    className={`py-2 rounded-xl text-xs font-medium border cursor-pointer ${
+                    className={`py-2 rounded-lg text-xs font-medium border cursor-pointer ${
                       spacing === sp
-                        ? 'border-[#0058BE] bg-blue-50 dark:bg-blue-950 text-[#0058BE] dark:text-blue-400 font-bold'
-                        : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600'
+                        ? 'border-primary bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant font-medium'
+                        : 'border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant'
                     }`}
                   >
                     {sp === 'compact' ? '紧凑' : sp === 'standard' ? '标准' : '宽松'}
@@ -1193,27 +1253,27 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
 
           {/* 管理操作入口 */}
           <div className="pt-2">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-2 px-1">
+            <span className="text-xs font-medium text-outline   block mb-2 px-1">
               管理操作
             </span>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
+            <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden">
               <div
                 onClick={() => {
                   setShowSettingsSheet(false);
                   setShowResetConfirm(true);
                 }}
-                className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50 dark:active:bg-slate-800"
+                className="p-3 flex items-center justify-between cursor-pointer active:bg-surface dark:active:opacity-80"
               >
-                <div className="flex items-center gap-2.5">
-                  <AppIcon name="refresh" size={16} className="text-amber-600" />
+                <div className="flex items-center gap-2">
+                  <AppIcon name="refresh" size={18} className="text-inherit" />
                   <div>
-                    <strong className="text-sm font-semibold text-slate-900 dark:text-slate-100 block">
+                    <strong className="text-sm font-medium text-on-surface dark:text-on-surface block">
                       重置卡片布局
                     </strong>
-                    <p className="text-xs text-slate-400">清除当前保存的位置</p>
+                    <p className="text-xs text-outline">清除当前保存的位置</p>
                   </div>
                 </div>
-                <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                <AppIcon name="chevron-right" size={18} className="text-inherit" />
               </div>
             </div>
           </div>
@@ -1224,7 +1284,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
               setShowSettingsSheet(false);
               showToast('偏好设置已保存');
             }}
-            className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center active:bg-blue-700 cursor-pointer"
+            className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center active:opacity-80 cursor-pointer"
           >
             保存布局偏好
           </button>
@@ -1247,9 +1307,29 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
         onCancel={() => setShowResetConfirm(false)}
       />
 
+      <MobileSheet isOpen={Boolean(matterAction)} onClose={() => setMatterAction(null)} title={matterAction?.mode === 'delete' ? '删除事项' : '编辑事项'}>
+        {matterAction && <div className="axis-theme p-4 pb-8">
+          {matterAction.mode === 'edit' ? <MatterEditForm key={matterAction.item.id} item={matterAction.item}
+            members={projectMembers.map(member => ({ id: String(member.user_id), name: member.display_name || member.nickname || member.username || '项目成员', avatar: '', role: member.role || '' }))}
+            canChangeAssignee={permissions?.node_permissions?.[matterAction.item.id]?.can_manage_assignees ?? Boolean(permissions?.is_pm || permissions?.is_superadmin)}
+            onClose={() => { if (activeScopeRef.current === projectScope) setMatterAction(null); }} onSaved={async () => { if (activeScopeRef.current !== projectScope) return; setMatterAction(null); await loadData(); showToast('事项已更新'); }} />
+            : <MatterDeleteConfirm item={matterAction.item} onClose={() => setMatterAction(null)}
+              onDeleted={async item => { if (activeScopeRef.current !== projectScope) return; setMatterAction(null); setUndoDelete(item); await loadData(); }} />}
+        </div>}
+      </MobileSheet>
+      {undoDelete && <div role="status" data-testid="mobile-matter-undo" className="fixed bottom-20 left-4 right-4 z-50 flex items-center justify-between gap-3 rounded-xl bg-surface-container-high p-4 text-on-surface text-sm ">
+        <span className="truncate">已删除「{undoDelete.title}」</span>
+        <button type="button" disabled={restoring} className="min-h-[44px] px-3 font-medium text-on-surface-variant shrink-0" onClick={async () => {
+          setRestoring(true);
+          try { await restoreMatterNode(Number(undoDelete.id)); if (activeScopeRef.current !== projectScope) return; setUndoDelete(null); await loadData(); showToast('已撤销删除'); }
+          catch (err) { showToast(err instanceof Error ? err.message : '撤销失败，请重试'); }
+          finally { if (activeScopeRef.current === projectScope) setRestoring(false); }
+        }}>{restoring ? '恢复中…' : '撤销'}</button>
+      </div>}
+
       {/* 底部轻提示 Toast */}
       {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white text-xs px-4 py-2 rounded-full shadow-lg backdrop-blur-md animate-fade-in pointer-events-none">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-surface-container-high text-on-surface text-xs px-4 py-2 rounded-lg  animate-fade-in pointer-events-none">
           {toastMessage}
         </div>
       )}
@@ -1280,6 +1360,10 @@ interface NodeDetailContentProps {
   onEditPerson: () => void;
   onEditPermissions: () => void;
   onMoveSupervisor: () => void;
+  canEditMatter: (item: AxisWorkItem) => boolean;
+  canDeleteMatter: (item: AxisWorkItem) => boolean;
+  onEditMatter: (item: AxisWorkItem) => void;
+  onDeleteMatter: (item: AxisWorkItem) => void;
 }
 
 const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
@@ -1295,6 +1379,10 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
   onEditPerson,
   onEditPermissions,
   onMoveSupervisor,
+  canEditMatter,
+  canDeleteMatter,
+  onEditMatter,
+  onDeleteMatter,
 }) => {
   const [tab, setTab] = useState<'matters' | 'evidence' | 'progress'>('matters');
 
@@ -1302,34 +1390,34 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
   const subordinates = allNodes.filter((n) => n.parentId === node.id);
 
   return (
-    <div className="p-4 space-y-4 pb-12 overflow-y-auto">
+    <div className="axis-theme tabular-nums p-4 space-y-4 pb-12 overflow-y-auto">
       {/* 头部个人名片 */}
-      <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-full bg-[#0058BE] text-white font-bold flex items-center justify-center text-lg shrink-0">
+      <div className="pb-4 border-b border-outline-variant">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-surface-container text-on-surface-variant font-medium flex items-center justify-center text-lg shrink-0">
             {node.person.name.slice(0, 1)}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 truncate">
+            <h3 className="text-base font-medium text-on-surface dark:text-on-surface truncate">
               {node.person.name}
             </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+            <p className="text-xs text-outline dark:text-outline truncate mt-0">
               {node.roleTitle || '岗位未指定'} · {node.person.department || '项目部门'}
             </p>
           </div>
         </div>
 
         {/* 上下级关系行 */}
-        <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+        <div className="mt-4 pt-3 border-t border-outline-variant dark:border-outline-variant space-y-2 text-xs">
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">直属领导</span>
-            <span className="font-medium text-slate-800 dark:text-slate-200">
+            <span className="text-outline">直属领导</span>
+            <span className="font-medium text-on-surface dark:text-on-surface">
               {supervisor ? supervisor.person.name : '无 (顶层负责人)'}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">直属下属</span>
-            <span className="font-medium text-slate-800 dark:text-slate-200">
+            <span className="text-outline">直属下属</span>
+            <span className="font-medium text-on-surface dark:text-on-surface">
               {subordinates.length > 0
                 ? subordinates.map((s) => s.person.name).join('、')
                 : '无'}
@@ -1339,16 +1427,16 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
       </div>
 
       {/* 子选项卡 */}
-      <div className="flex bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+      <div className="flex bg-surface-container dark:bg-surface-container p-1 rounded-xl">
         {(['matters', 'evidence', 'progress'] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setTab(t)}
-            className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-colors cursor-pointer ${
+            className={`flex-1 py-1 text-xs font-medium rounded-lg transition-ink-colors cursor-pointer ${
               tab === t
-                ? 'bg-white dark:bg-slate-900 text-[#0058BE] dark:text-blue-400 shadow-xs'
-                : 'text-slate-500 dark:text-slate-400'
+                ? 'bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant '
+                : 'text-outline dark:text-outline'
             }`}
           >
             {t === 'matters' ? '责任事项' : t === 'evidence' ? '材料' : '进度'}
@@ -1364,10 +1452,10 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
               <div
                 key={item.id}
                 onClick={() => onOpenEvidence?.(item.id)}
-                className="p-3 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl flex items-center justify-between cursor-pointer active:bg-slate-50"
+                className="py-3 border-b border-outline-variant flex items-center justify-between gap-2 cursor-pointer active:bg-surface-container"
               >
                 <div>
-                  <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 block">
+                  <strong className={`text-sm font-medium${item.status === 'Done' ? ' ink-done' : ' text-on-surface'}`}>
                     {item.title}
                   </strong>
                   {(() => {
@@ -1375,8 +1463,8 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
                     const isOverdue = isWorkItemOverdue(item);
                     const overdueDays = isOverdue ? getWorkItemOverdueDays(item) : 0;
                     return (
-                      <span className="text-[11px] text-slate-400 mt-0.5 block">
-                        <span className={isOverdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}>
+                      <span className="text-xs text-outline mt-0 block">
+                        <span className={isOverdue ? 'text-error dark:text-error font-medium' : ''}>
                           {isDone ? '已完成' : isOverdue ? `逾期 ${overdueDays} 天` : '进行中'}
                         </span>
                         {' · '}{item.progress || 0}%
@@ -1384,11 +1472,15 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
                     );
                   })()}
                 </div>
-                <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                <div className="flex items-center gap-1 shrink-0">
+                  {canEditMatter(item) && <button type="button" data-testid={`axis-matter-edit-${item.id}`} className="min-h-[44px] px-2 text-xs font-medium text-on-surface-variant" onClick={event => { event.stopPropagation(); onEditMatter(item); }}>编辑</button>}
+                  {canDeleteMatter(item) && <button type="button" data-testid={`axis-matter-delete-${item.id}`} className="min-h-[44px] px-2 text-xs font-medium text-on-surface-variant" onClick={event => { event.stopPropagation(); onDeleteMatter(item); }}>删除</button>}
+                  <AppIcon name="chevron-right" size={18} className="text-inherit" />
+                </div>
               </div>
             ))
           ) : (
-            <div className="p-4 bg-white dark:bg-slate-900 rounded-xl text-center text-xs text-slate-400">
+            <div className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl text-center text-xs text-outline">
               暂无挂载的责任事项
             </div>
           )}
@@ -1397,17 +1489,17 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
 
       {tab === 'evidence' && (
         <div className="space-y-2">
-          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl text-center">
-            <AppIcon name="file" size={24} className="mx-auto text-blue-500 mb-1.5" />
-            <p className="text-xs text-slate-600 dark:text-slate-300">
+          <div className="p-4 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl text-center">
+            <AppIcon name="file" size={18} className="mx-auto text-inherit mb-1" />
+            <p className="text-xs text-on-surface-variant dark:text-on-surface-variant">
               已收录 {node.workItems.reduce((acc, w) => acc + (w.evidences?.length || 0), 0)} 份证据材料
             </p>
             <button
               type="button"
               onClick={() => onOpenEvidence?.(node.id)}
-              className="mt-3 inline-flex items-center gap-1 px-4 py-2 bg-[#0058BE] text-white rounded-xl text-xs font-semibold cursor-pointer active:bg-blue-700"
+              className="mt-3 inline-flex items-center gap-1 px-4 py-2 bg-primary text-on-primary rounded-lg text-xs font-medium cursor-pointer active:opacity-80"
             >
-              <AppIcon name="plus" size={14} />
+              <AppIcon name="plus" size={18} />
               提交新证据材料
             </button>
           </div>
@@ -1422,20 +1514,20 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
           : null;
         const nodeReport = !reportsLoadFailed ? latestReportByUser(agentReports || [], node.ownerUserIds?.[0]) : null;
         return (
-          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl space-y-3">
+          <div className="p-4 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl space-y-3">
             {progressVal != null && (
               <>
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-800 dark:text-slate-200">综合进展</span>
-                  <span className="font-bold text-[#0058BE]">{progressVal}%</span>
+                  <span className="font-medium text-on-surface dark:text-on-surface">综合进展</span>
+                  <span className="font-medium text-on-surface-variant">{progressVal}%</span>
                 </div>
-                <div className="w-full h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
-                  <div className="h-full bg-[#0058BE] rounded-full" style={{ width: `${progressVal}%` }} />
+                <div className="w-full h-2 rounded-lg bg-surface-container dark:bg-surface-container overflow-hidden">
+                  <div className="h-full bg-primary rounded-lg" style={{ width: `${progressVal}%` }} />
                 </div>
               </>
             )}
             {!reportsLoadFailed && (
-              <p className="text-[11px] text-slate-400 leading-relaxed">
+              <p className="text-xs text-outline leading-relaxed">
                 {nodeReport ? `最近汇报：${reportStatusLabel(nodeReport)} · 汇报材料已进入审计追溯` : '暂无汇报 · 汇报材料已进入审计追溯'}
               </p>
             )}
@@ -1448,9 +1540,9 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
         <button
           type="button"
           onClick={() => onNavigateToReport?.(undefined, node.id)}
-          className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white font-semibold text-xs flex items-center justify-center gap-1.5 active:bg-blue-700 cursor-pointer"
+          className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-xs flex items-center justify-center gap-1 active:opacity-80 cursor-pointer"
         >
-          <AppIcon name="ai" size={16} />
+          <AppIcon name="file" size={18} />
           查看 AI 汇报与材料对照
         </button>
 
@@ -1459,25 +1551,25 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
             <button
               type="button"
               onClick={onEditPerson}
-              className="min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium flex items-center justify-center gap-1 cursor-pointer active:bg-slate-50"
+              className="min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface text-xs font-medium flex items-center justify-center gap-1 cursor-pointer active:bg-surface"
             >
-              <AppIcon name="edit" size={14} />
+              <AppIcon name="edit" size={18} />
               编辑人员
             </button>
             {canManagePermissions && <button
               type="button"
               onClick={onEditPermissions}
-              className="min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium flex items-center justify-center gap-1 cursor-pointer active:bg-slate-50"
+              className="min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface text-xs font-medium flex items-center justify-center gap-1 cursor-pointer active:bg-surface"
             >
-              <AppIcon name="lock" size={14} />
+              <AppIcon name="lock" size={18} />
               节点权限
             </button>}
             {canChangeSupervisor && <button
               type="button"
               onClick={onMoveSupervisor}
-              className="min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium flex items-center justify-center gap-1 cursor-pointer active:bg-slate-50"
+              className="min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface text-xs font-medium flex items-center justify-center gap-1 cursor-pointer active:bg-surface"
             >
-              <AppIcon name="arrow-right" size={14} />
+              <AppIcon name="arrow-right" size={18} />
               调整上级
             </button>}
           </div>
@@ -1597,10 +1689,10 @@ const EditPersonForm: React.FC<EditPersonFormProps> = ({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 space-y-3.5 pb-8">
+    <form onSubmit={handleSubmit} className="p-4 space-y-3 pb-8">
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs flex items-center gap-1.5">
-          <AppIcon name="alert" size={14} className="shrink-0" />
+        <div className="p-3 bg-surface-container text-error rounded-xl text-xs flex items-center gap-1">
+          <AppIcon name="alert" size={18} className="shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -1611,7 +1703,7 @@ const EditPersonForm: React.FC<EditPersonFormProps> = ({
           value={selectedUserId || ''}
           disabled={!canManageAssignees}
           onChange={(e) => handleMemberChange(Number(e.target.value))}
-          className="w-full min-h-[46px] px-3.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
+          className="w-full min-h-[48px] px-3 text-sm bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-lg text-on-surface dark:text-on-surface"
         >
           <option value="">-- 选择项目成员 (可选) --</option>
           {members.filter(member => !allNodes.find(n => n.id === parentId)?.ownerUserIds?.includes(member.user_id)).map((m) => (
@@ -1647,13 +1739,13 @@ const EditPersonForm: React.FC<EditPersonFormProps> = ({
       </MobileField>
 
       <MobileField label="直属上级">
-        {!canChangeSupervisor && <p className="text-xs text-slate-500 mb-2">直属上级由主管项目的项目经理设置。</p>}
+        {!canChangeSupervisor && <p className="text-xs text-outline mb-2">直属上级由主管项目的项目经理设置。</p>}
         <select
           disabled={!canChangeSupervisor}
           aria-label="直属上级"
           value={parentId}
           onChange={(e) => setParentId(e.target.value)}
-          className="w-full min-h-[46px] px-3.5 text-sm bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl text-slate-900 dark:text-slate-100"
+          className="w-full min-h-[48px] px-3 text-sm bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-lg text-on-surface dark:text-on-surface"
         >
           <option value="">无 (设为顶层负责人)</option>
           {candidateSupervisors.map((cand) => (
@@ -1664,8 +1756,8 @@ const EditPersonForm: React.FC<EditPersonFormProps> = ({
         </select>
       </MobileField>
 
-      <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[11px] text-[#0058BE] dark:text-blue-300 flex items-center gap-1.5">
-        <AppIcon name="info" size={14} className="shrink-0" />
+      <div className="p-2 bg-surface dark:bg-surface-container rounded-xl text-xs text-on-surface-variant dark:text-on-surface-variant flex items-center gap-1">
+        <AppIcon name="info" size={18} className="shrink-0" />
         <span>新增人员会建立人轴关系，并同步其项目内汇报智能体绑定。</span>
       </div>
 
@@ -1673,7 +1765,7 @@ const EditPersonForm: React.FC<EditPersonFormProps> = ({
         <button
           type="submit"
           disabled={submitting}
-          className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center active:bg-blue-700 disabled:opacity-50 cursor-pointer"
+          className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center active:opacity-80 disabled:opacity-50 cursor-pointer"
         >
           {submitting ? '正在保存…' : '保存人员'}
         </button>
@@ -1682,9 +1774,9 @@ const EditPersonForm: React.FC<EditPersonFormProps> = ({
           <button
             type="button"
             onClick={onOpenPermissions}
-            className="w-full min-h-[44px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs font-medium flex items-center justify-center gap-1.5 active:bg-slate-50 cursor-pointer"
+            className="w-full min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface text-xs font-medium flex items-center justify-center gap-1 active:bg-surface cursor-pointer"
           >
-            <AppIcon name="lock" size={14} />
+            <AppIcon name="lock" size={18} />
             查看 / 配置节点权限
           </button>
         )}
@@ -1744,26 +1836,26 @@ const NodePermissionsForm: React.FC<NodePermissionsFormProps> = ({
   return (
     <div className="p-4 space-y-4 pb-8">
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs flex items-center gap-1.5">
-          <AppIcon name="alert" size={14} className="shrink-0" />
+        <div className="p-3 bg-surface-container text-error rounded-xl text-xs flex items-center gap-1">
+          <AppIcon name="alert" size={18} className="shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
-      <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200/80 dark:border-slate-800">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+      <div className="p-3 bg-surface dark:bg-surface-container rounded-xl border border-outline-variant dark:border-outline-variant">
+        <h3 className="text-sm font-medium text-on-surface dark:text-on-surface">
           {node.person.name} · {node.roleTitle || '岗位'}
         </h3>
-        <p className="text-xs text-slate-400 mt-0.5">权限作用于当前项目的人轴节点</p>
+        <p className="text-xs text-outline mt-0">权限作用于当前项目的人轴节点</p>
       </div>
 
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden">
-        <div className="p-3.5 flex items-center justify-between">
+      <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden">
+        <div className="p-3 flex items-center justify-between">
           <div>
-            <strong className="text-sm text-slate-900 dark:text-slate-100 block">
+            <strong className="text-sm text-on-surface dark:text-on-surface block">
               可新增直属下属
             </strong>
-            <p className="text-xs text-slate-400 mt-0.5">允许在本节点下新增人员</p>
+            <p className="text-xs text-outline mt-0">允许在本节点下新增人员</p>
           </div>
           <MobileSwitch
             checked={allowAddSubordinates}
@@ -1772,12 +1864,12 @@ const NodePermissionsForm: React.FC<NodePermissionsFormProps> = ({
           />
         </div>
 
-        <div className="p-3.5 flex items-center justify-between">
+        <div className="p-3 flex items-center justify-between">
           <div>
-            <strong className="text-sm text-slate-900 dark:text-slate-100 block">
+            <strong className="text-sm text-on-surface dark:text-on-surface block">
               可新增责任事项
             </strong>
-            <p className="text-xs text-slate-400 mt-0.5">允许创建绑定本节点的事项</p>
+            <p className="text-xs text-outline mt-0">允许创建绑定本节点的事项</p>
           </div>
           <MobileSwitch
             checked={allowAddWorkItems}
@@ -1786,12 +1878,12 @@ const NodePermissionsForm: React.FC<NodePermissionsFormProps> = ({
           />
         </div>
 
-        <div className="p-3.5 flex items-center justify-between">
+        <div className="p-3 flex items-center justify-between">
           <div>
-            <strong className="text-sm text-slate-900 dark:text-slate-100 block">
+            <strong className="text-sm text-on-surface dark:text-on-surface block">
               可提交证据材料
             </strong>
-            <p className="text-xs text-slate-400 mt-0.5">仅限授权范围内的材料</p>
+            <p className="text-xs text-outline mt-0">仅限授权范围内的材料</p>
           </div>
           <select
             value={evidenceSubmit}
@@ -1800,7 +1892,7 @@ const NodePermissionsForm: React.FC<NodePermissionsFormProps> = ({
                 e.target.value as 'inherit' | 'members' | 'responsible' | 'disabled',
               )
             }
-            className="text-xs font-semibold bg-slate-100 dark:bg-slate-800 border-0 rounded-lg px-2.5 py-1 text-[#0058BE] dark:text-blue-400"
+            className="text-xs font-medium bg-surface-container dark:bg-surface-container border-0 rounded-lg px-2 py-1 text-on-surface-variant dark:text-on-surface-variant"
           >
             <option value="inherit">继承上级</option>
             <option value="members">项目成员</option>
@@ -1810,8 +1902,8 @@ const NodePermissionsForm: React.FC<NodePermissionsFormProps> = ({
         </div>
       </div>
 
-      <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-[11px] text-[#0058BE] dark:text-blue-300 flex items-center gap-1.5">
-        <AppIcon name="info" size={14} className="shrink-0" />
+      <div className="p-2 bg-surface dark:bg-surface-container rounded-xl text-xs text-on-surface-variant dark:text-on-surface-variant flex items-center gap-1">
+        <AppIcon name="info" size={18} className="shrink-0" />
         <span>保存后按最新权限生效，其他设备同步更新。</span>
       </div>
 
@@ -1820,7 +1912,7 @@ const NodePermissionsForm: React.FC<NodePermissionsFormProps> = ({
           type="button"
           onClick={handleSave}
           disabled={submitting}
-          className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center active:bg-blue-700 disabled:opacity-50 cursor-pointer"
+          className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center active:opacity-80 disabled:opacity-50 cursor-pointer"
         >
           {submitting ? '正在保存…' : '保存权限'}
         </button>
@@ -1889,43 +1981,43 @@ const MoveSupervisorForm: React.FC<MoveSupervisorFormProps> = ({
   };
 
   return (
-    <div className="p-4 space-y-3.5 pb-8">
+    <div className="p-4 space-y-3 pb-8">
       {/* 警示说明 */}
-      <div className="p-3 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded-xl text-xs leading-relaxed flex items-center gap-2 border border-amber-200 dark:border-amber-900/50">
-        <AppIcon name="warning" size={16} className="shrink-0" />
+      <div className="p-3 bg-surface-container dark:bg-surface-container text-on-surface-variant rounded-xl text-xs leading-relaxed flex items-center gap-2 border border-outline-variant dark:border-outline-variant">
+        <AppIcon name="warning" size={18} className="shrink-0" />
         <span>调整后，新提交汇报走新链路；历史报告保留原接收关系。</span>
       </div>
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs flex items-center gap-1.5">
-          <AppIcon name="alert" size={14} className="shrink-0" />
+        <div className="p-3 bg-surface-container text-error rounded-xl text-xs flex items-center gap-1">
+          <AppIcon name="alert" size={18} className="shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {/* 当前关系对比卡片 */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden text-xs">
+      <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden text-xs">
         <div className="p-3 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300 font-bold flex items-center justify-center text-xs">
+          <div className="w-8 h-8 rounded-full bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant font-medium flex items-center justify-center text-xs">
             {targetNode.person.name.slice(0, 1)}
           </div>
           <div>
-            <strong className="text-slate-900 dark:text-slate-100 block">
+            <strong className="text-on-surface dark:text-on-surface block">
               当前人员：{targetNode.person.name}
             </strong>
-            <span className="text-slate-400">{targetNode.roleTitle || '岗位'}</span>
+            <span className="text-outline">{targetNode.roleTitle || '岗位'}</span>
           </div>
         </div>
 
         <div className="p-3 flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 font-bold flex items-center justify-center text-xs">
+          <div className="w-8 h-8 rounded-full bg-surface-container dark:bg-surface-container text-on-surface-variant font-medium flex items-center justify-center text-xs">
             {currentSupervisor ? currentSupervisor.person.name.slice(0, 1) : '-'}
           </div>
           <div>
-            <strong className="text-slate-900 dark:text-slate-100 block">
+            <strong className="text-on-surface dark:text-on-surface block">
               当前上级：{currentSupervisor ? currentSupervisor.person.name : '顶层无上级'}
             </strong>
-            <span className="text-slate-400">{currentSupervisor?.roleTitle || '-'}</span>
+            <span className="text-outline">{currentSupervisor?.roleTitle || '-'}</span>
           </div>
         </div>
       </div>
@@ -1937,44 +2029,44 @@ const MoveSupervisorForm: React.FC<MoveSupervisorFormProps> = ({
         placeholder="搜索可选上级…"
         clearable
         onClear={() => setSearchQuery('')}
-        leading={<AppIcon name="search" size={16} />}
+        leading={<AppIcon name="search" size={18} />}
       />
 
       {/* 可选上级列表 */}
-      <div className="space-y-1.5 max-h-[200px] overflow-y-auto border border-slate-200/80 dark:border-slate-800 rounded-2xl p-1 bg-white dark:bg-slate-900">
+      <div className="space-y-1 max-h-[200px] overflow-y-auto border border-outline-variant dark:border-outline-variant rounded-xl p-1 bg-surface-container-lowest dark:bg-surface-container">
         <div
           onClick={() => setSelectedParentId('')}
-          className={`p-2.5 rounded-xl flex items-center justify-between text-xs cursor-pointer ${
+          className={`p-2 rounded-xl flex items-center justify-between text-xs cursor-pointer ${
             selectedParentId === ''
-              ? 'bg-blue-50 dark:bg-blue-950 text-[#0058BE] font-bold'
-              : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+              ? 'bg-surface dark:bg-surface-container text-on-surface-variant font-medium'
+              : 'hover:bg-surface dark:hover:bg-surface-container-high text-on-surface-variant dark:text-on-surface-variant'
           }`}
         >
           <span>设为顶层负责人 (无上级)</span>
-          {selectedParentId === '' && <AppIcon name="check" size={16} className="text-[#0058BE]" />}
+          {selectedParentId === '' && <AppIcon name="check" size={18} className="text-inherit" />}
         </div>
 
         {candidateSupervisors.map((cand) => (
           <div
             key={cand.id}
             onClick={() => setSelectedParentId(cand.id)}
-            className={`p-2.5 rounded-xl flex items-center justify-between text-xs cursor-pointer ${
+            className={`p-2 rounded-xl flex items-center justify-between text-xs cursor-pointer ${
               selectedParentId === cand.id
-                ? 'bg-blue-50 dark:bg-blue-950 text-[#0058BE] font-bold'
-                : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
+                ? 'bg-surface dark:bg-surface-container text-on-surface-variant font-medium'
+                : 'hover:bg-surface dark:hover:bg-surface-container-high text-on-surface-variant dark:text-on-surface-variant'
             }`}
           >
             <div>
               <span className="block font-medium">
                 {cand.person.name}{' '}
                 {cand.id === targetNode.parentId && (
-                  <span className="text-[10px] text-slate-400">(当前上级)</span>
+                  <span className="text-xs text-outline">(当前上级)</span>
                 )}
               </span>
-              <span className="text-[10px] text-slate-400">{cand.roleTitle || '岗位未指定'}</span>
+              <span className="text-xs text-outline">{cand.roleTitle || '岗位未指定'}</span>
             </div>
             {selectedParentId === cand.id && (
-              <AppIcon name="check" size={16} className="text-[#0058BE]" />
+              <AppIcon name="check" size={18} className="text-inherit" />
             )}
           </div>
         ))}
@@ -1986,7 +2078,7 @@ const MoveSupervisorForm: React.FC<MoveSupervisorFormProps> = ({
           type="button"
           onClick={handleConfirmMove}
           disabled={submitting}
-          className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center active:bg-blue-700 disabled:opacity-50 cursor-pointer"
+          className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center active:opacity-80 disabled:opacity-50 cursor-pointer"
         >
           {submitting ? '正在调整…' : '确认调整上级'}
         </button>
@@ -1994,7 +2086,7 @@ const MoveSupervisorForm: React.FC<MoveSupervisorFormProps> = ({
         <button
           type="button"
           onClick={onCancel}
-          className="w-full min-h-[44px] rounded-xl text-slate-500 font-medium text-xs flex items-center justify-center active:opacity-60 cursor-pointer"
+          className="w-full min-h-[44px] rounded-lg text-outline font-medium text-xs flex items-center justify-center active:opacity-60 cursor-pointer"
         >
           取消
         </button>

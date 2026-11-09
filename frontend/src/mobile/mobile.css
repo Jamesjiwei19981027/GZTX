@@ -4,12 +4,18 @@
  */
 
 :root {
-  --mobile-primary: #0058be;
-  --mobile-primary-active: #00419c;
-  --mobile-bg-light: #f2f2f7;
-  --mobile-bg-dark: #000000;
+  --mobile-primary: #1d4e9e;
+  --mobile-primary-active: #173f82;
+  --mobile-bg-light: #f7f6f3;
+  --mobile-bg-dark: #161513;
   --mobile-card-light: #ffffff;
-  --mobile-card-dark: #1c1c1e;
+  --mobile-card-dark: #1c1a18;
+  --mobile-raised-light: #efede8;
+  --mobile-raised-dark: #262421;
+  --mobile-text-light: #1c1b19;
+  --mobile-text-dark: #efe9de;
+  --mobile-muted-light: #5c5850;
+  --mobile-muted-dark: #aaa398;
   --mobile-font-body: 16px;
   --mobile-font-caption: 12px;
   --mobile-font-nav-title: 18px;
@@ -30,7 +36,7 @@
   display: flex;
   flex-direction: column;
   background-color: var(--mobile-bg-light);
-  color: #1a1c1e;
+  color: var(--mobile-text-light);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
@@ -38,7 +44,16 @@
 
 .dark .mobile-shell {
   background-color: var(--mobile-bg-dark);
-  color: #f1f0f4;
+  color: var(--mobile-text-dark);
+}
+
+.mobile-shell .ink-done {
+  color: var(--mobile-muted-light);
+  text-decoration-color: var(--mobile-primary);
+}
+
+.dark .mobile-shell .ink-done {
+  color: var(--mobile-muted-dark);
 }
 
 /* 安全区域：根据 safeAreaOwner 动态判定 */

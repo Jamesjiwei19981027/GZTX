@@ -96,8 +96,8 @@ for(const verified of [false,true]){
     await expect(field.getByText('13800138000',{exact:true})).toBeVisible();
     const badge=field.getByText(verified?'已验证':'未验证',{exact:true});
     await expect(badge).toBeVisible();
-    await expect(badge).toHaveClass(verified?/bg-emerald-100/:/bg-slate-100/);
-    expect(await badge.evaluate(el=>getComputedStyle(el).color)).toBe(verified?'oklch(0.432 0.095 166.913)':'oklch(0.554 0.046 257.417)');
+    await expect(badge).toHaveClass(verified?/text-\[#2f7d4f\]/:/text-on-surface-variant/);
+    expect(await badge.evaluate(el=>getComputedStyle(el).color)).toBe(verified?'rgb(47, 125, 79)':'rgb(92, 88, 80)');
   });
 }
 
@@ -109,14 +109,14 @@ test('successful phone binding updates the security badge and stops reminders on
   await page.getByPlaceholder('13800000000').fill('13800138000');
   await page.getByPlaceholder('6 位数字验证码').fill('123456');
   await page.getByRole('button',{name:'确认绑定',exact:true}).click();
-  await expect(page.getByText('绑定验证成功！',{exact:true})).toBeVisible();
+  await expect(page.getByText('绑定验证成功',{exact:true})).toBeVisible();
   expect(server.binds).toEqual([{channel:'sms',target:'13800138000',code:'123456'}]);
-  await expect(page.getByText('13800138000 · 已验证',{exact:true})).toHaveClass(/text-emerald-600/);
+  await expect(page.getByText('13800138000 · 已验证',{exact:true})).toHaveClass(/text-\[#2f7d4f\]/);
   await resume(page);
   await expect(page.locator('body')).toHaveAttribute('data-server-verified','true');
   await expect(reminder(page)).toHaveCount(0);
   await page.getByRole('button',{name:'测试打开个人资料',exact:true}).click();
   await expect(page.getByRole('heading',{name:'个人资料',exact:true})).toBeVisible();
   const field=page.locator('div.flex.flex-col.gap-1\\.5').filter({has:page.locator('label').filter({hasText:'手机号码'})});
-  await expect(field.getByText('已验证',{exact:true})).toHaveClass(/bg-emerald-100/);
+  await expect(field.getByText('已验证',{exact:true})).toHaveClass(/text-\[#2f7d4f\]/);
 });

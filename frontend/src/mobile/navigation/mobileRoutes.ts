@@ -60,7 +60,6 @@ export const REGISTERED_SCREENS: Record<MobileTab, ReadonlySet<string>> = {
     'work-chat-extract',
     'project-switch',
     'project-create',
-    'company-create',
     'project-overview',
     'project-settings',
     'project-invite',
@@ -132,10 +131,14 @@ export function createDefaultRoute(tab: MobileTab, params: MobileRouteParams = {
 /** Old callers can keep their screen IDs; one registry decides the owning tab. */
 export function normalizeMobileRoute(input: MobileRouteInput, fallback: MobileTab = 'work'): MobileRoute {
   let screen = input.screen === 'me-knowledge' ? 'knowledge-root' : input.screen;
+  // 单公司部署不再创建公司；旧入口安全回到项目选择。
+  if (screen === 'company-create') screen = 'project-switch';
   if (screen === 'ai-chat' || screen === 'axis-evidence-submit') {
     screen = 'record-progress';
   }
+  // 没指定 Tab 时，优先留在当前 Tab（如人轴里“记录进展”返回要回到人轴，而不是跳到工作台栈）
   const owner = MOBILE_TABS.find(item => item.id === input.tab && REGISTERED_SCREENS[item.id].has(screen))
+    ?? (input.tab == null ? MOBILE_TABS.find(item => item.id === fallback && REGISTERED_SCREENS[item.id].has(screen)) : undefined)
     ?? MOBILE_TABS.find(item => REGISTERED_SCREENS[item.id].has(screen));
   const tab = owner?.id ?? (input.tab === 'ai' ? 'work' : input.tab) ?? fallback;
   return { ...input, tab, screen, presentation: input.presentation ?? 'page', params: input.params ?? {} };

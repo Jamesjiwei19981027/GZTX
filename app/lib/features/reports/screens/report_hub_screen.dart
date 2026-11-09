@@ -237,9 +237,12 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
             const Expanded(
               child: AppEmptyState(
                 title: '请选择具体项目',
-                description: '根据安全规范，智能体会话、汇报材料与上下文在项目间严格隔离。'
-                    '“全部项目”下无法确定汇报归属。',
-                icon: AppIcon('folder', size: 44, color: AppColors.primary),
+                description: '根据安全规范，智能体会话、汇报材料与上下文在项目间严格隔离'
+                    '“全部项目”下无法确定汇报归属',
+                icon: AppIcon(
+                  'folder',
+                  size: 18,
+                ),
               ),
             ),
           ],
@@ -302,12 +305,15 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
               children: [
                 const Row(
                   children: [
-                    AppIcon('ai', size: 20, color: AppColors.primary),
+                    AppIcon(
+                      'ai',
+                      size: 18,
+                    ),
                     SizedBox(width: AppSpacing.sm),
                     Text(
                       '我的项目 AI',
                       style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
@@ -326,7 +332,7 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                     child: AppButton(
                       label: '告诉 AI 最新进展',
                       icon: const AppIcon('messages',
-                          size: 17, color: Colors.white),
+                          size: 18, color: Colors.white),
                       onPressed: () =>
                           context.push('/reports/chat?projectId=$projectId'),
                     ),
@@ -361,7 +367,7 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                 _divider(context),
                 _HubRow(
                   icon: 'clock',
-                  iconColor: const Color(0xFF7C5CBF),
+                  iconColor: AppColors.primary,
                   title: '汇报历史与版本',
                   subtitle: '已提交 $_historyCount 份不可变记录',
                   onTap: () =>
@@ -407,7 +413,7 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                   _divider(context),
                   _HubRow(
                     icon: 'ai',
-                    iconColor: const Color(0xFF4B57B8),
+                    iconColor: AppColors.primary,
                     title: '项目汇总与发布',
                     subtitle: '生成项目级汇报封装',
                     onTap: () => context.push(
@@ -494,13 +500,13 @@ class _HubRow extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: dark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
                     maxLines: 1,
@@ -517,16 +523,16 @@ class _HubRow extends StatelessWidget {
             ),
             if (badge != null) ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: AppColors.danger,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 child: Text(
                   '$badge',
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     color: Colors.white,
                   ),
                 ),
