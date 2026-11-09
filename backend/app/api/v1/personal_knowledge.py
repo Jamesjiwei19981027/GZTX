@@ -27,6 +27,7 @@ class EntryCreate(BaseModel):
     title: str = Field(min_length=1, max_length=300)
     body_text: str = Field(default="", max_length=2000000)
     tags: list[str] = Field(default_factory=list, max_length=50)
+    file_ids: list[int] = Field(default_factory=list, max_length=20)
 
     @field_validator("title")
     @classmethod
@@ -119,8 +120,14 @@ async def catalog(project_id: int, db: DbSession, user: CurrentUser):
 async def create_entry(project_id: int, body: EntryCreate, db: DbSession, user: CurrentUser):
     """新建个人知识条目"""
     project = await access(db, project_id, user, write=True)
+    from app.services.progress_attachments import resolve_attachments
+
+    attachments = await resolve_attachments(
+        db, user_id=user.id, file_ids=body.file_ids, company_id=project.company_id
+    )
     row = PersonalKnowledgeEntry(company_id=project.company_id, project_id=project.id,
-        owner_user_id=user.id, title=body.title, body_text=body.body_text, tags_json=body.tags)
+        owner_user_id=user.id, title=body.title, body_text=body.body_text, tags_json=body.tags,
+        source_ref_json={"attachments": attachments} if attachments else {})
     db.add(row)
     await db.commit()
     await db.refresh(row)

@@ -15,6 +15,8 @@ export interface AgentChatBody {
   agent_definition_id?: number | null
   channel?: string
   message: string
+  /** 已上传文件（evidence_files）的 id，随这条记录一起保存 */
+  file_ids?: number[]
 }
 
 export interface AgentChatResponse {

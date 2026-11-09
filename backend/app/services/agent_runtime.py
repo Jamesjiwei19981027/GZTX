@@ -371,8 +371,14 @@ class AgentRuntime:
         *,
         session: AgentSession,
         user_text: str,
+        attachments: list[dict] | None = None,
     ) -> AgentMessage:
-        user_msg = AgentMessage(session_id=session.id, role="user", content=user_text)
+        user_msg = AgentMessage(
+            session_id=session.id,
+            role="user",
+            content=user_text,
+            meta_json={"attachments": attachments} if attachments else None,
+        )
         db.add(user_msg)
         await db.flush()
         text = user_text.strip()

@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { mapEvidenceStatus, EVIDENCE_STATUS_LABEL } from '../src/api/mappers'
+import { effectiveNodeId, saveRecordProgress } from '../src/api/recordProgress'
 import { notificationTarget, notificationTitle } from '../src/utils/notificationText'
 
 const read = (p: string) => fs.readFileSync(p, 'utf8')
@@ -48,5 +49,27 @@ const inbox = read('src/components/views/InboxView.tsx')
 ok(modal.includes('notificationTitle(n.template_key)') && !modal.includes("title: n.template_key"), 'C-4 通知中心不再用原始键')
 ok(inbox.includes('notificationTitle(n.template_key)') && inbox.includes('onOpenTarget(item.target)'), 'C-4 收件箱标题与跳转')
 ok(app.includes('onOpenTarget={handleOpenNotificationTarget}'), 'C-4 App 接线')
+
+// WR-19：切换项目后旧项目的事项不得带到保存里
+ok(effectiveNodeId('', ['1'], true) === null, 'WR-19 未选')
+ok(effectiveNodeId('5', ['5', '6'], true) === 5, 'WR-19 属于当前项目')
+ok(effectiveNodeId('9', ['5', '6'], true) === null, 'WR-19 不属于当前项目则丢弃')
+ok(effectiveNodeId('9', [], false) === 9, 'WR-19 列表加载中不误丢')
+const rp = read('src/mobile/features/progress/RecordProgressScreen.tsx')
+ok(rp.includes("setSelectedProjectId(e.target.value); setSelectedNodeId('')"), 'WR-19 切项目清空已选事项')
+ok(rp.includes('effectiveNodeId(selectedNodeId'), 'WR-19 保存以当前选择为准')
+
+// WR-14：汇报草稿 / 个人知识带上附件 id
+const sent: Record<string, unknown> = {}
+const deps = {
+  agentChat: async (b: unknown) => { sent.chat = b },
+  submitEvidence: async () => {},
+  createKnowledgeEntry: async (_p: number, b: unknown) => { sent.knowledge = b },
+}
+const base = { text: '内容', companyId: 1, projectId: 2, nodeId: null, fileIds: [11, 12], evidenceKind: 'file' }
+await saveRecordProgress('report_draft', base, deps)
+await saveRecordProgress('knowledge', base, deps)
+assert.deepEqual((sent.chat as { file_ids: number[] }).file_ids, [11, 12]); n++
+assert.deepEqual((sent.knowledge as { file_ids: number[] }).file_ids, [11, 12]); n++
 
 console.log(`r2 web flow: ${n} assertions passed`)

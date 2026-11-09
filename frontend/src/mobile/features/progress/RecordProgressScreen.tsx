@@ -7,7 +7,7 @@ import { submitEvidence, getTreeNode, getProjectTree, BackendTreeNode } from '..
 import { uploadEvidenceFile } from '../../../api/projectWiki';
 import { inferEvidenceKind } from '../../../utils/evidenceFiles';
 import { createPersonalKnowledgeEntry } from '../../../api/personalKnowledge';
-import { suggestRecordProgress, saveRecordProgress, resolveSuggestedTarget, RecordProgressTarget, RecordProgressSuggestResponse } from '../../../api/recordProgress';
+import { effectiveNodeId, suggestRecordProgress, saveRecordProgress, resolveSuggestedTarget, RecordProgressTarget, RecordProgressSuggestResponse } from '../../../api/recordProgress';
 
 export interface UploadedFileItem {
   file_id: number;
@@ -231,7 +231,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
           text,
           companyId: cidNum,
           projectId: pidNum,
-          nodeId: selectedNodeId ? Number(selectedNodeId) : null,
+          nodeId: effectiveNodeId(selectedNodeId, nodeList.map((n) => n.id), !nodeLoading),
           fileIds: uploadedFiles.map((f) => f.file_id),
           evidenceKind: inferEvidenceKind(uploadedFiles),
         },
@@ -325,7 +325,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
                 <select
                   aria-label="选择所属项目"
                   value={selectedProjectId}
-                  onChange={(e) => setSelectedProjectId(e.target.value)}
+                  onChange={(e) => { setSelectedProjectId(e.target.value); setSelectedNodeId(''); setNodeList([]); }}
                   disabled={submitting || suggesting}
                   className="w-full text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-slate-100 outline-hidden"
                 >
