@@ -61,6 +61,9 @@ final List<RouteBase> reportsRoutes = [
           projects: _projects(context),
           onSelectProject: (option) => _selectProject(context, state, option),
           initialDraftReportId: _intParam(state, 'draftReportId'),
+          initialSupplement: state.extra is Map
+              ? (state.extra as Map)['supplement'] as String?
+              : null,
         ),
       ),
       GoRoute(
@@ -101,6 +104,8 @@ final List<RouteBase> reportsRoutes = [
           projectId: _projectId(context, state),
           projectName: _projectName(context, state),
           mode: ReportReviewMode.followup,
+          reportId: _intParam(state, 'reportId'),
+          nodeId: _intParam(state, 'nodeId'),
         ),
       ),
       GoRoute(
@@ -110,6 +115,7 @@ final List<RouteBase> reportsRoutes = [
           projectId: _projectId(context, state),
           projectName: _projectName(context, state),
           mode: ReportReviewMode.conflict,
+          reportId: _intParam(state, 'reportId'),
         ),
       ),
       GoRoute(

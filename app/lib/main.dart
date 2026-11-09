@@ -66,6 +66,7 @@ class WorkTodoApp extends StatefulWidget {
 class _WorkTodoAppState extends State<WorkTodoApp> {
   core_auth.AuthState? _authState;
   AppRouter? _appRouter;
+  MeAppearanceSessionSync? _appearanceSync;
   final _appearance = MeAppearanceController.instance;
 
   AppShellMode _shellModeFor(WorkTodoApp target) => resolveShellMode(
@@ -92,12 +93,15 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
     if (_authState == null) {
       final auth = widget.authStateFactory?.call() ?? core_auth.AuthState();
       _authState = auth;
+      _appearanceSync = MeAppearanceSessionSync(auth, _appearance);
       _appRouter = AppRouter(authState: auth);
       auth.bootstrap();
     }
   }
 
   void _disposeNativeState() {
+    _appearanceSync?.dispose();
+    _appearanceSync = null;
     _appRouter?.router.dispose();
     _authState?.dispose();
     _appRouter = null;

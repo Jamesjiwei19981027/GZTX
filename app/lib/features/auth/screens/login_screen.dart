@@ -24,10 +24,11 @@ enum LoginKind { password, code }
 ///
 /// 功能真源：`frontend/src/mobile/features/auth/MobileAuthScreens.tsx` 模式 01 与 79。
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.api});
+  const LoginScreen({super.key, this.api, this.companyId});
 
   /// 测试注入用；生产从 `context.apiClient` 获取
   final AuthApi? api;
+  final int? companyId;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -46,6 +47,15 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _busy = false;
   String? _error;
   String? _hint;
+  bool _configLoading = false;
+  String? _configError;
+  bool _configPrepared = false;
+  int _configRequest = 0;
+
+  bool get _passwordAllowed =>
+      !_configLoading && _configError == null && _regConfig.passwordEnabled;
+  bool get _codeAllowed =>
+      !_configLoading && _configError == null && _regConfig.codeEnabled;
 
   @override
   void initState() {
@@ -59,12 +69,48 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_configPrepared) {
+      _configPrepared = true;
+      _configLoading = _api != null;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant LoginScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.companyId != widget.companyId ||
+        oldWidget.api != widget.api) {
+      _loadRegistrationConfig();
+    }
+  }
+
   Future<void> _loadRegistrationConfig() async {
+    final version = ++_configRequest;
     final api = _api;
     if (api == null) return;
-    final cfg = await api.fetchRegistrationConfig();
-    if (mounted) {
-      setState(() => _regConfig = cfg);
+    setState(() {
+      _configLoading = true;
+      _configError = null;
+    });
+    try {
+      final cfg = await api.fetchRegistrationConfig(
+          companyId: widget.companyId ?? _authState?.currentCompany?.id);
+      if (!mounted || version != _configRequest) return;
+      setState(() {
+        _regConfig = cfg;
+        _configLoading = false;
+        if (!cfg.passwordEnabled && cfg.codeEnabled) _kind = LoginKind.code;
+        if (!cfg.codeEnabled && cfg.passwordEnabled) _kind = LoginKind.password;
+      });
+    } catch (e) {
+      if (!mounted || version != _configRequest) return;
+      setState(() {
+        _configLoading = false;
+        _configError = '无法读取企业登录方式，请重试或联系管理员';
+      });
     }
   }
 
@@ -111,6 +157,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _target.text.trim().isNotEmpty && _code.text.trim().isNotEmpty;
 
   Future<void> _submitPassword() async {
+    if (!_passwordAllowed || _busy) return;
     final username = _username.text.trim();
     final password = _password.text;
     if (username.isEmpty || password.isEmpty) {
@@ -143,6 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _submitCode() async {
+    if (!_codeAllowed || _busy) return;
     final target = _target.text.trim();
     final code = _code.text.trim();
     final channel = AuthValidators.detectChannel(target);
@@ -181,6 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _sendLoginCode() async {
+    if (!_codeAllowed || _busy) return;
     _clearMessages();
     final target = _target.text.trim();
     final channel = AuthValidators.detectChannel(target);
@@ -213,6 +262,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _switchKind(LoginKind kind) {
+    if ((kind == LoginKind.password && !_passwordAllowed) ||
+        (kind == LoginKind.code && !_codeAllowed)) {
+      return;
+    }
     if (_kind == kind) return;
     setState(() {
       _kind = kind;
@@ -254,11 +307,12 @@ class _LoginScreenState extends State<LoginScreen> {
               style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             const SizedBox(height: AppSpacing.md),
-            _helpItem(
-              ctx,
-              '免密验证码登录：',
-              '如果您的账号已绑定手机号或工作邮箱，可直接通过「验证码登录」快捷进入工作区。',
-            ),
+            if (_codeAllowed)
+              _helpItem(
+                ctx,
+                '免密验证码登录：',
+                '如果您的账号已绑定手机号或工作邮箱，可直接通过「验证码登录」快捷进入工作区。',
+              ),
             _helpItem(
               ctx,
               '管理员密码重置：',
@@ -270,14 +324,15 @@ class _LoginScreenState extends State<LoginScreen> {
               '平台不会通过不可信链接请求您提供明文密码。',
             ),
             const SizedBox(height: AppSpacing.lg),
-            AppButton(
-              label: '使用验证码直接登录',
-              isFullWidth: true,
-              onPressed: () {
-                Navigator.of(ctx).pop();
-                _switchKind(LoginKind.code);
-              },
-            ),
+            if (_codeAllowed)
+              AppButton(
+                label: '使用验证码直接登录',
+                isFullWidth: true,
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  _switchKind(LoginKind.code);
+                },
+              ),
           ],
         ),
       ),
@@ -365,19 +420,34 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                AppSegmentedControl<LoginKind>(
-                  segments: const {
-                    LoginKind.password: '账号密码登录',
-                    LoginKind.code: '验证码免密登录',
-                  },
-                  selectedValue: _kind,
-                  onValueChanged: _switchKind,
-                ),
+                if (_configLoading) const Center(child: AppLoading()),
+                if (_configError != null) ...[
+                  AuthMessageBanner(
+                      message: _configError!, type: AuthBannerType.error),
+                  AppButton(
+                      label: '重新读取登录方式', onPressed: _loadRegistrationConfig),
+                ],
+                if (_passwordAllowed && _codeAllowed)
+                  AppSegmentedControl<LoginKind>(
+                    segments: const {
+                      LoginKind.password: '账号密码登录',
+                      LoginKind.code: '验证码免密登录',
+                    },
+                    selectedValue: _kind,
+                    onValueChanged: _switchKind,
+                  ),
                 const SizedBox(height: AppSpacing.xl),
-                if (_kind == LoginKind.password)
+                if (_kind == LoginKind.password && _passwordAllowed)
                   _buildPasswordForm(context)
-                else
+                else if (_kind == LoginKind.code && _codeAllowed)
                   _buildCodeForm(context),
+                if (!_configLoading &&
+                    _configError == null &&
+                    !_passwordAllowed &&
+                    !_codeAllowed)
+                  const AuthMessageBanner(
+                      message: '当前企业未开放本页支持的登录方式，请联系管理员使用企业登录入口',
+                      type: AuthBannerType.hint),
                 const SizedBox(height: AppSpacing.xl),
                 _buildRegisterEntry(context, isDark),
                 const SizedBox(height: AppSpacing.lg),
@@ -429,8 +499,9 @@ class _LoginScreenState extends State<LoginScreen> {
             Brand.tagline,
             style: TextStyle(
               fontSize: 12,
-              color:
-                  isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
         ],
@@ -460,9 +531,8 @@ class _LoginScreenState extends State<LoginScreen> {
           placeholder: '请输入登录密码',
           obscureText: _obscurePassword,
           textInputAction: TextInputAction.done,
-          onSubmitted: (_) => _canSubmitPassword && !_busy
-              ? _submitPassword()
-              : null,
+          onSubmitted: (_) =>
+              _canSubmitPassword && !_busy ? _submitPassword() : null,
           prefix: const AppIcon('lock', size: 18),
           enabled: !_busy,
           suffix: _buildEyeToggle(),
@@ -571,7 +641,8 @@ class _LoginScreenState extends State<LoginScreen> {
           '还没有账号？',
           style: TextStyle(
             fontSize: 12,
-            color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+            color:
+                isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
           ),
         ),
         TextButton(

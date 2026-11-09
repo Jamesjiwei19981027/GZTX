@@ -14,6 +14,7 @@ import '../../../core/auth/project_label.dart';
 import '../../../core/errors/app_error.dart';
 import '../../../design/design.dart';
 import '../../../router/app_destination.dart';
+import '../../me/data/me_api.dart';
 import '../data/work_api.dart';
 import '../data/work_models.dart';
 import '../data/work_scope.dart';
@@ -181,6 +182,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
     if (widget.isEditing) {
       await _loadTask();
     } else {
+      final token = ++_loadToken;
       _taskScope = TaskScope.normalizeOrPersonal(
         _auth?.currentProject?.id.toString(),
       );
@@ -188,6 +190,20 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
       if (projectId != null) {
         _loadMembers(projectId);
       }
+      try {
+        final auth = _auth;
+        if (auth != null) {
+          final prefs = await MeApi(auth.api).fetchUiPrefs();
+          if (!mounted || token != _loadToken) return;
+          final priority = prefs.taskDefaultPriority;
+          _priority =
+              priority != null && priority >= 0 && priority <= 2 ? priority : 1;
+        }
+      } catch (_) {
+        if (!mounted || token != _loadToken) return;
+        _formError = '任务默认值读取失败，暂用中优先级，请确认后保存';
+      }
+      if (!mounted || token != _loadToken) return;
       setState(() => _loading = false);
     }
   }
@@ -468,7 +484,10 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                 ),
                 child: Text(
                   _formError!,
-                  style: TextStyle(fontSize: 12, color: AppColors.onDangerContainerOf(isDarkMode(context))),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color:
+                          AppColors.onDangerContainerOf(isDarkMode(context))),
                 ),
               ),
             Container(
@@ -479,7 +498,9 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
               ),
               child: Row(
                 children: [
-                  AppIcon('work', size: 16, color: AppColors.onInfoContainerOf(isDarkMode(context))),
+                  AppIcon('work',
+                      size: 16,
+                      color: AppColors.onInfoContainerOf(isDarkMode(context))),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(

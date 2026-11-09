@@ -39,6 +39,9 @@ final List<RouteBase> evidenceRoutes = [
           projectId: resolvedProjectId,
           nodeId: nodeId,
           initialNodeTitle: state.uri.queryParameters['nodeTitle'],
+          initialSummary: state.extra is Map
+              ? (state.extra as Map)['summary'] as String?
+              : null,
           attachmentPicker: NativeAttachmentPicker(context),
           voiceRecorder: NativeVoiceRecorder(),
           draftStore: EvidenceDraftStore(),

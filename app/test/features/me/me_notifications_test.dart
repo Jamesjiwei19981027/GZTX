@@ -28,13 +28,13 @@ void main() {
     await pumpScreen(tester);
 
     expect(find.text('邮件通知'), findsOneWidget);
-    expect(find.text('系统推送'), findsOneWidget);
+    expect(find.text('站内通知'), findsOneWidget);
+    expect(find.textContaining('App 打开时接收通知'), findsWidgets);
     expect(find.text('微信服务号提醒'), findsOneWidget);
-    // 邮件开、推送开、微信关、周末静音关
+    // 站内通知由前台轮询接收，无系统推送开关。邮件开、微信关、周末静音关。
     expect(switchValue(tester, 0), isTrue);
-    expect(switchValue(tester, 1), isTrue);
+    expect(switchValue(tester, 1), isFalse);
     expect(switchValue(tester, 2), isFalse);
-    expect(switchValue(tester, 3), isFalse);
   });
 
   testWidgets('关闭邮件通知会提交 notify_pref 并提示成功', (tester) async {
@@ -70,9 +70,8 @@ void main() {
     MeTestHarness.useTallSurface(tester);
     final harness = await pumpScreen(tester);
     harness.helper.whenPut('/users/me', MeTestHarness.userJson);
-    final before = harness.helper.history
-        .where((r) => r.method == 'PUT')
-        .length;
+    final before =
+        harness.helper.history.where((r) => r.method == 'PUT').length;
 
     await tester.enterText(
       find.byKey(const Key('me-notify-quiet-start')),
@@ -131,7 +130,7 @@ void main() {
       'error': 'SMTP 未配置：请先在设置中填写主机/账号/密码',
     });
 
-    await tester.tap(find.text('发送测试推送'));
+    await tester.tap(find.text('发送测试站内通知'));
     await tester.pumpAndSettle();
 
     expect(find.textContaining('SMTP 未配置'), findsOneWidget);

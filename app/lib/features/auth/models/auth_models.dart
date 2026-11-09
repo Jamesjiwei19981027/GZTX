@@ -129,8 +129,7 @@ class VerificationStatus {
   VerificationStatus confirmLocal(AuthChannel channel, String target) {
     final nextEmailVerified =
         channel == AuthChannel.email ? true : emailVerified;
-    final nextPhoneVerified =
-        channel == AuthChannel.sms ? true : phoneVerified;
+    final nextPhoneVerified = channel == AuthChannel.sms ? true : phoneVerified;
     return VerificationStatus(
       email: channel == AuthChannel.email ? target : email,
       phone: channel == AuthChannel.sms ? target : phone,
@@ -157,10 +156,15 @@ class RegistrationConfig {
   const RegistrationConfig({
     this.mode = RegistrationMode.open,
     this.phoneRequired = false,
+    this.loginMethods = const {},
   });
 
   final RegistrationMode mode;
   final bool phoneRequired;
+  final Map<String, bool> loginMethods;
+
+  bool get passwordEnabled => loginMethods['password'] != false;
+  bool get codeEnabled => loginMethods['code'] != false;
 
   bool get isInviteOnly => mode == RegistrationMode.inviteOnly;
 
@@ -171,6 +175,13 @@ class RegistrationConfig {
     return RegistrationConfig(
       mode: RegistrationMode.fromString(json['mode'] as String?),
       phoneRequired: json['phone_required'] == true,
+      loginMethods: json['login_methods'] is Map
+          ? {
+              for (final entry in (json['login_methods'] as Map).entries)
+                if (entry.key is String && entry.value is bool)
+                  entry.key as String: entry.value as bool
+            }
+          : const {},
     );
   }
 }

@@ -20,7 +20,8 @@ class ReportsApi {
   final ApiClient _client;
 
   Future<List<ReportAgentBinding>> listBindings(int projectId) async {
-    final data = await _client.get('/projects/$projectId/report-agents/bindings');
+    final data =
+        await _client.get('/projects/$projectId/report-agents/bindings');
     return _parseItems(data, ReportAgentBinding.fromJson);
   }
 
@@ -40,7 +41,9 @@ class ReportsApi {
   Future<List<AgentReport>> listMyReports({int? projectId}) async {
     final data = await _client.get(
       '/reports/my',
-      query: projectId != null && projectId > 0 ? {'project_id': '$projectId'} : null,
+      query: projectId != null && projectId > 0
+          ? {'project_id': '$projectId'}
+          : null,
     );
     return _parseItems(data, AgentReport.fromJson);
   }
@@ -77,11 +80,13 @@ class ReportsApi {
     required String summary,
     List<ReportSource> sources = const [],
   }) async {
+    final additions = sources.where((source) => source.id == null).toList();
     final data = await _client.post(
       '/reports/$reportId/submit',
       body: {
         'summary': summary,
-        'sources': sources.map((source) => source.toJson()).toList(),
+        if (additions.isNotEmpty)
+          'sources': additions.map((source) => source.toJson()).toList(),
       },
     );
     return _parseObject(data, AgentReport.fromJson, '汇报提交结果');
@@ -119,14 +124,18 @@ class ReportsApi {
   }) async {
     final data = await _client.post(
       '/companies/$companyId/leadership-reports/aggregate',
-      body: {'project_ids': projectIds == null || projectIds.isEmpty ? null : projectIds},
+      body: {
+        'project_ids':
+            projectIds == null || projectIds.isEmpty ? null : projectIds
+      },
     );
     return _parseObject(data, LeadershipReport.fromJson, '领导层汇报');
   }
 
   /// 未生成过时后端返回 `data: null`，这里返回 null 而不是抛异常。
   Future<LeadershipReport?> latestLeadership(int companyId) async {
-    final data = await _client.get('/companies/$companyId/leadership-reports/latest');
+    final data =
+        await _client.get('/companies/$companyId/leadership-reports/latest');
     if (data == null) return null;
     return _parseObject(data, LeadershipReport.fromJson, '领导层汇报');
   }
