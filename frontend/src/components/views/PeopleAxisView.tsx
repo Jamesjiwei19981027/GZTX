@@ -721,8 +721,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     setCustomWorkScope('');
     showToast(
       lang === 'zh'
-        ? `🎉 已成功将【${personToAssign.name}】挂载至责任体系中！`
-        : `Successfully mounted ${personToAssign.name}!`
+        ? `已将【${personToAssign.name}】挂载至责任体系`
+        : `Mounted ${personToAssign.name}`
     );
   };
 
@@ -995,9 +995,9 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         </AxisDialog>;
       })()}
       {undoDelete && (
-        <div role="status" data-testid="matter-undo-bar" className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 text-white px-5 py-3 rounded-2xl shadow-2xl flex items-center gap-4 text-sm">
+        <div role="status" data-testid="matter-undo-bar" className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-surface-container-high text-on-surface px-5 py-3 rounded-lg flex items-center gap-4 text-sm">
           <span>已删除「{undoDelete.title}」</span>
-          <button type="button" className="font-bold text-cyan-300 underline cursor-pointer" onClick={() => {
+          <button type="button" className="font-medium text-on-surface-variant underline cursor-pointer" onClick={() => {
             const target = undoDelete;
             setUndoDelete(null);
             void restoreMatterNode(target.id)
@@ -1040,12 +1040,12 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
               }}><option value="project">{lang === 'zh' ? '项目成员' : 'Project member'}</option><option value="subordinate">{lang === 'zh' ? '下级自建' : 'Self-added'}</option></select></label>
                 : <p className="axis-muted">{lang === 'zh' ? '新增人员作为下级自建人员，连接直属上级。' : 'Add as self-added personnel under the direct manager.'}</p>}
               {/* Member Selection Mode Toggle */}
-              <div className="p-1 bg-surface-container dark:bg-[#282b2d] rounded-2xl flex items-center gap-1 border border-outline-variant/40">
+              <div className="p-1 bg-surface-container dark:bg-surface rounded-xl flex items-center gap-1 border border-outline-variant/40">
                 <button
                   type="button"
                   onClick={() => setIsCustomPerson(false)}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                    !isCustomPerson ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:text-on-surface'
+                  className={`flex-1 py-2 rounded-lg text-xs font-medium transition-ink-colors ${
+                    !isCustomPerson ? 'bg-primary text-on-primary ' : 'text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
                   {lang === 'zh' ? '从预设团队选择' : 'Select Existing'}
@@ -1053,8 +1053,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                 <button
                   type="button"
                   onClick={() => setIsCustomPerson(true)}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
-                    isCustomPerson ? 'bg-primary text-on-primary shadow-xs' : 'text-on-surface-variant hover:text-on-surface'
+                  className={`flex-1 py-2 rounded-lg text-xs font-medium transition-ink-colors ${
+                    isCustomPerson ? 'bg-primary text-on-primary ' : 'text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
                   {lang === 'zh' ? '手动填写' : 'Custom person'}
@@ -1063,13 +1063,13 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
               {!isCustomPerson ? (
                 <div>
-                  <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                  <label className="block text-xs font-medium text-on-surface-variant   mb-2">
                     {lang === 'zh' ? '选择团队成员' : 'Select Team Member'}
                   </label>
                   <select
                     value={newPersonId}
                     onChange={e => setNewPersonId(e.target.value)}
-                    className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm font-bold text-on-surface focus:outline-none focus:border-primary"
+                    className="w-full p-3 rounded-lg bg-surface-container dark:bg-surface border border-outline-variant/50 text-sm font-medium text-on-surface focus:outline-none focus:border-primary"
                   >
                     {memberOptions.map(m => (
                       <option key={m.id} value={m.id}>
@@ -1079,9 +1079,9 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                   </select>
                 </div>
               ) : (
-                <div className="space-y-3 p-4 rounded-2xl bg-surface-container/50 border border-outline-variant/40">
+                <div className="space-y-3 p-4 rounded-xl bg-surface-container/50 border border-outline-variant/40">
                   <div>
-                    <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-1">
+                    <label className="block text-xs font-medium text-on-surface-variant   mb-1">
                       {lang === 'zh' ? '负责人姓名 *' : 'Name *'}
                     </label>
                     <input
@@ -1090,32 +1090,32 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                       value={customName}
                       onChange={e => setCustomName(e.target.value)}
                       placeholder={lang === 'zh' ? '如: 史蒂夫·乔布斯' : 'e.g. Steve Jobs'}
-                      className="w-full p-2.5 rounded-xl bg-surface dark:bg-[#1a1c1d] border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary font-bold"
+                      className="w-full p-2 rounded-lg bg-surface dark:bg-surface border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary font-medium"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-1">
+                      <label className="block text-xs font-medium text-on-surface-variant   mb-1">
                         {lang === 'zh' ? '岗位/职称' : 'Role'}
                       </label>
                       <input
                         type="text"
                         value={customRole}
                         onChange={e => setCustomRole(e.target.value)}
-                        placeholder={lang === 'zh' ? '如: 现场技术负责人' : 'Role title...'}
-                        className="w-full p-2.5 rounded-xl bg-surface dark:bg-[#1a1c1d] border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
+                        placeholder={lang === 'zh' ? '岗位' : 'Role'}
+                        className="w-full p-2 rounded-lg bg-surface dark:bg-surface border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-1">
+                      <label className="block text-xs font-medium text-on-surface-variant   mb-1">
                         {lang === 'zh' ? '所属部门/厂家' : 'Department/Vendor'}
                       </label>
                       <input
                         type="text"
                         value={customDept}
                         onChange={e => setCustomDept(e.target.value)}
-                        placeholder={lang === 'zh' ? '如: 华为技术支持组' : 'Vendor name...'}
-                        className="w-full p-2.5 rounded-xl bg-surface dark:bg-[#1a1c1d] border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
+                        placeholder={lang === 'zh' ? '部门或厂家' : 'Department or vendor'}
+                        className="w-full p-2 rounded-lg bg-surface dark:bg-surface border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
                       />
                     </div>
                   </div>
@@ -1123,14 +1123,14 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
               )}
 
               <div>
-                <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                <label className="block text-xs font-medium text-on-surface-variant   mb-2">
                     {lang === 'zh' ? '直属上级' : 'Direct manager'}
                 </label>
                 <select
                   value={newParentId}
                   aria-label={lang === 'zh' ? '直属上级' : 'Direct manager'}
                   onChange={e => setNewParentId(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm font-bold text-on-surface focus:outline-none focus:border-primary"
+                  className="w-full p-3 rounded-lg bg-surface-container dark:bg-surface border border-outline-variant/50 text-sm font-medium text-on-surface focus:outline-none focus:border-primary"
                 >
                   {/* 非 PM 不能建主干节点，也只能挂到自己负责的子树下（与服务端 ACL 一致） */}
                   {canMoveNodes && newNodeOrigin === 'project' && (
@@ -1143,28 +1143,28 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                   ))}
                 </select>
                 {!canEditAny && (
-                  <p className="mt-1.5 text-[11px] text-on-surface-variant">
+                  <p className="mt-1 text-xs text-on-surface-variant">
                     {lang === 'zh' ? '你只能在自己负责的节点下挂载下属；主干挂载需项目 PM。' : 'You can only mount under nodes you own; trunk mounting requires the PM.'}
                   </p>
                 )}
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                <label className="block text-xs font-medium text-on-surface-variant   mb-2">
                   {lang === 'zh' ? '岗位责任称号' : 'Role Title'}
                 </label>
                 <input
                   type="text"
                   value={newRoleTitle}
                   onChange={e => setNewRoleTitle(e.target.value)}
-                  placeholder={lang === 'zh' ? '例如: 实时协同网关责任专家...' : 'Enter role title...'}
-                  className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
+                  placeholder={lang === 'zh' ? '岗位责任称号' : 'Role title'}
+                  className="w-full p-3 rounded-lg bg-surface-container dark:bg-surface border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
                 />
               </div>
 
               {/* Work Scope and Responsibilities Multiline Textarea */}
               <div>
-                <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                <label className="block text-xs font-medium text-on-surface-variant   mb-2">
                   {lang === 'zh' ? '工作范围与归口职责 (每行生成一项归口任务)' : 'Work Scope & Responsibilities'}
                 </label>
                 <textarea
@@ -1172,13 +1172,13 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                   onChange={e => setCustomWorkScope(e.target.value)}
                   rows={3}
                   placeholder={lang === 'zh' ? '1. 负责主干网关通信协议联调\n2. 负责故障容错与自动化日志排查\n3. 按期交付每周验收证据' : '1. Deliver network protocol module\n2. Ensure zero downtime'}
-                  className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary resize-none"
+                  className="w-full p-3 rounded-lg bg-surface-container dark:bg-surface border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary resize-none"
                 />
               </div>
 
               {/* Risk Level */}
               <div>
-                <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                <label className="block text-xs font-medium text-on-surface-variant   mb-2">
                   {lang === 'zh' ? 'AI 风险等级预判' : 'AI Risk Level'}
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -1187,13 +1187,13 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                       key={lvl}
                       type="button"
                       onClick={() => setCustomRiskLevel(lvl)}
-                      className={`py-2 rounded-xl text-xs font-black uppercase transition-all ${
+                      className={`py-2 rounded-lg text-xs font-medium  transition-ink-colors ${
                         customRiskLevel === lvl
-                          ? lvl === 'high' ? 'bg-error text-on-error shadow-sm' : lvl === 'medium' ? 'bg-amber-500 text-black shadow-sm' : 'bg-emerald-500 text-black shadow-sm'
+                          ? 'bg-surface-container-high text-on-surface ring-1 ring-outline'
                           : 'bg-surface-container hover:bg-surface-variant text-on-surface-variant'
                       }`}
                     >
-                      {lvl}
+                      <span aria-hidden="true" className={`inline-block w-2 h-2 rounded-full mr-2 ${lvl === 'high' ? 'bg-error' : lvl === 'medium' ? 'bg-[var(--axis-amber)]' : 'bg-outline'}`} />{lvl}
                     </button>
                   ))}
                 </div>
@@ -1204,13 +1204,13 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                 <button
                   type="button"
                   onClick={() => setIsAddingNode(false)}
-                  className="px-4 py-2 rounded-xl bg-surface-container-highest text-on-surface text-sm font-bold hover:bg-surface-variant transition-all cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-surface-container-highest text-on-surface text-sm font-medium hover:bg-surface-variant transition-ink-colors cursor-pointer"
                 >
                   {lang === 'zh' ? '取消' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium  hover:bg-primary/90 transition-ink-colors cursor-pointer flex items-center gap-1"
                 >
                   <span className="material-symbols-outlined text-base">check_circle</span>
                   <span>{lang === 'zh' ? '确认挂载节点' : 'Confirm Mount'}</span>
@@ -1229,27 +1229,27 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
             <form onSubmit={e => handleAddWorkItem(isAddingWorkItem, e)} className="space-y-4">
               <div>
-                <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                <label className="block text-xs font-medium text-on-surface-variant   mb-2">
                   {lang === 'zh' ? '事项名称 / 交付成果' : 'Deliverable Title'}
                 </label>
                 <input
                   type="text"
                   value={newWorkTitle}
                   onChange={e => setNewWorkTitle(e.target.value)}
-                  placeholder={lang === 'zh' ? '说明要落下的具体目标任务...' : 'Enter target deliverable...'}
-                  className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
+                  placeholder={lang === 'zh' ? '事项名称' : 'Work item name'}
+                  className="w-full p-3 rounded-lg bg-surface-container dark:bg-surface border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                <label className="block text-xs font-medium text-on-surface-variant   mb-2">
                   {lang === 'zh' ? '事项类型' : 'Item Type'}
                 </label>
                 <select
                   value={newWorkType}
                   onChange={e => setNewWorkType(e.target.value as any)}
-                  className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm font-bold text-on-surface focus:outline-none focus:border-primary"
+                  className="w-full p-3 rounded-lg bg-surface-container dark:bg-surface border border-outline-variant/50 text-sm font-medium text-on-surface focus:outline-none focus:border-primary"
                 >
                   <option value="milestone">{lang === 'zh' ? '关键里程碑' : 'Key milestone'}</option>
                   <option value="scope">{lang === 'zh' ? '交付范围' : 'Delivery scope'}</option>
@@ -1258,27 +1258,27 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                <label className="block text-xs font-medium text-on-surface-variant   mb-2">
                   {lang === 'zh' ? '截止日期 (可选)' : 'Due Date (Optional)'}
                 </label>
                 <input
                   type="date"
                   value={newWorkDueDate}
                   onChange={e => setNewWorkDueDate(e.target.value)}
-                  className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
+                  className="w-full p-3 rounded-lg bg-surface-container dark:bg-surface border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-extrabold text-on-surface-variant uppercase tracking-wider mb-2">
+                <label className="block text-xs font-medium text-on-surface-variant   mb-2">
                   {lang === 'zh' ? '描述 / 验收口径 (可选)' : 'Description (Optional)'}
                 </label>
                 <textarea
                   value={newWorkDesc}
                   onChange={e => setNewWorkDesc(e.target.value)}
                   rows={2}
-                  placeholder={lang === 'zh' ? '补充交付标准、验收证据要求等...' : 'Acceptance criteria, evidence requirements...'}
-                  className="w-full p-3 rounded-xl bg-surface-container dark:bg-[#282b2d] border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary resize-none"
+                  placeholder={lang === 'zh' ? '交付与验收要求' : 'Acceptance criteria'}
+                  className="w-full p-3 rounded-lg bg-surface-container dark:bg-surface border border-outline-variant/50 text-sm text-on-surface focus:outline-none focus:border-primary resize-none"
                 />
               </div>
 
@@ -1286,13 +1286,13 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
                 <button
                   type="button"
                   onClick={() => { setIsAddingWorkItem(null); setNewWorkTitle(''); setNewWorkDueDate(''); setNewWorkDesc(''); }}
-                  className="px-4 py-2 rounded-xl bg-surface-container-highest text-on-surface text-sm font-bold hover:bg-surface-variant transition-all cursor-pointer"
+                  className="px-4 py-2 rounded-lg bg-surface-container-highest text-on-surface text-sm font-medium hover:bg-surface-variant transition-ink-colors cursor-pointer"
                 >
                   {lang === 'zh' ? '取消' : 'Cancel'}
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold shadow-md hover:bg-primary/90 transition-all cursor-pointer"
+                  className="px-5 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium  hover:bg-primary/90 transition-ink-colors cursor-pointer"
                 >
                   {lang === 'zh' ? '确认挂载' : 'Confirm Attach'}
                 </button>
@@ -1311,8 +1311,8 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
       {/* FLOATING TOAST FEEDBACK BANNER */}
       {toastMessage && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-900/95 dark:bg-black/95 text-white px-6 py-3 rounded-2xl shadow-2xl border border-cyan-500/50 backdrop-blur-md flex items-center gap-3 text-xs font-black animate-bounce">
-          <span className="material-symbols-outlined text-cyan-400 text-xl">hub</span>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-surface-container-high text-on-surface px-6 py-3 rounded-lg border border-outline-variant flex items-center gap-3 text-xs">
+          <span className="material-symbols-outlined text-on-surface-variant text-xl">hub</span>
           <span>{toastMessage}</span>
         </div>
       )}

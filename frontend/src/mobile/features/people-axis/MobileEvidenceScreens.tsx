@@ -15,6 +15,7 @@ import { uploadEvidenceFile } from '../../../api/projectWiki';
 import { inferEvidenceKind } from '../../../utils/evidenceFiles';
 import { parseApiDateTime } from '../../../utils/datetime';
 import { MaterialTextInput } from '../../../components/MaterialTextInput';
+import '../../../components/views/responsibility.css';
 
 function formatDateTime(iso?: string | null): string {
   if (!iso) return '';
@@ -286,7 +287,7 @@ const EvidenceSubmitContent: React.FC<MobileEvidenceSubmitScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden">
+    <div className="axis-theme tabular-nums flex flex-col flex-1 h-full w-full bg-surface dark:bg-surface select-none overflow-hidden">
       <MobileTopBar
         title="提交证据材料"
         showBack={Boolean(onBack)}
@@ -296,18 +297,18 @@ const EvidenceSubmitContent: React.FC<MobileEvidenceSubmitScreenProps> = ({
 
       <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-4 mobile-scroll-container">
         {/* 当前责任事项信息卡片 */}
-        <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs">
-          <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 truncate">
+        <div className="p-4 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl ">
+          <h3 className="text-base font-medium text-on-surface dark:text-on-surface truncate">
             {nodeData?.title || '当前责任事项'}
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-outline dark:text-outline mt-1">
             {currentUser.name} · 当前责任事项材料提报
           </p>
         </div>
 
         {error && (
-          <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs flex items-center gap-1.5 border border-red-200">
-            <AppIcon name="alert" size={14} className="shrink-0" />
+          <div className="p-3 bg-surface-container text-error rounded-xl text-xs flex items-center gap-1 border border-outline-variant">
+            <AppIcon name="alert" size={18} className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -333,49 +334,49 @@ const EvidenceSubmitContent: React.FC<MobileEvidenceSubmitScreenProps> = ({
               fileInputRef.current.click();
             }
           }}
-          className="border-2 border-dashed border-blue-300 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30 rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer active:opacity-70 transition-opacity"
+          className="border-2 border-dashed border-outline-variant dark:border-outline-variant bg-surface dark:bg-surface-container rounded-xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer active:opacity-70 transition-opacity"
         >
-          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300 flex items-center justify-center">
-            <AppIcon name="file" size={20} />
+          <div className="w-10 h-10 rounded-full bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant flex items-center justify-center">
+            <AppIcon name="file" size={18} />
           </div>
-          <strong className="text-sm font-semibold text-[#0058BE] dark:text-blue-400">
+          <strong className="text-sm font-medium text-on-surface-variant dark:text-on-surface-variant">
             {uploading ? '正在上传文件…' : '选择文件'}
           </strong>
-          <p className="text-[11px] text-slate-400 text-center">
+          <p className="text-xs text-outline text-center">
             支持 PDF、Excel、Word、图片等格式，大小以服务端限制为准
           </p>
         </div>
 
         {/* 已上传文件列表 */}
         {uploadedFiles.length > 0 && (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+          <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden ">
             {uploadedFiles.map((file) => (
-              <div key={file.file_id} className="p-3.5 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
+              <div key={file.file_id} className="p-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <AppIcon name="file" size={18} className="text-inherit shrink-0" />
                   <div className="min-w-0">
-                    <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                    <strong className="text-xs font-medium text-on-surface dark:text-on-surface truncate block">
                       {file.name}
                     </strong>
-                    <span className="text-[10px] text-slate-400">已上传 · {file.sizeStr}</span>
+                    <span className="text-xs text-outline">已上传 · {file.sizeStr}</span>
                   </div>
                 </div>
                 <button
                   type="button"
                   disabled={uploading || submitting}
                   onClick={() => handleRemoveFile(file.file_id)}
-                  className="text-slate-400 hover:text-red-500 p-1 cursor-pointer"
+                  className="text-outline hover:text-error p-1 cursor-pointer"
                   aria-label="删除文件"
                 >
-                  <AppIcon name="close" size={14} />
+                  <AppIcon name="close" size={18} />
                 </button>
               </div>
             ))}
           </div>
         )}
 
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
-          <AppIcon name="info" size={16} className="shrink-0" />
+        <div className="p-3 bg-surface dark:bg-surface-container rounded-xl text-xs text-on-surface-variant dark:text-on-surface-variant flex items-center gap-2 border border-outline-variant dark:border-outline-variant">
+          <AppIcon name="info" size={18} className="shrink-0" />
           <span>文字可单独提交，也可附加文件。语音识别后可修改再提交，材料归属当前项目，供个人 AI 与汇报引用。</span>
         </div>
 
@@ -383,16 +384,16 @@ const EvidenceSubmitContent: React.FC<MobileEvidenceSubmitScreenProps> = ({
           <button
             type="submit"
             disabled={submitting || uploading || voiceBusy || !summary.trim()}
-            className="w-full min-h-[48px] rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center gap-2 active:bg-blue-700 disabled:opacity-50 cursor-pointer shadow-sm"
+            className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center gap-2 active:opacity-80 disabled:opacity-50 cursor-pointer "
           >
-            <AppIcon name="send" size={16} />
+            <AppIcon name="send" size={18} />
             <span>{submitting ? '正在提交材料…' : '提交材料'}</span>
           </button>
         </div>
       </form>
 
       {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white text-xs px-4 py-2 rounded-full shadow-lg backdrop-blur-md animate-fade-in pointer-events-none">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-surface-container-high text-on-surface text-xs px-4 py-2 rounded-lg  animate-fade-in pointer-events-none">
           {toastMessage}
         </div>
       )}
@@ -552,10 +553,10 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
 
   const badgeColor =
     detail?.status === 'adopted'
-      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
+      ? 'is-done'
       : detail?.status === 'rejected'
-      ? 'bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300'
-      : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300';
+      ? 'is-risk'
+      : 'is-active';
 
   const suggestionDecision = detail?.suggestion || detail?.judge_result?.decision;
   const suggestionReason = detail?.judge_result?.reason;
@@ -568,7 +569,7 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
   const finalSubmitterName = submitterName || '提交人';
 
   return (
-    <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden">
+    <div className="axis-theme tabular-nums flex flex-col flex-1 h-full w-full bg-surface dark:bg-surface select-none overflow-hidden">
       <MobileTopBar
         title="证据包详情"
         showBack={Boolean(onBack)}
@@ -579,13 +580,13 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
       <div className="flex-1 overflow-y-auto p-4 space-y-4 mobile-scroll-container">
         {/* 状态徽标与标题 */}
         <div>
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${badgeColor} mb-2`}>
+          <span className={`axis-status ${badgeColor} mb-2`}>
             {badgeText}
           </span>
-          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100 leading-tight">
+          <h1 className="text-xl font-medium text-on-surface dark:text-on-surface leading-tight">
             {detail?.summary_text || '材料详情'}
           </h1>
-          <p className="text-xs text-slate-400 mt-1">
+          <p className="text-xs text-outline mt-1">
             提报人 · {finalSubmitterName}
             {formattedTime ? ` · ${formattedTime}` : ''}
           </p>
@@ -593,28 +594,28 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
 
         {/* 系统建议（明确标注是建议） */}
         {Boolean(suggestionDecision) && (
-          <section className="space-y-1.5" data-testid="evidence-suggestion-section">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <section className="space-y-1" data-testid="evidence-suggestion-section">
+            <h2 className="text-xs font-medium text-outline  ">
               系统建议（仅供参考）
             </h2>
-            <div className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-xs space-y-1 shadow-xs">
+            <div className="p-3 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl text-xs space-y-1 ">
               <div className="flex items-center gap-2">
-                <span className="text-slate-500 dark:text-slate-400">系统建议：</span>
+                <span className="text-outline dark:text-outline">系统建议：</span>
                 <span
-                  className={`font-semibold ${
+                  className={`font-medium ${
                     suggestionDecision === 'adopted'
-                      ? 'text-emerald-600 dark:text-emerald-400'
-                      : 'text-rose-600 dark:text-rose-400'
+                      ? 'axis-status is-done'
+                      : 'axis-status is-risk'
                   }`}
                 >
                   {suggestionLabel}
                 </span>
-                <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded">
+                <span className="text-xs text-outline bg-surface-container dark:bg-surface-container px-1 py-0 rounded">
                   建议
                 </span>
               </div>
               {Boolean(suggestionReason) && (
-                <p className="text-slate-600 dark:text-slate-300 leading-relaxed pt-0.5">
+                <p className="text-on-surface-variant dark:text-on-surface-variant leading-relaxed pt-0">
                   理由：{suggestionReason}
                 </p>
               )}
@@ -630,9 +631,9 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
                 type="button"
                 disabled={reviewing}
                 onClick={handleAdopt}
-                className="flex-1 min-h-[44px] rounded-xl bg-emerald-600 active:bg-emerald-700 text-white font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+                className="flex-1 min-h-[44px] rounded-lg bg-primary active:bg-primary text-on-primary font-medium text-xs flex items-center justify-center gap-1  disabled:opacity-50 cursor-pointer"
               >
-                <AppIcon name="check" size={16} />
+                <AppIcon name="check" size={18} />
                 <span>{reviewing ? '处理中…' : '确认采纳'}</span>
               </button>
               <button
@@ -642,16 +643,16 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
                   setReviewError(null);
                   setRejectModalOpen(true);
                 }}
-                className="flex-1 min-h-[44px] rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 active:bg-rose-100 font-semibold text-xs flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+                className="flex-1 min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container dark:bg-surface-container text-on-surface-variant active:bg-surface-container-high font-medium text-xs flex items-center justify-center gap-1  disabled:opacity-50 cursor-pointer"
               >
-                <AppIcon name="cross" size={16} />
+                <AppIcon name="cross" size={18} />
                 <span>驳回</span>
               </button>
             </div>
 
             {rejectModalOpen && (
-              <div className="p-3.5 bg-white dark:bg-slate-900 border border-rose-200 dark:border-rose-900/50 rounded-2xl space-y-2 shadow-xs">
-                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <div className="p-3 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl space-y-2 ">
+                <label className="block text-xs font-medium text-on-surface-variant dark:text-on-surface-variant">
                   填写驳回理由（可选）：
                 </label>
                 <textarea
@@ -659,7 +660,7 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
                   onChange={(e) => setRejectReason(e.target.value)}
                   placeholder="请输入驳回材料的具体原因…"
                   rows={3}
-                  className="w-full p-2.5 text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:outline-none focus:ring-1 focus:ring-rose-500 text-slate-800 dark:text-slate-200"
+                  className="w-full p-2 text-xs bg-surface dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-lg focus:outline-none focus:ring-1 focus:ring-rose-500 text-on-surface dark:text-on-surface"
                 />
                 <div className="flex justify-end gap-2 pt-1">
                   <button
@@ -669,7 +670,7 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
                       setRejectModalOpen(false);
                       setRejectReason('');
                     }}
-                    className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-400"
+                    className="px-3 py-1 rounded-lg border border-outline-variant dark:border-outline-variant text-xs text-on-surface-variant dark:text-outline"
                   >
                     取消
                   </button>
@@ -677,7 +678,7 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
                     type="button"
                     disabled={reviewing}
                     onClick={handleRejectConfirm}
-                    className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold active:bg-rose-700"
+                    className="px-3 py-1 rounded-lg bg-primary text-on-primary text-xs font-medium active:bg-primary"
                   >
                     {reviewing ? '提交中…' : '确认驳回'}
                   </button>
@@ -686,7 +687,7 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
             )}
 
             {reviewError && (
-              <div className="p-3 bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-900/60 rounded-xl text-xs text-rose-600 dark:text-rose-400">
+              <div className="p-3 bg-surface-container dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl text-xs text-error dark:text-error">
                 {reviewError}
               </div>
             )}
@@ -695,11 +696,11 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
 
         {/* 真实提交说明：没有说明就不显示这一块，不许编造 */}
         {Boolean(detail?.summary_text?.trim()) && (
-          <section className="space-y-1.5">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <section className="space-y-1">
+            <h2 className="text-xs font-medium text-outline  ">
               提交说明
             </h2>
-            <div className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-xs text-slate-700 dark:text-slate-300 leading-relaxed shadow-xs whitespace-pre-wrap">
+            <div className="p-3 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl text-xs text-on-surface-variant dark:text-on-surface-variant leading-relaxed  whitespace-pre-wrap">
               {detail?.summary_text}
             </div>
           </section>
@@ -707,11 +708,11 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
 
         {/* 真实文件列表和数量：没有文件就不显示 */}
         {files.length > 0 && (
-          <section className="space-y-1.5">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <section className="space-y-1">
+            <h2 className="text-xs font-medium text-outline  ">
               支撑文件 ({files.length})
             </h2>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+            <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden ">
               {files.map((file, idx) => {
                 const ext = file.original_name ? file.original_name.split('.').pop()?.toUpperCase() : 'FILE';
                 const sizeStr = file.size_bytes
@@ -720,14 +721,14 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
                     : `${(file.size_bytes / (1024 * 1024)).toFixed(1)} MB`
                   : '';
                 return (
-                  <div key={file.file_id || idx} className="p-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
+                  <div key={file.file_id || idx} className="p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <AppIcon name="file" size={18} className="text-inherit shrink-0" />
                       <div className="min-w-0">
-                        <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                        <strong className="text-xs font-medium text-on-surface dark:text-on-surface truncate block">
                           {file.original_name}
                         </strong>
-                        <span className="text-[10px] text-slate-400">
+                        <span className="text-xs text-outline">
                           {[ext, sizeStr].filter(Boolean).join(' · ')}
                         </span>
                       </div>
@@ -741,14 +742,14 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
 
         {/* 关联信息 */}
         {(nodeTitle || detail?.node_id || nodeId) && (
-          <section className="space-y-1.5">
-            <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <section className="space-y-1">
+            <h2 className="text-xs font-medium text-outline  ">
               关联信息
             </h2>
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs text-xs">
-              <div className="p-3.5 flex items-center justify-between">
-                <span className="text-slate-400">责任事项</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
+            <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden  text-xs">
+              <div className="p-3 flex items-center justify-between">
+                <span className="text-outline">责任事项</span>
+                <span className="font-medium text-on-surface dark:text-on-surface">
                   {nodeTitle || `责任事项 #${detail?.node_id || nodeId}`}
                 </span>
               </div>
@@ -757,8 +758,8 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
         )}
 
         {detail?.status === 'pending_review' && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
-            <AppIcon name="info" size={16} className="shrink-0" />
+          <div className="p-3 bg-surface dark:bg-surface-container rounded-xl text-xs text-on-surface-variant dark:text-on-surface-variant flex items-center gap-2 border border-outline-variant dark:border-outline-variant">
+            <AppIcon name="info" size={18} className="shrink-0" />
             <span>材料提交后进入待验收状态，请等待授权负责人确认。</span>
           </div>
         )}
@@ -769,9 +770,9 @@ export const MobileEvidencePackageDetailScreen: React.FC<MobileEvidencePackageDe
             onClick={() => {
               if (onBack) onBack();
             }}
-            className="w-full min-h-[46px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 active:bg-slate-50 cursor-pointer"
+            className="w-full min-h-[48px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface font-medium text-xs flex items-center justify-center gap-1 active:bg-surface cursor-pointer"
           >
-            <AppIcon name="back" size={16} />
+            <AppIcon name="back" size={18} />
             <span>返回材料列表</span>
           </button>
         </div>
@@ -811,7 +812,7 @@ export const MobileProgressRecordScreen: React.FC<MobileProgressRecordScreenProp
     }
   }, [nodeId]);
   return (
-    <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden">
+    <div className="axis-theme tabular-nums flex flex-col flex-1 h-full w-full bg-surface dark:bg-surface select-none overflow-hidden">
       <MobileTopBar
         title="进度与记录"
         showBack={Boolean(onBack)}
@@ -822,7 +823,7 @@ export const MobileProgressRecordScreen: React.FC<MobileProgressRecordScreenProp
             <button
               type="button"
               onClick={onOpenSubmit}
-              className="mobile-touch-target p-2 text-[#0058BE] dark:text-blue-400 font-semibold text-xs active:opacity-60 cursor-pointer"
+              className="mobile-touch-target p-2 text-on-surface-variant dark:text-on-surface-variant font-medium text-xs active:opacity-60 cursor-pointer"
             >
               提交材料
             </button>
@@ -833,41 +834,41 @@ export const MobileProgressRecordScreen: React.FC<MobileProgressRecordScreenProp
       <div className="flex-1 overflow-y-auto p-4 space-y-4 mobile-scroll-container">
         {/* 支撑材料 */}
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
+          <h2 className="text-xs font-medium text-outline   px-1">
             支撑材料
           </h2>
           {evidenceList.length > 0 ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+            <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden ">
               {evidenceList.map((pkg) => (
                 <div
                   key={pkg.id}
                   onClick={() => onOpenPackage?.(pkg.id)}
-                  className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
+                  className="p-3 flex items-center justify-between cursor-pointer active:bg-surface"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
+                  <div className="flex items-center gap-2 min-w-0">
+                    <AppIcon name="file" size={18} className="text-inherit shrink-0" />
                     <div className="min-w-0">
-                      <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                      <strong className="text-xs font-medium text-on-surface dark:text-on-surface truncate block">
                         {pkg.summary_text || `材料包 #${pkg.id}`}
                       </strong>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-xs text-outline">
                         {pkg.submitted_at ? formatDateTime(pkg.submitted_at) : '已提交'}
                       </span>
                     </div>
                   </div>
-                  <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                  <AppIcon name="chevron-right" size={18} className="text-inherit" />
                 </div>
               ))}
             </div>
           ) : (
-            <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-center text-xs text-slate-400">
+            <div className="p-4 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl text-center text-xs text-outline">
               暂无支撑材料
             </div>
           )}
         </section>
 
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
-          <AppIcon name="info" size={16} className="shrink-0" />
+        <div className="p-3 bg-surface dark:bg-surface-container rounded-xl text-xs text-on-surface-variant dark:text-on-surface-variant flex items-center gap-2 border border-outline-variant dark:border-outline-variant">
+          <AppIcon name="info" size={18} className="shrink-0" />
           <span>汇报中的完成描述需要与进度和材料对照。</span>
         </div>
       </div>
@@ -998,7 +999,7 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
   };
 
   return (
-    <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden">
+    <div className="axis-theme tabular-nums flex flex-col flex-1 h-full w-full bg-surface dark:bg-surface select-none overflow-hidden">
       <MobileTopBar
         title="委托授权"
         showBack={Boolean(onBack)}
@@ -1006,17 +1007,17 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
         backLabel="返回"
       />
 
-      <p className="px-4 py-3 text-xs leading-relaxed text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900">{DELEGATION_SCOPE_DESCRIPTION}</p>
+      <p className="px-4 py-3 text-xs leading-relaxed text-outline dark:text-outline bg-surface-container-lowest dark:bg-surface-container">{DELEGATION_SCOPE_DESCRIPTION}</p>
 
       {/* Tabs */}
-      <div className="flex bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 shrink-0">
+      <div className="flex bg-surface-container-lowest dark:bg-surface-container border-b border-outline-variant dark:border-outline-variant px-4 shrink-0">
         <button
           type="button"
           onClick={() => setTab('list')}
-          className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors cursor-pointer ${
+          className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-ink-colors cursor-pointer ${
             tab === 'list'
-              ? 'border-[#0058BE] text-[#0058BE] dark:text-blue-400 font-bold'
-              : 'border-transparent text-slate-500'
+              ? 'border-primary text-on-surface-variant dark:text-on-surface-variant font-medium'
+              : 'border-transparent text-outline'
           }`}
         >
           我的授权
@@ -1024,10 +1025,10 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
         {canManage && <button
           type="button"
           onClick={() => setTab('create')}
-          className={`flex-1 py-3 text-sm font-semibold text-center border-b-2 transition-colors cursor-pointer ${
+          className={`flex-1 py-3 text-sm font-medium text-center border-b-2 transition-ink-colors cursor-pointer ${
             tab === 'create'
-              ? 'border-[#0058BE] text-[#0058BE] dark:text-blue-400 font-bold'
-              : 'border-transparent text-slate-500'
+              ? 'border-primary text-on-surface-variant dark:text-on-surface-variant font-medium'
+              : 'border-transparent text-outline'
           }`}
         >
           创建授权
@@ -1036,8 +1037,8 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 mobile-scroll-container">
         {error && (
-          <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs flex items-center gap-1.5 border border-red-200">
-            <AppIcon name="alert" size={14} className="shrink-0" />
+          <div className="p-3 bg-surface-container text-error rounded-xl text-xs flex items-center gap-1 border border-outline-variant">
+            <AppIcon name="alert" size={18} className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -1047,19 +1048,19 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
           /* 设计 ID 88：授权记录与撤销                               */
           /* ========================================================= */
           <div className="space-y-4">
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+            <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden ">
               {delegations.length > 0 ? (
                 delegations.map((d) => (
-                  <div key={d.id} className="p-3.5 flex items-center justify-between">
+                  <div key={d.id} className="p-3 flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300 font-bold flex items-center justify-center text-xs shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant font-medium flex items-center justify-center text-xs shrink-0">
                         {String(d.grantee_user_id)}
                       </div>
                       <div className="min-w-0">
-                        <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                        <strong className="text-xs font-medium text-on-surface dark:text-on-surface truncate block">
                           {members.find(member => member.user_id === d.grantee_user_id)?.display_name || members.find(member => member.user_id === d.grantee_user_id)?.nickname || `用户 #${d.grantee_user_id}`} · 代为执行
                         </strong>
-                        <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                        <p className="text-xs text-outline truncate mt-0">
                           {d.actions.map(action => DELEGATION_ACTIONS.find(item => item.key === action)?.zh || action).join('、')} · 有效至 {d.valid_to ? d.valid_to.slice(0, 10) : '长期'}
                         </p>
                       </div>
@@ -1067,10 +1068,10 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
 
                     <div className="flex items-center gap-2">
                       <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        className={`px-2 py-0 rounded text-xs font-medium ${
                           d.status === 'active'
-                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800'
+                            ? 'axis-status is-done'
+                            : 'axis-status'
                         }`}
                       >
                         {d.status === 'active' ? '生效中' : '已撤销'}
@@ -1079,7 +1080,7 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
                         <button
                           type="button"
                           onClick={() => setRevokeTargetId(d.id)}
-                          className="text-xs text-red-600 font-semibold px-2 py-1 bg-red-50 dark:bg-red-950/40 rounded-lg cursor-pointer active:opacity-60"
+                          className="text-xs text-on-surface-variant font-medium px-2 py-1 rounded-lg cursor-pointer active:opacity-60"
                         >
                           撤销
                         </button>
@@ -1088,14 +1089,14 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
                   </div>
                 ))
               ) : (
-                <div className="p-6 text-center text-xs text-slate-400">
+                <div className="p-6 text-center text-xs text-outline">
                   暂无生效的委托授权记录
                 </div>
               )}
             </div>
 
-            <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2 border border-amber-200 dark:border-amber-900/50">
-              <AppIcon name="warning" size={16} className="shrink-0" />
+            <div className="p-3 bg-surface-container dark:bg-surface-container rounded-xl text-xs text-on-surface-variant flex items-center gap-2 border border-outline-variant dark:border-outline-variant">
+              <AppIcon name="warning" size={18} className="shrink-0" />
               <span>撤销立即生效；历史操作与审计记录保留。</span>
             </div>
           </div>
@@ -1109,7 +1110,7 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
                 aria-label="被授权人"
                 value={String(granteeUserId)}
                 onChange={(e) => setGranteeUserId(Number(e.target.value) || '')}
-                className="w-full min-h-[44px] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 p-3 text-sm"
+                className="w-full min-h-[44px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container p-3 text-sm"
               >
                 <option value="">请选择人员</option>
                 {members.map(member => <option key={member.user_id} value={member.user_id}>{member.display_name || member.nickname || member.username || `用户 #${member.user_id}`}</option>)}
@@ -1117,15 +1118,15 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
             </MobileField>
 
             {/* 授权动作勾选列表 (复用 DELEGATION_ACTIONS) */}
-            <section className="space-y-1.5">
-              <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+            <section className="space-y-1">
+              <h2 className="text-xs font-medium text-outline  ">
                 授权范围
               </h2>
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+              <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden ">
                 {DELEGATION_ACTIONS.map((act) => (
-                  <div key={act.key} className="p-3.5 flex items-center justify-between">
+                  <div key={act.key} className="p-3 flex items-center justify-between">
                     <div>
-                      <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 block">
+                      <strong className="text-xs font-medium text-on-surface dark:text-on-surface block">
                         {act.zh}
                       </strong>
                     </div>
@@ -1160,7 +1161,7 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
             <button
               type="submit"
               disabled={submitting}
-              className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center active:bg-blue-700 disabled:opacity-50 cursor-pointer shadow-sm"
+              className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center active:opacity-80 disabled:opacity-50 cursor-pointer "
             >
               {submitting ? '正在创建…' : '创建授权'}
             </button>
@@ -1181,7 +1182,7 @@ export const MobileDelegationsScreen: React.FC<MobileDelegationsScreenProps> = (
       />
 
       {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white text-xs px-4 py-2 rounded-full shadow-lg backdrop-blur-md animate-fade-in pointer-events-none">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-surface-container-high text-on-surface text-xs px-4 py-2 rounded-lg  animate-fade-in pointer-events-none">
           {toastMessage}
         </div>
       )}
@@ -1252,7 +1253,7 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
   }, [executeAudit]);
 
   return (
-    <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden">
+    <div className="axis-theme tabular-nums flex flex-col flex-1 h-full w-full bg-surface dark:bg-surface select-none overflow-hidden">
       <MobileTopBar
         title="AI 责任链审计"
         showBack={Boolean(onBack)}
@@ -1263,9 +1264,9 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
       <div className="flex-1 overflow-y-auto p-4 space-y-4 mobile-scroll-container">
         {/* 未配置模型或错误提示 */}
         {isModelUnconfigured && (
-          <div className="p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-2xl space-y-2 text-xs text-amber-900 dark:text-amber-200">
-            <div className="flex items-center gap-2 font-bold text-sm">
-              <AppIcon name="warning" size={18} className="text-amber-600 shrink-0" />
+          <div className="p-4 bg-surface-container dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl space-y-2 text-xs text-on-surface-variant">
+            <div className="flex items-center gap-2 font-medium text-sm">
+              <AppIcon name="warning" size={18} className="text-inherit shrink-0" />
               <span>未配置审计模型</span>
             </div>
             <p className="leading-relaxed">
@@ -1274,38 +1275,38 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
             <button
               type="button"
               onClick={executeAudit}
-              className="mt-2 px-3 py-1.5 rounded-lg bg-amber-600 text-white font-semibold text-xs inline-flex items-center gap-1 active:bg-amber-700 cursor-pointer"
+              className="mt-2 px-3 py-1 rounded-lg bg-primary text-on-primary font-medium text-xs inline-flex items-center gap-1 active:bg-primary cursor-pointer"
             >
-              <AppIcon name="refresh" size={13} />
+              <AppIcon name="refresh" size={18} />
               重试运行审计
             </button>
           </div>
         )}
 
         {error && !isModelUnconfigured && (
-          <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs flex items-center gap-1.5 border border-red-200">
-            <AppIcon name="alert" size={14} className="shrink-0" />
+          <div className="p-3 bg-surface-container text-error rounded-xl text-xs flex items-center gap-1 border border-outline-variant">
+            <AppIcon name="alert" size={18} className="shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* 头部完成状态卡片 */}
-        <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs space-y-2">
+        <div className="p-4 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl  space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-950 text-[#0058BE] dark:text-blue-300">
-                <AppIcon name="ai" size={16} />
+              <span className="p-1 rounded-lg bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant">
+                <AppIcon name="file" size={18} />
               </span>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+              <h3 className="text-sm font-medium text-on-surface dark:text-on-surface">
                 责任链审计完成
               </h3>
             </div>
-            <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+            <span className="px-2 py-0 rounded-lg text-xs font-medium bg-surface-container text-[var(--axis-amber)] dark:bg-surface-container dark:text-[var(--axis-amber)]">
               {auditResult ? `${auditResult.nodes.length} 项待处理` : '待处理'}
             </span>
           </div>
           {Boolean(auditResult?.generated_at || projectName?.trim()) && (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-outline">
               {[
                 auditResult?.generated_at
                   ? new Date(auditResult.generated_at).toLocaleString()
@@ -1320,24 +1321,24 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
 
         {/* 待确认问题列表 */}
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
+          <h2 className="text-xs font-medium text-outline   px-1">
             待确认问题
           </h2>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+          <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden ">
             {auditResult && auditResult.nodes.length > 0 ? (
               auditResult.nodes.map((node) => (
-                <div key={node.node_id} className="p-3.5 flex items-center justify-between">
+                <div key={node.node_id} className="p-3 flex items-center justify-between">
                   <div>
-                    <strong className="text-xs font-bold text-slate-900 dark:text-slate-100 block">
+                    <strong className="text-xs font-medium text-on-surface dark:text-on-surface block">
                       {node.title}
                     </strong>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{node.summary}</p>
+                    <p className="text-xs text-outline mt-0">{node.summary}</p>
                   </div>
                   <span
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    className={`px-2 py-0 rounded text-xs font-medium ${
                       node.risk_level === 'high'
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-amber-100 text-amber-700'
+                        ? 'axis-status is-risk'
+                        : 'axis-status is-active'
                     }`}
                   >
                     {node.risk_level === 'high' ? '高' : '中'}
@@ -1345,23 +1346,23 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
                 </div>
               ))
             ) : (
-              <div className="p-4 text-center text-xs text-slate-400">暂无风险节点</div>
+              <div className="p-4 text-center text-xs text-outline">暂无风险节点</div>
             )}
           </div>
         </section>
 
         {/* 审计依据材料 */}
         <section className="space-y-2">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1">
+          <h2 className="text-xs font-medium text-outline   px-1">
             审计依据
           </h2>
-          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-center text-xs text-slate-400">
+          <div className="p-4 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl text-center text-xs text-outline">
             暂无关联审计材料
           </div>
         </section>
 
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
-          <AppIcon name="info" size={16} className="shrink-0" />
+        <div className="p-3 bg-surface dark:bg-surface-container rounded-xl text-xs text-on-surface-variant dark:text-on-surface-variant flex items-center gap-2 border border-outline-variant dark:border-outline-variant">
+          <AppIcon name="info" size={18} className="shrink-0" />
           <span>AI 结果交由管理者确认，可在核验后处理责任和任务。</span>
         </div>
 
@@ -1370,9 +1371,9 @@ export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
             type="button"
             onClick={executeAudit}
             disabled={running}
-            className="w-full min-h-[46px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center justify-center gap-1.5 active:bg-slate-50 cursor-pointer"
+            className="w-full min-h-[48px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface font-medium text-xs flex items-center justify-center gap-1 active:bg-surface cursor-pointer"
           >
-            <AppIcon name="refresh" size={15} className={running ? 'animate-spin' : ''} />
+            <AppIcon name="refresh" size={18} className={running ? 'animate-spin' : ''} />
             <span>{running ? '正在审计…' : '重新运行审计'}</span>
           </button>
         </div>

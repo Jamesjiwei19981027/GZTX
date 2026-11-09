@@ -103,8 +103,8 @@ export const ProjectSettingsModal: React.FC<Props> = ({ projectId, canManage, me
     void run(() => updateProjectInfo(projectId, body), '项目信息已保存');
   };
 
-  const field = 'w-full p-2.5 rounded-xl bg-surface-container border border-outline-variant/40 text-sm disabled:opacity-60';
-  const label = 'block text-xs font-semibold text-on-surface-variant mb-1';
+  const field = 'w-full p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-sm disabled:opacity-60';
+  const label = 'block text-xs font-medium text-on-surface-variant mb-1';
 
   return (
     <div
@@ -114,28 +114,28 @@ export const ProjectSettingsModal: React.FC<Props> = ({ projectId, canManage, me
       className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
       data-testid="project-settings-modal"
     >
-      <div className="bg-surface-container-lowest rounded-3xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-5 border border-outline-variant/40">
+      <div className="bg-surface-container-lowest rounded-[16px] tabular-nums p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto space-y-5 border border-outline-variant/40">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold">项目设置</h3>
+          <h3 className="text-lg font-medium">项目设置</h3>
           <button type="button" onClick={onClose} className="text-sm cursor-pointer" aria-label="关闭">
             关闭
           </button>
         </div>
         {archived && (
-          <div className="px-4 py-2 rounded-xl bg-amber-50 text-amber-900 text-sm border border-amber-200">
+          <div className="px-4 py-2 rounded-lg bg-surface-container text-on-surface-variant text-sm border border-outline-variant">
             此项目已归档，目前是只读状态。需要继续编辑请先取消归档。
           </div>
         )}
         {!canManage && (
-          <div className="px-4 py-2 rounded-xl bg-surface-container text-sm">
+          <div className="px-4 py-2 rounded-lg bg-surface-container text-sm">
             只有项目负责人或公司超级管理员可以修改项目设置。
           </div>
         )}
         {notice && (
           <div
             role="status"
-            className={`px-4 py-2 rounded-xl text-sm border ${
-              notice.tone === 'ok' ? 'bg-emerald-50 text-emerald-900 border-emerald-200' : 'bg-red-50 text-red-900 border-red-200'
+            className={`px-4 py-2 rounded-lg text-sm border ${
+              notice.tone === 'ok' ? 'bg-emerald-50 text-emerald-900 border-emerald-200' : 'bg-surface-container text-on-surface-variant border-outline-variant'
             }`}
           >
             {notice.text}
@@ -158,14 +158,14 @@ export const ProjectSettingsModal: React.FC<Props> = ({ projectId, canManage, me
             <p className="text-xs text-on-surface-variant mt-1">换负责人后，原负责人变为普通成员，终责卡片也随之更换。</p>
           </div>
           <div className="flex justify-end">
-            <button type="button" disabled={!canManage || archived || busy} onClick={saveInfo} className="px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold disabled:opacity-40 cursor-pointer">
+            <button type="button" disabled={!canManage || archived || busy} onClick={saveInfo} className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium disabled:opacity-40 cursor-pointer">
               保存项目信息
             </button>
           </div>
         </section>
 
         <section className="space-y-3 border-t border-outline-variant/30 pt-4" data-testid="report-policy-section">
-          <h4 className="text-sm font-bold">汇报策略</h4>
+          <h4 className="text-sm font-medium">汇报策略</h4>
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className={label} htmlFor="ps-period">汇报周期</label>
@@ -209,7 +209,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({ projectId, canManage, me
               type="button"
               disabled={!canManage || archived || busy}
               onClick={() => void run(() => saveReportPolicy(projectId, policy), '汇报策略已保存，系统将按此周期提醒成员', false)}
-              className="px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold disabled:opacity-40 cursor-pointer"
+              className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium disabled:opacity-40 cursor-pointer"
             >
               保存汇报策略
             </button>
@@ -218,24 +218,24 @@ export const ProjectSettingsModal: React.FC<Props> = ({ projectId, canManage, me
 
         {canManage && (
           <section className="space-y-2 border-t border-outline-variant/30 pt-4">
-            <h4 className="text-sm font-bold text-red-600">归档</h4>
+            <h4 className="text-sm font-medium text-on-surface-variant">归档</h4>
             <p className="text-xs text-on-surface-variant">
               归档后项目变为只读：不能再改人轴、提交材料或生成汇报，历史内容完整保留，随时可以取消归档。
             </p>
             {archived ? (
-              <button type="button" disabled={busy} onClick={() => void run(() => unarchiveProjectRequest(projectId), '已取消归档，项目恢复可编辑')} className="px-4 py-2 rounded-xl border border-outline-variant/50 text-sm font-semibold cursor-pointer disabled:opacity-40">
+              <button type="button" disabled={busy} onClick={() => void run(() => unarchiveProjectRequest(projectId), '已取消归档，项目恢复可编辑')} className="px-4 py-2 rounded-lg border border-outline-variant/50 text-sm font-medium cursor-pointer disabled:opacity-40">
                 取消归档
               </button>
             ) : confirmArchive ? (
               <div className="flex items-center gap-3">
                 <span className="text-sm">确认归档「{project?.name}」？</span>
-                <button type="button" disabled={busy} onClick={() => void run(() => archiveProjectRequest(projectId), '项目已归档，现在是只读状态')} className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold cursor-pointer disabled:opacity-40">
+                <button type="button" disabled={busy} onClick={() => void run(() => archiveProjectRequest(projectId), '项目已归档，现在是只读状态')} className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium cursor-pointer disabled:opacity-40">
                   确认归档
                 </button>
                 <button type="button" onClick={() => setConfirmArchive(false)} className="px-3 py-2 text-sm cursor-pointer">取消</button>
               </div>
             ) : (
-              <button type="button" disabled={busy} onClick={() => setConfirmArchive(true)} className="px-4 py-2 rounded-xl border border-red-300 text-red-600 text-sm font-semibold cursor-pointer disabled:opacity-40">
+              <button type="button" disabled={busy} onClick={() => setConfirmArchive(true)} className="px-4 py-2 rounded-lg border border-outline-variant text-on-surface-variant text-sm font-medium cursor-pointer disabled:opacity-40">
                 归档此项目
               </button>
             )}

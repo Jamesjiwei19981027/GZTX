@@ -1,26 +1,27 @@
-.project-wiki-panel{padding:28px 22px 24px;display:grid;gap:22px;color:var(--axis-ink,#243449);font-size:14px;min-width:0}
+.project-wiki-panel{padding:28px 24px 24px;display:grid;gap:24px;color:var(--axis-ink);font-size:14px;min-width:0;font-variant-numeric:tabular-nums}
 .project-wiki-heading{display:flex;gap:12px;align-items:center;padding-right:20px}
-.project-wiki-panel h2{font-size:20px;font-weight:700;margin:0;line-height:1.45}
-.project-wiki-panel h3{font-size:15px;font-weight:700;display:flex;gap:8px;align-items:center;margin:0 0 10px}
-.project-wiki-panel h4{font-size:14px;font-weight:650;margin:16px 0 8px}
-.project-wiki-panel p{margin:6px 0;line-height:1.65}
-.project-wiki-heading p,.project-wiki-panel small,.project-wiki-intake>p{color:#63768b;font-size:12px;line-height:1.6}
-.project-wiki-intake{padding:16px;border-radius:18px;background:linear-gradient(145deg,#eef5ff,#eefaf6);display:grid;gap:10px}
-.project-wiki-intake label{display:grid;gap:7px;font-size:12px;font-weight:600}
-.project-wiki-panel select,.project-wiki-panel input{border:1px solid #dbe4ef;background:#fff;border-radius:11px;padding:11px 12px;font:inherit;min-width:0;width:100%;box-sizing:border-box;color:#243449}
+.project-wiki-panel h2{font-size:20px;font-weight:500;margin:0;line-height:1.45}
+.project-wiki-panel h3{font-size:16px;font-weight:500;display:flex;gap:8px;align-items:center;margin:0 0 12px}
+.project-wiki-panel h4{font-size:14px;font-weight:500;margin:16px 0 8px}
+.project-wiki-panel p{margin:8px 0;line-height:1.65}
+.project-wiki-heading p,.project-wiki-panel small,.project-wiki-intake>p{color:var(--axis-muted);font-size:12px;line-height:1.6}
+.project-wiki-intake{padding:16px 0;border-block:1px solid var(--axis-line);display:grid;gap:12px}
+.project-wiki-intake label{display:grid;gap:8px;font-size:12px;font-weight:500}
+.project-wiki-panel select,.project-wiki-panel input{border:1px solid var(--axis-line);background:var(--axis-soft);border-radius:8px;padding:12px;font:inherit;min-width:0;width:100%;box-sizing:border-box;color:var(--axis-ink)}
 .project-wiki-search{display:flex;gap:8px;margin:12px 0}
 .project-wiki-search input{flex:1}
-.project-wiki-card{border:1px solid #e1e8ef;border-radius:16px;padding:16px;margin:12px 0;background:#fff;min-width:0;overflow-wrap:anywhere}
-.project-wiki-card.is-draft{border-color:#cbdcfa;background:#fcfdff}
+.project-wiki-card{border-bottom:1px solid var(--axis-line);padding:16px 0;margin:12px 0;min-width:0;overflow-wrap:anywhere}
+.project-wiki-card.is-draft{background:transparent}
 .project-wiki-card-title{display:flex;align-items:flex-start;gap:8px}
 .project-wiki-card-title strong{flex:1;line-height:1.5}
-.project-wiki-card-title span{font-size:10px;border-radius:20px;padding:3px 8px;background:#edf3ff;color:#315d9a;white-space:nowrap}
-.project-wiki-facts{list-style:none;margin:10px 0;padding:0;display:grid;gap:15px}
-.project-wiki-facts blockquote{margin:7px 0;padding:9px 11px;border-left:3px solid #afc9e4;background:#f4f7fa;border-radius:0 8px 8px 0;font-size:12px;color:#5c7086;white-space:pre-wrap}
-.project-wiki-empty{padding:18px;text-align:center;background:#f6f8fa;border-radius:12px;color:#63768b}
-.project-wiki-error{background:#fff0ed;color:#a0372a;padding:12px;border-radius:12px;font-size:13px;line-height:1.6}
-.project-wiki-error button{display:block;text-decoration:underline;margin-top:6px}
-.project-wiki-notice{background:#eaf8f1;color:#23714f;padding:10px 12px;border-radius:12px;font-size:13px}
+.project-wiki-card-title span{font-size:12px;color:var(--axis-muted);white-space:nowrap}
+.project-wiki-card-title span::before{content:'';display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:var(--axis-muted)}
+.project-wiki-facts{list-style:none;margin:12px 0;padding:0;display:grid;gap:16px}
+.project-wiki-facts blockquote{margin:8px 0;padding:8px 12px;border-left:1px solid var(--axis-line);font-size:12px;color:var(--color-on-surface-variant-val);white-space:pre-wrap}
+.project-wiki-empty{padding:20px;text-align:center;color:var(--axis-muted)}
+.project-wiki-error{background:var(--axis-soft);color:var(--axis-red);padding:12px;border-radius:8px;font-size:13px;line-height:1.6}
+.project-wiki-error button{display:block;text-decoration:underline;margin-top:8px}
+.project-wiki-notice{color:var(--color-on-surface-variant-val);padding:12px 0;font-size:13px}
 .project-wiki-spin{animation:wiki-spin 1s linear infinite}
 @keyframes wiki-spin{to{transform:rotate(360deg)}}
-@media(max-width:1023px){.project-wiki-panel{padding:24px 16px 22px;gap:18px}.project-wiki-panel h2{font-size:18px}.project-wiki-card{padding:13px}}
+@media(max-width:1023px){.project-wiki-panel{padding:24px 16px;gap:20px}.project-wiki-panel h2{font-size:20px}.project-wiki-card{padding:12px 0}}

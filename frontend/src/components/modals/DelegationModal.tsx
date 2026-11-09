@@ -108,17 +108,17 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[90] flex items-center justify-center bg-black/40  p-4"
       onClick={onClose}
     >
       <div
         role="dialog" aria-modal="true" aria-label={zh ? '委托授权' : 'Delegations'}
-        className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-2xl bg-surface dark:bg-[#1d2021] shadow-2xl border border-outline-variant/40 p-6"
+        className="w-full max-w-lg max-h-[85vh] overflow-y-auto rounded-[16px] tabular-nums bg-surface-container-lowest dark:bg-surface-container  border border-outline-variant/40 p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-black text-on-surface flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">key</span>
+          <h2 className="text-lg font-medium text-on-surface flex items-center gap-2">
+            <span className="material-symbols-outlined text-inherit text-[18px]">key</span>
             {zh ? '委托授权' : 'Delegations'}
           </h2>
           <button onClick={onClose} aria-label={zh ? '关闭委托授权' : 'Close delegations'} className="text-on-surface-variant hover:text-on-surface">
@@ -130,13 +130,13 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
         {!canManage && <p className="mb-4 text-xs text-on-surface-variant">{zh ? '你可以查看授权记录；创建授权由项目经理或公司管理员操作。' : 'You can view delegations. Only the project manager or company administrator can create them.'}</p>}
         {canManage && <div className="space-y-3">
           <div>
-            <label className="block text-xs font-bold text-on-surface-variant mb-1">
+            <label className="block text-xs font-medium text-on-surface-variant mb-1">
               {zh ? '被授权人' : 'Grantee'}
             </label>
             <select
               value={granteeId}
               onChange={(e) => setGranteeId(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface-container text-sm text-on-surface"
+              className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface-container text-sm text-on-surface"
             >
               {members.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -148,17 +148,17 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-on-surface-variant mb-1">
+            <label className="block text-xs font-medium text-on-surface-variant mb-1">
               {zh ? '授权范围' : 'Actions'}
             </label>
-            <div className="space-y-1.5 border border-outline-variant/50 rounded-xl p-3">
+            <div className="space-y-2 border-t border-outline-variant py-3">
               {DELEGATION_ACTIONS.map((a) => (
                 <label key={a.key} className="flex items-start gap-2 text-sm text-on-surface cursor-pointer">
                   <input
                     type="checkbox"
                     checked={actions.has(a.key)}
                     onChange={() => toggleAction(a.key)}
-                    className="mt-0.5 accent-[var(--color-primary,#0058be)]"
+                    className="mt-1 accent-[var(--color-primary,#0058be)]"
                   />
                   <span>
                     <span className="block text-xs text-on-surface-variant">{zh ? a.zh : a.en}</span>
@@ -167,7 +167,7 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
               ))}
             </div>
             {!actions.has('progress.read') && (
-              <p className="text-xs text-amber-600 mt-1">
+              <p className="text-xs text-on-surface-variant mt-1">
                 {zh
                   ? '未勾选查看项目进度：被委托人将无法通过该授权进入项目视图'
                   : 'Without progress.read the grantee cannot open the project view'}
@@ -177,25 +177,25 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-1">
+              <label className="block text-xs font-medium text-on-surface-variant mb-1">
                 {zh ? '有效期至（可选）' : 'Valid to (optional)'}
               </label>
               <input
                 type="date"
                 value={validTo}
                 onChange={(e) => setValidTo(e.target.value)}
-                className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface-container text-sm text-on-surface"
+                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface-container text-sm text-on-surface"
               />
             </div>
             <div>
-              <label className="block text-xs font-bold text-on-surface-variant mb-1">
+              <label className="block text-xs font-medium text-on-surface-variant mb-1">
                 {zh ? '原因（可选）' : 'Reason (optional)'}
               </label>
               <input
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 placeholder={zh ? '如：休假期间代管' : 'e.g. covering leave'}
-                className="w-full px-3 py-2 rounded-xl border border-outline-variant bg-surface-container text-sm text-on-surface"
+                className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface-container text-sm text-on-surface"
               />
             </div>
           </div>
@@ -205,14 +205,14 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
           <button
             onClick={() => void handleCreate()}
             disabled={submitting}
-            className="w-full py-2.5 rounded-xl bg-primary text-on-primary text-sm font-black disabled:opacity-50"
+            className="w-full py-3 rounded-lg bg-primary text-on-primary text-sm font-medium disabled:opacity-50"
           >
             {submitting ? (zh ? '创建中…' : 'Creating…') : zh ? '创建委托' : 'Create delegation'}
           </button>
         </div>}
 
         <div className="mt-6">
-          <h3 className="text-sm font-bold text-on-surface mb-2">
+          <h3 className="text-sm font-medium text-on-surface mb-2">
             {zh ? '现有委托' : 'Active delegations'}
           </h3>
           {items.length === 0 && (
@@ -222,10 +222,10 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
             {items.map((d) => (
               <div
                 key={d.id}
-                className="flex items-start justify-between gap-2 border border-outline-variant/50 rounded-xl px-3 py-2"
+                className="flex items-start justify-between gap-2 border-b border-outline-variant py-3"
               >
                 <div className="min-w-0">
-                  <div className="text-sm text-on-surface font-bold">
+                  <div className="text-sm text-on-surface font-medium">
                     {memberName(d.grantee_user_id)}
                     <span className="font-normal text-xs text-on-surface-variant ml-2">
                       {d.valid_to
@@ -241,7 +241,7 @@ export const DelegationModal: React.FC<DelegationModalProps> = ({
                       .then(reload)
                       .catch((e) => setError(e instanceof Error ? e.message : 'revoke failed'))
                   }
-                  className="text-xs font-bold text-error shrink-0"
+                  className="text-xs font-medium text-on-surface-variant shrink-0"
                 >
                   {zh ? '撤销' : 'Revoke'}
                 </button>}
