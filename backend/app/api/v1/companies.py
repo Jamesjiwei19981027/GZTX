@@ -464,6 +464,8 @@ async def patch_policy(
         company.policy_json = cur
 
     if body.login_methods is not None:
+        from app.services.login_methods import validate_login_methods
+        validate_login_methods(body.login_methods)
         lm = dict(company.login_methods_json or DEFAULT_LOGIN_METHODS)
         lm.update(body.login_methods)
         company.login_methods_json = lm

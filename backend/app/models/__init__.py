@@ -40,6 +40,7 @@ from app.models.notify import (
 )
 from app.models.usage_event import UsageEvent
 from app.models.integration import IntegrationAccount
+from app.models.sso import SsoBinding, SsoLoginAttempt, OrgDirectoryPerson
 from app.models.delegation import DelegationGrant
 from app.models.report import (
     ReportPolicy,

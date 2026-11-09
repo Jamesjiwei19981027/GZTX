@@ -352,6 +352,8 @@ async def login(data: UserLogin, db: DbSession, request: Request):
             detail="用户已被禁用",
         )
 
+    from app.services.login_methods import enforce_user_login_method
+    await enforce_user_login_method(db, user.id, "password")
     return _issue_tokens(user)
 
 
@@ -374,6 +376,8 @@ async def oauth2_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号或密码错误")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="用户已被禁用")
+    from app.services.login_methods import enforce_user_login_method
+    await enforce_user_login_method(db, user.id, "password")
     return {
         "access_token": create_access_token(data={"sub": user.id}),
         "token_type": "bearer",
@@ -413,6 +417,9 @@ async def login_with_code(data: dict, db: DbSession, request: Request):
         raise HTTPException(status_code=404, detail="该邮箱/手机号未注册")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="用户已被禁用")
+
+    from app.services.login_methods import enforce_user_login_method
+    await enforce_user_login_method(db, user.id, "password")
 
     try:
         await consume_code(db, channel=channel, target=target, code=code, purpose="login")

@@ -14,6 +14,7 @@ import {
 import { ApiError } from '../api/client'
 import { getBrandName, getBrandTagline } from '../constants/brand'
 import { clearInviteToken, readInviteToken } from '../utils/invite'
+import { SsoLoginButtons } from './SsoLoginButtons'
 
 type Props = {
   onLoggedIn: (payload?: AuthTokenPayload) => void
@@ -395,6 +396,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   </button>
                 </form>
               )}
+              <SsoLoginButtons onLoggedIn={onLoggedIn} />
               {!canRegister && (
                 <p className="text-center text-xs text-on-surface-variant pt-2" data-testid="invite-only-notice">
                   {zh ? '仅限受邀注册，请向管理员索取邀请链接' : 'Registration is by invitation only. Please ask an administrator for an invite link.'}

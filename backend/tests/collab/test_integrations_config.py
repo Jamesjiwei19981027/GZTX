@@ -1,93 +1,58 @@
-"""前端可配置集成：schema / upsert / 脱敏 / 同步读凭证"""
+"""企业应用真实保存、密钥加密保留、配置脱敏和权限隔离。"""
+import json
 import pytest
-from httpx import AsyncClient
+from sqlalchemy import select
+from app.models.integration import IntegrationAccount
+from app.services.secret_box import decrypt_str
 
 
 @pytest.mark.asyncio
-async def test_integration_schemas_and_upsert_wecom(async_client: AsyncClient, seed_ids):
-    cid = seed_ids["company_id"]
-    headers = seed_ids["super_admin_headers"]
-
-    r = await async_client.get(f"/api/v1/companies/{cid}/integrations/schemas", headers=headers)
+async def test_integration_schemas_and_upsert_dingtalk(async_client, seed_ids, db_session):
+    cid, headers = seed_ids["company_id"], seed_ids["super_admin_headers"]
+    schemas = await async_client.get(f"/api/v1/companies/{cid}/integrations/schemas", headers=headers)
+    assert schemas.status_code == 200
+    assert any(field["key"] == "app_secret" for field in schemas.json()["data"]["providers"]["dingtalk"]["credential_fields"])
+    credentials = {"corp_id": "ding-corp", "app_key": "ding-key", "agent_id": "100", "app_secret": "test-secret-never-returned"}
+    r = await async_client.put(f"/api/v1/companies/{cid}/integrations/dingtalk", headers=headers,
+        json={"provider": "dingtalk", "credentials": credentials})
     assert r.status_code == 200, r.text
-    providers = r.json()["data"]["providers"]
-    assert "wecom" in providers
-    assert any(f["key"] == "secret" for f in providers["wecom"]["credential_fields"])
-
-    r2 = await async_client.put(
-        f"/api/v1/companies/{cid}/integrations/wecom",
-        headers=headers,
-        json={
-            "provider": "wecom",
-            "credentials": {
-                "corp_id": "ww_test_corp",
-                "secret": "super-secret-value",
-                "agent_id": "1000002",
-            },
-            "config": {
-                "trusted_domain": "app.example.com",
-                "redirect_uri": "https://app.example.com/api/v1/sso/wecom/callback",
-                "api_base": "https://qyapi.weixin.qq.com",
-                "auto_create_users": False,
-            },
-        },
-    )
-    assert r2.status_code == 200, r2.text
-    data = r2.json()["data"]
-    assert data["provider"] == "wecom"
-    assert data["has_credentials"] is True
-    assert data["credentials"].get("secret") == "********"
-    assert data["credentials"].get("secret_configured") is True
-    assert data["credentials"].get("corp_id") == "ww_test_corp"
-    assert data["config"].get("trusted_domain") == "app.example.com"
-
-    # 列表脱敏
-    r3 = await async_client.get(f"/api/v1/companies/{cid}/integrations", headers=headers)
-    assert r3.status_code == 200
-    items = r3.json()["data"]["items"]
-    wecom = next(i for i in items if i["provider"] == "wecom")
-    assert wecom["credentials"]["secret"] == "********"
-    assert "super-secret" not in str(wecom)
-
-    # 占位符不覆盖密钥：再 PUT secret=********，同步仍应 credentials_loaded
-    r4 = await async_client.put(
-        f"/api/v1/companies/{cid}/integrations/wecom",
-        headers=headers,
-        json={
-            "provider": "wecom",
-            "credentials": {"corp_id": "ww_test_corp", "secret": "********"},
-            "config": {
-                "static_snapshot": {
-                    "depts": [
-                        {
-                            "external_id": "d-cfg",
-                            "name": "配置部",
-                            "parent_external_id": None,
-                        }
-                    ],
-                    "users": [],
-                }
-            },
-        },
-    )
-    assert r4.status_code == 200
-
-    r5 = await async_client.post(
-        f"/api/v1/companies/{cid}/org-sync?provider=wecom",
-        headers=headers,
-    )
-    assert r5.status_code == 200, r5.text
-    body = r5.json()["data"]
-    assert body["status"] == "completed"
-    assert body.get("credentials_loaded") is True
-    assert body["report"]["dept_upserted"] >= 1
+    assert r.json()["data"]["credentials"]["app_secret_configured"] is True
+    assert "test-secret-never-returned" not in r.text
+    r = await async_client.put(f"/api/v1/companies/{cid}/integrations/dingtalk", headers=headers,
+        json={"provider": "dingtalk", "credentials": {"app_secret": "", "agent_id": "101"}})
+    assert r.status_code == 200, r.text
+    acc = await db_session.scalar(select(IntegrationAccount).where(IntegrationAccount.company_id == cid, IntegrationAccount.provider == "dingtalk"))
+    assert "test-secret-never-returned" not in acc.credentials_encrypted
+    saved = json.loads(decrypt_str(acc.credentials_encrypted))
+    assert saved["app_secret"] == "test-secret-never-returned" and saved["agent_id"] == "101"
+    listing = await async_client.get(f"/api/v1/companies/{cid}/integrations", headers=headers)
+    assert "test-secret-never-returned" not in listing.text
 
 
 @pytest.mark.asyncio
-async def test_member_cannot_list_integrations(async_client: AsyncClient, seed_ids):
-    cid = seed_ids["company_id"]
-    r = await async_client.get(
-        f"/api/v1/companies/{cid}/integrations",
-        headers=seed_ids["member_headers"],
-    )
+@pytest.mark.parametrize("provider", ["wecom", "feishu", "saml"])
+async def test_future_integrations_cannot_be_saved_or_enabled(async_client, seed_ids, provider):
+    cid, headers = seed_ids["company_id"], seed_ids["super_admin_headers"]
+    r = await async_client.put(f"/api/v1/companies/{cid}/integrations/{provider}", headers=headers,
+        json={"provider": provider, "credentials": {"secret": "test"}})
+    assert r.status_code == 422
+    if provider != "saml":
+        r = await async_client.patch(f"/api/v1/companies/{cid}/login-methods", headers=headers, json={provider: True})
+        assert r.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_secret_misplaced_in_config_is_encrypted(async_client, seed_ids):
+    cid, headers = seed_ids["company_id"], seed_ids["super_admin_headers"]
+    r = await async_client.put(f"/api/v1/companies/{cid}/integrations/oidc", headers=headers,
+        json={"provider": "oidc", "credentials": {"client_id": "client"},
+              "config": {"issuer": "https://idp.test", "client_secret": "config-test-secret"}})
+    assert r.status_code == 200, r.text
+    assert "config-test-secret" not in r.text
+    assert "client_secret" not in r.json()["data"]["config"]
+
+
+@pytest.mark.asyncio
+async def test_member_cannot_list_integrations(async_client, seed_ids):
+    r = await async_client.get(f'/api/v1/companies/{seed_ids["company_id"]}/integrations', headers=seed_ids["member_headers"])
     assert r.status_code == 403

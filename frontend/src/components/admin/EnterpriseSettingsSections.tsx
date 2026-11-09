@@ -18,6 +18,7 @@ import {
 } from '../../api/notifications';
 import { listIntegrations, triggerOrgSync } from '../../api/shell';
 import { apiRequest } from '../../api/client';
+import { saveIntegration, type EnterpriseIntegration } from '../../api/sso';
 import { Language } from '../../types';
 
 export interface EnterpriseSectionProps {
@@ -974,313 +975,123 @@ export const AdminAiServicesSection: React.FC<EnterpriseSectionProps> = ({
 // 3. 组织与登录 (Organization & SSO)
 // 原“组织与登录集成”与“单点登录配置”合并
 // ==========================================
-export const AdminOrgSsoSection: React.FC<EnterpriseSectionProps> = ({
-  isAdmin,
-  companyId,
-  lang = 'zh',
-}) => {
-  // 区块 1: 组织架构同步
-  const [integrations, setIntegrations] = useState<
-    Array<{ provider: string; enabled?: boolean; status?: string; last_sync_at?: string }>
-  >([]);
-  const [loadingOrg, setLoadingOrg] = useState(true);
-  const [syncingOrg, setSyncingOrg] = useState(false);
-  const [orgMsg, setOrgMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
+export const AdminOrgSsoSection: React.FC<EnterpriseSectionProps> = ({ isAdmin, companyId }) => {
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [integrations, setIntegrations] = useState<EnterpriseIntegration[]>([]);
+  const [ding, setDing] = useState({ corp_id: '', app_key: '', app_secret: '', agent_id: '' });
+  const [oidc, setOidc] = useState({ issuer: '', client_id: '', client_secret: '' });
+  const [methods, setMethods] = useState({ password: true, dingtalk: false, oidc: false });
+  const input = 'w-full min-w-0 px-3 py-2 bg-surface dark:bg-[#191c1d] border border-outline-variant rounded-lg text-sm';
+  const button = 'px-4 py-2 bg-primary text-on-primary rounded-xl text-sm font-semibold disabled:opacity-50';
+  const deferred = ['badge', 'vpn_key'];
+  const dingIntegration = integrations.find(item => item.provider === 'dingtalk');
+  const oidcIntegration = integrations.find(item => item.provider === 'oidc');
+  const report = dingIntegration?.last_sync_report;
 
-  // 区块 2: SSO 配置
-  const [protocol, setProtocol] = useState<'oidc' | 'saml'>('oidc');
-  const [issuerUrl, setIssuerUrl] = useState('');
-  const [clientId, setClientId] = useState('');
-  const [clientSecret, setClientSecret] = useState('');
-  const [hasClientSecret, setHasClientSecret] = useState(false);
-  const [samlEntityId, setSamlEntityId] = useState('');
-  const [samlSsoUrl, setSamlSsoUrl] = useState('');
-  const [ssoSaved, setSsoSaved] = useState(false);
-
-  const loadOrgData = useCallback(async () => {
-    if (!companyId) {
-      setLoadingOrg(false);
-      return;
-    }
-    setLoadingOrg(true);
+  const load = useCallback(async () => {
+    if (!companyId) { setLoading(false); return; }
+    setLoading(true);
     try {
-      const res = await listIntegrations(Number(companyId));
-      setIntegrations(res.items || []);
-    } catch {
-      setIntegrations([
-        { provider: 'wecom', enabled: false, status: 'unconfigured' },
-        { provider: 'dingtalk', enabled: false, status: 'unconfigured' },
-        { provider: 'feishu', enabled: false, status: 'unconfigured' },
+      const [data, loginMethods] = await Promise.all([
+        listIntegrations(Number(companyId)),
+        apiRequest<Record<string, boolean>>(`/companies/${companyId}/login-methods`),
       ]);
-    } finally {
-      setLoadingOrg(false);
-    }
+      const items = data.items || [];
+      setIntegrations(items);
+      const dc = items.find(item => item.provider === 'dingtalk')?.credentials || {};
+      const oi = items.find(item => item.provider === 'oidc');
+      setDing({ corp_id: String(dc.corp_id || ''), app_key: String(dc.app_key || ''), agent_id: String(dc.agent_id || ''), app_secret: '' });
+      setOidc({ issuer: String(oi?.config?.issuer || ''), client_id: String(oi?.credentials?.client_id || ''), client_secret: '' });
+      setMethods({ password: loginMethods.password !== false, dingtalk: loginMethods.dingtalk === true, oidc: loginMethods.oidc === true });
+    } catch (error) { setMessage(error instanceof Error ? error.message : '读取企业登录配置失败'); }
+    finally { setLoading(false); }
   }, [companyId]);
+  useEffect(() => { setMessage(''); setIntegrations([]); setDing({ corp_id: '', app_key: '', app_secret: '', agent_id: '' }); setOidc({ issuer: '', client_id: '', client_secret: '' }); void load(); }, [load]);
 
-  useEffect(() => {
-    void loadOrgData();
-  }, [loadOrgData]);
-
-  const handleOrgSync = async () => {
+  async function save(provider: 'dingtalk' | 'oidc') {
     if (!isAdmin || !companyId) return;
-    setSyncingOrg(true);
-    setOrgMsg(null);
+    setBusy(true); setMessage('');
     try {
-      await triggerOrgSync(Number(companyId));
-      setOrgMsg({ type: 'ok', text: '组织架构同步任务已触发，正在平滑拉取人员与部门。' });
-      await loadOrgData();
-    } catch (err) {
-      setOrgMsg({ type: 'err', text: err instanceof Error ? err.message : '组织同步失败' });
-    } finally {
-      setSyncingOrg(false);
-    }
-  };
+      const credentials: Record<string, string> = provider === 'dingtalk'
+        ? { corp_id: ding.corp_id.trim(), app_key: ding.app_key.trim(), agent_id: ding.agent_id.trim() }
+        : { client_id: oidc.client_id.trim() };
+      const secret = provider === 'dingtalk' ? ding.app_secret : oidc.client_secret;
+      if (secret.trim()) credentials[provider === 'dingtalk' ? 'app_secret' : 'client_secret'] = secret.trim();
+      const saved = await saveIntegration(companyId, provider, credentials, provider === 'oidc' ? { issuer: oidc.issuer.trim() } : undefined);
+      setIntegrations(current => [...current.filter(item => item.provider !== provider), saved]);
+      if (provider === 'dingtalk') setDing(current => ({ ...current, app_secret: '' }));
+      else setOidc(current => ({ ...current, client_secret: '' }));
+      setMessage(provider === 'dingtalk' ? '钉钉配置已保存，请在下方启用钉钉登录' : '通用单点登录配置已保存');
+    } catch (error) { setMessage(error instanceof Error ? error.message : '保存企业登录配置失败'); }
+    finally { setBusy(false); }
+  }
 
-  const handleSaveSso = () => {
-    if (!isAdmin) return;
-    if (clientSecret.trim()) {
-      setHasClientSecret(true);
-      setClientSecret('');
-    }
-    setSsoSaved(true);
-    setTimeout(() => setSsoSaved(false), 3000);
-  };
+  async function sync() {
+    if (!isAdmin || !companyId) return;
+    setBusy(true); setMessage('');
+    try {
+      const result = await triggerOrgSync(Number(companyId), 'dingtalk');
+      await load();
+      setMessage(result.status === 'failed' ? (result.report?.errors?.join('；') || '钉钉同步失败') : '钉钉组织同步完成，未受邀人员不会自动开户');
+    } catch (error) { setMessage(error instanceof Error ? error.message : '钉钉同步失败'); }
+    finally { setBusy(false); }
+  }
 
-  return (
-    <div className="space-y-6 animate-in fade-in duration-200">
-      <div className="pb-4 border-b border-surface-variant">
-        <h2 className="text-xl font-bold text-on-surface dark:text-[#f0f1f2]">
-          {lang === 'zh' ? '组织架构与单点登录 (SSO)' : 'Organization & SSO'}
-        </h2>
-        <p className="text-xs text-on-surface-variant mt-1">
-          {lang === 'zh'
-            ? '管理企业微信、钉钉、飞书的组织同步状态，并配置 OIDC / SAML 2.0 企业级联合身份认证。'
-            : 'Manage WeCom, DingTalk, and Feishu directory synchronization and configure OIDC/SAML corporate identity.'}
-        </p>
+  async function saveMethods() {
+    if (!isAdmin || !companyId) return;
+    setBusy(true); setMessage('');
+    try {
+      await apiRequest(`/companies/${companyId}/login-methods`, { method: 'PATCH', body: JSON.stringify(methods) });
+      setMessage('企业登录方式已保存');
+    } catch (error) { setMessage(error instanceof Error ? error.message : '保存登录方式失败'); }
+    finally { setBusy(false); }
+  }
+
+  if (loading) return <p className="p-5 text-sm">正在读取企业登录配置…</p>;
+  return <div className="space-y-6 min-w-0">
+    <div><h2 className="text-xl font-bold">组织架构与单点登录</h2>
+      <p className="text-xs text-on-surface-variant mt-2">本期支持钉钉扫码登录、部门与人员目录同步，以及通用企业单点登录。仅限已受邀加入的成员登录。</p></div>
+    {message && <p role="status" className="p-3 rounded-xl border border-outline-variant text-sm break-words">{message}</p>}
+    <fieldset disabled={!isAdmin || busy || !companyId} className="space-y-4 p-5 rounded-2xl border border-outline-variant min-w-0">
+      <legend className="font-bold px-2">钉钉企业内部应用</legend>
+      <p className="text-xs">{dingIntegration?.has_credentials ? '应用密钥已配置，留空保留原密钥' : '尚未配置应用密钥'}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {([{ key: 'corp_id', label: '企业标识' }, { key: 'app_key', label: '应用标识' }, { key: 'agent_id', label: '应用编号' }] as const).map(field => <label key={field.key} className="text-sm space-y-1">
+          <span>{field.label}</span><input aria-label={field.label} className={input} value={ding[field.key]} onChange={event => setDing({ ...ding, [field.key]: event.target.value })} autoComplete="off" /></label>)}
+        <label className="text-sm space-y-1"><span>钉钉应用密钥</span><input aria-label="钉钉应用密钥" type="password" autoComplete="new-password" className={input} value={ding.app_secret} onChange={event => setDing({ ...ding, app_secret: event.target.value })} placeholder={dingIntegration?.has_credentials ? '已配置，留空保持原密钥' : '首次配置请填写密钥'} /></label>
       </div>
-
-      {/* 区块 1: 组织架构同步 */}
-      <div className="bg-surface-container-low dark:bg-[#2e3132] rounded-2xl p-5 border border-outline-variant/60 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-xl">groups</span>
-            <h3 className="text-base font-bold text-on-surface dark:text-[#f0f1f2]">
-              {lang === 'zh' ? '区块 1：协同办公组织架构同步' : 'Block 1: Directory Sync'}
-            </h3>
-          </div>
-          {isAdmin && (
-            <button
-              type="button"
-              disabled={syncingOrg || !companyId}
-              onClick={handleOrgSync}
-              className="px-3.5 py-1.5 bg-primary text-on-primary rounded-xl text-xs font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {syncingOrg ? '同步中…' : '立即全量同步'}
-            </button>
-          )}
-        </div>
-
-        {orgMsg && (
-          <div
-            className={`p-3 rounded-xl border flex items-center gap-2 text-xs ${
-              orgMsg.type === 'ok'
-                ? 'bg-secondary-container text-on-secondary-container border-secondary/30'
-                : 'bg-error-container text-on-error-container border-error/30'
-            }`}
-          >
-            <span className="material-symbols-outlined text-base">
-              {orgMsg.type === 'ok' ? 'check_circle' : 'error'}
-            </span>
-            <span>{orgMsg.text}</span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {[
-            { id: 'wecom', name: '企业微信 (WeCom)', icon: 'badge' },
-            { id: 'dingtalk', name: '钉钉 (DingTalk)', icon: 'send' },
-            { id: 'feishu', name: '飞书 (Feishu)', icon: 'share' },
-          ].map((item) => {
-            const current = integrations.find((x) => x.provider === item.id);
-            const isBound = Boolean(current?.enabled || current?.status === 'active');
-            return (
-              <div
-                key={item.id}
-                className="p-3.5 bg-surface dark:bg-[#191c1d] rounded-xl border border-outline-variant/60 flex items-center justify-between"
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="material-symbols-outlined text-lg text-primary">{item.icon}</span>
-                  <div>
-                    <div className="text-xs font-bold text-on-surface dark:text-[#f0f1f2]">{item.name}</div>
-                    <div className="text-[11px] text-on-surface-variant">
-                      {current?.last_sync_at ? `上次: ${current.last_sync_at}` : '自动轮询'}
-                    </div>
-                  </div>
-                </div>
-                <span
-                  className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                    isBound
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
-                  }`}
-                >
-                  {isBound ? '已接入' : '未配置'}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+      {dingIntegration?.callback_uri && <p className="text-xs break-all">授权回调地址：{dingIntegration.callback_uri}</p>}
+      <div className="flex flex-wrap gap-3"><button type="button" className={button} onClick={() => void save('dingtalk')}>保存钉钉配置</button>
+        <button type="button" className={button} disabled={!dingIntegration?.has_credentials || busy} onClick={() => void sync()}>钉钉立即同步</button></div>
+      <p className="text-xs">同步部门与人员信息，仅关联企业已有成员；不会创建登录账号或自动邀请。</p>
+      {report && <div className="text-sm space-y-1" aria-label="最近同步结果">
+        <p>新增 {report.created} · 更新 {report.updated} · 失败 {report.failed}</p>
+        <p>未关联已有账号 {report.users_unmatched || 0} 人</p>
+        <p>同步时间：{report.synced_at ? new Date(report.synced_at).toLocaleString('zh-CN') : dingIntegration?.last_sync_at || '暂无'}</p>
+        {report.errors?.map((error, index) => <p key={index} className="text-error">{error}</p>)}
+      </div>}
+    </fieldset>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">{['企业微信', '飞书', '联合身份认证'].map(name => <button key={name} type="button" disabled className="p-3 rounded-xl border border-outline-variant text-sm text-on-surface-variant opacity-50"><span className="material-symbols-outlined align-middle mr-2">badge</span>{name}：下一期支持</button>)}</div>
+    <fieldset disabled={!isAdmin || busy || !companyId} className="space-y-4 p-5 rounded-2xl border border-outline-variant min-w-0">
+      <legend className="font-bold px-2"><span className="material-symbols-outlined align-middle mr-2">vpn_key</span>通用企业单点登录</legend>
+      <p className="text-xs">通过身份发行方发现配置并验证身份令牌签名。应用回调地址由服务端应用访问地址生成。</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label className="text-sm space-y-1"><span>身份发行方地址</span><input aria-label="身份发行方地址" className={input} value={oidc.issuer} onChange={event => setOidc({ ...oidc, issuer: event.target.value })} placeholder="https://idp.example.com" /></label>
+        <label className="text-sm space-y-1"><span>客户端标识</span><input aria-label="客户端标识" className={input} value={oidc.client_id} onChange={event => setOidc({ ...oidc, client_id: event.target.value })} autoComplete="off" /></label>
+        <label className="text-sm space-y-1"><span>单点登录客户端密钥</span><input aria-label="单点登录客户端密钥" className={input} type="password" autoComplete="new-password" value={oidc.client_secret} onChange={event => setOidc({ ...oidc, client_secret: event.target.value })} placeholder={oidcIntegration?.has_credentials ? '已配置，留空保持原密钥' : '首次配置请填写密钥'} /></label>
       </div>
-
-      {/* 区块 2: 单点登录配置 (SSO) */}
-      <div className="bg-surface-container-low dark:bg-[#2e3132] rounded-2xl p-5 border border-outline-variant/60 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary text-xl">vpn_key</span>
-            <h3 className="text-base font-bold text-on-surface dark:text-[#f0f1f2]">
-              {lang === 'zh' ? '区块 2：单点登录配置 (SSO)' : 'Block 2: Enterprise SSO'}
-            </h3>
-          </div>
-          <div className="flex items-center gap-1.5 p-1 bg-surface dark:bg-[#191c1d] rounded-xl border border-outline-variant/60">
-            <button
-              type="button"
-              disabled={!isAdmin}
-              onClick={() => setProtocol('oidc')}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                protocol === 'oidc'
-                  ? 'bg-primary text-on-primary shadow-xs'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              OIDC / OAuth 2.0
-            </button>
-            <button
-              type="button"
-              disabled={!isAdmin}
-              onClick={() => setProtocol('saml')}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
-                protocol === 'saml'
-                  ? 'bg-primary text-on-primary shadow-xs'
-                  : 'text-on-surface-variant hover:text-on-surface'
-              }`}
-            >
-              SAML 2.0
-            </button>
-          </div>
-        </div>
-
-        {ssoSaved && (
-          <div className="p-3 bg-secondary-container text-on-secondary-container border border-secondary/30 text-xs rounded-xl flex items-center gap-2">
-            <span className="material-symbols-outlined text-base">check_circle</span>
-            <span>企业 SSO 单点登录参数已保存！</span>
-          </div>
-        )}
-
-        {protocol === 'oidc' ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-                  {lang === 'zh' ? 'Issuer URL (发行方地址) *' : 'Issuer URL *'}
-                </label>
-                <input
-                  type="text"
-                  disabled={!isAdmin}
-                  value={issuerUrl}
-                  onChange={(e) => setIssuerUrl(e.target.value)}
-                  placeholder="https://idp.company.com/oauth2"
-                  className="w-full px-3 py-2 bg-surface dark:bg-[#191c1d] border border-outline-variant rounded-lg text-sm text-on-surface dark:text-[#f0f1f2] focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-                  {lang === 'zh' ? 'Client ID (客户端编号) *' : 'Client ID *'}
-                </label>
-                <input
-                  type="text"
-                  disabled={!isAdmin}
-                  value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  placeholder="client_12345"
-                  className="w-full px-3 py-2 bg-surface dark:bg-[#191c1d] border border-outline-variant rounded-lg text-sm text-on-surface dark:text-[#f0f1f2] focus:border-primary"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-on-surface-variant">
-                    {lang === 'zh' ? 'Client Secret (凭据密匙)' : 'Client Secret'}
-                  </label>
-                  <span className="text-[11px] font-mono text-on-surface-variant">
-                    {hasClientSecret ? '● 已配置 (凭据在服务端安全存储)' : '○ 未配置'}
-                  </span>
-                </div>
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  disabled={!isAdmin}
-                  value={clientSecret}
-                  onChange={(e) => setClientSecret(e.target.value)}
-                  placeholder={hasClientSecret ? '已配置 (留空保留原凭据)' : '未配置 (请输入 Client Secret)'}
-                  className="w-full px-3 py-2 bg-surface dark:bg-[#191c1d] border border-outline-variant rounded-lg text-sm text-on-surface dark:text-[#f0f1f2] focus:border-primary"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-                {lang === 'zh' ? '授权回调重定向地址 (Redirect URI)' : 'Redirect URI'}
-              </label>
-              <div className="min-h-[40px] px-3.5 py-2 bg-surface dark:bg-[#191c1d] rounded-lg border border-outline-variant flex items-center text-xs font-mono text-on-surface select-all break-all">
-                https://app.worktodo.com/api/v1/sso/oidc/callback
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-                {lang === 'zh' ? 'SAML Entity ID (实体编号) *' : 'SAML Entity ID *'}
-              </label>
-              <input
-                type="text"
-                disabled={!isAdmin}
-                value={samlEntityId}
-                onChange={(e) => setSamlEntityId(e.target.value)}
-                placeholder="urn:mace:dir:entitlement:company"
-                className="w-full px-3 py-2 bg-surface dark:bg-[#191c1d] border border-outline-variant rounded-lg text-sm text-on-surface dark:text-[#f0f1f2] focus:border-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-                {lang === 'zh' ? 'Single Sign-On Service URL *' : 'SSO Service URL *'}
-              </label>
-              <input
-                type="text"
-                disabled={!isAdmin}
-                value={samlSsoUrl}
-                onChange={(e) => setSamlSsoUrl(e.target.value)}
-                placeholder="https://sso.company.com/saml2/idp"
-                className="w-full px-3 py-2 bg-surface dark:bg-[#191c1d] border border-outline-variant rounded-lg text-sm text-on-surface dark:text-[#f0f1f2] focus:border-primary"
-              />
-            </div>
-          </div>
-        )}
-
-        {isAdmin && (
-          <button
-            type="button"
-            onClick={handleSaveSso}
-            className="px-4 py-2 bg-primary text-on-primary rounded-xl text-xs font-semibold hover:opacity-90 transition-opacity"
-          >
-            保存单点登录配置
-          </button>
-        )}
-      </div>
-    </div>
-  );
+      {oidcIntegration?.callback_uri && <p className="text-xs break-all">授权回调地址：{oidcIntegration.callback_uri}</p>}
+      <button type="button" className={button} onClick={() => void save('oidc')}>保存通用单点登录</button>
+    </fieldset>
+    <fieldset disabled={!isAdmin || busy || !companyId} className="space-y-4 p-5 rounded-2xl border border-outline-variant">
+      <legend className="font-bold px-2">企业登录方式</legend>
+      <div className="flex flex-wrap gap-5">{([{ key: 'password', label: '账号密码登录' }, { key: 'dingtalk', label: '钉钉登录' }, { key: 'oidc', label: '通用单点登录' }] as const).map(item => <label key={item.key} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={methods[item.key]} onChange={event => setMethods({ ...methods, [item.key]: event.target.checked })} />{item.label}</label>)}</div>
+      <p className="text-xs">关闭账号密码登录后，普通成员须使用其他已启用入口。该企业有效且在职的超级管理员仍可用密码登录，作为防锁死保底。多企业成员须满足所有有效任职企业的密码限制；验证码登录单独保留。</p>
+      <button type="button" className={button} onClick={() => void saveMethods()}>保存登录方式</button>
+    </fieldset>
+  </div>;
 };
 
 // ==========================================

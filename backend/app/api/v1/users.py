@@ -9,7 +9,7 @@ from copy import deepcopy
 from fastapi import APIRouter, HTTPException, Request, status, File, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.core.dependencies import CurrentUser, DbSession
 from app.core.security import verify_password, get_password_hash
@@ -189,6 +189,7 @@ async def delete_my_account(data: AccountDeleteRequest, db: DbSession, user: Cur
     from datetime import datetime, timezone
 
     from app.models.notify import PushSubscription
+    from app.models.sso import OrgDirectoryPerson, SsoBinding
 
     user.is_active = False
     user.nickname = "已删除用户"
@@ -198,6 +199,14 @@ async def delete_my_account(data: AccountDeleteRequest, db: DbSession, user: Cur
     # 且 /wx/login 会继续命中这条已删除记录。
     user.wx_openid = None
     user.wx_unionid = None
+    # 撤销外部身份绑定及通讯录到个人账户的链接，避免已注销用户的 IdP 身份永久占用。
+    for binding in (await db.scalars(select(SsoBinding).where(SsoBinding.user_id == user.id))).all():
+        await db.delete(binding)
+    await db.execute(
+        update(OrgDirectoryPerson)
+        .where(OrgDirectoryPerson.user_id == user.id)
+        .values(user_id=None)
+    )
     # 撤销全部已签发会话（access + refresh 一起），并作废 ICS 订阅地址
     user.sessions_revoked_at = datetime.now(timezone.utc)
     user.calendar_feed_token = None

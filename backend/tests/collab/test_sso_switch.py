@@ -1,146 +1,48 @@
+"""企业 SSO 开关及邀请隔离，所有外部身份响应只在测试 httpx 边界打桩。"""
 import pytest
-from httpx import AsyncClient
-
 from app.core.config import settings
-
-
-@pytest.fixture
-def sso_stub_enabled(monkeypatch):
-    """显式打开 FakeOIDC 开发桩。
-
-    桩要求 DEBUG 与 ALLOW_FAKE_SSO 同时为真，两者默认都是 false：
-    为 true 时任何人都能用 code=fake:x:<受害者邮箱> 换到该账号令牌。
-    需要走桩的用例必须自己声明，不能依赖默认值。
-    """
-    monkeypatch.setattr(settings, "DEBUG", True)
-    monkeypatch.setattr(settings, "ALLOW_FAKE_SSO", True)
+from app.models.company import Company
+from .test_real_sso import configure, external_http, oidc_keys, oidc_routes, start
 
 
 @pytest.mark.asyncio
-async def test_sso_disabled_returns_403(async_client: AsyncClient, seed_ids):
-    cid = seed_ids["company_id"]
-    r = await async_client.get(f"/api/v1/sso/wecom/start?company_id={cid}")
+async def test_sso_disabled_returns_403(async_client, seed_ids):
+    r = await async_client.get(f'/api/v1/sso/dingtalk/start?company_id={seed_ids["company_id"]}')
     assert r.status_code == 403
     assert r.json()["code"] == 40300
 
 
 @pytest.mark.asyncio
-async def test_sso_enabled_start_and_callback_requires_membership(
-    async_client: AsyncClient, seed_ids, db_session, sso_stub_enabled
-):
-    """Unknown SSO identity must NOT auto-join the company."""
-    from app.models.company import Company
-
-    cid = seed_ids["company_id"]
-    company = await db_session.get(Company, cid)
-    company.login_methods_json = {
-        "password": True,
-        "wechat": True,
-        "wecom": False,
-        "dingtalk": False,
-        "feishu": False,
-        "oidc": True,
-    }
-    await db_session.commit()
-
-    r = await async_client.get(f"/api/v1/sso/oidc/start?company_id={cid}")
-    assert r.status_code == 200
-    assert "authorize_url" in r.json()["data"]
-
-    # stranger email → 403, no auto membership
-    r2 = await async_client.get(
-        f"/api/v1/sso/oidc/callback?code=fake:sso1:sso1@example.com&state={cid}:oidc"
-    )
-    assert r2.status_code == 403
-    assert r2.json()["code"] == 40302
+async def test_sso_enabled_start_and_callback_requires_membership(async_client, seed_ids, db_session, external_http, oidc_keys):
+    cid = await configure(async_client, seed_ids, db_session, "oidc")
+    oidc_routes(external_http, oidc_keys, "initial")
+    args, _ = await start(async_client, cid, "oidc")
+    oidc_routes(external_http, oidc_keys, args["nonce"][0], {"email": "outsider@example.com"})
+    r = await async_client.get("/api/v1/sso/oidc/callback", params={"code": "real", "state": args["state"][0]})
+    assert r.status_code == 403
+    assert r.json()["code"] == 40302
 
 
 @pytest.mark.asyncio
-async def test_sso_callback_for_existing_member(
-    async_client: AsyncClient, seed_ids, db_session, sso_stub_enabled
-):
-    """Pre-existing user + membership can SSO login."""
-    from app.core.security import get_password_hash
-    from app.models.company import Company, CompanyMembership
-    from app.models.user import User
-
-    cid = seed_ids["company_id"]
-    company = await db_session.get(Company, cid)
-    company.login_methods_json = {
-        "password": True,
-        "wechat": True,
-        "wecom": False,
-        "dingtalk": False,
-        "feishu": False,
-        "oidc": True,
-    }
-    u = User(
-        username="sso_member",
-        email="sso_member@example.com",
-        password_hash=get_password_hash("password123"),
-        is_active=True,
-    )
-    db_session.add(u)
-    await db_session.flush()
-    db_session.add(
-        CompanyMembership(
-            company_id=cid,
-            user_id=u.id,
-            status="active",
-            employment_status="active",
-        )
-    )
-    await db_session.commit()
-
-    r = await async_client.get(
-        f"/api/v1/sso/oidc/callback?code=fake:sso_m:sso_member@example.com&state={cid}:oidc"
-    )
+async def test_sso_callback_for_existing_member(async_client, seed_ids, db_session, external_http, oidc_keys):
+    cid = await configure(async_client, seed_ids, db_session, "oidc")
+    oidc_routes(external_http, oidc_keys, "initial")
+    args, _ = await start(async_client, cid, "oidc")
+    oidc_routes(external_http, oidc_keys, args["nonce"][0])
+    r = await async_client.get("/api/v1/sso/oidc/callback", params={"code": "real", "state": args["state"][0]})
     assert r.status_code == 200, r.text
-    data = r.json()["data"]
-    assert data.get("access_token")
-    assert data.get("user_id") == u.id
+    assert r.json()["data"]["user_id"] == seed_ids["member_user_id"]
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "debug,allow_fake",
-    [(False, False), (False, True), (True, False)],
-)
-async def test_sso_stub_refuses_unless_both_switches_on(
-    async_client: AsyncClient, seed_ids, db_session, monkeypatch, debug, allow_fake
-):
-    """安全回归：只要 DEBUG 与 ALLOW_FAKE_SSO 不同时为真，桩必须拒绝签发令牌。
-
-    历史缺陷：判断写成 `not DEBUG and not ALLOW_FAKE_SSO`，而 ALLOW_FAKE_SSO
-    默认 true，导致 DEBUG=false 的生产部署仍可用 fake: code 冒充任意成员。
-    """
-    from app.core.security import get_password_hash
-    from app.models.company import Company, CompanyMembership
-    from app.models.user import User
-
+@pytest.mark.parametrize("debug,allow_fake", [(False, False), (False, True), (True, False), (True, True)])
+async def test_fake_identity_never_accepted_with_forged_state(async_client, seed_ids, db_session, monkeypatch, debug, allow_fake):
     monkeypatch.setattr(settings, "DEBUG", debug)
     monkeypatch.setattr(settings, "ALLOW_FAKE_SSO", allow_fake)
-
     cid = seed_ids["company_id"]
     company = await db_session.get(Company, cid)
-    company.login_methods_json = {"password": True, "oidc": True}
-    u = User(
-        username="sso_victim",
-        email="sso_victim@example.com",
-        password_hash=get_password_hash("password123"),
-        is_active=True,
-    )
-    db_session.add(u)
-    await db_session.flush()
-    db_session.add(
-        CompanyMembership(
-            company_id=cid, user_id=u.id, status="active", employment_status="active"
-        )
-    )
+    company.login_methods_json = {"oidc": True}
     await db_session.commit()
-
-    r = await async_client.get(
-        f"/api/v1/sso/oidc/callback?code=fake:x:sso_victim@example.com&state={cid}:oidc"
-    )
-    assert r.status_code != 200, f"DEBUG={debug} ALLOW_FAKE_SSO={allow_fake} 不应签发令牌"
+    r = await async_client.get("/api/v1/sso/oidc/callback", params={"code": "fake:x:member_user@example.com", "state": f"{cid}:oidc"})
+    assert r.status_code == 422
     assert "access_token" not in r.text

@@ -20,6 +20,7 @@ import { clearInviteToken, readInviteToken } from '../../../utils/invite';
 import { AppIcon } from '../../ui/AppIcon';
 import { MobileField, MobileInput } from '../../ui/MobileField';
 import { Language } from '../../../types';
+import { SsoLoginButtons } from '../../../components/SsoLoginButtons';
 
 export function useCountdown() {
   const [countdown, setCountdown] = useState(0);
@@ -441,6 +442,7 @@ export const MobileAuthScreens: React.FC<MobileAuthScreenProps> = ({
               登录后继续管理你的项目与任务
             </p>
 
+            <SsoLoginButtons onLoggedIn={onLoggedIn} />
             {/* 登录方式切换 Tab: 账号登录 vs 验证码登录 */}
             <div className="flex border-b border-slate-200 dark:border-slate-800 mb-5">
               <button

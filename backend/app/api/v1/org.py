@@ -10,6 +10,7 @@ from sqlalchemy import select
 
 from app.api.deps_collab import get_company, require_company_member, require_super_admin
 from app.core.collab_errors import CollabError
+from app.core.config import settings
 from app.core.dependencies import CurrentUser, DbSession
 from app.models.company import Company, OrgUnit
 from app.models.integration import IntegrationAccount
@@ -17,6 +18,8 @@ from app.schemas.common import ResponseData
 from app.services.org_sync.generic import GenericSnapshotProvider
 from app.services.org_sync.runner import run_org_sync
 from app.services.org_sync.wecom import WeComProvider
+from app.services.org_sync.dingtalk import DingTalkOrgProvider
+from app.services.org_sync.dingtalk_runner import run_dingtalk_sync
 from app.services.policy_presets import DEFAULT_LOGIN_METHODS
 from app.services.secret_box import decrypt_str, encrypt_str
 
@@ -24,7 +27,7 @@ router = APIRouter(prefix="/companies", tags=["组织架构"])
 
 # 支持在公司设置页配置的集成类型
 KNOWN_PROVIDERS = frozenset(
-    {"wecom", "dingtalk", "feishu", "oidc", "generic_scim", "generic"}
+    {"dingtalk", "oidc", "generic_scim", "generic"}
 )
 
 # 写入时若为空串则保留库中旧密钥（避免前端回显占位符覆盖）
@@ -53,6 +56,7 @@ class LoginMethodsPatch(BaseModel):
     dingtalk: bool | None = None
     feishu: bool | None = None
     oidc: bool | None = None
+    saml: bool | None = None
 
 
 def _unit_dto(u: OrgUnit) -> dict:
@@ -123,6 +127,8 @@ def _integration_dto(acc: IntegrationAccount, *, include_redacted_creds: bool = 
         "credentials": _redact_credentials(creds) if include_redacted_creds else {},
         "has_credentials": bool(creds),
         "last_sync_at": acc.last_sync_at.isoformat() if acc.last_sync_at else None,
+        "last_sync_report": (acc.config_json or {}).get("last_sync_report"),
+        "callback_uri": f"{settings.APP_URL.rstrip('/')}/api/v1/sso/{acc.provider}/callback",
         "created_at": acc.created_at.isoformat() if acc.created_at else None,
     }
 
@@ -319,7 +325,18 @@ async def _upsert_integration(
     config: dict | None,
 ) -> IntegrationAccount:
     if provider not in KNOWN_PROVIDERS:
-        raise CollabError(422, 42200, f"未知 provider: {provider}")
+        raise CollabError(422, 42200, "该集成下一期支持，当前不可保存")
+    config = dict(config) if config is not None else None
+    credentials = dict(credentials or {})
+    # 密钥即使误放在 config 也移入加密凭据，绝不落入公开配置。
+    if config is not None:
+        for key in list(config):
+            if any(word in key.lower() for word in ("secret", "password", "token", "private_key")):
+                credentials[key] = config.pop(key)
+        config.pop("last_sync_report", None)
+        if provider == "dingtalk":
+            config.pop("static_snapshot", None)
+            config["auto_create_users"] = False
     q = await db.execute(
         select(IntegrationAccount)
         .where(
@@ -332,6 +349,17 @@ async def _upsert_integration(
     acc = q.scalar_one_or_none()
     old_creds = _load_credentials(acc) if acc else {}
     merged = _merge_credentials(old_creds, credentials or {})
+    cfg = {**(acc.config_json or {} if acc else {}), **(config or {}), **merged}
+    required = {"dingtalk": ("corp_id", "app_key", "app_secret", "agent_id"),
+                "oidc": ("issuer", "client_id", "client_secret")}.get(provider, ())
+    if not all(isinstance(cfg.get(k), str) and cfg[k].strip() for k in required):
+        raise CollabError(422, 42200, "请填写完整的企业应用配置，首次保存必须填写密钥")
+    if provider == "oidc":
+        from app.services.sso.oidc import _https_url
+        try:
+            _https_url(cfg["issuer"])
+        except ValueError as exc:
+            raise CollabError(422, 42200, str(exc)) from exc
     enc = encrypt_str(json.dumps(merged, sort_keys=True))
     if acc:
         acc.credentials_encrypted = enc
@@ -402,17 +430,37 @@ async def trigger_org_sync(
     provider: str | None = Query(None, description="指定集成；默认取最近一条可同步账号"),
 ):
     """触发组织架构同步"""
+    if provider in {"wecom", "feishu", "saml"}:
+        raise CollabError(422, 42200, "该组织集成下一期支持")
     q = select(IntegrationAccount).where(IntegrationAccount.company_id == company.id)
     if provider:
         q = q.where(IntegrationAccount.provider == provider)
+    else:
+        q = q.where(IntegrationAccount.provider.in_(["dingtalk", "generic_scim", "generic"]))
     q = q.order_by(IntegrationAccount.id.desc()).limit(1)
     acc = (await db.execute(q)).scalar_one_or_none()
     if not acc:
-        raise CollabError(404, 40400, "未配置组织集成（请在公司设置中填写企微等）")
+        raise CollabError(404, 40400, "未配置组织集成，请先保存钉钉企业应用配置")
 
     config = dict(acc.config_json or {})
     creds = _load_credentials(acc)
     snapshot = config.get("static_snapshot") or {}
+
+    if acc.provider == "dingtalk":
+        try:
+            # 拉取与写入同一保存点，外部失败不污染已有组织数据。
+            async with db.begin_nested():
+                report = await run_dingtalk_sync(db, company.id, DingTalkOrgProvider(creds), creds.get("corp_id", ""))
+            status = "completed"
+        except ValueError as exc:
+            status = "failed"
+            report = {"created": 0, "updated": 0, "failed": 1, "dept_upserted": 0, "users_matched": 0,
+                      "users_unmatched": 0, "errors": [str(exc)]}
+        acc.last_sync_at = datetime.now(timezone.utc)
+        report.update(status=status, synced_at=acc.last_sync_at.isoformat())
+        acc.config_json = {**config, "last_sync_report": report}
+        await db.flush()
+        return ResponseData(data={"job_id": str(acc.id), "provider": "dingtalk", "status": status, "report": report})
 
     if acc.provider in ("generic_scim", "generic"):
         sync_provider = GenericSnapshotProvider(snapshot)
@@ -453,7 +501,13 @@ async def trigger_org_sync(
     )
 
 
-@router.patch("/{company_id}/login-methods", response_model=ResponseData)
+@router.get("/{company_id}/login-methods", response_model=ResponseData, summary="读取企业允许的登录方式")
+async def get_login_methods(db: DbSession, user: CurrentUser, company: Company = Depends(get_company),
+                            _m=Depends(require_company_member)):
+    return ResponseData(data={**DEFAULT_LOGIN_METHODS, **(company.login_methods_json or {})})
+
+
+@router.patch("/{company_id}/login-methods", response_model=ResponseData, summary="保存企业登录方式开关")
 async def patch_login_methods(
     body: LoginMethodsPatch,
     db: DbSession,
@@ -462,6 +516,8 @@ async def patch_login_methods(
     _admin=Depends(require_super_admin),
 ):
     """修改企业可用的登录方式"""
+    from app.services.login_methods import validate_login_methods
+    validate_login_methods(body.model_dump(exclude_unset=True))
     lm = dict(company.login_methods_json or DEFAULT_LOGIN_METHODS)
     for k, v in body.model_dump(exclude_unset=True).items():
         if v is not None:
