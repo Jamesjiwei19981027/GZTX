@@ -2,7 +2,8 @@
  * Web 主壳：对接后端（任务/人轴/消息/通知/团队/收件箱/报表）。
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { enqueuePrefWrite } from './api/serialQueue';
 import {
   Task,
   Project,
@@ -702,6 +703,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const lastUiPrefsKey = useRef<string>('');
   useEffect(() => {
     saveSettings(settings);
     const root = document.documentElement;
@@ -711,20 +713,26 @@ export default function App() {
     // 主题色通过 data-accent 接通 index.css 的调色板变量
     root.dataset.accent = settings.accentColor;
     if (authed && prefsHydrated) {
-      void putUiPrefs({
+      const uiPayload = {
         language: settings.language,
         accent: settings.accentColor,
         theme_mode: settings.themeMode,
         task_default_priority: uiPriorityToApi(settings.taskDefaults.priority),
         task_default_category_id: categories.find((item) => item.name === settings.taskDefaults.category)?.id,
-      }).catch(() => undefined);
+      };
+      const uiKey = JSON.stringify(uiPayload);
+      // 界面偏好没变就不写（切通知开关不应触发 ui-prefs 写入）
+      if (lastUiPrefsKey.current !== uiKey) {
+        lastUiPrefsKey.current = uiKey;
+        void enqueuePrefWrite(() => putUiPrefs(uiPayload)).catch(() => undefined);
+      }
     }
   }, [settings, authed, prefsHydrated, categories]);
 
   useEffect(() => {
     if (!(authed && prefsHydrated)) return;
     const n = settings.notifications;
-    void updateMe({
+    void enqueuePrefWrite(() => updateMe({
       notify_pref: {
         channels: {
           email: { enabled: n.email },
@@ -735,7 +743,7 @@ export default function App() {
         quiet_hours: { start: n.quietHoursStart, end: n.quietHoursEnd },
         weekend_mute: n.weekendMute,
       },
-    }).catch(() => undefined);
+    })).catch(() => undefined);
   }, [authed, prefsHydrated, settings.notifications]);
 
   const displayProjects = useMemo(
@@ -939,8 +947,12 @@ export default function App() {
     toast.success(`已生成下一次：${mapped.dueDate || '未排期'}`);
   };
 
-  const handleToggleTaskCompletion = async (taskId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleToggleTaskCompletion = async (
+    taskOrId: string | Pick<Task, 'id'>,
+    e?: React.MouseEvent,
+  ) => {
+    e?.stopPropagation();
+    const taskId = typeof taskOrId === 'string' ? taskOrId : taskOrId.id;
     const id = Number(taskId);
     const task = tasks.find((t) => t.id === taskId);
     if (!task || !Number.isFinite(id)) return;
