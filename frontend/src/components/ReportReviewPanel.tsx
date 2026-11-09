@@ -27,13 +27,13 @@ export const ReportReviewPanel: React.FC<{ report: AgentReport; onSaved?: (repor
     } finally { if (version === generation.current) setBusy(false); }
   };
   if (!current.can_review && !current.review) return null;
-  return <section aria-label={`汇报 ${report.id} 核验`} className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 space-y-3 text-sm" onClick={event => event.stopPropagation()}>
-    <h3 className="font-semibold">汇报核验意见</h3>
-    {current.review && <div><p className="font-medium">{current.review.decision === 'approved' ? '核验通过' : '退回修改'}</p><p className="whitespace-pre-wrap">{current.review.comment}</p></div>}
+  return <section aria-label={`汇报 ${report.id} 核验`} className="rounded-xl border border-outline-variant dark:border-outline-variant p-4 space-y-3 text-sm" onClick={event => event.stopPropagation()}>
+    <h3 className="font-medium tabular-nums">汇报核验意见</h3>
+    {current.review && <div><p className="font-normal tabular-nums">{current.review.decision === 'approved' ? '核验通过' : '退回修改'}</p><p className="whitespace-pre-wrap">{current.review.comment}</p></div>}
     {notice && <p role="status">{notice}</p>}
     {current.can_review && <>
-      <label className="block space-y-1"><span>核验意见</span><textarea value={comment} disabled={busy} maxLength={2000} onChange={event => setComment(event.target.value)} rows={3} className="w-full p-3 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100" /></label>
-      <div className="flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={() => void save('approved')} className="min-h-[44px] px-4 rounded-xl bg-[#0058BE] text-white disabled:opacity-50">{busy ? '正在保存…' : '核验通过'}</button><button type="button" disabled={busy} onClick={() => void save('returned')} className="min-h-[44px] px-4 rounded-xl border border-slate-300 disabled:opacity-50">退回修改</button></div>
+      <label className="block space-y-1"><span>核验意见</span><textarea value={comment} disabled={busy} maxLength={2000} onChange={event => setComment(event.target.value)} rows={3} className="w-full p-3 rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container-lowest text-on-surface dark:text-on-surface" /></label>
+      <div className="flex flex-wrap gap-2"><button type="button" disabled={busy} onClick={() => void save('approved')} className="min-h-[44px] px-4 rounded-lg bg-primary text-on-primary disabled:opacity-50">{busy ? '正在保存…' : '核验通过'}</button><button type="button" disabled={busy} onClick={() => void save('returned')} className="min-h-[44px] px-4 rounded-lg border border-outline-variant disabled:opacity-50">退回修改</button></div>
     </>}
   </section>;
 };

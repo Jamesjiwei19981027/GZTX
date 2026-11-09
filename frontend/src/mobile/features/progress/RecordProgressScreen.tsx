@@ -268,8 +268,8 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
   return (
     <div
       data-testid="record-progress-screen"
-      className={`flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden ${
-        isModal ? 'rounded-2xl' : ''
+      className={`flex flex-col flex-1 h-full w-full bg-surface-container-lowest dark:bg-surface-container select-none overflow-hidden ${
+        isModal ? 'rounded-xl' : ''
       }`}
     >
       {!isModal && (
@@ -282,16 +282,16 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
       )}
 
       {isModal && (
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 dark:border-slate-800">
-          <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">记录进展</h2>
+        <div className="flex items-center justify-between px-6 py-4 border-b border-outline-variant dark:border-outline-variant">
+          <h2 className="text-lg font-medium text-on-surface dark:text-on-surface tabular-nums">记录进展</h2>
           {onBack && (
             <button
               type="button"
               onClick={onBack}
               aria-label="关闭"
-              className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500"
+              className="p-1 rounded-lg hover:bg-surface-container dark:hover:bg-surface-container-lowest text-on-surface-variant"
             >
-              <AppIcon name="close" size={20} />
+              <AppIcon name="close" size={18} />
             </button>
           )}
         </div>
@@ -301,9 +301,9 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
         <div
           role="status"
           data-testid="record-progress-toast"
-          className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-600 text-white rounded-xl shadow-lg text-sm font-medium flex items-center gap-2 animate-fade-in"
+          className="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-[#2f7d4f] text-on-primary rounded-xl shadow-sm dark:shadow-none text-sm font-medium flex items-center gap-2 animate-fade-in tabular-nums"
         >
-          <AppIcon name="check" size={16} />
+          <AppIcon name="check" size={18} />
           <span>{toastMessage}</span>
         </div>
       )}
@@ -313,15 +313,15 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
           <div
             role="status"
             data-testid="record-progress-draft-saved"
-            className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-3 text-emerald-900"
+            className="rounded-xl border border-outline-variant bg-surface-container-lowest dark:bg-surface-container p-4 space-y-3 text-[#2f7d4f]"
           >
-            <p className="text-sm font-semibold">已存为汇报草稿</p>
+            <p className="text-sm font-normal tabular-nums">已存为汇报草稿</p>
             <p className="text-xs">这条记录已加入你在该项目的汇报草稿，可以在「我的汇报」里继续编辑和提交。</p>
             <div className="flex gap-3">
               <button
                 type="button"
                 data-testid="record-progress-view-reports"
-                className="min-h-11 px-4 rounded-xl bg-emerald-600 text-white text-sm font-semibold"
+                className="min-h-11 px-4 rounded-lg bg-[#2f7d4f] text-on-primary text-sm font-medium tabular-nums"
                 onClick={() => {
                   onSaved?.('report_draft');
                   if (onViewReports) onViewReports();
@@ -330,7 +330,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
               >
                 去我的汇报查看
               </button>
-              <button type="button" className="min-h-11 px-4 rounded-xl border border-emerald-300 text-sm" onClick={() => { onSaved?.('report_draft'); onBack?.(); }}>
+              <button type="button" className="min-h-11 px-4 rounded-lg border border-outline-variant text-sm" onClick={() => { onSaved?.('report_draft'); onBack?.(); }}>
                 关闭
               </button>
             </div>
@@ -340,15 +340,15 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
           <div
             role="alert"
             data-testid="record-progress-error"
-            className="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 text-red-600 dark:text-red-400 text-sm rounded-xl"
+            className="p-3 bg-error-container dark:bg-error border border-outline-variant dark:border-outline-variant text-error dark:text-error text-sm rounded-xl"
           >
             {error}
           </div>
         )}
 
         {/* 关联项目与事项 */}
-        <div className="bg-white dark:bg-[#1a222d] rounded-2xl p-4 shadow-xs border border-slate-200 dark:border-slate-800 space-y-3">
-          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+        <div className="bg-surface-container-lowest dark:bg-surface-container rounded-xl p-4 shadow-sm dark:shadow-none border border-outline-variant dark:border-outline-variant space-y-3">
+          <div className="text-xs font-medium text-on-surface-variant dark:text-outline tabular-nums">
             上下文归属（可选）
           </div>
 
@@ -356,7 +356,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
             {/* 项目选择 */}
             {projects.length > 0 && (
               <div>
-                <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
+                <label className="block text-xs text-on-surface-variant dark:text-outline mb-1">
                   所属项目
                 </label>
                 <select
@@ -364,7 +364,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
                   value={selectedProjectId}
                   onChange={(e) => { setSelectedProjectId(e.target.value); setSelectedNodeId(''); setNodeList([]); }}
                   disabled={submitting || suggesting}
-                  className="w-full text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-slate-100 outline-hidden"
+                  className="w-full text-sm rounded-lg border border-outline-variant dark:border-outline-variant bg-surface dark:bg-surface-container-lowest px-3 py-2 text-on-surface dark:text-on-surface outline-hidden"
                 >
                   {projects
                     .filter((p) => p.id !== 'all')
@@ -379,7 +379,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
 
             {/* 关联事项 */}
             <div>
-              <label className="block text-xs text-slate-500 dark:text-slate-400 mb-1">
+              <label className="block text-xs text-on-surface-variant dark:text-outline mb-1">
                 关联责任事项（选证据材料时必填）
               </label>
               <select
@@ -387,7 +387,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
                 value={selectedNodeId}
                 onChange={(e) => setSelectedNodeId(e.target.value)}
                 disabled={submitting || suggesting || nodeLoading}
-                className="w-full text-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-3 py-2 text-slate-900 dark:text-slate-100 outline-hidden"
+                className="w-full text-sm rounded-lg border border-outline-variant dark:border-outline-variant bg-surface dark:bg-surface-container-lowest px-3 py-2 text-on-surface dark:text-on-surface outline-hidden"
               >
                 <option value="">（不关联具体事项）</option>
                 {nodeList.map((n) => (
@@ -401,15 +401,15 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
         </div>
 
         {/* 进展多行文本输入 */}
-        <div className="bg-white dark:bg-[#1a222d] rounded-2xl p-4 shadow-xs border border-slate-200 dark:border-slate-800 space-y-2">
+        <div className="bg-surface-container-lowest dark:bg-surface-container rounded-xl p-4 shadow-sm dark:shadow-none border border-outline-variant dark:border-outline-variant space-y-2">
           <div className="flex items-center justify-between">
             <label
               htmlFor="progress-content-input"
-              className="text-xs font-semibold text-slate-500 dark:text-slate-400"
+              className="text-xs font-medium text-on-surface-variant dark:text-outline tabular-nums"
             >
               进展与事实内容
             </label>
-            <span className="text-xs text-slate-400">{text.length} 字</span>
+            <span className="text-xs text-outline">{text.length} 字</span>
           </div>
           <textarea
             id="progress-content-input"
@@ -419,23 +419,23 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
             disabled={submitting || suggesting}
             placeholder="写下最新的工作进展、交付成果、测试结果、心得记录或备忘…"
             rows={5}
-            className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-3 text-sm text-slate-900 dark:text-slate-100 outline-hidden resize-none placeholder:text-slate-400"
+            className="w-full rounded-lg border border-outline-variant dark:border-outline-variant bg-surface dark:bg-surface-container-lowest p-3 text-sm text-on-surface dark:text-on-surface outline-hidden resize-none placeholder:text-outline"
           />
         </div>
 
         {/* 附件上传 */}
-        <div className="bg-white dark:bg-[#1a222d] rounded-2xl p-4 shadow-xs border border-slate-200 dark:border-slate-800 space-y-3">
+        <div className="bg-surface-container-lowest dark:bg-surface-container rounded-xl p-4 shadow-sm dark:shadow-none border border-outline-variant dark:border-outline-variant space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+            <span className="text-xs font-medium text-on-surface-variant dark:text-outline tabular-nums">
               附件资料（可选）
             </span>
             <button
               type="button"
               disabled={uploading || submitting || suggesting}
               onClick={() => fileInputRef.current?.click()}
-              className="text-xs text-[#0058BE] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-40"
+              className="text-xs text-primary hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-40"
             >
-              <AppIcon name="add" size={14} />
+              <AppIcon name="add" size={18} />
               <span>{uploading ? '正在上传…' : '添加附件'}</span>
             </button>
             <input
@@ -452,27 +452,27 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
               {uploadedFiles.map((f) => (
                 <div
                   key={f.file_id}
-                  className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-200"
+                  className="flex items-center justify-between p-2  bg-surface  border-b border-outline-variant dark:border-outline-variant text-xs text-on-surface dark:text-outline"
                 >
                   <div className="flex items-center gap-2 min-w-0">
-                    <AppIcon name="folder" size={16} />
+                    <AppIcon name="folder" size={18} />
                     <span className="truncate">{f.name}</span>
-                    <span className="text-slate-400">({f.sizeStr})</span>
+                    <span className="text-outline">({f.sizeStr})</span>
                   </div>
                   <button
                     type="button"
                     aria-label={`移除附件 ${f.name}`}
                     disabled={submitting || suggesting}
                     onClick={() => handleRemoveFile(f.file_id)}
-                    className="p-1 text-slate-400 hover:text-red-500 cursor-pointer"
+                    className="p-1 text-outline hover:text-error cursor-pointer"
                   >
-                    <AppIcon name="close" size={14} />
+                    <AppIcon name="close" size={18} />
                   </button>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="text-xs text-slate-400 italic">未附加文件</div>
+            <div className="text-xs text-outline ">未附加文件</div>
           )}
         </div>
 
@@ -480,21 +480,21 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
         {step === 'confirm' && (
           <div
             data-testid="record-progress-suggestion-card"
-            className="bg-blue-50/70 dark:bg-blue-950/30 rounded-2xl p-4 border border-blue-200 dark:border-blue-900 space-y-3"
+            className="bg-surface-container-lowest dark:bg-surface-container rounded-xl p-4 border border-primary dark:border-primary space-y-3"
           >
             {suggestResult && (
-              <div className="text-sm text-blue-900 dark:text-blue-200 font-medium">
+              <div className="text-sm text-primary dark:text-primary font-medium tabular-nums">
                 建议存为：
-                <span className="font-bold underline decoration-blue-500 underline-offset-2 ml-1">
+                <span className="font-medium underline decoration-blue-500 underline-offset-2 ml-1 tabular-nums">
                   {TARGET_LABELS[suggestResult.target]}
                 </span>
-                <span className="text-xs text-blue-700 dark:text-blue-300 ml-2">
+                <span className="text-xs text-primary dark:text-primary ml-2">
                   （{suggestResult.reason}）
                 </span>
               </div>
             )}
 
-            <div className="text-xs text-slate-500 dark:text-slate-400">
+            <div className="text-xs text-on-surface-variant dark:text-outline">
               请确认或改选去向：
             </div>
 
@@ -510,27 +510,27 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
                     data-testid={`target-option-${tgt}`}
                     onClick={() => setChosenTarget(tgt)}
                     disabled={submitting}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-3 rounded-lg border text-left transition-ink-colors cursor-pointer ${
                       isSelected
-                        ? 'border-[#0058BE] bg-white dark:bg-slate-800 shadow-xs ring-2 ring-[#0058BE]/20'
-                        : 'border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/60 hover:border-slate-300'
+                        ? 'border-primary bg-surface-container-lowest dark:bg-surface-container-lowest shadow-sm dark:shadow-none ring-2 ring-primary/20'
+                        : 'border-outline-variant dark:border-outline-variant bg-surface-container-lowest/70 dark:bg-surface-container-lowest/60 hover:border-outline-variant'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
                       <span
-                        className={`text-sm font-semibold ${
-                          isSelected ? 'text-[#0058BE]' : 'text-slate-800 dark:text-slate-200'
+                        className={`text-sm font-medium ${
+                          isSelected ? 'text-primary' : 'text-on-surface dark:text-outline'
                         }`}
                       >
                         {TARGET_LABELS[tgt]}
                       </span>
                       {isSelected && (
-                        <span className="text-[#0058BE]">
-                          <AppIcon name="check" size={16} />
+                        <span className="text-primary">
+                          <AppIcon name="check" size={18} />
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+                    <p className="text-xs text-on-surface-variant dark:text-outline leading-snug">
                       {TARGET_DESCRIPTIONS[tgt]}
                     </p>
                   </button>
@@ -548,7 +548,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
               data-testid="next-step-button"
               disabled={!text.trim() || uploading || suggesting}
               onClick={() => void handleNextStep()}
-              className="w-full py-3.5 px-4 rounded-xl bg-[#0058BE] text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#004ca8] active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full py-4 px-4 rounded-lg bg-primary text-on-primary text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#004ca8] active:scale-[0.99] transition-ink-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer tabular-nums"
             >
               {suggesting ? (
                 <>
@@ -565,7 +565,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
                 type="button"
                 disabled={submitting}
                 onClick={() => setStep('input')}
-                className="py-3.5 px-4 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-sm font-medium hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                className="py-4 px-4 rounded-lg border border-outline-variant dark:border-outline-variant text-on-surface dark:text-outline text-sm font-medium hover:bg-surface-container dark:hover:bg-surface-container-lowest transition-ink-colors cursor-pointer tabular-nums"
               >
                 返回修改
               </button>
@@ -574,7 +574,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
                 data-testid="confirm-save-button"
                 disabled={submitting}
                 onClick={() => void handleConfirmSave()}
-                className="flex-1 py-3.5 px-4 rounded-xl bg-[#0058BE] text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-[#004ca8] active:scale-[0.99] transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="flex-1 py-4 px-4 rounded-lg bg-primary text-on-primary text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#004ca8] active:scale-[0.99] transition-ink-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer tabular-nums"
               >
                 {submitting ? (
                   <>

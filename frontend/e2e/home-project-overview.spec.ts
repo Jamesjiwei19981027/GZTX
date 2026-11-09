@@ -7,6 +7,7 @@ async function openOverview(page: Page, kind: 'mobile-home' | 'desktop-home' | '
     const url=new URL(route.request().url());
     let data:unknown={items:[]};
     if(url.pathname.endsWith('/tree'))data={nodes:[]};
+    if(url.pathname.endsWith('/my-permissions'))data={is_pm:true};
     if(url.pathname.endsWith('/projects/1'))data={id:1,name:'测试项目',status:'active'};
     if(url.pathname.endsWith('/projects/1/tasks'))data=url.searchParams.get('page')==='2'
       ?{items:[{id:3,title:'团队已完成事项',status:2,priority:1,project_id:1}],total:3}

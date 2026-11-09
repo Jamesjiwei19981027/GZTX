@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { ViewMode, Language } from '../types';
 import { getT } from '../i18n';
-import { BrandMark } from './BrandMark';
 
 interface SidebarProps {
   activeView: ViewMode;
@@ -44,13 +43,12 @@ const SidebarImpl: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Desktop Left Sidebar */}
-      <aside className="fixed left-0 top-16 h-[calc(100vh-64px)] w-[280px] bg-surface dark:bg-[#1c1a18] border-r border-surface-variant dark:border-outline-variant hidden md:flex flex-col py-6 px-4 gap-2 z-40 transition-ink-colors shadow-sm">
+      <aside className="fixed left-0 top-16 h-[calc(100vh-64px)] w-[280px] bg-surface dark:bg-surface-container-lowest border-r border-surface-variant dark:border-outline-variant hidden md:flex flex-col py-6 px-4 gap-2 z-40 transition-ink-colors shadow-sm dark:shadow-none">
         <div className="mb-4 px-2 space-y-4">
-          <BrandMark lang={lang} iconSize={24} className="text-base" />
-          <h2 className="text-base font-medium text-on-surface tracking-tight">
+          <h2 className="text-base font-medium text-on-surface  tabular-nums">
             {t.projectSpace}
           </h2>
-          <p className="text-xs text-on-surface-variant mt-0.5">{t.appSubtitle}</p>
+          <p className="text-xs text-on-surface-variant mt-1">{t.appSubtitle}</p>
         </div>
 
         <nav className="flex flex-col gap-1 flex-grow overflow-y-auto">
@@ -63,13 +61,13 @@ const SidebarImpl: React.FC<SidebarProps> = ({
                 onClick={() => onSelectView(item.id)}
                 className={`flex items-center gap-3 px-3 h-9 rounded-[var(--radius-ink-control)] transition-ink-colors font-medium text-sm ${
                   isActive
-                    ? 'text-primary dark:text-[#8fb0e8] bg-surface-container-high dark:bg-[#262421] ring-1 ring-inset ring-primary/20'
-                    : 'text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-[#262421] hover:text-on-surface'
+                    ? 'text-primary dark:text-primary bg-surface-container-high dark:bg-surface-container-high ring-1 ring-inset ring-primary/20'
+                    : 'text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-surface-container-high hover:text-on-surface'
                 }`}
               >
                 <span
                   aria-hidden="true"
-                  className="material-symbols-outlined text-[22px]"
+                  className="material-symbols-outlined text-[18px]"
                   style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
                 >
                   {item.icon}
@@ -84,11 +82,11 @@ const SidebarImpl: React.FC<SidebarProps> = ({
             aria-expanded={showMoreGroup || isSecondaryActive}
             className={`flex items-center gap-3 px-3 h-9 rounded-[var(--radius-ink-control)] transition-ink-colors font-medium text-sm ${
               isSecondaryActive
-                ? 'text-primary dark:text-[#8fb0e8]'
-                : 'text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-[#262421] hover:text-on-surface'
+                ? 'text-primary dark:text-primary'
+                : 'text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-surface-container-high hover:text-on-surface'
             }`}
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-[22px]">more_horiz</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">more_horiz</span>
             <span className="truncate">{lang === 'zh' ? '工作工具与管理' : 'Tools & administration'}</span>
             <span aria-hidden="true" className="material-symbols-outlined text-[18px] ml-auto">
               {showMoreGroup || isSecondaryActive ? 'expand_less' : 'expand_more'}
@@ -104,13 +102,13 @@ const SidebarImpl: React.FC<SidebarProps> = ({
                   onClick={() => onSelectView(item.id)}
                 className={`flex items-center gap-3 pl-8 pr-4 h-9 rounded-[var(--radius-ink-control)] transition-ink-colors font-medium text-sm ${
                     isActive
-                      ? 'text-primary dark:text-[#8fb0e8] bg-surface-container-high dark:bg-[#262421] ring-1 ring-inset ring-primary/20'
-                      : 'text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-[#262421] hover:text-on-surface'
+                      ? 'text-primary dark:text-primary bg-surface-container-high dark:bg-surface-container-high ring-1 ring-inset ring-primary/20'
+                      : 'text-on-surface-variant hover:bg-surface-container-low dark:hover:bg-surface-container-high hover:text-on-surface'
                   }`}
                 >
                   <span
                     aria-hidden="true"
-                    className="material-symbols-outlined text-[20px]"
+                    className="material-symbols-outlined text-[18px]"
                     style={{ fontVariationSettings: isActive ? "'FILL' 1" : "'FILL' 0" }}
                   >
                     {item.icon}
@@ -125,15 +123,15 @@ const SidebarImpl: React.FC<SidebarProps> = ({
         <div className="mt-auto pt-4">
           <button
             onClick={onOpenNewTask}
-            className="w-full flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-[var(--radius-ink-control)] font-medium text-sm shadow-md hover:opacity-90 active:scale-95 transition-ink"
+            className="w-full flex items-center justify-center gap-2 bg-surface-container text-on-surface border border-outline-variant py-3 rounded-[var(--radius-ink-control)] font-medium text-sm hover:bg-surface-container-high transition-ink-colors tabular-nums"
           >
-            <span aria-hidden="true" className="material-symbols-outlined text-xl">add</span>
+            <span aria-hidden="true" className="material-symbols-outlined text-[18px]">add</span>
             <span>{t.newTask}</span>
           </button>
         </div>
       </aside>
 
-      <nav aria-label="主要页面导航" className="md:hidden fixed bottom-0 left-0 right-0 flex justify-around bg-surface dark:bg-[#1c1a18] border-t z-50 pb-[env(safe-area-inset-bottom)]">
+      <nav aria-label="主要页面导航" className="md:hidden fixed bottom-0 left-0 right-0 flex justify-around bg-surface dark:bg-surface-container-lowest border-t z-50 pb-[env(safe-area-inset-bottom)]">
         {primaryNavItems.map(item => <button key={item.id} type="button" onClick={() => onSelectView(item.id)}
           className={`min-h-[56px] flex-1 flex flex-col items-center justify-center gap-1 ${activeView === item.id ? 'text-primary' : 'text-on-surface-variant'}`}>
           <span aria-hidden="true" className="material-symbols-outlined">{item.icon}</span><span className="text-xs">{item.label}</span>

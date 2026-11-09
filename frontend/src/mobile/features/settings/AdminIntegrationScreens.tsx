@@ -21,11 +21,11 @@ import { AppIcon } from '../../ui/AppIcon';
 export const AdminPermissionBanner: React.FC<{ isAdmin: boolean }> = ({ isAdmin }) => {
   if (isAdmin) return null;
   return (
-    <div className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex items-start gap-2.5 text-xs text-amber-900 dark:text-amber-200">
-      <AppIcon name="warning" size={16} className="text-amber-600 shrink-0 mt-0.5" />
+    <div className="p-4 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-[#d9a35b] rounded-xl flex items-start gap-2 text-xs text-[#a86412] dark:text-[#d9a35b]">
+      <AppIcon name="warning" size={18} className="text-inherit shrink-0 mt-1" />
       <div>
-        <p className="font-semibold">只读权限模式 (普通成员视图)</p>
-        <p className="mt-0.5 text-amber-800 dark:text-amber-300 leading-relaxed">
+        <p className="font-normal tabular-nums">只读权限模式 (普通成员视图)</p>
+        <p className="mt-1 text-[#a86412] dark:text-[#d9a35b] leading-relaxed">
           企业级服务与基础设施配置仅企业管理员拥有写入权限。当前展示真实配置状态，已禁用修改提交。
         </p>
       </div>

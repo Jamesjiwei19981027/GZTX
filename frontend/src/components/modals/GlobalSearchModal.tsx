@@ -204,15 +204,15 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-start justify-center pt-[12vh] bg-black/40 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] flex items-start justify-center pt-[12vh] bg-black/40 "
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl mx-4 rounded-2xl bg-surface dark:bg-[#1d2021] shadow-2xl border border-outline-variant/40 overflow-hidden"
+        className="w-full max-w-xl mx-4 rounded-[var(--radius-ink-panel)] bg-surface-container-lowest dark:bg-[#1d2021] shadow-sm dark:shadow-none border border-outline-variant/40 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b border-outline-variant/40">
-          <span className="material-symbols-outlined text-on-surface-variant">search</span>
+          <span className="material-symbols-outlined text-inherit">search</span>
           <input
             ref={inputRef}
             value={query}
@@ -220,7 +220,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
             placeholder={zh ? '搜索任务 / 项目 / 知识…' : 'Search tasks / projects / knowledge…'}
             className="flex-1 bg-transparent outline-none text-on-surface placeholder:text-on-surface-variant/60"
           />
-          <kbd className="text-[10px] px-1.5 py-0.5 rounded border border-outline-variant/60 text-on-surface-variant">
+          <kbd className="text-xs px-2 py-1 rounded border border-outline-variant/60 text-on-surface-variant">
             Esc
           </kbd>
         </div>
@@ -253,7 +253,7 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                 }
               >
                 {showHeader && (
-                  <div className="px-4 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-on-surface-variant/70">
+                  <div className="px-4 pt-2 pb-1 text-xs font-medium   text-on-surface-variant/70 tabular-nums">
                     {sectionLabel(item.type)}
                   </div>
                 )}
@@ -265,13 +265,13 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({
                     isActive ? 'bg-primary/10' : ''
                   }`}
                 >
-                  <span aria-hidden="true" className="material-symbols-outlined text-lg text-on-surface-variant mt-0.5">
+                  <span aria-hidden="true" className="material-symbols-outlined text-[18px] text-inherit mt-1">
                     {item.type === 'task' ? 'task_alt' : item.type === 'project' ? 'hub' : 'description'}
                   </span>
                   <span className="flex-1 min-w-0">
                     {item.type === 'task' && (
                       <>
-                        <span className="block text-sm text-on-surface truncate">{item.task.title}</span>
+                        <span className={`block text-sm font-medium truncate ${item.task.status === 'Done' ? 'ink-done' : 'text-on-surface'}`}>{item.task.title}</span>
                         {item.task.description && (
                           <span className="block text-xs text-on-surface-variant truncate">
                             {item.task.description}

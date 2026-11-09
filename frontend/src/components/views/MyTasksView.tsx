@@ -69,22 +69,22 @@ const RescheduleMenu: React.FC<{
         }}
         className={
           triggerClass ||
-          'flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-error-container/60 text-on-error-container text-[11px] font-bold hover:bg-error-container transition-colors'
+          'flex items-center gap-1 px-2 py-2 rounded-lg bg-error-container/60 text-on-error-container text-xs font-medium hover:bg-error-container transition-ink-colors'
         }
       >
-        <span className="material-symbols-outlined text-sm">event</span>
+        <span className="material-symbols-outlined text-[18px]">event</span>
         <span>{triggerLabel}</span>
-        <span className="material-symbols-outlined text-sm">expand_more</span>
+        <span className="material-symbols-outlined text-[18px]">expand_more</span>
       </button>
       {open && (
         <div
-          className="absolute right-0 top-full mt-1 w-52 bg-surface dark:bg-[#262421] rounded-xl shadow-xl border border-surface-variant dark:border-outline p-2 z-40 animate-in fade-in zoom-in-95 duration-150"
+          className="absolute right-0 top-full mt-1 w-52 bg-surface-container-lowest dark:bg-surface-container rounded-xl shadow-sm dark:shadow-none border border-surface-variant dark:border-outline p-2 z-40 animate-in fade-in zoom-in-95 duration-150"
           onClick={(e) => e.stopPropagation()}
         >
           <button
             data-testid={`${testIdPrefix}-tomorrow`}
             onClick={() => pick(tomorrowStr())}
-            className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-container-low dark:hover:bg-[#1c1a18] text-xs font-semibold text-on-surface dark:text-[#efe9de]"
+            className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-container-low dark:hover:bg-surface-container-lowest text-xs font-medium text-on-surface dark:text-on-surface tabular-nums"
           >
             {lang === 'zh' ? '明天' : 'Tomorrow'}
             <span className="ml-2 text-on-surface-variant font-normal">{tomorrowStr()}</span>
@@ -92,29 +92,29 @@ const RescheduleMenu: React.FC<{
           <button
             data-testid={`${testIdPrefix}-next-monday`}
             onClick={() => pick(nextMondayStr())}
-            className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-container-low dark:hover:bg-[#1c1a18] text-xs font-semibold text-on-surface dark:text-[#efe9de]"
+            className="w-full text-left px-3 py-2 rounded-lg hover:bg-surface-container-low dark:hover:bg-surface-container-lowest text-xs font-medium text-on-surface dark:text-on-surface tabular-nums"
           >
             {lang === 'zh' ? '下周一' : 'Next Monday'}
             <span className="ml-2 text-on-surface-variant font-normal">{nextMondayStr()}</span>
           </button>
-          <div className="border-t border-surface-variant dark:border-outline-variant mt-1 pt-2 px-1 pb-1 space-y-1.5">
-            <p className="text-[10px] font-bold uppercase text-on-surface-variant px-1">
+          <div className="border-t border-surface-variant dark:border-outline-variant mt-1 pt-2 px-1 pb-1 space-y-2">
+            <p className="text-xs font-normal  text-on-surface-variant px-1 tabular-nums">
               {lang === 'zh' ? '选日期' : 'Pick a date'}
             </p>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <input
                 type="date"
                 data-testid={`${testIdPrefix}-date`}
                 value={customDate}
                 min={formatDateLocal(new Date())}
                 onChange={(e) => setCustomDate(e.target.value)}
-                className="flex-1 min-w-0 px-2 py-1.5 rounded-lg border border-outline-variant bg-surface dark:bg-[#1c1a18] text-xs text-on-surface dark:text-[#efe9de]"
+                className="flex-1 min-w-0 px-2 py-2 rounded-lg border border-outline-variant bg-surface dark:bg-surface-container-lowest text-xs text-on-surface dark:text-on-surface"
               />
               <button
                 data-testid={`${testIdPrefix}-date-confirm`}
                 disabled={!customDate}
                 onClick={() => customDate && pick(customDate)}
-                className="shrink-0 px-2.5 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold disabled:opacity-40"
+                className="shrink-0 px-2 py-2 rounded-lg bg-primary text-on-primary text-xs font-medium disabled:opacity-40 tabular-nums"
               >
                 {lang === 'zh' ? '确定' : 'Go'}
               </button>
@@ -252,19 +252,19 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
     switch (priority) {
       case 'High':
         return (
-          <span className="bg-error-container text-on-error-container font-semibold text-[11px] px-2 py-0.5 rounded-full">
+          <span className="inline-flex items-center gap-2 text-xs font-medium text-on-surface-variant"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-error" />
             {t.priorityHigh}
           </span>
         );
       case 'Medium':
         return (
-          <span className="bg-primary-fixed text-on-primary-fixed-variant font-semibold text-[11px] px-2 py-0.5 rounded-full">
+          <span className="inline-flex items-center gap-2 text-xs font-medium text-on-surface-variant"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-[#a86412]" />
             {t.priorityMedium}
           </span>
         );
       case 'Low':
         return (
-          <span className="bg-surface-container-high text-on-surface-variant font-semibold text-[11px] px-2 py-0.5 rounded-full">
+          <span className="inline-flex items-center gap-2 text-xs font-medium text-on-surface-variant"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-outline" />
             {t.priorityLow}
           </span>
         );
@@ -281,7 +281,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
         data-testid="task-row"
         data-task-id={task.id}
         onClick={() => onSelectTask(task)}
-        className={`list-row-cv group flex items-center justify-between p-4 bg-surface dark:bg-[#1c1a18] border rounded-2xl transition-ink cursor-pointer shadow-xs hover:shadow-md ${
+        className={`list-row-cv group flex items-center justify-between py-4 border-b transition-ink-colors cursor-pointer ${
           isDone
             ? 'border-surface-variant dark:border-outline-variant opacity-75 bg-surface-container-lowest/50'
             : 'border-surface-variant dark:border-outline-variant hover:border-primary/50'
@@ -311,14 +311,14 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
               e.stopPropagation();
               onToggleTaskCompletion(task.id, e);
             }}
-            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-ink flex-shrink-0 cursor-pointer ${
+            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-ink-colors flex-shrink-0 cursor-pointer ${
               isDone
-                ? 'bg-secondary border-2 border-secondary text-on-secondary shadow-xs scale-105'
-                : 'border-2 border-outline hover:border-primary bg-surface dark:bg-[#262421]'
+                ? 'bg-secondary border-2 border-secondary text-on-secondary shadow-sm dark:shadow-none scale-105'
+                : 'border-2 border-outline hover:border-primary bg-surface dark:bg-surface-container-high'
             }`}
           >
             <span
-              className="material-symbols-outlined text-base font-bold transition-opacity duration-150"
+              className="material-symbols-outlined text-[18px] font-medium transition-opacity duration-150 tabular-nums"
               style={{ opacity: isDone ? 1 : 0 }}
             >
               check
@@ -328,46 +328,46 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           {/* Title & Meta */}
           <div className="flex flex-col min-w-0">
             <span
-              className={`font-semibold text-base truncate transition-colors ${
+              className={`font-medium text-base truncate transition-ink-colors ${
                 isDone
                 ? 'ink-done'
-                  : 'text-on-surface dark:text-[#efe9de] group-hover:text-primary dark:group-hover:text-[#adc6ff]'
+                  : 'text-on-surface dark:text-on-surface group-hover:text-primary dark:group-hover:text-primary'
               }`}
             >
               {task.title}
             </span>
-            <div className="flex flex-wrap items-center gap-2.5 mt-1">
+            <div className="flex flex-wrap items-center gap-2 mt-1">
               {getPriorityBadge(task.priority)}
 
               <span
                 className={`flex items-center gap-1 text-xs font-medium ${
-                  isOverdue(task) ? 'text-error font-bold' : 'text-on-surface-variant'
+                  isOverdue(task) ? 'text-error font-medium' : 'text-on-surface-variant'
                 }`}
               >
-                <span className="material-symbols-outlined text-xs">event</span>
+                <span className="material-symbols-outlined text-[18px]">event</span>
                 {task.dueDate} {task.dueTime ? `• ${task.dueTime}` : ''}
               </span>
 
               {task.isRecurring && (
                 <span
                   data-testid="task-recurring-badge"
-                  className="flex items-center gap-0.5 text-[11px] text-primary bg-primary/10 px-1.5 py-0.5 rounded-md font-semibold"
+                  className="flex items-center gap-1 text-xs text-primary bg-primary/10 px-2 py-1 rounded-md font-medium tabular-nums"
                   title={lang === 'zh' ? '重复任务' : 'Recurring task'}
                 >
-                  <span className="material-symbols-outlined text-xs">repeat</span>
+                  <span className="material-symbols-outlined text-[18px]">repeat</span>
                   {lang === 'zh' ? '重复' : 'Repeat'}
                 </span>
               )}
 
               {task.tag && (
-                <span className="text-[11px] bg-surface-container dark:bg-[#262421] text-on-surface-variant px-2 py-0.5 rounded-md font-medium">
+                <span className="text-xs bg-surface-container dark:bg-surface-container-high text-on-surface-variant px-2 py-1 rounded-md font-medium tabular-nums">
                   #{task.tag}
                 </span>
               )}
 
               {task.subtasks && task.subtasks.length > 0 && (
                 <span className="flex items-center gap-1 text-xs text-on-surface-variant">
-                  <span className="material-symbols-outlined text-xs">checklist</span>
+                  <span className="material-symbols-outlined text-[18px]">checklist</span>
                   {task.subtasks.filter((st) => st.completed).length}/{task.subtasks.length}
                 </span>
               )}
@@ -378,11 +378,11 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
         {/* Right: Assignee & Action */}
         <div className="flex items-center gap-3 flex-shrink-0 ml-4">
           {(task.assignees?.length ? task.assignees : task.assignee ? [task.assignee] : []).slice(0, 3).map((member) => (
-            member.avatar ? <img key={member.id} src={member.avatar} alt={member.name} title={member.name} className="w-7 h-7 rounded-full object-cover border border-outline-variant hidden sm:block shadow-xs" /> : <span key={member.id} title={member.name} className="w-7 h-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center border border-outline-variant hidden sm:flex">{member.name.slice(0, 1)}</span>
+            member.avatar ? <img key={member.id} src={member.avatar} alt={member.name} title={member.name} className="w-7 h-7 rounded-full object-cover border border-outline-variant hidden sm:block shadow-sm dark:shadow-none" /> : <span key={member.id} title={member.name} className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center border border-outline-variant hidden sm:flex tabular-nums">{member.name.slice(0, 1)}</span>
           ))}
-          {(task.assignees?.length || 0) > 3 && <span className="text-[10px] font-bold text-on-surface-variant">+{(task.assignees?.length || 0) - 3}</span>}
-          <button className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-surface-container dark:hover:bg-[#262421] rounded-full text-on-surface-variant transition-ink">
-            <span className="material-symbols-outlined text-lg">drag_indicator</span>
+          {(task.assignees?.length || 0) > 3 && <span className="text-xs font-medium text-on-surface-variant tabular-nums">+{(task.assignees?.length || 0) - 3}</span>}
+          <button className="opacity-0 group-hover:opacity-100 p-2 hover:bg-surface-container dark:hover:bg-surface-container-high rounded-lg text-on-surface-variant transition-ink-colors">
+            <span className="material-symbols-outlined text-[18px]">drag_indicator</span>
           </button>
         </div>
       </div>
@@ -394,10 +394,10 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
       {/* Top Header & Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-extrabold text-on-surface dark:text-[#efe9de] tracking-tight">
+          <h1 className="text-3xl font-medium text-on-surface dark:text-on-surface  tabular-nums">
             {t.myTasks}
           </h1>
-          <span className="bg-primary-fixed text-on-primary-fixed font-bold text-xs px-3 py-1 rounded-full">
+          <span className="bg-primary-fixed text-on-primary-fixed font-medium text-xs px-3 py-1 rounded-md tabular-nums">
             {tasks.filter((t) => t.status !== 'Done').length} {lang === 'zh' ? '项待办' : 'Active'}
           </span>
         </div>
@@ -408,7 +408,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 bg-surface dark:bg-[#1c1a18] border border-outline-variant dark:border-outline rounded-xl text-xs font-semibold text-on-surface dark:text-[#efe9de] focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
+            className="px-3 py-2 bg-surface dark:bg-surface-container-lowest border border-outline-variant dark:border-outline rounded-lg text-xs font-medium text-on-surface dark:text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-sm dark:shadow-none tabular-nums"
           >
             <option value="All">{t.statusAll}</option>
             <option value="To Do">{t.toDo}</option>
@@ -420,7 +420,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           <select
             value={priorityFilter}
             onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-2 bg-surface dark:bg-[#1c1a18] border border-outline-variant dark:border-outline rounded-xl text-xs font-semibold text-on-surface dark:text-[#efe9de] focus:outline-none focus:ring-2 focus:ring-primary shadow-xs"
+            className="px-3 py-2 bg-surface dark:bg-surface-container-lowest border border-outline-variant dark:border-outline rounded-lg text-xs font-medium text-on-surface dark:text-on-surface focus:outline-none focus:ring-2 focus:ring-primary shadow-sm dark:shadow-none tabular-nums"
           >
             <option value="All">{t.priorityAll}</option>
             <option value="High">{t.priorityHigh}</option>
@@ -431,29 +431,29 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
           {/* Today Filter */}
           <button
             onClick={() => setOnlyToday(!onlyToday)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-ink-colors border shadow-xs ${
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-ink-colors border shadow-sm dark:shadow-none ${
               onlyToday
-                ? 'bg-primary text-on-primary border-primary shadow-sm'
-                : 'bg-surface dark:bg-[#1c1a18] text-on-surface dark:text-[#efe9de] border-outline-variant dark:border-outline hover:bg-surface-container-low'
+                ? 'bg-primary text-on-primary border-primary shadow-sm dark:shadow-none'
+                : 'bg-surface dark:bg-surface-container-lowest text-on-surface dark:text-on-surface border-outline-variant dark:border-outline hover:bg-surface-container-low'
             }`}
           >
-            <span className="material-symbols-outlined text-sm">calendar_today</span>
+            <span className="material-symbols-outlined text-[18px]">calendar_today</span>
             <span>{t.today}</span>
           </button>
         </div>
       </div>
 
       {/* Progress Bar Section */}
-      <div className="mb-8 bg-surface dark:bg-[#1c1a18] p-5 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm">
+      <div className="mb-8 bg-surface-container-lowest dark:bg-surface-container p-5 rounded-xl border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none">
         <div className="flex justify-between items-center mb-2">
-          <span className="text-sm font-bold text-on-surface dark:text-[#efe9de]">
+          <span className="text-sm font-medium text-on-surface dark:text-on-surface tabular-nums">
             {t.overallCompletion}
           </span>
-          <span className="text-base font-extrabold text-secondary">{completionPercentage}%</span>
+          <span className="text-base font-medium text-secondary tabular-nums">{completionPercentage}%</span>
         </div>
-        <div className="w-full bg-surface-container-highest dark:bg-[#262421] rounded-full h-2 overflow-hidden">
+        <div className="w-full bg-surface-container-highest dark:bg-surface-container-high rounded-full h-2 overflow-hidden">
           <div
-            className="bg-secondary h-2 rounded-full transition-[width] duration-1000 ease-out"
+            className="bg-secondary h-2 rounded-full "
             style={{ width: `${completionPercentage}%` }}
           ></div>
         </div>
@@ -466,7 +466,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
             <div className="flex items-center justify-between gap-2 px-1">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-error"></span>
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-error">
+                <h3 className="text-xs font-medium   text-error tabular-nums">
                   {lang === 'zh' ? '已逾期' : 'Overdue'} ({overdueTasks.length})
                 </h3>
               </div>
@@ -481,20 +481,20 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 />
               )}
             </div>
-            <div className="space-y-2.5">{overdueTasks.map((task) => renderTaskRow(task))}</div>
+            <div className="space-y-2">{overdueTasks.map((task) => renderTaskRow(task))}</div>
           </div>
         )}
 
         {normalTasks.length > 0 && (
-          <div className="space-y-2.5">{normalTasks.map((task) => renderTaskRow(task))}</div>
+          <div className="space-y-2">{normalTasks.map((task) => renderTaskRow(task))}</div>
         )}
 
         {filteredTasks.length === 0 && (
-          <div className="text-center py-16 bg-surface dark:bg-[#1c1a18] rounded-2xl border border-dashed border-outline-variant">
-            <span className="material-symbols-outlined text-4xl text-on-surface-variant mb-2">
+          <div className="text-center py-16 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-dashed border-outline-variant">
+            <span className="material-symbols-outlined text-4xl text-inherit mb-2">
               task_alt
             </span>
-            <p className="text-base font-semibold text-on-surface dark:text-[#efe9de]">
+            <p className="text-base font-normal text-on-surface dark:text-on-surface tabular-nums">
               {lang === 'zh' ? '当前筛选条件下没有任务' : 'No tasks match your filter'}
             </p>
             <p className="text-xs text-on-surface-variant mt-1">
@@ -506,7 +506,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
 
       {/* 键盘流提示（有任务时显示一次性的静态提示行） */}
       {orderedTasks.length > 0 && (
-        <p className="mt-6 text-[11px] text-on-surface-variant text-center">
+        <p className="mt-6 text-xs text-on-surface-variant text-center">
           {lang === 'zh'
             ? '键盘：J/K 移动 · X 选中 · E 打开详情 · C 完成 · ? 查看全部快捷键'
             : 'Keys: J/K move · X select · E open · C complete · ? all shortcuts'}
@@ -517,9 +517,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
       {selectionActive && (
         <div
           data-testid="batch-bar"
-          className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-surface dark:bg-[#262421] border border-outline-variant dark:border-outline rounded-2xl shadow-2xl px-4 py-2.5 animate-in fade-in slide-in-from-bottom-2 duration-200"
+          className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline rounded-xl shadow-sm dark:shadow-none px-4 py-2 animate-in fade-in slide-in- duration-200"
         >
-          <span className="text-xs font-bold text-on-surface dark:text-[#efe9de] whitespace-nowrap">
+          <span className="text-xs font-medium text-on-surface dark:text-on-surface whitespace-nowrap tabular-nums">
             {lang === 'zh' ? `已选 ${selectedIds.size} 项` : `${selectedIds.size} selected`}
           </span>
           <div className="h-5 w-px bg-outline-variant" />
@@ -531,9 +531,9 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 setSelectedIds(new Set());
                 void onBatchComplete(ids);
               }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-secondary/15 text-secondary text-xs font-bold hover:bg-secondary/25 transition-colors"
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-secondary/15 text-secondary text-xs font-medium hover:bg-secondary/25 transition-ink-colors tabular-nums"
             >
-              <span className="material-symbols-outlined text-sm">check_circle</span>
+              <span className="material-symbols-outlined text-[18px]">check_circle</span>
               <span>{lang === 'zh' ? '完成' : 'Complete'}</span>
             </button>
           )}
@@ -542,7 +542,7 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
               lang={lang}
               testIdPrefix="batch-reschedule"
               triggerLabel={lang === 'zh' ? '顺延' : 'Reschedule'}
-              triggerClass="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors"
+              triggerClass="flex items-center gap-1 px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-ink-colors"
               onPick={(date) => {
                 const ids = [...selectedIds];
                 setSelectedIds(new Set());
@@ -558,16 +558,16 @@ export const MyTasksView: React.FC<MyTasksViewProps> = ({
                 setSelectedIds(new Set());
                 void onBatchDelete(ids);
               }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-error-container/50 text-on-error-container text-xs font-bold hover:bg-error-container transition-colors"
+              className="flex items-center gap-1 px-3 py-2 rounded-lg bg-error-container/50 text-on-error-container text-xs font-medium hover:bg-error-container transition-ink-colors tabular-nums"
             >
-              <span className="material-symbols-outlined text-sm">delete</span>
+              <span className="material-symbols-outlined text-[18px]">delete</span>
               <span>{lang === 'zh' ? '删除' : 'Delete'}</span>
             </button>
           )}
           <div className="h-5 w-px bg-outline-variant" />
           <button
             onClick={() => setSelectedIds(new Set())}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-bold text-on-surface-variant hover:bg-surface-container transition-colors"
+            className="px-2 py-2 rounded-lg text-xs font-medium text-on-surface-variant hover:bg-surface-container transition-ink-colors tabular-nums"
           >
             {lang === 'zh' ? '取消' : 'Cancel'}
           </button>

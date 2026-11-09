@@ -110,7 +110,7 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
   // -------------------------------------------------------------
   if (mode === 'submitted') {
     return (
-      <div className="flex flex-col h-full bg-[#f7f8fa] dark:bg-slate-950 select-none">
+      <div className="flex flex-col h-full bg-surface dark:bg-surface-container-lowest select-none">
         <MobileTopBar
           title="汇报提交与送达"
           showBack
@@ -121,53 +121,53 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
           {/* 成功 Hero 图标 */}
           <div className="pt-6 pb-2 flex flex-col items-center text-center">
-            <div className="w-16 h-16 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3">
-              <AppIcon name="check-circle" size={36} />
+            <div className="w-16 h-16 rounded-full bg-surface-container dark:bg-surface-container text-[#2f7d4f] dark:text-[#6bbf8a] flex items-center justify-center mb-3">
+              <AppIcon name="check-circle" size={18} />
             </div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">汇报已提交</h2>
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+            <h2 className="text-xl font-medium text-on-surface dark:text-on-surface tabular-nums">汇报已提交</h2>
+            <p className="text-xs text-outline dark:text-on-surface-variant mt-1">
               {currentProject.name} · {displayReport?.submitted_at ? parseApiDateTime(displayReport.submitted_at).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '刚刚'}
             </p>
           </div>
 
           {/* 真实多节点时间线 */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-xs">
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-4 px-1">
+          <div className="bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant/80 dark:border-outline-variant p-4 shadow-sm dark:shadow-none">
+            <h3 className="text-xs font-medium text-on-surface-variant   mb-4 px-1 tabular-nums">
               流转与送达节点
             </h3>
 
-            <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[2px] before:bg-slate-200 dark:before:bg-slate-800">
+            <div className="relative pl-6 space-y-6 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-[2px] before:bg-surface-container dark:before:bg-surface-container-lowest">
               {/* 节点 1：提交成功 */}
               <div className="relative">
-                <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">
+                <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-[#2f7d4f] text-on-primary flex items-center justify-center text-xs">
                   ✓
                 </div>
-                <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 block">
+                <strong className="text-sm font-medium text-on-surface dark:text-outline block tabular-nums">
                   提交成功
                 </strong>
-                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                <p className="text-xs text-outline mt-1 leading-relaxed">
                   已生成正式记录。当前报告不可被静默覆盖，完整保留历史版本依据。
                 </p>
               </div>
 
               {/* 节点 2：已送达直属领导 */}
               <div className="relative">
-                <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">
+                <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-[#2f7d4f] text-on-primary flex items-center justify-center text-xs">
                   ✓
                 </div>
                 <div className="flex items-center gap-2">
-                  <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  <strong className="text-sm font-medium text-on-surface dark:text-outline tabular-nums">
                     已送达直属领导
                   </strong>
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${
+                  <span className={`px-2 py-1 rounded-md text-xs font-medium ${
                     deliveryStatus.leaderDelivery.status === '已读'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-amber-100 text-amber-700'
+                      ? 'bg-surface-container text-[#2f7d4f]'
+                      : 'bg-surface-container text-[#a86412]'
                   }`}>
                     {deliveryStatus.leaderDelivery.status}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                <p className="text-xs text-outline mt-1 leading-relaxed">
                   {supervisor.name} · 人轴责任链实时路由确定
                   {deliveryStatus.leaderDelivery.readAt && ` · 已于 ${new Date(deliveryStatus.leaderDelivery.readAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} 阅读`}
                 </p>
@@ -175,36 +175,36 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
 
               {/* 节点 3：已送达领导 AI (依据 G01 提示暂不可确认) */}
               <div className="relative">
-                <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-600 flex items-center justify-center text-[10px]">
+                <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-surface-container-high dark:bg-surface-container-high text-on-surface-variant flex items-center justify-center text-xs">
                   ·
                 </div>
                 <div className="flex items-center gap-2">
-                  <strong className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                  <strong className="text-sm font-medium text-on-surface-variant dark:text-outline tabular-nums">
                     送达领导智能体
                   </strong>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-500">
+                  <span className="px-2 py-1 rounded-md text-xs font-medium bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant tabular-nums">
                     {deliveryStatus.aiReceipt.statusText}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                <p className="text-xs text-outline mt-1 leading-relaxed">
                   {deliveryStatus.aiReceipt.description}
                 </p>
               </div>
 
               {/* 节点 4：等待阅读与汇总 */}
               <div className="relative">
-                <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-600 flex items-center justify-center text-[10px]">
+                <div className="absolute -left-6 top-0.5 w-4 h-4 rounded-full bg-surface-container-high dark:bg-surface-container-high text-on-surface-variant flex items-center justify-center text-xs">
                   ·
                 </div>
                 <div className="flex items-center gap-2">
-                  <strong className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+                  <strong className="text-sm font-medium text-on-surface-variant dark:text-outline tabular-nums">
                     项目汇报汇总
                   </strong>
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-blue-50 text-blue-600">
+                  <span className="px-2 py-1 rounded-md text-xs font-medium bg-surface-container text-primary tabular-nums">
                     {deliveryStatus.rollupStatus}
                   </span>
                 </div>
-                <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                <p className="text-xs text-outline mt-1 leading-relaxed">
                   管理者收件箱与项目对照页面将同步展示最新进展与冲突比对。
                 </p>
               </div>
@@ -212,9 +212,9 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
           </div>
 
           {/* 规范提示 */}
-          <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 rounded-xl flex items-start gap-2">
-            <AppIcon name="info" size={16} className="text-[#0058BE] shrink-0 mt-0.5" />
-            <p className="text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
+          <div className="p-3 bg-surface-container-lowest dark:bg-surface-container border border-primary dark:border-primary rounded-xl flex items-start gap-2">
+            <AppIcon name="info" size={18} className="text-inherit shrink-0 mt-1" />
+            <p className="text-xs text-primary dark:text-primary leading-relaxed">
               个人提交的汇报不等于项目验收完成。项目验收状态请以责任链事项中的确认结果为准。
             </p>
           </div>
@@ -224,17 +224,17 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
             <button
               type="button"
               onClick={() => setMode('detail')}
-              className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 active:bg-blue-800 shadow-xs cursor-pointer transition-colors"
+              className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary/90 active:bg-primary/90 shadow-sm dark:shadow-none cursor-pointer transition-ink-colors tabular-nums"
             >
-              <AppIcon name="file" size={17} />
+              <AppIcon name="file" size={18} />
               <span>查看汇报详情与来源</span>
             </button>
             <button
               type="button"
               onClick={() => push({ screen: 'axis-root', title: '人轴责任链' })}
-              className="w-full min-h-[46px] rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-slate-50 cursor-pointer shadow-2xs transition-colors"
+              className="w-full min-h-[48px] rounded-lg bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant text-on-surface dark:text-outline text-sm font-medium flex items-center justify-center gap-2 hover:bg-surface cursor-pointer shadow-2xs transition-ink-colors tabular-nums"
             >
-              <AppIcon name="axis" size={17} />
+              <AppIcon name="axis" size={18} />
               <span>返回我的责任链</span>
             </button>
           </div>
@@ -247,7 +247,7 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
   // 模式 2 & 3：汇报历史列表与详情 (Design ID 39)
   // -------------------------------------------------------------
   return (
-    <div className="flex flex-col h-full bg-[#f7f8fa] dark:bg-slate-950 select-none">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface-container-lowest select-none">
       <MobileTopBar
         title={mode === 'detail' ? '汇报详情与版本' : '汇报历史与版本'}
         showBack
@@ -272,10 +272,10 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
                   key={tab}
                   type="button"
                   onClick={() => setFilterTab(tab)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-xs font-medium cursor-pointer transition-ink-colors ${
                     filterTab === tab
-                      ? 'bg-[#0058BE] text-white shadow-xs'
-                      : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
+                      ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                      : 'bg-surface-container-lowest dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline border border-outline-variant dark:border-outline-variant'
                   }`}
                 >
                   {tab === 'all' ? '全部' : tab === 'submitted' ? '已提交' : '草稿'}
@@ -295,7 +295,7 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
                 }}
               />
             ) : (
-              <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+              <div className="bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant/80 dark:border-outline-variant overflow-hidden divide-y divide-outline-variant dark:divide-outline-variant">
                 {filteredReports.map((r, index) => {
                   const isSubmitted = r.status === 'submitted' || r.status === 'aggregated';
                   const isRead = Boolean(r.read || r.read_at);
@@ -308,16 +308,16 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
                         setSelectedReport(r);
                         setMode('detail');
                       }}
-                      className="p-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100 transition-colors"
+                      className="p-4 flex items-center justify-between hover:bg-surface dark:hover:bg-surface-container-lowest/50 cursor-pointer active:bg-surface-container transition-ink-colors"
                     >
                       <div className="flex-1 min-w-0 pr-3">
                         <div className="flex items-center gap-2 mb-1">
-                          <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                          <strong className="text-sm font-medium text-on-surface dark:text-outline truncate tabular-nums">
                             {r.summary_text.slice(0, 24) || '工作进展汇报'}
                           </strong>
-                          <span className="text-[11px] font-mono text-slate-400">v{verNumber}</span>
+                          <span className="text-xs font-mono text-outline">v{verNumber}</span>
                         </div>
-                        <p className="text-xs text-slate-400 dark:text-slate-500 truncate">
+                        <p className="text-xs text-outline dark:text-on-surface-variant truncate">
                           {r.submitted_at
                             ? parseApiDateTime(r.submitted_at).toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                             : '草稿'} · {isSubmitted ? `已送达直属领导` : '未提交'}
@@ -327,20 +327,20 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
                       <div className="flex items-center gap-2 shrink-0">
                         {isSubmitted ? (
                           <span
-                            className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                            className={`px-2 py-1 rounded text-xs font-medium ${
                               isRead
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300'
-                                : 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300'
+                                ? 'bg-surface-container text-[#2f7d4f] dark:bg-surface-container dark:text-[#6bbf8a]'
+                                : 'bg-surface-container text-[#a86412] dark:bg-surface-container dark:text-[#d9a35b]'
                             }`}
                           >
                             {isRead ? '已读' : '未读'}
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+                          <span className="px-2 py-1 rounded text-xs font-medium bg-surface-container text-on-surface-variant dark:bg-surface-container-lowest dark:text-outline tabular-nums">
                             草稿
                           </span>
                         )}
-                        <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                        <AppIcon name="chevron-right" size={18} className="text-inherit" />
                       </div>
                     </div>
                   );
@@ -353,35 +353,35 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
           displayReport && (
             <div className="space-y-4">
               {/* 状态与元信息 */}
-              <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
+              <div className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant/80 dark:border-outline-variant shadow-sm dark:shadow-none">
                 <div className="flex items-center justify-between mb-2">
                   <span
-                    className={`px-2.5 py-0.5 rounded-md text-xs font-semibold ${
+                    className={`px-2 py-1 rounded-md text-xs font-medium ${
                       displayReport.status === 'submitted' || displayReport.status === 'aggregated'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        ? 'bg-surface-container text-[#2f7d4f] border border-outline-variant'
+                        : 'bg-surface-container text-[#a86412] border border-outline-variant'
                     }`}
                   >
                     {displayReport.status === 'aggregated' ? '已聚合到项目汇报' : displayReport.status === 'submitted' ? '已正式提交' : '草稿'}
                   </span>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-outline">
                     提交时间：{displayReport.submitted_at ? parseApiDateTime(displayReport.submitted_at).toLocaleString('zh-CN') : '未提交'}
                   </span>
                 </div>
 
-                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-500 space-y-1">
-                  <p>项目归属：<strong>{currentProject.name}</strong></p>
-                  <p>直属接收：<strong>{supervisor.name}</strong>（{deliveryStatus.leaderDelivery.status}）</p>
+                <div className="pt-2 border-t border-outline-variant dark:border-outline-variant text-xs text-on-surface-variant space-y-1">
+                  <p>项目归属：<strong className="font-medium">{currentProject.name}</strong></p>
+                  <p>直属接收：<strong className="font-medium">{supervisor.name}</strong>（{deliveryStatus.leaderDelivery.status}）</p>
                   <p>不可变版本：报告 ID #{displayReport.id}（系统严格归档）</p>
                 </div>
               </div>
 
               {/* 汇报内容主体 */}
               <section className="space-y-2">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
+                <h3 className="text-xs font-medium text-on-surface-variant   px-1 tabular-nums">
                   汇报内容摘要
                 </h3>
-                <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-xs leading-relaxed text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap">
+                <div className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant/80 dark:border-outline-variant shadow-sm dark:shadow-none leading-relaxed text-sm text-on-surface dark:text-outline whitespace-pre-wrap">
                   {displayReport.summary_text}
                 </div>
               </section>
@@ -389,7 +389,7 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
               {/* 来源依据明细 */}
               <ReportReviewPanel key={displayReport.id} report={displayReport} onSaved={setSelectedReport} />
               <section className="space-y-2">
-                <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
+                <h3 className="text-xs font-medium text-on-surface-variant   px-1 tabular-nums">
                   引用材料与依据
                 </h3>
                 <ReportSources

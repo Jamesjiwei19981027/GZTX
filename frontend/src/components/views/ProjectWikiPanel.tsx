@@ -60,7 +60,7 @@ export function ProjectWikiPanel({ projectId, projectName, lang, onClose }: {
         </section>
         {catalog.drafts.length > 0 && <section><h3>{zh ? '待确认草稿' : 'Drafts for review'}</h3>
           {catalog.drafts.map(draft => <article className="project-wiki-card is-draft" key={draft.id}>
-            <div className="project-wiki-card-title"><FileText size={18} /><strong>{draft.title}</strong><span>{zh ? '待确认' : 'Draft'}</span></div>
+            <div className="project-wiki-card-title"><FileText size={18} /><strong className="font-medium">{draft.title}</strong><span>{zh ? '待确认' : 'Draft'}</span></div>
             {(draft.meta.proposals || []).map(proposal => <div key={proposal.key}><h4>{proposal.title}</h4><Facts facts={proposal.facts} zh={zh} /></div>)}
             {catalog.can_publish ? <button className="axis-primary-button" disabled={!!busy} onClick={() => void run(`publish-${draft.id}`, () => publishWikiDraft(projectId, draft.id), zh ? '已发布到项目知识。' : 'Published.')}>
               {zh ? '确认发布到项目知识' : 'Confirm and publish'}</button> : <small>{zh ? '等待项目管理人员核对并发布。' : 'Awaiting project manager review.'}</small>}
@@ -72,7 +72,7 @@ export function ProjectWikiPanel({ projectId, projectName, lang, onClose }: {
             <button className="axis-secondary-button" disabled={!!busy} aria-label={zh ? '搜索' : 'Search'}><Search size={18} /></button>
           </form>
           {catalog.pages.map(page => <article className="project-wiki-card" key={page.id}>
-            <div className="project-wiki-card-title"><BookOpen size={18} /><strong>{page.title}</strong></div>
+            <div className="project-wiki-card-title"><BookOpen size={18} /><strong className="font-medium">{page.title}</strong></div>
             <small>{zh ? `已发布 · 版本 ${page.meta.revision || 1}` : `Published · revision ${page.meta.revision || 1}`}</small>
             <Facts facts={page.meta.facts || []} zh={zh} />
           </article>)}

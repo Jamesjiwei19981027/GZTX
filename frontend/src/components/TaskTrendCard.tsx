@@ -23,10 +23,10 @@ export const TaskTrendCard: React.FC<{ projectId?: string; tasks: Task[] }> = ({
   const stats = state?.result?.stats;
   const max = Math.max(1, ...series.flatMap(day => [day.created, day.completed]));
   const totals = series.reduce((sum, day) => ({ created: sum.created + day.created, completed: sum.completed + day.completed }), { created: 0, completed: 0 });
-  return <section aria-label="任务趋势" className="rounded-[var(--radius-ink-card)] border border-outline-variant bg-surface-container-lowest p-4 min-w-0 text-on-surface">
+  return <section aria-label="任务趋势" className="rounded-[var(--radius-ink-card)] border border-outline-variant bg-surface-container-lowest dark:bg-surface-container p-4 min-w-0 text-on-surface">
     <div className="flex flex-wrap items-center justify-between gap-2">
-      <h2 className="text-sm font-semibold">任务趋势</h2>
-      <div className="flex gap-1" aria-label="趋势周期">{(['week', 'month', ...(expanded ? ['quarter'] : [])] as TaskStatsPeriod[]).map(value => <button key={value} type="button" aria-pressed={period === value} onClick={() => setPeriod(value)} className={`min-h-[44px] px-3 text-xs rounded-xl ${period === value ? 'bg-primary-container text-primary font-medium' : 'text-on-surface-variant'}`}>{value === 'week' ? '本周' : value === 'month' ? '本月' : '本季度'}</button>)}</div>
+      <h2 className="text-sm font-medium tabular-nums">任务趋势</h2>
+      <div className="flex gap-1" aria-label="趋势周期">{(['week', 'month', ...(expanded ? ['quarter'] : [])] as TaskStatsPeriod[]).map(value => <button key={value} type="button" aria-pressed={period === value} onClick={() => setPeriod(value)} className={`min-h-[44px] px-3 text-xs rounded-lg ${period === value ? 'bg-primary-container text-primary font-medium' : 'text-on-surface-variant'}`}>{value === 'week' ? '本周' : value === 'month' ? '本月' : '本季度'}</button>)}</div>
     </div>
     <p className="text-xs text-on-surface-variant">{projectId === 'all' ? '全部可见任务' : '当前项目及个人待办'} · 按每天实际新增与完成统计</p>
     {!state ? <p role="status" className="py-5 text-sm text-on-surface-variant">正在同步趋势…</p> : state.error ? <div role="alert" className="py-3 text-sm text-error">趋势加载失败<button type="button" onClick={() => setAttempt(n => n + 1)} className="min-h-[44px] px-3 underline">重试</button></div> : <>
@@ -65,7 +65,7 @@ export const TaskTrendCard: React.FC<{ projectId?: string; tasks: Task[] }> = ({
             }).join(' ')}
           />}
         </svg>
-        <div className="flex justify-between mt-1 text-[10px] text-on-surface-variant"><span>{series[0]?.date.slice(5)}</span><span>{series.at(-1)?.date.slice(5)}</span></div>
+        <div className="flex justify-between mt-1 text-xs text-on-surface-variant"><span>{series[0]?.date.slice(5)}</span><span>{series.at(-1)?.date.slice(5)}</span></div>
       </div>
       {totals.created === 0 && totals.completed === 0 && <p className="mt-2 text-xs text-on-surface-variant">这个周期暂无新增或完成记录</p>}
       {expanded && stats && <div className="mt-3 space-y-2 text-xs text-on-surface-variant">

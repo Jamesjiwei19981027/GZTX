@@ -125,12 +125,12 @@ async function openView(page: Page, label: string) {
 
 test('S1 登录：LoginGate 密码登录后进入仪表盘 @prod', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
   await page.getByPlaceholder('用户名 / 邮箱 / 手机号').fill(E2E_USER)
   await page.locator('input[type="password"]').fill(E2E_PASSWORD)
   await page.locator('form button[type="submit"]').click()
   await expect(sidebar(page).getByRole('button', { name: '工作', exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: '欢迎回来' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '登录' })).toHaveCount(0)
 })
 
 test('S2 建任务：新建任务 → 我的任务可见 → 打开详情抽屉 @prod', async ({ page, request }) => {
@@ -173,7 +173,7 @@ test('S4 设置：修改昵称可保存并回显 @prod', async ({ page, request 
   const nameInput = page.locator('main input[type="text"]:not([readonly])').first()
   await nameInput.fill(newName)
   await page.getByRole('button', { name: '更新资料' }).click()
-  await expect(page.getByText('修改已保存！')).toBeVisible()
+  await expect(page.getByText('修改已保存')).toBeVisible()
   await expect(page.getByRole('heading', { name: newName })).toBeVisible()
 
   // 复原昵称，避免多次运行后账号信息漂移
@@ -246,7 +246,7 @@ test('S7 401 续期：access_token 失效后 API 操作无感恢复 @prod', asyn
   // 同步完成后：仍在应用内、无错误横幅、access_token 已被 /auth/refresh 换新
   await expect(page.getByText('正在从后端同步…')).toHaveCount(0)
   await expect(page.getByText('后端同步提示')).toHaveCount(0)
-  await expect(page.getByRole('heading', { name: '欢迎回来' })).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: '登录' })).toHaveCount(0)
   await expect
     .poll(async () => page.evaluate(() => localStorage.getItem('access_token')))
     .not.toBe(garbage)
@@ -262,10 +262,10 @@ test('S8 登出：回到 LoginGate，刷新后仍是未登录态 @prod', async (
 
   await page.getByTestId('user-menu-button').click()
   await page.getByRole('button', { name: '退出登录' }).click()
-  await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
 
   await page.reload()
-  await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
   await expect(sidebar(page)).toHaveCount(0)
 })
 
@@ -328,7 +328,7 @@ test('顶栏头像无地址时显示首字占位且无空字符串图片控制�
   })
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: '欢迎回来' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: '登录' })).toBeVisible()
   await page.getByPlaceholder('用户名 / 邮箱 / 手机号').fill(E2E_USER)
   await page.locator('input[type="password"]').fill(E2E_PASSWORD)
   await page.locator('form button[type="submit"]').click()

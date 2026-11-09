@@ -82,7 +82,7 @@ export const MobileWikiScreens: React.FC<MobileWikiScreensProps> = ({
   // 「全部项目」汇总等非具体项目时 pid 无效，loadWiki 不会发请求，不能一直停在加载态
   if (!pid) {
     return (
-      <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e]">
+      <div className="flex flex-col flex-1 h-full w-full bg-surface dark:bg-surface">
         <MobileTopBar title="项目知识" showBack={Boolean(onBack)} onBack={onBack} backLabel="返回" />
         <MobileEmptyState iconName="folder" title="请先选择具体项目" description="项目知识按项目隔离，全部项目汇总下无法查看。" />
       </div>
@@ -94,7 +94,7 @@ export const MobileWikiScreens: React.FC<MobileWikiScreensProps> = ({
   }
 
   return (
-    <div className="flex flex-col flex-1 h-full w-full bg-[#f7f8fa] dark:bg-[#10161e] select-none overflow-hidden relative">
+    <div className="flex flex-col flex-1 h-full w-full bg-surface dark:bg-surface select-none overflow-hidden relative">
       <MobileTopBar
         title="项目知识"
         showBack={Boolean(onBack)}
@@ -103,14 +103,14 @@ export const MobileWikiScreens: React.FC<MobileWikiScreensProps> = ({
       />
 
       {/* 选项卡栏 (Chips Selector - 设计 ID 32) */}
-      <div className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-800 shrink-0">
+      <div className="flex items-center gap-2 px-4 py-2 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant/80 dark:border-outline-variant shrink-0">
         <button
           type="button"
           onClick={() => setActiveTab('published')}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+          className={`px-4 py-2 rounded-lg text-xs font-medium cursor-pointer transition-ink-colors ${
             activeTab === 'published'
-              ? 'bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300 font-bold'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+              ? 'bg-surface-container dark:bg-surface-container text-primary dark:text-primary font-medium'
+              : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
           }`}
         >
           已发布
@@ -118,10 +118,10 @@ export const MobileWikiScreens: React.FC<MobileWikiScreensProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('drafts')}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+          className={`px-4 py-2 rounded-lg text-xs font-medium cursor-pointer transition-ink-colors ${
             activeTab === 'drafts'
-              ? 'bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300 font-bold'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+              ? 'bg-surface-container dark:bg-surface-container text-primary dark:text-primary font-medium'
+              : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
           }`}
         >
           草稿 ({catalog?.drafts.length || 0})
@@ -129,10 +129,10 @@ export const MobileWikiScreens: React.FC<MobileWikiScreensProps> = ({
         <button
           type="button"
           onClick={() => setActiveTab('search')}
-          className={`px-3.5 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+          className={`px-4 py-2 rounded-lg text-xs font-medium cursor-pointer transition-ink-colors ${
             activeTab === 'search'
-              ? 'bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300 font-bold'
-              : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+              ? 'bg-surface-container dark:bg-surface-container text-primary dark:text-primary font-medium'
+              : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
           }`}
         >
           资料搜索
@@ -211,25 +211,25 @@ export const MobileWikiScreens: React.FC<MobileWikiScreensProps> = ({
       >
         {selectedFact && (
           <div className="p-4 space-y-4">
-            <div className="p-3.5 bg-blue-50 dark:bg-blue-950/40 rounded-2xl border border-blue-200 dark:border-blue-900 text-xs space-y-2">
-              <span className="text-[10px] uppercase font-bold text-[#0058BE] dark:text-blue-400 block">
+            <div className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-primary dark:border-primary text-xs space-y-2">
+              <span className="text-xs  font-medium text-primary dark:text-primary block tabular-nums">
                 原文引述 (第 {selectedFact.line_start}—{selectedFact.line_end} 行)
               </span>
-              <p className="text-slate-800 dark:text-slate-200 italic font-serif leading-relaxed">
+              <p className="text-on-surface dark:text-outline  font-serif leading-relaxed">
                 “{selectedFact.quote || selectedFact.text}”
               </p>
             </div>
 
-            <div className="p-3 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl space-y-1.5 text-xs">
+            <div className="p-3 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant/80 dark:border-outline-variant rounded-xl space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">来源文件</span>
-                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                <span className="text-outline">来源文件</span>
+                <span className="font-medium text-on-surface dark:text-outline tabular-nums">
                   {selectedFact.source_name || '材料证据'}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">证据包编号</span>
-                <span className="font-semibold text-[#0058BE]">
+                <span className="text-outline">证据包编号</span>
+                <span className="font-medium text-primary tabular-nums">
                   #{selectedFact.package_id}
                 </span>
               </div>
@@ -242,9 +242,9 @@ export const MobileWikiScreens: React.FC<MobileWikiScreensProps> = ({
                 setSelectedFact(null);
                 onOpenEvidencePackage?.(pkgId);
               }}
-              className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center gap-1.5 active:bg-blue-700 cursor-pointer shadow-sm"
+              className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center gap-2 active:bg-primary/90 cursor-pointer shadow-sm dark:shadow-none tabular-nums"
             >
-              <AppIcon name="file" size={16} />
+              <AppIcon name="file" size={18} />
               <span>查看原始证据包</span>
             </button>
           </div>
@@ -253,7 +253,7 @@ export const MobileWikiScreens: React.FC<MobileWikiScreensProps> = ({
 
       {/* 轻提示 Toast */}
       {toastMessage && (
-        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white text-xs px-4 py-2 rounded-full shadow-lg backdrop-blur-md animate-fade-in pointer-events-none">
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-surface-container-lowest/90 text-on-surface text-xs px-4 py-2 rounded-md shadow-sm dark:shadow-none  animate-fade-in pointer-events-none">
           {toastMessage}
         </div>
       )}
@@ -314,29 +314,29 @@ const WikiPublishedScreen: React.FC<WikiPublishedScreenProps> = ({
   return (
     <div className="h-full overflow-y-auto p-4 space-y-4 mobile-scroll-container">
       {genError && (
-        <div className="p-3 bg-amber-50 text-amber-800 rounded-xl text-xs flex items-center gap-1.5 border border-amber-200">
-          <AppIcon name="alert" size={14} className="shrink-0" />
+        <div className="p-3 bg-surface-container-lowest dark:bg-surface-container text-[#a86412] rounded-xl text-xs flex items-center gap-2 border border-outline-variant">
+          <AppIcon name="alert" size={18} className="shrink-0" />
           <span>{genError}</span>
         </div>
       )}
 
       {/* 标题与版本：只显示接口真实返回的内容，没有就不显示 */}
       <div>
-        <h1 className="text-xl font-extrabold text-slate-900 dark:text-slate-100 leading-tight">
+        <h1 className="text-xl font-medium text-on-surface dark:text-on-surface leading-tight tabular-nums">
           {mainPage?.title || projectName}
         </h1>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-outline mt-1">
           项目知识{mainPage?.meta?.revision ? ` · v${mainPage.meta.revision}` : ''}
         </p>
       </div>
 
       {/* 项目目标 */}
       {mainPage?.body_text && (
-        <section className="space-y-1.5">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <section className="space-y-2">
+          <h2 className="text-xs font-medium text-outline   tabular-nums">
             项目目标
           </h2>
-          <p className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-xs text-slate-700 dark:text-slate-300 leading-relaxed shadow-xs">
+          <p className="p-4 bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant/80 dark:border-outline-variant rounded-xl text-xs text-on-surface dark:text-outline leading-relaxed shadow-sm dark:shadow-none">
             {mainPage.body_text}
           </p>
         </section>
@@ -344,24 +344,24 @@ const WikiPublishedScreen: React.FC<WikiPublishedScreenProps> = ({
 
       {/* 参考材料（取自真实证据包材料） */}
       {(catalog?.materials || []).length > 0 && (
-        <section className="space-y-1.5">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        <section className="space-y-2">
+          <h2 className="text-xs font-medium text-outline   tabular-nums">
             参考材料与证据
           </h2>
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+          <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant/80 dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden shadow-sm dark:shadow-none">
             {(catalog?.materials || []).map((m) => (
               <div
                 key={m.id}
                 onClick={() => onOpenEvidencePackage?.(m.id)}
-                className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
+                className="p-4 flex items-center justify-between cursor-pointer active:bg-surface"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
-                  <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                <div className="flex items-center gap-2 min-w-0">
+                  <AppIcon name="file" size={18} className="text-inherit shrink-0" />
+                  <strong className="text-xs font-medium text-on-surface dark:text-on-surface truncate block tabular-nums">
                     {m.title}
                   </strong>
                 </div>
-                <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                <AppIcon name="chevron-right" size={18} className="text-inherit" />
               </div>
             ))}
           </div>
@@ -374,9 +374,9 @@ const WikiPublishedScreen: React.FC<WikiPublishedScreenProps> = ({
           type="button"
           onClick={handleGenerateDraft}
           disabled={generating}
-          className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white font-semibold text-sm flex items-center justify-center gap-2 active:bg-blue-700 disabled:opacity-50 cursor-pointer shadow-sm"
+          className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-sm flex items-center justify-center gap-2 active:bg-primary/90 disabled:opacity-50 cursor-pointer shadow-sm dark:shadow-none tabular-nums"
         >
-          <AppIcon name="ai" size={16} className={generating ? 'animate-spin' : ''} />
+          <AppIcon name="ai" size={18} className={generating ? 'animate-spin' : ''} />
           <span>{generating ? '正在依据材料生成草稿…' : '生成 知识草稿'}</span>
         </button>
       </div>
@@ -437,17 +437,17 @@ const WikiDraftEditorScreen: React.FC<WikiDraftEditorScreenProps> = ({
   return (
     <div className="h-full overflow-y-auto p-4 space-y-4 mobile-scroll-container">
       {/* 状态徽标 */}
-      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+      <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-surface-container text-[#a86412] dark:bg-surface-container dark:text-[#d9a35b] tabular-nums">
         草稿 · 尚未发布
       </span>
 
-      <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+      <h1 className="text-xl font-medium text-on-surface dark:text-on-surface tabular-nums">
         项目知识 更新草稿
       </h1>
 
       {error && (
-        <div className="p-3 bg-red-50 text-red-600 rounded-xl text-xs flex items-center gap-1.5 border border-red-200">
-          <AppIcon name="alert" size={14} className="shrink-0" />
+        <div className="p-3 bg-error-container text-error rounded-xl text-xs flex items-center gap-2 border border-outline-variant">
+          <AppIcon name="alert" size={18} className="shrink-0" />
           <span>{error}</span>
         </div>
       )}
@@ -467,12 +467,12 @@ const WikiDraftEditorScreen: React.FC<WikiDraftEditorScreenProps> = ({
       </MobileField>
 
       {/* 引用来源追溯 (设计 ID 88) */}
-      <section className="space-y-1.5">
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+      <section className="space-y-2">
+        <h2 className="text-xs font-medium text-outline   tabular-nums">
           引用来源
         </h2>
         {facts.length > 0 ? (
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+          <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant/80 dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden shadow-sm dark:shadow-none">
             {facts.map((fact, idx) => (
               <div
                 key={idx}
@@ -481,39 +481,39 @@ const WikiDraftEditorScreen: React.FC<WikiDraftEditorScreenProps> = ({
                     onOpenEvidencePackage(fact.package_id);
                   }
                 }}
-                className={`p-3.5 flex items-center justify-between ${
-                  fact.package_id ? 'cursor-pointer active:bg-slate-50 dark:active:bg-slate-800/50' : ''
+                className={`p-4 flex items-center justify-between ${
+                  fact.package_id ? 'cursor-pointer active:bg-surface dark:active:bg-surface-container-lowest/50' : ''
                 }`}
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <AppIcon name="file" size={18} className="text-[#0058BE] shrink-0" />
+                <div className="flex items-center gap-2 min-w-0">
+                  <AppIcon name="file" size={18} className="text-inherit shrink-0" />
                   <div className="min-w-0">
-                    <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 truncate block">
+                    <strong className="text-xs font-medium text-on-surface dark:text-on-surface truncate block tabular-nums">
                       {fact.source_name || fact.text || `引用材料 #${fact.package_id || idx + 1}`}
                     </strong>
                     {fact.quote && (
-                      <span className="text-[10px] text-slate-400 truncate block">
+                      <span className="text-xs text-outline truncate block">
                         {fact.quote}
                       </span>
                     )}
                   </div>
                 </div>
                 {fact.package_id ? (
-                  <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                  <AppIcon name="chevron-right" size={18} className="text-inherit" />
                 ) : null}
               </div>
             ))}
           </div>
         ) : (
-          <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-center text-xs text-slate-400">
+          <div className="p-4 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant/80 dark:border-outline-variant rounded-xl text-center text-xs text-outline">
             暂无引用来源
           </div>
         )}
       </section>
 
       {/* 警示说明 */}
-      <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2 border border-amber-200 dark:border-amber-900/50">
-        <AppIcon name="warning" size={16} className="shrink-0" />
+      <div className="p-3 bg-surface-container-lowest dark:bg-surface-container rounded-xl text-xs text-[#a86412] dark:text-[#d9a35b] flex items-center gap-2 border border-outline-variant dark:border-[#d9a35b]/50">
+        <AppIcon name="warning" size={18} className="shrink-0" />
         <span>发布后项目成员可见；请先核实 AI 生成的结论与引用。</span>
       </div>
 
@@ -523,7 +523,7 @@ const WikiDraftEditorScreen: React.FC<WikiDraftEditorScreenProps> = ({
           <button
             type="button"
             onClick={onSavedDraft}
-            className="min-h-[46px] rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-xs flex items-center justify-center active:bg-slate-50 cursor-pointer"
+            className="min-h-[48px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container-lowest text-on-surface dark:text-outline font-medium text-xs flex items-center justify-center active:bg-surface cursor-pointer tabular-nums"
           >
             保存草稿
           </button>
@@ -531,7 +531,7 @@ const WikiDraftEditorScreen: React.FC<WikiDraftEditorScreenProps> = ({
             type="button"
             onClick={handlePublish}
             disabled={publishing}
-            className="min-h-[46px] rounded-xl bg-[#0058BE] text-white font-semibold text-xs flex items-center justify-center active:bg-blue-700 disabled:opacity-50 cursor-pointer shadow-sm"
+            className="min-h-[48px] rounded-lg bg-primary text-on-primary font-medium text-xs flex items-center justify-center active:bg-primary/90 disabled:opacity-50 cursor-pointer shadow-sm dark:shadow-none tabular-nums"
           >
             {publishing ? '正在发布…' : '确认发布'}
           </button>
@@ -540,7 +540,7 @@ const WikiDraftEditorScreen: React.FC<WikiDraftEditorScreenProps> = ({
         <button
           type="button"
           onClick={onBack}
-          className="w-full min-h-[40px] text-slate-400 text-xs font-medium flex items-center justify-center active:opacity-60 cursor-pointer"
+          className="w-full min-h-[40px] text-outline text-xs font-medium flex items-center justify-center active:opacity-60 cursor-pointer tabular-nums"
         >
           返回已发布版本
         </button>
@@ -578,22 +578,22 @@ const WikiDraftsListScreen: React.FC<WikiDraftsListScreenProps> = ({
 
   return (
     <div className="h-full overflow-y-auto p-4 space-y-3 mobile-scroll-container">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-xs">
+      <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant/80 dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden shadow-sm dark:shadow-none">
         {drafts.map((d) => (
           <div
             key={d.id}
             onClick={() => onSelectDraft(d)}
-            className="p-3.5 flex items-center justify-between cursor-pointer active:bg-slate-50"
+            className="p-4 flex items-center justify-between cursor-pointer active:bg-surface"
           >
             <div>
-              <strong className="text-xs font-semibold text-slate-900 dark:text-slate-100 block">
+              <strong className="text-xs font-medium text-on-surface dark:text-on-surface block tabular-nums">
                 {d.title || `草稿 #${d.id}`}
               </strong>
-              <span className="text-[10px] text-slate-400 mt-0.5 block">
+              <span className="text-xs text-outline mt-1 block">
                 草稿 · 点击查看并编辑
               </span>
             </div>
-            <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+            <AppIcon name="chevron-right" size={18} className="text-inherit" />
           </div>
         ))}
       </div>
@@ -647,7 +647,7 @@ const WikiSearchScreen: React.FC<WikiSearchScreenProps> = ({
       : results.filter((chunk) => chunk.source_type === filterType);
 
   return (
-    <div className="h-full overflow-y-auto p-4 space-y-3.5 mobile-scroll-container">
+    <div className="h-full overflow-y-auto p-4 space-y-4 mobile-scroll-container">
       {/* 搜索框 */}
       <MobileInput
         value={query}
@@ -655,20 +655,20 @@ const WikiSearchScreen: React.FC<WikiSearchScreenProps> = ({
         placeholder="搜索项目知识、任务与材料…"
         clearable
         onClear={() => setQuery('')}
-        leading={<AppIcon name="search" size={16} />}
+        leading={<AppIcon name="search" size={18} />}
       />
 
       {/* 过滤器 Chips */}
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-center gap-2">
         {(['all', 'task', 'evidence', 'wiki'] as const).map((t) => (
           <button
             key={t}
             type="button"
             onClick={() => setFilterType(t)}
-            className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer ${
+            className={`px-3 py-1 rounded-lg text-xs font-medium cursor-pointer ${
               filterType === t
-                ? 'bg-blue-100 dark:bg-blue-900 text-[#0058BE] dark:text-blue-300 font-bold'
-                : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300'
+                ? 'bg-surface-container dark:bg-surface-container text-primary dark:text-primary font-medium'
+                : 'bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant text-on-surface-variant dark:text-outline'
             }`}
           >
             {t === 'all' ? '全部' : t === 'task' ? '任务' : t === 'evidence' ? '材料' : '知识'}
@@ -676,12 +676,12 @@ const WikiSearchScreen: React.FC<WikiSearchScreenProps> = ({
         ))}
       </div>
 
-      <p className="text-[11px] text-slate-400">
+      <p className="text-xs text-outline">
         仅搜索“{projectName}”授权范围内的资料与知识库
       </p>
 
       {/* 搜索结果列表 */}
-      <div className="space-y-2.5">
+      <div className="space-y-2">
         {filteredResults.length > 0 ? (
           filteredResults.map((chunk) => {
             const typeLabel =
@@ -700,18 +700,18 @@ const WikiSearchScreen: React.FC<WikiSearchScreenProps> = ({
               <div
                 key={chunk.chunk_id}
                 onClick={() => onOpenEvidencePackage?.(chunk.source_id)}
-                className="p-3.5 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-xs space-y-1.5 cursor-pointer active:scale-[0.99] transition-transform"
+                className="p-4   border-b border-outline-variant/80 dark:border-outline-variant   space-y-2 cursor-pointer active:scale-[0.99] transition-transform"
               >
                 <div className="flex items-center justify-between">
-                  <strong className="text-xs font-bold text-slate-900 dark:text-slate-100">
+                  <strong className="text-xs font-medium text-on-surface dark:text-on-surface tabular-nums">
                     {titleLabel}
                   </strong>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  <span className="px-2 py-1 rounded text-xs font-medium bg-surface-container text-on-surface-variant dark:bg-surface-container-lowest dark:text-outline tabular-nums">
                     {typeLabel}
                   </span>
                 </div>
                 {chunk.chunk_text && (
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed line-clamp-3">
+                  <p className="text-xs text-on-surface-variant dark:text-outline leading-relaxed line-clamp-3">
                     {chunk.chunk_text}
                   </p>
                 )}
@@ -719,14 +719,14 @@ const WikiSearchScreen: React.FC<WikiSearchScreenProps> = ({
             );
           })
         ) : (
-          <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-center text-xs text-slate-400">
+          <div className="p-8 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant/80 dark:border-outline-variant rounded-xl text-center text-xs text-outline">
             {searching ? '正在搜索…' : query.trim() ? '未找到相关内容' : '暂无搜索结果'}
           </div>
         )}
       </div>
 
-      <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] dark:text-blue-300 flex items-center gap-2 border border-blue-100 dark:border-blue-900/50">
-        <AppIcon name="info" size={16} className="shrink-0" />
+      <div className="p-3 bg-surface-container-lowest dark:bg-surface-container rounded-xl text-xs text-primary dark:text-primary flex items-center gap-2 border border-primary dark:border-primary">
+        <AppIcon name="info" size={18} className="shrink-0" />
         <span>结果保留来源与项目范围，点击回到原始内容。</span>
       </div>
     </div>

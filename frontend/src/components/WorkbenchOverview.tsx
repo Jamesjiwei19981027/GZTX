@@ -81,9 +81,9 @@ export const WorkbenchOverview: React.FC<{
   };
   const moveMonth = (delta: number) => { const day=parseDay(`${displayMonth}-01`);day.setMonth(day.getMonth()+delta);setDisplayMonth(dateKey(day).slice(0,7));setSelected(dateKey(day));lastTap.current=null; };
   return <div className="flex flex-col gap-4">
-    <section aria-label="首页日程日历" className="rounded-[var(--radius-ink-card)] border border-outline-variant bg-surface-container-lowest p-4 min-w-0">
+    <section aria-label="首页日程日历" className="rounded-[var(--radius-ink-card)] border border-outline-variant bg-surface-container-lowest dark:bg-surface-container p-4 min-w-0">
       <div className="flex items-center justify-between gap-2 mb-3">
-        <h2 className="text-base font-medium text-on-surface">日程日历</h2>
+        <h2 className="text-base font-medium text-on-surface tabular-nums">日程日历</h2>
         <div className="flex items-center gap-1 text-xs text-primary">
           <button type="button" className="min-h-[44px] px-2" onClick={()=>{setSelected(today);setDisplayMonth(today.slice(0,7));lastTap.current=null;}}>今天</button>
           {onOpenCalendar && <button type="button" className="min-h-[44px] px-2" onClick={onOpenCalendar}>完整日历</button>}
@@ -98,7 +98,7 @@ export const WorkbenchOverview: React.FC<{
       <div className="grid grid-cols-7 gap-1" data-testid="home-month-calendar">
         {days.map(day=> <button key={day} type="button" aria-label={day} aria-pressed={day===selected}
           onClick={()=>selectDay(day)} style={{touchAction:'manipulation'}} className={`min-h-[48px] min-w-0 rounded-[var(--radius-ink-control)] flex flex-col items-center justify-center gap-1 text-xs ${day===selected ? 'bg-primary text-on-primary' : day.slice(0,7)===displayMonth ? 'text-on-surface bg-surface-container-low' : 'text-on-surface-variant'}`}>
-          <span className="text-sm font-semibold">{parseDay(day).getDate()}</span>
+          <span className="text-sm font-medium tabular-nums">{parseDay(day).getDate()}</span>
           <span className={`h-1 w-1 rounded-full ${tasks.some(task=>task.dueDate===day) ? day===selected ? 'bg-on-primary' : 'bg-primary' : 'bg-transparent'}`} />
         </button>)}
       </div>
@@ -114,8 +114,8 @@ export const WorkbenchOverview: React.FC<{
         </button>)}
       </div>
     </section>
-    <section aria-label="项目进度简介" className="rounded-[var(--radius-ink-card)] border border-outline-variant bg-surface-container-lowest p-4 min-w-0">
-      <h2 className="text-base font-medium text-on-surface">项目进度简介</h2>
+    <section aria-label="项目进度简介" className="rounded-[var(--radius-ink-card)] border border-outline-variant bg-surface-container-lowest dark:bg-surface-container p-4 min-w-0">
+      <h2 className="text-base font-medium text-on-surface tabular-nums">项目进度简介</h2>
       <p className="text-xs text-on-surface-variant mt-1 mb-3">根据项目人轴事项与里程碑的正式进度汇总</p>
       {loading && <p role="status" className="text-sm text-on-surface-variant">正在同步项目进度…</p>}
       {!loading && !visibleProjects.length && <p className="text-sm text-on-surface-variant">暂无可见项目</p>}
@@ -123,11 +123,11 @@ export const WorkbenchOverview: React.FC<{
         {visibleProjects.map(project=>{
           const summary=summaries[project.id];
           return <article key={project.id} className="space-y-2 text-on-surface">
-            <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold truncate">{project.name}</h3>
-              {summary && <span className="text-sm font-medium text-primary">{summary.total ? `${summary.percent}%` : '暂无事项'}</span>}
+            <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-medium truncate tabular-nums">{project.name}</h3>
+              {summary && <span className="text-sm font-medium text-primary tabular-nums">{summary.total ? `${summary.percent}%` : '暂无事项'}</span>}
             </div>
             {summary && <>
-              <div role="progressbar" aria-label={`${project.name}进度`} aria-valuenow={summary.percent} aria-valuemin={0} aria-valuemax={100} className="h-2 rounded-full bg-surface-container overflow-hidden"><div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{width:`${summary.percent}%`}} /></div>
+              <div role="progressbar" aria-label={`${project.name}进度`} aria-valuenow={summary.percent} aria-valuemin={0} aria-valuemax={100} className="h-2 rounded-full bg-surface-container overflow-hidden"><div className="h-full rounded-md bg-primary " style={{width:`${summary.percent}%`}} /></div>
               <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-on-surface-variant"><span>已完成 {summary.completed} / {summary.total} 项</span>
                 <span className={summary.overdue ? 'text-error' : ''}>逾期 {summary.overdue} 项</span></div>
               {summary.next && <p className="text-xs text-on-surface-variant">待推进：{summary.next}</p>}

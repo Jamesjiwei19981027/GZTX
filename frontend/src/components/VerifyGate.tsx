@@ -7,7 +7,7 @@ import {
   type VerificationStatus,
 } from '../api/auth'
 import { ApiError } from '../api/client'
-import { BrandMark } from './BrandMark'
+import { AuthBrandPanel } from './AuthBrandPanel'
 
 type Props = {
   lang?: 'zh' | 'en'
@@ -29,7 +29,7 @@ function useCountdown() {
 }
 
 const inputCls =
-  'w-full rounded-xl border border-outline-variant/50 px-3 py-2.5 bg-surface-container/40 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30'
+  'w-full rounded-lg border border-outline-variant/50 px-3 py-2 bg-surface-container/40 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30'
 
 function ChannelBind({
   channel,
@@ -95,13 +95,13 @@ function ChannelBind({
   }
 
   return (
-    <div className="rounded-2xl border border-outline-variant/40 p-5 space-y-3 bg-surface-container-lowest">
+    <div className="border-b border-outline-variant py-5 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-bold text-on-surface">
+        <h3 className="font-medium text-on-surface tabular-nums">
           {isEmail ? (zh ? '邮箱验证' : 'Email') : zh ? '手机验证' : 'Phone'}
         </h3>
         {verified && (
-          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-700">
+          <span className="text-xs font-medium px-2 py-1 rounded-md bg-[#2f7d4f]/10 text-[#2f7d4f] tabular-nums">
             {zh ? '已验证' : 'Verified'}
           </span>
         )}
@@ -128,7 +128,7 @@ function ChannelBind({
               type="button"
               disabled={cd.countdown > 0}
               onClick={() => void send()}
-              className="px-3 rounded-xl border border-outline-variant/50 text-xs font-bold text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap"
+              className="px-3 rounded-lg border border-outline-variant/50 text-xs font-medium text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
             >
               {cd.countdown > 0 ? `${cd.countdown}s` : zh ? '获取验证码' : 'Get code'}
             </button>
@@ -137,12 +137,12 @@ function ChannelBind({
             type="button"
             disabled={busy}
             onClick={() => void confirm()}
-            className="w-full rounded-xl bg-primary text-on-primary py-2.5 font-bold disabled:opacity-50 cursor-pointer"
+            className="w-full rounded-lg bg-primary text-on-primary py-2 font-medium disabled:opacity-50 cursor-pointer tabular-nums"
           >
             {busy ? (zh ? '验证中…' : 'Verifying…') : zh ? '确认验证' : 'Confirm'}
           </button>
-          {hint && <p className="text-xs text-emerald-700">{hint}</p>}
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {hint && <p className="text-xs text-[#2f7d4f]">{hint}</p>}
+          {error && <p className="text-xs text-error">{error}</p>}
         </>
       )}
     </div>
@@ -189,11 +189,12 @@ export function VerifyGate({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface dark:bg-[#161513] px-4">
-      <div className="w-full max-w-lg rounded-3xl border border-outline-variant/40 bg-white dark:bg-[#1c1a18] p-7 shadow-xl space-y-5">
-        <BrandMark lang={lang} iconSize={28} className="text-base" />
+    <div className="min-h-screen flex bg-surface">
+      <AuthBrandPanel lang={lang} />
+      <div className="w-full md:w-1/2 flex items-center justify-center p-6">
+      <div className="w-full max-w-lg rounded-[var(--radius-ink-panel)] border border-outline-variant/40 bg-surface-container-lowest dark:bg-surface-container p-7 shadow-sm dark:shadow-none space-y-5">
         <div>
-          <h1 className="text-xl font-bold text-on-surface">
+          <h1 className="text-xl font-medium text-on-surface tabular-nums">
             {required === 'phone'
               ? zh
                 ? '协作功能需要补验手机'
@@ -213,7 +214,7 @@ export function VerifyGate({
           </p>
         </div>
 
-        {loadError && <p className="text-sm text-red-600">{loadError}</p>}
+        {loadError && <p className="text-sm text-error">{loadError}</p>}
 
         {status && (
           <div className="space-y-4">
@@ -239,10 +240,11 @@ export function VerifyGate({
         <button
           type="button"
           onClick={() => void handleLogout()}
-          className="w-full text-sm font-semibold text-on-surface-variant hover:text-on-surface cursor-pointer"
+          className="w-full text-sm font-medium text-on-surface-variant hover:text-on-surface cursor-pointer tabular-nums"
         >
           {zh ? '退出登录' : 'Sign out'}
         </button>
+      </div>
       </div>
     </div>
   )

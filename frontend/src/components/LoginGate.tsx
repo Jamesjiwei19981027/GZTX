@@ -14,8 +14,7 @@ import {
   sendRegisterCode,
 } from '../api/auth'
 import { ApiError } from '../api/client'
-import { getBrandTagline } from '../constants/brand'
-import { BrandMark } from './BrandMark'
+import { AuthBrandPanel } from './AuthBrandPanel'
 import { clearInviteToken, readInviteToken } from '../utils/invite'
 import { SsoLoginButtons } from './SsoLoginButtons'
 
@@ -39,7 +38,7 @@ function useCountdown() {
 }
 
 const inputCls =
-  'mt-1 w-full rounded-xl border border-outline-variant/50 px-3 py-2.5 bg-surface-container/40 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30'
+  'mt-1 w-full rounded-lg border border-outline-variant/50 px-3 py-2 bg-surface-container/40 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary/30'
 
 export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props) {
   const zh = lang === 'zh'
@@ -297,20 +296,13 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
   }
 
   return (
-    <div className="min-h-screen flex bg-surface dark:bg-[#161513]">
-      <div className="hidden md:flex md:w-1/2 relative overflow-hidden items-center justify-center bg-primary">
-        <div className="relative z-10 text-center px-10 text-white">
-          <BrandMark lang={lang} iconSize={56} className="text-white justify-center text-3xl mb-6" />
-          <p className="text-white/80 text-lg">
-            {getBrandTagline(lang)}
-          </p>
-        </div>
-      </div>
+    <div className="min-h-screen flex bg-surface dark:bg-surface">
+      <AuthBrandPanel lang={lang} />
 
       <div className="w-full md:w-1/2 flex items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-3xl border border-outline-variant/40 bg-white dark:bg-[#1c1a18] p-7 shadow-xl space-y-5">
+        <div className="w-full max-w-md rounded-[var(--radius-ink-panel)] border border-outline-variant/40 bg-surface-container-lowest dark:bg-surface-container p-7 shadow-sm dark:shadow-none space-y-5">
           {canRegister ? (
-            <div className="flex p-1 rounded-2xl bg-surface-container dark:bg-[#282b2d]">
+            <div className="flex p-1 rounded-xl bg-surface-container-lowest dark:bg-surface-container">
               {(['login', 'register'] as const).map((m) => (
                 <button
                   key={m}
@@ -319,9 +311,9 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                     setMode(m)
                     clearMsgs()
                   }}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-ink-colors cursor-pointer ${
+                  className={`flex-1 py-2 rounded-lg text-sm font-medium transition-ink-colors cursor-pointer ${
                     mode === m
-                      ? 'bg-primary text-on-primary shadow-sm'
+                      ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
                       : 'text-on-surface-variant hover:text-on-surface'
                   }`}
                 >
@@ -329,17 +321,13 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                 </button>
               ))}
             </div>
-          ) : (
-            <div className="px-1 py-1 text-center font-bold text-lg text-on-surface">
-              {zh ? '登录' : 'Sign in'}
-            </div>
-          )}
+          ) : null}
 
           {mode === 'login' ? (
             <>
               <div>
-                <h2 className="text-xl font-bold text-on-surface">
-                  {zh ? '欢迎回来' : 'Welcome back'}
+                <h2 className="text-xl font-medium text-on-surface tabular-nums">
+                  {loginKind === 'reset' ? (zh ? '重置密码' : 'Reset password') : (zh ? '登录' : 'Sign in')}
                 </h2>
                 <p className="text-sm text-on-surface-variant mt-1">
                   {loginKind === 'reset'
@@ -361,7 +349,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
               ) : loginKind === 'password' ? (
                 <form onSubmit={(e) => void handlePasswordLogin(e)} className="space-y-3">
                   <label className="block text-sm">
-                    <span className="text-on-surface-variant font-semibold">
+                    <span className="text-on-surface-variant font-medium tabular-nums">
                       {zh ? '账号' : 'Account'}
                     </span>
                     <input
@@ -374,7 +362,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                     />
                   </label>
                   <label className="block text-sm">
-                    <span className="text-on-surface-variant font-semibold">
+                    <span className="text-on-surface-variant font-medium tabular-nums">
                       {zh ? '密码' : 'Password'}
                     </span>
                     <input
@@ -391,7 +379,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                     <button
                       type="button"
                       data-testid="forgot-password-link"
-                      className="text-xs font-bold text-on-surface-variant cursor-pointer"
+                      className="text-xs font-medium text-on-surface-variant cursor-pointer tabular-nums"
                       onClick={() => {
                         setLoginKind('reset')
                         setResetTarget(username.includes('@') ? username.trim() : '')
@@ -402,7 +390,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                     </button>
                     <button
                       type="button"
-                      className="text-xs font-bold text-primary cursor-pointer"
+                      className="text-xs font-medium text-primary cursor-pointer tabular-nums"
                       onClick={() => {
                         setLoginKind('code')
                         clearMsgs()
@@ -414,7 +402,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full rounded-xl bg-primary text-on-primary py-3 font-bold disabled:opacity-50 cursor-pointer"
+                    className="w-full rounded-lg bg-primary text-on-primary py-3 font-medium disabled:opacity-50 cursor-pointer tabular-nums"
                   >
                     {busy ? (zh ? '登录中…' : 'Signing in…') : zh ? '登录' : 'Sign in'}
                   </button>
@@ -422,7 +410,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
               ) : loginKind === 'reset' ? (
                 <form onSubmit={(e) => void handleResetPassword(e)} className="space-y-3" data-testid="reset-password-form">
                   <label className="block text-sm">
-                    <span className="text-on-surface-variant font-semibold">{zh ? '邮箱 / 手机号' : 'Email / phone'}</span>
+                    <span className="text-on-surface-variant font-medium tabular-nums">{zh ? '邮箱 / 手机号' : 'Email / phone'}</span>
                     <input
                       className={inputCls}
                       value={resetTarget}
@@ -432,7 +420,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                     />
                   </label>
                   <div>
-                    <span className="text-sm text-on-surface-variant font-semibold">{zh ? '验证码' : 'Code'}</span>
+                    <span className="text-sm text-on-surface-variant font-medium tabular-nums">{zh ? '验证码' : 'Code'}</span>
                     <div className="mt-1 flex gap-2">
                       <input
                         className={`${inputCls} mt-0 flex-1`}
@@ -445,33 +433,33 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                         type="button"
                         disabled={resetCd.countdown > 0}
                         onClick={() => void sendResetVerifyCode()}
-                        className="px-3 rounded-xl border border-outline-variant/50 text-xs font-bold text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                        className="px-3 rounded-lg border border-outline-variant/50 text-xs font-medium text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
                       >
                         {resetCd.countdown > 0 ? `${resetCd.countdown}s` : zh ? '获取验证码' : 'Get code'}
                       </button>
                     </div>
                   </div>
                   <label className="block text-sm">
-                    <span className="text-on-surface-variant font-semibold">{zh ? '新密码' : 'New password'}</span>
+                    <span className="text-on-surface-variant font-medium tabular-nums">{zh ? '新密码' : 'New password'}</span>
                     <input type="password" className={inputCls} value={resetNew} onChange={(e) => setResetNew(e.target.value)} autoComplete="new-password" required minLength={6} />
                   </label>
                   <label className="block text-sm">
-                    <span className="text-on-surface-variant font-semibold">{zh ? '确认新密码' : 'Confirm password'}</span>
+                    <span className="text-on-surface-variant font-medium tabular-nums">{zh ? '确认新密码' : 'Confirm password'}</span>
                     <input type="password" className={inputCls} value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} autoComplete="new-password" required minLength={6} />
                   </label>
                   <div className="flex justify-end">
-                    <button type="button" className="text-xs font-bold text-primary cursor-pointer" onClick={() => { setLoginKind('password'); clearMsgs() }}>
+                    <button type="button" className="text-xs font-medium text-primary cursor-pointer tabular-nums" onClick={() => { setLoginKind('password'); clearMsgs() }}>
                       {zh ? '返回登录' : 'Back to sign in'}
                     </button>
                   </div>
-                  <button type="submit" disabled={busy} className="w-full rounded-xl bg-primary text-on-primary py-3 font-bold disabled:opacity-50 cursor-pointer">
+                  <button type="submit" disabled={busy} className="w-full rounded-lg bg-primary text-on-primary py-3 font-medium disabled:opacity-50 cursor-pointer tabular-nums">
                     {busy ? (zh ? '提交中…' : 'Submitting…') : zh ? '重置密码' : 'Reset password'}
                   </button>
                 </form>
               ) : (
                 <form onSubmit={(e) => void handleCodeLogin(e)} className="space-y-3">
                   <label className="block text-sm">
-                    <span className="text-on-surface-variant font-semibold">
+                    <span className="text-on-surface-variant font-medium tabular-nums">
                       {zh ? '邮箱 / 手机号' : 'Email / phone'}
                     </span>
                     <input
@@ -483,7 +471,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                     />
                   </label>
                   <div>
-                    <span className="text-sm text-on-surface-variant font-semibold">
+                    <span className="text-sm text-on-surface-variant font-medium tabular-nums">
                       {zh ? '验证码' : 'Code'}
                     </span>
                     <div className="mt-1 flex gap-2">
@@ -498,7 +486,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                         type="button"
                         disabled={loginCd.countdown > 0}
                         onClick={() => void sendLoginVerifyCode()}
-                        className="px-3 rounded-xl border border-outline-variant/50 text-xs font-bold text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                        className="px-3 rounded-lg border border-outline-variant/50 text-xs font-medium text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
                       >
                         {loginCd.countdown > 0
                           ? `${loginCd.countdown}s`
@@ -511,7 +499,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   <div className="flex justify-end">
                     <button
                       type="button"
-                      className="text-xs font-bold text-primary cursor-pointer"
+                      className="text-xs font-medium text-primary cursor-pointer tabular-nums"
                       onClick={() => {
                         setLoginKind('password')
                         clearMsgs()
@@ -523,7 +511,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   <button
                     type="submit"
                     disabled={busy}
-                    className="w-full rounded-xl bg-primary text-on-primary py-3 font-bold disabled:opacity-50 cursor-pointer"
+                    className="w-full rounded-lg bg-primary text-on-primary py-3 font-medium disabled:opacity-50 cursor-pointer tabular-nums"
                   >
                     {busy ? (zh ? '登录中…' : 'Signing in…') : zh ? '登录' : 'Sign in'}
                   </button>
@@ -539,7 +527,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
           ) : (
             <>
               <div>
-                <h2 className="text-xl font-bold text-on-surface">
+                <h2 className="text-xl font-medium text-on-surface tabular-nums">
                   {zh ? '创建账户' : 'Create account'}
                 </h2>
                 <p className="text-sm text-on-surface-variant mt-1">
@@ -550,7 +538,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
               </div>
               <form onSubmit={(e) => void handleRegister(e)} className="space-y-3">
                 <label className="block text-sm">
-                  <span className="text-on-surface-variant font-semibold">
+                  <span className="text-on-surface-variant font-medium tabular-nums">
                     {zh ? '用户名' : 'Username'}
                   </span>
                   <input
@@ -564,7 +552,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   />
                 </label>
                 <label className="block text-sm">
-                  <span className="text-on-surface-variant font-semibold">
+                  <span className="text-on-surface-variant font-medium tabular-nums">
                     {zh ? '邮箱 *' : 'Email *'}
                   </span>
                   <input
@@ -577,7 +565,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   />
                 </label>
                 <div>
-                  <label htmlFor="register-email-code" className="text-sm text-on-surface-variant font-semibold">
+                  <label htmlFor="register-email-code" className="text-sm text-on-surface-variant font-medium tabular-nums">
                     {zh ? '邮箱验证码 *' : 'Email code *'}
                   </label>
                   <div className="mt-1 flex gap-2">
@@ -593,7 +581,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                       type="button"
                       disabled={emailCd.countdown > 0}
                       onClick={() => void sendRegCode('email')}
-                      className="px-3 rounded-xl border border-outline-variant/50 text-xs font-bold text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                      className="px-3 rounded-lg border border-outline-variant/50 text-xs font-medium text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
                     >
                       {emailCd.countdown > 0
                         ? `${emailCd.countdown}s`
@@ -604,7 +592,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   </div>
                 </div>
                 <label className="block text-sm">
-                  <span className="text-on-surface-variant font-semibold">
+                  <span className="text-on-surface-variant font-medium tabular-nums">
                     {zh ? '手机号（可选）' : 'Phone (optional)'}
                   </span>
                   <input
@@ -617,7 +605,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                 </label>
                 {regPhone.trim() && (
                   <div>
-                    <span className="text-sm text-on-surface-variant font-semibold">
+                    <span className="text-sm text-on-surface-variant font-medium tabular-nums">
                       {zh ? '短信验证码' : 'SMS code'}
                     </span>
                     <div className="mt-1 flex gap-2">
@@ -631,7 +619,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                         type="button"
                         disabled={phoneCd.countdown > 0}
                         onClick={() => void sendRegCode('sms')}
-                        className="px-3 rounded-xl border border-outline-variant/50 text-xs font-bold text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                        className="px-3 rounded-lg border border-outline-variant/50 text-xs font-medium text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap tabular-nums"
                       >
                         {phoneCd.countdown > 0
                           ? `${phoneCd.countdown}s`
@@ -643,7 +631,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   </div>
                 )}
                 <label className="block text-sm">
-                  <span className="text-on-surface-variant font-semibold">
+                  <span className="text-on-surface-variant font-medium tabular-nums">
                     {zh ? '密码 *' : 'Password *'}
                   </span>
                   <input
@@ -657,7 +645,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   />
                 </label>
                 <label className="block text-sm">
-                  <span className="text-on-surface-variant font-semibold">
+                  <span className="text-on-surface-variant font-medium tabular-nums">
                     {zh ? '确认密码 *' : 'Confirm *'}
                   </span>
                   <input
@@ -673,7 +661,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                 <button
                   type="submit"
                   disabled={busy}
-                  className="w-full rounded-xl bg-primary text-on-primary py-3 font-bold disabled:opacity-50 cursor-pointer"
+                  className="w-full rounded-lg bg-primary text-on-primary py-3 font-medium disabled:opacity-50 cursor-pointer tabular-nums"
                 >
                   {busy ? (zh ? '注册中…' : 'Creating…') : zh ? '注册并登录' : 'Register'}
                 </button>
@@ -682,12 +670,12 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
           )}
 
           {hint && (
-            <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+            <p className="text-xs text-[#2f7d4f] bg-surface-container border border-outline-variant rounded-xl px-3 py-2">
               {hint}
             </p>
           )}
           {error && (
-            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2">
+            <p className="text-sm text-error bg-error-container border border-outline-variant rounded-xl px-3 py-2">
               {error}
             </p>
           )}

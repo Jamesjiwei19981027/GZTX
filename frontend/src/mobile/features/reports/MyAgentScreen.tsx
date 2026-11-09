@@ -255,7 +255,7 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
   // 项目隔离阻断界面
   if (isAllProjects || !numericProjectId) {
     return (
-      <div className="flex flex-col h-full bg-[#f7f8fa] dark:bg-slate-950">
+      <div className="flex flex-col h-full bg-surface dark:bg-surface-container-lowest">
         <MobileTopBar title="汇报" showBack={!!onBack} onBack={onBack} />
         <ReportProjectSelector currentProject={currentProject} projects={projects} onSelectProject={onSelectProject} />
         <div className="flex-1 p-6 flex flex-col items-center justify-center">
@@ -274,7 +274,7 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
   // -------------------------------------------------------------
   if (viewMode === 'chat') {
     return (
-      <div ref={keyboard.ref} style={{ paddingBottom: keyboard.overlap }} className="flex flex-col h-full min-h-0 bg-[#f7f8fa] dark:bg-slate-950 select-none">
+      <div ref={keyboard.ref} style={{ paddingBottom: keyboard.overlap }} className="flex flex-col h-full min-h-0 bg-surface dark:bg-surface-container-lowest select-none">
         <MobileTopBar
           title="与我的 AI 对话"
           showBack
@@ -284,9 +284,9 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
         <ReportProjectSelector currentProject={currentProject} projects={projects} onSelectProject={onSelectProject} />
 
         {/* 顶部项目隔离提示 */}
-        <div className="px-4 py-2.5 bg-blue-50/80 dark:bg-blue-950/40 border-b border-blue-100 dark:border-blue-900/60 flex items-center gap-2">
-          <AppIcon name="info" size={16} className="text-[#0058BE] dark:text-blue-400 shrink-0" />
-          <span className="text-xs text-blue-900 dark:text-blue-200 truncate">
+        <div className="px-4 py-2 bg-surface-container dark:bg-surface-container border-b border-primary dark:border-primary flex items-center gap-2">
+          <AppIcon name="info" size={18} className="text-inherit text-inherit shrink-0" />
+          <span className="text-xs text-primary dark:text-primary truncate">
             {user.name}的项目 AI · 上下文仅限当前项目（{currentProject.name}）
           </span>
         </div>
@@ -294,7 +294,7 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
         {/* 消息滚动流 */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
-            <div className="py-8 text-center text-xs text-slate-400 dark:text-slate-500">
+            <div className="py-8 text-center text-xs text-outline dark:text-on-surface-variant">
               您可以告诉我今天完成了哪些事项、遇到什么阻碍，我会帮您归纳到汇报草稿中。
             </div>
           ) : (
@@ -303,21 +303,21 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
               return (
                 <div key={m.id} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
                   <div
-                    className={`max-w-[85%] rounded-2xl p-3.5 text-sm leading-relaxed ${
+                    className={`max-w-[85%] rounded-[var(--radius-ink-panel)] p-4 text-sm leading-relaxed ${
                       isUser
-                        ? 'bg-[#edf4ff] text-slate-900 dark:bg-blue-900/40 dark:text-slate-100 rounded-br-xs'
-                        : 'bg-white text-slate-900 dark:bg-slate-900 dark:text-slate-100 border border-slate-200/80 dark:border-slate-800 rounded-bl-xs shadow-xs'
+                        ? 'bg-[#edf4ff] text-on-surface dark:bg-surface-container dark:text-on-surface rounded-br-xs'
+                        : 'bg-surface-container-lowest text-on-surface dark:bg-surface-container dark:text-on-surface border border-outline-variant/80 dark:border-outline-variant rounded-bl-xs shadow-sm dark:shadow-none'
                     }`}
                   >
                     {!isUser && (
-                      <div className="flex items-center gap-1.5 text-xs font-semibold text-[#0058BE] dark:text-blue-400 mb-1.5">
-                        <AppIcon name="ai" size={15} />
+                      <div className="flex items-center gap-2 text-xs font-medium text-primary dark:text-primary mb-2 tabular-nums">
+                        <AppIcon name="ai" size={18} />
                         <span>已记下本次进展</span>
                       </div>
                     )}
                     <p className="whitespace-pre-wrap break-words">{m.content}</p>
                     {m.sourceText && (
-                      <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-[11px] text-slate-400">
+                      <div className="mt-2 pt-2 border-t border-outline-variant dark:border-outline-variant text-xs text-outline">
                         {m.sourceText}
                       </div>
                     )}
@@ -329,9 +329,9 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
                       <button
                         type="button"
                         onClick={() => handleAddToDraft(m.content)}
-                        className="mobile-touch-target px-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-xs font-medium text-[#0058BE] dark:text-blue-400 shadow-2xs hover:bg-slate-50 cursor-pointer flex items-center gap-1"
+                        className="mobile-touch-target px-3 py-2 rounded-lg bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant text-xs font-medium text-primary dark:text-primary shadow-2xs hover:bg-surface cursor-pointer flex items-center gap-1 tabular-nums"
                       >
-                        <AppIcon name="edit" size={13} />
+                        <AppIcon name="edit" size={18} />
                         <span>加入汇报草稿</span>
                       </button>
                     </div>
@@ -344,21 +344,21 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
         </div>
 
         {/* 底部输入框与语音说明 */}
-        <div className="shrink-0 p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
+        <div className="shrink-0 p-3 bg-surface-container-lowest dark:bg-surface-container-lowest border-t border-outline-variant dark:border-outline-variant">
           {micHint && (
-            <div className="mb-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 text-xs text-amber-800 dark:text-amber-300 flex items-center justify-between">
+            <div className="mb-2 p-2 rounded-lg bg-surface-container dark:bg-surface-container border border-outline-variant text-xs text-[#a86412] dark:text-[#d9a35b] flex items-center justify-between">
               <span>语音输入依赖 ASR 引擎与系统授权。当前未配置，已切换为文字输入 (G10)。</span>
               <button
                 type="button"
                 onClick={() => setMicHint(false)}
-                className="text-amber-900 font-bold ml-2 cursor-pointer"
+                className="text-[#a86412] font-medium ml-2 cursor-pointer tabular-nums"
               >
                 ×
               </button>
             </div>
           )}
           <div className="flex items-end gap-2">
-            <div className="flex-1 min-w-0 flex items-end gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-2 rounded-xl">
+            <div className="flex-1 min-w-0 flex items-end gap-2 bg-surface-container-lowest dark:bg-surface-container px-3 py-2 rounded-xl">
               <AutoGrowingTextarea
                 aria-label="项目进展与工作事实"
                 rows={1}
@@ -373,13 +373,13 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
                   }
                 }}
                 placeholder="输入项目进展与工作事实…"
-                className="flex-1 min-w-0 bg-transparent text-sm leading-6 text-slate-900 dark:text-slate-100 outline-hidden placeholder:text-slate-400"
+                className="flex-1 min-w-0 bg-transparent text-sm leading-6 text-on-surface dark:text-on-surface outline-hidden placeholder:text-outline"
               />
               <button
                 type="button"
                 onClick={() => setMicHint(true)}
                 title="语音输入"
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-pointer"
+                className="text-outline hover:text-on-surface-variant dark:hover:text-outline cursor-pointer"
               >
                 <AppIcon name="phone" size={18} />
               </button>
@@ -389,7 +389,7 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
               aria-label="发送项目进展"
               disabled={!inputMessage.trim() || chatSending}
               onClick={() => void handleSendMessage()}
-              className="w-10 h-10 rounded-xl bg-[#0058BE] text-white flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
+              className="w-10 h-10 rounded-lg bg-primary text-on-primary flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-opacity"
             >
               {chatSending ? (
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -398,7 +398,7 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
               )}
             </button>
           </div>
-          <p className="text-[11px] text-slate-400 text-center mt-2">
+          <p className="text-xs text-outline text-center mt-2">
             只有已提交的对话与项目材料才能进入最终汇报来源依据。
           </p>
         </div>
@@ -410,7 +410,7 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
   // 视图 A：汇报主界面
   // -------------------------------------------------------------
   return (
-    <div className="flex flex-col h-full bg-[#f7f8fa] dark:bg-slate-950 overflow-y-auto select-none">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface-container-lowest overflow-y-auto select-none">
       <MobileTopBar title="汇报" showBack={!!onBack} onBack={onBack} />
       <ReportProjectSelector currentProject={currentProject} projects={projects} onSelectProject={onSelectProject} />
 
@@ -419,10 +419,10 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
 
       <div className="p-4 space-y-4">
         {/* 项目隔离安全提示条 */}
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200/70 dark:border-blue-900/60 rounded-xl flex items-start gap-2.5">
-          <AppIcon name="info" size={17} className="text-[#0058BE] dark:text-blue-400 shrink-0 mt-0.5" />
-          <span className="text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
-            当前项目：<strong>{currentProject.name}</strong>。其他项目的对话、材料与草稿不会进入这里。
+        <div className="p-3 bg-surface-container-lowest dark:bg-surface-container border border-primary dark:border-primary rounded-xl flex items-start gap-2">
+          <AppIcon name="info" size={18} className="text-inherit text-inherit shrink-0 mt-1" />
+          <span className="text-xs text-primary dark:text-primary leading-relaxed">
+            当前项目：<strong className="font-medium">{currentProject.name}</strong>。其他项目的对话、材料与草稿不会进入这里。
           </span>
         </div>
 
@@ -430,19 +430,19 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
         <button
           type="button"
           onClick={() => push({ tab: 'knowledge', screen: 'knowledge-root', title: '知识' })}
-          className="w-full p-4 text-left rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+          className="w-full p-4 text-left rounded-lg bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant"
         >
-          <strong className="block text-slate-900 dark:text-white">我的知识空间</strong>
-          <span className="text-xs text-slate-500 dark:text-slate-400">整理个人知识 与知识关系，供当前项目 AI 参考</span>
+          <strong className="block text-on-surface dark:text-on-surface">我的知识空间</strong>
+          <span className="text-xs text-on-surface-variant dark:text-outline">整理个人知识 与知识关系，供当前项目 AI 参考</span>
         </button>
 
         {/* 我的项目 AI 助手（保持“告诉 AI 最新进展”入口） */}
-        <div className="p-5 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-slate-900 dark:to-blue-950/30 border border-blue-200/60 dark:border-blue-900/40 rounded-2xl shadow-xs">
-          <div className="flex items-center gap-2 text-[#0058BE] dark:text-blue-400 mb-2">
-            <AppIcon name="ai" size={20} />
-            <h2 className="text-base font-semibold">我的项目 AI</h2>
+        <div className="p-5 bg-surface-container-lowest dark:bg-surface-container     border border-primary dark:border-primary rounded-xl shadow-sm dark:shadow-none">
+          <div className="flex items-center gap-2 text-primary dark:text-primary mb-2">
+            <AppIcon name="ai" size={18} />
+            <h2 className="text-base font-medium tabular-nums">我的项目 AI</h2>
           </div>
-          <p className="text-sm text-slate-700 dark:text-slate-300 font-medium mb-4">
+          <p className="text-sm text-on-surface dark:text-outline font-normal mb-4 tabular-nums">
             {user.name}的汇报助手
           </p>
           <button
@@ -454,55 +454,55 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
                 params: { projectId: numericProjectId ? String(numericProjectId) : undefined },
               })
             }
-            className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white text-sm font-semibold flex items-center justify-center gap-2 active:bg-blue-800 transition-colors cursor-pointer shadow-xs"
+            className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary text-sm font-medium flex items-center justify-center gap-2 active:bg-primary/90 transition-ink-colors cursor-pointer shadow-sm dark:shadow-none tabular-nums"
           >
-            <AppIcon name="messages" size={17} />
+            <AppIcon name="messages" size={18} />
             <span>记录进展</span>
           </button>
         </div>
 
         {/* 第一块：我的汇报 */}
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider px-1">
+          <h3 className="text-xs font-medium text-on-surface-variant dark:text-outline   px-1 tabular-nums">
             我的汇报
           </h3>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-xs space-y-4">
-            <div className="space-y-1.5">
+          <div className="bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant/80 dark:border-outline-variant p-4 shadow-sm dark:shadow-none space-y-4">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                <span className="text-sm font-medium text-on-surface dark:text-outline tabular-nums">
                   当前汇报状态
                 </span>
                 {hasDraft ? (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200">
+                  <span className="px-2 py-1 rounded text-xs font-medium bg-surface-container text-[#a86412] dark:bg-surface-container dark:text-[#d9a35b] border border-outline-variant tabular-nums">
                     草稿待提交
                   </span>
                 ) : latestMyReport ? (
                   <span
-                    className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                    className={`px-2 py-1 rounded text-xs font-medium ${
                       myLatestRead
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200'
-                        : 'bg-blue-50 text-[#0058BE] dark:bg-blue-950/60 dark:text-blue-300 border border-blue-200'
+                        ? 'bg-surface-container text-[#2f7d4f] dark:bg-surface-container dark:text-[#6bbf8a] border border-outline-variant'
+                        : 'bg-surface-container text-primary dark:bg-surface-container dark:text-primary border border-primary'
                     }`}
                   >
                     {myLatestRead ? '已读' : '已提交未读'}
                   </span>
                 ) : (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                  <span className="px-2 py-1 rounded text-xs font-medium bg-surface-container text-on-surface-variant dark:bg-surface-container-lowest dark:text-outline tabular-nums">
                     未提交
                   </span>
                 )}
               </div>
 
               {hasDraft ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2">
+                <p className="text-xs text-on-surface-variant dark:text-outline line-clamp-2">
                   {myDraft?.summary || '已有保存的汇报草稿尚未正式提交'}
                 </p>
               ) : latestMyReport ? (
-                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                <p className="text-xs text-on-surface-variant dark:text-outline truncate">
                   最近提交：{formatReportTime(latestMyReport.submitted_at || latestMyReport.created_at)} · {latestMyReport.summary_text || '已提交工作汇报'}
                 </p>
               ) : (
-                <p className="text-xs text-slate-400 dark:text-slate-500">
+                <p className="text-xs text-outline dark:text-on-surface-variant">
                   本周期暂无已提交的汇报记录，点击下方写汇报生成。
                 </p>
               )}
@@ -512,17 +512,17 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
               <button
                 type="button"
                 onClick={() => push({ screen: 'ai-report-create', title: '写汇报' })}
-                className="flex-1 min-h-[42px] rounded-xl bg-[#0058BE] text-white text-xs font-semibold flex items-center justify-center gap-1.5 active:bg-blue-800 cursor-pointer shadow-xs transition-colors"
+                className="flex-1 min-h-[40px] rounded-lg bg-primary text-on-primary text-xs font-medium flex items-center justify-center gap-2 active:bg-primary/90 cursor-pointer shadow-sm dark:shadow-none transition-ink-colors tabular-nums"
               >
-                <AppIcon name="edit" size={15} />
+                <AppIcon name="edit" size={18} />
                 <span>{hasDraft ? '继续编辑' : '写汇报'}</span>
               </button>
               <button
                 type="button"
                 onClick={() => push({ screen: 'ai-report-detail', title: '汇报历史与版本' })}
-                className="min-h-[42px] px-4 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-semibold flex items-center justify-center gap-1.5 hover:bg-slate-200 cursor-pointer transition-colors"
+                className="min-h-[40px] px-4 rounded-lg bg-surface-container dark:bg-surface-container-lowest text-on-surface dark:text-outline text-xs font-medium flex items-center justify-center gap-2 hover:bg-surface-container cursor-pointer transition-ink-colors tabular-nums"
               >
-                <AppIcon name="clock" size={15} />
+                <AppIcon name="clock" size={18} />
                 <span>历史</span>
               </button>
             </div>
@@ -533,22 +533,22 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
         {subordinateNodes.length > 0 && (
           <section className="space-y-2">
             <div className="flex items-center justify-between px-1">
-              <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+              <h3 className="text-xs font-medium text-on-surface-variant dark:text-outline   tabular-nums">
                 下属汇报 ({subordinateNodes.length})
               </h3>
               {isProjectLead && (
                 <button
                   type="button"
                   onClick={() => push({ screen: 'ai-project-aggregate', title: '项目汇总与发布' })}
-                  className="text-xs font-semibold text-[#0058BE] dark:text-blue-400 flex items-center gap-1 cursor-pointer"
+                  className="text-xs font-medium text-primary dark:text-primary flex items-center gap-1 cursor-pointer tabular-nums"
                 >
-                  <AppIcon name="ai" size={14} />
+                  <AppIcon name="ai" size={18} />
                   <span>项目汇总与发布</span>
                 </button>
               )}
             </div>
 
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant/80 dark:border-outline-variant overflow-hidden divide-y divide-outline-variant dark:divide-outline-variant">
               {subordinateNodes.map((sub) => {
                 const subUserId = sub.ownerUserIds?.[0] ?? (Number(sub.person?.id) || null);
                 const subSubmitted = allReports.filter(
@@ -577,32 +577,32 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
                         void handleOpenSubordinateReport(latestSubReport);
                       }
                     }}
-                    className={`p-4 flex items-center gap-3 transition-colors ${
+                    className={`p-4 flex items-center gap-3 transition-ink-colors ${
                       hasReport
-                        ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100'
+                        ? 'hover:bg-surface dark:hover:bg-surface-container-lowest/50 cursor-pointer active:bg-surface-container'
                         : 'opacity-80'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 text-[#0058BE] dark:text-blue-300 font-bold flex items-center justify-center shrink-0 text-sm">
+                    <div className="w-10 h-10 rounded-full bg-surface-container dark:bg-surface-container text-primary dark:text-primary font-medium flex items-center justify-center shrink-0 text-sm tabular-nums">
                       {sub.person.name.slice(0, 1)}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                        <strong className="text-sm font-medium text-on-surface dark:text-outline truncate tabular-nums">
                           {sub.person.name}
                         </strong>
-                        <span className="text-xs text-slate-400 truncate">
+                        <span className="text-xs text-outline truncate">
                           {sub.roleTitle || '团队成员'}
                         </span>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                      <p className="text-xs text-on-surface-variant dark:text-outline truncate mt-1">
                         {hasReport
                           ? latestSubReport.summary_text.slice(0, 30) || '提交了工作汇报'
                           : '本周期未提交'}
                       </p>
                       {hasReport && subTimeStr && (
-                        <span className="text-[11px] text-slate-400 block mt-0.5">
+                        <span className="text-xs text-outline block mt-1">
                           {subTimeStr} 提交
                         </span>
                       )}
@@ -610,18 +610,18 @@ const MyAgentContent: React.FC<MyAgentScreenProps> = ({
 
                     <div className="flex items-center gap-2 shrink-0">
                       <span
-                        className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                        className={`px-2 py-1 rounded text-xs font-medium ${
                           !hasReport
-                            ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+                            ? 'bg-surface-container text-outline dark:bg-surface-container-lowest dark:text-on-surface-variant'
                             : isRead
-                            ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-                            : 'bg-blue-100 text-[#0058BE] dark:bg-blue-950 dark:text-blue-300'
+                            ? 'bg-surface-container text-on-surface-variant dark:bg-surface-container-lowest dark:text-outline'
+                            : 'bg-surface-container text-primary dark:bg-surface-container dark:text-primary'
                         }`}
                       >
                         {!hasReport ? '本周期未提交' : isRead ? '已读' : '已提交未读'}
                       </span>
                       {hasReport && (
-                        <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                        <AppIcon name="chevron-right" size={18} className="text-inherit" />
                       )}
                     </div>
                   </div>

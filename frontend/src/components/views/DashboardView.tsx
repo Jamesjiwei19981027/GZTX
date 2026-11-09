@@ -83,27 +83,27 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="max-w-[1200px] mx-auto w-full pb-20 md:pb-8 animate-in fade-in duration-300">
         {/* Upcoming Deadlines (7 cols) */}
-        <section aria-label={lang === 'zh' ? '重点待办与跟进' : 'Priority tasks and follow-ups'} className="mb-4 bg-surface dark:bg-[#1c1a18] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm">
+        <section aria-label={lang === 'zh' ? '重点待办与跟进' : 'Priority tasks and follow-ups'} className="mb-4 bg-surface-container-lowest dark:bg-surface-container p-6 rounded-xl border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none">
           <div className="flex justify-between items-center mb-5">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-error">alarm</span>
-              <h3 className="font-bold text-lg text-on-surface dark:text-[#efe9de]">
+              <span className="material-symbols-outlined text-inherit">alarm</span>
+              <h3 className="font-medium text-lg text-on-surface dark:text-on-surface tabular-nums">
                 {lang === 'zh' ? '重点待办与跟进' : 'Priority tasks and follow-ups'}
               </h3>
             </div>
             <button
               onClick={onNavigateToTasks}
-              className="text-primary dark:text-[#adc6ff] font-semibold text-sm hover:underline flex items-center gap-0.5"
+              className="text-primary dark:text-primary font-medium text-sm hover:underline flex items-center gap-1 tabular-nums"
             >
               <span>{t.viewAll}</span>
-              <span className="material-symbols-outlined text-base">arrow_forward</span>
+              <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
             </button>
           </div>
 
-          <div className="space-y-3">
+          <div className="divide-y divide-outline-variant">
             {upcomingTasks.length === 0 ? (
               <div className="text-center py-8 text-on-surface-variant text-sm">
-                {lang === 'zh' ? '暂无待办截止任务，去轻松休息下！' : 'No upcoming deadlines! Take a breather.'}
+                {lang === 'zh' ? '暂无待办截止任务' : 'No upcoming deadlines'}
               </div>
             ) : (
               upcomingTasks.map((task) => {
@@ -117,24 +117,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <div
                     key={task.id}
                     onClick={() => onSelectTask(task)}
-                    className="flex items-center justify-between p-4 bg-surface-container-low dark:bg-[#262421] rounded-xl border border-transparent hover:border-outline-variant dark:hover:border-outline transition-ink cursor-pointer group shadow-sm hover:shadow-md"
+                    className="flex items-center justify-between gap-4 py-4 hover:bg-surface-container transition-ink-colors cursor-pointer group"
                   >
                     <div className="flex items-center gap-3 md:gap-4 overflow-hidden">
                       <span aria-hidden="true" className={`w-2 h-2 rounded-full ${indicatorColor} flex-shrink-0`}></span>
                       <div className="overflow-hidden">
                         <div className="flex items-center gap-2">
-                          <h4 className="font-semibold text-sm md:text-base text-on-surface dark:text-[#efe9de] truncate group-hover:text-primary transition-colors">
+                          <h4 className="font-medium text-sm md:text-base text-on-surface dark:text-on-surface truncate group-hover:text-primary transition-ink-colors tabular-nums">
                             {task.title}
                           </h4>
                           {task.priority === 'High' ? (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-error-container text-on-error-container">
+                            <span className="text-xs font-medium px-2 py-1 rounded bg-error-container text-on-error-container tabular-nums">
                               {lang === 'zh' ? '高' : 'High'}
                             </span>
                           ) : null}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-on-surface-variant mt-1">
-                          <span className="flex items-center gap-1 font-medium text-error">
-                            <span className="material-symbols-outlined text-xs">schedule</span>
+                          <span className={`flex items-center gap-1 font-medium ${task.dueDate && new Date(`${task.dueDate}T${task.dueTime || '23:59'}:00`).getTime() < Date.now() ? 'text-error' : 'text-outline'}`}>
+                            <span className="material-symbols-outlined text-[18px]">schedule</span>
                             {task.dueDate ? <>{relativeDue(task.dueDate, task.dueTime)} · {task.dueDate} {task.dueTime ? `• ${task.dueTime}` : ''}</> : lang === 'zh' ? '未设置截止时间' : 'No deadline'}
                           </span>
                           <span>•</span>
@@ -145,11 +145,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {(task.assignees?.length ? task.assignees : task.assignee ? [task.assignee] : []).slice(0, 3).map((member) => (
-                        member.avatar ? <img key={member.id} src={member.avatar} alt={member.name} title={member.name} className="w-7 h-7 rounded-full object-cover border border-outline-variant hidden sm:block" /> : <span key={member.id} title={member.name} className="w-7 h-7 rounded-full bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center border border-outline-variant hidden sm:flex">{member.name.slice(0, 1)}</span>
+                        member.avatar ? <img key={member.id} src={member.avatar} alt={member.name} title={member.name} className="w-7 h-7 rounded-full object-cover border border-outline-variant hidden sm:block" /> : <span key={member.id} title={member.name} className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-medium flex items-center justify-center border border-outline-variant hidden sm:flex tabular-nums">{member.name.slice(0, 1)}</span>
                       ))}
-                      {(task.assignees?.length || 0) > 3 && <span className="text-[10px] font-bold text-on-surface-variant">+{(task.assignees?.length || 0) - 3}</span>}
-                      <button className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-surface dark:hover:bg-[#1c1a18] rounded-full text-on-surface-variant transition-ink">
-                        <span className="material-symbols-outlined text-lg">chevron_right</span>
+                      {(task.assignees?.length || 0) > 3 && <span className="text-xs font-medium text-on-surface-variant tabular-nums">+{(task.assignees?.length || 0) - 3}</span>}
+                      <button className="opacity-0 group-hover:opacity-100 p-2 hover:bg-surface dark:hover:bg-surface-container-lowest rounded-lg text-on-surface-variant transition-ink-colors">
+                        <span className="material-symbols-outlined text-[18px]">chevron_right</span>
                       </button>
                     </div>
                   </div>
@@ -164,31 +164,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <section
         data-testid="today-focus"
         onClick={() => onNavigateToKanban ? onNavigateToKanban('pending') : onNavigateToTasks()}
-        className={`mb-6 p-5 rounded-2xl border shadow-sm hover:shadow-md transition-ink cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+        className={`mb-6 p-5 rounded-xl border shadow-sm dark:shadow-none transition-ink-colors cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
           todayAllDone
             ? 'bg-secondary-container/40 border-secondary/30'
             : overdueCount > 0
               ? 'bg-error-container/30 border-error/30'
-              : 'bg-surface dark:bg-[#1c1a18] border-surface-variant dark:border-outline-variant'
+              : 'bg-surface-container-lowest dark:bg-surface-container border-surface-variant dark:border-outline-variant'
         }`}
       >
         <div className="flex items-center gap-3 min-w-0">
           <span
-            className={`material-symbols-outlined text-3xl shrink-0 ${
-              todayAllDone ? 'text-secondary' : overdueCount > 0 ? 'text-error' : 'text-primary'
+            className={`material-symbols-outlined text-[18px] shrink-0 ${
+              todayAllDone ? 'text-inherit' : overdueCount > 0 ? 'text-inherit' : 'text-inherit'
             }`}
             style={todayAllDone ? { fontVariationSettings: "'FILL' 1" } : undefined}
           >
             {todayAllDone ? 'check_circle' : 'calendar_today'}
           </span>
           <div className="min-w-0">
-            <h3 className="font-bold text-base text-on-surface dark:text-[#efe9de]">
+            <h3 className="font-medium text-base text-on-surface dark:text-on-surface tabular-nums">
               {lang === 'zh' ? '今日聚焦' : "Today's Focus"}
             </h3>
-            <p className="text-sm text-on-surface-variant mt-0.5">
+            <p className="text-sm text-on-surface-variant mt-1">
               {todayAllDone
                 ? lang === 'zh'
-                  ? `今天的 ${todayTasks.length} 件事全部完成，干得漂亮！`
+                  ? `今天的 ${todayTasks.length} 件事全部完成`
                   : `All ${todayTasks.length} tasks for today are done. Nice work!`
                 : lang === 'zh'
                   ? `今天还有 ${todayOpenCount} 件事到期${overdueCount > 0 ? `，另有 ${overdueCount} 件已逾期待处理` : ''}。`
@@ -197,22 +197,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-4 shrink-0">
-          <button type="button" onClick={event => { event.stopPropagation(); onNavigateToKanban ? onNavigateToKanban('pending') : onNavigateToTasks(); }} className="text-center min-h-[44px]"><p className="text-2xl font-extrabold text-primary">{totalCount-completedCount}</p><p className="text-[10px] font-bold text-on-surface-variant">{lang === 'zh' ? '待办事项' : 'Pending'}</p></button>
+          <button type="button" onClick={event => { event.stopPropagation(); onNavigateToKanban ? onNavigateToKanban('pending') : onNavigateToTasks(); }} className="text-center min-h-[44px]"><p className="text-2xl font-medium text-primary tabular-nums">{totalCount-completedCount}</p><p className="text-xs font-normal text-on-surface-variant tabular-nums">{lang === 'zh' ? '待办事项' : 'Pending'}</p></button>
           <button type="button" className="text-center min-h-[44px]" onClick={event => { event.stopPropagation(); onNavigateToKanban ? onNavigateToKanban('today') : onNavigateToTasks(); }}>
-            <p className="text-2xl font-extrabold text-on-surface dark:text-[#efe9de]">{todayOpenCount}</p>
-            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">
+            <p className="text-2xl font-medium text-on-surface dark:text-on-surface tabular-nums">{todayOpenCount}</p>
+            <p className="text-xs   text-on-surface-variant font-normal tabular-nums">
               {lang === 'zh' ? '今天到期' : 'Due today'}
             </p>
           </button>
           <button type="button" className="text-center min-h-[44px]" onClick={event => { event.stopPropagation(); onNavigateToKanban ? onNavigateToKanban('overdue') : onNavigateToTasks(); }}>
-            <p className={`text-2xl font-extrabold ${overdueCount > 0 ? 'text-error' : 'text-on-surface dark:text-[#efe9de]'}`}>
+            <p className={`text-2xl font-medium ${overdueCount > 0 ? 'text-error' : 'text-on-surface dark:text-on-surface'}`}>
               {overdueCount}
             </p>
-            <p className="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">
+            <p className="text-xs   text-on-surface-variant font-normal tabular-nums">
               {lang === 'zh' ? '已逾期' : 'Overdue'}
             </p>
           </button>
-          <span className="material-symbols-outlined text-on-surface-variant">arrow_forward</span>
+          <span className="material-symbols-outlined text-inherit">arrow_forward</span>
         </div>
       </section>
 
@@ -224,9 +224,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <button
             onClick={onOpenNewTask}
             aria-label={t.newTask}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-on-primary rounded-xl font-medium text-sm shadow-sm hover:opacity-90 transition-ink active:scale-95"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg font-medium text-sm shadow-sm dark:shadow-none hover:opacity-90 transition-ink-colors active:scale-95 tabular-nums"
           >
-            <span className="material-symbols-outlined text-lg">add</span>
+            <span className="material-symbols-outlined text-[18px]">add</span>
             <span>{t.newTask}</span>
           </button>
       </div>
@@ -234,13 +234,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <section className="mb-6 md:mb-8">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold text-on-surface dark:text-[#efe9de] tracking-tight">
-              {lang === 'zh' ? `早上好, ${user.name.split(' ')[0]}` : `Good morning, ${user.name.split(' ')[0]}`}
+            <h1 className="text-[22px] md:text-[28px] font-medium text-on-surface dark:text-on-surface  tabular-nums">
+              {lang === 'zh' ? '工作台' : 'Workbench'}
             </h1>
             <p className="text-sm md:text-base text-on-surface-variant mt-1">
               {lang === 'zh'
-                ? `今天您有 ${urgentCount} 个高优先级任务待完成。`
-                : `You have ${urgentCount} high-priority tasks to complete today.`}
+                ? `今天您有 ${urgentCount} 个高优先级任务待完成`
+                : `You have ${urgentCount} high-priority tasks to complete today`}
             </p>
           </div>
 
@@ -251,31 +251,31 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {onNavigateToPeopleAxis && (
         <section
           onClick={onNavigateToPeopleAxis}
-          className="mb-6 bg-surface-container-lowest p-6 rounded-[var(--radius-ink-panel)] border border-outline-variant shadow-md hover:shadow-lg transition-ink cursor-pointer group relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4"
+          className="mb-6 bg-surface-container-lowest dark:bg-surface-container p-6 rounded-[var(--radius-ink-panel)] border border-outline-variant shadow-sm dark:shadow-none transition-ink-colors cursor-pointer group relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4"
         >
-          <div className="space-y-1.5 z-10">
+          <div className="space-y-2 z-10">
             <div className="flex items-center gap-2">
-              <span className="px-2.5 py-0.5 rounded-full bg-primary text-on-primary text-[11px] font-black tracking-wide uppercase">
+              <span className="px-2 py-1 rounded-md bg-primary text-on-primary text-xs font-medium   tabular-nums">
                 {lang === 'zh' ? '核心体系推荐' : 'Flagship Paradigm'}
               </span>
-              <span className="text-xs font-medium text-secondary flex items-center gap-1">
+              <span className="text-xs font-medium text-secondary flex items-center gap-1 tabular-nums">
                 <span className="w-2 h-2 rounded-full bg-secondary"></span>
                 {lang === 'zh' ? 'Web / App 责任链规则 100% 同一后端语义' : 'Web/App Parity Synchronized'}
               </span>
             </div>
-            <h2 className="text-xl md:text-2xl font-black text-on-surface group-hover:text-primary transition-colors flex items-center gap-2">
+            <h2 className="text-xl md:text-2xl font-medium text-on-surface group-hover:text-primary transition-ink-colors flex items-center gap-2 tabular-nums">
               <span>{lang === 'zh' ? '「人轴责任链」：人为主干，事项挂载，终责收口' : 'People-Axis: People as Spine, Tasks Attached, PM at Terminal'}</span>
-              <span className="material-symbols-outlined text-xl text-amber-500 group-hover:translate-x-1 transition-transform">arrow_forward</span>
+              <span className="material-symbols-outlined text-[18px] text-inherit group-hover:translate-x-1 transition-transform">arrow_forward</span>
             </h2>
-            <p className="text-xs md:text-sm text-on-surface-variant font-medium max-w-3xl">
+            <p className="text-xs md:text-sm text-on-surface-variant font-normal max-w-3xl tabular-nums">
               {lang === 'zh'
                 ? '告别传统平权任务看板。先看人如何串成主干与下级组织延伸，再看凭证与智能体如何辅助证据闭环，终责项目PM在轴终点签批收口。'
                 : 'Move beyond legacy task boards. Chained human accountability with AI risk analysis and milestone evidence proofs flowing to terminal PM sign-off.'}
             </p>
           </div>
-          <div className="shrink-0 flex items-center gap-2 bg-surface dark:bg-[#1c1a18] px-4 py-2.5 rounded-2xl border border-outline-variant/30 shadow-sm group-hover:border-primary/50 transition-ink">
-            <span className="material-symbols-outlined text-primary text-2xl">alt_route</span>
-            <span className="text-xs font-extrabold text-on-surface">
+          <div className="shrink-0 flex items-center gap-2 bg-surface-container-lowest dark:bg-surface-container px-4 py-2 rounded-xl border border-outline-variant/30 shadow-sm dark:shadow-none group-hover:border-primary/50 transition-ink-colors">
+            <span className="material-symbols-outlined text-inherit text-[18px]">alt_route</span>
+            <span className="text-xs font-medium text-on-surface tabular-nums">
               {lang === 'zh' ? '进入人轴视图' : 'Open Axis View'}
             </span>
           </div>
@@ -289,19 +289,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Total Tasks */}
           <div
             onClick={onNavigateToTasks}
-            className="bg-surface dark:bg-[#1c1a18] p-4 md:p-5 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm hover:shadow-md transition-ink cursor-pointer flex flex-col justify-between h-32 group"
+            className="bg-surface-container-lowest dark:bg-surface-container p-4 md:p-5 rounded-xl border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none transition-ink-colors cursor-pointer flex flex-col justify-between h-32 group"
           >
             <div className="flex justify-between items-start">
-              <span className="material-symbols-outlined text-primary text-2xl transition-ink-colors">
+              <span className="material-symbols-outlined text-inherit text-[18px] transition-ink-colors">
                 inventory_2
               </span>
-              <span className="text-xs text-on-surface-variant font-medium">{completionPercentage}%</span>
+              <span className="text-xs text-on-surface-variant font-medium tabular-nums">{completionPercentage}%</span>
             </div>
             <div>
-              <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+              <p className="text-xs font-normal text-on-surface-variant   tabular-nums">
                 {t.totalTasks}
               </p>
-              <p className="text-2xl md:text-3xl font-bold text-on-surface dark:text-[#efe9de] mt-0.5">
+              <p className="text-2xl md:text-3xl font-medium text-on-surface dark:text-on-surface mt-1 tabular-nums">
                 {totalCount}
               </p>
             </div>
@@ -310,19 +310,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Completed */}
           <div
             onClick={onNavigateToTasks}
-            className="bg-surface dark:bg-[#1c1a18] p-4 md:p-5 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm hover:shadow-md transition-ink cursor-pointer flex flex-col justify-between h-32 group"
+            className="bg-surface-container-lowest dark:bg-surface-container p-4 md:p-5 rounded-xl border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none transition-ink-colors cursor-pointer flex flex-col justify-between h-32 group"
           >
             <div className="flex justify-between items-start">
-              <span className="material-symbols-outlined text-secondary text-2xl transition-ink-colors" style={{ fontVariationSettings: "'FILL' 1" }}>
+              <span className="material-symbols-outlined text-inherit text-[18px] transition-ink-colors" style={{ fontVariationSettings: "'FILL' 1" }}>
                 check_circle
               </span>
-              <span className="text-xs text-secondary font-semibold">+{completedCount}</span>
+              <span className="text-xs text-secondary font-medium tabular-nums">+{completedCount}</span>
             </div>
             <div>
-              <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+              <p className="text-xs font-normal text-on-surface-variant   tabular-nums">
                 {t.completed}
               </p>
-              <p className="text-2xl md:text-3xl font-bold text-on-surface dark:text-[#efe9de] mt-0.5">
+              <p className="text-2xl md:text-3xl font-medium text-on-surface dark:text-on-surface mt-1 tabular-nums">
                 {completedCount}
               </p>
             </div>
@@ -331,19 +331,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* In Progress */}
           <div
             onClick={onNavigateToTasks}
-            className="bg-surface dark:bg-[#1c1a18] p-4 md:p-5 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm hover:shadow-md transition-ink cursor-pointer flex flex-col justify-between h-32 group"
+            className="bg-surface-container-lowest dark:bg-surface-container p-4 md:p-5 rounded-xl border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none transition-ink-colors cursor-pointer flex flex-col justify-between h-32 group"
           >
             <div className="flex justify-between items-start">
-              <span className="material-symbols-outlined text-tertiary text-2xl transition-ink-colors">
+              <span className="material-symbols-outlined text-inherit text-[18px] transition-ink-colors">
                 pending
               </span>
-              <span className="w-2 h-2 rounded-full bg-tertiary animate-ping mt-1"></span>
+              <span className="w-2 h-2 rounded-full bg-tertiary  mt-1"></span>
             </div>
             <div>
-              <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+              <p className="text-xs font-normal text-on-surface-variant   tabular-nums">
                 {t.inProgress}
               </p>
-              <p className="text-2xl md:text-3xl font-bold text-on-surface dark:text-[#efe9de] mt-0.5">
+              <p className="text-2xl md:text-3xl font-medium text-on-surface dark:text-on-surface mt-1 tabular-nums">
                 {inProgressCount}
               </p>
             </div>
@@ -352,21 +352,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           {/* Urgent */}
           <div
             onClick={onNavigateToTasks}
-            className="bg-surface dark:bg-[#1c1a18] p-4 md:p-5 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm hover:shadow-md transition-ink cursor-pointer flex flex-col justify-between h-32 group"
+            className="bg-surface-container-lowest dark:bg-surface-container p-4 md:p-5 rounded-xl border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none transition-ink-colors cursor-pointer flex flex-col justify-between h-32 group"
           >
             <div className="flex justify-between items-start">
-              <span className="material-symbols-outlined text-error text-2xl transition-ink-colors">
+              <span className="material-symbols-outlined text-inherit text-[18px] transition-ink-colors">
                 priority_high
               </span>
-              <span className="text-[11px] px-1.5 py-0.5 rounded bg-error-container text-on-error-container font-bold">
+              <span className="text-xs px-2 py-1 rounded bg-error-container text-on-error-container font-medium tabular-nums">
                 {lang === 'zh' ? '紧急' : 'Hot'}
               </span>
             </div>
             <div>
-              <p className="text-xs font-semibold text-on-surface-variant uppercase tracking-wider">
+              <p className="text-xs font-normal text-on-surface-variant   tabular-nums">
                 {t.urgent}
               </p>
-              <p className="text-2xl md:text-3xl font-bold text-on-surface dark:text-[#efe9de] mt-0.5">
+              <p className="text-2xl md:text-3xl font-medium text-on-surface dark:text-on-surface mt-1 tabular-nums">
                 {urgentCount}
               </p>
             </div>
@@ -374,9 +374,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
 
         {/* Weekly Progress Circle Card (4 cols) */}
-        <div className="lg:col-span-4 bg-surface-container-lowest text-on-surface p-6 rounded-2xl border border-outline-variant shadow-md flex flex-col items-center justify-center text-center relative overflow-hidden">
+        <div className="lg:col-span-4 bg-surface-container-lowest dark:bg-surface-container text-on-surface p-6 rounded-xl border border-outline-variant shadow-sm dark:shadow-none flex flex-col items-center justify-center text-center relative overflow-hidden">
 
-          <h3 className="font-medium text-base mb-4 text-on-surface-variant">
+          <h3 className="font-medium text-base mb-4 text-on-surface-variant tabular-nums">
             {t.weeklyProgress}
           </h3>
 
@@ -406,12 +406,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-3xl font-medium text-primary">{completionPercentage}%</span>
-              <span className="text-[10px] text-on-surface-variant">{lang === 'zh' ? '达成率' : 'Done'}</span>
+              <span className="text-3xl font-medium text-primary tabular-nums">{completionPercentage}%</span>
+              <span className="text-xs text-on-surface-variant">{lang === 'zh' ? '达成率' : 'Done'}</span>
             </div>
           </div>
 
-          <p className="mt-4 text-xs font-medium text-on-surface-variant">
+          <p className="mt-4 text-xs font-normal text-on-surface-variant tabular-nums">
             {lang === 'zh'
               ? `还差 ${Math.max(0, totalCount - completedCount)} 个任务即可达成周目标`
               : `${Math.max(0, totalCount - completedCount)} tasks to hit your weekly goal`}
@@ -422,11 +422,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Bottom Bento Layer: Deadlines & Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Recent Activity & Tip Banner (5 cols) */}
-        <section className="lg:col-span-12 bg-surface dark:bg-[#1c1a18] p-6 rounded-2xl border border-surface-variant dark:border-outline-variant shadow-sm flex flex-col justify-between">
+        <section className="lg:col-span-12 bg-surface-container-lowest dark:bg-surface-container p-6 rounded-xl border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-5">
-              <span className="material-symbols-outlined text-secondary">history</span>
-              <h3 className="font-bold text-lg text-on-surface dark:text-[#efe9de]">
+              <span className="material-symbols-outlined text-inherit">history</span>
+              <h3 className="font-medium text-lg text-on-surface dark:text-on-surface tabular-nums">
                 {t.recentActivity}
               </h3>
             </div>
@@ -435,16 +435,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <div className="space-y-5 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-[2px] before:bg-surface-variant dark:before:bg-outline-variant">
               {activities.map((act) => (
                 <div key={act.id} className="flex gap-3 relative">
-                  <div className={`w-6 h-6 rounded-full ${act.colorClass} flex items-center justify-center z-10 shadow-sm ring-4 ring-surface dark:ring-[#1c1a18]`}>
-                    <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                  <div className={`w-6 h-6 rounded-full ${act.colorClass} flex items-center justify-center z-10 shadow-sm dark:shadow-none ring-4 ring-surface dark:ring-surface-container-lowest`}>
+                    <span className="material-symbols-outlined text-[18px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                       {act.icon}
                     </span>
                   </div>
                   <div className="text-xs">
-                    <p className="text-on-surface dark:text-[#efe9de]">
-                      <span className="font-bold">{act.titleText}</span> {act.targetText}
+                    <p className="text-on-surface dark:text-on-surface">
+                      <span className="font-medium tabular-nums">{act.titleText}</span> {act.targetText}
                     </p>
-                    <p className="text-on-surface-variant mt-0.5">{act.timestamp}</p>
+                    <p className="text-on-surface-variant mt-1">{act.timestamp}</p>
                   </div>
                 </div>
               ))}
@@ -453,12 +453,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
           {/* Tip Photo Banner at Bottom */}
           <div className="mt-8 pt-2">
-            <div className="rounded-xl overflow-hidden aspect-[16/9] sm:aspect-[21/9] lg:aspect-[16/9] relative group cursor-pointer shadow-md border border-outline-variant/30 bg-surface-container">
-              <span className="material-symbols-outlined absolute -right-3 -top-3 text-on-surface-variant/20 text-[110px] transition-ink-colors pointer-events-none select-none">
-                diversity_3
-              </span>
-              <div className="absolute inset-0 flex items-end p-4">
-                <p className="text-on-surface font-medium text-xs md:text-sm">
+            <div className="border-t border-outline-variant py-4">
+              <div>
+                <p className="text-on-surface font-normal text-xs md:text-sm tabular-nums">
                   {t.tipGroup}
                 </p>
               </div>

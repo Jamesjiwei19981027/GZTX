@@ -54,7 +54,7 @@ export const WorkspaceSetupModal: React.FC<WorkspaceSetupModalProps> = ({
       }}
     >
       <form
-        className="w-full max-w-md rounded-3xl bg-surface-container-lowest border border-outline-variant/40 p-6 space-y-4"
+        className="w-full max-w-md rounded-[var(--radius-ink-panel)] bg-surface-container-lowest border border-outline-variant/40 p-6 space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
           const trimmed = name.trim();
@@ -62,17 +62,17 @@ export const WorkspaceSetupModal: React.FC<WorkspaceSetupModalProps> = ({
           void onSubmit(mode === 'company' ? { name: trimmed, slug } : { name: trimmed });
         }}
       >
-        <h3 className="text-lg font-bold text-on-surface">{title}</h3>
+        <h3 className="text-lg font-medium text-on-surface tabular-nums">{title}</h3>
         <p className="text-sm text-on-surface-variant">{hint}</p>
         <label className="block space-y-1">
-          <span className="text-xs font-semibold text-on-surface-variant">
+          <span className="text-xs font-medium text-on-surface-variant tabular-nums">
             {mode === 'company' ? (zh ? '公司名称' : 'Company name') : zh ? '项目名称' : 'Project name'}
           </span>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full p-3 rounded-xl bg-surface-container border border-outline-variant/40 text-sm"
+            className="w-full p-3 rounded-lg bg-surface-container border border-outline-variant/40 text-sm"
             placeholder={mode === 'company' ? (zh ? '例如：星河工作室' : 'Acme Studio') : zh ? '例如：Q3 交付' : 'Q3 delivery'}
           />
         </label>
@@ -81,7 +81,7 @@ export const WorkspaceSetupModal: React.FC<WorkspaceSetupModalProps> = ({
             slug: <code>{slug}</code>
           </p>
         )}
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-error">{error}</p>}
         <div className="flex justify-end gap-2">
           <button type="button" disabled={submitting} onClick={onClose} className="px-4 py-2 text-sm cursor-pointer">
             {zh ? '取消' : 'Cancel'}
@@ -89,7 +89,7 @@ export const WorkspaceSetupModal: React.FC<WorkspaceSetupModalProps> = ({
           <button
             type="submit"
             disabled={!name.trim() || submitting}
-            className="px-4 py-2 rounded-xl bg-primary text-on-primary text-sm font-bold disabled:opacity-50 cursor-pointer"
+            className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium disabled:opacity-50 cursor-pointer tabular-nums"
           >
             {submitting ? (zh ? '创建中…' : 'Creating…') : zh ? '创建' : 'Create'}
           </button>

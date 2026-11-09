@@ -19,6 +19,7 @@ test('AI report center clicks every report action', async ({ page }) => {
     let data: unknown = {}
     if (path === '/tasks/stats/trend') data = { series: [] }
     else if (path === '/tasks/stats') data = { total: 0, completed: 0, pending: 0, in_progress: 0, overdue: 0 }
+    else if (path === '/projects/1/report-summaries') data = { items: [], latest_published: null, can_publish: false }
     else if (path === '/projects/1/report-policies') data = { items: [{ id: 1, name: '每周汇报', enabled: true }] }
     else if (path === '/projects/1/report-agents/bindings' && request.method() === 'GET') {
       data = { items: [{ id: 101, user_id: 7, role: 'member', project_id: 1 }, { id: 102, user_id: 9, role: 'project', project_id: 1 }] }

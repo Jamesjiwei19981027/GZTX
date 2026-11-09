@@ -86,7 +86,7 @@ export const CompanyMembersPanel: React.FC<Props> = ({
 
   const name = (m: CompanyMember) => m.nickname || m.username || `用户${m.user_id}`;
   const btn =
-    'px-2.5 py-1 rounded-lg border border-outline-variant/50 text-xs font-semibold cursor-pointer disabled:opacity-40 hover:border-primary/50';
+    'px-2 py-1 rounded-lg border border-outline-variant/50 text-xs font-medium cursor-pointer disabled:opacity-40 hover:border-primary/50';
 
   return (
     <section className="space-y-3" data-testid="company-members-panel">
@@ -96,7 +96,7 @@ export const CompanyMembersPanel: React.FC<Props> = ({
           onChange={(e) => setQuery(e.target.value)}
           placeholder="搜索姓名、账号或邮箱…"
           aria-label="搜索公司成员"
-          className="w-full max-w-sm px-3 py-2 rounded-xl bg-surface-container border border-outline-variant/40 text-sm"
+          className="w-full max-w-sm px-3 py-2 rounded-lg bg-surface-container border border-outline-variant/40 text-sm"
         />
         <span className="text-xs text-on-surface-variant">
           {loading ? '加载中…' : `共 ${members.length} 人`}
@@ -112,14 +112,14 @@ export const CompanyMembersPanel: React.FC<Props> = ({
           role="status"
           className={`px-4 py-2 rounded-xl text-sm border ${
             notice.tone === 'ok'
-              ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-              : 'bg-red-50 text-red-900 border-red-200'
+              ? 'bg-surface-container-lowest dark:bg-surface-container text-[#2f7d4f] border-outline-variant'
+              : 'bg-error-container text-error border-outline-variant'
           }`}
         >
           {notice.text}
         </div>
       )}
-      <ul className="divide-y divide-outline-variant/30 rounded-2xl border border-outline-variant/30 bg-surface-container-lowest">
+      <ul className="divide-y divide-outline-variant/30 rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
         {shown.map((m) => {
           const isSelf = m.user_id === currentUserId;
           const busy = busyId === m.user_id;
@@ -130,11 +130,11 @@ export const CompanyMembersPanel: React.FC<Props> = ({
               data-testid={`company-member-${m.user_id}`}
               className="flex flex-wrap items-center gap-3 px-4 py-3"
             >
-              <span className="w-9 h-9 rounded-full bg-primary/10 text-primary text-sm font-bold flex items-center justify-center shrink-0">
+              <span className="w-9 h-9 rounded-full bg-primary/10 text-primary text-sm font-medium flex items-center justify-center shrink-0 tabular-nums">
                 {name(m).slice(0, 1)}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="font-semibold text-on-surface truncate">
+                <div className="font-medium text-on-surface truncate tabular-nums">
                   {name(m)}
                   {isSelf && <span className="ml-1 text-xs text-on-surface-variant">（我）</span>}
                 </div>
@@ -143,26 +143,26 @@ export const CompanyMembersPanel: React.FC<Props> = ({
                   {m.email ? ` · ${m.email}` : ''}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
                 {m.is_super_admin && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-primary/10 text-primary">
+                  <span className="px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary tabular-nums">
                     超级管理员
                   </span>
                 )}
                 {m.is_org_leader && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/10 text-amber-700">
+                  <span className="px-2 py-1 rounded-md text-xs font-medium bg-[#a86412]/10 text-[#a86412] tabular-nums">
                     组织负责人
                   </span>
                 )}
                 <span
-                  className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                    inactive ? 'bg-red-500/10 text-red-600' : 'bg-emerald-500/10 text-emerald-600'
+                  className={`px-2 py-1 rounded-md text-xs font-medium ${
+                    inactive ? 'bg-error text-error' : 'bg-[#2f7d4f]/10 text-[#2f7d4f]'
                   }`}
                 >
                   {STATUS_LABEL[m.status] || m.status}
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
                 {canManage && (
                   <>
                     <button
@@ -233,7 +233,7 @@ export const CompanyMembersPanel: React.FC<Props> = ({
                     )}
                     <button
                       type="button"
-                      className={`${btn} text-red-600`}
+                      className={`${btn} text-error`}
                       disabled={busy || isSelf}
                       title={isSelf ? '不能移出自己' : undefined}
                       onClick={() => setPending({ kind: 'remove', member: m })}
@@ -274,8 +274,8 @@ export const CompanyMembersPanel: React.FC<Props> = ({
           aria-label="确认操作"
           className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
         >
-          <div className="bg-surface-container-lowest rounded-3xl p-6 w-full max-w-md space-y-4 border border-outline-variant/40">
-            <h3 className="text-lg font-bold">
+          <div className="bg-surface-container-lowest dark:bg-surface-container rounded-[var(--radius-ink-panel)] p-6 w-full max-w-md space-y-4 border border-outline-variant/40">
+            <h3 className="text-lg font-medium tabular-nums">
               {pending.kind === 'disable'
                 ? `停用「${name(pending.member)}」？`
                 : pending.kind === 'remove'
@@ -295,7 +295,7 @@ export const CompanyMembersPanel: React.FC<Props> = ({
               </button>
               <button
                 type="button"
-                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-bold cursor-pointer"
+                className="px-4 py-2 rounded-lg bg-error text-on-error text-sm font-medium cursor-pointer tabular-nums"
                 onClick={() => {
                   const m = pending.member;
                   if (pending.kind === 'disable') {
