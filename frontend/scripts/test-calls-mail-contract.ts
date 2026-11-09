@@ -14,7 +14,7 @@ const assertions: [string, boolean][] = [
   ['offer answer and ICE are exchanged', messages.includes("type: 'offer'") && messages.includes("type: 'answer'") && messages.includes("type: 'ice'")],
   ['remote media is mounted', messages.includes('ontrack') && messages.includes('remoteMedia')],
   ['external mail status API exists', shell.includes('getExternalMailStatus') && shell.includes('/external-mail/status')],
-  ['external mail is explicit in inbox', inbox.includes('external-mail') && inbox.includes('configuration')],
+  ['external mail is explicit in inbox', inbox.includes('external-mail') && inbox.includes('配置')],
 ];
 
 const failures = assertions.filter(([, passed]) => !passed).map(([name]) => name);
