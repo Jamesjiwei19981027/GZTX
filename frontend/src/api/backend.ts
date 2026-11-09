@@ -340,7 +340,7 @@ export async function batchRescheduleTasks(taskIds: number[], dueDate: string) {
 }
 
 export async function batchCompleteTasks(taskIds: number[]) {
-  return apiRequest<{ updated_count?: number }>('/tasks/batch/complete', {
+  return apiRequest<{ completed_count?: number; updated_count?: number; skipped_task_ids?: number[] }>('/tasks/batch/complete', {
     method: 'PATCH',
     body: JSON.stringify({ task_ids: taskIds }),
   })

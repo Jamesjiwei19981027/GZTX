@@ -1022,13 +1022,15 @@ export default function App() {
     const ids = taskIds.map((v) => Number(v)).filter((v) => Number.isFinite(v));
     if (!ids.length) return;
     try {
-      await batchCompleteTasks(ids);
-      const idSet = new Set(taskIds);
+      const res = await batchCompleteTasks(ids);
+      const skipped = new Set(((res as { skipped_task_ids?: number[] })?.skipped_task_ids ?? []).map(String));
+      const idSet = new Set(taskIds.filter((id) => !skipped.has(id)));
       setTasks((prev) =>
         prev.map((t) => (idSet.has(t.id) ? { ...t, status: 'Done' as Status, progress: 100 } : t)),
       );
       track('task.complete', { batch: ids.length });
-      toast.success(`已完成 ${ids.length} 个任务`);
+      if (skipped.size > 0) toast.info(`已完成 ${ids.length - skipped.size} 个任务，${skipped.size} 条只读任务未完成`);
+      else toast.success(`已完成 ${ids.length} 个任务`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '批量完成失败');
     }

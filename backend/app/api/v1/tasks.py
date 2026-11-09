@@ -1386,6 +1386,7 @@ async def batch_reschedule(data: BatchReschedule, db: DbSession, user: CurrentUs
         data={
             "updated_count": len(editable),
             "skipped_readonly": len(tasks) - len(editable),
+            "skipped_task_ids": [t.id for t in tasks if t not in editable],
         }
     )
 
