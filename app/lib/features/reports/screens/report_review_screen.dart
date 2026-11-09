@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -197,8 +197,11 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
         title: title,
         body: const AppEmptyState(
           title: '请选择具体项目',
-          description: '汇报审核按项目隔离，请先切换到具体项目。',
-          icon: AppIcon('folder', size: 44, color: AppColors.primary),
+          description: '汇报审核按项目隔离，请先切换到具体项目',
+          icon: AppIcon(
+            'folder',
+            size: 18,
+          ),
         ),
       );
     }
@@ -230,7 +233,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
       padding: const EdgeInsets.all(AppSpacing.lg),
       children: [
         const ReportInfoBanner(
-          '智能体绑定从项目成员与人轴责任关系同步，不维护第二套上下级。',
+          '智能体绑定从项目成员与人轴责任关系同步，不维护第二套上下级',
         ),
         if (_notice != null) ...[
           const SizedBox(height: AppSpacing.md),
@@ -240,7 +243,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
         if (_bindings.isEmpty)
           const ReportCard(
             child: Text(
-              '当前项目尚未初始化智能体绑定，点击下方按钮从人轴同步。',
+              '当前项目尚未初始化智能体绑定，点击下方按钮从人轴同步',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
             ),
@@ -269,7 +272,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
           isLoading: _syncing,
           icon: _syncing
               ? null
-              : const AppIcon('refresh', size: 17, color: Colors.white),
+              : const AppIcon('refresh', size: 18, color: Colors.white),
           onPressed: _syncing ? null : _syncBindings,
         ),
         const SizedBox(height: AppSpacing.lg),
@@ -278,7 +281,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
         const ReportCard(
           child: Text(
             '成员离开后停用对应项目绑定。变更管理者或调整人轴上下级后，'
-            '下次汇报将自动按照最新责任关系路由送达。',
+            '下次汇报将自动按照最新责任关系路由送达',
             style: TextStyle(
                 fontSize: 12, height: 1.5, color: AppColors.textSecondary),
           ),
@@ -312,7 +315,10 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
               borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
             ),
             child: const Center(
-              child: AppIcon('ai', size: 17, color: AppColors.primary),
+              child: AppIcon(
+                'ai',
+                size: 18,
+              ),
             ),
           ),
           const SizedBox(width: AppSpacing.md),
@@ -325,13 +331,13 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 13.5, fontWeight: FontWeight.w600),
+                      fontSize: 14, fontWeight: FontWeight.w500),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   binding.roleLabel,
                   style: const TextStyle(
-                      fontSize: 11.5, color: AppColors.textTertiary),
+                      fontSize: 12, color: AppColors.textTertiary),
                 ),
               ],
             ),
@@ -363,7 +369,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
                 style: const TextStyle(
-                    fontSize: 11, color: AppColors.textTertiary),
+                    fontSize: 12, color: AppColors.textTertiary),
               ),
             ),
           ],
@@ -375,8 +381,8 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
         ),
         const SizedBox(height: AppSpacing.xs),
         const Text(
-          '追问由直属领导在项目内发起，经站内消息沟通，不跨项目读取资料。',
-          style: TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+          '追问由直属领导在项目内发起，经站内消息沟通，不跨项目读取资料',
+          style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
         ),
         const SizedBox(height: AppSpacing.lg),
         const ReportInfoBanner(
@@ -408,7 +414,10 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
               child: AppButton(
                 label: '上传材料',
                 variant: AppButtonVariant.secondary,
-                icon: const AppIcon('file', size: 17, color: AppColors.primary),
+                icon: const AppIcon(
+                  'file',
+                  size: 18,
+                ),
                 onPressed: () => context.push(
                   Uri(path: '/evidence/submit', queryParameters: {
                     'projectId': '$projectId',
@@ -424,7 +433,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
             Expanded(
               child: AppButton(
                 label: '更新汇报草稿',
-                icon: const AppIcon('edit', size: 17, color: Colors.white),
+                icon: const AppIcon('edit', size: 18, color: Colors.white),
                 onPressed: () => context.push(
                   Uri(path: '/reports/create', queryParameters: {
                     'projectId': '$projectId',
@@ -460,7 +469,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
                 style: const TextStyle(
-                    fontSize: 11, color: AppColors.textTertiary),
+                    fontSize: 12, color: AppColors.textTertiary),
               ),
             ),
           ],
@@ -473,8 +482,8 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
         if (_conflicts.isEmpty)
           const AppEmptyState(
             title: '暂无资料差异',
-            description: '当前项目内已提交汇报的任务状态一致，没有需要核验的冲突项。',
-            icon: AppIcon('check-circle', size: 44, color: AppColors.success),
+            description: '当前项目内已提交汇报的任务状态一致，没有需要核验的冲突项',
+            icon: AppIcon('check-circle', size: 18, color: AppColors.success),
           )
         else
           for (final conflict in _conflicts) ...[
@@ -488,7 +497,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
                         child: Text(
                           conflict.typeLabel,
                           style: const TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w600),
+                              fontSize: 14, fontWeight: FontWeight.w500),
                         ),
                       ),
                       const ReportStatusChip(
@@ -523,7 +532,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
           const ReportInfoBanner('暂无可核验的成员汇报。只有汇报接收上级或项目负责人可以记录核验意见。'),
         for (final report in _reviewableReports) ...[
           Text('成员汇报 ${report.id}',
-              style: const TextStyle(fontWeight: FontWeight.w600)),
+              style: const TextStyle(fontWeight: FontWeight.w500)),
           Text(report.summaryPreview),
           ReportReviewCard(
               key: ValueKey('review-${report.id}'), report: report, api: _api!),
@@ -541,4 +550,3 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
     );
   }
 }
-

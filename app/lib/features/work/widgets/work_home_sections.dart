@@ -1,4 +1,4 @@
-﻿/// 首页「日程日历」与「项目进度简介」（对应网页 `components/WorkbenchOverview.tsx`）。
+/// 首页「日程日历」与「项目进度简介」（对应网页 `components/WorkbenchOverview.tsx`）。
 library;
 
 import 'package:flutter/material.dart';
@@ -57,7 +57,7 @@ class WorkHomeCalendar extends StatelessWidget {
               IconButton(
                 tooltip: '上个月',
                 onPressed: () => onMoveMonth(-1),
-                icon: const Icon(Icons.chevron_left, size: 20),
+                icon: const Icon(Icons.chevron_left, size: 18),
               ),
               Expanded(
                 child: Text(
@@ -65,7 +65,7 @@ class WorkHomeCalendar extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
@@ -75,7 +75,7 @@ class WorkHomeCalendar extends StatelessWidget {
               IconButton(
                 tooltip: '下个月',
                 onPressed: () => onMoveMonth(1),
-                icon: const Icon(Icons.chevron_right, size: 20),
+                icon: const Icon(Icons.chevron_right, size: 18),
               ),
             ],
           ),
@@ -110,9 +110,10 @@ class WorkHomeCalendar extends StatelessWidget {
           Text(
             '单击日期查看，双击新增日程；点击任务可修改，过去日期也可补录',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               height: 1.4,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
@@ -124,7 +125,8 @@ class WorkHomeCalendar extends StatelessWidget {
                 onTap: () => onOpenTask(task),
                 borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                   child: Row(
                     children: [
                       SizedBox(
@@ -133,7 +135,7 @@ class WorkHomeCalendar extends StatelessWidget {
                           task.dueTime ?? '全天',
                           style: const TextStyle(
                             fontSize: 12,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: AppColors.primary,
                           ),
                         ),
@@ -158,11 +160,11 @@ class WorkHomeCalendar extends StatelessWidget {
                       ),
                       if (task.isDone)
                         const Padding(
-                          padding: EdgeInsets.only(left: 6),
+                          padding: EdgeInsets.only(left: 8),
                           child: Text(
                             '已完成',
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               color: AppColors.success,
                             ),
                           ),
@@ -237,7 +239,7 @@ class WorkProjectProgressSection extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: isDark
                                 ? AppColors.darkTextPrimary
                                 : AppColors.textPrimary,
@@ -246,35 +248,38 @@ class WorkProjectProgressSection extends StatelessWidget {
                       ),
                       Text(
                         item.total == 0 ? '暂无事项' : '${item.percent}%',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: AppColors.primary,
+                          color: item.total == 0
+                              ? AppColors.textTertiaryOf(isDark)
+                              : Theme.of(context).colorScheme.primary,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 8),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     child: LinearProgressIndicator(
                       value: item.total == 0 ? 0 : item.percent / 100,
                       minHeight: 6,
-                      backgroundColor:
-                          isDark ? AppColors.darkSurfaceVariant : AppColors.borderLight,
-                      valueColor:
-                          const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                      backgroundColor: isDark
+                          ? AppColors.darkSurfaceVariant
+                          : AppColors.borderLight,
+                      valueColor: const AlwaysStoppedAnimation<Color>(
+                          AppColors.primary),
                     ),
                   ),
                   const SizedBox(height: 4),
                   Wrap(
                     spacing: AppSpacing.md,
-                    runSpacing: 2,
+                    runSpacing: 4,
                     children: [
                       Text(
                         '已完成 ${item.completed} / ${item.total} 项',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: isDark
                               ? AppColors.darkTextTertiary
                               : AppColors.textTertiary,
@@ -283,7 +288,7 @@ class WorkProjectProgressSection extends StatelessWidget {
                       Text(
                         '逾期 ${item.overdue} 项',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: item.overdue > 0
                               ? AppColors.danger
                               : (isDark
@@ -295,11 +300,11 @@ class WorkProjectProgressSection extends StatelessWidget {
                   ),
                   if (item.next != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         '待推进：${item.next}',
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: isDark
                               ? AppColors.darkTextSecondary
                               : AppColors.textSecondary,
@@ -331,6 +336,3 @@ class WorkProjectProgressSection extends StatelessWidget {
     );
   }
 }
-
-
-

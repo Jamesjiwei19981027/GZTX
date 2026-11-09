@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -211,8 +211,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         title: title,
         body: const AppEmptyState(
           title: '请选择具体项目',
-          description: '汇报按项目隔离，请先切换到具体项目。',
-          icon: AppIcon('folder', size: 44, color: AppColors.primary),
+          description: '汇报按项目隔离，请先切换到具体项目',
+          icon: AppIcon(
+            'folder',
+            size: 18,
+          ),
         ),
       );
     }
@@ -259,7 +262,10 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           AppEmptyState(
             title: '暂无汇报记录',
             description: '您在当前项目中尚未提交任何汇报。可以在项目 AI 入口整理本周进展。',
-            icon: const AppIcon('file', size: 44, color: AppColors.primary),
+            icon: const AppIcon(
+              'file',
+              size: 18,
+            ),
             actionLabel: '整理本周汇报',
             onAction: () =>
                 context.push('/reports/create?projectId=$projectId'),
@@ -312,7 +318,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: dark
                                 ? AppColors.darkTextPrimary
                                 : AppColors.textPrimary,
@@ -323,13 +329,13 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       Text(
                         '第 $version 版',
                         style: const TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: AppColors.textTertiary,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     submitted
                         ? '${formatReportMonthDayTime(report.submittedAt)} · 已送达直属领导'
@@ -337,7 +343,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 12,
                       color: AppColors.textTertiary,
                     ),
                   ),
@@ -356,7 +362,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               const ReportStatusChip(label: '草稿'),
             const SizedBox(width: AppSpacing.xs),
             const AppIcon('chevron-right',
-                size: 16, color: AppColors.textTertiary),
+                size: 18, color: AppColors.textTertiary),
           ],
         ),
       ),
@@ -368,8 +374,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     if (report == null) {
       return const AppEmptyState(
         title: '汇报不存在',
-        description: '该汇报可能已被删除，或您没有查看权限。',
-        icon: AppIcon('file', size: 44, color: AppColors.textTertiary),
+        description: '该汇报可能已被删除，或您没有查看权限',
+        icon: AppIcon('file', size: 18, color: AppColors.textTertiary),
       );
     }
     final supervisor = resolveDirectSupervisor(
@@ -399,7 +405,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                           : '提交时间：${formatReportFullDateTime(report.submittedAt)}',
                       textAlign: TextAlign.right,
                       style: const TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: AppColors.textTertiary,
                       ),
                     ),
@@ -462,7 +468,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             ),
             TextSpan(
               text: value,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -486,7 +492,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           child: CircleAvatar(
             radius: 32,
             backgroundColor: Color(0xFFE8F5EC),
-            child: AppIcon('check-circle', size: 34, color: AppColors.success),
+            child: AppIcon('check-circle', size: 18, color: AppColors.success),
           ),
         ),
         const SizedBox(height: AppSpacing.md),
@@ -501,8 +507,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
           child: Text(
             '${ReportScope.projectName(context, widget.projectName)}'
             ' · ${report?.submittedAt == null ? '刚刚' : formatReportMonthDayTime(report!.submittedAt)}',
-            style:
-                const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+            style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -542,7 +547,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 done: false,
                 chip: delivery.rollupStatus,
                 chipTone: ReportBannerTone.info,
-                description: '管理者收件箱与项目对照页面将同步展示最新进展与冲突比对。',
+                description: '管理者收件箱与项目对照页面将同步展示最新进展与冲突比对',
                 isLast: true,
               ),
             ],
@@ -555,14 +560,17 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         const SizedBox(height: AppSpacing.lg),
         AppButton(
           label: '查看汇报详情与来源',
-          icon: const AppIcon('file', size: 17, color: Colors.white),
+          icon: const AppIcon('file', size: 18, color: Colors.white),
           onPressed: () => setState(() => _mode = ReportDetailMode.detail),
         ),
         const SizedBox(height: AppSpacing.sm),
         AppButton(
           label: '返回我的职责',
           variant: AppButtonVariant.secondary,
-          icon: const AppIcon('axis', size: 17, color: AppColors.primary),
+          icon: const AppIcon(
+            'axis',
+            size: 18,
+          ),
           onPressed: () => context.goNamed('axis-root'),
         ),
         const SizedBox(height: AppSpacing.xl),
@@ -601,7 +609,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                   child: Text(
                     done ? '✓' : '·',
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       height: 1,
                       color: done ? Colors.white : AppColors.textTertiary,
                     ),
@@ -612,7 +620,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 Expanded(
                   child: Container(
                     width: 2,
-                    margin: const EdgeInsets.symmetric(vertical: 2),
+                    margin: const EdgeInsets.symmetric(vertical: 4),
                     color: dark ? AppColors.darkBorder : AppColors.border,
                   ),
                 ),
@@ -633,8 +641,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                       Text(
                         title,
                         style: TextStyle(
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                           color: done
                               ? (dark
                                   ? AppColors.darkTextPrimary
@@ -648,11 +656,11 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                         ReportStatusChip(label: chip, tone: chipTone),
                     ],
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     description,
                     style: const TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 12,
                       height: 1.45,
                       color: AppColors.textTertiary,
                     ),
@@ -666,4 +674,3 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 }
-

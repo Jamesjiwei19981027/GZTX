@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_state.dart';
@@ -129,7 +129,7 @@ class _MeRootScreenState extends State<MeRootScreen> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '确认退出登录？',
-      message: '退出后本地草稿将被安全清理，下次登录需要重新输入身份凭据。',
+      message: '退出后本地草稿将被安全清理，下次登录需要重新输入身份凭据',
       confirmLabel: '确认退出',
       isDestructive: true,
     );
@@ -265,11 +265,11 @@ class _MeRootScreenState extends State<MeRootScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     (user?.email ?? '').isEmpty ? '未绑定邮箱' : user!.email!,
                     style: TextStyle(
-                      fontSize: 12.5,
+                      fontSize: 13,
                       color: isDark
                           ? AppColors.darkTextSecondary
                           : AppColors.textSecondary,
@@ -281,7 +281,7 @@ class _MeRootScreenState extends State<MeRootScreen> {
                       children: [
                         AppIcon(
                           'work',
-                          size: 12,
+                          size: 18,
                           color: isDark
                               ? AppColors.darkTextTertiary
                               : AppColors.textTertiary,
@@ -292,7 +292,7 @@ class _MeRootScreenState extends State<MeRootScreen> {
                             company.name,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 11.5,
+                              fontSize: 12,
                               color: isDark
                                   ? AppColors.darkTextTertiary
                                   : AppColors.textTertiary,
@@ -308,7 +308,8 @@ class _MeRootScreenState extends State<MeRootScreen> {
             AppIcon(
               'chevron-right',
               size: 18,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ],
         ),
@@ -326,7 +327,10 @@ class _MeRootScreenState extends State<MeRootScreen> {
             AppListTile(
               title: '个人资料',
               subtitle: '头像、姓名与联系方式',
-              leading: const AppIcon('user', size: 18, color: AppColors.primary),
+              leading: const AppIcon(
+                'user',
+                size: 18,
+              ),
               onTap: () => _open('/me/profile'),
             ),
             AppListTile(
@@ -338,15 +342,13 @@ class _MeRootScreenState extends State<MeRootScreen> {
             AppListTile(
               title: '账号与安全',
               subtitle: '登录密码、手机与邮箱验证',
-              leading:
-                  const AppIcon('shield', size: 18),
+              leading: const AppIcon('shield', size: 18),
               onTap: () => _open('/me/security'),
             ),
             AppListTile(
               title: '外观与语言',
               subtitle: appearanceController.themeMode.label,
-              leading:
-                  const AppIcon('palette', size: 18),
+              leading: const AppIcon('palette', size: 18),
               onTap: () => _open('/me/appearance'),
             ),
             AppListTile(
@@ -358,15 +360,13 @@ class _MeRootScreenState extends State<MeRootScreen> {
             AppListTile(
               title: '任务默认值',
               subtitle: '默认优先级：${_priorityLabel(_prefs.taskDefaultPriority)}',
-              leading:
-                  const AppIcon('sliders', size: 18),
+              leading: const AppIcon('sliders', size: 18),
               onTap: () => _open('/me/defaults'),
             ),
             AppListTile(
               title: '第三方服务绑定',
               subtitle: '微信提醒与个人语音识别',
-              leading:
-                  const AppIcon('share', size: 18),
+              leading: const AppIcon('share', size: 18),
               onTap: () => _open('/me/integrations'),
             ),
           ],
@@ -409,7 +409,7 @@ class _MeRootScreenState extends State<MeRootScreen> {
 
     return AppListSection(
       header: '企业集成与管理',
-      footer: '您拥有企业超级管理员权限，可配置企业级基础设施。',
+      footer: '您拥有企业超级管理员权限，可配置企业级基础设施',
       children: [
         AppListTile(
           title: '通知渠道配置',
@@ -491,4 +491,3 @@ class _MeRootScreenState extends State<MeRootScreen> {
     };
   }
 }
-

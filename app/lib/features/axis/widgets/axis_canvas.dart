@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:clock/clock.dart';
@@ -690,54 +690,67 @@ class _AxisCanvasState extends State<AxisCanvas>
                                 color: isDark
                                     ? AppColors.darkSurface
                                     : AppColors.surface,
-                                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                                borderRadius:
+                                    BorderRadius.circular(AppSpacing.radiusLg),
                                 child: InkWell(
                                   key: Key(
                                       'axis-timeline-matter-${entry.item.id}'),
-                                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+                                  borderRadius: BorderRadius.circular(
+                                      AppSpacing.radiusLg),
                                   onTap: () => widget.onOpenMatter
                                       ?.call(entry.item, entry.owner.id),
-                                  child: Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                          border: Border.all(
-                                              color: AppColors.primary),
-                                          borderRadius:
-                                              BorderRadius.circular(AppSpacing.radiusLg)),
-                                      child: Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(entry.item.title,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: completedTitleStyle(
-                                                    isDark: isDark,
-                                                    completed: entry.item.isDone,
-                                                    base: TextStyle(
-                                                        fontSize: 13,
-                                                        fontWeight: FontWeight.w500,
-                                                        color: isDark
-                                                            ? AppColors.darkTextPrimary
-                                                            : AppColors.textPrimary))),
-                                            const SizedBox(height: 5),
-                                            Text(
-                                                '${entry.owner.name} · ${axisDateLabel(entry.item.dueAt)}',
-                                                style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: AppColors
-                                                        .textSecondaryOf(
-                                                            isDark))),
-                                            Text(
-                                                '${entry.item.typeLabel} · ${entry.item.statusLabel}',
-                                                style: TextStyle(
-                                                    fontSize: 11,
-                                                    color: AppColors
-                                                        .textSecondaryOf(
-                                                            isDark))),
-                                          ])),
+                                  child: MediaQuery.withClampedTextScaling(
+                                      maxScaleFactor: 1.15,
+                                      child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                              border: Border.all(
+                                                  color: AppColors.primary),
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      AppSpacing.radiusLg)),
+                                          child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                Text(entry.item.title,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: completedTitleStyle(
+                                                        isDark: isDark,
+                                                        completed:
+                                                            entry.item.isDone,
+                                                        base: TextStyle(
+                                                            height: 1.2,
+                                                            fontSize: 13,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                            color: isDark
+                                                                ? AppColors
+                                                                    .darkTextPrimary
+                                                                : AppColors
+                                                                    .textPrimary))),
+                                                const SizedBox(height: 8),
+                                                Text(
+                                                    '${entry.owner.name} · ${axisDateLabel(entry.item.dueAt)}',
+                                                    style: TextStyle(
+                                                        height: 1.2,
+                                                        fontSize: 12,
+                                                        color: AppColors
+                                                            .textSecondaryOf(
+                                                                isDark))),
+                                                Text(
+                                                    '${entry.item.typeLabel} · ${entry.item.statusLabel}',
+                                                    style: TextStyle(
+                                                        height: 1.2,
+                                                        fontSize: 12,
+                                                        color: AppColors
+                                                            .textSecondaryOf(
+                                                                isDark))),
+                                              ]))),
                                 )),
                           ),
                       ],
@@ -889,7 +902,7 @@ class _AxisCanvasState extends State<AxisCanvas>
       child: IgnorePointer(
         child: Container(
           key: const Key('axis-drop-bubble'),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
             color: isDropVerdictOk ? AppColors.success : AppColors.danger,
             borderRadius: BorderRadius.circular(8),
@@ -988,11 +1001,11 @@ class _AxisCanvasState extends State<AxisCanvas>
     final card = Container(
       key: Key('axis-person-${node.id}'),
       padding: isCompact
-          ? const EdgeInsets.symmetric(horizontal: 20, vertical: 10)
-          : const EdgeInsets.fromLTRB(12, 10, 12, 8),
+          ? const EdgeInsets.symmetric(horizontal: 20, vertical: 12)
+          : const EdgeInsets.fromLTRB(12, 12, 12, 8),
       decoration: BoxDecoration(
         color: background,
-                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         border: Border.all(color: borderColor, width: borderWidth),
         boxShadow: shadows,
       ),
@@ -1068,7 +1081,7 @@ class _AxisCanvasState extends State<AxisCanvas>
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: AppColors.danger,
                 borderRadius: BorderRadius.circular(10),
@@ -1104,7 +1117,7 @@ class _AxisCanvasState extends State<AxisCanvas>
               '无逾期',
               style: TextStyle(
                 fontSize: 20,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color: AppColors.success,
               ),
             ),
@@ -1148,12 +1161,12 @@ class _AxisCanvasState extends State<AxisCanvas>
                 avatarLetter,
                 style: const TextStyle(
                   fontSize: 28,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.primary,
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1173,7 +1186,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                   ),
                   if (isRoot)
                     Container(
-                      margin: const EdgeInsets.only(top: 2),
+                      margin: const EdgeInsets.only(top: 4),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 1,
@@ -1186,7 +1199,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                         '终责',
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.warning,
                         ),
                       ),
@@ -1239,7 +1252,7 @@ class _AxisCanvasState extends State<AxisCanvas>
             label,
             style: TextStyle(
               fontSize: 18,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: primary
                   ? AppColors.primary
                   : AppColors.textTertiaryOf(isDark),
@@ -1267,7 +1280,6 @@ class _AxisCanvasState extends State<AxisCanvas>
   }) {
     final avatarLetter =
         node.name.characters.isNotEmpty ? node.name.characters.first : '?';
-    final taskBg = isDark ? const Color(0xFF1E2836) : const Color(0xFFF3F7FD);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1289,7 +1301,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                 avatarLetter,
                 style: const TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.primary,
                 ),
               ),
@@ -1309,7 +1321,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: isDark
                                 ? AppColors.darkTextPrimary
                                 : AppColors.textPrimary,
@@ -1362,7 +1374,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: AppColors.textTertiaryOf(isDark),
                     ),
                   ),
@@ -1400,7 +1412,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                               '＋',
                               style: TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                                 color: AppColors.primary,
                                 height: 1.1,
                               ),
@@ -1438,7 +1450,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                               '⋯',
                               style: TextStyle(
                                 fontSize: 14,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                                 color: AppColors.textSecondaryOf(isDark),
                                 height: 1.0,
                               ),
@@ -1451,18 +1463,16 @@ class _AxisCanvasState extends State<AxisCanvas>
               ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         // 任务区（剩余高度，独立成块）
         Expanded(
           child: Container(
             decoration: BoxDecoration(
-              color: taskBg,
-              borderRadius: BorderRadius.circular(10),
-              border: const Border(
-                left: BorderSide(color: AppColors.primary, width: 3),
-              ),
+              border: Border(
+                  top: BorderSide(
+                      color: isDark ? AppColors.darkBorder : AppColors.border)),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            padding: const EdgeInsets.only(top: 4),
             child: summary.total == 0
                 ? Center(
                     child: Text(
@@ -1479,37 +1489,42 @@ class _AxisCanvasState extends State<AxisCanvas>
                       Text(
                         '任务 ${summary.total}',
                         style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.primary,
                           letterSpacing: 0.5,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      const SizedBox(height: 4),
                       ...summary.visible.map((item) {
                         final chip = cardTaskChip(item, clock.now());
                         return KeyedSubtree(
                           key: _hitKey('${node.id}:${item.id}'),
                           child: Container(
                             height: 20,
-                            margin: const EdgeInsets.only(bottom: 2),
+                            margin: const EdgeInsets.only(bottom: 4),
                             child: Row(
                               children: [
                                 _taskDot(chip.tone),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     item.title,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: chip.tone == AxisCardTaskTone.over
-                                          ? AppColors.danger
-                                          : (isDark
-                                              ? AppColors.darkTextPrimary
-                                              : AppColors.textPrimary),
+                                    style: completedTitleStyle(
+                                      isDark: isDark,
+                                      completed: item.isDone,
+                                      base: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color:
+                                            chip.tone == AxisCardTaskTone.over
+                                                ? AppColors.danger
+                                                : (isDark
+                                                    ? AppColors.darkTextPrimary
+                                                    : AppColors.textPrimary),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1539,7 +1554,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                     child: const Text(
                       '查看全部 →',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: AppColors.primary,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1558,7 +1573,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                       ? Text(
                           '下属 $subordinatesCount ⌄',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: AppColors.textTertiaryOf(isDark),
                           ),
                         )
@@ -1572,7 +1587,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                                   ? '下属 $subordinatesCount ›'
                                   : '下属 $subordinatesCount ⌄',
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 color: AppColors.textTertiaryOf(isDark),
                               ),
                             ),
@@ -1611,7 +1626,7 @@ class _AxisCanvasState extends State<AxisCanvas>
           child: Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
               color: primary
                   ? AppColors.primary
@@ -1661,13 +1676,13 @@ class _AxisCanvasState extends State<AxisCanvas>
         bg = AppColors.dangerLight;
         text = AppColors.danger;
         border = const Color(0xFFF6C4BF);
-        weight = FontWeight.w600;
+        weight = FontWeight.w500;
         break;
       case AxisCardTaskTone.today:
         bg = AppColors.warningLight;
         text = AppColors.warning;
         border = const Color(0xFFF3D79D);
-        weight = FontWeight.w600;
+        weight = FontWeight.w500;
         break;
       case AxisCardTaskTone.done:
         bg = isDark ? AppColors.darkSurfaceVariant : Colors.white;
@@ -1683,7 +1698,7 @@ class _AxisCanvasState extends State<AxisCanvas>
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       height: 18,
       decoration: BoxDecoration(
         color: bg,
@@ -1694,7 +1709,7 @@ class _AxisCanvasState extends State<AxisCanvas>
       child: Text(
         chip.text,
         style: TextStyle(
-          fontSize: 10.5,
+          fontSize: 12,
           color: text,
           fontWeight: weight,
           height: 1.1,
@@ -1727,7 +1742,7 @@ class _FoldedRow extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
           color: isDark ? AppColors.darkSurface : AppColors.surface,
           borderRadius: BorderRadius.circular(10),
@@ -1744,7 +1759,7 @@ class _FoldedRow extends StatelessWidget {
                 node.name,
                 TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: isDark
                       ? AppColors.darkTextPrimary
                       : AppColors.textPrimary,
@@ -1753,20 +1768,20 @@ class _FoldedRow extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               _col(
-                60,
+                64,
                 node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle,
                 TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   color: AppColors.textTertiaryOf(isDark),
                 ),
                 const Key('folded-col-role'),
               ),
               const SizedBox(width: 4),
               _col(
-                38,
+                40,
                 '任务 $total',
                 TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   color: AppColors.textTertiaryOf(isDark),
                 ),
                 const Key('folded-col-total'),
@@ -1774,11 +1789,11 @@ class _FoldedRow extends StatelessWidget {
               const SizedBox(width: 4),
               // 逾期为 0 时该列留空，后面的内容不左移。
               _col(
-                38,
+                40,
                 overdue > 0 ? '逾期 $overdue' : '',
                 const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.danger,
                 ),
                 const Key('folded-col-overdue'),
@@ -1786,7 +1801,7 @@ class _FoldedRow extends StatelessWidget {
               const Spacer(),
               Icon(
                 Icons.keyboard_arrow_down,
-                size: 16,
+                size: 18,
                 color: AppColors.textTertiaryOf(isDark),
               ),
             ],
@@ -1815,7 +1830,7 @@ class _CardTag extends StatelessWidget {
     required this.text,
     required this.backgroundColor,
     required this.textColor,
-    this.fontWeight = FontWeight.w600,
+    this.fontWeight = FontWeight.w500,
   });
 
   final String text;
@@ -1830,11 +1845,11 @@ class _CardTag extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
         ),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
           child: Text(
             text,
             style: TextStyle(
-              fontSize: 10,
+              fontSize: 12,
               color: textColor,
               fontWeight: fontWeight,
               height: 1.4,
@@ -2150,4 +2165,3 @@ class _AxisDragRegionState extends State<_AxisDragRegion> {
     );
   }
 }
-

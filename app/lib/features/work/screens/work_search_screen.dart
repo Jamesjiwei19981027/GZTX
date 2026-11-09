@@ -203,7 +203,7 @@ class _WorkSearchScreenState extends State<WorkSearchScreen> {
                     AppEmptyState(
                       title: '无匹配结果',
                       description: '未找到与「$_query」相关的任务或项目',
-                      icon: const AppIcon('search', size: 40),
+                      icon: const AppIcon('search', size: 18),
                     )
                   else ...[
                     if ((_filter == 'all' || _filter == 'projects') &&
@@ -212,7 +212,7 @@ class _WorkSearchScreenState extends State<WorkSearchScreen> {
                         '匹配项目 (${projects.length})',
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: isDark
                               ? AppColors.darkTextSecondary
                               : AppColors.textSecondary,
@@ -225,8 +225,10 @@ class _WorkSearchScreenState extends State<WorkSearchScreen> {
                           children: [
                             for (final project in projects)
                               ListTile(
-                                leading: const AppIcon('folder',
-                                    size: 20, color: AppColors.primary),
+                                leading: const AppIcon(
+                                  'folder',
+                                  size: 18,
+                                ),
                                 title: Text(
                                   project.name,
                                   style: const TextStyle(fontSize: 14),
@@ -235,10 +237,12 @@ class _WorkSearchScreenState extends State<WorkSearchScreen> {
                                   project.description?.isNotEmpty == true
                                       ? project.description!
                                       : '项目工作区',
-                                  style: const TextStyle(fontSize: 11),
+                                  style: const TextStyle(fontSize: 12),
                                 ),
-                                trailing: const Icon(Icons.chevron_right, size: 18),
-                                onTap: () => context.push('/projects/${project.id}'),
+                                trailing:
+                                    const Icon(Icons.chevron_right, size: 18),
+                                onTap: () =>
+                                    context.push('/projects/${project.id}'),
                               ),
                           ],
                         ),
@@ -251,7 +255,7 @@ class _WorkSearchScreenState extends State<WorkSearchScreen> {
                         '匹配事项 (${tasks.length})',
                         style: TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: isDark
                               ? AppColors.darkTextSecondary
                               : AppColors.textSecondary,
@@ -267,7 +271,8 @@ class _WorkSearchScreenState extends State<WorkSearchScreen> {
                                 task: tasks[i],
                                 dense: true,
                                 onTap: () async {
-                                  await context.push('/work/task/${tasks[i].id}');
+                                  await context
+                                      .push('/work/task/${tasks[i].id}');
                                   if (!mounted) return;
                                   await _load();
                                 },

@@ -1,4 +1,4 @@
-﻿/// 工作统计报表（work-statistics）。
+/// 工作统计报表（work-statistics）。
 ///
 /// 对应网页 `mobile/features/work/MobileStatisticsScreen.tsx`。
 library;
@@ -275,7 +275,7 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
                                 borderRadius:
                                     BorderRadius.circular(AppSpacing.radiusSm),
                                 child: SizedBox(
-                                  height: 14,
+                                  height: 16,
                                   child: Row(
                                     children: [
                                       if (stats.completed > 0)
@@ -303,7 +303,7 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
                               const SizedBox(height: AppSpacing.md),
                               Wrap(
                                 spacing: AppSpacing.md,
-                                runSpacing: 6,
+                                runSpacing: 8,
                                 children: [
                                   _legend('已完成', stats.completed,
                                       AppColors.success),
@@ -311,8 +311,8 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
                                       AppColors.primary),
                                   _legend('待办', stats.pending,
                                       AppColors.textTertiary),
-                                  _legend('其中逾期', stats.overdue,
-                                      AppColors.danger),
+                                  _legend(
+                                      '其中逾期', stats.overdue, AppColors.danger),
                                 ],
                               ),
                             ],
@@ -324,9 +324,13 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        _dotLabel('新增', AppColors.primary),
+                        _dotLabel('新增', AppColors.textSecondaryOf(isDark)),
                         const SizedBox(width: AppSpacing.sm),
-                        _dotLabel('完成', AppColors.success),
+                        _dotLabel(
+                            '完成',
+                            isDark
+                                ? AppColors.darkTextTertiary
+                                : AppColors.textDisabled),
                       ],
                     ),
                     child: (_trend?.series ?? const <TrendPoint>[]).isEmpty
@@ -339,7 +343,7 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
                                   in _trend!.series.reversed.take(10))
                                 Padding(
                                   padding:
-                                      const EdgeInsets.symmetric(vertical: 2),
+                                      const EdgeInsets.symmetric(vertical: 4),
                                   child: Row(
                                     children: [
                                       Expanded(
@@ -390,7 +394,7 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
                                                 : item.name.substring(0, 1),
                                             style: const TextStyle(
                                               fontSize: 12,
-                                              fontWeight: FontWeight.w600,
+                                              fontWeight: FontWeight.w500,
                                             ),
                                           ),
                                         ),
@@ -410,9 +414,8 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
                                               Text(
                                                 '已承接 ${item.total} 项 · 完成 ${item.completed} 项',
                                                 style: const TextStyle(
-                                                  fontSize: 11,
-                                                  color:
-                                                      AppColors.textTertiary,
+                                                  fontSize: 12,
+                                                  color: AppColors.textTertiary,
                                                 ),
                                               ),
                                             ],
@@ -445,7 +448,7 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
           const SizedBox(width: 4),
           Text(
             '$label: $value',
-            style: const TextStyle(fontSize: 11),
+            style: const TextStyle(fontSize: 12),
           ),
         ],
       );
@@ -458,8 +461,8 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
             height: 6,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 3),
-          Text(label, style: const TextStyle(fontSize: 11)),
+          const SizedBox(width: 4),
+          Text(label, style: const TextStyle(fontSize: 12)),
         ],
       );
 }
@@ -496,10 +499,12 @@ class _StatCard extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 12,
-              color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
+              color: isDark
+                  ? AppColors.darkTextSecondary
+                  : AppColors.textSecondary,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             value,
             style: TextStyle(
@@ -511,8 +516,9 @@ class _StatCard extends StatelessWidget {
           Text(
             hint,
             style: TextStyle(
-              fontSize: 11,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              fontSize: 12,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ),
         ],
@@ -520,6 +526,3 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
-
-
-

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../../design/design.dart';
 
@@ -84,7 +84,9 @@ class AxisInfoBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isWarning ? AppColors.warning : AppColors.primary;
+    final color = isWarning
+        ? (isDarkMode(context) ? AppColors.darkWarning : AppColors.warning)
+        : AppColors.textSecondaryOf(isDarkMode(context));
     return Container(
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
@@ -95,8 +97,9 @@ class AxisInfoBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            icon ?? (isWarning ? Icons.warning_amber_rounded : Icons.info_outline),
-            size: 17,
+            icon ??
+                (isWarning ? Icons.warning_amber_rounded : Icons.info_outline),
+            size: 18,
             color: color,
           ),
           const SizedBox(width: AppSpacing.sm),
@@ -130,7 +133,7 @@ class AxisErrorBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline, size: 17, color: AppColors.danger),
+          const Icon(Icons.error_outline, size: 18, color: AppColors.danger),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
@@ -197,18 +200,23 @@ class AxisStatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = isDarkMode(context);
+    final foreground =
+        color == AppColors.primary ? AppColors.textSecondaryOf(isDark) : color;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: color == AppColors.primary
+            ? (isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant)
+            : color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: color,
+          color: foreground,
         ),
       ),
     );
@@ -299,7 +307,7 @@ class AxisWideAction extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: foreground,
                       ),
                     ),
@@ -339,7 +347,9 @@ Future<T?> showAxisPickerSheet<T>({
                 ListTile(
                   title: Text(labelOf(item)),
                   trailing: selected == item
-                      ? const Icon(Icons.check, color: AppColors.primary)
+                      ? const Icon(
+                          Icons.check,
+                        )
                       : null,
                   onTap: () => Navigator.of(ctx).pop(item),
                 ),
@@ -364,4 +374,3 @@ Future<T?> showAxisPickerSheet<T>({
     },
   );
 }
-

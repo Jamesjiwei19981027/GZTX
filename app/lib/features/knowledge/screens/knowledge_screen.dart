@@ -119,7 +119,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
           tooltip: '问知识助手',
           onPressed:
               concrete ? () => context.pushNamed('knowledge-chat') : null,
-          icon: const AppIcon('ai', size: 22),
+          icon: const AppIcon('ai', size: 18),
         ),
       ],
       body: Column(
@@ -131,7 +131,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
               child: KnowledgeStateContainer(
                 child: AppEmptyState(
                   title: '先选择一个项目',
-                  description: '选择项目后，就能记录、整理和查找自己的知识。',
+                  description: '选择项目后，就能记录、整理和查找自己的知识',
                 ),
               ),
             )
@@ -191,7 +191,10 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
         color: isDark ? AppColors.darkSurface : Colors.white,
         child: Row(
           children: [
-            const AppIcon('folder', size: 18, color: AppColors.primary),
+            const AppIcon(
+              'folder',
+              size: 18,
+            ),
             const SizedBox(width: AppSpacing.sm),
             Text(
               '当前项目',
@@ -211,7 +214,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: isDark
                       ? AppColors.darkTextPrimary
                       : AppColors.textPrimary,
@@ -221,7 +224,7 @@ class _KnowledgeScreenState extends State<KnowledgeScreen> {
             if (projects.isNotEmpty)
               AppIcon(
                 'chevron-down',
-                size: 16,
+                size: 18,
                 color: isDark
                     ? AppColors.darkTextTertiary
                     : AppColors.textTertiary,

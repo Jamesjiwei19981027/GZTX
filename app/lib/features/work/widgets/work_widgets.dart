@@ -1,4 +1,4 @@
-﻿/// T02 工作 Tab 通用控件。
+/// T02 工作 Tab 通用控件。
 ///
 /// 所有控件都同时适配 iOS（Cupertino）与安卓（Material），文案全中文。
 library;
@@ -11,7 +11,8 @@ import '../../../design/design.dart';
 import '../data/work_models.dart';
 
 /// 把底座异常翻译成页面可展示的状态。
-({String title, String message, bool isOffline, bool isForbidden}) describeError(
+({String title, String message, bool isOffline, bool isForbidden})
+    describeError(
   Object error,
 ) {
   if (error is NetworkException) {
@@ -103,8 +104,8 @@ class WorkSection extends StatelessWidget {
                     child: Text(
                       title!,
                       style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
                         color: isDark
                             ? AppColors.darkTextPrimary
                             : AppColors.textPrimary,
@@ -127,7 +128,7 @@ class WorkSection extends StatelessWidget {
               child: Text(
                 footer!,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   height: 1.4,
                   color: isDark
                       ? AppColors.darkTextTertiary
@@ -164,22 +165,26 @@ class WorkFilterChip extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         child: Container(
-          constraints: const BoxConstraints(minHeight: 34),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+          constraints: const BoxConstraints(minHeight: 36),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: selected
                 ? AppColors.primary
-                : (isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant),
+                : (isDark
+                    ? AppColors.darkSurfaceVariant
+                    : AppColors.surfaceVariant),
             borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           ),
           child: Text(
             label,
             style: TextStyle(
               fontSize: 12,
-              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+              fontWeight: selected ? FontWeight.w500 : FontWeight.w500,
               color: selected
                   ? Colors.white
-                  : (isDark ? AppColors.darkTextSecondary : AppColors.textSecondary),
+                  : (isDark
+                      ? AppColors.darkTextSecondary
+                      : AppColors.textSecondary),
             ),
           ),
         ),
@@ -207,14 +212,14 @@ class WorkStatusBadge extends StatelessWidget {
         ),
     };
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: bg.withValues(alpha: isDark ? 0.35 : 1),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: fg),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: fg),
       ),
     );
   }
@@ -244,7 +249,7 @@ class WorkPriorityBadge extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 4),
-        Text(label, style: TextStyle(fontSize: 10, color: color)),
+        Text(label, style: TextStyle(fontSize: 12, color: color)),
       ],
     );
   }
@@ -268,8 +273,9 @@ class WorkEmptyHint extends StatelessWidget {
           if (icon != null) ...[
             AppIcon(
               icon!,
-              size: 32,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              size: 18,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
             const SizedBox(height: AppSpacing.sm),
           ],
@@ -278,7 +284,8 @@ class WorkEmptyHint extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 13,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ),
         ],
@@ -383,7 +390,7 @@ class WorkTaskTile extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
-          vertical: dense ? 8 : 10,
+          vertical: dense ? 8 : 12,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -396,7 +403,8 @@ class WorkTaskTile extends StatelessWidget {
                   button: true,
                   label: task.isDone ? '标为未完成' : '完成任务',
                   child: Padding(
-                    padding: const EdgeInsets.only(right: 10, top: 6, bottom: 6),
+                    padding:
+                        const EdgeInsets.only(right: 12, top: 8, bottom: 8),
                     child: _CheckCircle(done: task.isDone),
                   ),
                 ),
@@ -423,12 +431,13 @@ class WorkTaskTile extends StatelessWidget {
                     subtitle!,
                   ] else if (_hasMeta(task)) ...[
                     const SizedBox(height: 4),
-                    WorkTaskMeta(task: task, emphasizeOverdue: emphasizeOverdue),
+                    WorkTaskMeta(
+                        task: task, emphasizeOverdue: emphasizeOverdue),
                   ],
                 ],
               ),
             ),
-            if (trailing != null) ... [
+            if (trailing != null) ...[
               const SizedBox(width: AppSpacing.sm),
               trailing!,
             ] else if (showChevron)
@@ -438,8 +447,10 @@ class WorkTaskTile extends StatelessWidget {
                   isCupertinoPlatform(context)
                       ? CupertinoIcons.chevron_forward
                       : Icons.chevron_right,
-                  size: 16,
-                  color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                  size: 18,
+                  color: isDark
+                      ? AppColors.darkTextTertiary
+                      : AppColors.textTertiary,
                 ),
               ),
           ],
@@ -472,7 +483,7 @@ class WorkTaskMeta extends StatelessWidget {
     final muted = isDark ? AppColors.darkTextTertiary : AppColors.textTertiary;
     final overdue = emphasizeOverdue && task.isOverdue;
     return Wrap(
-      spacing: 6,
+      spacing: 8,
       runSpacing: 4,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
@@ -480,37 +491,39 @@ class WorkTaskMeta extends StatelessWidget {
           Text(
             task.isDueToday ? '今日到期' : task.dueDate!,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color: overdue ? AppColors.danger : muted,
-              fontWeight: overdue ? FontWeight.w600 : FontWeight.w400,
+              fontWeight: overdue ? FontWeight.w500 : FontWeight.w400,
             ),
           ),
         WorkPriorityBadge(priority: task.priority),
         if (task.isAxisLocked)
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: const Color(0xFFF3E8FF),
-              borderRadius: BorderRadius.circular(4),
+              color: isDark
+                  ? AppColors.darkSurfaceVariant
+                  : AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
             ),
-            child: const Text(
+            child: Text(
               '人轴',
               style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primary,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: AppColors.textSecondaryOf(isDark),
               ),
             ),
           ),
         if (task.categoryName != null && task.categoryName!.isNotEmpty)
           Text(
             task.categoryName!,
-            style: TextStyle(fontSize: 11, color: muted),
+            style: TextStyle(fontSize: 12, color: muted),
           ),
         if (task.tags.isNotEmpty)
           Text(
             task.tags.map((t) => '#${t.name}').join(' '),
-            style: TextStyle(fontSize: 11, color: muted),
+            style: TextStyle(fontSize: 12, color: muted),
           ),
       ],
     );
@@ -538,9 +551,8 @@ class _CheckCircle extends StatelessWidget {
           width: 2,
         ),
       ),
-      child: done
-          ? const Icon(Icons.check, size: 14, color: Colors.white)
-          : null,
+      child:
+          done ? const Icon(Icons.check, size: 18, color: Colors.white) : null,
     );
   }
 }
@@ -570,9 +582,12 @@ class WorkTrendChart extends StatelessWidget {
         painter: _TrendPainter(
           series: series,
           maxValue: maxValue,
-          trackColor: isDark ? AppColors.darkSurfaceVariant : AppColors.borderLight,
-          createdColor: AppColors.primary,
-          completedColor: AppColors.success,
+          trackColor:
+              isDark ? AppColors.darkSurfaceVariant : AppColors.borderLight,
+          createdColor: AppColors.textSecondaryOf(isDark),
+          completedColor:
+              isDark ? AppColors.darkTextTertiary : AppColors.textDisabled,
+          currentColor: Theme.of(context).colorScheme.primary,
         ),
         child: const SizedBox.expand(),
       ),
@@ -587,6 +602,7 @@ class _TrendPainter extends CustomPainter {
     required this.trackColor,
     required this.createdColor,
     required this.completedColor,
+    required this.currentColor,
   });
 
   final List<TrendPoint> series;
@@ -594,6 +610,7 @@ class _TrendPainter extends CustomPainter {
   final Color trackColor;
   final Color createdColor;
   final Color completedColor;
+  final Color currentColor;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -611,7 +628,7 @@ class _TrendPainter extends CustomPainter {
         Rect.fromLTWH(center - barWidth, 0, barWidth, size.height),
         paint,
       );
-      paint.color = createdColor;
+      paint.color = i == series.length - 1 ? currentColor : createdColor;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(
@@ -642,7 +659,12 @@ class _TrendPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_TrendPainter oldDelegate) =>
-      oldDelegate.series != series || oldDelegate.maxValue != maxValue;
+      oldDelegate.series != series ||
+      oldDelegate.maxValue != maxValue ||
+      oldDelegate.trackColor != trackColor ||
+      oldDelegate.createdColor != createdColor ||
+      oldDelegate.completedColor != completedColor ||
+      oldDelegate.currentColor != currentColor;
 }
 
 /// 月历网格：周一或周日起始，可标记有任务的日期。
@@ -685,12 +707,12 @@ class WorkMonthGrid extends StatelessWidget {
                 .map(
                   (label) => Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
                         label,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: isDark
                               ? AppColors.darkTextTertiary
                               : AppColors.textTertiary,
@@ -766,7 +788,7 @@ class WorkMonthGrid extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Container(
                           width: 4,
                           height: 4,
@@ -794,9 +816,7 @@ class WorkMonthGrid extends StatelessWidget {
 List<String> buildMonthGrid(DateTime month, {bool startMonday = true}) {
   final first = DateTime(month.year, month.month, 1);
   final daysInMonth = DateTime(month.year, month.month + 1, 0).day;
-  final leading = startMonday
-      ? (first.weekday + 6) % 7
-      : first.weekday % 7;
+  final leading = startMonday ? (first.weekday + 6) % 7 : first.weekday % 7;
   final cells = <String>[];
   for (var i = 0; i < leading; i++) {
     cells.add('');
@@ -811,6 +831,3 @@ List<String> buildMonthGrid(DateTime month, {bool startMonday = true}) {
   }
   return cells;
 }
-
-
-

@@ -1,4 +1,4 @@
-﻿/// 工作看板（work-kanban）。
+/// 工作看板（work-kanban）。
 ///
 /// 对应网页 `MobileKanbanScreen` 与 `components/views/KanbanView.tsx`：
 /// 三列状态、长按拖动改状态（带触感反馈），并提供「移动状态」菜单作为替代操作。
@@ -194,7 +194,7 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
             '长按卡片可拖到其它状态列，松手即保存',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color:
                   isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
@@ -334,7 +334,7 @@ class _Column extends StatelessWidget {
                         title,
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: isDark
                               ? AppColors.darkTextPrimary
                               : AppColors.textPrimary,
@@ -343,7 +343,7 @@ class _Column extends StatelessWidget {
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
+                        horizontal: 8,
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
@@ -356,8 +356,8 @@ class _Column extends StatelessWidget {
                       child: Text(
                         '${tasks.length}',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                           color: isDark
                               ? AppColors.darkTextSecondary
                               : AppColors.textSecondary,
@@ -367,7 +367,7 @@ class _Column extends StatelessWidget {
                     const SizedBox(width: AppSpacing.xs),
                     IconButton(
                       tooltip: '在「$title」新建事项',
-                      icon: const Icon(Icons.add, size: 16),
+                      icon: const Icon(Icons.add, size: 18),
                       onPressed: onCreate,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
@@ -516,7 +516,7 @@ class _KanbanCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     height: 1.4,
                     color: isDark
                         ? AppColors.darkTextSecondary
@@ -524,16 +524,16 @@ class _KanbanCard extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 4,
-                runSpacing: 2,
+                runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     task.dueDate ?? '无截止日',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: task.isOverdue
                           ? AppColors.danger
                           : (isDark
@@ -575,13 +575,13 @@ class _KanbanCard extends StatelessWidget {
                               Text(
                                 '移动状态',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   color: isDark
                                       ? AppColors.darkTextSecondary
                                       : AppColors.textSecondary,
                                 ),
                               ),
-                            const Icon(Icons.expand_more, size: 14),
+                            const Icon(Icons.expand_more, size: 18),
                           ],
                         ),
                       ),
@@ -596,4 +596,3 @@ class _KanbanCard extends StatelessWidget {
     );
   }
 }
-

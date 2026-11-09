@@ -86,7 +86,8 @@ void main() {
       expect(find.text('完成邮箱验证'), findsOneWidget);
       expect(find.text('未验证'), findsWidgets);
       expect(find.text('邮箱验证'), findsOneWidget);
-      expect(find.byKey(const ValueKey('verify-confirm-email')), findsOneWidget);
+      expect(
+          find.byKey(const ValueKey('verify-confirm-email')), findsOneWidget);
       expect(find.text('退出登录'), findsOneWidget);
     });
 
@@ -326,7 +327,7 @@ void main() {
 
       expect(app.tokens.accessToken, isNull);
       expect(app.authState.currentUser, isNull);
-      expect(find.text('欢迎回来'), findsOneWidget);
+      expect(find.text('登录'), findsOneWidget);
     });
   });
 }

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../../core/time/time_utils.dart';
 import '../../../design/design.dart';
@@ -78,7 +78,7 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除通知',
-      message: '删除后这条协作通知将从收件箱移除，且无法恢复。',
+      message: '删除后这条协作通知将从收件箱移除，且无法恢复',
       confirmLabel: '删除',
       isDestructive: true,
     );
@@ -126,7 +126,7 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
                           item.createdAt == null
                               ? '发送时间：近期'
@@ -143,7 +143,7 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.sm,
-                        vertical: 2,
+                        vertical: 4,
                       ),
                       decoration: BoxDecoration(
                         color: AppColors.warningLight,
@@ -153,7 +153,7 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
                       child: const Text(
                         '需回复',
                         style:
-                            TextStyle(fontSize: 11, color: Color(0xFF7A4E00)),
+                            TextStyle(fontSize: 12, color: Color(0xFF7A4E00)),
                       ),
                     ),
                 ],
@@ -232,7 +232,7 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
               ] else if (item.requiresReply) ...[
                 const Text(
                   '快捷回复通知：',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: AppSpacing.sm),
                 AppTextField(
@@ -258,4 +258,3 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
     );
   }
 }
-

@@ -17,7 +17,8 @@ import '../data/work_models.dart';
 import '../widgets/work_widgets.dart';
 
 class WorkTrashScreen extends StatefulWidget {
-  const WorkTrashScreen({super.key, this.api, this.authState, this.pageSize = 20});
+  const WorkTrashScreen(
+      {super.key, this.api, this.authState, this.pageSize = 20});
 
   final WorkApi? api;
   final AuthState? authState;
@@ -89,7 +90,8 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _restoringId = null);
-      showAppToast(context, describeError(error).message, type: ToastType.error);
+      showAppToast(context, describeError(error).message,
+          type: ToastType.error);
     }
   }
 
@@ -102,7 +104,7 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
         IconButton(
           tooltip: '刷新',
           onPressed: () => _load(_page),
-          icon: const AppIcon('refresh', size: 20),
+          icon: const AppIcon('refresh', size: 18),
         ),
       ],
       body: WorkStateContainer(
@@ -128,13 +130,16 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: AppIcon('info', size: 16, color: AppColors.onInfoContainerOf(isDarkMode(context))),
+                    padding: const EdgeInsets.only(top: 4),
+                    child: AppIcon('info',
+                        size: 18,
+                        color:
+                            AppColors.onInfoContainerOf(isDarkMode(context))),
                   ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
-                      '回收站中的任务将保留 30 天，期间可随时一键恢复到项目待办中；逾期将由系统自动永久清除。',
+                      '回收站中的任务将保留 30 天，期间可随时一键恢复到项目待办中；逾期将由系统自动永久清除',
                       style: TextStyle(
                         fontSize: 12,
                         height: 1.5,
@@ -168,7 +173,7 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
                 '软删事项（共 $_total 项）',
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: isDark
                       ? AppColors.darkTextSecondary
                       : AppColors.textSecondary,
@@ -199,8 +204,7 @@ class _WorkTrashScreenState extends State<WorkTrashScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       TextButton(
-                        onPressed:
-                            _page <= 1 ? null : () => _load(_page - 1),
+                        onPressed: _page <= 1 ? null : () => _load(_page - 1),
                         child: const Text('上一页'),
                       ),
                       Text(
@@ -267,7 +271,7 @@ class _TrashRow extends StatelessWidget {
                       ? '已软删除'
                       : '删除时间: ${formatDisplayDateTime(task.deletedAt)}',
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: AppColors.textTertiary,
                   ),
                 ),

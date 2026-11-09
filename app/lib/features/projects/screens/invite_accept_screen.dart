@@ -1,4 +1,4 @@
-﻿/// 接受项目邀请（含深链接入口处理）
+/// 接受项目邀请（含深链接入口处理）
 ///
 /// 网页真源：`MobileProjectScreens.tsx` 中的 `MobileInviteAcceptScreen`（81）
 /// 与 `frontend/src/App.tsx` 中的邀请自动接受逻辑。
@@ -73,7 +73,9 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
     setState(() {
       _busy = false;
       _needPhoneVerify = false;
-      _error = (initial != null && initial.isNotEmpty && !isValidInviteToken(initial))
+      _error = (initial != null &&
+              initial.isNotEmpty &&
+              !isValidInviteToken(initial))
           ? '邀请链接无效'
           : null;
       _joinedProjectId = null;
@@ -335,7 +337,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
           ? null
           : IconButton(
               tooltip: '返回工作',
-              icon: const AppIcon('back', size: 22),
+              icon: const AppIcon('back', size: 18),
               onPressed: () => context.go('/work'),
             ),
       body: ListView(
@@ -355,7 +357,10 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
                 borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
               ),
               alignment: Alignment.center,
-              child: const AppIcon('share', size: 32, color: AppColors.primary),
+              child: const AppIcon(
+                'share',
+                size: 18,
+              ),
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
@@ -373,8 +378,8 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
           const SizedBox(height: AppSpacing.xl),
           if (_syncFailed) ...[
             InfoBanner(
-              message: '已加入项目，但工作区同步失败（${_syncMessage ?? '服务暂时不可用'}）。'
-                  '可点「重试同步工作区」重新拉取公司并选中该项目，无需重新接受邀请。',
+              message: '已加入项目，但工作区同步失败（${_syncMessage ?? '服务暂时不可用'}）'
+                  '可点「重试同步工作区」重新拉取公司并选中该项目，无需重新接受邀请',
               tone: InfoBannerTone.warning,
               icon: 'alert',
             ),
@@ -410,7 +415,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
                 variant: AppButtonVariant.secondary,
                 size: AppButtonSize.lg,
                 isFullWidth: true,
-                icon: const AppIcon('phone', size: 16),
+                icon: const AppIcon('phone', size: 18),
                 onPressed: () => context.pushNamed('me-security'),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -434,7 +439,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
             const InfoBanner(
-              message: '邀请链接由项目负责人生成，仅能使用一次；同一邮箱的邀请需用该邮箱对应的账号接受。',
+              message: '邀请链接由项目负责人生成，仅能使用一次；同一邮箱的邀请需用该邮箱对应的账号接受',
               tone: InfoBannerTone.info,
               icon: 'info',
             ),
@@ -444,4 +449,3 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
     );
   }
 }
-

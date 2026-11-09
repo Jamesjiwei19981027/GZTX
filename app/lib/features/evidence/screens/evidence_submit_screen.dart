@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/errors/app_error.dart';
@@ -191,7 +191,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       setState(() => _offlineDraftSaved = true);
     } catch (error) {
       if (!mounted) return;
-      setState(() => _error = '草稿保存失败，请检查本机存储空间后重试。');
+      setState(() => _error = '草稿保存失败，请检查本机存储空间后重试');
     }
   }
 
@@ -337,7 +337,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
         generation,
       );
     } catch (error) {
-      _failWith('提交材料失败，请稍后重试。', generation);
+      _failWith('提交材料失败，请稍后重试', generation);
     }
   }
 
@@ -372,7 +372,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       setState(() {
         _pollTimedOut = true;
         _error =
-            error is AppException ? error.message : '后台处理状态查询失败，请稍后在材料详情查看。';
+            error is AppException ? error.message : '后台处理状态查询失败，请稍后在材料详情查看';
       });
     });
   }
@@ -521,7 +521,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
             if (_offlineDraftSaved) ...[
               const SizedBox(height: AppSpacing.md),
               const EvidenceBanner(
-                message: '已保存本地草稿，网络恢复后可继续提交。',
+                message: '已保存本地草稿，网络恢复后可继续提交',
                 type: EvidenceBannerType.warning,
                 icon: 'info',
               ),
@@ -564,7 +564,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
             const SizedBox(height: AppSpacing.lg),
             const EvidenceBanner(
               message: '文字可单独提交，也可附加文件。语音识别后可修改再提交，'
-                  '材料归属当前项目，供个人 AI 与汇报引用。',
+                  '材料归属当前项目，供个人 AI 与汇报引用',
             ),
             const SizedBox(height: AppSpacing.lg),
             if (_outcome == null)
@@ -608,27 +608,27 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
               vertical: AppSpacing.xl,
             ),
             decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF10263F) : const Color(0xFFF2F7FF),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-              border: Border.all(
-                color:
-                    isDark ? const Color(0xFF1C3F63) : const Color(0xFFB9D3F7),
-                width: 1.5,
-              ),
-            ),
+                color: isDark
+                    ? AppColors.darkSurfaceVariant
+                    : AppColors.surfaceVariant,
+                borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                border: Border.all(
+                    color: isDark ? AppColors.darkBorder : AppColors.border)),
             child: Column(
               children: [
                 Container(
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? const Color(0xFF1B3F63)
-                        : const Color(0xFFD7E3F7),
-                    shape: BoxShape.circle,
-                  ),
+                      color: isDark
+                          ? AppColors.darkSurfaceVariant
+                          : AppColors.surfaceVariant,
+                      shape: BoxShape.circle),
                   child: const Center(
-                    child: AppIcon('file', size: 20, color: AppColors.primary),
+                    child: AppIcon(
+                      'file',
+                      size: 18,
+                    ),
                   ),
                 ),
                 const SizedBox(height: AppSpacing.sm),
@@ -637,7 +637,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.primary,
                   ),
                 ),
@@ -646,7 +646,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
                   '支持 PDF、Excel、Word、图片等格式，大小以服务端限制为准',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     height: 1.4,
                     color: isDark
                         ? AppColors.darkTextTertiary
@@ -688,10 +688,10 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
       message = job.statusLabel;
       type = EvidenceBannerType.danger;
     } else if (job.isSucceeded) {
-      message = '材料处理完成，可查看材料详情。';
+      message = '材料处理完成，可查看材料详情';
       type = EvidenceBannerType.info;
     } else if (_pollTimedOut) {
-      message = '后台仍在处理（${job.statusLabel}），可稍后在材料详情查看结果。';
+      message = '后台仍在处理（${job.statusLabel}），可稍后在材料详情查看结果';
       type = EvidenceBannerType.warning;
     } else {
       message = '材料已提交，${job.statusLabel}…';
@@ -704,14 +704,14 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
         children: [
           Row(
             children: [
-              const AppIcon('send', size: 16, color: AppColors.success),
+              const AppIcon('send', size: 18, color: AppColors.success),
               const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Text(
                   '材料编号 #${_outcome?.packageId ?? 0}',
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
@@ -763,7 +763,7 @@ class _UploadProgress extends StatelessWidget {
         ClipRRect(
           borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           child: SizedBox(
-            height: 6,
+            height: 8,
             child: LinearProgressIndicator(
               value: progress <= 0 ? null : progress.clamp(0.0, 1.0),
               backgroundColor: AppColors.border,
@@ -775,11 +775,9 @@ class _UploadProgress extends StatelessWidget {
         const SizedBox(height: AppSpacing.xs),
         Text(
           '上传进度 $percent%',
-          style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+          style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
         ),
       ],
     );
   }
 }
-
-

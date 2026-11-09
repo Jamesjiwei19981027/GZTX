@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
 
@@ -151,8 +151,8 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         const Text(
-                          '当前项目或企业尚未在设置中配置并启用可用的审计模型。'
-                          '真实审计功能需要配置模型后方可执行。',
+                          '当前项目或企业尚未在设置中配置并启用可用的审计模型'
+                          '真实审计功能需要配置模型后方可执行',
                           style: TextStyle(fontSize: 12, height: 1.5),
                         ),
                         const SizedBox(height: AppSpacing.sm),
@@ -178,7 +178,7 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
                         ? const Padding(
                             padding: EdgeInsets.all(AppSpacing.lg),
                             child: Text(
-                              '本次审计未发现需要处理的责任链风险。',
+                              '本次审计未发现需要处理的责任链风险',
                               style: TextStyle(fontSize: 13),
                             ),
                           )
@@ -196,7 +196,7 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   const AxisInfoBanner(
-                    text: 'AI 结果交由管理者确认，可在核验后处理责任和任务。',
+                    text: 'AI 结果交由管理者确认，可在核验后处理责任和任务',
                   ),
                 ],
                 const SizedBox(height: AppSpacing.lg),
@@ -289,7 +289,7 @@ class _AuditNodeRow extends StatelessWidget {
               AxisStatusChip(label: '${node.riskLabel}风险', color: color),
             ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             node.summary,
             style: TextStyle(
@@ -302,7 +302,7 @@ class _AuditNodeRow extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             for (final action in node.suggestedActions)
               Padding(
-                padding: const EdgeInsets.only(top: 2),
+                padding: const EdgeInsets.only(top: 4),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -325,4 +325,3 @@ class _AuditNodeRow extends StatelessWidget {
     );
   }
 }
-

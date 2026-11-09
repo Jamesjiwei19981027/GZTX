@@ -83,7 +83,8 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
     });
   }
 
-  Future<void> _transcribe(List<int> bytes, String filename, String mimeType) async {
+  Future<void> _transcribe(
+      List<int> bytes, String filename, String mimeType) async {
     final generation = ++_generation;
     _lastAudio = bytes;
     _lastAudioName = filename;
@@ -110,7 +111,7 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
       if (mounted && generation == _generation) _setError(error.message);
     } on NetworkException catch (error) {
       if (mounted && generation == _generation) {
-        _setError('${error.message}，可点击“重试转写”', hint: '识别失败不会覆盖已输入的文字。');
+        _setError('${error.message}，可点击“重试转写”', hint: '识别失败不会覆盖已输入的文字');
       }
     } on AppException catch (error) {
       if (mounted && generation == _generation) {
@@ -119,12 +120,12 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
             error.message.contains('未配置') || statusCode == 503;
         _setError(
           error.message,
-          hint: isUnavailable ? '语音服务尚未配置，请直接输入文字或联系管理员配置语音识别服务。' : null,
+          hint: isUnavailable ? '语音服务尚未配置，请直接输入文字或联系管理员配置语音识别服务' : null,
         );
       }
     } catch (error) {
       if (mounted && generation == _generation) {
-        _setError('语音转写失败，请重试或直接输入文字。');
+        _setError('语音转写失败，请重试或直接输入文字');
       }
     } finally {
       if (mounted && generation == _generation) _setPhase(_VoicePhase.idle);
@@ -163,8 +164,8 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
       switch (error.issue) {
         case VoiceRecorderIssue.permissionDenied:
           _setError(
-            '麦克风权限未开启，无法录音。',
-            hint: '请到系统设置 → 应用 → 权限 → 麦克风，为本应用开启麦克风后返回重试；也可直接输入文字。',
+            '麦克风权限未开启，无法录音',
+            hint: '请到系统设置 → 应用 → 权限 → 麦克风，为本应用开启麦克风后返回重试；也可直接输入文字',
           );
         case VoiceRecorderIssue.unavailable:
           _setError(error.message);
@@ -174,7 +175,7 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
       }
     } catch (error) {
       _setPhase(_VoicePhase.idle);
-      _setError('无法启动录音，请检查麦克风，或直接输入文字。');
+      _setError('无法启动录音，请检查麦克风，或直接输入文字');
     }
   }
 
@@ -187,16 +188,17 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
       if (!mounted || generation != _generation) return;
       if (recording.isEmpty) {
         _setPhase(_VoicePhase.idle);
-        _setError('没有录到声音，请重试。');
+        _setError('没有录到声音，请重试');
         return;
       }
-      await _transcribe(recording.bytes, recording.filename, recording.mimeType);
+      await _transcribe(
+          recording.bytes, recording.filename, recording.mimeType);
     } on VoiceRecorderException catch (error) {
       _setPhase(_VoicePhase.idle);
       _setError(error.message);
     } catch (error) {
       _setPhase(_VoicePhase.idle);
-      _setError('录音中断，请检查麦克风后重试。');
+      _setError('录音中断，请检查麦克风后重试');
     }
   }
 
@@ -216,7 +218,7 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
       final picked = await widget.audioPicker.pickFile();
       if (picked == null) return;
       if (!picked.mimeType.startsWith('audio/')) {
-        _setError('请选择音频文件（mp3、m4a、wav、webm、ogg 等）。');
+        _setError('请选择音频文件（mp3、m4a、wav、webm、ogg 等）');
         return;
       }
       await _transcribe(picked.bytes, picked.name, picked.mimeType);
@@ -243,14 +245,14 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
           '文字材料',
           style: TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
             color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
         AppTextField(
           controller: widget.controller,
-          placeholder: '直接输入工作进展、完成情况或问题；也可以用语音输入，无需先上传文件。',
+          placeholder: '直接输入工作进展、完成情况或问题；也可以用语音输入，无需先上传文件',
           minLines: 5,
           maxLines: 8,
           enabled: !disabled,
@@ -265,7 +267,10 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
               label: primaryLabel,
               size: AppButtonSize.sm,
               variant: AppButtonVariant.secondary,
-              icon: const AppIcon('mic', size: 16, color: AppColors.primary),
+              icon: const AppIcon(
+                'mic',
+                size: 18,
+              ),
               isLoading: _phase == _VoicePhase.asking ||
                   _phase == _VoicePhase.transcribing,
               onPressed: disabled
@@ -314,7 +319,7 @@ class _MaterialTextInputState extends State<MaterialTextInput> {
         if (_phase == _VoicePhase.recording) ...[
           const SizedBox(height: AppSpacing.sm),
           const EvidenceBanner(
-            message: '正在录音，结束后开始转写。',
+            message: '正在录音，结束后开始转写',
             type: EvidenceBannerType.danger,
             icon: 'mic',
           ),

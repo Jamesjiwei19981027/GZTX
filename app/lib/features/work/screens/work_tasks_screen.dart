@@ -1,4 +1,4 @@
-﻿/// 我的任务列表（work-tasks）。
+/// 我的任务列表（work-tasks）。
 ///
 /// 对应网页 `mobile/features/tasks/MobileTaskScreens.tsx` 的 `MobileMyTasksScreen`
 /// 与 `components/TaskWorkspaceToolbar.tsx`：视图切换、范围切换、搜索与筛选、
@@ -223,7 +223,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '批量删除任务',
-      message: '选中的 ${_selected.length} 项任务将移入回收站，30 天后自动清除，期间可恢复。',
+      message: '选中的 ${_selected.length} 项任务将移入回收站，30 天后自动清除，期间可恢复',
       confirmLabel: '移入回收站',
       isDestructive: true,
     );
@@ -357,7 +357,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
                         if (!mounted) return;
                         await _load();
                       },
-                      icon: const AppIcon('trash', size: 16),
+                      icon: const AppIcon('trash', size: 18),
                       label: const Text('回收站'),
                     ),
                   ],
@@ -404,7 +404,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
                       constraints: const BoxConstraints(minHeight: 34),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 7,
+                        vertical: 8,
                       ),
                       decoration: BoxDecoration(
                         borderRadius:
@@ -414,7 +414,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const AppIcon('filter', size: 14),
+                          const AppIcon('filter', size: 18),
                           const SizedBox(width: 4),
                           Text(
                             _priority.label,
@@ -495,7 +495,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
                           AppEmptyState(
                             title: '暂无匹配事项',
                             description: '可调整筛选条件或新建待办',
-                            icon: const AppIcon('work', size: 40),
+                            icon: const AppIcon('work', size: 18),
                             actionLabel: '新建任务',
                             onAction: _createTask,
                           ),
@@ -532,7 +532,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
                                         _selected.contains(task.id)
                                             ? Icons.check_box
                                             : Icons.check_box_outline_blank,
-                                        size: 20,
+                                        size: 18,
                                         color: _selected.contains(task.id)
                                             ? AppColors.primary
                                             : AppColors.textTertiary,
@@ -555,4 +555,3 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     );
   }
 }
-

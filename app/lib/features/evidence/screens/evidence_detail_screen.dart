@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/auth/auth_state.dart';
@@ -106,7 +106,7 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
                 file.name,
                 style: TextStyle(
                   fontSize: 16,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: isDark
                       ? AppColors.darkTextPrimary
                       : AppColors.textPrimary,
@@ -119,7 +119,7 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
               const SizedBox(height: AppSpacing.md),
               const EvidenceBanner(
                 message: '后端暂未提供材料文件下载接口，当前只能查看文件信息，'
-                    '无法在应用内预览或下载（已写入回传报告的接口问题）。',
+                    '无法在应用内预览或下载（已写入回传报告的接口问题）',
                 type: EvidenceBannerType.warning,
                 icon: 'info',
               ),
@@ -234,7 +234,10 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
             behavior: HitTestBehavior.opaque,
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: AppIcon('refresh', size: 20, color: AppColors.primary),
+              child: AppIcon(
+                'refresh',
+                size: 18,
+              ),
             ),
           ),
       ],
@@ -321,7 +324,8 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
                 : '$submitterLabel 提交于 $submittedAt',
             style: TextStyle(
               fontSize: 12,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ),
           if (package.precheckErrors.isNotEmpty) ...[
@@ -332,7 +336,8 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
               icon: 'alert',
             ),
           ],
-          if (package.status == 'pending_review' && package.suggestion != null) ...[
+          if (package.status == 'pending_review' &&
+              package.suggestion != null) ...[
             const SizedBox(height: AppSpacing.md),
             const EvidenceSectionTitle('系统建议（仅供参考）'),
             EvidenceCard(
@@ -363,8 +368,8 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
                       const SizedBox(width: AppSpacing.xs),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
+                          horizontal: 8,
+                          vertical: 4,
                         ),
                         decoration: BoxDecoration(
                           color: isDark
@@ -376,7 +381,7 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
                         child: Text(
                           '建议',
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: isDark
                                 ? AppColors.darkTextTertiary
                                 : AppColors.textTertiary,
@@ -439,7 +444,7 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
           if (package.files.isEmpty)
             const EvidenceCard(
               child: Text(
-                '本次材料没有附件，仅提交了文字说明。',
+                '本次材料没有附件，仅提交了文字说明',
                 style: TextStyle(fontSize: 13, color: AppColors.textTertiary),
               ),
             )
@@ -448,7 +453,9 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
               padding: EdgeInsets.zero,
               child: Column(
                 children: [
-                  for (var index = 0; index < package.files.length; index++) ...[
+                  for (var index = 0;
+                      index < package.files.length;
+                      index++) ...[
                     if (index > 0) const EvidenceDivider(),
                     EvidenceFileTile(
                       name: package.files[index].name,
@@ -500,7 +507,7 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
           ),
           const SizedBox(height: AppSpacing.lg),
           const EvidenceBanner(
-            message: '材料提交后进入待验收状态，请等待授权负责人确认。',
+            message: '材料提交后进入待验收状态，请等待授权负责人确认',
           ),
           const SizedBox(height: AppSpacing.lg),
           AppButton(
@@ -537,7 +544,8 @@ class _InfoRow extends StatelessWidget {
             label,
             style: TextStyle(
               fontSize: 13,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ),
           const SizedBox(width: AppSpacing.md),
@@ -547,7 +555,7 @@ class _InfoRow extends StatelessWidget {
               textAlign: TextAlign.right,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color:
                     isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
               ),
@@ -579,8 +587,9 @@ class _MetaRow extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 13,
-                color:
-                    isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                color: isDark
+                    ? AppColors.darkTextTertiary
+                    : AppColors.textTertiary,
               ),
             ),
           ),
@@ -627,10 +636,11 @@ class _RejectReasonDialogState extends State<_RejectReasonDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: widget.isDark ? AppColors.darkSurface : AppColors.surface,
+      backgroundColor:
+          widget.isDark ? AppColors.darkSurface : AppColors.surface,
       title: const Text(
         '驳回材料',
-        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -676,4 +686,3 @@ class _RejectReasonDialogState extends State<_RejectReasonDialog> {
     );
   }
 }
-

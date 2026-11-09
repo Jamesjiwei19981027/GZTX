@@ -34,7 +34,7 @@ void main() {
     );
 
     expect(find.text('AI 总结到我的知识'), findsNothing);
-    expect(find.text('请联系项目经理开通 AI 总结权限。'), findsOneWidget);
+    expect(find.text('请联系项目经理开通 AI 总结权限'), findsOneWidget);
     expect(find.text('管理总结授权'), findsNothing);
     expect(find.text('八项接口通过验收'), findsOneWidget);
     expect(find.text('AI 整理 · 已发布'), findsOneWidget);

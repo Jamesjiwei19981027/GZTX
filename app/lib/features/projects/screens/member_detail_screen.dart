@@ -1,4 +1,4 @@
-﻿/// 成员职责名片（`me-member-detail`）
+/// 成员职责名片（`me-member-detail`）
 ///
 /// 网页真源：`frontend/src/mobile/features/projects/MobileTeamScreens.tsx`
 /// 中的 `MobileMemberDetailScreen`（52）。网页用 `listTasks` 全量拉取后再按
@@ -169,8 +169,8 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
     if (member == null) {
       return AppEmptyState(
         title: '成员不存在',
-        description: '该成员可能已退出本项目，请返回成员列表刷新。',
-        icon: const AppIcon('user', size: 44, color: AppColors.textTertiary),
+        description: '该成员可能已退出本项目，请返回成员列表刷新',
+        icon: const AppIcon('user', size: 18, color: AppColors.textTertiary),
         actionLabel: '返回成员列表',
         onAction: () => Navigator.of(context).maybePop(),
       );
@@ -223,14 +223,14 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
         if (member.hasLeft) ...[
           const SizedBox(height: AppSpacing.md),
           const InfoBanner(
-            message: '该成员已退出本项目，仅保留历史成员记录，不再参与现任成员统计。',
+            message: '该成员已退出本项目，仅保留历史成员记录，不再参与现任成员统计',
             tone: InfoBannerTone.warning,
             icon: 'alert',
           ),
         ],
         const SizedBox(height: AppSpacing.md),
         const InfoBanner(
-          message: '该成员在人轴中的权限、责任节点及汇报内容均受服务端安全策略约束。',
+          message: '该成员在人轴中的权限、责任节点及汇报内容均受服务端安全策略约束',
           tone: InfoBannerTone.info,
           icon: 'info',
         ),
@@ -275,6 +275,14 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                     ),
                   ),
                   title: task.title,
+                  titleStyle: completedTitleStyle(
+                    isDark: isDarkMode(context),
+                    completed: task.isDone,
+                    base: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Theme.of(context).colorScheme.onSurface),
+                  ),
                   subtitle: apiDateToLocalKey(task.dueDate).isEmpty
                       ? '无截止日'
                       : '截止: ${apiDateToLocalKey(task.dueDate)}',
@@ -288,4 +296,3 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
     );
   }
 }
-

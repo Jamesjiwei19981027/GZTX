@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_provider.dart';
@@ -59,20 +59,20 @@ class ExternalMailView extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.xxl),
       children: [
         const SizedBox(height: AppSpacing.xl),
-        const AppIcon('mail', size: 52, color: AppColors.textTertiary),
+        const AppIcon('mail', size: 18, color: AppColors.textTertiary),
         const SizedBox(height: AppSpacing.lg),
         Text(
           '外部邮箱未配置',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 18,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
             color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
           ),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
-          '当前企业工作区未配置 IMAP 外部邮件服务器，无法接收外部邮件。',
+          '当前企业工作区未配置 IMAP 外部邮件服务器，无法接收外部邮件',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 13,
@@ -102,7 +102,7 @@ class ExternalMailView extends StatelessWidget {
               ),
               SizedBox(height: AppSpacing.xs),
               Text(
-                '若需关联外部客户邮件，请由管理员在管理后台配置企业邮件网关。',
+                '若需关联外部客户邮件，请由管理员在管理后台配置企业邮件网关',
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.5,
@@ -116,7 +116,7 @@ class ExternalMailView extends StatelessWidget {
           const SizedBox(height: AppSpacing.sm),
           Text(
             '诊断信息：服务端未配置 IMAP 账号（${status!.reason}）',
-            style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+            style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
         ],
       ],
@@ -164,9 +164,9 @@ class ExternalMailView extends StatelessWidget {
           child: items.isEmpty
               ? const AppEmptyState(
                   title: '外部邮箱暂无新信件',
-                  description: '可点击上方「立即拉取邮件」从服务器同步。',
+                  description: '可点击上方「立即拉取邮件」从服务器同步',
                   icon:
-                      AppIcon('mail', size: 42, color: AppColors.textTertiary),
+                      AppIcon('mail', size: 18, color: AppColors.textTertiary),
                 )
               : ListView(
                   padding: const EdgeInsets.only(bottom: AppSpacing.xl),
@@ -176,8 +176,10 @@ class ExternalMailView extends StatelessWidget {
                       children: [
                         for (final mail in items)
                           AppListTile(
-                            leading: const AppIcon('mail',
-                                size: 18, color: AppColors.primary),
+                            leading: const AppIcon(
+                              'mail',
+                              size: 18,
+                            ),
                             title: mail.subjectLabel,
                             subtitle: '发件人：${mail.fromAddress}'
                                 '${mail.receivedAt == null ? '' : ' · ${formatRelativeDate(mail.receivedAt)}'}',
@@ -215,9 +217,12 @@ class ExternalMailView extends StatelessWidget {
 
   Widget _banner(BuildContext context, String message,
       {required bool isError}) {
-    final background =
-        isError ? AppColors.dangerContainerOf(isDarkMode(context)) : AppColors.infoContainerOf(isDarkMode(context));
-    final color = isError ? AppColors.onDangerContainerOf(isDarkMode(context)) : AppColors.onInfoContainerOf(isDarkMode(context));
+    final background = isError
+        ? AppColors.dangerContainerOf(isDarkMode(context))
+        : AppColors.infoContainerOf(isDarkMode(context));
+    final color = isError
+        ? AppColors.onDangerContainerOf(isDarkMode(context))
+        : AppColors.onInfoContainerOf(isDarkMode(context));
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
@@ -426,11 +431,10 @@ class _ExternalMailScreenState extends State<ExternalMailScreen> {
       body: controller == null
           ? const AppEmptyState(
               title: '尚未加入企业',
-              description: '外部邮件按企业配置，请先加入企业。',
-              icon: AppIcon('mail', size: 44, color: AppColors.textTertiary),
+              description: '外部邮件按企业配置，请先加入企业',
+              icon: AppIcon('mail', size: 18, color: AppColors.textTertiary),
             )
           : ExternalMailView(controller: controller),
     );
   }
 }
-

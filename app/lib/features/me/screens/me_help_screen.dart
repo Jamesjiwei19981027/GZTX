@@ -28,7 +28,7 @@ class MeHelpScreen extends StatelessWidget {
           children: [
             MeCard(
               title: '桌面客户端快捷键',
-              footer: '移动端无物理键盘，以下快捷键仅在 Web / 桌面客户端生效。',
+              footer: '移动端无物理键盘，以下快捷键仅在 Web / 桌面客户端生效',
               children: [
                 for (final (name, keys) in _shortcuts)
                   MeInfoRow(label: name, value: keys),
@@ -37,7 +37,7 @@ class MeHelpScreen extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             const MeCard(
               title: '统计报表计算口径',
-              footer: '统计以服务端数据为准，切换企业或项目后重新计算。',
+              footer: '统计以服务端数据为准，切换企业或项目后重新计算',
               children: [
                 MeInfoRow(
                   label: '完成率',
@@ -61,7 +61,8 @@ class MeHelpScreen extends StatelessWidget {
                 MeInfoRow(label: '挂接方式', value: '人挂到人上，逐级归属'),
                 MeInfoRow(label: '事项归集', value: '事项自动归入责任人节点'),
                 MeInfoRow(label: '汇报产出', value: '逐级生成 AI 汇报'),
-                MeInfoRow(label: '材料证明', value: '节点可提交材料作为证据', showDivider: false),
+                MeInfoRow(
+                    label: '材料证明', value: '节点可提交材料作为证据', showDivider: false),
               ],
             ),
             const SizedBox(height: AppSpacing.md),

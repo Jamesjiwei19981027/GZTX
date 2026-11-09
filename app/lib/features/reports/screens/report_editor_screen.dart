@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -491,8 +491,11 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
             const Expanded(
               child: AppEmptyState(
                 title: '请先在具体项目中编辑汇报',
-                description: '汇报按项目隔离，切换到具体项目后才能写汇报。',
-                icon: AppIcon('folder', size: 44, color: AppColors.primary),
+                description: '汇报按项目隔离，切换到具体项目后才能写汇报',
+                icon: AppIcon(
+                  'folder',
+                  size: 18,
+                ),
               ),
             ),
           ],
@@ -552,7 +555,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                                 ),
                                 const AppIcon(
                                   'calendar',
-                                  size: 17,
+                                  size: 18,
                                   color: AppColors.textTertiary,
                                 ),
                               ],
@@ -588,8 +591,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                             trailing: Text(
                               '严格基于项目事实',
                               style: TextStyle(
-                                  fontSize: 10.5,
-                                  color: AppColors.textTertiary),
+                                  fontSize: 12, color: AppColors.textTertiary),
                             ),
                           ),
                           const SizedBox(height: AppSpacing.sm),
@@ -643,8 +645,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.right,
-            style:
-                const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+            style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
         ),
       ],
@@ -656,7 +657,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
       text,
       style: TextStyle(
         fontSize: 13,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w500,
         color: isDarkMode(context)
             ? AppColors.darkTextPrimary
             : AppColors.textPrimary,
@@ -704,16 +705,16 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  SizedBox(height: 4),
                   Text(
                     '以人轴最新责任链实时流转，无需手动选择',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                        fontSize: 11.5, color: AppColors.textTertiary),
+                    style:
+                        TextStyle(fontSize: 12, color: AppColors.textTertiary),
                   ),
                 ],
               ),
@@ -773,7 +774,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -786,13 +787,12 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                     ],
                   ],
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 const Text(
                   '以草稿创建时的人轴关系为准，提交时系统会重新确认',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style:
-                      TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+                  style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
                 ),
               ],
             ),
@@ -833,7 +833,10 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                 onPressed: _submitting ? null : _generate,
                 icon: _generating
                     ? null
-                    : const AppIcon('ai', size: 17, color: AppColors.primary),
+                    : const AppIcon(
+                        'ai',
+                        size: 18,
+                      ),
               ),
             ),
           ),
@@ -847,7 +850,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                 onPressed: isBlocked ? null : _submit,
                 icon: _submitting
                     ? null
-                    : const AppIcon('send', size: 17, color: Colors.white),
+                    : const AppIcon('send', size: 18, color: Colors.white),
               ),
             ),
           ),
@@ -856,4 +859,3 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     );
   }
 }
-

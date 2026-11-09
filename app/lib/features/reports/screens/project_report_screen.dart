@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -191,7 +191,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
     final confirmed = await showAppConfirmDialog(
         context: context,
         title: '确认发布项目摘要？',
-        message: '发布后项目成员与接收上级可查看这一版项目摘要。',
+        message: '发布后项目成员与接收上级可查看这一版项目摘要',
         confirmLabel: '确认发布');
     if (!confirmed || !mounted || scopeVersion != _scopeVersion) return;
     setState(() {
@@ -266,8 +266,11 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
         title: title,
         body: const AppEmptyState(
           title: '请选择具体项目',
-          description: '项目资料对照与汇报汇总按项目隔离，请先切换到具体项目。',
-          icon: AppIcon('folder', size: 44, color: AppColors.primary),
+          description: '项目资料对照与汇报汇总按项目隔离，请先切换到具体项目',
+          icon: AppIcon(
+            'folder',
+            size: 18,
+          ),
         ),
       );
     }
@@ -329,8 +332,8 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
         if (conflicts.isEmpty)
           const AppEmptyState(
             title: '暂未发现资料差异',
-            description: '当前项目内已提交汇报的任务状态一致；新的差异会在下次汇总时出现。',
-            icon: AppIcon('check-circle', size: 44, color: AppColors.success),
+            description: '当前项目内已提交汇报的任务状态一致；新的差异会在下次汇总时出现',
+            icon: AppIcon('check-circle', size: 18, color: AppColors.success),
           )
         else
           for (final conflict in conflicts) ...[
@@ -344,7 +347,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
                         child: Text(
                           conflict.typeLabel,
                           style: const TextStyle(
-                              fontSize: 14, fontWeight: FontWeight.w600),
+                              fontSize: 14, fontWeight: FontWeight.w500),
                         ),
                       ),
                       const ReportStatusChip(
@@ -383,7 +386,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
           alignment: Alignment.center,
           child: AppButton(
             label: '记录核验意见与差异裁决',
-            icon: const AppIcon('edit', size: 17, color: Colors.white),
+            icon: const AppIcon('edit', size: 18, color: Colors.white),
             onPressed: () =>
                 context.push('/reports/review/conflict?projectId=$projectId'),
           ),
@@ -418,7 +421,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
                 style: const TextStyle(
-                    fontSize: 11, color: AppColors.textTertiary),
+                    fontSize: 12, color: AppColors.textTertiary),
               ),
             ),
           ],
@@ -439,7 +442,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
         const SizedBox(height: AppSpacing.xs),
         Text(
           ReportScope.projectName(context, widget.projectName),
-          style: const TextStyle(fontSize: 11.5, color: AppColors.textTertiary),
+          style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
         ),
         const SizedBox(height: AppSpacing.lg),
         const ReportSectionTitle('完成情况'),
@@ -521,7 +524,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
         ),
         const SizedBox(height: AppSpacing.lg),
         const ReportInfoBanner(
-          '向上级提供项目级摘要封装；其他项目不能读取本项目原始对话与未归档材料。',
+          '向上级提供项目级摘要封装；其他项目不能读取本项目原始对话与未归档材料',
         ),
         const SizedBox(height: AppSpacing.lg),
         if (_summaries.canPublish)
@@ -530,7 +533,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
             isLoading: _aggregating,
             icon: _aggregating
                 ? null
-                : const AppIcon('ai', size: 17, color: Colors.white),
+                : const AppIcon('ai', size: 18, color: Colors.white),
             onPressed: (_aggregating || !_hasPendingSubmissions)
                 ? null
                 : _aggregateReports,
@@ -549,7 +552,10 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
           AppButton(
             label: '确认发布项目摘要',
             variant: AppButtonVariant.secondary,
-            icon: const AppIcon('send', size: 17, color: AppColors.primary),
+            icon: const AppIcon(
+              'send',
+              size: 18,
+            ),
             onPressed: _publishing ? null : _publish,
           ),
         if (_summaries.items.any((item) => item.isPublished)) ...[
@@ -587,19 +593,19 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
                   Text(
                     title,
                     style: const TextStyle(
-                        fontSize: 13.5, fontWeight: FontWeight.w600),
+                        fontSize: 14, fontWeight: FontWeight.w500),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
                     style: const TextStyle(
-                        fontSize: 11.5, color: AppColors.textTertiary),
+                        fontSize: 12, color: AppColors.textTertiary),
                   ),
                 ],
               ),
             ),
             const AppIcon('chevron-right',
-                size: 16, color: AppColors.textTertiary),
+                size: 18, color: AppColors.textTertiary),
           ],
         ),
       ),
@@ -615,14 +621,13 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
             style: TextStyle(
                 fontSize: 20, fontWeight: FontWeight.w500, color: color),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: AppColors.textTertiary),
+            style: const TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
         ],
       ),
     );
   }
 }
-

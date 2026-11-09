@@ -74,7 +74,7 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
                         'AI 发现的关联',
                         style: TextStyle(
                           fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: isDark
                               ? AppColors.darkTextPrimary
                               : AppColors.textPrimary,
@@ -88,7 +88,7 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
                           : () => Navigator.of(context).pop(),
                       icon: AppIcon(
                         'close',
-                        size: 20,
+                        size: 18,
                         color: isDark
                             ? AppColors.darkTextSecondary
                             : AppColors.textSecondary,
@@ -97,7 +97,7 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
                   ],
                 ),
                 Text(
-                  '已根据你的笔记找到这些关联，确认后加入关联图。',
+                  '已根据你的笔记找到这些关联，确认后加入关联图',
                   style: TextStyle(
                     fontSize: 13,
                     color: isDark
@@ -144,9 +144,9 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-      ),
+          border: Border(
+              bottom: BorderSide(
+                  color: isDark ? AppColors.darkBorder : AppColors.border))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -174,7 +174,7 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
                     '$source → $target',
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
@@ -194,10 +194,10 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
                   style: const TextStyle(
                     fontSize: 13,
                     color: AppColors.primary,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   suggestion.reason,
                   style: TextStyle(
@@ -212,9 +212,11 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   decoration: BoxDecoration(
-                    color: isDark ? AppColors.darkSurface : Colors.white,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                  ),
+                      border: Border(
+                          bottom: BorderSide(
+                              color: isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.border))),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -227,7 +229,7 @@ class _SuggestionSheetState extends State<SuggestionSheet> {
                               : AppColors.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         '依据二：${suggestion.targetQuote}',
                         style: TextStyle(

@@ -1,4 +1,4 @@
-﻿/// 工作 Tab 根页（work-root）。
+/// 工作 Tab 根页（work-root）。
 ///
 /// 对应网页 `mobile/features/work/MobileWorkScreens.tsx` 的
 /// `MobileWorkbenchScreen`：当前用户与项目、重点待办与跟进、AI 汇报入口、
@@ -313,12 +313,12 @@ class _WorkRootScreenState extends State<WorkRootScreen> {
         IconButton(
           tooltip: '全局搜索',
           onPressed: () => _navigate('/work/search'),
-          icon: const AppIcon('search', size: 20),
+          icon: const AppIcon('search', size: 18),
         ),
         IconButton(
           tooltip: '更多',
           onPressed: _openMoreActions,
-          icon: const AppIcon('more-horizontal', size: 20),
+          icon: const AppIcon('more-horizontal', size: 18),
         ),
       ],
       body: RefreshIndicator(
@@ -482,7 +482,7 @@ class _Header extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: isDark
                       ? AppColors.darkTextPrimary
                       : AppColors.textPrimary,
@@ -496,7 +496,7 @@ class _Header extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const AppIcon('folder', size: 14),
+                      const AppIcon('folder', size: 18),
                       const SizedBox(width: 4),
                       Flexible(
                         child: Text(
@@ -511,8 +511,8 @@ class _Header extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 2),
-                      const AppIcon('chevron-right', size: 14),
+                      const SizedBox(width: 4),
+                      const AppIcon('chevron-right', size: 18),
                     ],
                   ),
                 ),
@@ -537,10 +537,10 @@ class _AssistantEntry extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : const Color(0xFFEAF2FE),
+        color: isDark ? AppColors.darkSurface : AppColors.surface,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         border: Border.all(
-          color: isDark ? AppColors.darkBorder : const Color(0xFFC9DCFB),
+          color: isDark ? AppColors.darkBorder : AppColors.border,
         ),
       ),
       child: Column(
@@ -548,13 +548,16 @@ class _AssistantEntry extends StatelessWidget {
         children: [
           Row(
             children: [
-              const AppIcon('ai', size: 18, color: AppColors.primary),
+              const AppIcon(
+                'ai',
+                size: 18,
+              ),
               const SizedBox(width: AppSpacing.sm),
               Text(
                 'AI 汇报与助手',
                 style: TextStyle(
                   fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: isDark
                       ? AppColors.darkTextPrimary
                       : AppColors.textPrimary,
@@ -642,7 +645,7 @@ class _SummaryCards extends StatelessWidget {
                       cards[i].label,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: isDark
                             ? AppColors.darkTextSecondary
                             : AppColors.textSecondary,
@@ -654,9 +657,12 @@ class _SummaryCards extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w500,
-                        color: isDark
-                            ? const Color(0xFF9EC5FF)
-                            : AppColors.primary,
+                        color: cards[i].scope == TaskWorkspaceScope.pending
+                            ? Theme.of(context).colorScheme.primary
+                            : cards[i].scope == TaskWorkspaceScope.overdue &&
+                                    cards[i].value > 0
+                                ? Theme.of(context).colorScheme.error
+                                : AppColors.textSecondaryOf(isDark),
                       ),
                     ),
                   ],
@@ -669,4 +675,3 @@ class _SummaryCards extends StatelessWidget {
     );
   }
 }
-

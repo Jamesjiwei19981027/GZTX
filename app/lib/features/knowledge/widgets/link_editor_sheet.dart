@@ -110,7 +110,7 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除这条关联？',
-      message: '只删除知识之间的关系，两条笔记本身都会保留。',
+      message: '只删除知识之间的关系，两条笔记本身都会保留',
       confirmLabel: '删除关联',
       isDestructive: true,
     );
@@ -155,7 +155,7 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
                       '条目关联',
                       style: TextStyle(
                         fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: isDark
                             ? AppColors.darkTextPrimary
                             : AppColors.textPrimary,
@@ -164,12 +164,11 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
                   ),
                   IconButton(
                     tooltip: '关闭',
-                    onPressed: _submitting
-                        ? null
-                        : () => Navigator.of(context).pop(),
+                    onPressed:
+                        _submitting ? null : () => Navigator.of(context).pop(),
                     icon: AppIcon(
                       'close',
-                      size: 20,
+                      size: 18,
                       color: isDark
                           ? AppColors.darkTextSecondary
                           : AppColors.textSecondary,
@@ -179,7 +178,7 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                '连接两条知识，写下它们的关系；也可以在关联图里点开节点查看。',
+                '连接两条知识，写下它们的关系；也可以在关联图里点开节点查看',
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark
@@ -245,7 +244,7 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
                 '已有 ${widget.links.length} 条关联',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: isDark
                       ? AppColors.darkTextPrimary
                       : AppColors.textPrimary,
@@ -254,7 +253,7 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
               const SizedBox(height: AppSpacing.xs),
               if (widget.links.isEmpty)
                 Text(
-                  '还没有关联，可以让 AI 整理，或者手动添加。',
+                  '还没有关联，可以让 AI 整理，或者手动添加',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
@@ -267,11 +266,11 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
                   margin: const EdgeInsets.only(top: AppSpacing.sm),
                   padding: const EdgeInsets.all(AppSpacing.md),
                   decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.darkSurfaceVariant
-                        : AppColors.surfaceVariant,
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                  ),
+                      border: Border(
+                          bottom: BorderSide(
+                              color: isDark
+                                  ? AppColors.darkBorder
+                                  : AppColors.border))),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -284,7 +283,7 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
                               : AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         link.label.isEmpty ? '未填写说明' : link.label,
                         style: TextStyle(
@@ -368,7 +367,7 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: value.isEmpty
                       ? (isDark
                           ? AppColors.darkTextTertiary
@@ -381,7 +380,7 @@ class _LinkEditorSheetState extends State<LinkEditorSheet> {
             ),
             AppIcon(
               'chevron-right',
-              size: 16,
+              size: 18,
               color:
                   isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),

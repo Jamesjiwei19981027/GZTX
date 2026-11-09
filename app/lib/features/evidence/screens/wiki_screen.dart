@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/errors/app_error.dart';
@@ -98,7 +98,7 @@ class _WikiScreenState extends State<WikiScreen> {
     final catalog = _catalog;
     final material = catalog?.preferredMaterial;
     if (material == null) {
-      setState(() => _generateError = '暂无可用于整理知识的有效材料，请先在责任事项下提交材料。');
+      setState(() => _generateError = '暂无可用于整理知识的有效材料，请先在责任事项下提交材料');
       return;
     }
     setState(() {
@@ -257,8 +257,11 @@ class _WikiScreenState extends State<WikiScreen> {
         if (mainPage == null)
           AppEmptyState(
             title: '还没有已发布的项目知识',
-            description: '选择一份材料生成知识草稿，发布后项目成员可检索。',
-            icon: const AppIcon('ai', size: 44, color: AppColors.primary),
+            description: '选择一份材料生成知识草稿，发布后项目成员可检索',
+            icon: const AppIcon(
+              'ai',
+              size: 18,
+            ),
             actionLabel: '生成知识草稿',
             onAction: _generating ? null : _generateDraft,
           )
@@ -288,7 +291,7 @@ class _WikiScreenState extends State<WikiScreen> {
             EvidenceCard(
               child: Text(
                 (pages[index].bodyText ?? '').trim().isEmpty
-                    ? '本页暂无正文内容。'
+                    ? '本页暂无正文内容'
                     : pages[index].bodyText!.trim(),
                 style: TextStyle(
                   fontSize: 14,
@@ -309,8 +312,9 @@ class _WikiScreenState extends State<WikiScreen> {
                 ? const Padding(
                     padding: EdgeInsets.all(AppSpacing.lg),
                     child: Text(
-                      '当前项目还没有可用于整理的材料。',
-                      style: TextStyle(fontSize: 13, color: AppColors.textTertiary),
+                      '当前项目还没有可用于整理的材料',
+                      style: TextStyle(
+                          fontSize: 13, color: AppColors.textTertiary),
                     ),
                   )
                 : Column(
@@ -343,8 +347,8 @@ class _WikiScreenState extends State<WikiScreen> {
           const SizedBox(height: AppSpacing.md),
           EvidenceBanner(
             message: catalog?.canPublish == true
-                ? '你有项目知识管理权限，草稿确认后可发布。'
-                : '仅拥有项目知识管理权限的人员可以确认发布，当前草稿会保存在草稿列表。',
+                ? '你有项目知识管理权限，草稿确认后可发布'
+                : '仅拥有项目知识管理权限的人员可以确认发布，当前草稿会保存在草稿列表',
             type: EvidenceBannerType.info,
             icon: 'info',
           ),
@@ -359,8 +363,11 @@ class _WikiScreenState extends State<WikiScreen> {
     if (drafts.isEmpty) {
       return const AppEmptyState(
         title: '暂无草稿',
-        description: '在已发布页点击“生成知识草稿”后，草稿会显示在这里。',
-        icon: AppIcon('file', size: 44, color: AppColors.primary),
+        description: '在已发布页点击“生成知识草稿”后，草稿会显示在这里',
+        icon: AppIcon(
+          'file',
+          size: 18,
+        ),
       );
     }
     return ListView(
@@ -389,8 +396,8 @@ class _WikiScreenState extends State<WikiScreen> {
         const SizedBox(height: AppSpacing.md),
         Text(
           _catalog?.canPublish == true
-              ? '你有发布权限，可直接确认发布。'
-              : '你可查看自己的草稿；发布需要项目知识管理权限。',
+              ? '你有发布权限，可直接确认发布'
+              : '你可查看自己的草稿；发布需要项目知识管理权限',
           style: TextStyle(
             fontSize: 12,
             color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
@@ -415,7 +422,7 @@ class _WikiScreenState extends State<WikiScreen> {
           placeholder: '搜索项目知识、任务与材料…',
           prefix: const Padding(
             padding: EdgeInsets.only(left: AppSpacing.md),
-            child: AppIcon('search', size: 16),
+            child: AppIcon('search', size: 18),
           ),
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _search(),
@@ -425,7 +432,7 @@ class _WikiScreenState extends State<WikiScreen> {
         Text(
           '仅搜索“${widget.projectName}”授权范围内的资料与知识库',
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
           ),
         ),
@@ -452,7 +459,7 @@ class _WikiScreenState extends State<WikiScreen> {
         else if (_searched && _hits.isEmpty && _searchError == null)
           const AppEmptyState(
             title: '没有检索到相关内容',
-            description: '换个关键词再试试，或确认相关材料已发布为知识。',
+            description: '换个关键词再试试，或确认相关材料已发布为知识',
           )
         else
           for (final hit in _hits) ...[
@@ -463,8 +470,8 @@ class _WikiScreenState extends State<WikiScreen> {
           const SizedBox(height: AppSpacing.sm),
           EvidenceBanner(
             message: _hits.any((hit) => _hitPath(hit) != null)
-                ? '结果保留来源与项目范围，点击材料可回到原始内容。'
-                : '结果保留来源与项目范围。',
+                ? '结果保留来源与项目范围，点击材料可回到原始内容'
+                : '结果保留来源与项目范围',
           ),
         ],
       ],
@@ -538,4 +545,3 @@ class _WikiScreenState extends State<WikiScreen> {
     );
   }
 }
-

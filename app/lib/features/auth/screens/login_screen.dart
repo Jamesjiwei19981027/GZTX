@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -366,7 +366,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     type: AuthBannerType.hint,
                   ),
                 const Text(
-                  '欢迎回来',
+                  '登录',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: AppSpacing.xs),
@@ -425,7 +425,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   '继续操作即代表您已同意使用规范与工作数据保护声明',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: isDark
                         ? AppColors.darkTextTertiary
                         : AppColors.textTertiary,
@@ -444,7 +444,7 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
       child: Column(
         children: [
-          const AppBrandMark(size: 56, color: AppColors.primary),
+          const AppBrandMark(size: 56),
           const SizedBox(height: AppSpacing.md),
           Text(
             Brand.name,
@@ -614,4 +614,3 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
-

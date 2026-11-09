@@ -41,7 +41,7 @@ class ChatMessageTile extends StatelessWidget {
         constraints: BoxConstraints(maxWidth: maxWidth),
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
-          vertical: AppSpacing.sm + 2,
+          vertical: AppSpacing.sm + 4,
         ),
         decoration: BoxDecoration(
           color: bubbleColor,
@@ -115,7 +115,7 @@ class ChatMessageTile extends StatelessWidget {
                             Text(
                               attachment.sizeLabel,
                               style: TextStyle(
-                                  fontSize: 11, color: secondaryColor),
+                                  fontSize: 12, color: secondaryColor),
                             ),
                           ],
                         ],
@@ -131,14 +131,14 @@ class ChatMessageTile extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.thumb_up_alt_rounded,
-                    size: 12,
+                    size: 18,
                     color: isMine ? const Color(0xFFFFE08A) : AppColors.warning,
                   ),
                   const SizedBox(width: AppSpacing.xxs),
                   Text(
                     '${message.likes}',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color:
                           isMine ? const Color(0xFFFFE08A) : AppColors.warning,
                     ),
@@ -170,11 +170,11 @@ class ChatMessageTile extends StatelessWidget {
                 if (!isMine) ...[
                   Padding(
                     padding:
-                        const EdgeInsets.only(left: AppSpacing.xs, bottom: 2),
+                        const EdgeInsets.only(left: AppSpacing.xs, bottom: 4),
                     child: Text(
                       message.senderName,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 12,
                         color: isDark
                             ? AppColors.darkTextTertiary
                             : AppColors.textTertiary,

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_state.dart';
@@ -102,7 +102,7 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                       const SizedBox(height: AppSpacing.md),
                       MeCard(
                         title: '数据安全与隐私合规',
-                        footer: '个人数据遵照隐私合规要求处理，敏感凭据在服务端加密存储。',
+                        footer: '个人数据遵照隐私合规要求处理，敏感凭据在服务端加密存储',
                         children: [
                           MeInfoRow(
                             label: '审计数据保留',
@@ -112,15 +112,17 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                           ),
                           MeInfoRow(
                             label: '数据导出通道',
-                            value: (_privacy?.exportEndpoint ?? '').trim().isEmpty
-                                ? '未开放'
-                                : _privacy!.exportEndpoint,
+                            value:
+                                (_privacy?.exportEndpoint ?? '').trim().isEmpty
+                                    ? '未开放'
+                                    : _privacy!.exportEndpoint,
                           ),
                           MeInfoRow(
                             label: '账号注销通道',
-                            value: (_privacy?.deleteEndpoint ?? '').trim().isEmpty
-                                ? '见「账号与安全 → 注销此账号」'
-                                : _privacy!.deleteEndpoint,
+                            value:
+                                (_privacy?.deleteEndpoint ?? '').trim().isEmpty
+                                    ? '见「账号与安全 → 注销此账号」'
+                                    : _privacy!.deleteEndpoint,
                             showDivider: false,
                           ),
                         ],
@@ -154,12 +156,15 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(AppSpacing.md),
                         decoration: BoxDecoration(
-                          color: isDark ? AppColors.darkSurface : AppColors.surface,
+                          color: isDark
+                              ? AppColors.darkSurface
+                              : AppColors.surface,
                           borderRadius:
                               BorderRadius.circular(AppSpacing.radiusLg),
                           border: Border.all(
-                            color:
-                                isDark ? AppColors.darkBorder : AppColors.border,
+                            color: isDark
+                                ? AppColors.darkBorder
+                                : AppColors.border,
                           ),
                         ),
                         child: Column(
@@ -168,17 +173,17 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                               '工作梯 APP',
                               style: TextStyle(
                                 fontSize: 13,
-                                fontWeight: FontWeight.w600,
+                                fontWeight: FontWeight.w500,
                                 color: isDark
                                     ? AppColors.darkTextPrimary
                                     : AppColors.textPrimary,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            const SizedBox(height: 4),
                             Text(
                               '版本信息见「关于与版本」',
                               style: TextStyle(
-                                fontSize: 11.5,
+                                fontSize: 12,
                                 color: isDark
                                     ? AppColors.darkTextTertiary
                                     : AppColors.textTertiary,
@@ -212,16 +217,15 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                 child: Text(
                   '当前授权状态',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     letterSpacing: 0.8,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: Color(0xFFB9D3F7),
                   ),
                 ),
               ),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.22),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -229,8 +233,8 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                 child: Text(
                   statusText,
                   style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     color: Colors.white,
                   ),
                 ),
@@ -248,13 +252,13 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
               color: Colors.white,
             ),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             '服务管理方：${(billing?.managedBy ?? '').trim().isEmpty ? '工作梯协作平台' : billing!.managedBy}',
             style: const TextStyle(fontSize: 12, color: Color(0xFFD6E4FA)),
           ),
           if ((billing?.companyName ?? '').trim().isNotEmpty) ...[
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               '所属企业：${billing!.companyName}',
               style: const TextStyle(fontSize: 12, color: Color(0xFFD6E4FA)),
@@ -265,5 +269,3 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
     );
   }
 }
-
-

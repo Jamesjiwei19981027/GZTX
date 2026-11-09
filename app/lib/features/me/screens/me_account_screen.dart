@@ -98,10 +98,10 @@ class _MeAccountScreenState extends State<MeAccountScreen> {
           child: Text(
             text,
             textAlign: TextAlign.right,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 8),
         verified
             ? const MeBadge(label: '已验证', tone: MeTone.success)
             : const MeBadge(label: '未验证'),
@@ -142,7 +142,7 @@ class _MeAccountScreenState extends State<MeAccountScreen> {
                         ),
                       MeCard(
                         title: '账号标识',
-                        footer: '登录账号与用户 ID 由系统分配，不可自行修改。',
+                        footer: '登录账号与用户 ID 由系统分配，不可自行修改',
                         children: [
                           MeInfoRow(
                             label: '登录账号',
@@ -163,7 +163,7 @@ class _MeAccountScreenState extends State<MeAccountScreen> {
                       const SizedBox(height: AppSpacing.md),
                       MeCard(
                         title: '联系方式与验证',
-                        footer: '验证状态由「账号与安全」中的绑定流程更新。',
+                        footer: '验证状态由「账号与安全」中的绑定流程更新',
                         children: [
                           MeInfoRow(
                             label: '工作邮箱',
@@ -188,7 +188,7 @@ class _MeAccountScreenState extends State<MeAccountScreen> {
                       MeCard(
                         title: '企业归属',
                         footer: company == null
-                            ? '未加入企业时，企业级功能（人轴、项目知识、团队管理）不可用。'
+                            ? '未加入企业时，企业级功能（人轴、项目知识、团队管理）不可用'
                             : null,
                         children: [
                           MeInfoRow(

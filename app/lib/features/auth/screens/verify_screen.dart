@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -304,7 +304,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
       if (!mounted) return;
       setState(() {
         _status = status;
-        _actionHint = channel == AuthChannel.email ? '邮箱验证成功！' : '手机号验证成功！';
+        _actionHint = channel == AuthChannel.email ? '邮箱验证成功' : '手机号验证成功';
       });
       if (status.satisfies(widget.required)) {
         await _onSatisfied();
@@ -333,7 +333,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
       widget.required == VerifyRequirement.phone ? '协作功能需要补验手机' : '完成邮箱验证';
 
   String get _subtitle => widget.required == VerifyRequirement.phone
-      ? '个人待办只需邮箱；创建公司、项目或接受协作邀请需要手机号验证。'
+      ? '个人待办只需邮箱；创建公司、项目或接受协作邀请需要手机号验证'
       : '个人待办只需验证邮箱。手机号可稍后在协作时再补。';
 
   @override
@@ -393,8 +393,7 @@ class _VerifyScreenState extends State<VerifyScreen> {
                     widget.required == VerifyRequirement.phone
                         ? 'phone'
                         : 'mail',
-                    size: 24,
-                    color: AppColors.primary,
+                    size: 18,
                   ),
                 ),
               ),
@@ -620,13 +619,13 @@ class _ChannelStatusRow extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: isDark
                       ? AppColors.darkTextPrimary
                       : AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
                 value,
                 style: TextStyle(
@@ -661,7 +660,7 @@ class _StatusChip extends StatelessWidget {
         ? (isDark ? const Color(0xFF7FD8AE) : AppColors.success)
         : (isDark ? AppColors.darkTextTertiary : AppColors.textTertiary);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -672,16 +671,16 @@ class _StatusChip extends StatelessWidget {
           if (verified) ...[
             Icon(
               Icons.check_circle,
-              size: 12,
+              size: 18,
               color: fg,
             ),
-            const SizedBox(width: 3),
+            const SizedBox(width: 4),
           ],
           Text(
             verified ? '已验证' : '未验证',
             style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
               color: fg,
             ),
           ),
@@ -690,5 +689,3 @@ class _StatusChip extends StatelessWidget {
     );
   }
 }
-
-

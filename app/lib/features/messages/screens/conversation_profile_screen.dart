@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/api/api_client.dart';
@@ -121,7 +121,7 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '删除钉选链接',
-      message: '删除后频道成员将看不到“${link.title}”。',
+      message: '删除后频道成员将看不到“${link.title}”',
       confirmLabel: '删除',
       isDestructive: true,
     );
@@ -178,14 +178,14 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
           IconButton(
             tooltip: '刷新资料',
             onPressed: controller.loading ? null : controller.load,
-            icon: const AppIcon('refresh', size: 20),
+            icon: const AppIcon('refresh', size: 18),
           ),
       ],
       body: controller == null
           ? const AppEmptyState(
               title: '尚未加入企业',
-              description: '加入企业后可查看会话资料。',
-              icon: AppIcon('team', size: 44, color: AppColors.textTertiary),
+              description: '加入企业后可查看会话资料',
+              icon: AppIcon('team', size: 18, color: AppColors.textTertiary),
             )
           : AnimatedBuilder(
               animation: controller,
@@ -222,7 +222,7 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
         if (widget.isChannel) ...[
           AppListSection(
             header: '钉选链接 (${controller.links.length})',
-            footer: '频道内重要文档、Figma 或代码仓库快捷入口。',
+            footer: '频道内重要文档、Figma 或代码仓库快捷入口',
             children: [
               if (controller.links.isEmpty)
                 const Padding(
@@ -278,7 +278,7 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
                 const Padding(
                   padding: EdgeInsets.all(AppSpacing.lg),
                   child: Text(
-                    '成员信息暂不可用，可返回会话列表重试。',
+                    '成员信息暂不可用，可返回会话列表重试',
                     textAlign: TextAlign.center,
                     style:
                         TextStyle(fontSize: 12, color: AppColors.textTertiary),
@@ -311,8 +311,10 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
               ),
             for (final file in controller.files)
               AppListTile(
-                leading:
-                    const AppIcon('file', size: 18, color: AppColors.primary),
+                leading: const AppIcon(
+                  'file',
+                  size: 18,
+                ),
                 title: file.originalName,
                 subtitle: file.sizeLabel.isEmpty ? null : file.sizeLabel,
                 onTap: () =>
@@ -367,7 +369,7 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
                         : AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   widget.isChannel ? '项目公共讨论频道' : '直接私信讨论',
                   style: const TextStyle(
@@ -383,4 +385,3 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
     );
   }
 }
-

@@ -27,19 +27,28 @@ class _PenNibPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..color = color;
+    // A flat fountain-pen nib in the same 24-unit view box as BrandMark.tsx.
+    // True cutouts keep the vent and slit open on every surface.
+    canvas.save();
+    canvas.scale(size.width / 24, size.height / 24);
     final path = Path()
-      ..moveTo(size.width * .18, size.height * .16)
-      ..lineTo(size.width * .82, size.height * .16)
-      ..lineTo(size.width * .62, size.height * .72)
-      ..lineTo(size.width * .50, size.height * .90)
-      ..lineTo(size.width * .38, size.height * .72)
+      ..moveTo(7, 3)
+      ..lineTo(17, 3)
+      ..lineTo(19, 11)
+      ..quadraticBezierTo(15, 17, 12, 22)
+      ..quadraticBezierTo(9, 17, 5, 11)
       ..close();
-    canvas.drawPath(path, paint);
-    canvas.drawCircle(Offset(size.width * .50, size.height * .56), size.width * .065, Paint()..color = color.withValues(alpha: .78));
+    final cutouts = Path()
+      ..addOval(Rect.fromCircle(center: const Offset(12, 11), radius: 1.5))
+      ..addRect(const Rect.fromLTWH(11.5, 11, 1, 12));
+    canvas.drawPath(
+        Path.combine(PathOperation.difference, path, cutouts), paint);
+    canvas.restore();
   }
 
   @override
-  bool shouldRepaint(covariant _PenNibPainter oldDelegate) => oldDelegate.color != color;
+  bool shouldRepaint(covariant _PenNibPainter oldDelegate) =>
+      oldDelegate.color != color;
 }
 
 class AppBrand extends StatelessWidget {
@@ -52,7 +61,9 @@ class AppBrand extends StatelessWidget {
   Widget build(BuildContext context) {
     final style = textStyle ??
         Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: AppColors.textPrimary,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? AppColors.darkTextPrimary
+                  : AppColors.textPrimary,
               fontWeight: FontWeight.w500,
             );
     return Row(

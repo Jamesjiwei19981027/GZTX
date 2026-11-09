@@ -7,7 +7,7 @@ class AppIcon extends StatelessWidget {
   const AppIcon(
     this.name, {
     super.key,
-    this.size = 20,
+    this.size = 18,
     this.color,
   });
 
@@ -39,7 +39,9 @@ class AppIcon extends StatelessWidget {
       case 'check':
         return isIos ? CupertinoIcons.check_mark : Icons.check;
       case 'check-circle':
-        return isIos ? CupertinoIcons.check_mark_circled : Icons.check_circle_outline;
+        return isIos
+            ? CupertinoIcons.check_mark_circled
+            : Icons.check_circle_outline;
       case 'plus':
         return isIos ? CupertinoIcons.plus : Icons.add;
       case 'search':
@@ -85,7 +87,9 @@ class AppIcon extends StatelessWidget {
         return isIos ? CupertinoIcons.ellipsis : Icons.more_horiz;
       case 'alert':
       case 'warning':
-        return isIos ? CupertinoIcons.exclamationmark_triangle : Icons.warning_amber_rounded;
+        return isIos
+            ? CupertinoIcons.exclamationmark_triangle
+            : Icons.warning_amber_rounded;
       case 'info':
         return isIos ? CupertinoIcons.info_circle : Icons.info_outline;
       case 'help':
@@ -105,7 +109,9 @@ class AppIcon extends StatelessWidget {
       case 'undo':
         return isIos ? CupertinoIcons.arrow_counterclockwise : Icons.undo;
       case 'thumbs-up':
-        return isIos ? CupertinoIcons.hand_thumbsup : Icons.thumb_up_alt_outlined;
+        return isIos
+            ? CupertinoIcons.hand_thumbsup
+            : Icons.thumb_up_alt_outlined;
       case 'paperclip':
         return isIos ? CupertinoIcons.paperclip : Icons.attach_file;
       case 'eye':

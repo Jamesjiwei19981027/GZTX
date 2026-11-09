@@ -188,7 +188,7 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
                       MeCard(
                         title: '移动与协同渠道',
                         footer: '微信绑定需在微信客户端内完成授权回调，APP 内无法绕过微信安全协议；'
-                            '企业微信与飞书由企业管理员在「组织与登录集成」中统一接入。',
+                            '企业微信与飞书由企业管理员在「组织与登录集成」中统一接入',
                         children: [
                           Row(
                             children: [
@@ -206,16 +206,16 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
                                       '微信服务号',
                                       style: TextStyle(
                                         fontSize: 14.5,
-                                        fontWeight: FontWeight.w600,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
+                                    const SizedBox(height: 4),
                                     Text(
                                       _wechat.bound
                                           ? '已绑定，可接收模板消息提醒'
                                           : '未绑定（需在微信内完成授权）',
                                       style: TextStyle(
-                                        fontSize: 11.5,
+                                        fontSize: 12,
                                         color: isDark
                                             ? AppColors.darkTextSecondary
                                             : AppColors.textSecondary,
@@ -240,7 +240,7 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
                                   '接收微信订阅提醒',
                                   style: TextStyle(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w600,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
@@ -265,7 +265,7 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
                       const SizedBox(height: AppSpacing.md),
                       MeCard(
                         title: '个人语音识别',
-                        footer: '仅保存个人偏好；实际转写能力由企业语音服务提供，录音结束后才发送音频。',
+                        footer: '仅保存个人偏好；实际转写能力由企业语音服务提供，录音结束后才发送音频',
                         children: [
                           if (_asrLoading)
                             const MeBanner(
@@ -294,7 +294,7 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
                                   BorderRadius.circular(AppSpacing.radiusMd),
                               child: Padding(
                                 padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
+                                    const EdgeInsets.symmetric(vertical: 12),
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -302,7 +302,7 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
                                         label,
                                         style: TextStyle(
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w500,
                                           color: isDark
                                               ? AppColors.darkTextPrimary
                                               : AppColors.textPrimary,
@@ -313,10 +313,9 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
                                       const AppIcon(
                                         'check',
                                         size: 18,
-                                        color: AppColors.primary,
                                       )
                                     else
-                                      const SizedBox(width: 18),
+                                      const SizedBox(width: 20),
                                   ],
                                 ),
                               ),
@@ -326,7 +325,7 @@ class _MeIntegrationsScreenState extends State<MeIntegrationsScreen> {
                       const SizedBox(height: AppSpacing.md),
                       const MeCard(
                         title: '办公生态账号',
-                        footer: '以下渠道由企业统一接入，个人侧仅展示接入状态。',
+                        footer: '以下渠道由企业统一接入，个人侧仅展示接入状态',
                         children: [
                           MeInfoRow(
                             label: '企业微信（WeCom）',
