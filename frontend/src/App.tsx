@@ -2,7 +2,8 @@
  * Web 主壳：对接后端（任务/人轴/消息/通知/团队/收件箱/报表）。
  */
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { enqueuePrefWrite } from './api/serialQueue';
 import {
   Task,
   Project,
@@ -19,6 +20,8 @@ import {
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { TaskWorkspaceToolbar } from './components/TaskWorkspaceToolbar';
+import { pickActiveCompany } from './utils/activeCompany';
+import { summarizeBatchReschedule } from './utils/batchReschedule';
 import { filterTaskWorkspace, type TaskWorkspaceScope } from './utils/taskWorkspace';
 import { PhoneVerificationReminder } from './components/PhoneVerificationReminder';
 import { MobileAppShell } from './mobile/MobileAppShell';
@@ -227,6 +230,8 @@ export default function App() {
   const [projectMembers, setProjectMembers] = useState<import('./types').TeamMember[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [companyId, setCompanyId] = useState<number | null>(null);
+  /** 刚接受另一家公司的项目邀请后，刷新时要停留在该公司身份 */
+  const preferredCompanyIdRef = useRef<number | null>(null);
   const [isCompanyAdmin, setIsCompanyAdmin] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project>(ALL_PROJECT_ITEM);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -314,7 +319,8 @@ export default function App() {
         getUiPrefs().catch(() => null),
       ]);
       // 角色来自企业成员关系：超级管理员才能看到电脑端“企业管理”和手机端的电脑端操作提示
-      setUser({ ...mapUser(me), role: companies.items?.[0]?.my_membership?.is_super_admin ? '管理员' : '成员' });
+      const activeCompany = pickActiveCompany(companies.items, preferredCompanyIdRef.current);
+      setUser({ ...mapUser(me), role: activeCompany?.my_membership?.is_super_admin ? '管理员' : '成员' });
       const notifyPref = me.notify_pref || {};
       const channels = (notifyPref.channels || {}) as Record<string, Record<string, unknown>>;
       const quietHours = (notifyPref.quiet_hours || {}) as Record<string, unknown>;
@@ -331,9 +337,9 @@ export default function App() {
           weekendMute: typeof notifyPref.weekend_mute === 'boolean' ? Boolean(notifyPref.weekend_mute) : prev.notifications.weekendMute,
         },
       }));
-      const cid = companies.items?.[0]?.id ?? null;
+      const cid = activeCompany?.id ?? null;
       setCompanyId(cid);
-      setIsCompanyAdmin(Boolean(companies.items?.[0]?.my_membership?.is_super_admin));
+      setIsCompanyAdmin(Boolean(activeCompany?.my_membership?.is_super_admin));
       let mappedProjects: Project[] = [];
       if (cid) {
         const projPage = await listProjects(cid);
@@ -493,6 +499,16 @@ export default function App() {
         const accepted = await acceptProjectInvitation(token);
         if (cancelled) return;
         clearInviteToken();
+        // 先取项目详情，知道它属于哪家公司；刷新时切到该公司身份，项目列表才会包含新项目
+        let joinedDetail: Awaited<ReturnType<typeof getProject>> | null = null;
+        if (accepted.project_id) {
+          try {
+            joinedDetail = await getProject(accepted.project_id);
+            if (joinedDetail?.company_id) preferredCompanyIdRef.current = joinedDetail.company_id;
+          } catch {
+            /* 拿不到详情就沿用当前公司 */
+          }
+        }
         const refreshOk = await refreshFromBackend();
         if (accepted.project_id) {
           // 取真实项目名：以前直接钉「受邀项目」占位，顶栏会一直显示这个假名字
@@ -503,11 +519,7 @@ export default function App() {
             color: '#0058be',
             active: true,
           };
-          try {
-            joined = mapProject(await getProject(accepted.project_id));
-          } catch {
-            /* 拿不到详情就先用占位名，不挡住加入流程 */
-          }
+          if (joinedDetail) joined = mapProject(joinedDetail);
           if (cancelled) return;
           setCurrentProject(joined);
           switchView('team');
@@ -702,6 +714,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  const lastUiPrefsKey = useRef<string>('');
   useEffect(() => {
     saveSettings(settings);
     const root = document.documentElement;
@@ -711,20 +724,26 @@ export default function App() {
     // 主题色通过 data-accent 接通 index.css 的调色板变量
     root.dataset.accent = settings.accentColor;
     if (authed && prefsHydrated) {
-      void putUiPrefs({
+      const uiPayload = {
         language: settings.language,
         accent: settings.accentColor,
         theme_mode: settings.themeMode,
         task_default_priority: uiPriorityToApi(settings.taskDefaults.priority),
         task_default_category_id: categories.find((item) => item.name === settings.taskDefaults.category)?.id,
-      }).catch(() => undefined);
+      };
+      const uiKey = JSON.stringify(uiPayload);
+      // 界面偏好没变就不写（切通知开关不应触发 ui-prefs 写入）
+      if (lastUiPrefsKey.current !== uiKey) {
+        lastUiPrefsKey.current = uiKey;
+        void enqueuePrefWrite(() => putUiPrefs(uiPayload)).catch(() => undefined);
+      }
     }
   }, [settings, authed, prefsHydrated, categories]);
 
   useEffect(() => {
     if (!(authed && prefsHydrated)) return;
     const n = settings.notifications;
-    void updateMe({
+    void enqueuePrefWrite(() => updateMe({
       notify_pref: {
         channels: {
           email: { enabled: n.email },
@@ -735,7 +754,7 @@ export default function App() {
         quiet_hours: { start: n.quietHoursStart, end: n.quietHoursEnd },
         weekend_mute: n.weekendMute,
       },
-    }).catch(() => undefined);
+    })).catch(() => undefined);
   }, [authed, prefsHydrated, settings.notifications]);
 
   const displayProjects = useMemo(
@@ -939,8 +958,12 @@ export default function App() {
     toast.success(`已生成下一次：${mapped.dueDate || '未排期'}`);
   };
 
-  const handleToggleTaskCompletion = async (taskId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleToggleTaskCompletion = async (
+    taskOrId: string | Pick<Task, 'id'>,
+    e?: React.MouseEvent,
+  ) => {
+    e?.stopPropagation();
+    const taskId = typeof taskOrId === 'string' ? taskOrId : taskOrId.id;
     const id = Number(taskId);
     const task = tasks.find((t) => t.id === taskId);
     if (!task || !Number.isFinite(id)) return;
@@ -995,9 +1018,11 @@ export default function App() {
     if (!ids.length) return;
     try {
       const res = await batchRescheduleTasks(ids, dueDate);
-      const idSet = new Set(taskIds);
+      const { applied, skippedCount, message } = summarizeBatchReschedule(taskIds, res, dueDate);
+      const idSet = new Set(applied);
       setTasks((prev) => prev.map((t) => (idSet.has(t.id) ? { ...t, dueDate } : t)));
-      toast.success(`已顺延 ${res.updated_count ?? ids.length} 个任务至 ${dueDate}`);
+      if (skippedCount > 0) toast.info(message);
+      else toast.success(message);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '批量顺延失败');
     }
@@ -1007,13 +1032,15 @@ export default function App() {
     const ids = taskIds.map((v) => Number(v)).filter((v) => Number.isFinite(v));
     if (!ids.length) return;
     try {
-      await batchCompleteTasks(ids);
-      const idSet = new Set(taskIds);
+      const res = await batchCompleteTasks(ids);
+      const skipped = new Set(((res as { skipped_task_ids?: number[] })?.skipped_task_ids ?? []).map(String));
+      const idSet = new Set(taskIds.filter((id) => !skipped.has(id)));
       setTasks((prev) =>
         prev.map((t) => (idSet.has(t.id) ? { ...t, status: 'Done' as Status, progress: 100 } : t)),
       );
       track('task.complete', { batch: ids.length });
-      toast.success(`已完成 ${ids.length} 个任务`);
+      if (skipped.size > 0) toast.info(`已完成 ${ids.length - skipped.size} 个任务，${skipped.size} 条只读任务未完成`);
+      else toast.success(`已完成 ${ids.length} 个任务`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '批量完成失败');
     }
@@ -1045,6 +1072,15 @@ export default function App() {
       language: prev.language === 'zh' ? 'en' : 'zh',
     }));
   }, []);
+  /** 材料/汇报类通知：切到对应项目，再进人轴或汇报页 */
+  const handleOpenNotificationTarget = useCallback((target: import('./utils/notificationText').NotificationTarget) => {
+    if (target.projectId != null) {
+      const hit = displayProjects.find((p) => String(p.id) === String(target.projectId));
+      if (hit) setCurrentProject(hit);
+    }
+    switchView(target.view);
+  }, [displayProjects, switchView]);
+
   const handleOpenSettings = useCallback(() => switchView('settings'), [switchView]);
   const handleReload = useCallback(() => {
     void refreshFromBackend();
@@ -1076,7 +1112,13 @@ export default function App() {
           if (payload?.project_id) {
             clearInviteToken();
             const pid = payload.project_id;
-            void refreshFromBackend().then(() => {
+            void getProject(pid)
+              .then((p) => {
+                if (p.company_id) preferredCompanyIdRef.current = p.company_id;
+              })
+              .catch(() => undefined)
+              .then(() => refreshFromBackend())
+              .then(() => {
               void getProject(pid)
                 .then((p) => {
                   setCurrentProject(mapProject(p));
@@ -1382,6 +1424,7 @@ export default function App() {
          <InboxView
                 companyId={companyId}
                 canViewIntegrations={isCompanyAdmin}
+                onOpenTarget={handleOpenNotificationTarget}
                 onOpenNewTaskWithTitle={(title, desc, source) => {
                   setNewTaskDefaultTitle(title);
                   setNewTaskDefaultDesc(desc);
@@ -1512,6 +1555,7 @@ export default function App() {
           if (t) setSelectedTask(t);
         }}
         onOpenSettings={() => switchView('notifications')}
+        onOpenTarget={handleOpenNotificationTarget}
         lang={settings.language}
       />
 

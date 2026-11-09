@@ -17,7 +17,7 @@ export type PersonalKnowledgeSpaceData = {
   entries: PersonalKnowledgeEntry[]
   links: PersonalKnowledgeLink[]
 }
-export type PersonalKnowledgeEntryInput = Pick<PersonalKnowledgeEntry, 'title' | 'body_text' | 'tags'>
+export type PersonalKnowledgeEntryInput = Pick<PersonalKnowledgeEntry, 'title' | 'body_text' | 'tags'> & { file_ids?: number[] }
 export type PersonalKnowledgeEntryPatch = Partial<PersonalKnowledgeEntryInput & Pick<PersonalKnowledgeEntry, 'position'>>
 const base = (projectId: number) => `/projects/${projectId}/personal-knowledge`
 const json = (method: string, body: unknown): RequestInit => ({ method, body: JSON.stringify(body) })

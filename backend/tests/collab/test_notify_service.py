@@ -105,3 +105,22 @@ async def test_progress_burst_alerts_pm(db_session: AsyncSession, seed_ids):
     )
     jobs = list(q.scalars().all())
     assert len(jobs) >= 1
+
+
+@pytest.mark.asyncio
+async def test_enqueue_adds_project_id_to_payload_for_deeplink(db_session: AsyncSession, seed_ids):
+    """C-4：通知载荷带 project_id，前端据此跳转到对应项目；已有的 project_id 不被覆盖"""
+    svc = NotificationService()
+    ids = await svc.enqueue(
+        db_session, company_id=seed_ids["company_id"], user_ids=[seed_ids["member_user_id"]],
+        template_key="evidence.rejected", payload={"package_id": 1}, channels=["in_app"],
+        project_id=seed_ids["project_id"],
+    )
+    ids2 = await svc.enqueue(
+        db_session, company_id=seed_ids["company_id"], user_ids=[seed_ids["member_user_id"]],
+        template_key="agent.report.submitted", payload={"project_id": 4242}, channels=["in_app"],
+        project_id=seed_ids["project_id"],
+    )
+    jobs = {j.id: j for j in (await db_session.execute(select(NotifyJob).where(NotifyJob.id.in_(ids + ids2)))).scalars().all()}
+    assert jobs[ids[0]].payload_json["project_id"] == seed_ids["project_id"]
+    assert jobs[ids2[0]].payload_json["project_id"] == 4242

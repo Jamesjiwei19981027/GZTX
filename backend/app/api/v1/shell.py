@@ -1373,8 +1373,8 @@ async def task_stats_trend(
 @router.put("/users/me/ui-prefs", response_model=ResponseData)
 async def put_ui_prefs(body: UiPrefsBody, db: DbSession, user: CurrentUser):
     """保存界面偏好"""
-    pref = dict(user.notify_pref or {})
-    ui = dict(pref.get("ui") or {})
+    from app.services.notify_pref_lock import locked_pref_update
+
     data = body.model_dump(exclude_unset=True)
     if data.get("task_default_priority") is not None and data["task_default_priority"] not in (0, 1, 2):
         return fail(422, 42200, "task_default_priority must be 0, 1, or 2")
@@ -1387,11 +1387,14 @@ async def put_ui_prefs(body: UiPrefsBody, db: DbSession, user: CurrentUser):
         )
         if not category_exists:
             return fail(404, 40400, "default category not found")
-    ui.update({k: v for k, v in data.items() if v is not None})
-    pref["ui"] = ui
-    user.notify_pref = pref
-    flag_modified(user, "notify_pref")
-    await db.commit()
+    async with locked_pref_update(db, user):
+        pref = dict(user.notify_pref or {})
+        ui = dict(pref.get("ui") or {})
+        ui.update({k: v for k, v in data.items() if v is not None})
+        pref["ui"] = ui
+        user.notify_pref = pref
+        flag_modified(user, "notify_pref")
+        await db.commit()
     return ResponseData(data={"ui": ui})
 
 

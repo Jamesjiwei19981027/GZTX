@@ -32,13 +32,13 @@ class ReminderService:
     }
 
     @staticmethod
-    def check_and_send_reminders(db: Session) -> List[Dict[str, Any]]:
+    def check_and_send_reminders(db: Session, now: Optional[datetime] = None) -> List[Dict[str, Any]]:
         """Check pending reminders and send them.
 
         Returns list of reminder info that were sent.
         """
         # SQLite 存储为无时区字符串，使用 naive UTC 确保字符串比较一致
-        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        now = now or datetime.now(timezone.utc).replace(tzinfo=None)
 
         # Find all reminders that should be sent
         pending_reminders = db.query(Reminder).filter(
@@ -72,14 +72,32 @@ class ReminderService:
                 logger.info("[ReminderCheck] Skipping reminder %s: user not found", reminder.id)
                 continue
 
+            # 读取用户通知偏好：静音时段 / 周末免打扰 -> 顺延，不发送
+            from app.services.notify_pref_gate import channel_enabled, deferred_until
+
+            defer_to = deferred_until(user.notify_pref, now)
+            if defer_to is not None:
+                logger.info("[ReminderCheck] Reminder %s deferred to %s (quiet hours / weekend mute)", reminder.id, defer_to)
+                reminder.remind_at = defer_to
+                db.commit()
+                continue
+
             logger.info(
                 "[ReminderCheck] Processing reminder %s for task '%s' (user %s), channels: %s",
                 reminder.id, task.title, user.id, reminder.notify_channels,
             )
 
             # 根据提醒方式发送通知
-            channels = reminder.notify_channels.split(",") if reminder.notify_channels else ["web_push"]
+            all_channels = [c.strip() for c in reminder.notify_channels.split(",") if c.strip()] if reminder.notify_channels else ["web_push"]
+            channels = [c for c in all_channels if channel_enabled(user.notify_pref, c)]
             sent_channels = []
+            if not channels:
+                # 用户在通知设置里关闭了该提醒用到的全部渠道：尊重偏好，不发送也不兜底
+                reminder.is_sent = True
+                reminder.sent_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                reminder.last_error = "用户已关闭对应通知渠道，未发送"
+                db.commit()
+                continue
 
             # 构建通知内容（供 fallback 使用）
             title = f"任务提醒: {task.title}"
@@ -110,7 +128,7 @@ class ReminderService:
                     logger.warning("[ReminderCheck] Channel '%s' failed for reminder %s", channel, reminder.id)
 
             # C4: 如果所有渠道都失败，尝试 fallback 到 email
-            if not sent_channels and "email" not in channels:
+            if not sent_channels and "email" not in channels and channel_enabled(user.notify_pref, "email"):
                 fallback_success = ReminderService._send_email(user, task)
                 ReminderService.record_send(
                     db,

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NotificationItem, Language } from '../../types';
+import { notificationTarget, notificationTitle, type NotificationTarget } from '../../utils/notificationText';
 import {
   listCollabNotifications,
   markAllNotificationsRead,
@@ -11,6 +12,8 @@ interface NotificationsModalProps {
   onClose: () => void;
   onSelectTaskId?: (taskId: string) => void;
   onOpenSettings?: () => void;
+  /** 材料/汇报类通知点击后跳转到对应项目页面 */
+  onOpenTarget?: (target: NotificationTarget) => void;
   lang: Language;
 }
 
@@ -21,11 +24,11 @@ function mapNotif(n: {
   body_text?: string;
   read: boolean;
   created_at?: string;
-}): NotificationItem {
+}): NotificationItem & { target?: NotificationTarget } {
   const taskId = n.payload?.task_id;
   return {
     id: String(n.id),
-    title: n.template_key || '通知',
+    title: notificationTitle(n.template_key),
     message: n.body_text || JSON.stringify(n.payload || {}),
     timestamp: n.created_at
       ? n.created_at.slice(5, 16).replace('T', ' ')
@@ -33,6 +36,7 @@ function mapNotif(n: {
     read: Boolean(n.read),
     type: 'system',
     linkTaskId: taskId != null ? String(taskId) : undefined,
+    target: notificationTarget(n.template_key, n.payload) ?? undefined,
   };
 }
 
@@ -41,9 +45,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   onClose,
   onSelectTaskId,
   onOpenSettings,
+  onOpenTarget,
   lang,
 }) => {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notifications, setNotifications] = useState<(NotificationItem & { target?: NotificationTarget })[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all');
   const [error, setError] = useState<string | null>(null);
 
@@ -83,7 +88,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     }
   };
 
-  const handleNotificationClick = async (item: NotificationItem) => {
+  const handleNotificationClick = async (item: NotificationItem & { target?: NotificationTarget }) => {
     if (!item.read) {
       try {
         await markNotificationRead(Number(item.id));
@@ -93,6 +98,11 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
       } catch {
         /* ignore */
       }
+    }
+    if (item.target && onOpenTarget) {
+      onOpenTarget(item.target);
+      onClose();
+      return;
     }
     if (item.linkTaskId && onSelectTaskId) {
       onSelectTaskId(item.linkTaskId);

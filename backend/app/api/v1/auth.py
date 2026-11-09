@@ -32,6 +32,7 @@ router = APIRouter(prefix="/auth", tags=["认证"])
 
 
 INVITE_ONLY_DETAIL = "当前仅支持受邀注册，请向管理员索取邀请链接"
+INVITE_EMAIL_MISMATCH_DETAIL = "请使用收到邀请的邮箱注册"
 
 
 def _is_invite_only() -> bool:
@@ -40,7 +41,20 @@ def _is_invite_only() -> bool:
     return (settings.REGISTRATION_MODE or "").strip().lower() == "invite_only"
 
 
-async def _find_valid_invitation(db, token: str, email: str | None):
+async def _invitation_email_mismatch(db, token: str, email: str | None) -> bool:
+    """邀请令牌本身有效（待处理、未过期），但邀请指定了邮箱且与所填邮箱不一致。"""
+    if not (token or "").strip():
+        return False
+    if await _find_valid_invitation(db, token, email) is not None:
+        return False
+    # 忽略邮箱再查一次：能查到说明令牌有效，失败原因只可能是邮箱不匹配
+    probe = await _find_valid_invitation(db, token, None, check_email=False)
+    if probe is None or not probe.invitee_email:
+        return False
+    return (email or "").strip().lower() != probe.invitee_email.strip().lower()
+
+
+async def _find_valid_invitation(db, token: str, email: str | None, *, check_email: bool = True):
     """返回有效邀请（pending、未过期、邀请邮箱与 email 一致），否则 None。"""
     from datetime import datetime, timezone
 
@@ -59,7 +73,7 @@ async def _find_valid_invitation(db, token: str, email: str | None):
         return None
     if inv.expires_at and as_utc(inv.expires_at) < datetime.now(timezone.utc):
         return None
-    if inv.invitee_email:
+    if inv.invitee_email and check_email:
         if (email or "").strip().lower() != inv.invitee_email.strip().lower():
             return None
     return inv
@@ -82,9 +96,10 @@ async def get_registration_config():
 async def send_verification_code(data: dict, db: DbSession, request: Request):
     """注册/登录发送邮箱或短信验证码（匿名可调）。
 
-    body: {channel: email|sms, target, purpose?: register|login}
+    body: {channel: email|sms, target, purpose?: register|login|reset_password}
     - register（默认）：目标必须未注册
     - login：目标必须已注册
+    - reset_password：忘记密码。为防账号枚举，目标是否注册、是否过于频繁都返回同样的成功提示
     """
     from sqlalchemy import select
 
@@ -97,8 +112,8 @@ async def send_verification_code(data: dict, db: DbSession, request: Request):
 
     channel = (data.get("channel") or "").strip().lower()
     purpose = (data.get("purpose") or "register").strip().lower()
-    if purpose not in ("register", "login"):
-        raise HTTPException(status_code=422, detail="purpose 必须是 register 或 login")
+    if purpose not in ("register", "login", "reset_password"):
+        raise HTTPException(status_code=422, detail="purpose 必须是 register、login 或 reset_password")
     target = data.get("target") or ""
     try:
         target = normalize_target(channel, target)
@@ -111,6 +126,10 @@ async def send_verification_code(data: dict, db: DbSession, request: Request):
             db, data.get("invite_token") or "", target if channel == "email" else None
         )
         if inv is None:
+            if channel == "email" and await _invitation_email_mismatch(
+                db, data.get("invite_token") or "", target
+            ):
+                raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INVITE_EMAIL_MISMATCH_DETAIL)
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INVITE_ONLY_DETAIL)
 
     from app.services.rate_limit import enforce_send_code
@@ -127,6 +146,19 @@ async def send_verification_code(data: dict, db: DbSession, request: Request):
         ).scalar_one_or_none()
 
     label = "邮箱" if channel == "email" else "手机号"
+    if purpose == "reset_password":
+        # 防账号枚举：不存在 / 频繁 / 发送失败都与成功同样回应，不泄露该账号是否存在
+        generic = ResponseData(
+            data={"sent": True, "resend_after": 60},
+            message="如果该账号存在，验证码已发送，请查收",
+        )
+        if not exists or not exists.is_active:
+            return generic
+        try:
+            await send_code(db, channel=channel, target=target, purpose=purpose, user_id=exists.id)
+        except VerificationError as e:
+            logger.info("[ResetPassword] send_code skipped: %s", e)
+        return generic
     if purpose == "register" and exists:
         raise HTTPException(status_code=409, detail=f"{label}已注册")
     if purpose == "login" and not exists:
@@ -156,6 +188,8 @@ async def register(data: UserRegister, db: DbSession):
     valid_invitation = None
     if data.invite_token or _is_invite_only():
         valid_invitation = await _find_valid_invitation(db, data.invite_token or "", data.email)
+        if valid_invitation is None and await _invitation_email_mismatch(db, data.invite_token or "", data.email):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INVITE_EMAIL_MISMATCH_DETAIL)
         if valid_invitation is None and _is_invite_only():
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=INVITE_ONLY_DETAIL)
 
@@ -384,6 +418,52 @@ async def oauth2_token(
         "refresh_token": create_refresh_token(data={"sub": user.id}),
         "expires_in": 900,
     }
+
+
+@router.post("/reset-password", response_model=ResponseData)
+async def reset_password(data: dict, db: DbSession, request: Request):
+    """忘记密码：凭验证码设新密码。body: {channel, target, code, new_password}
+
+    验证码错误/过期/账号不存在统一提示，防账号枚举；验证码错误次数有上限（consume_code）；
+    成功后撤销该账号全部已登录会话。
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.services.rate_limit import enforce_login
+    from app.services.verification import VerificationError, consume_code, normalize_target
+
+    channel = (data.get("channel") or "").strip().lower()
+    if channel not in ("email", "sms"):
+        raise HTTPException(status_code=422, detail="channel 必须是 email 或 sms")
+    try:
+        target = normalize_target(channel, data.get("target") or "")
+    except VerificationError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    code = (data.get("code") or "").strip()
+    new_password = data.get("new_password") or ""
+    if not target or not code:
+        raise HTTPException(status_code=422, detail="请填写完整的账号与验证码")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=422, detail="密码长度不能少于6个字符")
+
+    await enforce_login(db, request, target)
+
+    column = User.email if channel == "email" else User.phone
+    user = (await db.execute(select(User).where(column == target))).scalar_one_or_none()
+    generic_error = "验证码错误或已过期，请重新获取"
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=422, detail=generic_error)
+    try:
+        await consume_code(db, channel=channel, target=target, code=code, purpose="reset_password")
+    except VerificationError as e:
+        raise HTTPException(status_code=422, detail=generic_error) from e
+
+    user.password_hash = get_password_hash(new_password)
+    user.sessions_revoked_at = datetime.now(timezone.utc)
+    await db.flush()
+    return ResponseData(message="密码已重置，请使用新密码登录")
 
 
 @router.post("/login-code", response_model=ResponseData)
