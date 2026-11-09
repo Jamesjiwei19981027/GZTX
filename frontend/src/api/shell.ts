@@ -422,12 +422,15 @@ export async function listIntegrations(companyId: number) {
       last_sync_at?: string
       config?: Record<string, unknown>
       has_credentials?: boolean
+      credentials?: Record<string, string | boolean>
+      callback_uri?: string
+      last_sync_report?: import('./sso').SyncReport
     }[]
   }>(`/companies/${companyId}/integrations`)
 }
 
-export async function triggerOrgSync(companyId: number) {
-  return apiRequest(`/companies/${companyId}/org-sync`, {
+export async function triggerOrgSync(companyId: number, provider?: string) {
+  return apiRequest<{ status: string; report?: import('./sso').SyncReport }>(`/companies/${companyId}/org-sync${provider ? `?provider=${encodeURIComponent(provider)}` : ''}`, {
     method: 'POST',
     body: '{}',
   })

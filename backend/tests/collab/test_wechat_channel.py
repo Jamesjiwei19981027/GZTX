@@ -82,7 +82,9 @@ async def test_org_tree_and_login_methods(async_client: AsyncClient, seed_ids):
     r2 = await async_client.patch(
         f"/api/v1/companies/{cid}/login-methods",
         headers=seed_ids["super_admin_headers"],
-        json={"wecom": True, "oidc": True},
+        json={"password": False, "dingtalk": True, "oidc": True},
     )
     assert r2.status_code == 200
-    assert r2.json()["data"]["wecom"] is True
+    assert r2.json()["data"]["password"] is False
+    assert r2.json()["data"]["dingtalk"] is True
+    assert r2.json()["data"]["wecom"] is False
