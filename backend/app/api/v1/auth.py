@@ -82,9 +82,10 @@ async def get_registration_config():
 async def send_verification_code(data: dict, db: DbSession, request: Request):
     """注册/登录发送邮箱或短信验证码（匿名可调）。
 
-    body: {channel: email|sms, target, purpose?: register|login}
+    body: {channel: email|sms, target, purpose?: register|login|reset_password}
     - register（默认）：目标必须未注册
     - login：目标必须已注册
+    - reset_password：忘记密码。为防账号枚举，目标是否注册、是否过于频繁都返回同样的成功提示
     """
     from sqlalchemy import select
 
@@ -97,8 +98,8 @@ async def send_verification_code(data: dict, db: DbSession, request: Request):
 
     channel = (data.get("channel") or "").strip().lower()
     purpose = (data.get("purpose") or "register").strip().lower()
-    if purpose not in ("register", "login"):
-        raise HTTPException(status_code=422, detail="purpose 必须是 register 或 login")
+    if purpose not in ("register", "login", "reset_password"):
+        raise HTTPException(status_code=422, detail="purpose 必须是 register、login 或 reset_password")
     target = data.get("target") or ""
     try:
         target = normalize_target(channel, target)
@@ -127,6 +128,19 @@ async def send_verification_code(data: dict, db: DbSession, request: Request):
         ).scalar_one_or_none()
 
     label = "邮箱" if channel == "email" else "手机号"
+    if purpose == "reset_password":
+        # 防账号枚举：不存在 / 频繁 / 发送失败都与成功同样回应，不泄露该账号是否存在
+        generic = ResponseData(
+            data={"sent": True, "resend_after": 60},
+            message="如果该账号存在，验证码已发送，请查收",
+        )
+        if not exists or not exists.is_active:
+            return generic
+        try:
+            await send_code(db, channel=channel, target=target, purpose=purpose, user_id=exists.id)
+        except VerificationError as e:
+            logger.info("[ResetPassword] send_code skipped: %s", e)
+        return generic
     if purpose == "register" and exists:
         raise HTTPException(status_code=409, detail=f"{label}已注册")
     if purpose == "login" and not exists:
@@ -380,6 +394,52 @@ async def oauth2_token(
         "refresh_token": create_refresh_token(data={"sub": user.id}),
         "expires_in": 900,
     }
+
+
+@router.post("/reset-password", response_model=ResponseData)
+async def reset_password(data: dict, db: DbSession, request: Request):
+    """忘记密码：凭验证码设新密码。body: {channel, target, code, new_password}
+
+    验证码错误/过期/账号不存在统一提示，防账号枚举；验证码错误次数有上限（consume_code）；
+    成功后撤销该账号全部已登录会话。
+    """
+    from datetime import datetime, timezone
+
+    from sqlalchemy import select
+
+    from app.services.rate_limit import enforce_login
+    from app.services.verification import VerificationError, consume_code, normalize_target
+
+    channel = (data.get("channel") or "").strip().lower()
+    if channel not in ("email", "sms"):
+        raise HTTPException(status_code=422, detail="channel 必须是 email 或 sms")
+    try:
+        target = normalize_target(channel, data.get("target") or "")
+    except VerificationError as e:
+        raise HTTPException(status_code=422, detail=str(e)) from e
+    code = (data.get("code") or "").strip()
+    new_password = data.get("new_password") or ""
+    if not target or not code:
+        raise HTTPException(status_code=422, detail="请填写完整的账号与验证码")
+    if len(new_password) < 6:
+        raise HTTPException(status_code=422, detail="密码长度不能少于6个字符")
+
+    await enforce_login(db, request, target)
+
+    column = User.email if channel == "email" else User.phone
+    user = (await db.execute(select(User).where(column == target))).scalar_one_or_none()
+    generic_error = "验证码错误或已过期，请重新获取"
+    if user is None or not user.is_active:
+        raise HTTPException(status_code=422, detail=generic_error)
+    try:
+        await consume_code(db, channel=channel, target=target, code=code, purpose="reset_password")
+    except VerificationError as e:
+        raise HTTPException(status_code=422, detail=generic_error) from e
+
+    user.password_hash = get_password_hash(new_password)
+    user.sessions_revoked_at = datetime.now(timezone.utc)
+    await db.flush()
+    return ResponseData(message="密码已重置，请使用新密码登录")
 
 
 @router.post("/login-code", response_model=ResponseData)

@@ -72,4 +72,12 @@ await saveRecordProgress('knowledge', base, deps)
 assert.deepEqual((sent.chat as { file_ids: number[] }).file_ids, [11, 12]); n++
 assert.deepEqual((sent.knowledge as { file_ids: number[] }).file_ids, [11, 12]); n++
 
+// A-01：忘记密码入口、发码 purpose 与重置接口
+const auth = read('src/api/auth.ts')
+const gate = read('src/components/LoginGate.tsx')
+ok(auth.includes("purpose: 'reset_password'") && auth.includes("'/auth/reset-password'"), 'A-01 API')
+ok(gate.includes('forgot-password-link') && gate.includes('reset-password-form'), 'A-01 登录页入口与表单')
+ok(gate.includes('sendResetCode(') && gate.includes('resetPassword({'), 'A-01 发码并设新密码')
+ok(gate.includes('两次输入的密码不一致'), 'A-01 两次密码校验')
+
 console.log(`r2 web flow: ${n} assertions passed`)

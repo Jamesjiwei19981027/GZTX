@@ -134,6 +134,26 @@ export async function sendLoginCode(channel: 'email' | 'sms', target: string) {
   })
 }
 
+/** 忘记密码：发验证码（走公司发信）。无论账号是否存在，后端返回同样提示。 */
+export async function sendResetCode(channel: 'email' | 'sms', target: string) {
+  return apiRequest<SendCodeResult>('/auth/send-code', {
+    method: 'POST',
+    body: JSON.stringify({ channel, target, purpose: 'reset_password' }),
+  })
+}
+
+export async function resetPassword(body: {
+  channel: 'email' | 'sms'
+  target: string
+  code: string
+  new_password: string
+}) {
+  return apiRequest<null>('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+}
+
 export async function getVerificationStatus() {
   return apiRequest<VerificationStatus>('/users/me/verification')
 }

@@ -8,7 +8,9 @@ import {
   loginWithCode,
   type RegistrationConfig,
   register,
+  resetPassword,
   sendLoginCode,
+  sendResetCode,
   sendRegisterCode,
 } from '../api/auth'
 import { ApiError } from '../api/client'
@@ -22,7 +24,7 @@ type Props = {
 }
 
 type Mode = 'login' | 'register'
-type LoginKind = 'password' | 'code'
+type LoginKind = 'password' | 'code' | 'reset'
 
 function useCountdown() {
   const [countdown, setCountdown] = useState(0)
@@ -87,6 +89,13 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
   const [loginCode, setLoginCode] = useState('')
   const loginCd = useCountdown()
 
+  // 忘记密码
+  const [resetTarget, setResetTarget] = useState('')
+  const [resetCode, setResetCode] = useState('')
+  const [resetNew, setResetNew] = useState('')
+  const [resetConfirm, setResetConfirm] = useState('')
+  const resetCd = useCountdown()
+
   // register
   const [regUsername, setRegUsername] = useState('')
   const [regEmail, setRegEmail] = useState('')
@@ -128,6 +137,63 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
       onLoggedIn()
     } catch (err) {
       setError(err instanceof ApiError ? err.message : zh ? '登录失败' : 'Login failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function sendResetVerifyCode() {
+    clearMsgs()
+    const ch = detectChannel(resetTarget)
+    if (!ch) {
+      setError(zh ? '请输入注册时使用的邮箱或手机号' : 'Enter your registered email or phone')
+      return
+    }
+    try {
+      const res = await sendResetCode(ch, resetTarget.trim())
+      resetCd.start(res.cooldown_seconds || 60)
+      setHint(
+        res.debug_code
+          ? zh
+            ? `验证码已发送（开发调试码：${res.debug_code}）`
+            : `Code sent (debug: ${res.debug_code})`
+          : zh
+            ? '如果该账号存在，验证码已发送，请查收'
+            : 'If the account exists, a code has been sent',
+      )
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : zh ? '发送失败' : 'Send failed')
+    }
+  }
+
+  async function handleResetPassword(e: React.FormEvent) {
+    e.preventDefault()
+    clearMsgs()
+    const ch = detectChannel(resetTarget)
+    if (!ch) {
+      setError(zh ? '请输入注册时使用的邮箱或手机号' : 'Enter your registered email or phone')
+      return
+    }
+    if (resetNew.length < 6) {
+      setError(zh ? '密码长度不能少于6个字符' : 'Password must be at least 6 characters')
+      return
+    }
+    if (resetNew !== resetConfirm) {
+      setError(zh ? '两次输入的密码不一致' : 'Passwords do not match')
+      return
+    }
+    setBusy(true)
+    try {
+      await resetPassword({ channel: ch, target: resetTarget.trim(), code: resetCode.trim(), new_password: resetNew })
+      setUsername(resetTarget.trim())
+      setPassword('')
+      setResetCode('')
+      setResetNew('')
+      setResetConfirm('')
+      setLoginKind('password')
+      setHint(zh ? '密码已重置，请使用新密码登录' : 'Password reset. Please sign in.')
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : zh ? '重置失败' : 'Reset failed')
     } finally {
       setBusy(false)
     }
@@ -275,7 +341,11 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                   {zh ? '欢迎回来' : 'Welcome back'}
                 </h2>
                 <p className="text-sm text-on-surface-variant mt-1">
-                  {loginKind === 'password'
+                  {loginKind === 'reset'
+                    ? zh
+                      ? '验证身份后设置新密码'
+                      : 'Verify your identity to set a new password'
+                    : loginKind === 'password'
                     ? zh
                       ? '用户名 / 邮箱 / 手机号 + 密码'
                       : 'Account + password'
@@ -314,7 +384,19 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                       minLength={6}
                     />
                   </label>
-                  <div className="flex justify-end">
+                  <div className="flex justify-between">
+                    <button
+                      type="button"
+                      data-testid="forgot-password-link"
+                      className="text-xs font-bold text-on-surface-variant cursor-pointer"
+                      onClick={() => {
+                        setLoginKind('reset')
+                        setResetTarget(username.includes('@') ? username.trim() : '')
+                        clearMsgs()
+                      }}
+                    >
+                      {zh ? '忘记密码' : 'Forgot password'}
+                    </button>
                     <button
                       type="button"
                       className="text-xs font-bold text-primary cursor-pointer"
@@ -332,6 +414,55 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                     className="w-full rounded-xl bg-primary text-on-primary py-3 font-bold disabled:opacity-50 cursor-pointer"
                   >
                     {busy ? (zh ? '登录中…' : 'Signing in…') : zh ? '登录' : 'Sign in'}
+                  </button>
+                </form>
+              ) : loginKind === 'reset' ? (
+                <form onSubmit={(e) => void handleResetPassword(e)} className="space-y-3" data-testid="reset-password-form">
+                  <label className="block text-sm">
+                    <span className="text-on-surface-variant font-semibold">{zh ? '邮箱 / 手机号' : 'Email / phone'}</span>
+                    <input
+                      className={inputCls}
+                      value={resetTarget}
+                      onChange={(e) => setResetTarget(e.target.value)}
+                      placeholder={zh ? '注册时使用的邮箱或手机号' : 'Registered email or phone'}
+                      required
+                    />
+                  </label>
+                  <div>
+                    <span className="text-sm text-on-surface-variant font-semibold">{zh ? '验证码' : 'Code'}</span>
+                    <div className="mt-1 flex gap-2">
+                      <input
+                        className={`${inputCls} mt-0 flex-1`}
+                        value={resetCode}
+                        onChange={(e) => setResetCode(e.target.value)}
+                        maxLength={6}
+                        required
+                      />
+                      <button
+                        type="button"
+                        disabled={resetCd.countdown > 0}
+                        onClick={() => void sendResetVerifyCode()}
+                        className="px-3 rounded-xl border border-outline-variant/50 text-xs font-bold text-primary disabled:opacity-40 cursor-pointer whitespace-nowrap"
+                      >
+                        {resetCd.countdown > 0 ? `${resetCd.countdown}s` : zh ? '获取验证码' : 'Get code'}
+                      </button>
+                    </div>
+                  </div>
+                  <label className="block text-sm">
+                    <span className="text-on-surface-variant font-semibold">{zh ? '新密码' : 'New password'}</span>
+                    <input type="password" className={inputCls} value={resetNew} onChange={(e) => setResetNew(e.target.value)} autoComplete="new-password" required minLength={6} />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="text-on-surface-variant font-semibold">{zh ? '确认新密码' : 'Confirm password'}</span>
+                    <input type="password" className={inputCls} value={resetConfirm} onChange={(e) => setResetConfirm(e.target.value)} autoComplete="new-password" required minLength={6} />
+                  </label>
+                  <div className="flex justify-end">
+                    <button type="button" className="text-xs font-bold text-primary cursor-pointer" onClick={() => { setLoginKind('password'); clearMsgs() }}>
+                      {zh ? '返回登录' : 'Back to sign in'}
+                    </button>
+                  </div>
+                  <button type="submit" disabled={busy} className="w-full rounded-xl bg-primary text-on-primary py-3 font-bold disabled:opacity-50 cursor-pointer">
+                    {busy ? (zh ? '提交中…' : 'Submitting…') : zh ? '重置密码' : 'Reset password'}
                   </button>
                 </form>
               ) : (
