@@ -7,7 +7,12 @@ import { expect, test } from '@playwright/test'
 test('AI report center clicks every report action', async ({ page }) => {
   const calls: string[] = []
   let reportRead = false
-  page.on('pageerror', (error) => console.log(`report-ui pageerror: ${error.message}`))
+  let summaryGenerated = false
+  let summaryPublished = false
+  const summary = { id: 301, project_id: 1, status: 'submitted', summary_text: '项目汇总：接口联调完成', report_count: 1, source_count: 1 }
+  const publishedSummary = { ...summary, status: 'published', published_at: '2026-10-19T10:30:00Z', published_by: 7 }
+  const browserErrors: string[] = []
+  page.on('pageerror', error => browserErrors.push(error.message))
   page.on('console', (message) => { if (message.type() === 'error') console.log(`report-ui console: ${message.text()}`) })
 
   await page.route('**/api/v1/**', async (route) => {
@@ -32,7 +37,11 @@ test('AI report center clicks every report action', async ({ page }) => {
     else if (path === '/reports/generate') data = { id: 202, project_id: 1, status: 'draft', summary_text: 'AI 草稿：接口联调进行中', payload_json: { source_count: 2 }, sources: [] }
     else if (path === '/reports/202/submit') data = { id: 202, project_id: 1, status: 'submitted', summary_text: '编辑后的汇报', sources: [] }
     else if (path === '/reports/inbox/201/read') { reportRead = true; data = { id: 201, read: true } }
-    else if (path === '/projects/1/agent-reports/aggregate') data = { id: 301, project_id: 1, status: 'published', summary_text: '项目汇总：接口联调完成', payload_json: {} }
+    else if (path === '/projects/1/agent-reports/aggregate' && request.method() === 'POST') { summaryGenerated = true; data = summary }
+    else if (path === '/projects/1/report-summaries' && request.method() === 'GET') {
+      data = { items: summaryGenerated ? [summaryPublished ? publishedSummary : summary] : [], latest_published: summaryPublished ? publishedSummary : null, can_publish: true }
+    }
+    else if (path === '/projects/1/report-summaries/301/publish' && request.method() === 'POST') { summaryPublished = true; data = publishedSummary }
     else if (path === '/companies/9/leadership-reports/aggregate') data = { id: 401, company_id: 9, status: 'published', summary_text: '总领导摘要：项目进展正常', payload_json: {}, created_at: '2026-10-19T09:00:00Z' }
 
     await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ code: 200, message: 'ok', data }) })
@@ -63,14 +72,20 @@ test('AI report center clicks every report action', async ({ page }) => {
   await page.getByRole('button', { name: '生成 AI 草稿' }).click()
   await expect(page.getByLabel('我的 AI 汇报正文', {exact:true})).toHaveValue('AI 草稿：接口联调进行中')
   await page.getByLabel('我的 AI 汇报正文', {exact:true}).fill('编辑后的汇报')
+  const submitted = page.waitForRequest(request => request.method() === 'POST' && request.url().endsWith('/reports/202/submit'))
   await page.getByRole('button', { name: '提交给直属领导' }).click()
+  expect((await submitted).postDataJSON()).toEqual({ sources: [], summary: '编辑后的汇报' })
   await expect(page.getByText('项目内成员汇报')).toBeVisible()
 
   await page.getByText('下属汇报', { exact: true }).click()
   await expect.poll(() => reportRead).toBe(true)
 
   await page.getByRole('button', { name: '汇总项目汇报' }).click()
-  await expect(page.getByText('项目汇总：接口联调完成')).toBeVisible()
+  await expect(page.getByTestId('pending-summary-301')).toContainText('项目汇总：接口联调完成')
+  await page.getByRole('button', { name: '确认发布', exact: true }).click()
+  await expect(page.getByTestId('published-summary')).toContainText('已发布版本 #301')
+  await expect(page.getByTestId('published-summary')).toContainText('项目汇总：接口联调完成')
+  await expect(page.getByTestId('pending-summary-301')).toHaveCount(0)
 
   await page.getByRole('button', { name: '汇总全部项目' }).click()
   await expect(page.getByText('总领导摘要：项目进展正常')).toBeVisible()
@@ -81,6 +96,8 @@ test('AI report center clicks every report action', async ({ page }) => {
     'POST /reports/202/submit',
     'PUT /reports/inbox/201/read',
     'POST /projects/1/agent-reports/aggregate',
+    'POST /projects/1/report-summaries/301/publish',
     'POST /companies/9/leadership-reports/aggregate',
   ]))
+  expect(browserErrors).toEqual([])
 })

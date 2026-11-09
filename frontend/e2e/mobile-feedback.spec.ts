@@ -400,7 +400,9 @@ test.describe('browser back button follows the in-app page stack', () => {
     await open(page, 'work');
     await push(page, 'work-trash');
     await push(page, 'work-search');
-    await page.getByRole('button', { name: '返回' }).first().click();
+    // 搜索页自己提供“取消”返回入口，不再依赖已移除的重复外层顶栏。
+    await expect(page.getByRole('button', { name: '返回', exact: true })).toHaveCount(0);
+    await page.getByRole('button', { name: '取消', exact: true }).click();
     await expect.poll(() => screenOf(page)).toBe('work-trash');
     // 页面内返回之后历史条数同步回落：浏览器再返回一次应只回到根页，且不离开应用
     await page.goBack();

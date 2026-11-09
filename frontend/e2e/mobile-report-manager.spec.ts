@@ -7,8 +7,18 @@ import { expect, test } from '@playwright/test';
 test('Mobile manager report flow: Inbox, contrast, rollup, leadership overview & review', async ({ page }) => {
   const calls: string[] = [];
   let reportRead = false;
+  let summaryGenerated = false;
+  let summaryPublished = false;
+  const summary = {
+    id: 301, project_id: 1, status: 'submitted',
+    summary_text: '项目周报：各端核心功能与汇报流转联调完毕',
+    report_count: 1, source_count: 0,
+  };
+  const publishedSummary = { ...summary, status: 'published', published_at: '2026-10-19T10:30:00Z', published_by: 9 };
+  const browserErrors: string[] = [];
 
-  page.on('pageerror', (err) => console.log(`manager-report pageerror: ${err.message}`));
+  page.on('pageerror', err => browserErrors.push(err.message));
+  await page.setViewportSize({ width: 390, height: 844 });
 
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
@@ -91,6 +101,7 @@ test('Mobile manager report flow: Inbox, contrast, rollup, leadership overview &
       reportRead = true;
       data = { id: 201, read: true };
     } else if (path === '/projects/1/agent-reports/aggregate') {
+      summaryGenerated = true;
       data = {
         id: 301,
         project_id: 1,
@@ -108,6 +119,15 @@ test('Mobile manager report flow: Inbox, contrast, rollup, leadership overview &
           ],
         },
       };
+    } else if (path === '/projects/1/report-summaries' && request.method() === 'GET') {
+      data = {
+        items: summaryGenerated ? [summaryPublished ? publishedSummary : summary] : [],
+        latest_published: summaryPublished ? publishedSummary : null,
+        can_publish: true,
+      };
+    } else if (path === '/projects/1/report-summaries/301/publish' && request.method() === 'POST') {
+      summaryPublished = true;
+      data = publishedSummary;
     } else if (path === '/companies/1/leadership-reports/latest') {
       data = {
         id: 401,
@@ -224,12 +244,25 @@ test('Mobile manager report flow: Inbox, contrast, rollup, leadership overview &
   await page.getByRole('button', { name: '项目汇总与发布' }).click();
   await expect(page.getByText('待管理者确认')).toBeVisible();
   await expect(page.getByText('项目周报')).toBeVisible();
+  const publish = page.getByRole('button', { name: '确认发布项目摘要', exact: true });
+  await expect(publish).toBeDisabled();
 
   // 点击 "生成 / 更新项目汇总"
   await page.getByRole('button', { name: '生成 / 更新项目汇总' }).click();
   await expect(page.getByText('项目周报：各端核心功能与汇报流转联调完毕')).toBeVisible();
 
-  // 验证 G03 规范防御提示
-  await page.getByRole('button', { name: '确认发布项目摘要' }).click();
-  await expect(page.getByText(/G03 规范提示/)).toBeVisible();
+  // 生成后按服务端待发布版本确认发布，再离开并回读已发布版本。
+  await expect(publish).toBeEnabled();
+  await publish.click();
+  await expect(page.getByText('已发布，项目成员和上级可以在汇报页看到这一版', { exact: true })).toBeVisible();
+  await expect(page.getByTestId('mobile-published-summary')).toContainText('已发布版本 #301');
+  await expect(publish).toBeDisabled();
+  await page.getByRole('button', { name: '返回', exact: true }).click();
+  await page.getByRole('button', { name: '项目汇总与发布', exact: true }).click();
+  await expect(page.getByTestId('mobile-published-summary')).toContainText(summary.summary_text);
+  await expect(publish).toBeDisabled();
+  expect(calls.filter(call => call === 'POST /projects/1/report-summaries/301/publish')).toHaveLength(1);
+  expect(calls.filter(call => call === 'GET /projects/1/report-summaries')).toHaveLength(3);
+  expect(calls).toContain('POST /projects/1/agent-reports/aggregate');
+  expect(browserErrors).toEqual([]);
 });
