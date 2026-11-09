@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile, Project } from '../../../types';
 import { MobileTopBar } from '../../ui/MobileTopBar';
 import { AppIcon } from '../../ui/AppIcon';
-import { agentChat } from '../../../api/agents';
+import { saveProgressNoteAsDraft } from '../../../api/manage';
 import { submitEvidence, getTreeNode, getProjectTree, BackendTreeNode } from '../../../api/backend';
 import { uploadEvidenceFile } from '../../../api/projectWiki';
 import { inferEvidenceKind } from '../../../utils/evidenceFiles';
@@ -25,6 +25,8 @@ export interface RecordProgressProps {
   projects?: Project[];
   onBack?: () => void;
   onSaved?: (target: RecordProgressTarget) => void;
+  /** 存为汇报草稿后，点「去我的汇报查看」时跳转到我的汇报 */
+  onViewReports?: () => void;
   isModal?: boolean;
 }
 
@@ -49,6 +51,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
   projects = [],
   onBack,
   onSaved,
+  onViewReports,
   isModal = false,
 }) => {
   // 项目选择：若传入了则采用，否则优先第一个具体项目
@@ -69,6 +72,7 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
   const [step, setStep] = useState<'input' | 'confirm'>('input');
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [draftSaved, setDraftSaved] = useState(false);
 
   // 事项树与列表
   const [nodeList, setNodeList] = useState<{ id: string; name: string }[]>([]);
@@ -236,13 +240,19 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
           evidenceKind: inferEvidenceKind(uploadedFiles),
         },
         {
-          agentChat,
+          saveReportDraft: (pid, body) => saveProgressNoteAsDraft(pid, body),
           submitEvidence: (id, body) => submitEvidence(id, body),
           createKnowledgeEntry: (pid, body) => createPersonalKnowledgeEntry(pid, body),
         },
       );
       setToastMessage(message);
       const saved = chosenTarget;
+      if (saved === 'report_draft') {
+        // 汇报草稿不自动关闭：给出「去我的汇报查看」入口，让用户确认草稿真的存进去了
+        setDraftSaved(true);
+        setSubmitting(false);
+        return;
+      }
       setTimeout(() => {
         if (!active.current) return;
         onSaved?.(saved);
@@ -299,6 +309,33 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
       )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-2xl mx-auto w-full">
+        {draftSaved && (
+          <div
+            role="status"
+            data-testid="record-progress-draft-saved"
+            className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 space-y-3 text-emerald-900"
+          >
+            <p className="text-sm font-semibold">已存为汇报草稿</p>
+            <p className="text-xs">这条记录已加入你在该项目的汇报草稿，可以在「我的汇报」里继续编辑和提交。</p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                data-testid="record-progress-view-reports"
+                className="min-h-11 px-4 rounded-xl bg-emerald-600 text-white text-sm font-semibold"
+                onClick={() => {
+                  onSaved?.('report_draft');
+                  if (onViewReports) onViewReports();
+                  else onBack?.();
+                }}
+              >
+                去我的汇报查看
+              </button>
+              <button type="button" className="min-h-11 px-4 rounded-xl border border-emerald-300 text-sm" onClick={() => { onSaved?.('report_draft'); onBack?.(); }}>
+                关闭
+              </button>
+            </div>
+          </div>
+        )}
         {error && (
           <div
             role="alert"

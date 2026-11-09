@@ -41,6 +41,7 @@ import {
   MobileBillingHelpScreen,
   MobileNotificationLogsScreen,
   MobileThirdPartyBindingsScreen,
+  isUserAdmin,
 } from '../features/settings/MobileSettingsScreens';
 import {
   AdaptAccountDeleteScreen,
@@ -191,6 +192,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               currentUser={props.user}
               projects={props.projects}
               onBack={goBack}
+              onViewReports={() => push({ screen: 'ai-report-create', title: '我的汇报' })}
             />
           );
         }
@@ -420,6 +422,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               currentUser={props.user}
               projects={props.projects}
               onBack={goBack}
+              onViewReports={() => push({ screen: 'ai-report-create', title: '我的汇报' })}
             />
           );
         }
@@ -567,6 +570,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               currentUser={props.user}
               projects={props.projects}
               onBack={goBack}
+              onViewReports={() => push({ screen: 'ai-report-create', title: '我的汇报' })}
             />
           );
         }
@@ -741,6 +745,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
               currentUser={props.user}
               projects={props.projects}
               onBack={goBack}
+              onViewReports={() => push({ screen: 'ai-report-create', title: '我的汇报' })}
             />
           );
         }
@@ -794,8 +799,15 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             <MobileTeamScreen
               projectId={Number(props.currentProject.id)}
               companyId={parsedCompanyId}
+              isCompanyAdmin={isUserAdmin(props.user)}
               onSelectMember={(m) =>
-                push({ screen: 'me-member-detail', params: { memberId: String(m.user_id) } })
+                push({
+                  screen: 'me-member-detail',
+                  params: {
+                    memberId: String(m.user_id),
+                    memberName: m.display_name || m.nickname || m.username || '',
+                  },
+                })
               }
               onBack={canGoBack ? goBack : undefined}
               lang={lang}
@@ -810,11 +822,14 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             <MobileMemberDetailScreen
               member={{
                 user_id: Number(activeRoute.params.memberId || props.user.id),
-                display_name: targetMem?.name || props.user.name,
+                display_name: targetMem?.name || activeRoute.params.memberName || props.user.name,
                 role: targetMem?.role || props.user.role,
-                avatar_url: targetMem?.avatar || props.user.avatar,
+                avatar_url: targetMem?.avatar || (activeRoute.params.memberId ? undefined : props.user.avatar),
               }}
               projectId={Number(props.currentProject.id)}
+              companyId={parsedCompanyId}
+              currentUserId={Number(props.user.id) || null}
+              isCompanyAdmin={isUserAdmin(props.user)}
               onBack={goBack}
               lang={lang}
             />

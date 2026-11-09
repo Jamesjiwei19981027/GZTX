@@ -4,6 +4,8 @@ import { listProjectMembers } from '../../api/backend';
 import { mapMember } from '../../api/mappers';
 import { inviteProjectMember, listPresence } from '../../api/shell';
 import { inviteAcceptUrl } from '../../utils/invite';
+import { getMyPermissions } from '../../api/shell';
+import { CompanyMembersPanel } from '../CompanyMembersPanel';
 
 interface TeamViewProps {
   onSelectMember?: (member: TeamMember) => void;
@@ -13,6 +15,10 @@ interface TeamViewProps {
   lang: Language;
   companyId?: number | null;
   projectId?: string;
+  projectName?: string;
+  /** 当前登录人是否公司超级管理员 */
+  isCompanyAdmin?: boolean;
+  currentUserId?: number | null;
 }
 
 export const TeamView: React.FC<TeamViewProps> = ({
@@ -23,7 +29,12 @@ export const TeamView: React.FC<TeamViewProps> = ({
   lang,
   companyId,
   projectId,
+  projectName,
+  isCompanyAdmin = false,
+  currentUserId = null,
 }) => {
+  const [tab, setTab] = useState<'project' | 'company'>('project');
+  const [canPull, setCanPull] = useState(false);
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isInviteOpen, setIsInviteOpen] = useState(false);
@@ -33,6 +44,24 @@ export const TeamView: React.FC<TeamViewProps> = ({
   const [loading, setLoading] = useState(false);
   const backendPid =
     projectId && projectId !== 'all' && Number(projectId) > 0 ? Number(projectId) : null;
+
+  useEffect(() => {
+    if (!backendPid) {
+      setCanPull(false);
+      return;
+    }
+    let cancelled = false;
+    void getMyPermissions(backendPid)
+      .then((p) => {
+        if (!cancelled) setCanPull(Boolean(p.is_pm || p.is_superadmin || p.can_edit_all));
+      })
+      .catch(() => {
+        if (!cancelled) setCanPull(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [backendPid]);
 
   useEffect(() => {
     if (!backendPid) {
@@ -196,13 +225,48 @@ export const TeamView: React.FC<TeamViewProps> = ({
         </div>
       </div>
 
-      {error && (
+      {companyId ? (
+        <div className="flex gap-2" role="tablist" aria-label="团队视图">
+          {([
+            ['project', '项目成员'],
+            ['company', '公司成员管理'],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={tab === id}
+              onClick={() => setTab(id)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold cursor-pointer border ${
+                tab === id
+                  ? 'bg-primary text-on-primary border-primary'
+                  : 'border-outline-variant/50 text-on-surface'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {companyId && tab === 'company' && (
+        <CompanyMembersPanel
+          companyId={companyId}
+          currentUserId={currentUserId}
+          canManage={isCompanyAdmin}
+          projectId={backendPid}
+          projectName={projectName}
+          canPull={canPull}
+        />
+      )}
+
+      {tab === 'project' && error && (
         <div className="px-4 py-2 rounded-xl bg-amber-50 text-amber-900 text-sm border border-amber-200">
           {error}
         </div>
       )}
 
-      <div className="relative max-w-md">
+      {tab === 'project' && <div className="relative max-w-md">
         <span className="material-symbols-outlined absolute left-3 top-2.5 text-outline">search</span>
         <input
           value={searchQuery}
@@ -210,9 +274,9 @@ export const TeamView: React.FC<TeamViewProps> = ({
           placeholder={lang === 'zh' ? '搜索成员…' : 'Search members…'}
           className="w-full pl-10 pr-3 py-2.5 rounded-xl bg-surface-container border border-outline-variant/40 text-sm"
         />
-      </div>
+      </div>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {tab === 'project' && <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredMembers.map((m) => (
           <button
             key={m.id}
@@ -240,7 +304,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
             </div>
           </button>
         ))}
-      </div>
+      </div>}
 
       {isInviteOpen && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">

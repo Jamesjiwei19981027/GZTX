@@ -186,6 +186,7 @@ function mapMatter(n: BackendTreeNode): AxisWorkItem {
     status,
     progress: Number(pct) || 0,
     dueDate: toLocalDateString(n.due_at || n.milestone_at || ''),
+    assigneeUserIds: (n.assignees || []).map(a => a.user_id),
     evidences,
   }
 }

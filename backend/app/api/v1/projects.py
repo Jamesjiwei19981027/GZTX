@@ -20,6 +20,7 @@ from app.schemas.project import (
     ImportPreviewBody,
     InviteBody,
     ProjectCreate,
+    ProjectPatch,
     PullMemberBody,
 )
 from app.schemas.tree import NodeCreate
@@ -448,6 +449,63 @@ async def leave_project(project_id: int, db: DbSession, user: CurrentUser):
         return fail(422, 42200, str(e))
     await db.commit()
     return ResponseData(data={"left_at": left_at.isoformat()})
+
+
+async def _can_manage_project(db, user, p: Project) -> bool:
+    """项目负责人（PM / 创建者）或公司超管。不走 ACL，归档后也能用来取消归档。"""
+    if p.pm_user_id == user.id or p.created_by == user.id:
+        return True
+    m = await _active_membership(db, p.company_id, user.id)
+    return bool(m and m.is_super_admin)
+
+
+@router.patch("/projects/{project_id}")
+async def patch_project(
+    project_id: int, body: ProjectPatch, db: DbSession, user: CurrentUser
+):
+    """修改项目：改名、更换负责人（PM）。归档项目只读，须先取消归档。"""
+    p = await _get_project(db, project_id)
+    if not p:
+        return fail(404, 40400, "项目不存在")
+    if not await _can_manage_project(db, user, p):
+        return fail(403, 40305, "需要项目负责人或超管")
+    if p.status == "archived":
+        return fail(409, 40905, "项目已归档为只读，请先取消归档")
+    await assert_company_write(db, p.company_id, feature="project_tree")
+    data = body.model_dump(exclude_unset=True)
+    if "name" in data:
+        name = (data["name"] or "").strip()
+        if not name:
+            return fail(422, 42200, "项目名称不能为空")
+        p.name = name
+    new_pm = data.get("pm_user_id")
+    if new_pm is not None and new_pm != p.pm_user_id:
+        try:
+            await psvc.assign_pm(db, p, new_pm)
+        except ValueError as e:
+            await db.rollback()
+            return fail(422, 42200, str(e))
+    await db.commit()
+    await db.refresh(p)
+    dto = _project_dto(p)
+    return ResponseData(data=await _attach_final_owner(db, dto, user.id))
+
+
+@router.post("/projects/{project_id}/unarchive")
+async def unarchive_project(project_id: int, db: DbSession, user: CurrentUser):
+    """取消归档：项目恢复可编辑"""
+    p = await _get_project(db, project_id)
+    if not p:
+        return fail(404, 40400, "项目不存在")
+    if not await _can_manage_project(db, user, p):
+        return fail(403, 40305, "需要项目负责人或超管")
+    await assert_company_write(db, p.company_id, feature="project_tree")
+    if p.status == "archived":
+        await psvc.unarchive(db, p)
+        await db.commit()
+    return ResponseData(
+        data={"status": p.status, "archived_at": None}
+    )
 
 
 @router.post("/projects/{project_id}/archive")

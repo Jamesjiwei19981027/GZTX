@@ -8,6 +8,12 @@ export type ReportPolicy = {
   trigger: string
   template_key: string
   enabled: boolean
+  /** 汇报策略：周期 / 截止时间 / 提醒（旧数据没有这些字段时按默认值显示） */
+  period?: 'daily' | 'weekly' | 'monthly'
+  deadline_time?: string
+  weekday?: number
+  month_day?: number
+  remind?: boolean
 }
 
 export type ProjectReportRun = {

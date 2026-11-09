@@ -81,16 +81,7 @@ async def list_report_policies(project_id: int, db: DbSession, user: CurrentUser
     ).scalars().all()
     return ResponseData(
         data={
-            "items": [
-                {
-                    "id": r.id,
-                    "name": r.name,
-                    "trigger": r.trigger,
-                    "template_key": r.template_key,
-                    "enabled": r.enabled,
-                }
-                for r in rows
-            ]
+            "items": [_policy_dto(r) for r in rows]
         }
     )
 
@@ -649,3 +640,246 @@ async def legacy_mark_report_read(report_id: int, db: DbSession, user: CurrentUs
     report.read_at = datetime.now(timezone.utc)
     await db.commit()
     return ResponseData(data={"id": report.id, "read": True})
+
+
+# ---------------------------------------------------------------------------
+# 项目汇总「确认发布」与汇报策略设置
+# ---------------------------------------------------------------------------
+PERIODS = ("daily", "weekly", "monthly")
+
+
+class ReportPolicyBody(BaseModel):
+    """汇报策略：周期 / 截止时间 / 提醒。只传要改的字段。"""
+
+    period: str | None = Field(default=None, description="daily|weekly|monthly")
+    deadline_time: str | None = Field(default=None, description="HH:MM，用户本地时间")
+    weekday: int | None = Field(default=None, ge=1, le=7, description="每周截止日，1=周一…7=周日")
+    month_day: int | None = Field(default=None, ge=1, le=28, description="每月截止日，1~28")
+    remind: bool | None = None
+    enabled: bool | None = None
+
+
+def _policy_dto(r: ReportPolicy) -> dict:
+    from app.services.report_policy_schedule import normalize_policy_config
+
+    cfg = normalize_policy_config(r.config_json)
+    return {
+        "id": r.id,
+        "name": r.name,
+        "trigger": r.trigger,
+        "template_key": r.template_key,
+        "enabled": r.enabled,
+        **cfg,
+    }
+
+
+async def _can_manage_reports(db, user, p: Project) -> bool:
+    return await acl.can(db, user.id, p.company_id, "progress.write_formal", project_id=p.id)
+
+
+@router.put("/projects/{project_id}/report-policy")
+async def put_report_policy(
+    project_id: int, body: ReportPolicyBody, db: DbSession, user: CurrentUser
+):
+    """项目负责人设置汇报周期、截止时间与提醒；调度器按此提醒成员"""
+    from app.api.deps_collab import assert_company_write
+    from app.core.collab_errors import CollabError
+    from app.services.report_policy_schedule import normalize_policy_config, validate_deadline_time
+
+    p = await db.get(Project, project_id)
+    if not p:
+        return fail(404, 40400, "项目不存在")
+    try:
+        await assert_company_write(db, p.company_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    if not await _can_manage_reports(db, user, p):
+        return fail(403, 40300, "仅项目负责人可设置汇报策略")
+    if body.period is not None and body.period not in PERIODS:
+        return fail(422, 42200, "汇报周期只能是每日、每周或每月")
+    if body.deadline_time is not None and not validate_deadline_time(body.deadline_time):
+        return fail(422, 42200, "截止时间格式应为 时:分，例如 18:00")
+    policy = await ensure_default_policy(db, company_id=p.company_id, project_id=p.id)
+    before = normalize_policy_config(policy.config_json)
+    cfg = dict(policy.config_json or {})
+    for key in ("period", "deadline_time", "weekday", "month_day", "remind"):
+        value = getattr(body, key)
+        if value is not None:
+            cfg[key] = value
+    after = normalize_policy_config(cfg)
+    if any(before[k] != after[k] for k in ("period", "deadline_time", "weekday", "month_day")):
+        # 改了周期或截止时间，这一期可以重新提醒
+        after.pop("last_reminded_key", None)
+    policy.config_json = after
+    if body.enabled is not None:
+        policy.enabled = body.enabled
+    # 设置了周期就是定时汇报：调度器只处理 trigger=cron 的策略
+    policy.trigger = "cron"
+    await db.commit()
+    await db.refresh(policy)
+    return ResponseData(data=_policy_dto(policy))
+
+
+async def _can_see_summaries(db, user, p: Project) -> tuple[bool, bool]:
+    """返回 (能否查看已发布汇总, 能否看全部含未发布)。"""
+    from app.api.deps_collab import get_membership_for
+
+    if await _can_manage_reports(db, user, p):
+        return True, True
+    if await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id):
+        return True, False
+    membership = await get_membership_for(db, p.company_id, user.id)
+    if membership and (membership.is_org_leader or membership.is_super_admin):
+        return True, False
+    return False, False
+
+
+def _envelope_dto(e: ProjectReportEnvelope, names: dict[int, str]) -> dict:
+    payload = e.payload_json or {}
+    published_by = payload.get("published_by")
+    return {
+        "id": e.id,
+        "project_id": e.project_id,
+        "status": e.status,
+        "summary_text": e.summary_text,
+        "report_count": payload.get("report_count", 0),
+        "source_count": payload.get("source_count", 0),
+        "conflicts": payload.get("conflicts", []),
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+        "published_at": payload.get("published_at"),
+        "published_by": published_by,
+        "published_by_name": names.get(published_by) if published_by else None,
+    }
+
+
+@router.get("/projects/{project_id}/report-summaries")
+async def list_report_summaries(project_id: int, db: DbSession, user: CurrentUser):
+    """项目汇总列表。成员与上级只看已发布版本；负责人可看到全部（含待发布）"""
+    from app.models.user import User
+
+    p = await db.get(Project, project_id)
+    if not p:
+        return fail(404, 40400, "项目不存在")
+    can_see, see_all = await _can_see_summaries(db, user, p)
+    if not can_see:
+        return fail(403, 40300, "无权查看项目汇总")
+    stmt = select(ProjectReportEnvelope).where(ProjectReportEnvelope.project_id == p.id)
+    if not see_all:
+        stmt = stmt.where(ProjectReportEnvelope.status == "published")
+    rows = (
+        await db.execute(stmt.order_by(ProjectReportEnvelope.id.desc()).limit(30))
+    ).scalars().all()
+    publisher_ids = {
+        (r.payload_json or {}).get("published_by")
+        for r in rows
+        if (r.payload_json or {}).get("published_by")
+    }
+    names: dict[int, str] = {}
+    if publisher_ids:
+        for u in (await db.execute(select(User).where(User.id.in_(publisher_ids)))).scalars():
+            names[u.id] = u.nickname or u.username
+    items = [_envelope_dto(r, names) for r in rows]
+    latest_published = next((i for i in items if i["status"] == "published"), None)
+    return ResponseData(
+        data={
+            "items": items,
+            "latest_published": latest_published,
+            "can_publish": see_all,
+        }
+    )
+
+
+@router.post("/projects/{project_id}/report-summaries/{envelope_id}/publish")
+async def publish_report_summary(
+    project_id: int, envelope_id: int, db: DbSession, user: CurrentUser
+):
+    """负责人确认发布项目汇总：成员与上级此后能在汇报页看到这一版"""
+    from datetime import datetime, timezone
+
+    from app.api.deps_collab import assert_company_write
+    from app.core.collab_errors import CollabError
+    from app.services.notify.service import NotificationService
+
+    p = await db.get(Project, project_id)
+    if not p:
+        return fail(404, 40400, "项目不存在")
+    try:
+        await assert_company_write(db, p.company_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    if not await _can_manage_reports(db, user, p):
+        return fail(403, 40300, "仅项目负责人可发布项目汇总")
+    env = await db.get(ProjectReportEnvelope, envelope_id)
+    if not env or env.project_id != p.id:
+        return fail(404, 40400, "项目汇总不存在")
+    if env.status == "published":
+        return fail(409, 40906, "该版本已经发布")
+    now = datetime.now(timezone.utc)
+    payload = dict(env.payload_json or {})
+    payload["published_at"] = now.isoformat()
+    payload["published_by"] = user.id
+    env.payload_json = payload
+    env.status = "published"
+    members = (
+        await db.execute(
+            select(ProjectMember.user_id).where(
+                ProjectMember.project_id == p.id, ProjectMember.left_at.is_(None)
+            )
+        )
+    ).scalars().all()
+    targets = sorted({uid for uid in members if uid != user.id})
+    if targets:
+        await NotificationService().enqueue(
+            db,
+            company_id=p.company_id,
+            user_ids=targets,
+            template_key="project.report.published",
+            payload={"project_id": p.id, "project_name": p.name, "envelope_id": env.id},
+            channels=["in_app"],
+            project_id=p.id,
+        )
+    await db.commit()
+    return ResponseData(data=_envelope_dto(env, {user.id: user.nickname or user.username}))
+
+
+class ProgressNoteDraftBody(BaseModel):
+    text: str = Field(min_length=1, max_length=20000)
+
+
+@router.post("/projects/{project_id}/agent-reports/note-draft")
+async def save_progress_note_as_draft(
+    project_id: int, body: ProgressNoteDraftBody, db: DbSession, user: CurrentUser
+):
+    """「记录进展」存为汇报草稿：追加进我在本项目的当前草稿，出现在「我的汇报」"""
+    from app.api.deps_collab import assert_company_write
+    from app.core.collab_errors import CollabError
+    from app.services.report_note_draft import append_progress_note_to_draft
+
+    p = await db.get(Project, project_id)
+    if not p:
+        return fail(404, 40400, "项目不存在")
+    try:
+        await assert_company_write(db, p.company_id)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    if p.status == "archived":
+        return fail(409, 40905, "项目已归档为只读")
+    if not await acl.can(db, user.id, p.company_id, "progress.read", project_id=p.id):
+        return fail(403, 40300, "非项目成员")
+    try:
+        draft = await append_progress_note_to_draft(
+            db, project_id=p.id, user_id=user.id, text=body.text
+        )
+    except PermissionError:
+        return fail(403, 40300, "非项目成员")
+    except ValueError as e:
+        return fail(422, 42200, str(e))
+    await db.commit()
+    return ResponseData(
+        data={
+            "id": draft.id,
+            "project_id": draft.project_id,
+            "status": draft.status,
+            "summary_text": draft.summary_text,
+        }
+    )

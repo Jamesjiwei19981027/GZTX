@@ -13,6 +13,7 @@ import {
   submitAgentReport,
   listReportAgentBindings,
   getReportDetail,
+  listMyReports,
   AgentReport,
   ReportSource,
 } from '../../../api/reports';
@@ -21,6 +22,7 @@ import {
   loadLocalDraft,
   saveLocalDraft,
   clearLocalDraft,
+  mergeDraftText,
 } from './reportCapabilities';
 import { ReportSources } from './ReportSources';
 
@@ -118,6 +120,24 @@ const MyReportEditorContent: React.FC<MyReportEditorProps> = ({
         })
         .catch(() => {});
     }
+
+    // 1.5 服务端草稿（含「记录进展」存进来的记录）并入编辑器，避免草稿只存在服务端、页面看不到
+    listMyReports(numericProjectId)
+      .then((res) => {
+        if (!active.current) return;
+        const serverDraft = (res.items || []).find((r) => r.status === 'draft' && (r.summary_text || '').trim());
+        if (!serverDraft) return;
+        const localCombined = local?.summary || '';
+        const merged = mergeDraftText(localCombined, serverDraft.summary_text || '');
+        if (merged !== localCombined.trim()) {
+          setCompletedText(merged);
+          setInProgressRiskText('');
+        }
+        setDraftReportId((prev) => prev ?? serverDraft.id);
+        if (serverDraft.sources?.length) setSources((prev) => (prev.length ? prev : serverDraft.sources || []));
+        if (serverDraft.parent_user_id != null) setParentUserId(serverDraft.parent_user_id);
+      })
+      .catch(() => {});
 
     // 2. 加载智能体绑定，确定 bindingId（直属领导仅由服务端草稿/人轴确定，前端不猜测）
     listReportAgentBindings(numericProjectId)

@@ -1,6 +1,6 @@
 """公司 / 成员 / License 请求响应模型"""
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -25,7 +25,8 @@ class PolicyPatch(BaseModel):
 class MembershipPatch(BaseModel):
     is_org_leader: Optional[bool] = None
     is_super_admin: Optional[bool] = None
-    status: Optional[str] = None
+    # 成员状态：active 启用 / disabled 停用（removed 只能走 DELETE 移除接口）
+    status: Optional[Literal["active", "disabled"]] = None
     employment_status: Optional[str] = None
     title: Optional[str] = None
 

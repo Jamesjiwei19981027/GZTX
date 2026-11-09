@@ -164,6 +164,8 @@ export interface AxisWorkItem {
   status: Status;
   progress: number;
   dueDate: string;
+  /** 事项负责人（后端 node_assignments 的 user_id），用于编辑时预选 */
+  assigneeUserIds?: number[];
   linkedTaskId?: string;
   evidences: AxisEvidence[];
   aiAnalysis?: string;

@@ -10,7 +10,7 @@ import type { PeopleAxisNode, Language } from '../../types'
 import './responsibility.css'
 import {
   borderAnchor, floatingEdgePath, straightEdgePath, highlightEdgeIds,
-  snapToParentAxis, reparentVerdict, calculateCanvasDefaultCenter, type RectCoords, type BorderAnchor,
+  snapToParentAxis, reparentVerdict, resolveReleaseVerdict, calculateCanvasDefaultCenter, type RectCoords, type BorderAnchor,
 } from './peopleAxisUtils'
 import { type AxisOrientation, CARD_W, CARD_H, FOLDED_ROW_H, FOLDED_ROW_H_MOBILE } from './peopleAxisFlowLayout'
 import { summarizeCardTasks, cardTaskChip, cardOverdueCount } from '../../api/mappers'
@@ -1028,7 +1028,20 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
       return n
     }))
 
-    const decided = dropVerdictRef.current
+    const decided = resolveReleaseVerdict(
+      dropVerdictRef.current,
+      currentDropTargetId.current,
+      (targetId) => {
+        const people = rfNodes.map(n => {
+          const d = n.data as PersonNodeData
+          return { ...d.node, isTerminal: Boolean(d.isOverallLeader || d.node.isTerminalPM) }
+        })
+        return reparentVerdict(people, node.id, targetId, {
+          canRelink: (id: string) => Boolean((rfNodes.find(n => n.id === id)?.data as PersonNodeData | undefined)?.canRelink),
+          lang,
+        })
+      },
+    )
     dropVerdictRef.current = null
     currentDropTargetId.current = null
 
@@ -1049,7 +1062,7 @@ const CanvasInner: React.FC<PeopleAxisFlowCanvasProps> = ({
     lastSnappedPos.current.delete(node.id)
     const finalPos = snapped || node.position
     onNodeDragStop(node.id, finalPos)
-  }, [onNodeDragStop, onRequestReparent, onShowToast, setRfNodes])
+  }, [onNodeDragStop, onRequestReparent, onShowToast, setRfNodes, rfNodes, lang])
 
   return (
     <FoldedRowContext.Provider value={{ onFoldedRowExpand: handleFoldedRowExpand }}>

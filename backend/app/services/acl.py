@@ -101,6 +101,16 @@ class AclService:
         if action in write_actions and m.employment_status != "active":
             return False
 
+        if m.is_super_admin and project_id is not None and action in write_actions:
+            # 归档项目对所有人只读，超管也不例外（要改先取消归档）
+            archived_project = await db.get(Project, project_id)
+            if (
+                archived_project is not None
+                and archived_project.company_id == company_id
+                and archived_project.status == "archived"
+            ):
+                return False
+
         if m.is_super_admin:
             if action in (
                 "project.assign_pm",

@@ -319,6 +319,29 @@ async def _find_user_by_identifier(db, identifier: str) -> User | None:
     return result.scalar_one_or_none()
 
 
+SUSPENDED_DETAIL = "您的账号已被所在公司停用或移出，请联系公司管理员恢复后再登录"
+
+
+async def _assert_not_suspended(db, user: User) -> None:
+    """只要用户有公司成员身份、且没有任何一个是「启用且在职」，就给出明确提示。
+
+    没有任何公司身份的个人用户不受影响（个人待办照常使用）。
+    """
+    from sqlalchemy import select
+
+    from app.models.company import CompanyMembership
+
+    rows = (
+        await db.execute(
+            select(CompanyMembership.status, CompanyMembership.employment_status).where(
+                CompanyMembership.user_id == user.id
+            )
+        )
+    ).all()
+    if rows and not any(st == "active" and emp == "active" for st, emp in rows):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SUSPENDED_DETAIL)
+
+
 def _issue_tokens(user: User) -> ResponseData:
     access_token = create_access_token(data={"sub": user.id})
     refresh_token = create_refresh_token(data={"sub": user.id})
@@ -351,6 +374,7 @@ async def login(data: UserLogin, db: DbSession, request: Request):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="用户已被禁用",
         )
+    await _assert_not_suspended(db, user)
 
     return _issue_tokens(user)
 
@@ -374,6 +398,7 @@ async def oauth2_token(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="账号或密码错误")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="用户已被禁用")
+    await _assert_not_suspended(db, user)
     return {
         "access_token": create_access_token(data={"sub": user.id}),
         "token_type": "bearer",
@@ -413,6 +438,7 @@ async def login_with_code(data: dict, db: DbSession, request: Request):
         raise HTTPException(status_code=404, detail="该邮箱/手机号未注册")
     if not user.is_active:
         raise HTTPException(status_code=403, detail="用户已被禁用")
+    await _assert_not_suspended(db, user)
 
     try:
         await consume_code(db, channel=channel, target=target, code=code, purpose="login")

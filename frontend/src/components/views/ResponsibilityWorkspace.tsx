@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { ArrowRight, BookOpen, Check, ChevronDown, ChevronRight, FileText, GitBranch, LocateFixed, MoreHorizontal, Pencil, Plus, RefreshCw, ShieldCheck, Users, X } from 'lucide-react'
+import { ArrowRight, BookOpen, Check, ChevronDown, ChevronRight, FileText, GitBranch, LocateFixed, MoreHorizontal, Pencil, Plus, RefreshCw, Settings, ShieldCheck, Users, X } from 'lucide-react'
 import type { Language, PeopleAxisNode, Project } from '../../types'
 import { PeopleAxisFlowCanvas, responsibilityLevelLabel, type PeopleAxisFlowCanvasProps, type PersonNodeData } from './PeopleAxisFlowCanvas'
-import { averagePeopleAxisProgress } from './peopleAxisUtils'
+import { averagePeopleAxisProgress, type AxisOrderMode } from './peopleAxisUtils'
 import { responsibilityScope } from './peopleAxisFlowLayout'
 import { AxisAvatar, AxisMatter, AxisProgress, AxisOriginBadge } from './ResponsibilityParts'
 import './responsibility.css'
@@ -87,11 +87,20 @@ type Props = {
   onPullAll?: () => void
   onResetFold?: () => void
   onLocate?: (id: string) => void
+  /** 树序 / 时间序：同级负责人按树序（默认）或按最早事项日期排列 */
+  orderMode?: AxisOrderMode
+  onOrderMode?: (mode: AxisOrderMode) => void
+  /** 打开「项目设置」（改名 / 换负责人 / 归档 / 汇报策略） */
+  onOpenProjectSettings?: () => void
+  /** 事项（工作项 / 里程碑 / 范围）编辑与删除；由页面弹出对应对话框 */
+  onEditMatter?: (nodeId: string, itemId: string) => void
+  onDeleteMatter?: (nodeId: string, itemId: string) => void
 }
 
-function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onAction }: {
+function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onAction, onEditMatter, onDeleteMatter }: {
   node: PeopleAxisNode; data?: PersonNodeData; nodes: PeopleAxisNode[]; lang: Language
   onSelect: (id: string) => void; onAddEvidence: (id: string) => void; onAction: () => void
+  onEditMatter?: (nodeId: string, itemId: string) => void; onDeleteMatter?: (nodeId: string, itemId: string) => void
 }) {
   const [tab, setTab] = useState<'items' | 'evidence' | 'people'>('items')
   useEffect(() => setTab('items'), [node.id])
@@ -129,6 +138,8 @@ function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onActio
           <AxisMatter item={item} lang={lang} />
           <div className="axis-item-meta"><span>{item.dueDate || (zh ? '未设截止日期' : 'No due date')} · {item.evidences.length} {zh ? '份材料' : 'files'}</span>
             {data?.evidenceItemPermissions[item.id] && <button onClick={() => act(() => onAddEvidence(item.id))}>{zh ? '提交材料' : 'Submit evidence'}</button>}
+            {data?.canEdit && onEditMatter && <button data-testid={`axis-matter-edit-${item.id}`} onClick={() => act(() => onEditMatter(node.id, item.id))}>{zh ? '编辑' : 'Edit'}</button>}
+            {data?.canEdit && onDeleteMatter && <button data-testid={`axis-matter-delete-${item.id}`} onClick={() => act(() => onDeleteMatter(node.id, item.id))}>{zh ? '删除' : 'Delete'}</button>}
           </div>
         </div>)}
         {!node.workItems.length && <p className="axis-empty-text">{zh ? '暂无事项，为这位负责人添加第一项工作。' : 'No work items yet.'}</p>}
@@ -183,7 +194,8 @@ export function ResponsibilityWorkspace(p: Props) {
     allData.get(id)?.onCardClick(id)
   }
   const detail = selected && <NodeDetails node={selected} data={selectedData} nodes={p.nodes} lang={p.lang}
-    onSelect={id => { p.onSelect(id); if (mode === 'overview') p.onLocate?.(id) }} onAddEvidence={p.onAddEvidence} onAction={() => {}} />
+    onSelect={id => { p.onSelect(id); if (mode === 'overview') p.onLocate?.(id) }} onAddEvidence={p.onAddEvidence} onAction={() => {}}
+    onEditMatter={p.onEditMatter} onDeleteMatter={p.onDeleteMatter} />
   const renderChain = () => {
     const sorted = [...p.nodes].sort((a, b) => a.orderOnAxis - b.orderOnAxis)
     const roots = sorted.filter(n => !n.parentId || !p.nodes.some(parent => parent.id === n.parentId))
@@ -232,6 +244,7 @@ export function ResponsibilityWorkspace(p: Props) {
           </select><ChevronDown size={15} />
         </label>
         {p.isProject && <button className="axis-icon-button" aria-label={zh ? '项目知识' : 'Project knowledge'} onClick={p.onOpenWiki}><BookOpen size={20} /></button>}
+        {p.isProject && p.onOpenProjectSettings && <button className="axis-icon-button" data-testid="axis-project-settings" aria-label={zh ? '项目设置' : 'Project settings'} title={zh ? '项目设置' : 'Project settings'} onClick={p.onOpenProjectSettings}><Settings size={20} /></button>}
         {p.isProject && <button className="axis-icon-button" aria-label={zh ? '画布设置' : 'Canvas settings'} onClick={() => setSettingsOpen(true)}><MoreHorizontal size={21} /></button>}
         {p.canAdd && <button className="axis-primary-button" aria-label="添加责任人" onClick={p.onAdd}><Plus size={17} />{zh ? '添加成员' : 'Add person'}</button>}
       </div>
@@ -272,6 +285,10 @@ export function ResponsibilityWorkspace(p: Props) {
           <button role="tab" aria-selected={mode === 'chain'} aria-controls="axis-view-panel" onClick={() => { p.canvas.onCancelLinking?.(); setMode('chain') }}>{zh ? '责任链' : 'Chain'}</button>
           <button role="tab" aria-selected={mode === 'overview'} aria-controls="axis-view-panel" onClick={() => { setMode('overview'); p.onSelect(null) }}>{zh ? '总览' : 'Overview'}</button>
         </div>
+          {p.onOrderMode && <div className="axis-orientation" role="group" aria-label={zh ? '排列顺序' : 'Order'} data-testid="axis-order-mode">
+            <button aria-pressed={(p.orderMode ?? 'tree') === 'tree'} title={zh ? '按责任关系的原有次序排列' : 'Original tree order'} onClick={() => p.onOrderMode?.('tree')}>{zh ? '树序' : 'Tree'}</button>
+            <button aria-pressed={p.orderMode === 'time'} title={zh ? '同级负责人按最早事项日期从早到晚排列' : 'Order peers by earliest due date'} onClick={() => p.onOrderMode?.('time')}>{zh ? '时间序' : 'Time'}</button>
+          </div>}
           {mode === 'overview' && <div className="flex items-center gap-2">
             <div className="axis-orientation" role="group" aria-label={zh ? '主轴方向' : 'Orientation'}>
               {(['vertical', 'horizontal'] as const).map(direction => <button key={direction} aria-pressed={p.canvas.orientation === direction} onClick={() => p.onOrientation(direction)}>
@@ -289,7 +306,7 @@ export function ResponsibilityWorkspace(p: Props) {
           </div>}
           {mode === 'overview' && !p.canvas.linkingSourceNodeId && (
             <span className="axis-toolbar-hint">
-              {zh ? '拖到别人卡片上停一下＝换上级 · 拖到空白处＝挪位置' : 'Hover card over peer = change manager · Drag blank = move'}
+              {zh ? '拖到别人卡片上松手＝换上级（会先让你确认） · 拖到空白处＝挪位置' : 'Drop on a card = change manager (asks first) · Drag blank = move'}
             </span>
           )}
         </div>

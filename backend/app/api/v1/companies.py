@@ -506,6 +506,9 @@ async def list_members(
     filters = [CompanyMembership.company_id == company_id]
     if status:
         filters.append(CompanyMembership.status == status)
+    else:
+        # 默认不展示已移出的人；需要时显式传 status=removed
+        filters.append(CompanyMembership.status != "removed")
 
     total = (
         await db.execute(select(func.count()).select_from(CompanyMembership).where(*filters))
@@ -515,25 +518,13 @@ async def list_members(
             select(CompanyMembership, User)
             .join(User, User.id == CompanyMembership.user_id)
             .where(*filters)
+            .order_by(CompanyMembership.id)
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
     ).all()
 
-    items = [
-        {
-            "user_id": m.user_id,
-            "username": u.username,
-            "nickname": u.nickname,
-            "status": m.status,
-            "employment_status": m.employment_status,
-            "is_super_admin": m.is_super_admin,
-            "is_org_leader": m.is_org_leader,
-            "org_unit_id": m.org_unit_id,
-            "title": m.title,
-        }
-        for m, u in rows
-    ]
+    items = [_member_dto(m, u) for m, u in rows]
     return ResponseData(
         data={
             "items": items,
@@ -545,29 +536,57 @@ async def list_members(
     )
 
 
-@router.patch("/{company_id}/members/{user_id}")
-async def patch_member(
-    company_id: int,
-    user_id: int,
-    body: MembershipPatch,
-    db: DbSession,
-    user: CurrentUser,
-):
-    """修改企业成员角色或状态"""
+def _member_dto(m: CompanyMembership, u: User) -> dict:
+    return {
+        "user_id": m.user_id,
+        "username": u.username,
+        "nickname": u.nickname,
+        "email": u.email,
+        "avatar_url": u.avatar_url,
+        "status": m.status,
+        "employment_status": m.employment_status,
+        "is_super_admin": m.is_super_admin,
+        "is_org_leader": m.is_org_leader,
+        "org_unit_id": m.org_unit_id,
+        "title": m.title,
+    }
+
+
+async def _active_super_admin_count(db, company_id: int) -> int:
+    return int(
+        (
+            await db.execute(
+                select(func.count())
+                .select_from(CompanyMembership)
+                .where(
+                    CompanyMembership.company_id == company_id,
+                    CompanyMembership.status == "active",
+                    CompanyMembership.is_super_admin.is_(True),
+                )
+            )
+        ).scalar()
+        or 0
+    )
+
+
+async def _load_manage_target(db, company_id: int, user_id: int, actor: User):
+    """成员管理的公共前置：公司存在、操作者是超管、目标成员存在。
+
+    返回 (error_response, membership, user)；error_response 非空时直接返回给调用方。
+    """
     company = await db.get(Company, company_id)
     if not company:
-        return fail(404, 40400, "公司不存在")
+        return fail(404, 40400, "公司不存在"), None, None
     q = await db.execute(
         select(CompanyMembership).where(
             CompanyMembership.company_id == company.id,
-            CompanyMembership.user_id == user.id,
+            CompanyMembership.user_id == actor.id,
             CompanyMembership.status == "active",
         )
     )
-    actor = q.scalar_one_or_none()
-    if not actor or not actor.is_super_admin:
-        return fail(403, 40303, "需要公司超级管理员")
-
+    me = q.scalar_one_or_none()
+    if not me or not me.is_super_admin:
+        return fail(403, 40303, "需要公司超级管理员"), None, None
     tq = await db.execute(
         select(CompanyMembership, User)
         .join(User, User.id == CompanyMembership.user_id)
@@ -578,8 +597,36 @@ async def patch_member(
     )
     row = tq.one_or_none()
     if not row:
-        return fail(404, 40400, "成员不存在")
-    m, u = row
+        return fail(404, 40400, "成员不存在"), None, None
+    return None, row[0], row[1]
+
+
+@router.patch("/{company_id}/members/{user_id}")
+async def patch_member(
+    company_id: int,
+    user_id: int,
+    body: MembershipPatch,
+    db: DbSession,
+    user: CurrentUser,
+):
+    """修改企业成员角色或状态（停用 / 启用 / 设为组织负责人 / 设为超管）"""
+    err, m, u = await _load_manage_target(db, company_id, user_id, user)
+    if err is not None:
+        return err
+    if m.status == "removed":
+        return fail(409, 40904, "该成员已被移出公司，请重新邀请后再管理")
+    is_self = user_id == user.id
+    # 防自锁：不能停用自己，也不能把自己的超管身份撤掉
+    if is_self and body.status == "disabled":
+        return fail(422, 42210, "不能停用自己的账号")
+    if is_self and body.is_super_admin is False:
+        return fail(422, 42211, "不能撤销自己的超级管理员身份，请先指定其他超管")
+    # 防止公司只剩 0 个启用中的超管
+    losing_admin = m.is_super_admin and m.status == "active" and (
+        body.is_super_admin is False or body.status == "disabled"
+    )
+    if losing_admin and await _active_super_admin_count(db, company_id) <= 1:
+        return fail(422, 42212, "公司至少要保留一名启用中的超级管理员")
     if body.is_org_leader is not None:
         m.is_org_leader = body.is_org_leader
     if body.is_super_admin is not None:
@@ -591,29 +638,41 @@ async def patch_member(
     if body.employment_status is not None:
         m.employment_status = body.employment_status
     # 离职 / 停用：立即收项目 ACL
-    if (
-        (body.status is not None and body.status != "active")
-        or (body.employment_status is not None and body.employment_status != "active")
-        or m.employment_status != "active"
-        or m.status != "active"
-    ):
+    if m.employment_status != "active" or m.status != "active":
         from app.services.membership_revoke import revoke_left_members
 
         await revoke_left_members(db, company_id=company_id)
     await db.commit()
-    return ResponseData(
-        data={
-            "user_id": m.user_id,
-            "username": u.username,
-            "nickname": u.nickname,
-            "status": m.status,
-            "employment_status": m.employment_status,
-            "is_super_admin": m.is_super_admin,
-            "is_org_leader": m.is_org_leader,
-            "org_unit_id": m.org_unit_id,
-            "title": m.title,
-        }
-    )
+    return ResponseData(data=_member_dto(m, u))
+
+
+@router.delete("/{company_id}/members/{user_id}")
+async def remove_member(
+    company_id: int,
+    user_id: int,
+    db: DbSession,
+    user: CurrentUser,
+):
+    """把成员移出公司：状态记为 removed，并收回其全部项目成员关系。
+
+    不物理删除成员记录，历史任务、汇报与审计仍可追溯；被移出的人
+    重新通过邀请注册 / 加入时会被恢复为启用状态。
+    """
+    err, m, u = await _load_manage_target(db, company_id, user_id, user)
+    if err is not None:
+        return err
+    if user_id == user.id:
+        return fail(422, 42213, "不能把自己移出公司")
+    if m.is_super_admin and m.status == "active" and await _active_super_admin_count(db, company_id) <= 1:
+        return fail(422, 42212, "公司至少要保留一名启用中的超级管理员")
+    m.status = "removed"
+    m.is_super_admin = False
+    m.is_org_leader = False
+    from app.services.membership_revoke import revoke_left_members
+
+    await revoke_left_members(db, company_id=company_id)
+    await db.commit()
+    return ResponseData(data=_member_dto(m, u))
 
 
 @router.get("/{company_id}/features")
