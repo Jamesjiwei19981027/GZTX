@@ -1551,7 +1551,7 @@ class _OrientationSegment extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
     return Container(
-      height: 28,
+      constraints: const BoxConstraints(minHeight: 36),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF1F3F6),
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
