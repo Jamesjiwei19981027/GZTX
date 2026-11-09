@@ -144,7 +144,7 @@ const ALL_PROJECT_ITEM: Project = {
   id: 'all',
   name: '全盘研发概览',
   description: '跨项目总览（任务来自个人任务 API；人轴需选具体项目）',
-  color: '#0058be',
+  color: '#1d4e9e',
   active: true,
 };
 
@@ -519,7 +519,7 @@ export default function App() {
             id: String(accepted.project_id),
             name: settings.language === 'zh' ? '受邀项目' : 'Invited project',
             description: '',
-            color: '#0058be',
+            color: '#1d4e9e',
             active: true,
           };
           if (joinedDetail) joined = mapProject(joinedDetail);
@@ -1150,7 +1150,7 @@ export default function App() {
                     id: String(pid),
                     name: settings.language === 'zh' ? '受邀项目' : 'Invited project',
                     description: '',
-                    color: '#0058be',
+                    color: '#1d4e9e',
                     active: true,
                   });
                   setInviteLandingProjectId(String(pid));
@@ -1187,7 +1187,7 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-surface dark:bg-[#111314] text-on-surface dark:text-[#e2e2e5] font-sans transition-colors duration-200">
+    <div className="min-h-screen flex flex-col bg-surface text-on-surface font-sans transition-ink-colors">
       {(bootError || loadingBoot || inviteNotice || taskTruncated) && (
         <div className="fixed top-16 left-0 right-0 z-[60] px-4 py-2 text-sm text-center bg-amber-50 text-amber-900 border-b border-amber-200 md:pl-[280px]">
           {loadingBoot ? (
@@ -1301,7 +1301,7 @@ export default function App() {
           lang={settings.language}
         />
 
-        <main className={`flex-1 md:pl-[280px] ${activeView === 'people-axis' ? 'pb-0' : 'pb-20 md:pb-8'} min-w-0 transition-all duration-200`}>
+        <main className={`flex-1 md:pl-[280px] ${activeView === 'people-axis' ? 'pb-0' : 'pb-20 md:pb-8'} min-w-0 transition-ink`}>
           <div className="max-w-7xl mx-auto">
             {(activeView === 'tasks' || activeView === 'kanban') && <TaskWorkspaceToolbar
               view={activeView} scope={taskWorkspaceScope} lang={settings.language}

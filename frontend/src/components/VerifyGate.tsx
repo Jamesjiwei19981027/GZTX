@@ -7,6 +7,7 @@ import {
   type VerificationStatus,
 } from '../api/auth'
 import { ApiError } from '../api/client'
+import { BrandMark } from './BrandMark'
 
 type Props = {
   lang?: 'zh' | 'en'
@@ -188,8 +189,9 @@ export function VerifyGate({
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-surface dark:bg-[#111314] px-4">
-      <div className="w-full max-w-lg rounded-3xl border border-outline-variant/40 bg-white dark:bg-[#191c1d] p-7 shadow-xl space-y-5">
+    <div className="min-h-screen flex items-center justify-center bg-surface dark:bg-[#161513] px-4">
+      <div className="w-full max-w-lg rounded-3xl border border-outline-variant/40 bg-white dark:bg-[#1c1a18] p-7 shadow-xl space-y-5">
+        <BrandMark lang={lang} iconSize={28} className="text-base" />
         <div>
           <h1 className="text-xl font-bold text-on-surface">
             {required === 'phone'

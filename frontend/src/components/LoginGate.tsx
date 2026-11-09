@@ -14,7 +14,8 @@ import {
   sendRegisterCode,
 } from '../api/auth'
 import { ApiError } from '../api/client'
-import { getBrandName, getBrandTagline } from '../constants/brand'
+import { getBrandTagline } from '../constants/brand'
+import { BrandMark } from './BrandMark'
 import { clearInviteToken, readInviteToken } from '../utils/invite'
 import { SsoLoginButtons } from './SsoLoginButtons'
 
@@ -296,15 +297,10 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
   }
 
   return (
-    <div className="min-h-screen flex bg-surface dark:bg-[#111314]">
-      <div className="hidden md:flex md:w-1/2 relative overflow-hidden items-center justify-center bg-gradient-to-br from-[#0058be] to-[#2170e4]">
+    <div className="min-h-screen flex bg-surface dark:bg-[#161513]">
+      <div className="hidden md:flex md:w-1/2 relative overflow-hidden items-center justify-center bg-primary">
         <div className="relative z-10 text-center px-10 text-white">
-          <div className="w-16 h-16 rounded-2xl bg-white/15 flex items-center justify-center mx-auto mb-6">
-            <span className="material-symbols-outlined text-4xl">bolt</span>
-          </div>
-          <h1 className="text-4xl font-bold tracking-tight mb-2">
-            {getBrandName(lang)}
-          </h1>
+          <BrandMark lang={lang} iconSize={56} className="text-white justify-center text-3xl mb-6" />
           <p className="text-white/80 text-lg">
             {getBrandTagline(lang)}
           </p>
@@ -312,7 +308,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
       </div>
 
       <div className="w-full md:w-1/2 flex items-center justify-center p-6">
-        <div className="w-full max-w-md rounded-3xl border border-outline-variant/40 bg-white dark:bg-[#191c1d] p-7 shadow-xl space-y-5">
+        <div className="w-full max-w-md rounded-3xl border border-outline-variant/40 bg-white dark:bg-[#1c1a18] p-7 shadow-xl space-y-5">
           {canRegister ? (
             <div className="flex p-1 rounded-2xl bg-surface-container dark:bg-[#282b2d]">
               {(['login', 'register'] as const).map((m) => (
@@ -323,7 +319,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                     setMode(m)
                     clearMsgs()
                   }}
-                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-ink-colors cursor-pointer ${
                     mode === m
                       ? 'bg-primary text-on-primary shadow-sm'
                       : 'text-on-surface-variant hover:text-on-surface'

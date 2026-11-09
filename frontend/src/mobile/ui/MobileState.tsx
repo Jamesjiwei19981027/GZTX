@@ -22,12 +22,12 @@ export const MobileEmptyState: React.FC<MobileEmptyStateProps> = ({
 }) => {
   return (
     <div className={`flex flex-col items-center justify-center py-12 px-6 text-center select-none ${className}`}>
-      <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500 mb-4">
+      <div className="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center text-on-surface-variant mb-4">
         <AppIcon name={iconName} size={28} />
       </div>
-      <h3 className="text-base font-medium text-slate-800 dark:text-slate-200 mb-1">{title}</h3>
+      <h3 className="text-base font-medium text-on-surface mb-1">{title}</h3>
       {description && (
-        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed mb-6">
+        <p className="text-xs text-on-surface-variant max-w-xs leading-relaxed mb-6">
           {description}
         </p>
       )}
@@ -35,7 +35,7 @@ export const MobileEmptyState: React.FC<MobileEmptyStateProps> = ({
         <button
           type="button"
           onClick={action.onClick}
-          className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] rounded-xl bg-[#0058BE] text-white text-sm font-medium hover:bg-blue-700 active:bg-blue-800 transition-colors shadow-sm cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] rounded-xl bg-primary text-on-primary text-sm font-medium hover:bg-primary/90 active:bg-primary/80 transition-ink-colors shadow-sm cursor-pointer"
         >
           {action.iconName && <AppIcon name={action.iconName} size={16} />}
           <span>{action.label}</span>
@@ -61,11 +61,11 @@ export const MobileLoadingState: React.FC<MobileLoadingStateProps> = ({
       role="status"
       aria-live="polite"
       className={`flex flex-col items-center justify-center p-8 select-none ${
-        fullScreen ? 'fixed inset-0 z-50 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xs' : ''
+        fullScreen ? 'fixed inset-0 z-50 bg-surface/80 backdrop-blur-xs' : ''
       } ${className}`}
     >
-      <div className="w-8 h-8 rounded-full border-3 border-slate-200 dark:border-slate-700 border-t-[#0058BE] animate-spin mb-3" />
-      <p className="text-xs text-slate-500 dark:text-slate-400 font-normal">{message}</p>
+      <div className="w-8 h-8 rounded-full border-3 border-outline-variant border-t-primary animate-spin mb-3" />
+      <p className="text-xs text-on-surface-variant font-normal">{message}</p>
     </div>
   );
 };
@@ -87,18 +87,18 @@ export const MobileErrorState: React.FC<MobileErrorStateProps> = ({
 }) => {
   return (
     <div className={`flex flex-col items-center justify-center py-12 px-6 text-center select-none ${className}`}>
-      <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-950/40 text-red-500 flex items-center justify-center mb-4">
+      <div className="w-14 h-14 rounded-full bg-error-container text-error flex items-center justify-center mb-4">
         <AppIcon name="alert" size={28} />
       </div>
-      <h3 className="text-base font-semibold text-slate-800 dark:text-slate-200 mb-1.5">{title}</h3>
-      <p className="text-xs text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed mb-6">
+      <h3 className="text-base font-medium text-on-surface mb-1.5">{title}</h3>
+      <p className="text-xs text-on-surface-variant max-w-xs leading-relaxed mb-6">
         {message}
       </p>
       {onRetry && (
         <button
           type="button"
           onClick={onRetry}
-          className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] rounded-xl bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-sm font-medium hover:opacity-90 active:opacity-75 transition-opacity cursor-pointer"
+          className="inline-flex items-center justify-center gap-2 px-5 min-h-[44px] rounded-xl bg-on-surface dark:bg-on-surface text-surface text-sm font-medium hover:opacity-90 active:opacity-75 transition-ink-colors cursor-pointer"
         >
           <AppIcon name="refresh" size={16} />
           <span>{retryLabel}</span>
@@ -118,10 +118,10 @@ export const MobileOfflineState: React.FC<MobileOfflineStateProps> = ({
   className = '',
 }) => {
   return (
-    <div className={`p-4 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center justify-between gap-3 ${className}`}>
+    <div className={`p-4 bg-secondary-container border border-outline-variant rounded-xl flex items-center justify-between gap-3 ${className}`}>
       <div className="flex items-center gap-2.5 min-w-0">
-        <AppIcon name="warning" size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
-        <span className="text-xs text-amber-900 dark:text-amber-200 truncate">
+        <AppIcon name="warning" size={18} className="text-secondary shrink-0" />
+        <span className="text-xs text-on-secondary-container truncate">
           网络连接不稳定，请检查您的网络
         </span>
       </div>
@@ -129,7 +129,7 @@ export const MobileOfflineState: React.FC<MobileOfflineStateProps> = ({
         <button
           type="button"
           onClick={onRetry}
-          className="text-xs font-semibold text-amber-700 dark:text-amber-300 shrink-0 underline cursor-pointer"
+          className="text-xs font-medium text-secondary shrink-0 underline cursor-pointer"
         >
           重试
         </button>

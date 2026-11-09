@@ -46,9 +46,9 @@ const DEFAULT_DURATION_MS = 3500;
 const ACTION_DURATION_MS = 5000;
 
 const KIND_STYLES: Record<ToastKind, { icon: string; iconClass: string }> = {
-  success: { icon: 'check_circle', iconClass: 'text-emerald-400' },
-  error: { icon: 'warning', iconClass: 'text-red-400' },
-  info: { icon: 'info', iconClass: 'text-sky-400' },
+  success: { icon: 'check_circle', iconClass: 'text-secondary' },
+  error: { icon: 'warning', iconClass: 'text-error' },
+  info: { icon: 'info', iconClass: 'text-primary' },
 };
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -133,7 +133,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             <div
               key={t.id}
               data-testid="toast"
-              className="pointer-events-auto w-full sm:w-auto sm:min-w-[320px] max-w-full bg-slate-900/95 dark:bg-black/95 text-white rounded-2xl shadow-2xl border border-white/10 backdrop-blur-md px-4 py-3 flex items-center gap-3 text-sm animate-in fade-in slide-in-from-bottom-2 duration-200"
+              className="pointer-events-auto w-full sm:w-auto sm:min-w-[320px] max-w-full bg-surface-container-highest text-on-surface rounded-[var(--radius-ink-card)] shadow-lg border border-outline-variant px-4 py-3 flex items-center gap-3 text-sm animate-in fade-in slide-in-from-bottom-2 duration-200"
             >
               <span
                 className={`material-symbols-outlined text-xl shrink-0 ${KIND_STYLES[t.kind].iconClass}`}
@@ -150,18 +150,18 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                     dismiss(t.id);
                     void t.action!.onAction();
                   }}
-                  className="shrink-0 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/30 text-xs font-bold transition-colors"
+                  className="shrink-0 px-3 py-1.5 rounded-[var(--radius-ink-control)] bg-surface hover:bg-surface-container text-xs font-medium transition-ink-colors"
                 >
                   {t.action.label}
                   {t.secondsLeft != null && (
-                    <span className="ml-1 opacity-70 tabular-nums">({t.secondsLeft}s)</span>
+                    <span className="ml-1 text-on-surface-variant tabular-nums">({t.secondsLeft}s)</span>
                   )}
                 </button>
               )}
               <button
                 onClick={() => dismiss(t.id)}
                 aria-label="关闭"
-                className="shrink-0 p-1 rounded-full hover:bg-white/15 text-white/60 hover:text-white transition-colors"
+                className="shrink-0 p-1 rounded-full hover:bg-surface-container text-on-surface-variant hover:text-on-surface transition-ink-colors"
               >
                 <span className="material-symbols-outlined text-base">close</span>
               </button>

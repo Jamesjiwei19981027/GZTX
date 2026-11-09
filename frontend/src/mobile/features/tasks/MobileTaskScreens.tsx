@@ -105,7 +105,7 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
           <div className="flex-1 min-w-0">
             <h2
               className={`text-lg font-bold leading-snug break-words ${
-                isDone ? 'line-through text-slate-400' : 'text-slate-900 dark:text-white'
+                isDone ? 'ink-done' : 'text-on-surface'
               }`}
             >
               {task.title}
@@ -244,7 +244,7 @@ export const MobileTaskDetailSheet: React.FC<MobileTaskDetailSheetProps> = ({
                   </div>
                 }
                 title={
-                  <span className={st.completed ? 'line-through text-slate-400' : ''}>
+                  <span className={st.completed ? 'ink-done' : ''}>
                     {st.title}
                   </span>
                 }
@@ -1572,7 +1572,7 @@ export const MobileMyTasksScreen: React.FC<{
                     )
                   }
                   title={
-                    <span className={isDone ? 'line-through text-slate-400' : ''}>
+                    <span className={isDone ? 'ink-done' : ''}>
                       {t.title}
                     </span>
                   }

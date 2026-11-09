@@ -3,6 +3,7 @@ import { Project, UserProfile, Language } from '../types';
 import { getT } from '../i18n';
 import { getBrandName } from '../constants/brand';
 import { useToast } from './toast/ToastProvider';
+import { BrandMark } from './BrandMark';
 
 interface NavbarProps {
   currentProject: Project;
@@ -45,16 +46,11 @@ const NavbarImpl: React.FC<NavbarProps> = ({
 
   return (
     <>
-      <header className="bg-surface dark:bg-[#191c1d] border-b border-surface-variant dark:border-outline-variant flex justify-between items-center w-full px-4 lg:px-6 h-16 fixed top-0 z-50 shadow-sm transition-colors duration-200">
+      <header className="bg-surface dark:bg-[#1c1a18] border-b border-surface-variant dark:border-outline-variant flex justify-between items-center w-full px-4 lg:px-6 h-16 fixed top-0 z-50 shadow-sm transition-ink-colors">
         {/* Left Section: Brand & Workspace */}
         <div className="flex items-center gap-3 md:gap-4">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => setShowProjectDropdown(!showProjectDropdown)}>
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary shadow-sm">
-              <span className="material-symbols-outlined text-lg">bolt</span>
-            </div>
-            <span className="text-2xl font-bold text-primary dark:text-[#adc6ff] tracking-tight">
-              {getBrandName(lang)}
-            </span>
+            <BrandMark lang={lang} iconSize={28} className="text-lg" />
           </div>
 
           <div className="h-6 w-[1px] bg-outline-variant dark:bg-outline mx-1 md:mx-2 hidden sm:block"></div>
@@ -63,10 +59,10 @@ const NavbarImpl: React.FC<NavbarProps> = ({
           <div className="relative group hidden sm:block">
             <button
               onClick={() => setShowProjectDropdown(!showProjectDropdown)}
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-surface-container dark:hover:bg-[#2e3132] transition-colors border border-transparent hover:border-outline-variant"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-surface-container dark:hover:bg-[#262421] transition-ink-colors border border-transparent hover:border-outline-variant"
             >
               <span className="w-2 h-2 rounded-full bg-secondary"></span>
-              <span className="font-semibold text-sm text-on-surface dark:text-[#f0f1f2] max-w-[160px] md:max-w-[220px] truncate">
+              <span className="font-semibold text-sm text-on-surface dark:text-[#efe9de] max-w-[160px] md:max-w-[220px] truncate">
                 {currentProject.name}
               </span>
               <span className="material-symbols-outlined text-on-surface-variant text-lg">
@@ -75,7 +71,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
             </button>
 
             {showProjectDropdown && (
-              <div className="absolute left-0 mt-1 w-72 bg-surface dark:bg-[#2e3132] rounded-xl shadow-xl border border-surface-variant dark:border-outline p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute left-0 mt-1 w-72 bg-surface dark:bg-[#262421] rounded-xl shadow-xl border border-surface-variant dark:border-outline p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                 <div className="text-xs font-semibold text-on-surface-variant px-3 py-2 uppercase tracking-wider">
                   {t.projectSpace}
                 </div>
@@ -89,8 +85,8 @@ const NavbarImpl: React.FC<NavbarProps> = ({
                       }}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
                         proj.id === currentProject.id
-                          ? 'bg-primary-fixed/30 text-primary dark:text-[#adc6ff] font-semibold'
-                          : 'hover:bg-surface-container-low dark:hover:bg-[#191c1d] text-on-surface dark:text-[#f0f1f2]'
+                          ? 'bg-primary-fixed/30 text-primary dark:text-[#8fb0e8] font-semibold'
+                          : 'hover:bg-surface-container-low dark:hover:bg-[#1c1a18] text-on-surface dark:text-[#efe9de]'
                       }`}
                     >
                       <span
@@ -111,7 +107,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
           </div>
 
           {/* Global Search Bar */}
-          <div className="hidden md:flex ml-2 lg:ml-6 items-center bg-surface-container dark:bg-[#2e3132] rounded-full px-3 py-1.5 w-48 lg:w-64 border border-transparent focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
+          <div className="hidden md:flex ml-2 lg:ml-6 items-center bg-surface-container dark:bg-[#262421] rounded-full px-3 py-1.5 w-48 lg:w-64 border border-transparent focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-ink-colors">
             <span className="material-symbols-outlined text-on-surface-variant mr-1 text-sm">
               search
             </span>
@@ -120,7 +116,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder={t.searchPlaceholder}
-              className="bg-transparent border-none focus:outline-none focus:ring-0 text-sm w-full text-on-surface dark:text-[#f0f1f2] placeholder-on-surface-variant"
+              className="bg-transparent border-none focus:outline-none focus:ring-0 text-sm w-full text-on-surface dark:text-[#efe9de] placeholder-on-surface-variant"
             />
             {searchQuery && (
               <button
@@ -139,7 +135,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
           {onOpenQuickAdd && (
             <button
               onClick={onOpenQuickAdd}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary text-on-primary font-bold text-xs shadow-xs hover:opacity-90 active:scale-95 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-ink-control)] bg-primary text-on-primary font-medium text-xs shadow-xs hover:opacity-90 active:scale-95 transition-ink cursor-pointer"
               title={lang === 'zh' ? '快速添加 (Alt+N)' : 'Quick Add (Alt+N)'}
             >
               <span className="material-symbols-outlined text-base">add</span>
@@ -151,7 +147,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
           {onOpenNewTask && (
             <button
               onClick={onOpenNewTask}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-outline-variant text-primary dark:text-[#adc6ff] font-bold text-xs shadow-xs hover:bg-surface-container dark:hover:bg-[#2e3132] active:scale-95 transition-all cursor-pointer"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[var(--radius-ink-control)] border border-outline-variant text-primary dark:text-[#8fb0e8] font-medium text-xs shadow-xs hover:bg-surface-container dark:hover:bg-[#262421] active:scale-95 transition-ink cursor-pointer"
               title={lang === 'zh' ? '完整创建任务' : 'Create Task (full form)'}
             >
               <span className="material-symbols-outlined text-base">add_task</span>
@@ -167,7 +163,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
                 onOpenNotifications?.();
                 setShowUserDropdown(false);
               }}
-              className="p-2 rounded-full hover:bg-surface-container dark:hover:bg-[#2e3132] text-on-surface-variant hover:text-primary transition-colors relative cursor-pointer"
+              className="p-2 rounded-full hover:bg-surface-container dark:hover:bg-[#262421] text-on-surface-variant hover:text-primary transition-colors relative cursor-pointer"
             >
               <span className="material-symbols-outlined">notifications</span>
             </button>
@@ -176,7 +172,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
           {/* Help Button */}
           <button
             onClick={() => setShowHelpModal(true)}
-            className="p-2 rounded-full hover:bg-surface-container dark:hover:bg-[#2e3132] text-on-surface-variant hover:text-primary transition-colors hidden sm:block"
+            className="p-2 rounded-full hover:bg-surface-container dark:hover:bg-[#262421] text-on-surface-variant hover:text-primary transition-colors hidden sm:block"
           >
             <span className="material-symbols-outlined">help_outline</span>
           </button>
@@ -188,7 +184,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
               onClick={() => {
                 setShowUserDropdown(!showUserDropdown);
               }}
-              className="flex items-center gap-2 p-1 rounded-full hover:bg-surface-container dark:hover:bg-[#2e3132] transition-colors border border-outline-variant"
+              className="flex items-center gap-2 p-1 rounded-full hover:bg-surface-container dark:hover:bg-[#262421] transition-colors border border-outline-variant"
             >
               {user.avatar ? (
                 <img
@@ -209,7 +205,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
             </button>
 
             {showUserDropdown && (
-              <div className="absolute right-0 mt-2 w-64 bg-surface dark:bg-[#2e3132] rounded-xl shadow-xl border border-surface-variant dark:border-outline p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+              <div className="absolute right-0 mt-2 w-64 bg-surface dark:bg-[#262421] rounded-xl shadow-xl border border-surface-variant dark:border-outline p-2 z-50 animate-in fade-in zoom-in-95 duration-150">
                 <div className="px-3 py-3 border-b border-surface-variant mb-1 flex items-center gap-3">
                   {user.avatar ? (
                     <img src={user.avatar} alt="" className="w-10 h-10 rounded-full object-cover" />
@@ -219,7 +215,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
                     </span>
                   )}
                   <div className="overflow-hidden">
-                    <p className="font-bold text-sm text-on-surface dark:text-[#f0f1f2] truncate">
+                    <p className="font-bold text-sm text-on-surface dark:text-[#efe9de] truncate">
                       {user.name}
                     </p>
                     <p className="text-xs text-on-surface-variant truncate">{user.email}</p>
@@ -231,7 +227,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
                     onOpenSettings();
                     setShowUserDropdown(false);
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-container-low dark:hover:bg-[#191c1d] text-sm text-on-surface dark:text-[#f0f1f2] transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-container-low dark:hover:bg-[#1c1a18] text-sm text-on-surface dark:text-[#efe9de] transition-colors"
                 >
                   <span className="material-symbols-outlined text-lg">settings</span>
                   <span>{t.settings}</span>
@@ -242,7 +238,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
                     onResetDemo();
                     setShowUserDropdown(false);
                   }}
-                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-container-low dark:hover:bg-[#191c1d] text-sm text-secondary transition-colors"
+                  className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-surface-container-low dark:hover:bg-[#1c1a18] text-sm text-secondary transition-colors"
                 >
                   <span className="material-symbols-outlined text-lg">restart_alt</span>
                   <span>{t.resetDemo}</span>
@@ -270,9 +266,9 @@ const NavbarImpl: React.FC<NavbarProps> = ({
       {/* Help Modal */}
       {showHelpModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-surface dark:bg-[#2e3132] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-surface-variant">
+          <div className="bg-surface dark:bg-[#262421] rounded-2xl max-w-md w-full p-6 shadow-2xl border border-surface-variant">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-lg text-on-surface dark:text-[#f0f1f2] flex items-center gap-2">
+              <h3 className="font-bold text-lg text-on-surface dark:text-[#efe9de] flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">lightbulb</span>
                 {lang === 'zh'
                   ? `${getBrandName(lang)} 使用指导与快捷键`
@@ -286,17 +282,17 @@ const NavbarImpl: React.FC<NavbarProps> = ({
               </button>
             </div>
             <div className="space-y-3 text-sm text-on-surface-variant">
-              <div className="p-3 bg-surface-container-low dark:bg-[#191c1d] rounded-xl flex justify-between items-center">
+              <div className="p-3 bg-surface-container-low dark:bg-[#1c1a18] rounded-xl flex justify-between items-center">
                 <span>{t.quickAdd}</span>
                 <kbd className="px-2 py-1 bg-surface border border-outline-variant rounded text-xs font-mono">
                   Alt + N
                 </kbd>
               </div>
-              <div className="p-3 bg-surface-container-low dark:bg-[#191c1d] rounded-xl flex justify-between items-center">
+              <div className="p-3 bg-surface-container-low dark:bg-[#1c1a18] rounded-xl flex justify-between items-center">
                 <span>{lang === 'zh' ? '看板卡片拖拽' : 'Kanban Card Drag'}</span>
                 <span className="text-xs text-primary font-medium">{lang === 'zh' ? '支持直接按住拖移' : 'Drag & drop supported'}</span>
               </div>
-              <div className="p-3 bg-surface-container-low dark:bg-[#191c1d] rounded-xl flex justify-between items-center">
+              <div className="p-3 bg-surface-container-low dark:bg-[#1c1a18] rounded-xl flex justify-between items-center">
                 <span>{lang === 'zh' ? '双语一键切换' : 'Bilingual Toggle'}</span>
                 <span className="text-xs font-semibold">EN / 中文</span>
               </div>
