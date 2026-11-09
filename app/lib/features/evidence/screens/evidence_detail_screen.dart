@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/auth/auth_state.dart';
@@ -310,7 +310,7 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
             style: TextStyle(
               fontSize: 18,
               height: 1.4,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
@@ -354,7 +354,7 @@ class _EvidenceDetailScreenState extends State<EvidenceDetailScreen> {
                         package.suggestionLabel ?? package.suggestion!,
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w500,
                           color: package.suggestion == 'adopted'
                               ? AppColors.success
                               : AppColors.danger,
@@ -676,3 +676,4 @@ class _RejectReasonDialogState extends State<_RejectReasonDialog> {
     );
   }
 }
+

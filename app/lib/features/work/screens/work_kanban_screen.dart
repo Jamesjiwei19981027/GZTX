@@ -1,4 +1,4 @@
-/// 工作看板（work-kanban）。
+﻿/// 工作看板（work-kanban）。
 ///
 /// 对应网页 `MobileKanbanScreen` 与 `components/views/KanbanView.tsx`：
 /// 三列状态、长按拖动改状态（带触感反馈），并提供「移动状态」菜单作为替代操作。
@@ -351,7 +351,7 @@ class _Column extends StatelessWidget {
                             ? AppColors.darkSurfaceVariant
                             : Colors.white,
                         borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusFull),
+                            BorderRadius.circular(AppSpacing.radiusSm),
                       ),
                       child: Text(
                         '${tasks.length}',
@@ -482,9 +482,9 @@ class _KanbanCard extends StatelessWidget {
             boxShadow: dragging
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
                     ),
                   ]
                 : null,
@@ -496,18 +496,17 @@ class _KanbanCard extends StatelessWidget {
                 task.title,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                  color: task.isDone
-                      ? (isDark
-                          ? AppColors.darkTextTertiary
-                          : AppColors.textTertiary)
-                      : (isDark
-                          ? AppColors.darkTextPrimary
-                          : AppColors.textPrimary),
-                  decoration: task.isDone ? TextDecoration.lineThrough : null,
+                style: completedTitleStyle(
+                  isDark: isDark,
+                  completed: task.isDone,
+                  base: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.35,
+                    color: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.textPrimary,
+                  ),
                 ),
               ),
               if (task.description != null && task.description!.isNotEmpty) ...[
@@ -597,3 +596,4 @@ class _KanbanCard extends StatelessWidget {
     );
   }
 }
+

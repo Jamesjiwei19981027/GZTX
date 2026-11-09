@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_state.dart';
@@ -251,7 +251,7 @@ class _MeRootScreenState extends State<MeRootScreen> {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 18,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w500,
                             color: isDark
                                 ? AppColors.darkTextPrimary
                                 : AppColors.textPrimary,
@@ -332,41 +332,41 @@ class _MeRootScreenState extends State<MeRootScreen> {
             AppListTile(
               title: '账号信息',
               subtitle: '账号标识、注册时间与企业归属',
-              leading: const AppIcon('me', size: 18, color: AppColors.primary),
+              leading: const AppIcon('me', size: 18),
               onTap: () => _open('/me/account'),
             ),
             AppListTile(
               title: '账号与安全',
               subtitle: '登录密码、手机与邮箱验证',
               leading:
-                  const AppIcon('shield', size: 18, color: AppColors.success),
+                  const AppIcon('shield', size: 18),
               onTap: () => _open('/me/security'),
             ),
             AppListTile(
               title: '外观与语言',
               subtitle: appearanceController.themeMode.label,
               leading:
-                  const AppIcon('palette', size: 18, color: Color(0xFF7C4DFF)),
+                  const AppIcon('palette', size: 18),
               onTap: () => _open('/me/appearance'),
             ),
             AppListTile(
               title: '通知与免打扰',
               subtitle: '推送渠道、提醒时段与免打扰',
-              leading: const AppIcon('bell', size: 18, color: AppColors.warning),
+              leading: const AppIcon('bell', size: 18),
               onTap: () => _open('/me/notifications'),
             ),
             AppListTile(
               title: '任务默认值',
               subtitle: '默认优先级：${_priorityLabel(_prefs.taskDefaultPriority)}',
               leading:
-                  const AppIcon('sliders', size: 18, color: Color(0xFF0288D1)),
+                  const AppIcon('sliders', size: 18),
               onTap: () => _open('/me/defaults'),
             ),
             AppListTile(
               title: '第三方服务绑定',
               subtitle: '微信提醒与个人语音识别',
               leading:
-                  const AppIcon('share', size: 18, color: AppColors.success),
+                  const AppIcon('share', size: 18),
               onTap: () => _open('/me/integrations'),
             ),
           ],
@@ -414,43 +414,43 @@ class _MeRootScreenState extends State<MeRootScreen> {
         AppListTile(
           title: '通知渠道配置',
           subtitle: '企业 SMTP 邮件服务器',
-          leading: const AppIcon('mail', size: 18, color: Color(0xFF1E88E5)),
+          leading: const AppIcon('mail', size: 18),
           onTap: () => _open('/me/admin/notify-channels'),
         ),
         AppListTile(
           title: 'AI 模型配置',
           subtitle: '企业大模型接入与连通性测试',
-          leading: const AppIcon('cpu', size: 18, color: Color(0xFF5C6BC0)),
+          leading: const AppIcon('cpu', size: 18),
           onTap: () => _open('/me/admin/llm'),
         ),
         AppListTile(
           title: '模型密钥配置',
           subtitle: '多厂商密钥安全更新',
-          leading: const AppIcon('key', size: 18, color: AppColors.warning),
+          leading: const AppIcon('key', size: 18),
           onTap: () => _open('/me/admin/model-keys'),
         ),
         AppListTile(
           title: '组织与登录集成',
           subtitle: '组织同步、办公协同集成与登录方式',
-          leading: const AppIcon('globe', size: 18, color: Color(0xFF00897B)),
+          leading: const AppIcon('globe', size: 18),
           onTap: () => _open('/me/admin/org-sso'),
         ),
         AppListTile(
           title: '推送证书状态',
           subtitle: 'APNs / FCM / WebPush 诊断',
-          leading: const AppIcon('smartphone', size: 18, color: Color(0xFFEF6C00)),
+          leading: const AppIcon('smartphone', size: 18),
           onTap: () => _open('/me/admin/push-certs'),
         ),
         AppListTile(
           title: '语音识别配置',
           subtitle: '企业 ASR 引擎与转写参数',
-          leading: const AppIcon('mic', size: 18, color: Color(0xFFE91E63)),
+          leading: const AppIcon('mic', size: 18),
           onTap: () => _open('/me/admin/asr'),
         ),
         AppListTile(
           title: '单点登录配置',
           subtitle: 'OIDC / SAML 登录方式',
-          leading: const AppIcon('server', size: 18, color: Color(0xFF546E7A)),
+          leading: const AppIcon('server', size: 18),
           onTap: () => _open('/me/admin/sso'),
         ),
       ],
@@ -464,19 +464,19 @@ class _MeRootScreenState extends State<MeRootScreen> {
         AppListTile(
           title: '套餐、隐私与帮助',
           subtitle: '席位授权、数据导出与使用指引',
-          leading: const AppIcon('card', size: 18, color: Color(0xFF0097A7)),
+          leading: const AppIcon('card', size: 18),
           onTap: () => _open('/me/billing-help'),
         ),
         AppListTile(
           title: '通知发送记录',
           subtitle: '最近 50 条送达状态与失败原因',
-          leading: const AppIcon('clock', size: 18, color: Color(0xFF1E88E5)),
+          leading: const AppIcon('clock', size: 18),
           onTap: () => _open('/me/notify-logs'),
         ),
         AppListTile(
           title: '关于与版本',
           subtitle: '版本号、服务状态与开源许可',
-          leading: const AppIcon('info', size: 18, color: Color(0xFF757575)),
+          leading: const AppIcon('info', size: 18),
           onTap: () => _open('/me/about'),
         ),
       ],
@@ -491,3 +491,4 @@ class _MeRootScreenState extends State<MeRootScreen> {
     };
   }
 }
+

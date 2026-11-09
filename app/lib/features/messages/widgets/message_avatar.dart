@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../design/design.dart';
 import '../models/messages_models.dart';
@@ -35,7 +35,7 @@ class MessageAvatar extends StatelessWidget {
         text,
         style: TextStyle(
           fontSize: size * 0.4,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
           color: AppColors.primary,
         ),
       ),
@@ -92,3 +92,4 @@ class PresenceIndicator extends StatelessWidget {
     );
   }
 }
+

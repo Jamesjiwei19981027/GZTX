@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_state.dart';
@@ -200,11 +200,7 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0B3A72), AppColors.primary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.primary,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       ),
       child: Column(
@@ -228,7 +224,7 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.22),
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 child: Text(
                   statusText,
@@ -248,7 +244,7 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                 : billing!.planCode!,
             style: const TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: Colors.white,
             ),
           ),
@@ -269,3 +265,5 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
     );
   }
 }
+
+

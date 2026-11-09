@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+﻿import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/time/time_utils.dart';
@@ -39,7 +39,7 @@ class NotificationTile extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 16,
-              fontWeight: item.read ? FontWeight.w500 : FontWeight.w700,
+              fontWeight: item.read ? FontWeight.w500 : FontWeight.w500,
               color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
@@ -173,3 +173,4 @@ class NotificationTile extends StatelessWidget {
     );
   }
 }
+

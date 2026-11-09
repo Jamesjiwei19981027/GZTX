@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/auth/auth_state.dart';
 import '../../../design/design.dart';
@@ -229,7 +229,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 12.5,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: selected ? FontWeight.w500 : FontWeight.w500,
                 color: selected
                     ? AppColors.primary
                     : (isDark
@@ -244,7 +244,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
                   '当前生效',
                   style: TextStyle(
                     fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.primary,
                   ),
                 ),
@@ -307,3 +307,4 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
     );
   }
 }
+

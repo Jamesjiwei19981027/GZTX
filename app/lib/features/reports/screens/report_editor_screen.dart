@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -754,7 +754,7 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
                   : '领',
               style: const TextStyle(
                 fontSize: 15,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
                 color: AppColors.primary,
               ),
             ),
@@ -856,3 +856,4 @@ class _ReportEditorScreenState extends State<ReportEditorScreen> {
     );
   }
 }
+

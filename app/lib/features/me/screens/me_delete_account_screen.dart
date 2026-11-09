@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_state.dart';
@@ -240,7 +240,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                                   '永久注销此账号',
                                   style: TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w500,
                                     color: AppColors.danger,
                                   ),
                                 ),
@@ -345,3 +345,4 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
     return '—';
   }
 }
+

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/errors/app_error.dart';
@@ -438,7 +438,7 @@ class _EvidenceSubmitScreenState extends State<EvidenceSubmitScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
@@ -761,7 +761,7 @@ class _UploadProgress extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           child: SizedBox(
             height: 6,
             child: LinearProgressIndicator(
@@ -781,3 +781,5 @@ class _UploadProgress extends StatelessWidget {
     );
   }
 }
+
+

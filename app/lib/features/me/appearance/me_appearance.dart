@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/auth/auth_state.dart';
+import '../../../design/app_theme.dart';
 import '../data/me_api.dart';
 
 /// 主题模式：跟随系统 / 浅色 / 深色
@@ -270,30 +271,9 @@ class MeAppearanceHost extends StatelessWidget {
 /// [base] 传入当前环境的主题（`Theme.of(context)`）时会保留其字体与排版，
 /// 只切换亮度与配色，避免切换深色后字体回退到系统默认。
 ThemeData meThemeDataFor(Brightness brightness, {ThemeData? base}) {
-  final scheme = ColorScheme.fromSeed(
-    seedColor: const Color(0xFF0058BE),
-    brightness: brightness,
-  );
   final cupertinoTheme = CupertinoThemeData(brightness: brightness);
-  final scaffoldBackground = brightness == Brightness.dark
-      ? const Color(0xFF111315)
-      : const Color(0xFFF8F9FA);
-
-  if (base != null) {
-    return base.copyWith(
-      brightness: brightness,
-      colorScheme: scheme,
-      cupertinoOverrideTheme: cupertinoTheme,
-      scaffoldBackgroundColor: scaffoldBackground,
-    );
-  }
-
-  return ThemeData(
-    useMaterial3: true,
-    brightness: brightness,
-    colorScheme: scheme,
+  return appThemeFor(brightness, base: base).copyWith(
     cupertinoOverrideTheme: cupertinoTheme,
-    scaffoldBackgroundColor: scaffoldBackground,
   );
 }
 

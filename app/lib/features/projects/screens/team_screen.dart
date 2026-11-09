@@ -1,4 +1,4 @@
-/// 项目团队与成员（`me-team`）
+﻿/// 项目团队与成员（`me-team`）
 ///
 /// 网页真源：`frontend/src/mobile/features/projects/MobileTeamScreens.tsx`
 /// 中的 `MobileTeamScreen`（51）与 `frontend/src/components/views/TeamView.tsx`。
@@ -389,7 +389,7 @@ class _FilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
@@ -401,7 +401,7 @@ class _FilterChip extends StatelessWidget {
               : (isDarkMode(context)
                   ? AppColors.darkSurfaceVariant
                   : AppColors.surfaceVariant),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         ),
         child: Text(
           label,
@@ -419,3 +419,4 @@ class _FilterChip extends StatelessWidget {
     );
   }
 }
+

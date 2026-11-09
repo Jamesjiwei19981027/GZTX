@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+﻿import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/api/api_config.dart';
@@ -424,7 +424,7 @@ class MeAvatar extends StatelessWidget {
         name.isEmpty ? '用' : name.characters.first.toUpperCase(),
         style: TextStyle(
           fontSize: size * 0.38,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
           color: isDark ? const Color(0xFF9FC7FF) : AppColors.primary,
         ),
       ),
@@ -785,3 +785,4 @@ class MeKeyboardSafeBody extends StatelessWidget {
     );
   }
 }
+

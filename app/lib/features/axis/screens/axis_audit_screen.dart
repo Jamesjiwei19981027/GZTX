@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import 'package:provider/provider.dart';
 
@@ -142,7 +142,7 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
                                 '未配置审计模型',
                                 style: TextStyle(
                                   fontSize: 15,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w500,
                                   color: AppColors.warning,
                                 ),
                               ),
@@ -228,12 +228,12 @@ class _SummaryCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.auto_awesome, size: 18, color: AppColors.primary),
+              const Icon(Icons.description_outlined, size: 18),
               const SizedBox(width: AppSpacing.sm),
               const Expanded(
                 child: Text(
                   '责任链审计完成',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                 ),
               ),
               AxisStatusChip(
@@ -282,7 +282,7 @@ class _AuditNodeRow extends StatelessWidget {
                   node.title,
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -325,3 +325,4 @@ class _AuditNodeRow extends StatelessWidget {
     );
   }
 }
+

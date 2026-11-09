@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../core/api/api_client.dart';
@@ -361,7 +361,7 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 17,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
@@ -383,3 +383,4 @@ class _ConversationProfileScreenState extends State<ConversationProfileScreen> {
     );
   }
 }
+

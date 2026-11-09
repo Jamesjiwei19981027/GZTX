@@ -1,4 +1,4 @@
-/// T03 项目与团队：页面内复用的展示型小组件
+﻿/// T03 项目与团队：页面内复用的展示型小组件
 library;
 
 import 'package:flutter/material.dart';
@@ -29,7 +29,7 @@ class ProjectAvatar extends StatelessWidget {
         initial,
         style: TextStyle(
           fontSize: size / 2.6,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w500,
           color: AppColors.primary,
         ),
       ),
@@ -72,7 +72,7 @@ class MemberAvatar extends StatelessWidget {
         member.initial,
         style: TextStyle(
           fontSize: size / 2.8,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w500,
           color: AppColors.primary,
         ),
       ),
@@ -173,7 +173,7 @@ class ProjectChip extends StatelessWidget {
         label,
         style: TextStyle(
           fontSize: 11,
-          fontWeight: highlighted ? FontWeight.w700 : FontWeight.w500,
+          fontWeight: highlighted ? FontWeight.w500 : FontWeight.w500,
           color: foreground,
         ),
       ),
@@ -341,3 +341,4 @@ class InlineTextButton extends StatelessWidget {
     );
   }
 }
+

@@ -1,4 +1,4 @@
-/// 工作 Tab 根页（work-root）。
+﻿/// 工作 Tab 根页（work-root）。
 ///
 /// 对应网页 `mobile/features/work/MobileWorkScreens.tsx` 的
 /// `MobileWorkbenchScreen`：当前用户与项目、重点待办与跟进、AI 汇报入口、
@@ -466,7 +466,7 @@ class _Header extends StatelessWidget {
             initial,
             style: const TextStyle(
               fontSize: 15,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: AppColors.primary,
             ),
           ),
@@ -653,7 +653,7 @@ class _SummaryCards extends StatelessWidget {
                       '${cards[i].value}',
                       style: TextStyle(
                         fontSize: 20,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w500,
                         color: isDark
                             ? const Color(0xFF9EC5FF)
                             : AppColors.primary,
@@ -669,3 +669,4 @@ class _SummaryCards extends StatelessWidget {
     );
   }
 }
+

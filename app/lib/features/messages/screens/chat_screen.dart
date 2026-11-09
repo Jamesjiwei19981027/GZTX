@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
@@ -584,7 +584,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
                   actionLabel,
                   style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.onDangerContainerOf(isDarkMode(context)),
                   ),
                 ),
@@ -603,3 +603,4 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     );
   }
 }
+

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -493,7 +493,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         const Center(
           child: Text(
             '汇报已提交',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
           ),
         ),
         const SizedBox(height: AppSpacing.xs),
@@ -666,3 +666,4 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 }
+

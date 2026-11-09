@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../design/design.dart';
 
@@ -56,7 +56,7 @@ class AxisSectionTitle extends StatelessWidget {
               text,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
                 color: isDarkMode(context)
                     ? AppColors.darkTextSecondary
                     : AppColors.textSecondary,
@@ -177,7 +177,7 @@ class AxisPersonAvatar extends StatelessWidget {
         initial,
         style: TextStyle(
           fontSize: size * 0.4,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
           color: highlight ? Colors.white : AppColors.primary,
         ),
       ),
@@ -207,7 +207,7 @@ class AxisStatusChip extends StatelessWidget {
         label,
         style: TextStyle(
           fontSize: 10,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
           color: color,
         ),
       ),
@@ -364,3 +364,4 @@ Future<T?> showAxisPickerSheet<T>({
     },
   );
 }
+

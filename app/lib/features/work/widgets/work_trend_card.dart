@@ -1,4 +1,4 @@
-/// 首页「任务趋势」卡片（对应网页 `components/TaskTrendCard.tsx`）。
+﻿/// 首页「任务趋势」卡片（对应网页 `components/TaskTrendCard.tsx`）。
 library;
 
 import 'package:flutter/material.dart';
@@ -192,7 +192,7 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF047857),
+                    color: AppColors.success,
                   ),
                 ),
               ],
@@ -304,3 +304,4 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
     );
   }
 }
+

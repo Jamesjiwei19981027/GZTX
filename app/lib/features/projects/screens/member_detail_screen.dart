@@ -1,4 +1,4 @@
-/// 成员职责名片（`me-member-detail`）
+﻿/// 成员职责名片（`me-member-detail`）
 ///
 /// 网页真源：`frontend/src/mobile/features/projects/MobileTeamScreens.tsx`
 /// 中的 `MobileMemberDetailScreen`（52）。网页用 `listTasks` 全量拉取后再按
@@ -194,7 +194,7 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 18,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
               const SizedBox(height: AppSpacing.xxs),
@@ -288,3 +288,4 @@ class _MemberDetailScreenState extends State<MemberDetailScreen> {
     );
   }
 }
+

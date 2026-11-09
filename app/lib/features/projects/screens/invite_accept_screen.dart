@@ -1,4 +1,4 @@
-/// 接受项目邀请（含深链接入口处理）
+﻿/// 接受项目邀请（含深链接入口处理）
 ///
 /// 网页真源：`MobileProjectScreens.tsx` 中的 `MobileInviteAcceptScreen`（81）
 /// 与 `frontend/src/App.tsx` 中的邀请自动接受逻辑。
@@ -362,7 +362,7 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
           const Text(
             '加入项目团队',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 19, fontWeight: FontWeight.bold),
+            style: TextStyle(fontSize: 19, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: AppSpacing.xs),
           const Text(
@@ -444,3 +444,4 @@ class _InviteAcceptScreenState extends State<InviteAcceptScreen> {
     );
   }
 }
+

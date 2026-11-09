@@ -1,4 +1,4 @@
-/// 我的任务列表（work-tasks）。
+﻿/// 我的任务列表（work-tasks）。
 ///
 /// 对应网页 `mobile/features/tasks/MobileTaskScreens.tsx` 的 `MobileMyTasksScreen`
 /// 与 `components/TaskWorkspaceToolbar.tsx`：视图切换、范围切换、搜索与筛选、
@@ -408,7 +408,7 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
                       ),
                       decoration: BoxDecoration(
                         borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusFull),
+                            BorderRadius.circular(AppSpacing.radiusSm),
                         border: Border.all(color: AppColors.border),
                       ),
                       child: Row(
@@ -555,3 +555,4 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     );
   }
 }
+

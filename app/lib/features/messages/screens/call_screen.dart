@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_provider.dart';
@@ -200,7 +200,7 @@ class _CallScreenState extends State<CallScreen> {
                 : widget.targetName.trim().characters.first,
             style: const TextStyle(
               fontSize: 34,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: Color(0xFFBFDBFE),
             ),
           ),
@@ -211,7 +211,7 @@ class _CallScreenState extends State<CallScreen> {
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w500,
             color: Colors.white,
           ),
         ),
@@ -303,7 +303,7 @@ class _CallScreenState extends State<CallScreen> {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
                 color: Colors.white,
               ),
             ),
@@ -452,3 +452,4 @@ class _CallLoading extends StatelessWidget {
   Widget build(BuildContext context) =>
       const AppLoading(size: 28, color: Colors.white);
 }
+

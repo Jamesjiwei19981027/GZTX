@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/errors/app_error.dart';
@@ -268,7 +268,7 @@ class _WikiScreenState extends State<WikiScreen> {
             style: TextStyle(
               fontSize: 20,
               height: 1.3,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w500,
               color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
@@ -500,7 +500,7 @@ class _WikiScreenState extends State<WikiScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
@@ -538,3 +538,4 @@ class _WikiScreenState extends State<WikiScreen> {
     );
   }
 }
+

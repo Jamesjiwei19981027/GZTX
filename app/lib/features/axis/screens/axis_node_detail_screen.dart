@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -322,7 +322,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                           : '${person.name} · ${person.roleTitle.trim()}',
                       style: const TextStyle(
                         fontSize: 14,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -796,7 +796,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                                 person.name,
                                 style: const TextStyle(
                                   fontSize: 17,
-                                  fontWeight: FontWeight.w700,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                               if (person.isTerminalPm)
@@ -873,7 +873,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
           const SizedBox(height: AppSpacing.md),
           AxisWideAction(
             label: '查看 AI 汇报与材料对照',
-            icon: const Icon(Icons.auto_awesome),
+                            icon: const Icon(Icons.description_outlined),
             onPressed: () => context.pushNamed('ai-root'),
           ),
           if (canEdit) ...[
@@ -1049,7 +1049,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
                         workItem.title.isEmpty ? '未命名事项' : workItem.title,
                         style: const TextStyle(
                           fontSize: 17,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ),
@@ -1276,3 +1276,4 @@ class _PersonTabsState extends State<_PersonTabs> {
     );
   }
 }
+

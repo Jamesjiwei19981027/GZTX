@@ -1,4 +1,4 @@
-/// 项目概览
+﻿/// 项目概览
 ///
 /// 网页真源：`MobileProjectScreens.tsx` 中的 `MobileProjectOverviewScreen`（09）。
 library;
@@ -311,7 +311,7 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 17,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.xs),
@@ -589,13 +589,13 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
           onTap: () => _openProjectScoped('work-kanban'),
         ),
         AppListTile(
-          leading: const AppIcon('axis', size: 20, color: Color(0xFF8B5CF6)),
+          leading: const AppIcon('axis', size: 20, color: AppColors.primary),
           title: '人轴责任链',
           subtitle: '直属领导、下属人员责任拓扑与汇报关系',
           onTap: () => _openProjectScoped('axis-root'),
         ),
         AppListTile(
-          leading: const AppIcon('file', size: 20, color: Color(0xFF6366F1)),
+          leading: const AppIcon('file', size: 20, color: AppColors.primary),
           title: '项目知识空间',
           subtitle: '共享知识、授权总结与个人知识沉淀',
           onTap: () => _openProjectScoped('knowledge-root'),
@@ -679,3 +679,5 @@ class _TaskRow extends StatelessWidget {
     );
   }
 }
+
+

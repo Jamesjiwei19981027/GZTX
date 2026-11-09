@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
@@ -402,7 +402,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: _QuickEntry(
-                    icon: Icons.auto_awesome,
+                    icon: Icons.description_outlined,
                     label: 'AI 责任链审计',
                     onTap: () => context.push('/axis/audit'),
                   ),
@@ -518,7 +518,7 @@ class _NoProjectState extends StatelessWidget {
         const Text(
           '还没有加入任何项目',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
@@ -753,7 +753,7 @@ class _MineView extends StatelessWidget {
                   '直属下属（${subordinates.length}）',
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -830,7 +830,7 @@ class _MineView extends StatelessWidget {
               const Expanded(
                 child: Text(
                   '我的责任事项',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
               ),
               TextButton(
@@ -921,7 +921,7 @@ class _SelfCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -1209,7 +1209,7 @@ class _OverviewView extends StatelessWidget {
                 const SizedBox(height: AppSpacing.md),
                 const Text(
                   '人轴还没有人员',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
@@ -1440,9 +1440,9 @@ class _AxisZoomPill extends StatelessWidget {
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x14152338),
-            blurRadius: 12,
-            offset: Offset(0, 3),
+            color: Color(0x0D000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
           ),
         ],
       ),
@@ -1508,7 +1508,7 @@ class _ChoiceButton extends StatelessWidget {
     final isDark = isDarkMode(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
@@ -1518,13 +1518,13 @@ class _ChoiceButton extends StatelessWidget {
           color: selected
               ? AppColors.primary.withValues(alpha: 0.12)
               : AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: selected ? FontWeight.w500 : FontWeight.w500,
             color: selected
                 ? AppColors.primary
                 : AppColors.textSecondaryOf(isDark),
@@ -1551,7 +1551,7 @@ class _OrientationSegment extends StatelessWidget {
       height: 28,
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF1F3F6),
-        borderRadius: BorderRadius.circular(14),
+                          borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       ),
       padding: const EdgeInsets.all(2),
       child: Row(
@@ -1910,3 +1910,5 @@ class _AxisCanvasHintState extends State<_AxisCanvasHint> {
     );
   }
 }
+
+

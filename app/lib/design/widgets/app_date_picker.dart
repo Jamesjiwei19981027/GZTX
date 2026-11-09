@@ -1,4 +1,4 @@
-import 'package:flutter/cupertino.dart';
+﻿import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../tokens/colors.dart';
@@ -39,7 +39,7 @@ Future<DateTime?> showAppDatePicker({
                     onPressed: () => Navigator.of(ctx).pop(true),
                     child: const Text(
                       '确定',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(fontWeight: FontWeight.w500),
                     ),
                   ),
                 ],
@@ -110,7 +110,7 @@ Future<DateTime?> showAppDateTimePicker({
                     onPressed: () => Navigator.of(ctx).pop(true),
                     child: const Text(
                       '确定',
-                      style: TextStyle(fontWeight: FontWeight.bold),
+                      style: TextStyle(fontWeight: FontWeight.w500),
                     ),
                   ),
                 ],
@@ -164,3 +164,4 @@ Future<DateTime?> showAppDateTimePicker({
     time.minute,
   );
 }
+

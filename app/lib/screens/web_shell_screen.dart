@@ -5,6 +5,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 
 import '../config/api_config.dart';
 import '../config/brand.dart';
+import '../design/tokens/colors.dart';
 import '../platform/web_shell_bridge.dart';
 
 /// 正式 APP 壳：全屏加载移动自适应 UI，支持运行时桥接、系统返回拦截与安全区域协同。
@@ -55,7 +56,7 @@ class _WebShellScreenState extends State<WebShellScreen>
       }
     })
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(const Color(0xFFF8F9FA))
+      ..setBackgroundColor(AppColors.background)
       ..addJavaScriptChannel(
         'FlutterBridge',
         onMessageReceived: (message) {

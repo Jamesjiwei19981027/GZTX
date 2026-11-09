@@ -55,7 +55,7 @@ class AppIcon extends StatelessWidget {
       case 'knowledge':
         return isIos ? CupertinoIcons.book_fill : Icons.menu_book;
       case 'ai':
-        return isIos ? CupertinoIcons.sparkles : Icons.auto_awesome;
+        return isIos ? CupertinoIcons.doc_text : Icons.description_outlined;
       case 'messages':
         return isIos ? CupertinoIcons.chat_bubble_2_fill : Icons.chat;
       case 'me':

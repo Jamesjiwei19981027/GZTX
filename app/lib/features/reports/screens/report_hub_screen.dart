@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -361,7 +361,7 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                 _divider(context),
                 _HubRow(
                   icon: 'clock',
-                  iconColor: const Color(0xFF7C5CBF),
+                  iconColor: AppColors.primary,
                   title: '汇报历史与版本',
                   subtitle: '已提交 $_historyCount 份不可变记录',
                   onTap: () =>
@@ -407,7 +407,7 @@ class _ReportHubScreenState extends State<ReportHubScreen> {
                   _divider(context),
                   _HubRow(
                     icon: 'ai',
-                    iconColor: const Color(0xFF4B57B8),
+                    iconColor: AppColors.primary,
                     title: '项目汇总与发布',
                     subtitle: '生成项目级汇报封装',
                     onTap: () => context.push(
@@ -520,13 +520,13 @@ class _HubRow extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color: AppColors.danger,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                 ),
                 child: Text(
                   '$badge',
                   style: const TextStyle(
                     fontSize: 11,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                     color: Colors.white,
                   ),
                 ),
@@ -544,3 +544,6 @@ class _HubRow extends StatelessWidget {
     );
   }
 }
+
+
+

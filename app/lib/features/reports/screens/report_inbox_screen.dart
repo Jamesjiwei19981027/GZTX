@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -339,7 +339,7 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
                 name.characters.first,
                 style: const TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.primary,
                 ),
               ),
@@ -393,7 +393,7 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
             value,
             style: TextStyle(
               fontSize: 20,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: warning ? AppColors.warning : AppColors.primary,
             ),
           ),
@@ -407,3 +407,4 @@ class _ReportInboxScreenState extends State<ReportInboxScreen> {
     );
   }
 }
+

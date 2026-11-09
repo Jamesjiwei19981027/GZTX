@@ -1,4 +1,4 @@
-/// 首页「日程日历」与「项目进度简介」（对应网页 `components/WorkbenchOverview.tsx`）。
+﻿/// 首页「日程日历」与「项目进度简介」（对应网页 `components/WorkbenchOverview.tsx`）。
 library;
 
 import 'package:flutter/material.dart';
@@ -143,19 +143,16 @@ class WorkHomeCalendar extends StatelessWidget {
                           task.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: 13,
-                            height: 1.3,
-                            color: task.isDone
-                                ? (isDark
-                                    ? AppColors.darkTextTertiary
-                                    : AppColors.textTertiary)
-                                : (isDark
-                                    ? AppColors.darkTextPrimary
-                                    : AppColors.textPrimary),
-                            decoration: task.isDone
-                                ? TextDecoration.lineThrough
-                                : null,
+                          style: completedTitleStyle(
+                            isDark: isDark,
+                            completed: task.isDone,
+                            base: TextStyle(
+                              fontSize: 13,
+                              height: 1.3,
+                              color: isDark
+                                  ? AppColors.darkTextPrimary
+                                  : AppColors.textPrimary,
+                            ),
                           ),
                         ),
                       ),
@@ -166,7 +163,7 @@ class WorkHomeCalendar extends StatelessWidget {
                             '已完成',
                             style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF047857),
+                              color: AppColors.success,
                             ),
                           ),
                         ),
@@ -251,7 +248,7 @@ class WorkProjectProgressSection extends StatelessWidget {
                         item.total == 0 ? '暂无事项' : '${item.percent}%',
                         style: const TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.primary,
                         ),
                       ),
@@ -259,7 +256,7 @@ class WorkProjectProgressSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+                    borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
                     child: LinearProgressIndicator(
                       value: item.total == 0 ? 0 : item.percent / 100,
                       minHeight: 6,
@@ -334,3 +331,6 @@ class WorkProjectProgressSection extends StatelessWidget {
     );
   }
 }
+
+
+

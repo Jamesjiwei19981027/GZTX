@@ -1,4 +1,4 @@
-/// 工作统计报表（work-statistics）。
+﻿/// 工作统计报表（work-statistics）。
 ///
 /// 对应网页 `mobile/features/work/MobileStatisticsScreen.tsx`。
 library;
@@ -273,7 +273,7 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
                             children: [
                               ClipRRect(
                                 borderRadius:
-                                    BorderRadius.circular(AppSpacing.radiusFull),
+                                    BorderRadius.circular(AppSpacing.radiusSm),
                                 child: SizedBox(
                                   height: 14,
                                   child: Row(
@@ -326,7 +326,7 @@ class _WorkStatisticsScreenState extends State<WorkStatisticsScreen> {
                       children: [
                         _dotLabel('新增', AppColors.primary),
                         const SizedBox(width: AppSpacing.sm),
-                        _dotLabel('完成', const Color(0xFF10B981)),
+                        _dotLabel('完成', AppColors.success),
                       ],
                     ),
                     child: (_trend?.series ?? const <TrendPoint>[]).isEmpty
@@ -504,7 +504,7 @@ class _StatCard extends StatelessWidget {
             value,
             style: TextStyle(
               fontSize: 24,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: color,
             ),
           ),
@@ -520,3 +520,6 @@ class _StatCard extends StatelessWidget {
     );
   }
 }
+
+
+

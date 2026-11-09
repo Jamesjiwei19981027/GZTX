@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -434,7 +434,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
         const SizedBox(height: AppSpacing.lg),
         const Text(
           '项目周报',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: AppSpacing.xs),
         Text(
@@ -613,7 +613,7 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
           Text(
             value,
             style: TextStyle(
-                fontSize: 20, fontWeight: FontWeight.w700, color: color),
+                fontSize: 20, fontWeight: FontWeight.w500, color: color),
           ),
           const SizedBox(height: 2),
           Text(
@@ -625,3 +625,4 @@ class _ProjectReportScreenState extends State<ProjectReportScreen> {
     );
   }
 }
+

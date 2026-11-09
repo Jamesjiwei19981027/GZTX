@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/time/time_utils.dart';
 import '../../../design/design.dart';
@@ -123,7 +123,7 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
                           item.senderName ?? '系统通知',
                           style: const TextStyle(
                             fontSize: 16,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: 2),
@@ -217,7 +217,7 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
                         '我的回复（${item.repliedAt == null ? '已提交' : formatDisplayDateTime(item.repliedAt)}）：',
                         style: const TextStyle(
                           fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w500,
                           color: Color(0xFF1B6B45),
                         ),
                       ),
@@ -258,3 +258,4 @@ class _NotificationDetailSheetState extends State<NotificationDetailSheet> {
     );
   }
 }
+

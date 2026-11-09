@@ -1,4 +1,4 @@
-/// T02 工作 Tab 通用控件。
+﻿/// T02 工作 Tab 通用控件。
 ///
 /// 所有控件都同时适配 iOS（Cupertino）与安卓（Material），文案全中文。
 library;
@@ -162,7 +162,7 @@ class WorkFilterChip extends StatelessWidget {
       selected: selected,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         child: Container(
           constraints: const BoxConstraints(minHeight: 34),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
@@ -170,7 +170,7 @@ class WorkFilterChip extends StatelessWidget {
             color: selected
                 ? AppColors.primary
                 : (isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant),
-            borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+            borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
           ),
           child: Text(
             label,
@@ -220,7 +220,7 @@ class WorkStatusBadge extends StatelessWidget {
   }
 }
 
-/// 优先级徽标（仅高优先显示「高优」，与网页一致）。
+/// 优先级标记：用 8px 圆点和文字表达优先级，避免彩色左边条。
 class WorkPriorityBadge extends StatelessWidget {
   const WorkPriorityBadge({super.key, required this.priority});
 
@@ -228,21 +228,24 @@ class WorkPriorityBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (priority != 2) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.dangerContainerOf(isDarkMode(context)),
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        '高优',
-        style: TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: AppColors.onDangerContainerOf(isDarkMode(context)),
+    final isDark = isDarkMode(context);
+    final color = switch (priority) {
+      2 => isDark ? AppColors.darkDanger : AppColors.danger,
+      1 => isDark ? AppColors.darkWarning : AppColors.warning,
+      _ => isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+    };
+    final label = switch (priority) { 2 => '高', 1 => '中', _ => '低' };
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-      ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 10, color: color)),
+      ],
     );
   }
 }
@@ -404,12 +407,15 @@ class WorkTaskTile extends StatelessWidget {
                 children: [
                   Text(
                     task.title,
-                    style: TextStyle(
-                      fontSize: dense ? 14 : 15,
-                      fontWeight: FontWeight.w500,
-                      height: 1.3,
-                      color: titleColor,
-                      decoration: task.isDone ? TextDecoration.lineThrough : null,
+                    style: completedTitleStyle(
+                      isDark: isDark,
+                      completed: task.isDone,
+                      base: TextStyle(
+                        fontSize: dense ? 14 : 15,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                        color: titleColor,
+                      ),
                     ),
                   ),
                   if (subtitle != null) ...[
@@ -492,7 +498,7 @@ class WorkTaskMeta extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF7C3AED),
+                color: AppColors.primary,
               ),
             ),
           ),
@@ -566,7 +572,7 @@ class WorkTrendChart extends StatelessWidget {
           maxValue: maxValue,
           trackColor: isDark ? AppColors.darkSurfaceVariant : AppColors.borderLight,
           createdColor: AppColors.primary,
-          completedColor: const Color(0xFF10B981),
+          completedColor: AppColors.success,
         ),
         child: const SizedBox.expand(),
       ),
@@ -747,7 +753,7 @@ class WorkMonthGrid extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight:
-                                  selected ? FontWeight.w700 : FontWeight.w500,
+                                  selected ? FontWeight.w500 : FontWeight.w500,
                               color: selected
                                   ? Colors.white
                                   : (inMonth
@@ -805,3 +811,6 @@ List<String> buildMonthGrid(DateTime month, {bool startMonday = true}) {
   }
   return cells;
 }
+
+
+

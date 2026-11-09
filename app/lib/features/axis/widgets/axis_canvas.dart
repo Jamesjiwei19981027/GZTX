@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:clock/clock.dart';
@@ -690,11 +690,11 @@ class _AxisCanvasState extends State<AxisCanvas>
                                 color: isDark
                                     ? AppColors.darkSurface
                                     : AppColors.surface,
-                                borderRadius: BorderRadius.circular(14),
+                                borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                                 child: InkWell(
                                   key: Key(
                                       'axis-timeline-matter-${entry.item.id}'),
-                                  borderRadius: BorderRadius.circular(14),
+                                  borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
                                   onTap: () => widget.onOpenMatter
                                       ?.call(entry.item, entry.owner.id),
                                   child: Container(
@@ -703,7 +703,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                                           border: Border.all(
                                               color: AppColors.primary),
                                           borderRadius:
-                                              BorderRadius.circular(14)),
+                                              BorderRadius.circular(AppSpacing.radiusLg)),
                                       child: Column(
                                           crossAxisAlignment:
                                               CrossAxisAlignment.start,
@@ -713,14 +713,15 @@ class _AxisCanvasState extends State<AxisCanvas>
                                             Text(entry.item.title,
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(
-                                                    fontSize: 13,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: isDark
-                                                        ? AppColors
-                                                            .darkTextPrimary
-                                                        : AppColors
-                                                            .textPrimary)),
+                                                style: completedTitleStyle(
+                                                    isDark: isDark,
+                                                    completed: entry.item.isDone,
+                                                    base: TextStyle(
+                                                        fontSize: 13,
+                                                        fontWeight: FontWeight.w500,
+                                                        color: isDark
+                                                            ? AppColors.darkTextPrimary
+                                                            : AppColors.textPrimary))),
                                             const SizedBox(height: 5),
                                             Text(
                                                 '${entry.owner.name} · ${axisDateLabel(entry.item.dueAt)}',
@@ -946,32 +947,20 @@ class _AxisCanvasState extends State<AxisCanvas>
     double borderWidth = 1.0;
     List<BoxShadow> shadows = const [
       BoxShadow(
-        color: Color(0x14000000),
-        blurRadius: 8,
-        offset: Offset(0, 2),
+        color: Color(0x0D000000),
+        blurRadius: 2,
+        offset: Offset(0, 1),
       ),
     ];
 
     if (isDropVerdictOk) {
       borderColor = AppColors.success;
       borderWidth = 2.0;
-      shadows = [
-        BoxShadow(
-          color: AppColors.success.withValues(alpha: 0.35),
-          blurRadius: 10,
-          spreadRadius: 2,
-        ),
-      ];
+      shadows = const [];
     } else if (isDropVerdictBad) {
       borderColor = AppColors.danger;
       borderWidth = 2.0;
-      shadows = [
-        BoxShadow(
-          color: AppColors.danger.withValues(alpha: 0.35),
-          blurRadius: 10,
-          spreadRadius: 2,
-        ),
-      ];
+      shadows = const [];
     } else if (selected) {
       borderColor = AppColors.primary;
       borderWidth = 2.0;
@@ -1003,7 +992,7 @@ class _AxisCanvasState extends State<AxisCanvas>
           : const EdgeInsets.fromLTRB(12, 10, 12, 8),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
         border: Border.all(color: borderColor, width: borderWidth),
         boxShadow: shadows,
       ),
@@ -1088,7 +1077,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                 '逾期 $overCount',
                 style: const TextStyle(
                   fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                   color: Colors.white,
                 ),
               ),
@@ -1176,7 +1165,7 @@ class _AxisCanvasState extends State<AxisCanvas>
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 30,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
@@ -2161,3 +2150,4 @@ class _AxisDragRegionState extends State<_AxisDragRegion> {
     );
   }
 }
+

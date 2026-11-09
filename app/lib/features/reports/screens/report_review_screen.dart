@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/auth/auth_provider.dart';
@@ -371,7 +371,7 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
         const SizedBox(height: AppSpacing.lg),
         const Text(
           '请补充验收材料与最终清单',
-          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 19, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: AppSpacing.xs),
         const Text(
@@ -541,3 +541,4 @@ class _ReportReviewScreenState extends State<ReportReviewScreen> {
     );
   }
 }
+

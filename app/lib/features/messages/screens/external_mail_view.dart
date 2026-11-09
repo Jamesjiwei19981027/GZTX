@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/auth/auth_provider.dart';
@@ -96,7 +96,7 @@ class ExternalMailView extends StatelessWidget {
                 '真实连接状态：未就绪',
                 style: TextStyle(
                   fontSize: 13,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                   color: Color(0xFF7A4E00),
                 ),
               ),
@@ -316,7 +316,7 @@ class _MailDetailSheetState extends State<_MailDetailSheet> {
         children: [
           Text(
             detail.subjectLabel,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(
@@ -433,3 +433,4 @@ class _ExternalMailScreenState extends State<ExternalMailScreen> {
     );
   }
 }
+

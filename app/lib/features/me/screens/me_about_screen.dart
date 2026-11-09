@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/auth/auth_state.dart';
 import '../../../design/design.dart';
@@ -96,7 +96,7 @@ class _MeAboutScreenState extends State<MeAboutScreen> {
                         '工作梯',
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w500,
                           color: isDark
                               ? AppColors.darkTextPrimary
                               : AppColors.textPrimary,
@@ -198,3 +198,4 @@ class _MeAboutScreenState extends State<MeAboutScreen> {
     );
   }
 }
+

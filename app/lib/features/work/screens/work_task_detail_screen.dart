@@ -1,4 +1,4 @@
-/// 任务详情（work-task-detail）。
+﻿/// 任务详情（work-task-detail）。
 library;
 
 import 'package:flutter/material.dart';
@@ -206,20 +206,17 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                           children: [
                             Text(
                               _task!.title,
-                              style: TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w700,
-                                height: 1.35,
-                                color: _task!.isDone
-                                    ? (isDark
-                                        ? AppColors.darkTextTertiary
-                                        : AppColors.textTertiary)
-                                    : (isDark
-                                        ? AppColors.darkTextPrimary
-                                        : AppColors.textPrimary),
-                                decoration: _task!.isDone
-                                    ? TextDecoration.lineThrough
-                                    : null,
+                              style: completedTitleStyle(
+                                isDark: isDark,
+                                completed: _task!.isDone,
+                                base: TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.35,
+                                  color: isDark
+                                      ? AppColors.darkTextPrimary
+                                      : AppColors.textPrimary,
+                                ),
                               ),
                             ),
                             const SizedBox(height: AppSpacing.sm),
@@ -266,14 +263,14 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                         children: [
                           const Row(
                             children: [
-                              AppIcon('axis', size: 16, color: Color(0xFF7C3AED)),
+                              AppIcon('axis', size: 16, color: AppColors.primary),
                               SizedBox(width: 6),
                               Text(
                                 '人轴责任链关联事项（只读）',
                                 style: TextStyle(
                                   fontSize: 13,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xFF6D28D9),
+                                  color: AppColors.primary,
                                 ),
                               ),
                             ],
@@ -284,7 +281,7 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.5,
-                              color: Color(0xFF6D28D9),
+                              color: AppColors.primary,
                             ),
                           ),
                           if (_task!.projectNodeId != null)
@@ -365,16 +362,15 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                                     Expanded(
                                       child: Text(
                                         item.title,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: item.completed
-                                              ? AppColors.textTertiary
-                                              : (isDark
-                                                  ? AppColors.darkTextPrimary
-                                                  : AppColors.textPrimary),
-                                          decoration: item.completed
-                                              ? TextDecoration.lineThrough
-                                              : null,
+                                        style: completedTitleStyle(
+                                          isDark: isDark,
+                                          completed: item.completed,
+                                          base: TextStyle(
+                                            fontSize: 13,
+                                            color: isDark
+                                                ? AppColors.darkTextPrimary
+                                                : AppColors.textPrimary,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -541,3 +537,4 @@ class _ScheduleHistorySection extends StatelessWidget {
     );
   }
 }
+

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:provider/provider.dart';
@@ -152,7 +152,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                                     _title.isEmpty ? '节点进度' : _title,
                                     style: const TextStyle(
                                       fontSize: 16,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ),
@@ -160,7 +160,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                                   '${snapshot?.percent ?? 0}%',
                                   style: const TextStyle(
                                     fontSize: 20,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w500,
                                     color: AppColors.primary,
                                   ),
                                 ),
@@ -299,3 +299,4 @@ class _RecordRow extends StatelessWidget {
     );
   }
 }
+
