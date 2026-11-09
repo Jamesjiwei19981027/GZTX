@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.dependencies import get_collaboration_user
 from app.core.security import create_access_token, get_password_hash
+from app.models.category import Category
 from app.models.company import Company, CompanyLicense, CompanyMembership
 from app.models.project import Project, ProjectInvitation, ProjectMember
 from app.models.user import User
@@ -232,6 +233,29 @@ async def test_collaboration_endpoints_phone_verification_switch(
     )
     assert res_accept.status_code == 200, res_accept.text
     assert res_accept.json()["data"]["project_id"] == project.id
+
+    # 4.2b 默认配置下：只验邮箱的用户能建带公司/项目的协作任务（点测 B-02 回归）
+    monkeypatch.setattr(settings, "REGISTER_VERIFICATION_REQUIRED", True)
+    cat = Category(user_id=user1.id, name="默认", is_default=True)
+    db_session.add(cat)
+    await db_session.commit()
+    await db_session.refresh(cat)
+    res_task = await client.post(
+        "/api/v1/tasks",
+        json={"title": "协作任务A", "company_id": company.id, "category_id": cat.id},
+        headers=_headers(user1.id),
+    )
+    assert res_task.status_code in (200, 201), res_task.text
+
+    monkeypatch.setattr(settings, "PHONE_VERIFICATION_REQUIRED", True)
+    res_task_fail = await client.post(
+        "/api/v1/tasks",
+        json={"title": "协作任务B", "company_id": company.id, "category_id": cat.id},
+        headers=_headers(user1.id),
+    )
+    assert res_task_fail.status_code == 403
+    assert res_task_fail.json()["detail"]["message"] == "协作任务需要完成手机验证"
+    monkeypatch.setattr(settings, "PHONE_VERIFICATION_REQUIRED", False)
 
     # 4.3 PHONE_VERIFICATION_REQUIRED=True 时：被 403 拦截
     monkeypatch.setattr(settings, "PHONE_VERIFICATION_REQUIRED", True)

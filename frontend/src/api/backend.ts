@@ -393,9 +393,19 @@ export async function createCompany(body: {
 }
 
 export async function listProjects(companyId: number) {
-  return apiRequest<{ items: BackendProject[]; total: number }>(
-    `/projects?company_id=${companyId}&as_admin=true`,
-  )
+  // 后端单页最多 100 条：逐页取完，避免项目超过一页后在顶栏/人轴里“消失”
+  const pageSize = 100
+  const items: BackendProject[] = []
+  let total = 0
+  for (let page = 1; page <= 50; page += 1) {
+    const res = await apiRequest<{ items: BackendProject[]; total: number }>(
+      `/projects?company_id=${companyId}&as_admin=true&page=${page}&page_size=${pageSize}`,
+    )
+    items.push(...(res.items || []))
+    total = res.total ?? items.length
+    if (!res.items || res.items.length < pageSize || items.length >= total) break
+  }
+  return { items, total }
 }
 
 export async function createProject(body: { name: string; company_id: number }) {

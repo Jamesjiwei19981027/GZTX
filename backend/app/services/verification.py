@@ -121,7 +121,7 @@ async def send_code(
     )
     await db.flush()
 
-    delivered = await _deliver(channel, target, code)
+    delivered = await _deliver(channel, target, code, db=db)
     if not delivered:
         raise VerificationError("验证码发送失败，请稍后重试")
 
@@ -132,13 +132,33 @@ async def send_code(
     return result
 
 
-async def _deliver(channel: str, target: str, code: str) -> bool:
+async def _deliver(channel: str, target: str, code: str, *, db: AsyncSession | None = None) -> bool:
     if channel == "email":
-        from app.utils.email import send_email
+        import asyncio
+
+        from app.services.smtp_settings import smtp_for_system, smtp_from_env
+        from app.utils import email as email_utils
 
         subject = "WorkTodo 验证码"
         body = f"您的验证码是 {code}，{CODE_TTL_MINUTES} 分钟内有效。若非本人操作请忽略。"
-        ok = send_email(target, subject, body)
+        # 发信配置：默认公司（企业管理页填写）> 环境变量
+        resolved = await smtp_for_system(db) if db is not None else smtp_from_env()
+        if resolved and resolved.is_complete():
+            ok = await asyncio.to_thread(
+                email_utils._send_smtp,
+                to_email=target,
+                from_addr=resolved.from_addr,
+                subject=subject,
+                text_body=body,
+                html_body=f"<p>{body}</p>",
+                smtp_host=resolved.host,
+                smtp_port=resolved.port,
+                smtp_user=resolved.user,
+                smtp_password=resolved.password,
+            )
+        else:
+            logger.warning("[EMAIL] SMTP not configured (company/env), verification code not sent")
+            ok = False
         if not ok and settings.DEBUG:
             # 开发环境未配 SMTP：打日志放行（debug_code 已回显）
             logger.info("[DevEmail] code %s for %s (SMTP not configured)", code, target)

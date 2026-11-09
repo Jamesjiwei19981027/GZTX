@@ -44,7 +44,8 @@ test('AI 模型配置和快捷密钥保存后均只显示已配置，不回显�
   await mockWorkspaceApi(page, { superAdmin: true });
   let configured = false;
   const writes: Record<string, unknown>[] = [];
-  await page.route('**/api/v1/notifications/llm-config', async route => {
+  // 企业管理页读写公司级配置（AI 建议、材料研判读的是公司级）
+  await page.route('**/api/v1/companies/*/llm', async route => {
     if (route.request().method() === 'PUT') {
       writes.push(route.request().postDataJSON());
       configured = true;

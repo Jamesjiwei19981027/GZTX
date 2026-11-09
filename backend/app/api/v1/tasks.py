@@ -863,15 +863,19 @@ async def create_task(data: TaskCreate, db: DbSession, user: EmailVerifiedUser):
     due_date_val = to_naive_utc(data.due_date)
 
     project_id = data.project_id
-    if (
-        settings.REGISTER_VERIFICATION_REQUIRED
-        and (data.company_id is not None or project_id is not None or data.project_node_id is not None)
-        and not user.phone_verified
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail={"code": 40320, "message": "协作任务需要完成手机验证"},
-        )
+    is_collab = data.company_id is not None or project_id is not None or data.project_node_id is not None
+    # 与 get_collaboration_user 口径一致：邮箱必验；手机仅在 PHONE_VERIFICATION_REQUIRED 时要求
+    if settings.REGISTER_VERIFICATION_REQUIRED and is_collab:
+        if not user.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": 40321, "message": "协作任务需要完成邮箱验证"},
+            )
+        if settings.PHONE_VERIFICATION_REQUIRED and not user.phone_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={"code": 40320, "message": "协作任务需要完成手机验证"},
+            )
     company_id = await _validate_collab_scope(
         db,
         user.id,

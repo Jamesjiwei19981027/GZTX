@@ -112,10 +112,7 @@ async def get_company_smtp_account(db: AsyncSession, company_id: int):
     return q.scalar_one_or_none()
 
 
-async def smtp_from_company(db: AsyncSession, company_id: int | None) -> ResolvedSmtp | None:
-    if not company_id:
-        return None
-    acc = await get_company_smtp_account(db, company_id)
+def _resolved_from_account(acc) -> ResolvedSmtp | None:
     if not acc:
         return None
     cfg = _load_company_blob(acc)
@@ -138,6 +135,69 @@ async def smtp_from_company(db: AsyncSession, company_id: int | None) -> Resolve
         from_addr=from_addr,
         source="company",
     )
+
+
+async def smtp_from_company(db: AsyncSession, company_id: int | None) -> ResolvedSmtp | None:
+    if not company_id:
+        return None
+    return _resolved_from_account(await get_company_smtp_account(db, company_id))
+
+
+async def smtp_for_system(db: AsyncSession, company_id: int | None = None) -> ResolvedSmtp | None:
+    """系统发信（验证码等，没有“当前用户”）：指定公司 > 默认公司 > 环境变量。"""
+    if company_id:
+        c = await smtp_from_company(db, company_id)
+        if c and c.is_complete():
+            return c
+    try:
+        from app.services.register_join import get_default_company
+
+        co = await get_default_company(db)
+        if co and co.id != company_id:
+            c = await smtp_from_company(db, co.id)
+            if c and c.is_complete():
+                return c
+    except Exception as e:  # pragma: no cover - 防御：解析失败退回环境变量
+        logger.warning("resolve default company smtp failed: %s", e)
+    return smtp_from_env()
+
+
+def smtp_for_system_sync(db, company_id: int | None = None) -> ResolvedSmtp | None:
+    """同步会话版（提醒调度用）：指定公司 > 默认公司 > 环境变量。"""
+    from app.models.company import Company
+    from app.models.integration import IntegrationAccount
+
+    def _acc(cid: int):
+        return (
+            db.execute(
+                select(IntegrationAccount)
+                .where(
+                    IntegrationAccount.company_id == cid,
+                    IntegrationAccount.provider == PROVIDER_SMTP,
+                )
+                .order_by(IntegrationAccount.id.desc())
+                .limit(1)
+            )
+            .scalars()
+            .first()
+        )
+
+    try:
+        ids: list[int] = []
+        if company_id:
+            ids.append(company_id)
+        slug = (settings.DEFAULT_COMPANY_SLUG or "default").strip()
+        if slug:
+            co = db.execute(select(Company).where(Company.slug == slug)).scalars().first()
+            if co and co.id not in ids:
+                ids.append(co.id)
+        for cid in ids:
+            c = _resolved_from_account(_acc(cid))
+            if c and c.is_complete():
+                return c
+    except Exception as e:  # pragma: no cover
+        logger.warning("resolve company smtp (sync) failed: %s", e)
+    return smtp_from_env()
 
 
 async def resolve_smtp(

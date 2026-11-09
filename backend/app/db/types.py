@@ -14,7 +14,9 @@ class UTCDateTime(TypeDecorator):
     - naive 视为 UTC；aware 换算为 UTC；
     - PostgreSQL 保持 aware UTC 写入；SQLite 无时区类型，存去掉 tzinfo 的 UTC 值
       （与原先存储格式一致）。
-    读取不做改变（PG 返回 aware，SQLite 返回 naive），保持现有调用方行为。
+    读取统一返回 naive UTC（与 SQLite 一致）：业务代码普遍拿它和 datetime.utcnow()
+    比较，PG 若返回 aware 会抛 “can't subtract offset-naive and offset-aware”
+    （点测 A-08：提醒邮件因此永远发送失败）。
     """
 
     impl = DateTime(timezone=True)
@@ -30,3 +32,8 @@ class UTCDateTime(TypeDecorator):
         if dialect.name == "sqlite":
             return aware.replace(tzinfo=None)
         return aware
+
+    def process_result_value(self, value, dialect):
+        if value is None or value.tzinfo is None:
+            return value
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
