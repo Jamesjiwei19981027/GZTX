@@ -1344,6 +1344,7 @@ async def batch_complete(data: BatchAction, db: DbSession, user: CurrentUser):
         data={
             "completed_count": len(editable),
             "skipped_readonly": len(tasks) - len(editable),
+            "skipped_task_ids": [t.id for t in tasks if t not in editable],
         }
     )
 

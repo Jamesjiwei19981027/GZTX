@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import { mapEvidenceStatus, EVIDENCE_STATUS_LABEL } from '../src/api/mappers'
 import { effectiveNodeId, saveRecordProgress } from '../src/api/recordProgress'
+import { summarizeBatchReschedule } from '../src/utils/batchReschedule'
 import { notificationTarget, notificationTitle } from '../src/utils/notificationText'
 
 const read = (p: string) => fs.readFileSync(p, 'utf8')
@@ -79,5 +80,13 @@ ok(auth.includes("purpose: 'reset_password'") && auth.includes("'/auth/reset-pas
 ok(gate.includes('forgot-password-link') && gate.includes('reset-password-form'), 'A-01 登录页入口与表单')
 ok(gate.includes('sendResetCode(') && gate.includes('resetPassword({'), 'A-01 发码并设新密码')
 ok(gate.includes('两次输入的密码不一致'), 'A-01 两次密码校验')
+
+// WR-44：批量顺延跳过只读任务，不本地改期并提示条数
+const r1 = summarizeBatchReschedule(['1', '2', '3'], { updated_count: 2, skipped_readonly: 1, skipped_task_ids: [2] }, '2026-12-01')
+assert.deepEqual(r1.applied, ['1', '3']); n++
+ok(r1.message === '已顺延 2 条任务至 2026-12-01，1 条只读任务未顺延', 'WR-44 提示文案')
+const r2 = summarizeBatchReschedule(['1', '2'], { updated_count: 2, skipped_readonly: 0, skipped_task_ids: [] }, '2026-12-01')
+ok(r2.applied.length === 2 && r2.skippedCount === 0 && !r2.message.includes('只读'), 'WR-44 无跳过')
+ok(app.includes('summarizeBatchReschedule(taskIds, res, dueDate)'), 'WR-44 App 接线')
 
 console.log(`r2 web flow: ${n} assertions passed`)

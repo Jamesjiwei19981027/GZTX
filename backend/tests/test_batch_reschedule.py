@@ -91,6 +91,7 @@ async def test_batch_reschedule_skips_readonly_projection(
     data = r.json()["data"]
     assert data["updated_count"] == 1
     assert data["skipped_readonly"] == 1
+    assert data["skipped_task_ids"] == [readonly.id]
 
     await db_session.refresh(normal)
     await db_session.refresh(readonly)

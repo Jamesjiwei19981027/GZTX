@@ -333,7 +333,7 @@ export async function restoreTask(id: number) {
 
 /** 批量顺延：仅替换日期部分，保留原时刻 */
 export async function batchRescheduleTasks(taskIds: number[], dueDate: string) {
-  return apiRequest<{ updated_count: number }>('/tasks/batch/reschedule', {
+  return apiRequest<{ updated_count: number; skipped_readonly?: number; skipped_task_ids?: number[] }>('/tasks/batch/reschedule', {
     method: 'PATCH',
     body: JSON.stringify({ task_ids: taskIds, due_date: dueDate }),
   })

@@ -20,6 +20,7 @@ import {
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { TaskWorkspaceToolbar } from './components/TaskWorkspaceToolbar';
+import { summarizeBatchReschedule } from './utils/batchReschedule';
 import { filterTaskWorkspace, type TaskWorkspaceScope } from './utils/taskWorkspace';
 import { PhoneVerificationReminder } from './components/PhoneVerificationReminder';
 import { MobileAppShell } from './mobile/MobileAppShell';
@@ -1007,9 +1008,11 @@ export default function App() {
     if (!ids.length) return;
     try {
       const res = await batchRescheduleTasks(ids, dueDate);
-      const idSet = new Set(taskIds);
+      const { applied, skippedCount, message } = summarizeBatchReschedule(taskIds, res, dueDate);
+      const idSet = new Set(applied);
       setTasks((prev) => prev.map((t) => (idSet.has(t.id) ? { ...t, dueDate } : t)));
-      toast.success(`已顺延 ${res.updated_count ?? ids.length} 个任务至 ${dueDate}`);
+      if (skippedCount > 0) toast.info(message);
+      else toast.success(message);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : '批量顺延失败');
     }
