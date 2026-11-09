@@ -132,7 +132,7 @@ class _CallScreenState extends State<CallScreen> {
   Widget _topBar(BuildContext context) {
     return Row(
       children: [
-        const AppIcon('phone', size: 16, color: Color(0xFF8E97A6)),
+        const AppIcon('phone', size: 18, color: Color(0xFF8E97A6)),
         const SizedBox(width: AppSpacing.sm),
         Text(
           widget.callType == 'video' ? '视频通话' : '语音通话',
@@ -142,7 +142,7 @@ class _CallScreenState extends State<CallScreen> {
         IconButton(
           tooltip: '关闭通话',
           onPressed: _leaving ? null : _hangUp,
-          icon: const AppIcon('close', size: 22, color: Color(0xFF8E97A6)),
+          icon: const AppIcon('close', size: 18, color: Color(0xFF8E97A6)),
         ),
       ],
     );
@@ -175,7 +175,7 @@ class _CallScreenState extends State<CallScreen> {
       return _noticePanel(
         title: '音视频服务未配置',
         description:
-            controller.configError ?? '当前企业环境未配置 STUN/TURN 穿透服务器，无法建立实时音视频会话。',
+            controller.configError ?? '当前企业环境未配置 STUN/TURN 穿透服务器，无法建立实时音视频会话',
         extra: controller.sessionError,
         tone: _PanelTone.error,
       );
@@ -200,7 +200,7 @@ class _CallScreenState extends State<CallScreen> {
                 : widget.targetName.trim().characters.first,
             style: const TextStyle(
               fontSize: 34,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: Color(0xFFBFDBFE),
             ),
           ),
@@ -211,7 +211,7 @@ class _CallScreenState extends State<CallScreen> {
           textAlign: TextAlign.center,
           style: const TextStyle(
             fontSize: 20,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w500,
             color: Colors.white,
           ),
         ),
@@ -224,14 +224,14 @@ class _CallScreenState extends State<CallScreen> {
         const SizedBox(height: AppSpacing.lg),
         Text(
           'ICE 节点：${controller.config?.iceServerCount ?? 0} 个服务器可用',
-          style: const TextStyle(fontSize: 11, color: Color(0xFF8E97A6)),
+          style: const TextStyle(fontSize: 12, color: Color(0xFF8E97A6)),
         ),
         if (controller.creating)
           const Padding(
             padding: EdgeInsets.only(top: AppSpacing.md),
             child: Text(
               '正在创建通话会话…',
-              style: TextStyle(fontSize: 11, color: Color(0xFF8E97A6)),
+              style: TextStyle(fontSize: 12, color: Color(0xFF8E97A6)),
             ),
           )
         else if (session != null)
@@ -241,7 +241,7 @@ class _CallScreenState extends State<CallScreen> {
               session.ended
                   ? '通话已结束（会话 #${session.id}）'
                   : '通话会话 #${session.id} 已创建',
-              style: const TextStyle(fontSize: 11, color: Color(0xFF8E97A6)),
+              style: const TextStyle(fontSize: 12, color: Color(0xFF8E97A6)),
             ),
           )
         else if (controller.sessionError != null)
@@ -250,15 +250,15 @@ class _CallScreenState extends State<CallScreen> {
             child: Text(
               '会话创建失败：${controller.sessionError}',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 11, color: Color(0xFFF87171)),
+              style: const TextStyle(fontSize: 12, color: Color(0xFFF87171)),
             ),
           ),
         const SizedBox(height: AppSpacing.lg),
         const Text(
           '本安装包尚未接入实时音频采集与播放（需 flutter_webrtc 与 TURN，已提交共享改动申请）；'
-          '当前只建立并结束通话会话记录。',
+          '当前只建立并结束通话会话记录',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 10, height: 1.6, color: Color(0xFF6B7280)),
+          style: TextStyle(fontSize: 12, height: 1.6, color: Color(0xFF6B7280)),
         ),
       ],
     );
@@ -292,7 +292,7 @@ class _CallScreenState extends State<CallScreen> {
               ),
               child: AppIcon(
                 'phone',
-                size: 34,
+                size: 18,
                 color:
                     isError ? const Color(0xFFF87171) : const Color(0xFF8E97A6),
               ),
@@ -303,7 +303,7 @@ class _CallScreenState extends State<CallScreen> {
               textAlign: TextAlign.center,
               style: const TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w700,
+                fontWeight: FontWeight.w500,
                 color: Colors.white,
               ),
             ),
@@ -322,7 +322,7 @@ class _CallScreenState extends State<CallScreen> {
                     '真实诊断信息：',
                     style: TextStyle(
                       fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: Color(0xFFD1D5DB),
                     ),
                   ),
@@ -348,8 +348,8 @@ class _CallScreenState extends State<CallScreen> {
                   ],
                   const SizedBox(height: AppSpacing.sm),
                   const Text(
-                    '为避免误导，这里不会显示伪造的“通话中”或虚假振铃。',
-                    style: TextStyle(fontSize: 11, color: Color(0xFF6B7280)),
+                    '为避免误导，这里不会显示伪造的“通话中”或虚假振铃',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280)),
                   ),
                 ],
               ),
@@ -380,7 +380,7 @@ class _CallScreenState extends State<CallScreen> {
             active: _muted,
             activeColor: const Color(0xFFDC2626),
             onPressed: () => setState(() => _muted = !_muted),
-            child: const AppIcon('mic', size: 22, color: Colors.white),
+            child: const AppIcon('mic', size: 18, color: Colors.white),
           ),
           GestureDetector(
             onTap: _leaving ? null : _hangUp,
@@ -398,7 +398,7 @@ class _CallScreenState extends State<CallScreen> {
                     )
                   : const Icon(
                       Icons.call_end_rounded,
-                      size: 30,
+                      size: 18,
                       color: Colors.white,
                     ),
             ),
@@ -408,7 +408,7 @@ class _CallScreenState extends State<CallScreen> {
             active: _speakerOn,
             activeColor: AppColors.primary,
             onPressed: () => setState(() => _speakerOn = !_speakerOn),
-            child: const AppIcon('bell', size: 22, color: Colors.white),
+            child: const AppIcon('bell', size: 18, color: Colors.white),
           ),
         ],
       ),

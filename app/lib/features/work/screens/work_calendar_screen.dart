@@ -44,8 +44,7 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
 
   bool _weekMode = false;
   late String _selectedDay = widget.initialDay ?? TaskTime.todayKey();
-  late DateTime _cursor =
-      TaskTime.parseLocalDay(_selectedDay) ?? clock.now();
+  late DateTime _cursor = TaskTime.parseLocalDay(_selectedDay) ?? clock.now();
 
   WorkApi get _api =>
       widget.api ??
@@ -204,7 +203,7 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
@@ -250,7 +249,7 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
                                         '${int.parse(day.substring(8))}',
                                         style: TextStyle(
                                           fontSize: 13,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w500,
                                           color: day == _selectedDay
                                               ? Colors.white
                                               : (isDark
@@ -262,8 +261,7 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
                                         Container(
                                           width: 4,
                                           height: 4,
-                                          margin:
-                                              const EdgeInsets.only(top: 2),
+                                          margin: const EdgeInsets.only(top: 4),
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             color: day == _selectedDay
@@ -300,7 +298,7 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
                     '$_selectedDay 日程事项 (${dayTasks.length})',
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextSecondary
                           : AppColors.textSecondary,
@@ -319,7 +317,7 @@ class _WorkCalendarScreenState extends State<WorkCalendarScreen> {
                 child: Text(
                   '所选日期已经过去，仍可补录或调整当天日程',
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: isDark
                         ? AppColors.darkTextTertiary
                         : AppColors.textTertiary,

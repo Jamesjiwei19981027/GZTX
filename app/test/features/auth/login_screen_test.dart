@@ -58,7 +58,7 @@ void main() {
       final app = AuthTestApp(helper: helper);
       await app.pump(tester);
 
-      expect(find.text('欢迎回来'), findsOneWidget);
+      expect(find.text('登录'), findsOneWidget);
 
       await tester.enterText(
         find.byKey(const ValueKey('login-username')),
@@ -148,7 +148,8 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('login-send-code')));
       await tester.pump();
       final sendCodeCalls = helper.history
-          .where((r) => r.method == 'POST' && r.url.path.endsWith('/auth/send-code'))
+          .where((r) =>
+              r.method == 'POST' && r.url.path.endsWith('/auth/send-code'))
           .length;
       expect(sendCodeCalls, 1);
 
@@ -168,7 +169,8 @@ void main() {
         find.byKey(const ValueKey('login-target')),
         'not-a-phone',
       );
-      await tester.enterText(find.byKey(const ValueKey('login-code')), '123456');
+      await tester.enterText(
+          find.byKey(const ValueKey('login-code')), '123456');
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('login-submit-code')));
       await tester.pump();
@@ -244,7 +246,8 @@ void main() {
         find.byKey(const ValueKey('login-target')),
         'e2e_user@example.com',
       );
-      await tester.enterText(find.byKey(const ValueKey('login-code')), '123456');
+      await tester.enterText(
+          find.byKey(const ValueKey('login-code')), '123456');
       await tester.pump();
       await tester.tap(find.byKey(const ValueKey('login-submit-code')));
       await tester.pump();

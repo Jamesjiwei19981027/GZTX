@@ -267,7 +267,7 @@ class _TeamScreenState extends State<TeamScreen> {
             ),
             child: InfoBanner(
               message:
-                  '在线状态暂不可用（${projectErrorMessage(_presenceError!)}），成员列表不受影响。',
+                  '在线状态暂不可用（${projectErrorMessage(_presenceError!)}），成员列表不受影响',
               tone: InfoBannerTone.warning,
               icon: 'wifi-off',
             ),
@@ -281,8 +281,8 @@ class _TeamScreenState extends State<TeamScreen> {
     if (_members.isEmpty) {
       return AppEmptyState(
         title: '项目暂无成员',
-        description: '可在项目概览页点「邀请新成员加入」，把同事拉进本项目。',
-        icon: const AppIcon('team', size: 44, color: AppColors.textTertiary),
+        description: '可在项目概览页点「邀请新成员加入」，把同事拉进本项目',
+        icon: const AppIcon('team', size: 18, color: AppColors.textTertiary),
         actionLabel: '去项目概览',
         onAction: () => context.pushReplacement(
           '/projects/${widget.projectId}',
@@ -296,7 +296,7 @@ class _TeamScreenState extends State<TeamScreen> {
       return const AppEmptyState(
         title: '无匹配成员',
         description: '未找到符合搜索条件的成员',
-        icon: AppIcon('search', size: 40, color: AppColors.textTertiary),
+        icon: AppIcon('search', size: 18, color: AppColors.textTertiary),
       );
     }
 
@@ -389,7 +389,7 @@ class _FilterChip extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
@@ -401,7 +401,7 @@ class _FilterChip extends StatelessWidget {
               : (isDarkMode(context)
                   ? AppColors.darkSurfaceVariant
                   : AppColors.surfaceVariant),
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         ),
         child: Text(
           label,

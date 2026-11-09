@@ -90,11 +90,11 @@ class _ReportReviewCardState extends State<ReportReviewCard> {
       const ReportSectionTitle('汇报核验意见'),
       if (report.review case final review?) ...[
         const SizedBox(height: AppSpacing.sm),
-        Text(review.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+        Text(review.label, style: const TextStyle(fontWeight: FontWeight.w500)),
         Text(review.comment),
         if (review.reviewedAt != null)
           Text(formatReportFullDateTime(review.reviewedAt),
-              style: const TextStyle(fontSize: 11)),
+              style: const TextStyle(fontSize: 12)),
       ],
       if (_message != null) ...[
         const SizedBox(height: AppSpacing.sm),

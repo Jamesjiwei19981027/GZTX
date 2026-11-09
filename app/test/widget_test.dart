@@ -86,7 +86,7 @@ void main() {
 
     // 原生版启动后，未登录状态下重定向到登录页面
     expect(find.byType(LoginScreen), findsOneWidget);
-    expect(find.text('欢迎回来'), findsOneWidget);
+    expect(find.text('登录'), findsOneWidget);
 
     // 原生版启动后清除历史明文令牌
     expect(prefs.containsKey('access_token'), false);

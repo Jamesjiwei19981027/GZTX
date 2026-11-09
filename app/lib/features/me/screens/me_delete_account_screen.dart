@@ -180,7 +180,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                       ),
                     MeCard(
                       title: '我的数据概览',
-                      footer: '注销前请先导出需要保留的数据；已产生的任务与协作记录保留在所属项目中。',
+                      footer: '注销前请先导出需要保留的数据；已产生的任务与协作记录保留在所属项目中',
                       children: [
                         for (final entry
                             in (_privacy?.storedData ?? const {}).entries)
@@ -198,7 +198,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                           label: '导出我的数据',
                           variant: AppButtonVariant.secondary,
                           isFullWidth: true,
-                          icon: const AppIcon('folder', size: 16),
+                          icon: const AppIcon('folder', size: 18),
                           isLoading: _exporting,
                           onPressed:
                               _exporting || _submitting ? null : _exportData,
@@ -230,7 +230,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                                 ),
                                 child: const AppIcon(
                                   'alert',
-                                  size: 20,
+                                  size: 18,
                                   color: AppColors.danger,
                                 ),
                               ),
@@ -240,7 +240,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                                   '永久注销此账号',
                                   style: TextStyle(
                                     fontSize: 16,
-                                    fontWeight: FontWeight.w700,
+                                    fontWeight: FontWeight.w500,
                                     color: AppColors.danger,
                                   ),
                                 ),
@@ -265,7 +265,7 @@ class _MeDeleteAccountScreenState extends State<MeDeleteAccountScreen> {
                             '需要保留的数据请在注销前导出',
                           ])
                             Padding(
-                              padding: const EdgeInsets.only(top: 2),
+                              padding: const EdgeInsets.only(top: 4),
                               child: Text(
                                 '• $item',
                                 style: TextStyle(

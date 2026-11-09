@@ -152,8 +152,8 @@ class _WikiDraftScreenState extends State<WikiDraftScreen> {
               Text(
                 fact.lineLabel,
                 style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                   letterSpacing: 0.3,
                   color: isDark ? const Color(0xFF9EC7FF) : AppColors.primary,
                 ),
@@ -163,11 +163,14 @@ class _WikiDraftScreenState extends State<WikiDraftScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF10263F) : const Color(0xFFF2F7FF),
+                  color: isDark
+                      ? const Color(0xFF10263F)
+                      : const Color(0xFFF2F7FF),
                   borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
                   border: Border.all(
-                    color:
-                        isDark ? const Color(0xFF1C3F63) : const Color(0xFFCFE0FA),
+                    color: isDark
+                        ? const Color(0xFF1C3F63)
+                        : const Color(0xFFCFE0FA),
                   ),
                 ),
                 child: Text(
@@ -226,7 +229,7 @@ class _WikiDraftScreenState extends State<WikiDraftScreen> {
     if (_notFound || _draft == null) {
       return AppErrorState(
         title: '草稿不可用',
-        message: '该草稿不存在或已发布，请返回项目知识查看最新内容。',
+        message: '该草稿不存在或已发布，请返回项目知识查看最新内容',
         retryLabel: '刷新',
         onRetry: _load,
       );
@@ -253,7 +256,7 @@ class _WikiDraftScreenState extends State<WikiDraftScreen> {
             style: TextStyle(
               fontSize: 20,
               height: 1.3,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w500,
               color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
@@ -281,7 +284,7 @@ class _WikiDraftScreenState extends State<WikiDraftScreen> {
           EvidenceCard(
             child: Text(
               (draft.bodyText ?? '').trim().isEmpty
-                  ? '本次草稿没有正文，请回到材料重新生成。'
+                  ? '本次草稿没有正文，请回到材料重新生成'
                   : draft.bodyText!.trim(),
               style: TextStyle(
                 fontSize: 14,
@@ -297,7 +300,7 @@ class _WikiDraftScreenState extends State<WikiDraftScreen> {
           if (draft.facts.isEmpty)
             const EvidenceCard(
               child: Text(
-                '本次草稿未附带原文引用。',
+                '本次草稿未附带原文引用',
                 style: TextStyle(fontSize: 13, color: AppColors.textTertiary),
               ),
             )
@@ -324,8 +327,8 @@ class _WikiDraftScreenState extends State<WikiDraftScreen> {
           const SizedBox(height: AppSpacing.lg),
           EvidenceBanner(
             message: canPublish
-                ? '发布后项目成员可见；请先核实 AI 生成的结论与引用。'
-                : '当前账号没有项目知识管理权限，只能查看草稿，发布请联系项目知识管理员。',
+                ? '发布后项目成员可见；请先核实 AI 生成的结论与引用'
+                : '当前账号没有项目知识管理权限，只能查看草稿，发布请联系项目知识管理员',
             type: canPublish
                 ? EvidenceBannerType.warning
                 : EvidenceBannerType.info,
@@ -373,8 +376,9 @@ class _FactMetaRow extends StatelessWidget {
               label,
               style: TextStyle(
                 fontSize: 13,
-                color:
-                    isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+                color: isDark
+                    ? AppColors.darkTextTertiary
+                    : AppColors.textTertiary,
               ),
             ),
           ),

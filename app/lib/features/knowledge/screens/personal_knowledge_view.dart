@@ -186,14 +186,14 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
                   children: [
                     AppButton(
                       label: '记一条',
-                      icon: const AppIcon('plus', size: 16),
+                      icon: const AppIcon('plus', size: 18),
                       onPressed:
                           controller.isPending ? null : () => _openEditor(),
                     ),
                     AppButton(
                       label: controller.organizing ? 'AI 正在整理…' : 'AI 整理',
                       variant: AppButtonVariant.secondary,
-                      icon: const AppIcon('ai', size: 16),
+                      icon: const AppIcon('ai', size: 18),
                       onPressed: controller.isPending || controller.isLoading
                           ? null
                           : _organize,
@@ -213,7 +213,7 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
               child: AppTextField(
                 controller: _search,
                 placeholder: '搜索标题、正文或标签',
-                prefix: const AppIcon('search', size: 16),
+                prefix: const AppIcon('search', size: 18),
                 onChanged: controller.setSearch,
               ),
             ),
@@ -279,12 +279,12 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
         horizontal: AppSpacing.lg,
         vertical: AppSpacing.sm,
       ),
-      color: isDark ? AppColors.darkSurfaceVariant : AppColors.primaryLight,
+      color: isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant,
       child: Text(
         '仅自己可见 · AI 帮你找关联，原始资料保留',
         style: TextStyle(
           fontSize: 12,
-          color: isDark ? AppColors.darkTextSecondary : AppColors.primary,
+          color: AppColors.textSecondaryOf(isDark),
         ),
       ),
     );
@@ -306,12 +306,16 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
         ),
         child: Row(
           children: [
-            AppIcon('alert', size: 16, color: AppColors.onDangerContainerOf(isDarkMode(context))),
+            AppIcon('alert',
+                size: 18,
+                color: AppColors.onDangerContainerOf(isDarkMode(context))),
             const SizedBox(width: AppSpacing.sm),
             Expanded(
               child: Text(
                 controller.error!,
-                style: TextStyle(fontSize: 12, color: AppColors.onDangerContainerOf(isDarkMode(context))),
+                style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.onDangerContainerOf(isDarkMode(context))),
               ),
             ),
           ],
@@ -339,11 +343,10 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
         child: AppEmptyState(
           icon: const AppIcon(
             'knowledge',
-            size: 48,
-            color: AppColors.primary,
+            size: 18,
           ),
           title: '记下第一条工作积累',
-          description: '点“记一条”写下想法，或让 AI 整理你已有的材料和汇报。',
+          description: '点“记一条”写下想法，或让 AI 整理你已有的材料和汇报',
           actionLabel: '记一条',
           onAction: () => _openEditor(),
         ),
@@ -353,7 +356,7 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
       return const KnowledgeStateContainer(
         child: AppEmptyState(
           title: '没有找到相关内容',
-          description: '换个关键词试试。',
+          description: '换个关键词试试',
         ),
       );
     }
@@ -391,7 +394,7 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
                           entry.title,
                           style: TextStyle(
                             fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: isDark
                                 ? AppColors.darkTextPrimary
                                 : AppColors.textPrimary,
@@ -402,7 +405,7 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
                       Text(
                         entry.sourceLabel,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           color: isDark
                               ? AppColors.darkTextTertiary
                               : AppColors.textTertiary,
@@ -433,7 +436,7 @@ class _PersonalKnowledgeViewState extends State<PersonalKnowledgeView> {
                           Text(
                             '#$tag',
                             style: const TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               color: AppColors.primary,
                             ),
                           ),

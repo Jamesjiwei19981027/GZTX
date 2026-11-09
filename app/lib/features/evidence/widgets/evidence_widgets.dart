@@ -22,7 +22,7 @@ class EvidenceSectionTitle extends StatelessWidget {
         text,
         style: TextStyle(
           fontSize: 12,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w500,
           letterSpacing: 0.4,
           color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
         ),
@@ -101,7 +101,7 @@ class EvidenceBanner extends StatelessWidget {
                     ),
             )
           else
-            AppIcon(icon ?? 'info', size: 16, color: fg),
+            AppIcon(icon ?? 'info', size: 18, color: fg),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
@@ -117,13 +117,13 @@ class EvidenceBanner extends StatelessWidget {
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppSpacing.xs,
-                  vertical: 2,
+                  vertical: 4,
                 ),
                 child: Text(
                   actionLabel!,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: fg,
                     decoration: TextDecoration.underline,
                   ),
@@ -175,14 +175,14 @@ class EvidenceStatusChip extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: fg),
       ),
     );
   }
@@ -221,7 +221,10 @@ class EvidenceFileTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const AppIcon('file', size: 18, color: AppColors.primary),
+          const AppIcon(
+            'file',
+            size: 18,
+          ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Column(
@@ -234,13 +237,13 @@ class EvidenceFileTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
                   maxLines: 2,
@@ -266,7 +269,7 @@ class EvidenceFileTile extends StatelessWidget {
                   padding: const EdgeInsets.all(AppSpacing.sm),
                   child: AppIcon(
                     'close',
-                    size: 16,
+                    size: 18,
                     color: removeEnabled
                         ? (isDark
                             ? AppColors.darkTextTertiary
@@ -282,9 +285,8 @@ class EvidenceFileTile extends StatelessWidget {
                   ? CupertinoIcons.chevron_forward
                   : Icons.chevron_right,
               size: 18,
-              color: isDark
-                  ? AppColors.darkTextTertiary
-                  : AppColors.textTertiary,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
         ],
       ),

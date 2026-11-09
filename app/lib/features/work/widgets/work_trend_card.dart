@@ -108,10 +108,12 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
             borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
             child: Container(
               constraints: const BoxConstraints(minHeight: 32),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: selected
-                    ? (isDark ? AppColors.darkSurfaceVariant : const Color(0xFFEAF1FC))
+                    ? (isDark
+                        ? AppColors.darkSurfaceVariant
+                        : const Color(0xFFEAF1FC))
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
               ),
@@ -119,7 +121,7 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
                 _periodLabels[value]!,
                 style: TextStyle(
                   fontSize: 12,
-                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  fontWeight: selected ? FontWeight.w500 : FontWeight.w500,
                   color: selected
                       ? AppColors.primary
                       : (isDark
@@ -137,8 +139,9 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
           Text(
             widget.projectId == null ? '全部可见任务' : '当前项目及个人待办',
             style: TextStyle(
-              fontSize: 11,
-              color: isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
+              fontSize: 12,
+              color:
+                  isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
           ),
           const SizedBox(height: AppSpacing.md),
@@ -152,7 +155,8 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
                   SizedBox(width: AppSpacing.sm),
                   Text(
                     '正在同步趋势…',
-                    style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                    style:
+                        TextStyle(fontSize: 13, color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -181,18 +185,18 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
               children: [
                 Text(
                   '新增 ${_trend?.totalCreated ?? 0}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondaryOf(isDark),
                   ),
                 ),
                 Text(
                   '完成 ${_trend?.totalCompleted ?? 0}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF047857),
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondaryOf(isDark),
                   ),
                 ),
               ],
@@ -211,7 +215,7 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
                         ? series.first.date.substring(5)
                         : series.first.date,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       color: isDark
                           ? AppColors.darkTextTertiary
                           : AppColors.textTertiary,
@@ -222,7 +226,7 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
                         ? series.last.date.substring(5)
                         : series.last.date,
                     style: TextStyle(
-                      fontSize: 10,
+                      fontSize: 12,
                       color: isDark
                           ? AppColors.darkTextTertiary
                           : AppColors.textTertiary,
@@ -238,7 +242,7 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
               Text(
                 '本周期新建 ${_stats!.total} 项：待办 ${_stats!.pending} · '
                 '进行中 ${_stats!.inProgress} · 已完成 ${_stats!.completed}，'
-                '其中未完成且逾期 ${_stats!.overdue} 项。',
+                '其中未完成且逾期 ${_stats!.overdue} 项',
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.5,
@@ -249,9 +253,9 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
               ),
               const SizedBox(height: 4),
               Text(
-                '上方完成数包含以前创建、本周期完成的任务；首页卡片包含所有日期的任务，因此数量可能不同。',
+                '上方完成数包含以前创建、本周期完成的任务；首页卡片包含所有日期的任务，因此数量可能不同',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   height: 1.4,
                   color: isDark
                       ? AppColors.darkTextTertiary
@@ -267,7 +271,7 @@ class _WorkTrendCardState extends State<WorkTrendCard> {
                     children: series
                         .map(
                           (point) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            padding: const EdgeInsets.symmetric(vertical: 4),
                             child: Text(
                               '${point.date}　新增 ${point.created} / 完成 ${point.completed}',
                               style: TextStyle(

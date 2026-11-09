@@ -37,7 +37,7 @@ void main() {
 
       expect(find.text('未选择项目'), findsOneWidget);
       expect(find.text('请选择具体项目'), findsOneWidget);
-      expect(find.text('智能体会话与上下文按项目隔离，请先切换到具体项目。'), findsOneWidget);
+      expect(find.text('智能体会话与上下文按项目隔离，请先切换到具体项目'), findsOneWidget);
     });
 
     testWidgets('选定项目后展示隔离提示，并可发送对话接收回复', (tester) async {

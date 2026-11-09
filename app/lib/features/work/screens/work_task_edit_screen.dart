@@ -499,7 +499,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
               child: Row(
                 children: [
                   AppIcon('work',
-                      size: 16,
+                      size: 18,
                       color: AppColors.onInfoContainerOf(isDarkMode(context))),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
@@ -569,19 +569,17 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.md,
-                        vertical: 10,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        border: Border.all(
-                          color:
-                              isDark ? AppColors.darkBorder : AppColors.border,
-                        ),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusSm),
-                      ),
+                          border: Border(
+                              bottom: BorderSide(
+                                  color: isDark
+                                      ? AppColors.darkBorder
+                                      : AppColors.border))),
                       child: Row(
                         children: [
-                          const AppIcon('calendar', size: 16),
+                          const AppIcon('calendar', size: 18),
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Text(
@@ -591,7 +589,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                               style: const TextStyle(fontSize: 13),
                             ),
                           ),
-                          const Icon(Icons.arrow_drop_down, size: 20),
+                          const Icon(Icons.arrow_drop_down, size: 18),
                         ],
                       ),
                     ),
@@ -603,19 +601,17 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: AppSpacing.md,
-                        vertical: 10,
+                        vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        border: Border.all(
-                          color:
-                              isDark ? AppColors.darkBorder : AppColors.border,
-                        ),
-                        borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusSm),
-                      ),
+                          border: Border(
+                              bottom: BorderSide(
+                                  color: isDark
+                                      ? AppColors.darkBorder
+                                      : AppColors.border))),
                       child: Row(
                         children: [
-                          const AppIcon('time', size: 16),
+                          const AppIcon('time', size: 18),
                           const SizedBox(width: AppSpacing.sm),
                           Expanded(
                             child: Text(
@@ -625,7 +621,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                               style: const TextStyle(fontSize: 13),
                             ),
                           ),
-                          const Icon(Icons.arrow_drop_down, size: 20),
+                          const Icon(Icons.arrow_drop_down, size: 18),
                         ],
                       ),
                     ),
@@ -675,7 +671,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
             const SizedBox(height: AppSpacing.md),
             WorkSection(
               title: '执行人员',
-              footer: '多选成员限定在当前项目范围内，可随时清空指派。',
+              footer: '多选成员限定在当前项目范围内，可随时清空指派',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -781,7 +777,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
                           ),
                           IconButton(
                             tooltip: '删除清单项',
-                            icon: const Icon(Icons.close, size: 16),
+                            icon: const Icon(Icons.close, size: 18),
                             onPressed: () => setState(() {
                               _checklist = _checklist
                                   .where((e) => e.id != item.id)

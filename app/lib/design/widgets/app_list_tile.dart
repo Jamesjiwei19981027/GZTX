@@ -10,6 +10,7 @@ class AppListTile extends StatelessWidget {
   const AppListTile({
     super.key,
     required this.title,
+    this.titleStyle,
     this.subtitle,
     this.leading,
     this.trailing,
@@ -18,6 +19,7 @@ class AppListTile extends StatelessWidget {
   });
 
   final String title;
+  final TextStyle? titleStyle;
   final String? subtitle;
   final Widget? leading;
   final Widget? trailing;
@@ -40,11 +42,12 @@ class AppListTile extends StatelessWidget {
 
     final titleWidget = Text(
       title,
-      style: TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
-        color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
-      ),
+      style: titleStyle ??
+          TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+            color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
+          ),
     );
 
     final subtitleWidget = subtitle != null
@@ -76,7 +79,10 @@ class AppListTile extends StatelessWidget {
       leading: leading,
       trailing: trailing ?? chevronWidget,
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      minTileHeight: subtitle == null ? 48 : 72,
+      minLeadingWidth: 18,
+      horizontalTitleGap: 12,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
     );
   }
 }

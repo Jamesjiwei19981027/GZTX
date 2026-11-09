@@ -56,7 +56,7 @@ class AppScaffold extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: AppIcon(
             isIos ? 'chevron-left' : 'back',
-            size: isIos ? 24 : 22,
+            size: 18,
             color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
           ),
         ),
@@ -84,7 +84,10 @@ class AppScaffold extends StatelessWidget {
     if (isIos) {
       scaffold = CupertinoPageScaffold(
         backgroundColor: effectiveBgColor,
-        navigationBar: (title != null || titleWidget != null || actions != null || leading != null)
+        navigationBar: (title != null ||
+                titleWidget != null ||
+                actions != null ||
+                leading != null)
             ? CupertinoNavigationBar(
                 backgroundColor: (isDark ? AppColors.darkSurface : Colors.white)
                     .withValues(alpha: 0.92),
@@ -131,7 +134,10 @@ class AppScaffold extends StatelessWidget {
     } else {
       scaffold = Scaffold(
         backgroundColor: effectiveBgColor,
-        appBar: (title != null || titleWidget != null || actions != null || leading != null)
+        appBar: (title != null ||
+                titleWidget != null ||
+                actions != null ||
+                leading != null)
             ? AppBar(
                 backgroundColor: isDark ? AppColors.darkSurface : Colors.white,
                 elevation: 0,

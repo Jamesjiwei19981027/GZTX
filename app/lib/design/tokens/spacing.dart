@@ -19,7 +19,8 @@ class AppSpacing {
 
   // 基础圆角
   static const double radiusSm = 6.0;
-  static const double radiusMd = 10.0;
-  static const double radiusLg = 16.0;
+  static const double radiusMd = 8.0;
+  static const double radiusLg = 12.0;
+  static const double radiusXl = 16.0;
   static const double radiusFull = 999.0;
 }

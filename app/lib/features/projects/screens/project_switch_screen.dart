@@ -87,7 +87,7 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
           IconButton(
             tooltip: '切换公司',
             onPressed: _refreshing ? null : _selectCompany,
-            icon: const AppIcon('team', size: 20),
+            icon: const AppIcon('team', size: 18),
           ),
         if (_refreshing)
           const Padding(
@@ -100,7 +100,7 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
             onTap: _refresh,
             child: const Padding(
               padding: EdgeInsets.symmetric(horizontal: 12),
-              child: AppIcon('refresh', size: 20),
+              child: AppIcon('refresh', size: 18),
             ),
           ),
       ],
@@ -117,8 +117,8 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
     if (company == null) {
       return AppEmptyState(
         title: '尚未加入任何公司',
-        description: '创建或加入公司工作区后，才能新建协同项目。',
-        icon: const AppIcon('folder', size: 44, color: AppColors.textTertiary),
+        description: '创建或加入公司工作区后，才能新建协同项目',
+        icon: const AppIcon('folder', size: 18, color: AppColors.textTertiary),
         actionLabel: '创建新企业/团队公司',
         onAction: () => context.push('/projects/company/create'),
       );
@@ -127,8 +127,8 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
     if (projects.isEmpty) {
       return AppEmptyState(
         title: '当前工作区暂无项目',
-        description: '新建项目后即可邀请同事一起推进任务。',
-        icon: const AppIcon('folder', size: 44, color: AppColors.textTertiary),
+        description: '新建项目后即可邀请同事一起推进任务',
+        icon: const AppIcon('folder', size: 18, color: AppColors.textTertiary),
         actionLabel: '新建项目',
         onAction: () => context.pushNamed('project-create'),
       );
@@ -140,16 +140,20 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
       children: [
         AppListSection(
           header: '全局视图',
-          footer: '“全部项目”仅作为个人待办与日程汇总，不合并各项目的原始 AI 与人轴上下文。',
+          footer: '“全部项目”仅作为个人待办与日程汇总，不合并各项目的原始 AI 与人轴上下文',
           children: [
             AppListTile(
-              leading:
-                  const AppIcon('work', size: 20, color: AppColors.primary),
+              leading: const AppIcon(
+                'work',
+                size: 18,
+              ),
               title: '全部项目',
               subtitle: '个人跨项目待办与日历总览',
               showChevron: false,
               trailing: context.authState.allProjectsSelected
-                  ? const AppIcon('check', color: AppColors.primary)
+                  ? const AppIcon(
+                      'check',
+                    )
                   : const ProjectChip(label: '工作台'),
               onTap: () {
                 context.authStateRead.selectAllProjects();
@@ -171,8 +175,7 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
                 trailing: current?.id == project.id
                     ? const AppIcon(
                         'check',
-                        size: 20,
-                        color: AppColors.primary,
+                        size: 18,
                       )
                     : null,
                 onTap: () => _selectProject(project),
@@ -196,7 +199,7 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
                 variant: AppButtonVariant.secondary,
                 size: AppButtonSize.sm,
                 isFullWidth: true,
-                icon: const AppIcon('folder', size: 16),
+                icon: const AppIcon('folder', size: 18),
                 onPressed: () => context.push('/projects/company/create'),
               ),
             ],

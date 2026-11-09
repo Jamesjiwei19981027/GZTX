@@ -309,21 +309,21 @@ class _MeProfileScreenState extends State<MeProfileScreen> {
                 child: GestureDetector(
                   onTap: _uploading ? null : _changeAvatar,
                   child: Container(
-                    padding: const EdgeInsets.all(7),
+                    padding: const EdgeInsets.all(8),
                     decoration: const BoxDecoration(
                       color: AppColors.primary,
                       shape: BoxShape.circle,
                     ),
                     child: _uploading
                         ? const SizedBox(
-                            width: 14,
-                            height: 14,
+                            width: 16,
+                            height: 16,
                             child: CircularProgressIndicator(
                               strokeWidth: 1.8,
                               color: Colors.white,
                             ),
                           )
-                        : const AppIcon('edit', size: 14, color: Colors.white),
+                        : const AppIcon('edit', size: 18, color: Colors.white),
                   ),
                 ),
               ),

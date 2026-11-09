@@ -156,7 +156,7 @@ void main() {
     await settle(tester);
 
     expect(find.text('支撑文件（0）'), findsOneWidget);
-    expect(find.text('本次材料没有附件，仅提交了文字说明。'), findsOneWidget);
+    expect(find.text('本次材料没有附件，仅提交了文字说明'), findsOneWidget);
   });
 
   testWidgets('有 AuthState 且项目在列表里时，页面显示项目名称，不出现“项目 #”', (tester) async {

@@ -172,7 +172,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
         actions: [
           IconButton(
             tooltip: '刷新',
-            icon: const AppIcon('refresh', size: 20),
+            icon: const AppIcon('refresh', size: 18),
             onPressed: _loading ? null : _load,
           ),
         ],
@@ -254,7 +254,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
   }) {
     final isDark = isDarkMode(context);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: showDivider
           ? BoxDecoration(
               border: Border(
@@ -275,17 +275,17 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
                   title,
                   style: TextStyle(
                     fontSize: 14.5,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
                   subtitle,
                   style: TextStyle(
-                    fontSize: 11.5,
+                    fontSize: 12,
                     color: isDark
                         ? AppColors.darkTextSecondary
                         : AppColors.textSecondary,
@@ -306,7 +306,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
   Widget _quietHoursCard() {
     return MeCard(
       title: '免打扰模式',
-      footer: '免打扰时段内除加急任务外静默接收；周末静音可关闭周六与周日的主动推送。',
+      footer: '免打扰时段内除加急任务外静默接收；周末静音可关闭周六与周日的主动推送',
       children: [
         Row(
           children: [
@@ -367,7 +367,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
   Widget _testCard() {
     return MeCard(
       title: '测试发送与记录',
-      footer: '测试发送会真实调用后端渠道，并写入「通知发送记录」。',
+      footer: '测试发送会真实调用后端渠道，并写入「通知发送记录」',
       children: [
         AppButton(
           label: '发送测试邮件',
@@ -387,7 +387,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
           label: '查看通知发送记录',
           variant: AppButtonVariant.secondary,
           isFullWidth: true,
-          icon: const AppIcon('clock', size: 15),
+          icon: const AppIcon('clock', size: 18),
           onPressed: () => context.push('/me/notify-logs'),
         ),
       ],

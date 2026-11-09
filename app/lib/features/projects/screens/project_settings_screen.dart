@@ -132,7 +132,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
                 content: SizedBox(
                     width: double.maxFinite,
                     child: candidates.isEmpty
-                        ? const Text('暂无可交接的在职企业成员，请先邀请成员加入。')
+                        ? const Text('暂无可交接的在职企业成员，请先邀请成员加入')
                         : ListView(shrinkWrap: true, children: [
                             for (final member in candidates)
                               ListTile(
@@ -155,7 +155,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
       final confirmed = await showAppConfirmDialog(
           context: context,
           title: '确认更换项目负责人？',
-          message: '交接后新负责人将获得项目管理权限，原负责人恢复为项目成员。',
+          message: '交接后新负责人将获得项目管理权限，原负责人恢复为项目成员',
           confirmLabel: '确认交接');
       if (!mounted ||
           !confirmed ||
@@ -213,7 +213,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     final confirmed = await showAppConfirmDialog(
         context: context,
         title: '确认取消归档？',
-        message: '取消归档后将恢复项目编辑与汇报。',
+        message: '取消归档后将恢复项目编辑与汇报',
         confirmLabel: '确认取消归档');
     if (!confirmed ||
         !mounted ||
@@ -281,7 +281,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '确认归档项目？',
-      message: '归档后项目所有任务、人轴与资料将转为只读历史存档，普通成员不可再提交新汇报。',
+      message: '归档后项目所有任务、人轴与资料将转为只读历史存档，普通成员不可再提交新汇报',
       confirmLabel: '确认归档',
       isDestructive: true,
     );
@@ -319,7 +319,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
     final confirmed = await showAppConfirmDialog(
       context: context,
       title: '确认退出项目？',
-      message: '退出后将失去该项目任务、人轴与资料的访问权限，需要重新受邀才能加入。',
+      message: '退出后将失去该项目任务、人轴与资料的访问权限，需要重新受邀才能加入',
       confirmLabel: '确认退出',
       isDestructive: true,
     );
@@ -474,7 +474,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
               AppListTile(
                 leading: const AppIcon(
                   'archive',
-                  size: 20,
+                  size: 18,
                   color: AppColors.danger,
                 ),
                 title: archived ? '取消归档' : '归档此项目',
@@ -488,7 +488,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
           const Padding(
             padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: InfoBanner(
-              message: '你是项目负责人，需先把 PM 转让给其他成员后才能退出项目。',
+              message: '你是项目负责人，需先把 PM 转让给其他成员后才能退出项目',
               tone: InfoBannerTone.info,
               icon: 'info',
             ),
@@ -500,7 +500,7 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
               AppListTile(
                 leading: const AppIcon(
                   'logout',
-                  size: 20,
+                  size: 18,
                   color: AppColors.danger,
                 ),
                 title: '退出项目',

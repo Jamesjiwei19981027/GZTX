@@ -185,7 +185,7 @@ class _AdminAsrConfigScreenState extends State<AdminAsrConfigScreen> {
                         ),
                       MeCard(
                         title: 'ASR 转写引擎',
-                        footer: '用于会议语音记录与汇报录音转写；前端按需申请麦克风权限，录音结束后才上传音频。',
+                        footer: '用于会议语音记录与汇报录音转写；前端按需申请麦克风权限，录音结束后才上传音频',
                         children: [
                           const MeFieldLabel(label: '选择转写模型提供商'),
                           for (final (id, label) in _engines)
@@ -195,7 +195,7 @@ class _AdminAsrConfigScreenState extends State<AdminAsrConfigScreen> {
                                   BorderRadius.circular(AppSpacing.radiusMd),
                               child: Padding(
                                 padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
+                                    const EdgeInsets.symmetric(vertical: 12),
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -203,7 +203,7 @@ class _AdminAsrConfigScreenState extends State<AdminAsrConfigScreen> {
                                         label,
                                         style: TextStyle(
                                           fontSize: 14,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w500,
                                           color: isDark
                                               ? AppColors.darkTextPrimary
                                               : AppColors.textPrimary,
@@ -214,10 +214,9 @@ class _AdminAsrConfigScreenState extends State<AdminAsrConfigScreen> {
                                       const AppIcon(
                                         'check',
                                         size: 18,
-                                        color: AppColors.primary,
                                       )
                                     else
-                                      const SizedBox(width: 18),
+                                      const SizedBox(width: 20),
                                   ],
                                 ),
                               ),
@@ -274,7 +273,7 @@ class _AdminAsrConfigScreenState extends State<AdminAsrConfigScreen> {
                           const SizedBox(height: AppSpacing.md),
                           const MeFieldLabel(label: '音频采样率'),
                           Text(
-                            '小程序优先 16000 Hz 单声道；Web 与 APP 由设备选择录音编码。',
+                            '小程序优先 16000 Hz 单声道；Web 与 APP 由设备选择录音编码',
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.5,
@@ -307,7 +306,7 @@ class _AdminAsrConfigScreenState extends State<AdminAsrConfigScreen> {
     return GestureDetector(
       onTap: () => setState(() => _language = value),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 9),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: selected ? AppColors.primary : Colors.transparent,
@@ -323,7 +322,7 @@ class _AdminAsrConfigScreenState extends State<AdminAsrConfigScreen> {
           textAlign: TextAlign.center,
           style: TextStyle(
             fontSize: 12,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
             color: selected
                 ? Colors.white
                 : (isDark ? AppColors.darkTextPrimary : AppColors.textPrimary),

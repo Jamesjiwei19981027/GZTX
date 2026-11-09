@@ -53,7 +53,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   void initState() {
     super.initState();
-    for (final c in [_username, _email, _emailCode, _phone, _phoneCode, _password, _confirm]) {
+    for (final c in [
+      _username,
+      _email,
+      _emailCode,
+      _phone,
+      _phoneCode,
+      _password,
+      _confirm
+    ]) {
       c.addListener(_onFormChanged);
     }
   }
@@ -238,7 +246,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  '创建账号开启项目敏捷协同与智能汇报',
+                  '创建账号后记录任务、提交材料与汇报进展',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark

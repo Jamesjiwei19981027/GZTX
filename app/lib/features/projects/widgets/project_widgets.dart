@@ -29,7 +29,7 @@ class ProjectAvatar extends StatelessWidget {
         initial,
         style: TextStyle(
           fontSize: size / 2.6,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w500,
           color: AppColors.primary,
         ),
       ),
@@ -72,7 +72,7 @@ class MemberAvatar extends StatelessWidget {
         member.initial,
         style: TextStyle(
           fontSize: size / 2.8,
-          fontWeight: FontWeight.bold,
+          fontWeight: FontWeight.w500,
           color: AppColors.primary,
         ),
       ),
@@ -164,7 +164,7 @@ class ProjectChip extends StatelessWidget {
             isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
@@ -172,8 +172,8 @@ class ProjectChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          fontSize: 11,
-          fontWeight: highlighted ? FontWeight.w700 : FontWeight.w500,
+          fontSize: 12,
+          fontWeight: highlighted ? FontWeight.w500 : FontWeight.w500,
           color: foreground,
         ),
       ),
@@ -225,7 +225,7 @@ class InfoBanner extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: AppSpacing.md,
-        vertical: AppSpacing.sm + 2,
+        vertical: AppSpacing.sm + 4,
       ),
       decoration: BoxDecoration(
         color: background,
@@ -236,7 +236,7 @@ class InfoBanner extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 1),
-            child: AppIcon(icon, size: 16, color: foreground),
+            child: AppIcon(icon, size: 18, color: foreground),
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
@@ -292,7 +292,7 @@ class SectionCard extends StatelessWidget {
                     title!,
                     style: TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
@@ -328,12 +328,12 @@ class InlineTextButton extends StatelessWidget {
       onTap: onPressed,
       borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         child: Text(
           label,
           style: const TextStyle(
             fontSize: 13,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w500,
             color: AppColors.primary,
           ),
         ),

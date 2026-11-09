@@ -366,8 +366,8 @@ class _LoginScreenState extends State<LoginScreen> {
                     type: AuthBannerType.hint,
                   ),
                 const Text(
-                  '欢迎回来',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  '登录',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
@@ -425,7 +425,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   '继续操作即代表您已同意使用规范与工作数据保护声明',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: isDark
                         ? AppColors.darkTextTertiary
                         : AppColors.textTertiary,
@@ -444,23 +444,13 @@ class _LoginScreenState extends State<LoginScreen> {
       padding: const EdgeInsets.only(bottom: AppSpacing.xl),
       child: Column(
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
-            ),
-            child: const Center(
-              child: AppIcon('work', size: 30, color: AppColors.primary),
-            ),
-          ),
+          const AppBrandMark(size: 56),
           const SizedBox(height: AppSpacing.md),
           Text(
             Brand.name,
             style: TextStyle(
               fontSize: 24,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w500,
               color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),

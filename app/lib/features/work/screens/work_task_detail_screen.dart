@@ -140,7 +140,8 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
       await _load();
     } catch (error) {
       if (!mounted) return;
-      showAppToast(context, describeError(error).message, type: ToastType.error);
+      showAppToast(context, describeError(error).message,
+          type: ToastType.error);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -166,7 +167,8 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
     } catch (error) {
       if (!mounted) return;
       setState(() => _busy = false);
-      showAppToast(context, describeError(error).message, type: ToastType.error);
+      showAppToast(context, describeError(error).message,
+          type: ToastType.error);
     }
   }
 
@@ -206,25 +208,22 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                           children: [
                             Text(
                               _task!.title,
-                              style: TextStyle(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w700,
-                                height: 1.35,
-                                color: _task!.isDone
-                                    ? (isDark
-                                        ? AppColors.darkTextTertiary
-                                        : AppColors.textTertiary)
-                                    : (isDark
-                                        ? AppColors.darkTextPrimary
-                                        : AppColors.textPrimary),
-                                decoration: _task!.isDone
-                                    ? TextDecoration.lineThrough
-                                    : null,
+                              style: completedTitleStyle(
+                                isDark: isDark,
+                                completed: _task!.isDone,
+                                base: TextStyle(
+                                  fontSize: 19,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.35,
+                                  color: isDark
+                                      ? AppColors.darkTextPrimary
+                                      : AppColors.textPrimary,
+                                ),
                               ),
                             ),
                             const SizedBox(height: AppSpacing.sm),
                             Wrap(
-                              spacing: 6,
+                              spacing: 8,
                               runSpacing: 4,
                               children: [
                                 WorkStatusBadge(status: _task!.status),
@@ -236,7 +235,8 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                                 ),
                                 if (_task!.categoryName != null &&
                                     _task!.categoryName!.isNotEmpty)
-                                  _pill(_task!.categoryName!, AppColors.textSecondary),
+                                  _pill(_task!.categoryName!,
+                                      AppColors.textSecondary),
                               ],
                             ),
                           ],
@@ -257,34 +257,43 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                     Container(
                       padding: const EdgeInsets.all(AppSpacing.md),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF5EDFF),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                        border: Border.all(color: const Color(0xFFE0C9FF)),
+                        color: isDark
+                            ? AppColors.darkSurfaceVariant
+                            : AppColors.surfaceVariant,
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
+                        border: Border.all(
+                            color: isDark
+                                ? AppColors.darkBorder
+                                : AppColors.border),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              AppIcon('axis', size: 16, color: Color(0xFF7C3AED)),
-                              SizedBox(width: 6),
+                              const AppIcon(
+                                'axis',
+                                size: 18,
+                              ),
+                              const SizedBox(width: 8),
                               Text(
                                 '人轴责任链关联事项（只读）',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: Color(0xFF6D28D9),
+                                  fontWeight: FontWeight.w500,
+                                  color: AppColors.textSecondaryOf(isDark),
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            '此任务由人轴事项节点同步生成，实施状态与交付证据由责任链统一把控，不能在待办中直接勾选完成。',
+                          Text(
+                            '此任务由人轴事项节点同步生成，实施状态与交付证据由责任链统一把控，不能在待办中直接勾选完成',
                             style: TextStyle(
                               fontSize: 12,
                               height: 1.5,
-                              color: Color(0xFF6D28D9),
+                              color: AppColors.textSecondaryOf(isDark),
                             ),
                           ),
                           if (_task!.projectNodeId != null)
@@ -308,7 +317,8 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                         color: isDark
                             ? AppColors.darkSurfaceVariant
                             : const Color(0xFFF6F7F9),
-                        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.radiusMd),
                       ),
                       child: Text(
                         _task!.description!,
@@ -332,8 +342,11 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                         if (_task!.isRecurring)
                           _propertyRow('重复规则', _task!.recurrenceRule ?? '周期重复'),
                         _propertyRow('执行人员', _task!.assigneeText),
-                        _propertyRow('所属项目',
-                            _task!.projectId == null ? '个人待办' : _projectLabel(_task!.projectId!)),
+                        _propertyRow(
+                            '所属项目',
+                            _task!.projectId == null
+                                ? '个人待办'
+                                : _projectLabel(_task!.projectId!)),
                       ],
                     ),
                   ),
@@ -365,16 +378,15 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                                     Expanded(
                                       child: Text(
                                         item.title,
-                                        style: TextStyle(
-                                          fontSize: 13,
-                                          color: item.completed
-                                              ? AppColors.textTertiary
-                                              : (isDark
-                                                  ? AppColors.darkTextPrimary
-                                                  : AppColors.textPrimary),
-                                          decoration: item.completed
-                                              ? TextDecoration.lineThrough
-                                              : null,
+                                        style: completedTitleStyle(
+                                          isDark: isDark,
+                                          completed: item.completed,
+                                          base: TextStyle(
+                                            fontSize: 13,
+                                            color: isDark
+                                                ? AppColors.darkTextPrimary
+                                                : AppColors.textPrimary,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -394,7 +406,9 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
                     rows: _history,
                     onToggle: () {
                       setState(() => _historyOpen = !_historyOpen);
-                      if (_historyOpen && _history.isEmpty && !_historyLoading) {
+                      if (_historyOpen &&
+                          _history.isEmpty &&
+                          !_historyLoading) {
                         _loadHistory();
                       }
                     },
@@ -416,21 +430,22 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
   }
 
   Widget _pill(String text, Color color) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
           text,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+          style: TextStyle(
+              fontSize: 12, fontWeight: FontWeight.w500, color: color),
         ),
       );
 
   Widget _propertyRow(String label, String value) => Padding(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.lg,
-          vertical: 10,
+          vertical: 12,
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -448,7 +463,15 @@ class _WorkTaskDetailScreenState extends State<WorkTaskDetailScreen> {
             Expanded(
               child: Text(
                 value,
-                style: const TextStyle(fontSize: 13, height: 1.4),
+                style: TextStyle(
+                  fontSize: 13,
+                  height: 1.4,
+                  color: value == '未指定' || value == '未设置' || value == '暂无'
+                      ? AppColors.textTertiaryOf(isDarkMode(context))
+                      : label == '截止时间' && (_task?.isOverdue ?? false)
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.onSurface,
+                ),
               ),
             ),
           ],
@@ -508,7 +531,7 @@ class _ScheduleHistorySection extends StatelessWidget {
             )
           else if (rows.isEmpty)
             const Text(
-              '暂无修改记录；历史记录从本功能启用后开始保留。',
+              '暂无修改记录；历史记录从本功能启用后开始保留',
               style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
             )
           else
@@ -529,10 +552,11 @@ class _ScheduleHistorySection extends StatelessWidget {
                     ),
                   ),
                 const Padding(
-                  padding: EdgeInsets.only(top: 6),
+                  padding: EdgeInsets.only(top: 8),
                   child: Text(
-                    '日程调整不会改写已提交的汇报。',
-                    style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                    '日程调整不会改写已提交的汇报',
+                    style:
+                        TextStyle(fontSize: 12, color: AppColors.textTertiary),
                   ),
                 ),
               ],

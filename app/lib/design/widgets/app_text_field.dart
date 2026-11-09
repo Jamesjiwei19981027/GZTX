@@ -218,7 +218,7 @@ class _AppTextFieldState extends State<AppTextField> {
         suffixIcon: suffixWidget,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         filled: true,
-        fillColor: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF8F9FA),
+        fillColor: isDark ? AppColors.darkSurfaceVariant : AppColors.background,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
           borderSide: BorderSide(

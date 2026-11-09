@@ -32,9 +32,15 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final h = await ReportsTestHarness.create();
-    h.helper.whenGet('/projects/10/report-summaries', {'items': [publishedSummary], 'can_publish': false});
-    h.helper.whenGet('/projects/10/agent-reports', {'code': 403, 'message': '无权查看成员汇报'}, statusCode: 403);
-    await tester.pumpWidget(h.wrapRouted(ProjectReportScreen(api: h.api, projectId: 10)));
+    h.helper.whenGet('/projects/10/report-summaries', {
+      'items': [publishedSummary],
+      'can_publish': false
+    });
+    h.helper.whenGet(
+        '/projects/10/agent-reports', {'code': 403, 'message': '无权查看成员汇报'},
+        statusCode: 403);
+    await tester.pumpWidget(
+        h.wrapRouted(ProjectReportScreen(api: h.api, projectId: 10)));
     await tester.pumpAndSettle();
     expect(find.text('查看已发布版本 600'), findsOneWidget);
     expect(find.text('上周已发布的完整项目摘要'), findsOneWidget);
@@ -49,16 +55,24 @@ void main() {
     final api = _DelayedAggregateApi(h.helper.buildClient());
     final current = ValueNotifier(10);
     addTearDown(current.dispose);
-    await tester.pumpWidget(h.wrapRouted(ValueListenableBuilder<int>(valueListenable: current, builder: (context, pid, _) => ProjectReportScreen(api: api, projectId: pid))));
+    await tester.pumpWidget(h.wrapRouted(ValueListenableBuilder<int>(
+        valueListenable: current,
+        builder: (context, pid, _) =>
+            ProjectReportScreen(api: api, projectId: pid))));
     await tester.pumpAndSettle();
     await tester.tap(find.text('生成 / 更新项目汇总'));
     await tester.pump();
     current.value = 20;
     await tester.pumpAndSettle();
-    expect(tester.widget<AppButton>(find.widgetWithText(AppButton, '生成 / 更新项目汇总')).onPressed, isNotNull);
+    expect(
+        tester
+            .widget<AppButton>(find.widgetWithText(AppButton, '生成 / 更新项目汇总'))
+            .onPressed,
+        isNotNull);
     current.value = 10;
     await tester.pumpAndSettle();
-    api.pending.complete(const ProjectReportAggregate(id: 999, projectId: 10, status: 'aggregated', summaryText: '迟到的旧聚合结果'));
+    api.pending.complete(const ProjectReportAggregate(
+        id: 999, projectId: 10, status: 'aggregated', summaryText: '迟到的旧聚合结果'));
     await tester.pumpAndSettle();
     expect(find.text('迟到的旧聚合结果'), findsNothing);
     expect(find.text('已基于已提交的下属汇报生成最新项目汇总摘要'), findsNothing);
@@ -186,6 +200,16 @@ void main() {
     await tester.pumpWidget(h.wrapRouted(
         ReportDetailScreen(api: h.api, projectId: 10, reportId: 501)));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('验收完成'),
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView).last,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     expect(find.text('验收完成'), findsOneWidget);
     expect(find.text('退回修改'), findsNothing);
   });
@@ -195,5 +219,6 @@ class _DelayedAggregateApi extends ReportsApi {
   _DelayedAggregateApi(super.client);
   final pending = Completer<ProjectReportAggregate>();
   @override
-  Future<ProjectReportAggregate> aggregateProject(int projectId) => pending.future;
+  Future<ProjectReportAggregate> aggregateProject(int projectId) =>
+      pending.future;
 }
