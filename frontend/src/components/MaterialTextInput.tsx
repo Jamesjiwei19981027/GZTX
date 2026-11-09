@@ -70,24 +70,24 @@ const MaterialTextEditor:React.FC<Omit<Parameters<typeof MaterialTextInput>[0],'
       timer.current=setInterval(()=>{elapsed++;if(active.current)setSeconds(elapsed);if(elapsed>=120&&recording.state==='recording')recording.stop();},1000);
     }catch(e){stopTracks();if(active.current&&request===generation.current){const name=e instanceof Error?e.name:'';setError(name==='NotAllowedError'||name==='PermissionDeniedError'?'麦克风权限未开启，请在系统设置中授权，或直接输入文字。':'无法启动录音，请检查麦克风，或选择音频文件。');setPhase('idle');}}
   };
-  return <section aria-label="文字与语音材料" className="space-y-2 text-sm text-slate-800 dark:text-slate-100">
-    {!compact && <label className="block font-medium" htmlFor="material-text-input">文字材料</label>}
+  return <section aria-label="文字与语音材料" className="space-y-2 text-sm text-on-surface dark:text-on-surface">
+    {!compact && <label className="block font-medium tabular-nums" htmlFor="material-text-input">文字材料</label>}
     {!compact && <textarea id="material-text-input" aria-label="文字材料" rows={5} value={value} disabled={disabled} onChange={e=>onChange(e.target.value)}
       placeholder="直接输入工作进展、完成情况或问题；也可以用语音输入，无需先上传文件。"
-      className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-3 outline-none focus:ring-2 focus:ring-blue-400 text-sm select-text" />}
+      className="w-full rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container-lowest px-3 py-3 outline-none focus:ring-2 focus:ring-primary text-sm select-text" />}
     <div className="flex flex-wrap gap-2 items-center">
       <button type="button" disabled={disabled||phase==='asking'||phase==='transcribing'} onClick={()=>{if(phase==='recording')recorder.current?.stop();else void start();}}
-        className="min-h-11 px-3 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 disabled:opacity-40">
+        className="min-h-11 px-3 rounded-lg border border-primary bg-surface-container text-primary dark:bg-surface-container dark:text-primary disabled:opacity-40">
         {phase==='recording'?`结束录音并转文字 (${seconds}s)`:phase==='asking'?'正在申请麦克风…':phase==='transcribing'?'正在转为文字…':'语音输入'}
       </button>
-      {phase!=='idle'&&<button type="button" onClick={cancel} className="min-h-11 px-3 text-slate-500">取消语音</button>}
-      {phase==='idle'&&<button type="button" disabled={disabled} className="min-h-11 px-3 text-blue-700 dark:text-blue-300" onClick={()=>upload.current?.click()}>选择音频转文字</button>}
-      {phase==='idle'&&audio&&<button type="button" disabled={disabled} onClick={()=>void transcribe(audio)} className="min-h-11 px-3 text-blue-700">重试转写</button>}
+      {phase!=='idle'&&<button type="button" onClick={cancel} className="min-h-11 px-3 text-on-surface-variant">取消语音</button>}
+      {phase==='idle'&&<button type="button" disabled={disabled} className="min-h-11 px-3 text-primary dark:text-primary" onClick={()=>upload.current?.click()}>选择音频转文字</button>}
+      {phase==='idle'&&audio&&<button type="button" disabled={disabled} onClick={()=>void transcribe(audio)} className="min-h-11 px-3 text-primary">重试转写</button>}
     </div>
     <input ref={upload} aria-label="音频文件" className="hidden" type="file" accept="audio/*,.m4a,.mp4,.webm" disabled={disabled||phase!=='idle'} onChange={e=>{const file=e.currentTarget.files?.[0];e.currentTarget.value='';if(file)void transcribe(file);}} />
-    <p className="text-xs text-slate-500">语音会追加为可编辑文字，检查后再提交。附件可选；单次录音最多 2 分钟。</p>
-    {phase==='recording'&&<p role="status" className="text-red-600">正在录音，结束后开始转写。</p>}
+    <p className="text-xs text-on-surface-variant">语音会追加为可编辑文字，检查后再提交。附件可选；单次录音最多 2 分钟。</p>
+    {phase==='recording'&&<p role="status" className="text-error">正在录音，结束后开始转写。</p>}
     {phase==='transcribing'&&<p role="status">正在识别录音，请稍候…</p>}
-    {error&&<p role="alert" className="text-red-600">{error}</p>}
+    {error&&<p role="alert" className="text-error">{error}</p>}
   </section>;
 };

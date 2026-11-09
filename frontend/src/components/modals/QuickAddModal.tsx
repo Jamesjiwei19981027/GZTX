@@ -119,22 +119,22 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-label={t.quickAdd}
-      className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-start justify-center pt-[18vh] p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 bg-black/50  z-50 flex items-start justify-center pt-[18vh] p-4 animate-in fade-in duration-200"
       style={{ bottom: bottomInset, paddingTop: bottomInset > 0 ? 16 : undefined }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div style={{ maxHeight: Math.max(120, visibleBottom - (bottomInset > 0 ? 32 : window.innerHeight * .18 + 16)) }} className="overflow-y-auto bg-surface dark:bg-[#2e3132] rounded-2xl max-w-xl w-full p-5 shadow-2xl border border-surface-variant dark:border-outline">
+      <div style={{ maxHeight: Math.max(120, visibleBottom - (bottomInset > 0 ? 32 : window.innerHeight * .18 + 16)) }} className="overflow-y-auto bg-surface-container-lowest dark:bg-surface-container rounded-[var(--radius-ink-panel)] max-w-xl w-full p-5 shadow-sm dark:shadow-none border border-surface-variant dark:border-outline">
         {/* Header */}
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">bolt</span>
-            <h2 className="text-base font-bold text-on-surface dark:text-[#f0f1f2]">{t.quickAdd}</h2>
+            <span className="material-symbols-outlined text-inherit">bolt</span>
+            <h2 className="text-base font-medium text-on-surface dark:text-on-surface tabular-nums">{t.quickAdd}</h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-surface-container text-on-surface-variant"
+            className="p-1 rounded-lg hover:bg-surface-container text-on-surface-variant"
             aria-label={t.cancel}
           >
             <span className="material-symbols-outlined">close</span>
@@ -142,8 +142,8 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
         </div>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-3">
-          <div className="flex items-center bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant dark:border-outline rounded-xl px-3 focus-within:ring-2 focus-within:ring-primary transition-all">
-            <span className="material-symbols-outlined text-on-surface-variant text-lg mr-1.5">add_task</span>
+          <div className="flex items-center bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline rounded-xl px-3 focus-within:ring-2 focus-within:ring-primary transition-ink-colors">
+            <span className="material-symbols-outlined text-inherit text-[18px] mr-2">add_task</span>
             <AutoGrowingTextarea
               rows={1}
               maxRows={5}
@@ -157,24 +157,24 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                   event.currentTarget.form?.requestSubmit();
                 }
               }}
-              className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 py-3 text-sm leading-6 font-semibold text-on-surface dark:text-[#f0f1f2] placeholder-on-surface-variant"
+              className="flex-1 min-w-0 bg-transparent border-none focus:outline-none focus:ring-0 py-3 text-sm leading-6 font-medium text-on-surface dark:text-on-surface placeholder-on-surface-variant tabular-nums"
             />
           </div>
 
           {/* 解析预览：识别到时间时展示可关闭标签；点 X 取消本次解析、保留原标题 */}
           {parseActive && parsed.date && (
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 pl-2.5 pr-1.5 py-1 rounded-full bg-primary-fixed/30 text-primary dark:text-[#adc6ff] text-xs font-semibold">
-                <span className="material-symbols-outlined text-sm">event</span>
+              <span className="inline-flex items-center gap-2 pl-2 pr-2 py-1 rounded-md bg-primary-fixed/30 text-primary dark:text-primary text-xs font-medium tabular-nums">
+                <span className="material-symbols-outlined text-[18px]">event</span>
                 <span>{t.quickAddDetected}: {previewLabel}</span>
                 <button
                   type="button"
                   onClick={() => setDismissedFor(parsed.matched)}
-                  className="p-0.5 rounded-full hover:bg-primary/20 flex items-center"
+                  className="p-1 rounded-lg hover:bg-primary/20 flex items-center"
                   aria-label={t.quickAddDismiss}
                   title={t.quickAddDismiss}
                 >
-                  <span className="material-symbols-outlined text-sm">close</span>
+                  <span className="material-symbols-outlined text-[18px]">close</span>
                 </button>
               </span>
               {syntax.title && (
@@ -191,15 +191,15 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
               {syntax.tags.map((name) => (
                 <span
                   key={name}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container dark:bg-[#191c1d] text-on-surface-variant text-xs font-semibold"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-surface-container dark:bg-surface-container-low text-on-surface-variant text-xs font-medium tabular-nums"
                 >
-                  <span className="material-symbols-outlined text-sm">sell</span>
+                  <span className="material-symbols-outlined text-[18px]">sell</span>
                   {name}
                 </span>
               ))}
               {syntax.priority && !priorityTouched && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-surface-container dark:bg-[#191c1d] text-on-surface-variant text-xs font-semibold">
-                  <span className="material-symbols-outlined text-sm">flag</span>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-surface-container dark:bg-surface-container-low text-on-surface-variant text-xs font-medium tabular-nums">
+                  <span className="material-symbols-outlined text-[18px]">flag</span>
                   {syntax.matched.find((token) => token.startsWith('p'))} →{' '}
                   {syntax.priority === 'High'
                     ? t.priorityHigh
@@ -213,10 +213,10 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
 
           {/* 优先级快选（默认中） */}
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold uppercase text-on-surface-variant">
+            <span className="text-xs font-medium  text-on-surface-variant tabular-nums">
               {lang === 'zh' ? '优先级' : 'Priority'}
             </span>
-            <div className="flex gap-1.5">
+            <div className="flex gap-2">
               {priorityOptions.map((opt) => (
                 <button
                   key={opt.value}
@@ -225,10 +225,10 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
                     setPriority(opt.value);
                     setPriorityTouched(true);
                   }}
-                  className={`px-3 py-1 rounded-full text-xs font-semibold border transition-colors ${
+                  className={`px-3 py-1 rounded-lg text-xs font-medium border transition-ink-colors ${
                     effectivePriority === opt.value
                       ? 'bg-primary text-on-primary border-primary'
-                      : 'bg-surface dark:bg-[#191c1d] text-on-surface-variant border-outline-variant hover:bg-surface-container'
+                      : 'bg-surface dark:bg-surface-container-low text-on-surface-variant border-outline-variant hover:bg-surface-container'
                   }`}
                 >
                   {opt.label}
@@ -238,11 +238,11 @@ export const QuickAddModal: React.FC<QuickAddModalProps> = ({
           </div>
 
           <div className="flex items-center justify-between pt-2 border-t border-surface-variant dark:border-outline-variant">
-            <span className="text-[11px] text-on-surface-variant">{t.quickAddHint}</span>
+            <span className="text-xs text-on-surface-variant">{t.quickAddHint}</span>
             <button
               type="submit"
               disabled={!text.trim() || submitting}
-              className="px-5 py-2 bg-primary text-on-primary rounded-xl font-bold text-xs shadow-md hover:opacity-90 transition-all active:scale-95 disabled:opacity-50"
+              className="px-5 py-2 bg-primary text-on-primary rounded-lg font-medium text-xs shadow-sm dark:shadow-none hover:opacity-90 transition-ink-colors active:scale-95 disabled:opacity-50 tabular-nums"
             >
               {t.quickAddSubmit}
             </button>

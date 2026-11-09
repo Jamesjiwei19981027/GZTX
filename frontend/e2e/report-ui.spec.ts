@@ -39,6 +39,7 @@ test('AI report center clicks every report action', async ({ page }) => {
     else if (path === '/reports/inbox/201/read') { reportRead = true; data = { id: 201, read: true } }
     else if (path === '/projects/1/agent-reports/aggregate' && request.method() === 'POST') { summaryGenerated = true; data = summary }
     else if (path === '/projects/1/report-summaries' && request.method() === 'GET') {
+      // One stateful fixture covers the initial, generated and published versions.
       data = { items: summaryGenerated ? [summaryPublished ? publishedSummary : summary] : [], latest_published: summaryPublished ? publishedSummary : null, can_publish: true }
     }
     else if (path === '/projects/1/report-summaries/301/publish' && request.method() === 'POST') { summaryPublished = true; data = publishedSummary }

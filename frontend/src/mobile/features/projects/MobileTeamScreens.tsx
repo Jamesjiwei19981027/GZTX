@@ -122,24 +122,24 @@ export const MobileTeamScreen: React.FC<MobileTeamScreensProps> = ({
   if (loading) return <MobileLoadingState message="加载团队成员…" />;
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface text-on-surface dark:text-on-surface">
+      <header className="h-14 px-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="返回"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <h1 className="text-base font-semibold">{scope === 'company' ? '公司成员管理' : '项目团队与成员'}</h1>
+        <h1 className="text-base font-medium tabular-nums">{scope === 'company' ? '公司成员管理' : '项目团队与成员'}</h1>
         <div className="w-10" />
       </header>
 
       {isCompanyAdmin && companyId ? (
-        <div className="px-4 pt-3 bg-white dark:bg-slate-900 flex gap-2" role="tablist" aria-label="团队范围">
+        <div className="px-4 pt-3 bg-surface-container-lowest dark:bg-surface-container-lowest flex gap-2" role="tablist" aria-label="团队范围">
           {([['project', '项目成员'], ['company', '公司成员']] as const).map(([id, label]) => (
             <button
               key={id}
@@ -147,8 +147,8 @@ export const MobileTeamScreen: React.FC<MobileTeamScreensProps> = ({
               role="tab"
               aria-selected={scope === id}
               onClick={() => setScope(id)}
-              className={`min-h-[36px] px-3.5 rounded-full text-xs font-medium ${
-                scope === id ? 'bg-[#0058BE] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+              className={`min-h-[36px] px-4 rounded-lg text-xs font-medium ${
+                scope === id ? 'bg-primary text-on-primary' : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
               }`}
             >
               {label}
@@ -157,7 +157,7 @@ export const MobileTeamScreen: React.FC<MobileTeamScreensProps> = ({
         </div>
       ) : null}
 
-      <div className="p-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 space-y-3">
+      <div className="p-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant space-y-3">
         <MobileInput
           placeholder="搜索成员姓名或用户名…"
           value={search}
@@ -171,10 +171,10 @@ export const MobileTeamScreen: React.FC<MobileTeamScreensProps> = ({
           <button
             type="button"
             onClick={() => setRoleFilter('all')}
-            className={`min-h-[36px] px-3.5 rounded-full text-xs font-medium transition-colors ${
+            className={`min-h-[36px] px-4 rounded-lg text-xs font-medium transition-ink-colors ${
               roleFilter === 'all'
-                ? 'bg-[#0058BE] text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                ? 'bg-primary text-on-primary'
+                : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
             }`}
           >
             全部 ({shownMembers.length})
@@ -182,10 +182,10 @@ export const MobileTeamScreen: React.FC<MobileTeamScreensProps> = ({
           <button
             type="button"
             onClick={() => setRoleFilter('pm')}
-            className={`min-h-[36px] px-3.5 rounded-full text-xs font-medium transition-colors ${
+            className={`min-h-[36px] px-4 rounded-lg text-xs font-medium transition-ink-colors ${
               roleFilter === 'pm'
-                ? 'bg-[#0058BE] text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                ? 'bg-primary text-on-primary'
+                : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
             }`}
           >
             管理员 / PM
@@ -193,10 +193,10 @@ export const MobileTeamScreen: React.FC<MobileTeamScreensProps> = ({
           <button
             type="button"
             onClick={() => setRoleFilter('member')}
-            className={`min-h-[36px] px-3.5 rounded-full text-xs font-medium transition-colors ${
+            className={`min-h-[36px] px-4 rounded-lg text-xs font-medium transition-ink-colors ${
               roleFilter === 'member'
-                ? 'bg-[#0058BE] text-white'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                ? 'bg-primary text-on-primary'
+                : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
             }`}
           >
             业务成员
@@ -230,13 +230,13 @@ export const MobileTeamScreen: React.FC<MobileTeamScreensProps> = ({
                           className="w-10 h-10 rounded-full object-cover"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full bg-[#0058BE]/10 text-[#0058BE] font-bold text-sm flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 text-primary font-medium text-sm flex items-center justify-center tabular-nums">
                           {name.slice(0, 1)}
                         </div>
                       )}
                       <span
-                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 ${
-                          isOnline ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'
+                        className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white dark:border-outline-variant ${
+                          isOnline ? 'bg-[#2f7d4f]' : 'bg-surface-container-high dark:bg-surface-container-high'
                         }`}
                         aria-label={isOnline ? '在线' : '离线'}
                       />
@@ -247,20 +247,20 @@ export const MobileTeamScreen: React.FC<MobileTeamScreensProps> = ({
                   trailing={
                     scope === 'company' ? (
                       <span
-                        className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${
+                        className={`text-xs px-2 py-1 rounded-md font-medium ${
                           (companyStatus.get(m.user_id) || 'active') === 'active'
-                            ? 'bg-green-50 text-green-700'
-                            : 'bg-red-50 text-red-600'
+                            ? 'bg-surface-container text-[#2f7d4f]'
+                            : 'bg-error-container text-error'
                         }`}
                       >
                         {COMPANY_STATUS_LABEL[companyStatus.get(m.user_id) || 'active'] || '已启用'}
                       </span>
                     ) : (
                     <span
-                      className={`text-[11px] px-2 py-0.5 rounded-md font-medium ${
+                      className={`text-xs px-2 py-1 rounded-md font-medium ${
                         isPm
-                          ? 'bg-blue-50 text-[#0058BE] dark:bg-blue-950 dark:text-blue-300'
-                          : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                          ? 'bg-surface-container text-primary dark:bg-surface-container dark:text-primary'
+                          : 'bg-surface-container text-on-surface-variant dark:bg-surface-container-lowest dark:text-outline'
                       }`}
                     >
                       {isPm ? 'PM 负责人' : '成员'}
@@ -329,19 +329,19 @@ export const MobileMemberDetailScreen: React.FC<{
   }, [member.user_id, projectId]);
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface text-on-surface dark:text-on-surface">
+      <header className="h-14 px-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="返回"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <h1 className="text-base font-semibold truncate flex-1 text-center">
+        <h1 className="text-base font-medium truncate flex-1 text-center tabular-nums">
           成员职责名片
         </h1>
         <div className="w-10" />
@@ -349,7 +349,7 @@ export const MobileMemberDetailScreen: React.FC<{
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* 名片基本信息 */}
-        <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs flex flex-col items-center text-center">
+        <div className="p-5 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant dark:border-outline-variant shadow-sm dark:shadow-none flex flex-col items-center text-center">
           {member.avatar_url ? (
             <img
               src={member.avatar_url}
@@ -357,22 +357,22 @@ export const MobileMemberDetailScreen: React.FC<{
               className="w-16 h-16 rounded-full object-cover mb-3"
             />
           ) : (
-            <div className="w-16 h-16 rounded-full bg-[#0058BE]/10 text-[#0058BE] font-bold text-2xl flex items-center justify-center mb-3">
+            <div className="w-16 h-16 rounded-full bg-primary/10 text-primary font-medium text-2xl flex items-center justify-center mb-3 tabular-nums">
               {name.slice(0, 1)}
             </div>
           )}
 
-          <h2 className="text-lg font-bold text-slate-900 dark:text-white">{name}</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h2 className="text-lg font-medium text-on-surface dark:text-on-surface tabular-nums">{name}</h2>
+          <p className="text-xs text-on-surface-variant mt-1">
             {member.username ? `@${member.username}` : `用户ID: ${member.user_id}`}
           </p>
 
           <div className="flex gap-2 mt-3">
             <span
-              className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+              className={`text-xs px-2 py-1 rounded-md font-medium ${
                 isPm
-                  ? 'bg-blue-50 text-[#0058BE] dark:bg-blue-950 dark:text-blue-300'
-                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                  ? 'bg-surface-container text-primary dark:bg-surface-container dark:text-primary'
+                  : 'bg-surface-container text-on-surface-variant dark:bg-surface-container-lowest dark:text-outline'
               }`}
             >
               {isPm ? '项目负责人' : '项目成员'}
@@ -381,8 +381,8 @@ export const MobileMemberDetailScreen: React.FC<{
         </div>
 
         {/* 权限范围提示 */}
-        <div className="p-3 bg-blue-50 dark:bg-blue-950/40 rounded-xl text-xs text-[#0058BE] flex items-center gap-2">
-          <AppIcon name="info" size={16} />
+        <div className="p-3 bg-surface-container-lowest dark:bg-surface-container rounded-xl text-xs text-primary flex items-center gap-2">
+          <AppIcon name="info" size={18} />
           <span>该成员在人轴中的权限、责任节点及汇报内容均受服务端安全策略约束。</span>
         </div>
 
@@ -400,9 +400,9 @@ export const MobileMemberDetailScreen: React.FC<{
         {/* 分配的事项列表 */}
         <MobileListGroup title={`当前项目负责事项 (${assignedTasks.length})`}>
           {loading ? (
-            <div className="p-4 text-center text-xs text-slate-400">正在检索事项…</div>
+            <div className="p-4 text-center text-xs text-outline">正在检索事项…</div>
           ) : assignedTasks.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-400">
+            <div className="p-4 text-center text-xs text-outline">
               当前项目尚未分派任务
             </div>
           ) : (
@@ -413,17 +413,17 @@ export const MobileMemberDetailScreen: React.FC<{
                   <div
                     className={`w-2.5 h-2.5 rounded-full shrink-0 ${
                       task.status === 2
-                        ? 'bg-green-500'
+                        ? 'bg-[#2f7d4f]'
                         : task.status === 1
-                          ? 'bg-blue-500'
-                          : 'bg-slate-400'
+                          ? 'bg-primary'
+                          : 'bg-surface-container-high'
                     }`}
                   />
                 }
-                title={task.title}
+                title={<span className={task.status === 2 ? 'ink-done' : ''}>{task.title}</span>}
                 subtitle={task.due_date ? `截止: ${task.due_date.slice(0, 10)}` : '无截止日'}
                 trailing={
-                  <span className="text-[11px] text-slate-400">
+                  <span className="text-xs text-outline">
                     {task.status === 2 ? '已完成' : task.status === 1 ? '进行中' : '待办'}
                   </span>
                 }
@@ -498,7 +498,7 @@ export const MobileMemberManageGroup: React.FC<{
       {notice && (
         <div
           role="status"
-          className={`mb-3 p-3 rounded-xl text-xs ${notice.ok ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-700'}`}
+          className={`mb-3 p-3 rounded-xl text-xs ${notice.ok ? 'bg-surface-container-lowest dark:bg-surface-container text-[#2f7d4f]' : 'bg-error-container text-error'}`}
         >
           {notice.text}
         </div>

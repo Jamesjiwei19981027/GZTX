@@ -9,7 +9,7 @@ class PermissionNotice extends StatelessWidget {
     super.key,
     required this.message,
     this.title = '暂无访问权限',
-    this.hint = '如需开通，请联系项目管理人员。',
+    this.hint = '如需开通，请联系项目管理人员',
     this.onRetry,
   });
 
@@ -32,7 +32,7 @@ class PermissionNotice extends StatelessWidget {
           children: [
             Icon(
               isIos ? CupertinoIcons.lock_shield : Icons.lock_outline,
-              size: 52,
+              size: 18,
               color: iconColor,
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -41,7 +41,7 @@ class PermissionNotice extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color:
                     isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
               ),

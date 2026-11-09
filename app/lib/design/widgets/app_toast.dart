@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -82,14 +82,8 @@ void showAppToast(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
               color: bgColor.withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.15),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+              borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
+              // Toasts use a solid surface; dark mode has no shadow.
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -128,3 +122,4 @@ void showAppToast(
     _activeToastTimer = null;
   });
 }
+

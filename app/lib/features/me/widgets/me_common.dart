@@ -71,14 +71,14 @@ class MeBadge extends StatelessWidget {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg),
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: fg),
       ),
     );
   }
@@ -134,7 +134,7 @@ class MeBanner extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
@@ -142,12 +142,12 @@ class MeBanner extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppIcon(icon ?? defaultIcon, size: 16, color: fg),
+          AppIcon(icon ?? defaultIcon, size: 18, color: fg),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(
               message,
-              style: TextStyle(fontSize: 12.5, height: 1.4, color: fg),
+              style: TextStyle(fontSize: 13, height: 1.4, color: fg),
             ),
           ),
           if (onRetry != null) ...[
@@ -157,8 +157,8 @@ class MeBanner extends StatelessWidget {
               child: Text(
                 retryLabel,
                 style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                   color: fg,
                   decoration: TextDecoration.underline,
                 ),
@@ -220,7 +220,7 @@ class MeCard extends StatelessWidget {
                       title ?? '',
                       style: TextStyle(
                         fontSize: 13,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: isDark
                             ? AppColors.darkTextSecondary
                             : AppColors.textSecondary,
@@ -249,7 +249,7 @@ class MeCard extends StatelessWidget {
               child: Text(
                 footer!,
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 12,
                   height: 1.4,
                   color: isDark
                       ? AppColors.darkTextTertiary
@@ -282,7 +282,7 @@ class MeInfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: showDivider
           ? BoxDecoration(
               border: Border(
@@ -319,7 +319,7 @@ class MeInfoRow extends StatelessWidget {
                     textAlign: TextAlign.right,
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
@@ -350,7 +350,7 @@ class MeFieldLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(bottom: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -362,7 +362,7 @@ class MeFieldLabel extends StatelessWidget {
                   label,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextSecondary
                         : AppColors.textSecondary,
@@ -378,11 +378,11 @@ class MeFieldLabel extends StatelessWidget {
           ),
           if (helper != null)
             Padding(
-              padding: const EdgeInsets.only(top: 2),
+              padding: const EdgeInsets.only(top: 4),
               child: Text(
                 helper!,
                 style: TextStyle(
-                  fontSize: 11.5,
+                  fontSize: 12,
                   color: isDark
                       ? AppColors.darkTextTertiary
                       : AppColors.textTertiary,
@@ -424,7 +424,7 @@ class MeAvatar extends StatelessWidget {
         name.isEmpty ? '用' : name.characters.first.toUpperCase(),
         style: TextStyle(
           fontSize: size * 0.38,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w500,
           color: isDark ? const Color(0xFF9FC7FF) : AppColors.primary,
         ),
       ),
@@ -547,7 +547,7 @@ class MeErrorState extends StatelessWidget {
           children: [
             Icon(
               icon,
-              size: 52,
+              size: 18,
               color: isForbidden ? AppColors.warning : AppColors.danger,
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -556,17 +556,17 @@ class MeErrorState extends StatelessWidget {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 17,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color: titleColor,
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               message.isEmpty
-                  ? (isForbidden ? '您暂未获得此页面的访问授权，请联系企业管理员。' : '')
+                  ? (isForbidden ? '您暂未获得此页面的访问授权，请联系企业管理员' : '')
                   : message,
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13.5, height: 1.45, color: bodyColor),
+              style: TextStyle(fontSize: 14, height: 1.45, color: bodyColor),
             ),
             if (onRetry != null && !isForbidden) ...[
               const SizedBox(height: AppSpacing.xl),
@@ -598,7 +598,7 @@ class MeSectionTitle extends StatelessWidget {
               text,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color: isDark
                     ? AppColors.darkTextSecondary
                     : AppColors.textSecondary,
@@ -646,7 +646,7 @@ class MeInlineButton extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 32),
           padding: const EdgeInsets.symmetric(
             horizontal: AppSpacing.md,
-            vertical: 6,
+            vertical: 8,
           ),
           decoration: BoxDecoration(
             color: bg,
@@ -661,16 +661,16 @@ class MeInlineButton extends StatelessWidget {
                   height: 12,
                   child: CircularProgressIndicator(strokeWidth: 1.6, color: fg),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
               ] else if (icon != null) ...[
-                AppIcon(icon!, size: 14, color: fg),
+                AppIcon(icon!, size: 18, color: fg),
                 const SizedBox(width: 4),
               ],
               Text(
                 label,
                 style: TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
                   color: fg,
                 ),
               ),
@@ -711,7 +711,7 @@ class MeListRow extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
             if (icon != null) ...[
@@ -733,7 +733,7 @@ class MeListRow extends StatelessWidget {
                     title,
                     style: TextStyle(
                       fontSize: 14.5,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
@@ -741,7 +741,7 @@ class MeListRow extends StatelessWidget {
                   ),
                   if (subtitle != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         subtitle!,
                         style: TextStyle(
@@ -758,7 +758,7 @@ class MeListRow extends StatelessWidget {
             trailing ??
                 AppIcon(
                   'chevron-right',
-                  size: 16,
+                  size: 18,
                   color: isDark
                       ? AppColors.darkTextTertiary
                       : AppColors.textTertiary,

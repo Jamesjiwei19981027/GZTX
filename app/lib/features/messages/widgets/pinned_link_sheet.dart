@@ -52,7 +52,7 @@ class _PinnedLinkSheetState extends State<PinnedLinkSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              '频道内重要文档、设计稿或代码仓库的快捷入口。',
+              '频道内重要文档、设计稿或代码仓库的快捷入口',
               style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
             ),
             const SizedBox(height: AppSpacing.md),

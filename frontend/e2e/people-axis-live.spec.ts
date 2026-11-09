@@ -131,7 +131,7 @@ test('manager adds deeper people, edits their role and persists a dragged positi
   await expect(form.getByRole('combobox', { name: '直属上级' })).toHaveValue('7')
   await form.getByRole('button', { name: '手动填写', exact: true }).click()
   await form.getByPlaceholder('如: 史蒂夫·乔布斯').fill(`管理联调人员${Date.now()}`)
-  await form.getByPlaceholder('例如: 实时协同网关责任专家...').fill('客户端联调负责人')
+  await form.getByPlaceholder('岗位责任称号').fill('客户端联调负责人')
   const response = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/projects/${projectId}/nodes`))
   await form.locator('button[type="submit"]').click()
   const created = (await (await response).json()).data
@@ -180,7 +180,7 @@ test('PM creates owner/item/evidence and reparents it through the real app', asy
   const form = page.getByRole('dialog', { name: '添加责任人' })
   await form.getByRole('button', { name: '手动填写', exact: true }).click()
   await form.getByPlaceholder('如: 史蒂夫·乔布斯').fill(name)
-  await form.getByPlaceholder('例如: 实时协同网关责任专家...').fill('联合调试负责人')
+  await form.getByPlaceholder('岗位责任称号').fill('联合调试负责人')
   const createdResponse = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith(`/projects/${projectId}/nodes`))
   await form.locator('button[type="submit"]').click()
   const created = await (await createdResponse).json()

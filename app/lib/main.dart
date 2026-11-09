@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import 'config/api_config.dart';
 import 'config/brand.dart';
 import 'core/auth/auth_state.dart' as core_auth;
-import 'design/tokens/colors.dart';
+import 'design/app_theme.dart';
 import 'features/auth/gate/auth_gate_host.dart';
 import 'features/me/appearance/me_appearance.dart';
 import 'router/app_router.dart';
@@ -130,56 +129,7 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
   }
 
   ThemeData _buildAppTheme(BuildContext context) {
-    const primary = AppColors.primary;
-    final baseText = GoogleFonts.interTextTheme();
-
-    return ThemeData(
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: primary,
-        brightness: Brightness.light,
-        primary: primary,
-        surface: AppColors.background,
-        secondary: AppColors.success,
-        secondaryContainer: AppColors.primaryLight,
-        onSecondaryContainer: const Color(0xFF0A1F33),
-      ),
-      scaffoldBackgroundColor: AppColors.background,
-      useMaterial3: true,
-      textTheme: baseText.apply(
-        bodyColor: AppColors.textPrimary,
-        displayColor: AppColors.textPrimary,
-      ),
-      appBarTheme: AppBarTheme(
-        centerTitle: false,
-        backgroundColor: Colors.white,
-        foregroundColor: AppColors.textPrimary,
-        elevation: 0,
-        scrolledUnderElevation: 1,
-        titleTextStyle: GoogleFonts.inter(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-          color: AppColors.textPrimary,
-        ),
-      ),
-      navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: Colors.white,
-        indicatorColor: primary.withValues(alpha: 0.12),
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return GoogleFonts.inter(
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
-            color: selected ? primary : AppColors.textSecondary,
-          );
-        }),
-        iconTheme: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return IconThemeData(
-            color: selected ? primary : AppColors.textSecondary,
-          );
-        }),
-      ),
-    );
+    return appThemeFor(Brightness.light);
   }
 
   @override

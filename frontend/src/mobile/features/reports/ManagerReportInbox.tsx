@@ -123,7 +123,7 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
   // 普通成员越权防御
   if (isManager === false) {
     return (
-      <div className="flex flex-col h-full bg-[#f7f8fa] dark:bg-slate-950 select-none">
+      <div className="flex flex-col h-full bg-surface dark:bg-surface-container-lowest select-none">
         <MobileTopBar title="下属汇报收件箱" showBack onBack={goBack} />
         <div className="flex-1 p-6 flex flex-col items-center justify-center">
           <MobileEmptyState
@@ -137,7 +137,7 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#f7f8fa] dark:bg-slate-950 select-none">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface-container-lowest select-none">
       <MobileTopBar
         title="下属汇报收件箱"
         showBack
@@ -150,14 +150,14 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* 直属下属 vs 全部下属 Tab */}
-        <div className="flex border-b border-slate-200 dark:border-slate-800">
+        <div className="flex border-b border-outline-variant dark:border-outline-variant">
           <button
             type="button"
             onClick={() => setActiveTab('direct')}
-            className={`flex-1 py-2.5 text-center text-sm font-semibold cursor-pointer border-b-2 transition-colors ${
+            className={`flex-1 py-2 text-center text-sm font-medium cursor-pointer border-b-2 transition-ink-colors ${
               activeTab === 'direct'
-                ? 'border-[#0058BE] text-[#0058BE] dark:text-blue-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'border-primary text-primary dark:text-primary'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface'
             }`}
           >
             直属下属
@@ -165,10 +165,10 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('all_tree')}
-            className={`flex-1 py-2.5 text-center text-sm font-semibold cursor-pointer border-b-2 transition-colors ${
+            className={`flex-1 py-2 text-center text-sm font-medium cursor-pointer border-b-2 transition-ink-colors ${
               activeTab === 'all_tree'
-                ? 'border-[#0058BE] text-[#0058BE] dark:text-blue-400'
-                : 'border-transparent text-slate-500 hover:text-slate-700'
+                ? 'border-primary text-primary dark:text-primary'
+                : 'border-transparent text-on-surface-variant hover:text-on-surface'
             }`}
           >
             全部下属
@@ -180,10 +180,10 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
           <button
             type="button"
             onClick={() => setFilterChip('unread')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+            className={`px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-ink-colors ${
               filterChip === 'unread'
-                ? 'bg-[#0058BE] text-white shadow-xs'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
+                ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                : 'bg-surface-container-lowest dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline border border-outline-variant dark:border-outline-variant'
             }`}
           >
             未读 {unreadCount}
@@ -191,10 +191,10 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
           <button
             type="button"
             onClick={() => setFilterChip('all')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+            className={`px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-ink-colors ${
               filterChip === 'all'
-                ? 'bg-[#0058BE] text-white shadow-xs'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
+                ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                : 'bg-surface-container-lowest dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline border border-outline-variant dark:border-outline-variant'
             }`}
           >
             全部 ({totalCount})
@@ -202,10 +202,10 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
           <button
             type="button"
             onClick={() => setFilterChip('need_evidence')}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold cursor-pointer transition-colors ${
+            className={`px-3 py-2 rounded-lg text-xs font-medium cursor-pointer transition-ink-colors ${
               filterChip === 'need_evidence'
-                ? 'bg-[#0058BE] text-white shadow-xs'
-                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800'
+                ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                : 'bg-surface-container-lowest dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline border border-outline-variant dark:border-outline-variant'
             }`}
           >
             待补资料
@@ -224,7 +224,7 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
             }
           />
         ) : (
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant/80 dark:border-outline-variant overflow-hidden divide-y divide-outline-variant dark:divide-outline-variant">
             {filteredList.map((r) => {
               const isUnread = !r.read && !r.read_at;
               const author = projectMembers.find((m) => String(m.id) === String(r.author_user_id));
@@ -235,22 +235,22 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
                 <div
                   key={r.id}
                   onClick={() => void handleOpenReport(r)}
-                  className="p-4 flex items-center gap-3 hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100 transition-colors"
+                  className="p-4 flex items-center gap-3 hover:bg-surface dark:hover:bg-surface-container-lowest/50 cursor-pointer active:bg-surface-container transition-ink-colors"
                 >
-                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/50 text-[#0058BE] dark:text-blue-300 font-bold flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-surface-container dark:bg-surface-container text-primary dark:text-primary font-medium flex items-center justify-center shrink-0 tabular-nums">
                     {authorName.slice(0, 1)}
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <strong className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
+                      <strong className="text-sm font-medium text-on-surface dark:text-outline truncate tabular-nums">
                         {authorName} · {authorRole}
                       </strong>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                    <p className="text-xs text-on-surface-variant dark:text-outline truncate mt-1">
                       {r.summary_text.slice(0, 26) || '提交了工作汇报'}
                     </p>
-                    <span className="text-[11px] text-slate-400 block mt-1">
+                    <span className="text-xs text-outline block mt-1">
                       {r.submitted_at
                         ? parseApiDateTime(r.submitted_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
                         : '今天'}
@@ -259,15 +259,15 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
 
                   <div className="flex items-center gap-2 shrink-0">
                     <span
-                      className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                      className={`px-2 py-1 rounded text-xs font-medium ${
                         isUnread
-                          ? 'bg-blue-100 text-[#0058BE] dark:bg-blue-950 dark:text-blue-300'
-                          : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+                          ? 'bg-surface-container text-primary dark:bg-surface-container dark:text-primary'
+                          : 'bg-surface-container text-outline dark:bg-surface-container-lowest'
                       }`}
                     >
                       {isUnread ? '未读' : '已读'}
                     </span>
-                    <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                    <AppIcon name="chevron-right" size={18} className="text-inherit" />
                   </div>
                 </div>
               );
@@ -277,35 +277,35 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
 
         {/* 汇报覆盖统计 */}
         <section className="space-y-2">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
+          <h3 className="text-xs font-medium text-on-surface-variant   px-1 tabular-nums">
             当前汇报覆盖
           </h3>
-          <div className="grid grid-cols-3 gap-2 bg-[#edf4ff] dark:bg-slate-900/60 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/40 text-center">
+          <div className="grid grid-cols-3 gap-2 bg-[#edf4ff] dark:bg-surface-container-lowest/60 p-4 rounded-xl border border-primary dark:border-primary text-center">
             <div>
-              <b className="text-xl font-bold text-[#0058BE] dark:text-blue-400 block">
+              <b className="text-xl font-medium text-primary dark:text-primary block tabular-nums">
                 {projectMembers.length > 0 ? projectMembers.length : 1}
               </b>
-              <span className="text-xs text-slate-500">应汇报</span>
+              <span className="text-xs text-on-surface-variant">应汇报</span>
             </div>
-            <div className="border-x border-blue-200/60 dark:border-slate-800">
-              <b className="text-xl font-bold text-[#0058BE] dark:text-blue-400 block">
+            <div className="border-x border-primary dark:border-outline-variant">
+              <b className="text-xl font-medium text-primary dark:text-primary block tabular-nums">
                 {totalCount}
               </b>
-              <span className="text-xs text-slate-500">已提交</span>
+              <span className="text-xs text-on-surface-variant">已提交</span>
             </div>
             <div>
-              <b className="text-xl font-bold text-amber-600 block">
+              <b className="text-xl font-medium text-[#a86412] block tabular-nums">
                 {Math.max(0, (projectMembers.length || 1) - totalCount)}
               </b>
-              <span className="text-xs text-slate-500">待补充</span>
+              <span className="text-xs text-on-surface-variant">待补充</span>
             </div>
           </div>
         </section>
 
         {/* 规范提示 */}
-        <div className="p-3 bg-blue-50/70 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 rounded-xl flex items-start gap-2">
-          <AppIcon name="info" size={16} className="text-[#0058BE] shrink-0 mt-0.5" />
-          <p className="text-xs text-blue-900 dark:text-blue-200 leading-relaxed">
+        <div className="p-3 bg-surface-container-lowest dark:bg-surface-container border border-primary dark:border-primary rounded-xl flex items-start gap-2">
+          <AppIcon name="info" size={18} className="text-inherit shrink-0 mt-1" />
+          <p className="text-xs text-primary dark:text-primary leading-relaxed">
             你与项目智能体会同时收到汇报提醒，已读状态会通过服务端同步到其他设备。
           </p>
         </div>
@@ -314,9 +314,9 @@ export const ManagerReportInbox: React.FC<ManagerReportInboxProps> = ({
         <button
           type="button"
           onClick={() => push({ screen: 'ai-project-aggregate', title: '项目汇总与发布' })}
-          className="w-full min-h-[46px] rounded-xl bg-[#0058BE] text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-blue-700 active:bg-blue-800 shadow-xs cursor-pointer transition-colors"
+          className="w-full min-h-[48px] rounded-lg bg-primary text-on-primary text-sm font-medium flex items-center justify-center gap-2 hover:bg-primary/90 active:bg-primary/90 shadow-sm dark:shadow-none cursor-pointer transition-ink-colors tabular-nums"
         >
-          <AppIcon name="ai" size={17} />
+          <AppIcon name="ai" size={18} />
           <span>汇总项目汇报</span>
         </button>
       </div>

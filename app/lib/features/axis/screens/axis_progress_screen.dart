@@ -152,7 +152,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                                     _title.isEmpty ? '节点进度' : _title,
                                     style: const TextStyle(
                                       fontSize: 16,
-                                      fontWeight: FontWeight.w700,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ),
@@ -160,7 +160,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                                   '${snapshot?.percent ?? 0}%',
                                   style: const TextStyle(
                                     fontSize: 20,
-                                    fontWeight: FontWeight.w800,
+                                    fontWeight: FontWeight.w500,
                                     color: AppColors.primary,
                                   ),
                                 ),
@@ -194,7 +194,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                                 padding: const EdgeInsets.all(AppSpacing.lg),
                                 child: Text(
                                   '暂无进度记录。上传材料、评审确认或正式进度录入后，'
-                                  '这里会按时间倒序显示。',
+                                  '这里会按时间倒序显示',
                                   style: TextStyle(
                                     fontSize: 12,
                                     height: 1.5,
@@ -216,7 +216,7 @@ class _AxisProgressScreenState extends State<AxisProgressScreen> {
                       ),
                       const SizedBox(height: AppSpacing.lg),
                       const AxisInfoBanner(
-                        text: '汇报中的完成描述需要与进度和材料对照；材料提交由「材料」模块负责。',
+                        text: '汇报中的完成描述需要与进度和材料对照；材料提交由「材料」模块负责',
                       ),
                       const SizedBox(height: AppSpacing.md),
                       AppButton(
@@ -276,12 +276,12 @@ class _RecordRow extends StatelessWidget {
                   '${when.isEmpty ? '' : ' · $when'}',
                   style: const TextStyle(
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 if (record.reason != null &&
                     record.reason!.trim().isNotEmpty) ...[
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     record.reason!,
                     style: TextStyle(

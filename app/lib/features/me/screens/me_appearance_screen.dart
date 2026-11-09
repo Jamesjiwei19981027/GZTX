@@ -123,7 +123,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
                         ),
                       MeCard(
                         title: '主题模式',
-                        footer: '主题以云端设置为准，登录和进入本页时同步；本机缓存用于网络不可用时显示。',
+                        footer: '主题以云端设置为准，登录和进入本页时同步；本机缓存用于网络不可用时显示',
                         children: [
                           Row(
                             children: [
@@ -144,8 +144,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
                       const SizedBox(height: AppSpacing.md),
                       MeCard(
                         title: '字号大小',
-                        footer:
-                            '「跟随系统」使用设备字号设置；选择档位后整个 APP 按档位统一缩放，长文案自动换行不截断。',
+                        footer: '「跟随系统」使用设备字号设置；选择档位后整个 APP 按档位统一缩放，长文案自动换行不截断',
                         children: [
                           for (final option in _scaleOptions)
                             _scaleOption(controller, option),
@@ -154,7 +153,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
                       const SizedBox(height: AppSpacing.md),
                       const MeCard(
                         title: '显示语言',
-                        footer: '手机网页版支持中英切换；原生版按交付约定全部使用中文，暂不提供英文界面。',
+                        footer: '手机网页版支持中英切换；原生版按交付约定全部使用中文，暂不提供英文界面',
                         children: [
                           MeInfoRow(label: '当前语言', value: '简体中文 (zh-CN)'),
                           MeInfoRow(
@@ -216,7 +215,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
                   : mode == MeThemeMode.light
                       ? 'info'
                       : 'palette',
-              size: 20,
+              size: 18,
               color: selected
                   ? AppColors.primary
                   : (isDark
@@ -228,8 +227,8 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
               mode.label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w500 : FontWeight.w500,
                 color: selected
                     ? AppColors.primary
                     : (isDark
@@ -239,12 +238,12 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
             ),
             if (selected)
               const Padding(
-                padding: EdgeInsets.only(top: 2),
+                padding: EdgeInsets.only(top: 4),
                 child: Text(
                   '当前生效',
                   style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                     color: AppColors.primary,
                   ),
                 ),
@@ -267,7 +266,7 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
       onTap: _saving ? null : () => _applyTextScale(scale),
       borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
+        padding: const EdgeInsets.symmetric(vertical: 12),
         child: Row(
           children: [
             Expanded(
@@ -278,17 +277,17 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
                     label,
                     style: TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     description,
                     style: TextStyle(
-                      fontSize: 11.5,
+                      fontSize: 12,
                       color: isDark
                           ? AppColors.darkTextSecondary
                           : AppColors.textSecondary,
@@ -298,9 +297,12 @@ class _MeAppearanceScreenState extends State<MeAppearanceScreen> {
               ),
             ),
             if (selected)
-              const AppIcon('check', size: 18, color: AppColors.primary)
+              const AppIcon(
+                'check',
+                size: 18,
+              )
             else
-              const SizedBox(width: 18),
+              const SizedBox(width: 20),
           ],
         ),
       ),

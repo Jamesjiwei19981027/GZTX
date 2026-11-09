@@ -170,7 +170,8 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
       final label = preset['label'];
       if (label is String && label.trim().isNotEmpty) return label.trim();
     }
-    return _fallbackProviderLabels[id] ?? (id.isEmpty ? '未知' : id.toUpperCase());
+    return _fallbackProviderLabels[id] ??
+        (id.isEmpty ? '未知' : id.toUpperCase());
   }
 
   @override
@@ -210,7 +211,7 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
                         title: '当前生效配置的密钥',
                         footer: '企业只有一套生效的 AI 配置；本页只轮换它的密钥，'
                             '不会改动厂商、API 地址与模型。如需更换厂商，'
-                            '请到「AI 模型配置」页同时填写新的 API 地址与调用模型。',
+                            '请到「AI 模型配置」页同时填写新的 API 地址与调用模型',
                         children: [
                           const MeFieldLabel(label: '当前提供商'),
                           _providerField(isDark),
@@ -240,8 +241,8 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
                             ),
                           ] else
                             const MeBanner(
-                              message: '当前提供商无需 API Key（本地桩或本地 Ollama）。'
-                                  '如需接入云端模型，请到「AI 模型配置」页选择厂商并填写地址与模型。',
+                              message: '当前提供商无需 API Key（本地桩或本地 Ollama）'
+                                  '如需接入云端模型，请到「AI 模型配置」页选择厂商并填写地址与模型',
                               tone: MeTone.warning,
                             ),
                         ],
@@ -256,7 +257,7 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
 
   Widget _providerField(bool isDark) {
     final secondaryStyle = TextStyle(
-      fontSize: 11.5,
+      fontSize: 12,
       color: isDark ? AppColors.darkTextSecondary : AppColors.textSecondary,
     );
     return Container(
@@ -266,12 +267,9 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
         vertical: AppSpacing.md,
       ),
       decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF5F6F7),
-        borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-        border: Border.all(
-          color: isDark ? AppColors.darkBorder : AppColors.border,
-        ),
-      ),
+          border: Border(
+              bottom: BorderSide(
+                  color: isDark ? AppColors.darkBorder : AppColors.border))),
       // 厂商 / 地址 / 模型纵向排列：模型名可能很长（如
       // accounts/fireworks/models/llama-v3p1-405b-instruct），
       // 并排会挤爆 320 宽屏幕，这里限制在卡片宽度内换行、超出省略。
@@ -280,16 +278,16 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
         children: [
           Text(
             _providerDisplay(_activeProvider),
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             _config.baseUrl.isEmpty ? '未配置 API 地址' : _config.baseUrl,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: secondaryStyle,
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             _config.model.isEmpty ? '未填写模型' : '调用模型：${_config.model}',
             maxLines: 2,
@@ -321,7 +319,7 @@ class _AdminModelKeysScreenState extends State<AdminModelKeysScreen> {
           Expanded(
             child: Text(
               _config.hasApiKey ? '••••••••••••••（已保存）' : '尚未配置密钥',
-              style: const TextStyle(fontSize: 12.5, letterSpacing: 0.5),
+              style: const TextStyle(fontSize: 13, letterSpacing: 0.5),
             ),
           ),
           MeBadge(

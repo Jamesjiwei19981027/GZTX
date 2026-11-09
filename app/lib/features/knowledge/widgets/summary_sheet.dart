@@ -98,7 +98,7 @@ class _SummarySheetState extends State<SummarySheet> {
                       '总结草稿',
                       style: TextStyle(
                         fontSize: 17,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         color: isDark
                             ? AppColors.darkTextPrimary
                             : AppColors.textPrimary,
@@ -116,12 +116,11 @@ class _SummarySheetState extends State<SummarySheet> {
                   ),
                   IconButton(
                     tooltip: '关闭',
-                    onPressed: _saving
-                        ? null
-                        : () => Navigator.of(context).pop(false),
+                    onPressed:
+                        _saving ? null : () => Navigator.of(context).pop(false),
                     icon: AppIcon(
                       'close',
-                      size: 20,
+                      size: 18,
                       color: isDark
                           ? AppColors.darkTextSecondary
                           : AppColors.textSecondary,
@@ -131,7 +130,7 @@ class _SummarySheetState extends State<SummarySheet> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                '可以直接保存，也可以补充自己的想法。',
+                '可以直接保存，也可以补充自己的想法',
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark
@@ -175,7 +174,7 @@ class _SummarySheetState extends State<SummarySheet> {
                   '原始依据',
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
@@ -199,13 +198,13 @@ class _SummarySheetState extends State<SummarySheet> {
                           source.title,
                           style: TextStyle(
                             fontSize: 13,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                             color: isDark
                                 ? AppColors.darkTextPrimary
                                 : AppColors.textPrimary,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        const SizedBox(height: 4),
                         Text(
                           source.quote,
                           style: TextStyle(
@@ -279,7 +278,7 @@ class PageDetailSheet extends StatelessWidget {
               page.title,
               style: TextStyle(
                 fontSize: 17,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color:
                     isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
               ),
@@ -312,7 +311,7 @@ class PageDetailSheet extends StatelessWidget {
               '原始依据',
               style: TextStyle(
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
                 color:
                     isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
               ),
@@ -320,7 +319,7 @@ class PageDetailSheet extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs),
             if (page.facts.isEmpty)
               Text(
-                '暂无额外引用。',
+                '暂无额外引用',
                 style: TextStyle(
                   fontSize: 12,
                   color: isDark
@@ -333,11 +332,11 @@ class PageDetailSheet extends StatelessWidget {
                 margin: const EdgeInsets.only(bottom: AppSpacing.sm),
                 padding: const EdgeInsets.all(AppSpacing.md),
                 decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.darkSurfaceVariant
-                      : AppColors.surfaceVariant,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
-                ),
+                    border: Border(
+                        bottom: BorderSide(
+                            color: isDark
+                                ? AppColors.darkBorder
+                                : AppColors.border))),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -374,7 +373,7 @@ class PageDetailSheet extends StatelessWidget {
                             if (fact.lineLabel.isNotEmpty) fact.lineLabel,
                           ].join(' · '),
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: isDark
                                 ? AppColors.darkTextTertiary
                                 : AppColors.textTertiary,

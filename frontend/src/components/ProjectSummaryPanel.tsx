@@ -52,14 +52,14 @@ export const ProjectSummaryPanel: React.FC<Props> = ({ projectId, refreshKey }) 
   const latest = data.latest_published;
 
   return (
-    <div className="rounded-xl border border-outline-variant/40 p-3 space-y-3" data-testid="project-summary-panel">
-      <div className="text-xs font-bold text-on-surface">项目汇总发布</div>
-      {notice && <div role="status" className="text-xs text-emerald-700">{notice}</div>}
-      {error && <div role="alert" className="text-xs text-red-600">{error}</div>}
+    <div className="border-t border-outline-variant py-3 space-y-3" data-testid="project-summary-panel">
+      <div className="text-xs font-medium text-on-surface tabular-nums">项目汇总发布</div>
+      {notice && <div role="status" className="text-xs text-[#2f7d4f]">{notice}</div>}
+      {error && <div role="alert" className="text-xs text-error">{error}</div>}
 
       {latest ? (
-        <div className="rounded-lg bg-emerald-500/5 border border-emerald-500/20 p-3" data-testid="published-summary">
-          <div className="text-[11px] text-on-surface-variant">
+        <div className="rounded-lg bg-[#2f7d4f]/5 border border-[#2f7d4f]/20 p-3" data-testid="published-summary">
+          <div className="text-xs text-on-surface-variant">
             已发布版本 #{latest.id} · {fmt(latest.published_at)}
             {latest.published_by_name ? ` · ${latest.published_by_name} 确认` : ''}
           </div>
@@ -71,16 +71,16 @@ export const ProjectSummaryPanel: React.FC<Props> = ({ projectId, refreshKey }) 
 
       {data.can_publish && pending.length > 0 && (
         <div className="space-y-2">
-          <div className="text-[11px] font-bold text-on-surface-variant">待发布</div>
+          <div className="text-xs font-medium text-on-surface-variant tabular-nums">待发布</div>
           {pending.slice(0, 3).map((item) => (
             <div key={item.id} className="rounded-lg bg-surface-container-low p-3" data-testid={`pending-summary-${item.id}`}>
-              <div className="flex items-center gap-2 text-[11px] text-on-surface-variant">
+              <div className="flex items-center gap-2 text-xs text-on-surface-variant">
                 <span>#{item.id} · 生成于 {fmt(item.created_at)} · 汇总了 {item.report_count} 份汇报</span>
                 <button
                   type="button"
                   disabled={busyId === item.id}
                   onClick={() => void publish(item)}
-                  className="ml-auto px-3 py-1 rounded-lg bg-primary text-on-primary text-xs font-bold disabled:opacity-50 cursor-pointer"
+                  className="ml-auto px-3 py-1 rounded-lg bg-primary text-on-primary text-xs font-medium disabled:opacity-50 cursor-pointer tabular-nums"
                 >
                   {busyId === item.id ? '发布中…' : '确认发布'}
                 </button>

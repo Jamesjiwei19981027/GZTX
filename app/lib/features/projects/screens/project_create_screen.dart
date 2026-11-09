@@ -67,7 +67,8 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
     });
   }
 
-  bool get _isDirty => _projectName.text.trim().isNotEmpty ||
+  bool get _isDirty =>
+      _projectName.text.trim().isNotEmpty ||
       _companyName.text.trim().isNotEmpty ||
       _companySlug.text.trim().isNotEmpty;
 
@@ -168,8 +169,8 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
         setState(() {
           _busy = false;
           _createdCompany = created;
-          _error = '公司「${created.name}」已创建，但切换失败：项目列表未能加载。'
-              '可点下方「重试切换」，无需重新创建公司。';
+          _error = '公司「${created.name}」已创建，但切换失败：项目列表未能加载'
+              '可点下方「重试切换」，无需重新创建公司';
         });
       }
     } catch (error) {
@@ -257,7 +258,7 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
               variant: AppButtonVariant.secondary,
               size: AppButtonSize.lg,
               isFullWidth: true,
-              icon: const AppIcon('refresh', size: 16),
+              icon: const AppIcon('refresh', size: 18),
               onPressed: _busy ? null : _retrySwitch,
             ),
             const SizedBox(height: AppSpacing.md),
@@ -335,12 +336,12 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Padding(
-          padding: EdgeInsets.only(left: 4, bottom: 6),
+          padding: EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
             '安全策略预设',
             style: TextStyle(
               fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: AppColors.textSecondary,
             ),
           ),
@@ -375,7 +376,7 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
                     ),
                   ),
                 ),
-                const AppIcon('chevron-down', size: 16),
+                const AppIcon('chevron-down', size: 18),
               ],
             ),
           ),

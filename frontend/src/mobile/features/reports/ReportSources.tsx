@@ -99,14 +99,14 @@ export const ReportSources: React.FC<ReportSourcesProps> = ({
 
   if (displayed.length === 0) {
     return (
-      <div className={`p-4 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 text-center ${className}`}>
-        <p className="text-xs text-slate-400 dark:text-slate-500">暂无来源</p>
+      <div className={`p-4 bg-surface-container-lowest dark:bg-surface-container-lowest/60 rounded-xl border border-outline-variant/80 dark:border-outline-variant text-center ${className}`}>
+        <p className="text-xs text-outline dark:text-on-surface-variant">暂无来源</p>
       </div>
     );
   }
 
   return (
-    <div className={`bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/80 ${className}`}>
+    <div className={`bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant/80 dark:border-outline-variant overflow-hidden divide-y divide-outline-variant dark:divide-outline-variant/80 ${className}`}>
       {displayed.map((item) => {
         const icon = getSourceIcon(item.type);
         return (
@@ -117,25 +117,25 @@ export const ReportSources: React.FC<ReportSourcesProps> = ({
                 onSelectSource(item.rawSource);
               }
             }}
-            className={`flex items-center gap-3 px-3.5 py-3 transition-colors ${
+            className={`flex items-center gap-3 px-4 py-3 transition-ink-colors ${
               onSelectSource && item.rawSource
-                ? 'hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer active:bg-slate-100'
+                ? 'hover:bg-surface dark:hover:bg-surface-container-lowest/50 cursor-pointer active:bg-surface-container'
                 : ''
             }`}
           >
-            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-[#0058BE] dark:text-blue-400 flex items-center justify-center shrink-0">
-              <AppIcon name={icon} size={16} />
+            <div className="w-8 h-8 rounded-lg bg-surface-container dark:bg-surface-container text-primary dark:text-primary flex items-center justify-center shrink-0">
+              <AppIcon name={icon} size={18} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-slate-800 dark:text-slate-200 truncate">
+              <p className="text-xs font-medium text-on-surface dark:text-outline truncate tabular-nums">
                 {item.title}
               </p>
-              <p className="text-[11px] text-slate-400 dark:text-slate-500 truncate mt-0.5">
+              <p className="text-xs text-outline dark:text-on-surface-variant truncate mt-1">
                 {item.detail}
               </p>
             </div>
             {onSelectSource && item.rawSource && (
-              <AppIcon name="chevron-right" size={16} className="text-slate-400 shrink-0" />
+              <AppIcon name="chevron-right" size={18} className="text-inherit shrink-0" />
             )}
           </div>
         );

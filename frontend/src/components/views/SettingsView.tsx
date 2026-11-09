@@ -194,7 +194,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const accentColors: { id: AccentColor; name: string; bgClass: string }[] = [
-    { id: 'blue', name: lang === 'zh' ? '商务蓝' : 'Blue', bgClass: 'bg-[#0058be]' },
+    { id: 'blue', name: lang === 'zh' ? '商务蓝' : 'Blue', bgClass: 'bg-primary' },
     { id: 'green', name: lang === 'zh' ? '森林绿' : 'Green', bgClass: 'bg-[#006c49]' },
     { id: 'amber', name: lang === 'zh' ? '活力橙' : 'Amber', bgClass: 'bg-[#924700]' },
     { id: 'red', name: lang === 'zh' ? '警示红' : 'Red', bgClass: 'bg-[#ba1a1a]' },
@@ -204,7 +204,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     <div className="max-w-[1100px] mx-auto w-full pb-20 md:pb-8 animate-in fade-in duration-300">
       {/* Settings Title Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-on-surface dark:text-[#f0f1f2] tracking-tight">
+        <h1 className="text-3xl font-medium text-on-surface dark:text-on-surface  tabular-nums">
           {t.settings}
         </h1>
         <p className="text-sm text-on-surface-variant mt-1">
@@ -214,131 +214,131 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Side Settings Navigation (4 cols) */}
-        <div className="lg:col-span-4 bg-surface dark:bg-[#191c1d] rounded-2xl p-3 border border-surface-variant dark:border-outline-variant shadow-sm space-y-1">
+        <div className="lg:col-span-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl p-3 border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none space-y-1">
           <button
             onClick={() => setActiveTab('profile')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-ink-colors ${
               activeTab === 'profile'
-                ? 'bg-primary text-on-primary shadow-sm'
-                : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                : 'text-on-surface dark:text-on-surface hover:bg-surface-container-low'
             }`}
           >
-            <span className="material-symbols-outlined text-xl">person</span>
+            <span className="material-symbols-outlined text-[18px]">person</span>
             <span>{t.profileInfo}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('security')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-ink-colors ${
               activeTab === 'security'
-                ? 'bg-primary text-on-primary shadow-sm'
-                : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                : 'text-on-surface dark:text-on-surface hover:bg-surface-container-low'
             }`}
           >
-            <span className="material-symbols-outlined text-xl">lock</span>
+            <span className="material-symbols-outlined text-[18px]">lock</span>
             <span>{t.securitySettings}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('appearance')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-ink-colors ${
               activeTab === 'appearance'
-                ? 'bg-primary text-on-primary shadow-sm'
-                : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                : 'text-on-surface dark:text-on-surface hover:bg-surface-container-low'
             }`}
           >
-            <span className="material-symbols-outlined text-xl">palette</span>
+            <span className="material-symbols-outlined text-[18px]">palette</span>
             <span>{t.appearance}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('notifications')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-ink-colors ${
               activeTab === 'notifications'
-                ? 'bg-primary text-on-primary shadow-sm'
-                : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                : 'text-on-surface dark:text-on-surface hover:bg-surface-container-low'
             }`}
           >
-            <span className="material-symbols-outlined text-xl">notifications</span>
+            <span className="material-symbols-outlined text-[18px]">notifications</span>
             <span>{t.notifPrefs}</span>
           </button>
 
           <button
             onClick={() => setActiveTab('defaults')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-ink-colors ${
               activeTab === 'defaults'
-                ? 'bg-primary text-on-primary shadow-sm'
-                : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                : 'text-on-surface dark:text-on-surface hover:bg-surface-container-low'
             }`}
           >
-            <span className="material-symbols-outlined text-xl">tune</span>
+            <span className="material-symbols-outlined text-[18px]">tune</span>
             <span>{t.taskDefaults}</span>
           </button>
 
           {isAdmin && (
             <div className="pt-3 border-t border-surface-variant space-y-1">
-              <div className="px-4 py-1.5 text-xs font-bold text-on-surface-variant uppercase tracking-wider flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-sm text-primary">domain</span>
+              <div className="px-4 py-2 text-xs font-medium text-on-surface-variant   flex items-center gap-2 tabular-nums">
+                <span className="material-symbols-outlined text-[18px] text-inherit">domain</span>
                 <span>{lang === 'zh' ? '企业管理' : 'Enterprise Admin'}</span>
               </div>
 
               <button
                 onClick={() => setActiveTab('admin-channels')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-ink-colors ${
                   activeTab === 'admin-channels'
-                    ? 'bg-primary text-on-primary shadow-sm'
-                    : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                    ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                    : 'text-on-surface dark:text-on-surface hover:bg-surface-container-low'
                 }`}
               >
-                <span className="material-symbols-outlined text-xl">hub</span>
+                <span className="material-symbols-outlined text-[18px]">hub</span>
                 <span>{lang === 'zh' ? '通知渠道' : 'Notification Channels'}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('admin-ai')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-ink-colors ${
                   activeTab === 'admin-ai'
-                    ? 'bg-primary text-on-primary shadow-sm'
-                    : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                    ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                    : 'text-on-surface dark:text-on-surface hover:bg-surface-container-low'
                 }`}
               >
-                <span className="material-symbols-outlined text-xl">smart_toy</span>
+                <span className="material-symbols-outlined text-[18px]">smart_toy</span>
                 <span>{lang === 'zh' ? 'AI 服务配置' : 'AI Services'}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('admin-org-sso')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-ink-colors ${
                   activeTab === 'admin-org-sso'
-                    ? 'bg-primary text-on-primary shadow-sm'
-                    : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                    ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                    : 'text-on-surface dark:text-on-surface hover:bg-surface-container-low'
                 }`}
               >
-                <span className="material-symbols-outlined text-xl">corporate_fare</span>
+                <span className="material-symbols-outlined text-[18px]">corporate_fare</span>
                 <span>{lang === 'zh' ? '组织与登录' : 'Organization & SSO'}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('admin-integrations')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-ink-colors ${
                   activeTab === 'admin-integrations'
-                    ? 'bg-primary text-on-primary shadow-sm'
-                    : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                    ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                    : 'text-on-surface dark:text-on-surface hover:bg-surface-container-low'
                 }`}
               >
-                <span className="material-symbols-outlined text-xl">extension</span>
+                <span className="material-symbols-outlined text-[18px]">extension</span>
                 <span>{lang === 'zh' ? '第三方服务绑定' : 'Third-Party Services'}</span>
               </button>
 
               <button
                 onClick={() => setActiveTab('admin-notify-logs')}
-                className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-ink-colors ${
                   activeTab === 'admin-notify-logs'
-                    ? 'bg-primary text-on-primary shadow-sm'
-                    : 'text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low'
+                    ? 'bg-primary text-on-primary shadow-sm dark:shadow-none'
+                    : 'text-on-surface dark:text-on-surface hover:bg-surface-container-low'
                 }`}
               >
-                <span className="material-symbols-outlined text-xl">history</span>
+                <span className="material-symbols-outlined text-[18px]">history</span>
                 <span>{lang === 'zh' ? '通知发送记录' : 'Delivery Logs'}</span>
               </button>
             </div>
@@ -347,61 +347,61 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="border-t border-surface-variant my-2 pt-2">
             <button
               onClick={onResetDemo}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-secondary hover:bg-secondary/10 transition-colors"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium text-secondary hover:bg-secondary/10 transition-ink-colors tabular-nums"
             >
-              <span className="material-symbols-outlined text-xl">restart_alt</span>
+              <span className="material-symbols-outlined text-[18px]">restart_alt</span>
               <span>{t.resetDemo}</span>
             </button>
           </div>
         </div>
 
         {/* Right Side Tab Panels (8 cols) */}
-        <div className="lg:col-span-8 bg-surface dark:bg-[#191c1d] rounded-2xl p-6 md:p-8 border border-surface-variant dark:border-outline-variant shadow-sm">
+        <div className="lg:col-span-8 bg-surface-container-lowest dark:bg-surface-container rounded-xl p-6 md:p-8 border border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none">
           {/* TAB 1: PROFILE INFORMATION */}
           {activeTab === 'profile' && (
             <form onSubmit={handleSaveProfile} className="space-y-6 animate-in fade-in duration-200">
               <div className="flex items-center justify-between pb-4 border-b border-surface-variant">
-                <h2 className="text-xl font-bold text-on-surface dark:text-[#f0f1f2]">
+                <h2 className="text-xl font-medium text-on-surface dark:text-on-surface tabular-nums">
                   {t.profileInfo}
                 </h2>
                 {savedSuccess && (
-                  <span className="text-xs bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full font-bold animate-in zoom-in">
-                    ✓ {lang === 'zh' ? '修改已保存！' : 'Saved successfully!'}
+                  <span className="text-xs bg-secondary-container text-on-secondary-container px-3 py-1 rounded-md font-medium animate-in zoom-in tabular-nums">
+                    ✓ {lang === 'zh' ? '修改已保存' : 'Saved successfully'}
                   </span>
                 )}
                 {saveError && <span className="text-xs text-error">{saveError}</span>}
               </div>
 
               {/* Avatar section */}
-              <div className="flex items-center gap-6 p-4 bg-surface-container-low dark:bg-[#2e3132] rounded-2xl">
+              <div className="flex items-center gap-6 p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl">
                 {user.avatar ? (
                   <img
                     src={user.avatar}
                     alt={user.name}
-                    className="w-20 h-20 rounded-full object-cover ring-4 ring-primary/20 shadow-md"
+                    className="w-20 h-20 rounded-full object-cover ring-4 ring-primary/20 shadow-sm dark:shadow-none"
                   />
                 ) : (
-                  <span className="w-20 h-20 rounded-full bg-primary/10 text-primary text-2xl font-bold flex items-center justify-center ring-4 ring-primary/20 shadow-md">
+                  <span className="w-20 h-20 rounded-full bg-primary/10 text-primary text-2xl font-medium flex items-center justify-center ring-4 ring-primary/20 shadow-sm dark:shadow-none tabular-nums">
                     {user.name ? user.name.slice(0, 1) : '?'}
                   </span>
                 )}
                 <div>
-                  <h3 className="font-bold text-base text-on-surface dark:text-[#f0f1f2]">
+                  <h3 className="font-medium text-base text-on-surface dark:text-on-surface tabular-nums">
                     {user.name}
                   </h3>
-                  <p className="text-xs text-on-surface-variant mt-0.5">{user.role} • {user.email}</p>
-                  <label className="block mt-3 text-[11px] font-semibold text-on-surface-variant">
+                  <p className="text-xs text-on-surface-variant mt-1">{user.role} • {user.email}</p>
+                  <label className="block mt-3 text-xs font-medium text-on-surface-variant tabular-nums">
                     {lang === 'zh' ? '头像地址（可选）' : 'Avatar URL (optional)'}
                     <input
                       type="url"
                       value={avatarInput}
                       onChange={(e) => setAvatarInput(e.target.value)}
                       placeholder="https://…"
-                      className="mt-1 w-full px-3 py-2 bg-surface dark:bg-[#191c1d] border border-outline-variant rounded-lg text-xs text-on-surface dark:text-[#f0f1f2]"
+                      className="mt-1 w-full px-3 py-2 bg-surface dark:bg-surface-container-low border border-outline-variant rounded-lg text-xs text-on-surface dark:text-on-surface"
                     />
                   </label>
                   {onUploadAvatar && (
-                    <label className="inline-flex mt-2 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold cursor-pointer">
+                    <label className="inline-flex mt-2 px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium cursor-pointer tabular-nums">
                       {lang === 'zh' ? '上传头像文件' : 'Upload avatar'}
                       <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden" onChange={(event) => {
                         const file = event.target.files?.[0];
@@ -416,27 +416,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               {/* Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+                  <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
                     {t.fullName}
                   </label>
                   <input
                     type="text"
                     value={nameInput}
                     onChange={(e) => setNameInput(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-surface-container-low dark:bg-[#2e3132] border border-outline-variant dark:border-outline rounded-xl text-sm font-medium text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+                    className="w-full px-4 py-2 bg-surface-container-low dark:bg-surface-container-high border border-outline-variant dark:border-outline rounded-lg text-sm font-medium text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none tabular-nums"
                     required
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+                  <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
                     {t.emailAddr}
                   </label>
                   <input
                     type="email"
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
-                    className="w-full px-4 py-2.5 bg-surface-container-low dark:bg-[#2e3132] border border-outline-variant dark:border-outline rounded-xl text-sm font-medium text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+                    className="w-full px-4 py-2 bg-surface-container-low dark:bg-surface-container-high border border-outline-variant dark:border-outline rounded-lg text-sm font-medium text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none tabular-nums"
                     required
                     readOnly
                   />
@@ -444,14 +444,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+                <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
                   {lang === 'zh' ? '职位角色' : 'Job Role'}
                 </label>
                 <input
                   type="text"
                   value={roleInput}
                   onChange={(e) => setRoleInput(e.target.value)}
-                  className="w-full px-4 py-2.5 bg-surface-container-low dark:bg-[#2e3132] border border-outline-variant dark:border-outline rounded-xl text-sm font-medium text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+                  className="w-full px-4 py-2 bg-surface-container-low dark:bg-surface-container-high border border-outline-variant dark:border-outline rounded-lg text-sm font-medium text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none tabular-nums"
                   required
                   readOnly
                   title={lang === 'zh' ? '职位由公司成员权限决定' : 'Role is managed by company membership'}
@@ -461,14 +461,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <div className="pt-4 flex justify-end">
                 <button
                   type="submit"
-                  className="px-6 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-sm shadow-md hover:opacity-90 transition-all active:scale-95"
+                  className="px-6 py-2 bg-primary text-on-primary rounded-lg font-medium text-sm shadow-sm dark:shadow-none hover:opacity-90 transition-ink-colors active:scale-95 tabular-nums"
                 >
                   {savingProfile ? (lang === 'zh' ? '保存中…' : 'Saving…') : t.updateProfile}
                 </button>
               </div>
 
               <div className="mt-8 pt-6 border-t border-surface-variant">
-                <h3 className="text-base font-bold text-on-surface dark:text-[#f0f1f2]">
+                <h3 className="text-base font-medium text-on-surface dark:text-on-surface tabular-nums">
                   {lang === 'zh' ? '数据同步' : 'Data sync'}
                 </h3>
                 <p className="text-xs text-on-surface-variant mt-1">
@@ -477,7 +477,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <button
                   type="button"
                   onClick={onResetDemo}
-                  className="mt-4 px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl text-xs font-bold transition-colors shadow-xs"
+                  className="mt-4 px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-medium transition-ink-colors shadow-sm dark:shadow-none tabular-nums"
                 >
                   {lang === 'zh' ? '重新同步' : 'Sync again'}
                 </button>
@@ -489,7 +489,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {activeTab === 'appearance' && (
             <div className="space-y-6 animate-in fade-in duration-200">
               <div className="pb-4 border-b border-surface-variant">
-                <h2 className="text-xl font-bold text-on-surface dark:text-[#f0f1f2]">
+                <h2 className="text-xl font-medium text-on-surface dark:text-on-surface tabular-nums">
                   {t.appearance}
                 </h2>
                 <p className="text-xs text-on-surface-variant mt-1">
@@ -499,45 +499,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               {/* Theme Mode Toggles */}
               <div>
-                <label className="block text-xs font-bold uppercase text-on-surface-variant mb-3">
+                <label className="block text-xs font-medium  text-on-surface-variant mb-3 tabular-nums">
                   {t.colorTheme}
                 </label>
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     onClick={() => onUpdateSettings({ themeMode: 'light' })}
-                    className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-ink-colors ${
                       settings.themeMode === 'light'
-                        ? 'border-primary bg-primary-fixed/20 shadow-sm'
+                        ? 'border-primary bg-primary-fixed/20 shadow-sm dark:shadow-none'
                         : 'border-outline-variant hover:border-outline'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-2xl text-amber-500">
+                    <span className="material-symbols-outlined text-[18px] text-inherit">
                       light_mode
                     </span>
                     <div className="text-left">
-                      <p className="font-bold text-sm text-on-surface dark:text-[#f0f1f2]">
+                      <p className="font-normal text-sm text-on-surface dark:text-on-surface tabular-nums">
                         {t.lightMode}
                       </p>
-                      <p className="text-[11px] text-on-surface-variant">{lang === 'zh' ? '清爽明亮' : 'Clean & crisp'}</p>
+                      <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '清爽明亮' : 'Clean & crisp'}</p>
                     </div>
                   </button>
 
                   <button
                     onClick={() => onUpdateSettings({ themeMode: 'dark' })}
-                    className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
+                    className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-ink-colors ${
                       settings.themeMode === 'dark'
-                        ? 'border-primary bg-primary-fixed/20 shadow-sm'
+                        ? 'border-primary bg-primary-fixed/20 shadow-sm dark:shadow-none'
                         : 'border-outline-variant hover:border-outline'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-2xl text-indigo-400">
+                    <span className="material-symbols-outlined text-[18px] text-inherit">
                       dark_mode
                     </span>
                     <div className="text-left">
-                      <p className="font-bold text-sm text-on-surface dark:text-[#f0f1f2]">
+                      <p className="font-normal text-sm text-on-surface dark:text-on-surface tabular-nums">
                         {t.darkMode}
                       </p>
-                      <p className="text-[11px] text-on-surface-variant">{lang === 'zh' ? '护眼深邃' : 'Easy on eyes'}</p>
+                      <p className="text-xs text-on-surface-variant">{lang === 'zh' ? '护眼深邃' : 'Easy on eyes'}</p>
                     </div>
                   </button>
                 </div>
@@ -545,7 +545,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               {/* Accent Colors */}
               <div className="pt-4">
-                <label className="block text-xs font-bold uppercase text-on-surface-variant mb-3">
+                <label className="block text-xs font-medium  text-on-surface-variant mb-3 tabular-nums">
                   {t.accentColor}
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -555,16 +555,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       <button
                         key={col.id}
                         onClick={() => onUpdateSettings({ accentColor: col.id })}
-                        className={`flex items-center gap-2.5 p-3 rounded-xl border-2 transition-all ${
+                        className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-ink-colors ${
                           isSelected
-                            ? 'border-on-surface dark:border-[#f0f1f2] shadow-sm scale-105'
-                            : 'border-transparent bg-surface-container-low dark:bg-[#2e3132] hover:bg-surface-container'
+                            ? 'border-on-surface dark:border-on-surface shadow-sm dark:shadow-none scale-105'
+                            : 'border-transparent bg-surface-container-low dark:bg-surface-container-high hover:bg-surface-container'
                         }`}
                       >
-                        <span className={`w-5 h-5 rounded-full ${col.bgClass} flex items-center justify-center text-white text-xs`}>
+                        <span className={`w-5 h-5 rounded-full ${col.bgClass} flex items-center justify-center text-on-surface text-xs`}>
                           {isSelected ? '✓' : ''}
                         </span>
-                        <span className="font-bold text-xs text-on-surface dark:text-[#f0f1f2]">
+                        <span className="font-medium text-xs text-on-surface dark:text-on-surface tabular-nums">
                           {col.name}
                         </span>
                       </button>
@@ -579,7 +579,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {activeTab === 'notifications' && (
             <div className="space-y-6 animate-in fade-in duration-200">
               <div className="pb-4 border-b border-surface-variant">
-                <h2 className="text-xl font-bold text-on-surface dark:text-[#f0f1f2]">
+                <h2 className="text-xl font-medium text-on-surface dark:text-on-surface tabular-nums">
                   {t.notifPrefs}
                 </h2>
                 <p className="text-xs text-on-surface-variant mt-1">
@@ -589,12 +589,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               <div className="space-y-4">
                 {/* Email */}
-                <div className="flex items-center justify-between p-4 bg-surface-container-low dark:bg-[#2e3132] rounded-2xl">
+                <div className="flex items-center justify-between p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl">
                   <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-primary text-2xl">mail</span>
+                    <span className="material-symbols-outlined text-inherit text-[18px]">mail</span>
                     <div>
-                      <p className="font-bold text-sm text-on-surface dark:text-[#f0f1f2]">{t.emailNotif}</p>
-                      <p className="text-xs text-on-surface-variant mt-0.5">{t.emailNotifSub}</p>
+                      <p className="font-normal text-sm text-on-surface dark:text-on-surface tabular-nums">{t.emailNotif}</p>
+                      <p className="text-xs text-on-surface-variant mt-1">{t.emailNotifSub}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -603,7 +603,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       data-testid="notify-test-email"
                       disabled={testSending !== null}
                       onClick={() => void handleTestSend('email')}
-                      className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors disabled:opacity-50"
+                      className="px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-ink-colors disabled:opacity-50 tabular-nums"
                     >
                       {testSending === 'email' ? (lang === 'zh' ? '发送中…' : 'Sending…') : (lang === 'zh' ? '发送测试' : 'Send test')}
                     </button>
@@ -621,12 +621,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 {/* Push */}
-                <div className="flex items-center justify-between p-4 bg-surface-container-low dark:bg-[#2e3132] rounded-2xl">
+                <div className="flex items-center justify-between p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl">
                   <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-secondary text-2xl">notifications_active</span>
+                    <span className="material-symbols-outlined text-inherit text-[18px]">notifications_active</span>
                     <div>
-                      <p className="font-bold text-sm text-on-surface dark:text-[#f0f1f2]">{t.pushNotif}</p>
-                      <p className="text-xs text-on-surface-variant mt-0.5">{t.pushNotifSub}</p>
+                      <p className="font-normal text-sm text-on-surface dark:text-on-surface tabular-nums">{t.pushNotif}</p>
+                      <p className="text-xs text-on-surface-variant mt-1">{t.pushNotifSub}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
@@ -635,7 +635,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       data-testid="notify-test-webpush"
                       disabled={testSending !== null}
                       onClick={() => void handleTestSend('webpush')}
-                      className="px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-xs font-bold hover:bg-primary/20 transition-colors disabled:opacity-50"
+                      className="px-3 py-2 rounded-lg bg-primary/10 text-primary text-xs font-medium hover:bg-primary/20 transition-ink-colors disabled:opacity-50 tabular-nums"
                     >
                       {testSending === 'webpush' ? (lang === 'zh' ? '发送中…' : 'Sending…') : (lang === 'zh' ? '发送测试' : 'Send test')}
                     </button>
@@ -658,12 +658,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 {/* Desktop */}
-                <div className="flex items-center justify-between p-4 bg-surface-container-low dark:bg-[#2e3132] rounded-2xl">
+                <div className="flex items-center justify-between p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl">
                   <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-tertiary text-2xl">desktop_windows</span>
+                    <span className="material-symbols-outlined text-inherit text-[18px]">desktop_windows</span>
                     <div>
-                      <p className="font-bold text-sm text-on-surface dark:text-[#f0f1f2]">{t.desktopReminders}</p>
-                      <p className="text-xs text-on-surface-variant mt-0.5">{t.desktopRemindersSub}</p>
+                      <p className="font-normal text-sm text-on-surface dark:text-on-surface tabular-nums">{t.desktopReminders}</p>
+                      <p className="text-xs text-on-surface-variant mt-1">{t.desktopRemindersSub}</p>
                     </div>
                   </div>
                   <input
@@ -679,12 +679,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 {/* WeChat */}
-                <div className="flex items-center justify-between p-4 bg-surface-container-low dark:bg-[#2e3132] rounded-2xl">
+                <div className="flex items-center justify-between p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl">
                   <div className="flex items-center gap-3">
-                    <span className="material-symbols-outlined text-secondary text-2xl">chat</span>
+                    <span className="material-symbols-outlined text-inherit text-[18px]">chat</span>
                     <div>
-                      <p className="font-bold text-sm text-on-surface dark:text-[#f0f1f2]">{lang === 'zh' ? '微信提醒' : 'WeChat alerts'}</p>
-                      <p className="text-xs text-on-surface-variant mt-0.5">{lang === 'zh' ? '通过已绑定的微信渠道提醒' : 'Use the linked WeChat channel'}</p>
+                      <p className="font-normal text-sm text-on-surface dark:text-on-surface tabular-nums">{lang === 'zh' ? '微信提醒' : 'WeChat alerts'}</p>
+                      <p className="text-xs text-on-surface-variant mt-1">{lang === 'zh' ? '通过已绑定的微信渠道提醒' : 'Use the linked WeChat channel'}</p>
                     </div>
                   </div>
                   <input
@@ -701,29 +701,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     className="w-5 h-5 accent-primary rounded cursor-pointer"
                   />
                 </div>
-                <div className="p-3 rounded-xl border border-outline-variant/60 text-xs text-on-surface-variant">
-                  <div className="flex justify-between"><span>{lang === 'zh' ? '微信绑定状态' : 'WeChat binding'}</span><span className={wechatBound ? 'text-secondary font-bold' : 'text-amber-600'}>{wechatBound ? (lang === 'zh' ? '已绑定' : 'Bound') : (lang === 'zh' ? '未绑定' : 'Not bound')}</span></div>
+                <div className="p-3  border-t border-outline-variant/60 text-xs text-on-surface-variant">
+                  <div className="flex justify-between"><span>{lang === 'zh' ? '微信绑定状态' : 'WeChat binding'}</span><span className={wechatBound ? 'text-secondary font-medium' : 'text-[#a86412]'}>{wechatBound ? (lang === 'zh' ? '已绑定' : 'Bound') : (lang === 'zh' ? '未绑定' : 'Not bound')}</span></div>
                   <p className="mt-1">{lang === 'zh' ? '开启微信提醒前，请先完成微信绑定。' : 'Bind WeChat before enabling template-message alerts.'}</p>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-on-surface-variant">
-                  <div className="p-3 rounded-xl bg-surface-container-low">{emailStatus || 'SMTP 状态加载中…'}</div>
-                  <div className="p-3 rounded-xl bg-surface-container-low">{llmStatus || '个人 LLM 状态加载中…'}</div>
+                  <div className="p-3 rounded-xl bg-surface-container-lowest dark:bg-surface-container">{emailStatus || 'SMTP 状态加载中…'}</div>
+                  <div className="p-3 rounded-xl bg-surface-container-lowest dark:bg-surface-container">{llmStatus || '个人 LLM 状态加载中…'}</div>
                 </div>
 
                 {/* 通知发送记录（折叠）：失败行标红并展示原因 */}
-                <div className="rounded-2xl border border-outline-variant/60 overflow-hidden">
+                <div className=" border-t border-outline-variant/60 overflow-hidden">
                   <button
                     type="button"
                     data-testid="notify-records-toggle"
                     onClick={() => setShowNotifyRecords((v) => !v)}
-                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-bold text-on-surface dark:text-[#f0f1f2] hover:bg-surface-container-low transition-colors"
+                    className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-on-surface dark:text-on-surface hover:bg-surface-container-low transition-ink-colors tabular-nums"
                   >
                     <span className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-lg text-primary">history</span>
+                      <span className="material-symbols-outlined text-[18px] text-inherit">history</span>
                       {lang === 'zh' ? '通知发送记录' : 'Delivery log'}
                     </span>
                     <span
-                      className="material-symbols-outlined text-lg text-on-surface-variant transition-transform"
+                      className="material-symbols-outlined text-[18px] text-inherit transition-transform"
                       style={{ transform: showNotifyRecords ? 'rotate(180deg)' : 'none' }}
                     >
                       expand_more
@@ -746,20 +746,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                           {notifyRecords.map((record, i) => {
                             const failed = record.status !== 'sent' && record.status !== 'success' && record.status !== 'ok';
                             return (
-                              <li key={i} className="px-4 py-2.5 flex items-start justify-between gap-3 text-xs">
+                              <li key={i} className="px-4 py-2 flex items-start justify-between gap-3 text-xs">
                                 <div className="min-w-0">
-                                  <p className={`font-semibold truncate ${failed ? 'text-error' : 'text-on-surface dark:text-[#f0f1f2]'}`}>
+                                  <p className={`font-medium truncate ${failed ? 'text-error' : 'text-on-surface dark:text-on-surface'}`}>
                                     [{record.channel}] {record.task_title || (lang === 'zh' ? '（系统通知）' : '(system)')}
                                   </p>
                                   {failed && record.error && (
-                                    <p className="text-error mt-0.5 break-words">{record.error}</p>
+                                    <p className="text-error mt-1 break-words">{record.error}</p>
                                   )}
                                 </div>
                                 <div className="shrink-0 text-right">
-                                  <span className={`font-bold ${failed ? 'text-error' : 'text-secondary'}`}>
+                                  <span className={`font-medium ${failed ? 'text-error' : 'text-secondary'}`}>
                                     {failed ? (lang === 'zh' ? '失败' : 'Failed') : (lang === 'zh' ? '已发送' : 'Sent')}
                                   </span>
-                                  <p className="text-on-surface-variant mt-0.5">
+                                  <p className="text-on-surface-variant mt-1">
                                     {record.created_at ? record.created_at.slice(0, 16).replace('T', ' ') : '—'}
                                   </p>
                                 </div>
@@ -773,27 +773,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label className="text-xs font-bold text-on-surface-variant">
+                  <label className="text-xs font-medium text-on-surface-variant tabular-nums">
                     {lang === 'zh' ? '静音开始' : 'Quiet hours start'}
                     <input
                       type="time"
                       value={settings.notifications.quietHoursStart}
                       onChange={(e) => onUpdateSettings({ notifications: { ...settings.notifications, quietHoursStart: e.target.value } })}
-                      className="mt-1 w-full px-3 py-2 bg-surface-container-low dark:bg-[#2e3132] border border-outline-variant rounded-xl text-sm text-on-surface dark:text-[#f0f1f2]"
+                      className="mt-1 w-full px-3 py-2 bg-surface-container-low dark:bg-surface-container-high border border-outline-variant rounded-lg text-sm text-on-surface dark:text-on-surface"
                     />
                   </label>
-                  <label className="text-xs font-bold text-on-surface-variant">
+                  <label className="text-xs font-medium text-on-surface-variant tabular-nums">
                     {lang === 'zh' ? '静音结束' : 'Quiet hours end'}
                     <input
                       type="time"
                       value={settings.notifications.quietHoursEnd}
                       onChange={(e) => onUpdateSettings({ notifications: { ...settings.notifications, quietHoursEnd: e.target.value } })}
-                      className="mt-1 w-full px-3 py-2 bg-surface-container-low dark:bg-[#2e3132] border border-outline-variant rounded-xl text-sm text-on-surface dark:text-[#f0f1f2]"
+                      className="mt-1 w-full px-3 py-2 bg-surface-container-low dark:bg-surface-container-high border border-outline-variant rounded-lg text-sm text-on-surface dark:text-on-surface"
                     />
                   </label>
                 </div>
 
-                <label className="flex items-center gap-3 text-sm font-semibold text-on-surface dark:text-[#f0f1f2]">
+                <label className="flex items-center gap-3 text-sm font-medium text-on-surface dark:text-on-surface tabular-nums">
                   <input
                     type="checkbox"
                     checked={settings.notifications.weekendMute}
@@ -810,7 +810,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {activeTab === 'defaults' && (
             <div className="space-y-6 animate-in fade-in duration-200">
               <div className="pb-4 border-b border-surface-variant">
-                <h2 className="text-xl font-bold text-on-surface dark:text-[#f0f1f2]">
+                <h2 className="text-xl font-medium text-on-surface dark:text-on-surface tabular-nums">
                   {t.taskDefaults}
                 </h2>
                 <p className="text-xs text-on-surface-variant mt-1">
@@ -820,7 +820,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
               <div className="max-w-md">
                 <div>
-                  <label className="block text-xs font-bold uppercase text-on-surface-variant mb-2">
+                  <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
                     {t.defaultPriority}
                   </label>
                   <select
@@ -830,7 +830,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         taskDefaults: { ...settings.taskDefaults, priority: e.target.value as any },
                       })
                     }
-                    className="w-full px-4 py-3 bg-surface-container-low dark:bg-[#2e3132] border border-outline-variant rounded-xl text-sm font-semibold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+                    className="w-full px-4 py-3 bg-surface-container-low dark:bg-surface-container-high border border-outline-variant rounded-lg text-sm font-medium text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none tabular-nums"
                   >
                     <option value="High">{t.priorityHigh}</option>
                     <option value="Medium">{t.priorityMedium}</option>
@@ -845,13 +845,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {activeTab === 'security' && (
             <div className="space-y-8 animate-in fade-in duration-200">
               <div className="pb-4 border-b border-surface-variant">
-                <h2 className="text-xl font-bold text-on-surface dark:text-[#f0f1f2]">{t.securitySettings}</h2>
+                <h2 className="text-xl font-medium text-on-surface dark:text-on-surface tabular-nums">{t.securitySettings}</h2>
                 <p className="text-xs text-on-surface-variant mt-1">
                   {lang === 'zh' ? '使用当前密码验证后设置新的登录密码。' : 'Verify your current password before setting a new sign-in password.'}
                 </p>
               </div>
               <form onSubmit={handleChangePassword} className="space-y-4 max-w-lg">
-                <label className="block text-xs font-bold text-on-surface-variant">
+                <label className="block text-xs font-medium text-on-surface-variant tabular-nums">
                   {lang === 'zh' ? '当前密码' : 'Current password'}
                   <input
                     type="password"
@@ -859,10 +859,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     value={oldPassword}
                     onChange={(e) => setOldPassword(e.target.value)}
                     required
-                    className="mt-1 w-full px-4 py-2.5 bg-surface-container-low dark:bg-[#2e3132] border border-outline-variant rounded-xl text-sm text-on-surface dark:text-[#f0f1f2]"
+                    className="mt-1 w-full px-4 py-2 bg-surface-container-low dark:bg-surface-container-high border border-outline-variant rounded-lg text-sm text-on-surface dark:text-on-surface"
                   />
                 </label>
-                <label className="block text-xs font-bold text-on-surface-variant">
+                <label className="block text-xs font-medium text-on-surface-variant tabular-nums">
                   {lang === 'zh' ? '新密码' : 'New password'}
                   <input
                     type="password"
@@ -871,10 +871,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     onChange={(e) => setNewPassword(e.target.value)}
                     required
                     minLength={6}
-                    className="mt-1 w-full px-4 py-2.5 bg-surface-container-low dark:bg-[#2e3132] border border-outline-variant rounded-xl text-sm text-on-surface dark:text-[#f0f1f2]"
+                    className="mt-1 w-full px-4 py-2 bg-surface-container-low dark:bg-surface-container-high border border-outline-variant rounded-lg text-sm text-on-surface dark:text-on-surface"
                   />
                 </label>
-                <label className="block text-xs font-bold text-on-surface-variant">
+                <label className="block text-xs font-medium text-on-surface-variant tabular-nums">
                   {lang === 'zh' ? '确认新密码' : 'Confirm new password'}
                   <input
                     type="password"
@@ -883,37 +883,37 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     required
                     minLength={6}
-                    className="mt-1 w-full px-4 py-2.5 bg-surface-container-low dark:bg-[#2e3132] border border-outline-variant rounded-xl text-sm text-on-surface dark:text-[#f0f1f2]"
+                    className="mt-1 w-full px-4 py-2 bg-surface-container-low dark:bg-surface-container-high border border-outline-variant rounded-lg text-sm text-on-surface dark:text-on-surface"
                   />
                 </label>
                 {passwordError && <p className="text-xs text-error">{passwordError}</p>}
                 {passwordMessage && <p className="text-xs text-secondary">{passwordMessage}</p>}
-                <button type="submit" disabled={savingPassword} className="px-5 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-xs disabled:opacity-60">
+                <button type="submit" disabled={savingPassword} className="px-5 py-2 bg-primary text-on-primary rounded-lg font-medium text-xs disabled:opacity-60 tabular-nums">
                   {savingPassword ? (lang === 'zh' ? '更新中…' : 'Updating…') : (lang === 'zh' ? '更新密码' : 'Update password')}
                 </button>
               </form>
               <div className="border-t border-surface-variant pt-6">
-                <h3 className="font-bold text-on-surface dark:text-[#f0f1f2]">{t.account}</h3>
+                <h3 className="font-medium text-on-surface dark:text-on-surface tabular-nums">{t.account}</h3>
                 <p className="text-xs text-on-surface-variant mt-1">
                   {lang === 'zh' ? `退出当前设备上的 ${getBrandName(lang)} 会话。` : `Sign out of the current ${getBrandName(lang)} session.`}
                 </p>
                 {onLogout && (
-                  <button type="button" onClick={() => void onLogout()} className="mt-3 px-4 py-2 rounded-xl border border-error/40 text-error text-xs font-bold hover:bg-error/10">
+                  <button type="button" onClick={() => void onLogout()} className="mt-3 px-4 py-2 rounded-lg border border-error/40 text-error text-xs font-medium hover:bg-error/10 tabular-nums">
                     {t.signOut}
                   </button>
                 )}
                 <div className="mt-6">
-                  <div className="p-3 rounded-xl bg-surface-container-low text-xs">
-                    <p className="font-bold text-on-surface">{lang === 'zh' ? '数据与隐私' : 'Data & privacy'}</p>
+                  <div className="p-3 rounded-xl bg-surface-container-lowest dark:bg-surface-container text-xs">
+                    <p className="font-normal text-on-surface tabular-nums">{lang === 'zh' ? '数据与隐私' : 'Data & privacy'}</p>
                     <p className="mt-1 text-on-surface-variant">{privacy ? `${privacy.retention} 任务 ${String(privacy.stored_data.tasks ?? 0)} 条` : '加载中…'}</p>
                   </div>
                 </div>
                 <div className="border-t border-error/30 pt-5 mt-5">
-                  <h3 className="font-bold text-error">{lang === 'zh' ? '危险区：删除账号' : 'Danger zone: delete account'}</h3>
+                  <h3 className="font-medium text-error tabular-nums">{lang === 'zh' ? '危险区：删除账号' : 'Danger zone: delete account'}</h3>
                   <p className="text-xs text-on-surface-variant mt-1">{lang === 'zh' ? '账号会被停用并保留必要审计记录。输入密码后点击删除。' : 'The account is disabled while required audit history is retained.'}</p>
                   <div className="flex gap-2 mt-3">
-                    <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} placeholder={lang === 'zh' ? '当前密码' : 'Current password'} className="flex-1 px-3 py-2 rounded-xl border border-error/30 bg-surface text-xs" />
-                    <button type="button" disabled={deleteBusy} onClick={() => void handleDeleteAccount()} className="px-3 py-2 rounded-xl bg-error text-on-error text-xs font-bold disabled:opacity-50">{deleteBusy ? '…' : (lang === 'zh' ? '删除账号' : 'Delete')}</button>
+                    <input type="password" value={deletePassword} onChange={(e) => setDeletePassword(e.target.value)} placeholder={lang === 'zh' ? '当前密码' : 'Current password'} className="flex-1 px-3 py-2 rounded-lg border border-error/30 bg-surface text-xs" />
+                    <button type="button" disabled={deleteBusy} onClick={() => void handleDeleteAccount()} className="px-3 py-2 rounded-lg bg-error text-on-error text-xs font-medium disabled:opacity-50 tabular-nums">{deleteBusy ? '…' : (lang === 'zh' ? '删除账号' : 'Delete')}</button>
                   </div>
                 </div>
               </div>
@@ -940,7 +940,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       {/* 版本号（来自 /health 的 APP_VERSION，构建注入）：自托管升级确认用 */}
-      <p className="mt-8 text-center text-[11px] text-on-surface-variant" data-testid="app-version">
+      <p className="mt-8 text-center text-xs text-on-surface-variant" data-testid="app-version">
         {getBrandName(lang)} {appVersion ? `v${appVersion.replace(/^v/, '')}` : (lang === 'zh' ? '版本未知' : 'version unknown')}
       </p>
     </div>

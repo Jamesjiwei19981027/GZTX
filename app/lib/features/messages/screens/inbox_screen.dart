@@ -161,7 +161,7 @@ class _InboxScreenState extends State<InboxScreen> {
               child: Text(
                 inbox.markingAll ? '处理中…' : '全部已读',
                 style:
-                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
               ),
             ),
           ),
@@ -169,8 +169,8 @@ class _InboxScreenState extends State<InboxScreen> {
       body: _companyId == null
           ? const AppEmptyState(
               title: '尚未加入企业',
-              description: '协作通知按企业发送，请先加入企业。',
-              icon: AppIcon('bell', size: 44, color: AppColors.textTertiary),
+              description: '协作通知按企业发送，请先加入企业',
+              icon: AppIcon('bell', size: 18, color: AppColors.textTertiary),
             )
           : Column(
               children: [
@@ -261,11 +261,11 @@ class _InboxScreenState extends State<InboxScreen> {
                             title: '暂无通知',
                             description:
                                 controller.filter == NotificationFilter.archived
-                                    ? '无已归档通知。'
-                                    : '当前收件箱没有新的协作通知。',
+                                    ? '无已归档通知'
+                                    : '当前收件箱没有新的协作通知',
                             icon: const AppIcon(
                               'bell',
-                              size: 42,
+                              size: 18,
                               color: AppColors.textTertiary,
                             ),
                           ),

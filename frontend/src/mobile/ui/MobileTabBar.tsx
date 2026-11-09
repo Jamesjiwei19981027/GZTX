@@ -24,7 +24,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
     <nav
       role="tablist"
       aria-label="主要页面导航"
-      className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/80 dark:border-slate-800 select-none transition-transform duration-200"
+      className="fixed bottom-0 left-0 right-0 z-30 bg-surface-container-lowest border-t border-outline-variant select-none transition-ink-colors"
     >
       <div className="flex items-center justify-around h-[52px] max-w-lg mx-auto px-1">
         {MOBILE_TABS.map((tab) => {
@@ -46,8 +46,8 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
               }}
               className={`mobile-touch-target flex-1 flex flex-col items-center justify-center gap-0.5 cursor-pointer transition-colors ${
                 isActive
-                  ? 'text-[#0058BE] dark:text-blue-400 font-semibold'
-                  : 'text-slate-500 dark:text-slate-400 font-normal hover:text-slate-800 dark:hover:text-slate-200'
+                  ? 'text-primary font-medium'
+                  : 'text-on-surface-variant font-normal hover:text-on-surface'
               }`}
             >
               <div className="relative flex items-center justify-center">
@@ -59,7 +59,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({
                 />
                 {badge && (
                   <span
-                    className={`absolute -top-1 -right-2 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none ring-2 ring-white dark:ring-slate-900 ${
+                    className={`absolute -top-1 -right-2 flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-error text-on-error text-[10px] font-medium leading-none ring-2 ring-surface-container-lowest ${
                       typeof badge === 'boolean' ? 'w-2.5 h-2.5 !min-w-0 !p-0 top-0 right-0' : ''
                     }`}
                   >

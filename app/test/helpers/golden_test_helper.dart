@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:worktodo_app/design/app_theme.dart';
 
 bool _fontsLoaded = false;
 
@@ -62,6 +63,9 @@ Future<void> loadTestFonts(WidgetTester tester) async {
   // 为中文字体注册 NotoSansSC 及 Cupertino 默认采用的字体别名
   final families = [
     'NotoSansSC',
+    // Production uses Inter with system CJK fallback. Register a deterministic
+    // test alias too, so ASCII punctuation does not fall back to Ahem boxes.
+    'Inter',
     '.SF Pro Text',
     // CupertinoAlertDialog 硬编码使用这两个字体族，不注册的话弹窗文案在 Windows 上是方块
     'CupertinoSystemText',
@@ -118,14 +122,15 @@ Future<void> testAdaptiveGolden({
       ),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          platform: TargetPlatform.iOS,
-          fontFamily: testFont,
-          fontFamilyFallback: const [testFont, '.SF Pro Text'],
-          cupertinoOverrideTheme: const CupertinoThemeData(
-            textTheme: cupertinoTextTheme,
-          ),
-        ),
+        theme: appThemeFor(Brightness.light,
+            base: ThemeData(
+              platform: TargetPlatform.iOS,
+              fontFamily: testFont,
+              fontFamilyFallback: const [testFont, '.SF Pro Text'],
+              cupertinoOverrideTheme: const CupertinoThemeData(
+                textTheme: cupertinoTextTheme,
+              ),
+            )),
         localizationsDelegates: const [
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
@@ -161,11 +166,12 @@ Future<void> testAdaptiveGolden({
   await tester.pumpWidget(
     MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        platform: TargetPlatform.android,
-        fontFamily: testFont,
-        fontFamilyFallback: const [testFont],
-      ),
+      theme: appThemeFor(Brightness.light,
+          base: ThemeData(
+            platform: TargetPlatform.android,
+            fontFamily: testFont,
+            fontFamilyFallback: const [testFont],
+          )),
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,

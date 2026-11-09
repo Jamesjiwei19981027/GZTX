@@ -112,7 +112,7 @@ void main() {
 
       expect(find.text('确认归档项目？'), findsOneWidget);
       expect(
-        find.text('归档后项目所有任务、人轴与资料将转为只读历史存档，普通成员不可再提交新汇报。'),
+        find.text('归档后项目所有任务、人轴与资料将转为只读历史存档，普通成员不可再提交新汇报'),
         findsOneWidget,
       );
 

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:worktodo_app/design/design.dart';
@@ -81,6 +82,50 @@ void main() {
     expect(find.text('适应屏幕'), findsOneWidget);
     expect(find.byKey(const Key('axis-more-menu')), findsOneWidget);
   });
+
+  for (final width in [320.0, 412.0]) {
+    testWidgets('方向切换文字在 $width 宽屏完整显示，切换后仍可见', (tester) async {
+      tester.view.physicalSize = Size(width, 915);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final harness = await AxisTestHarness.create();
+      await tester.pumpWidget(harness.wrap(
+        AxisRootScreen(
+          api: harness.api,
+          authState: harness.authState,
+          initialTab: AxisViewTab.overview,
+        ),
+      ));
+      await tester.pumpAndSettle();
+
+      void expectFullLabels() {
+        for (final label in ['纵向', '横向']) {
+          final paragraph =
+              tester.renderObject<RenderParagraph>(find.text(label));
+          expect(
+            paragraph.size.height,
+            greaterThanOrEqualTo(
+                paragraph.getMaxIntrinsicHeight(paragraph.size.width)),
+            reason: '$label 的布局高度必须容纳完整文字行，不能裁掉下半截',
+          );
+        }
+      }
+
+      expectFullLabels();
+      await tester.tap(find.text('横向'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<AxisCanvas>(find.byType(AxisCanvas)).orientation,
+          AxisOrientation.horizontal);
+      expectFullLabels();
+      await tester.tap(find.text('纵向'));
+      await tester.pumpAndSettle();
+      expect(tester.widget<AxisCanvas>(find.byType(AxisCanvas)).orientation,
+          AxisOrientation.vertical);
+      expectFullLabels();
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('多个根时画布顶部显示提示条；单根时不显示', (tester) async {
     final multi = await AxisTestHarness.create();

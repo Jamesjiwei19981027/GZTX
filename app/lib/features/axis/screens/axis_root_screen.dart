@@ -208,7 +208,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              const Text('默认方向', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('默认方向', style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
@@ -224,7 +224,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                 ],
               ),
               const SizedBox(height: AppSpacing.lg),
-              const Text('节点间距', style: TextStyle(fontWeight: FontWeight.w600)),
+              const Text('节点间距', style: TextStyle(fontWeight: FontWeight.w500)),
               const SizedBox(height: AppSpacing.sm),
               Row(
                 children: [
@@ -366,13 +366,13 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
             key: const Key('axis-add-person'),
             tooltip: '新增主轴人员',
             onPressed: _openAddPerson,
-            icon: const AppIcon('plus', size: 22),
+            icon: const AppIcon('plus', size: 18),
           ),
         IconButton(
           key: const Key('axis-settings'),
           tooltip: '画布设置',
           onPressed: _openSettings,
-          icon: const AppIcon('more-horizontal', size: 22),
+          icon: const AppIcon('more-horizontal', size: 18),
         ),
       ],
       body: Column(
@@ -402,7 +402,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: _QuickEntry(
-                    icon: Icons.auto_awesome,
+                    icon: Icons.description_outlined,
                     label: 'AI 责任链审计',
                     onTap: () => context.push('/axis/audit'),
                   ),
@@ -511,14 +511,13 @@ class _NoProjectState extends StatelessWidget {
         const SizedBox(height: AppSpacing.xxxl),
         const Icon(
           Icons.account_tree_outlined,
-          size: 56,
-          color: AppColors.primary,
+          size: 18,
         ),
         const SizedBox(height: AppSpacing.lg),
         const Text(
           '还没有加入任何项目',
           textAlign: TextAlign.center,
-          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 17, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: AppSpacing.sm),
         Text(
@@ -540,7 +539,7 @@ class _NoProjectState extends StatelessWidget {
           onPressed: () => onReload(),
         ),
         const SizedBox(height: AppSpacing.lg),
-        const AxisInfoBanner(text: '加入项目需要项目经理在「项目与团队」中发出邀请，邀请链接在消息中心领取。'),
+        const AxisInfoBanner(text: '加入项目需要项目经理在「项目与团队」中发出邀请，邀请链接在消息中心领取'),
       ],
     );
   }
@@ -593,7 +592,7 @@ class _ProjectBar extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
@@ -644,7 +643,10 @@ class _QuickEntry extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 17, color: AppColors.primary),
+            Icon(
+              icon,
+              size: 18,
+            ),
             const SizedBox(width: AppSpacing.xs),
             Flexible(
               child: Text(
@@ -652,7 +654,7 @@ class _QuickEntry extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 12,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.primary,
                 ),
               ),
@@ -709,7 +711,7 @@ class _MineView extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
-          const AxisInfoBanner(text: '汇报路径由人轴决定，AI 辅助整理与递交。'),
+          const AxisInfoBanner(text: '汇报路径由人轴决定，AI 辅助整理与递交'),
           const SizedBox(height: AppSpacing.md),
           if (supervisor != null)
             _MiniPersonCard(
@@ -753,7 +755,7 @@ class _MineView extends StatelessWidget {
                   '直属下属（${subordinates.length}）',
                   style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
@@ -761,7 +763,7 @@ class _MineView extends StatelessWidget {
                 TextButton.icon(
                   key: const Key('axis-add-subordinate'),
                   onPressed: () => onAddSubordinate(),
-                  icon: const Icon(Icons.add, size: 16),
+                  icon: const Icon(Icons.add, size: 18),
                   label: const Text('新增下属'),
                 ),
             ],
@@ -830,7 +832,7 @@ class _MineView extends StatelessWidget {
               const Expanded(
                 child: Text(
                   '我的责任事项',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
               ),
               TextButton(
@@ -921,7 +923,7 @@ class _SelfCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                 fontSize: 16,
-                                fontWeight: FontWeight.w700,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                           ),
@@ -929,7 +931,7 @@ class _SelfCard extends StatelessWidget {
                           const AxisStatusChip(label: '当前责任人'),
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         '${node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle}'
                         ' · ${node.department.isEmpty ? '项目团队' : node.department}',
@@ -951,22 +953,22 @@ class _SelfCard extends StatelessWidget {
                   if (pres.icon != null) ...[
                     Icon(
                       pres.icon,
-                      size: 14,
+                      size: 18,
                       color: pres.iconColor ?? pres.textColor,
                     ),
-                    const SizedBox(width: 5),
+                    const SizedBox(width: 8),
                   ],
                   Expanded(
                     child: Text(
                       pres.text,
                       style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                         color: pres.textColor,
                       ),
                     ),
                   ),
-                  Icon(Icons.chevron_right, size: 16, color: pres.textColor),
+                  Icon(Icons.chevron_right, size: 18, color: pres.textColor),
                 ],
               ),
             ],
@@ -1015,15 +1017,15 @@ class _MiniPersonCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle,
                     maxLines: 2,
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: AppColors.textSecondaryOf(isDark),
                     ),
                   ),
@@ -1035,7 +1037,7 @@ class _MiniPersonCard extends StatelessWidget {
                         if (pres.icon != null) ...[
                           Icon(
                             pres.icon,
-                            size: 14,
+                            size: 18,
                             color: pres.iconColor ?? pres.textColor,
                           ),
                           const SizedBox(width: 4),
@@ -1043,9 +1045,9 @@ class _MiniPersonCard extends StatelessWidget {
                         Text(
                           pres.text,
                           style: TextStyle(
-                            fontSize: 11,
+                            fontSize: 12,
                             color: pres.textColor,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -1203,17 +1205,16 @@ class _OverviewView extends StatelessWidget {
               children: [
                 const Icon(
                   Icons.account_tree_outlined,
-                  size: 42,
-                  color: AppColors.primary,
+                  size: 18,
                 ),
                 const SizedBox(height: AppSpacing.md),
                 const Text(
                   '人轴还没有人员',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(height: AppSpacing.xs),
                 Text(
-                  '终责人是人轴的根，下属和任务都挂在人员下面。',
+                  '终责人是人轴的根，下属和任务都挂在人员下面',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 12,
@@ -1246,9 +1247,12 @@ class _OverviewView extends StatelessWidget {
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-            child: SizedBox(
-              height: 34,
-              child: Row(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 36),
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   _OrientationSegment(
                     orientation: controller.orientation,
@@ -1259,7 +1263,7 @@ class _OverviewView extends StatelessWidget {
                     key: const Key('axis-locate-me'),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 0),
+                          horizontal: 8, vertical: 0),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -1273,7 +1277,7 @@ class _OverviewView extends StatelessWidget {
                               (_) => viewport.focusNode(selfId),
                             );
                           },
-                    icon: const Icon(Icons.my_location, size: 14),
+                    icon: const Icon(Icons.my_location, size: 18),
                     label: const Text('定位我', style: TextStyle(fontSize: 12)),
                   ),
                   const SizedBox(width: 4),
@@ -1281,15 +1285,14 @@ class _OverviewView extends StatelessWidget {
                     key: const Key('axis-fit-screen'),
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 0),
+                          horizontal: 8, vertical: 0),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     onPressed: viewport.fitToScreen,
-                    icon: const Icon(Icons.aspect_ratio, size: 14),
+                    icon: const Icon(Icons.aspect_ratio, size: 18),
                     label: const Text('适应屏幕', style: TextStyle(fontSize: 12)),
                   ),
-                  const Spacer(),
                   _AxisMoreMenu(
                     controller: controller,
                     viewport: viewport,
@@ -1440,9 +1443,9 @@ class _AxisZoomPill extends StatelessWidget {
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x14152338),
-            blurRadius: 12,
-            offset: Offset(0, 3),
+            color: Color(0x0D000000),
+            blurRadius: 2,
+            offset: Offset(0, 1),
           ),
         ],
       ),
@@ -1508,23 +1511,23 @@ class _ChoiceButton extends StatelessWidget {
     final isDark = isDarkMode(context);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+      borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: AppSpacing.md,
-          vertical: AppSpacing.xs + 2,
+          vertical: AppSpacing.xs + 4,
         ),
         decoration: BoxDecoration(
           color: selected
               ? AppColors.primary.withValues(alpha: 0.12)
               : AppColors.surfaceVariant,
-          borderRadius: BorderRadius.circular(AppSpacing.radiusFull),
+          borderRadius: BorderRadius.circular(AppSpacing.radiusSm),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            fontWeight: selected ? FontWeight.w500 : FontWeight.w500,
             color: selected
                 ? AppColors.primary
                 : AppColors.textSecondaryOf(isDark),
@@ -1548,12 +1551,12 @@ class _OrientationSegment extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = isDarkMode(context);
     return Container(
-      height: 28,
+      constraints: const BoxConstraints(minHeight: 36),
       decoration: BoxDecoration(
         color: isDark ? AppColors.darkSurfaceVariant : const Color(0xFFF1F3F6),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       ),
-      padding: const EdgeInsets.all(2),
+      padding: const EdgeInsets.all(4),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -1584,7 +1587,7 @@ class _OrientationSegment extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: selected
               ? (isDark ? AppColors.darkSurface : Colors.white)
@@ -1603,8 +1606,8 @@ class _OrientationSegment extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 11,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+            fontSize: 12,
+            fontWeight: selected ? FontWeight.w500 : FontWeight.w400,
             color: selected
                 ? AppColors.primary
                 : (isDark
@@ -1632,7 +1635,7 @@ class _AxisMoreMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       key: const Key('axis-more-menu'),
-      icon: const Icon(Icons.more_horiz, size: 20),
+      icon: const Icon(Icons.more_horiz, size: 18),
       tooltip: '更多设置',
       padding: EdgeInsets.zero,
       itemBuilder: (ctx) => [
@@ -1642,9 +1645,9 @@ class _AxisMoreMenu extends StatelessWidget {
           child: Text(
             '连线线型',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color: Theme.of(ctx).colorScheme.outline,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -1657,8 +1660,7 @@ class _AxisMoreMenu extends StatelessWidget {
                 controller.edgeStyle == AxisEdgeStyle.curve
                     ? Icons.check
                     : null,
-                size: 16,
-                color: AppColors.primary,
+                size: 18,
               ),
               const SizedBox(width: 8),
               const Text('曲线连线', style: TextStyle(fontSize: 13)),
@@ -1674,8 +1676,7 @@ class _AxisMoreMenu extends StatelessWidget {
                 controller.edgeStyle == AxisEdgeStyle.straight
                     ? Icons.check
                     : null,
-                size: 16,
-                color: AppColors.primary,
+                size: 18,
               ),
               const SizedBox(width: 8),
               const Text('直线连线', style: TextStyle(fontSize: 13)),
@@ -1689,9 +1690,9 @@ class _AxisMoreMenu extends StatelessWidget {
           child: Text(
             '排序规则',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color: Theme.of(ctx).colorScheme.outline,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -1702,8 +1703,7 @@ class _AxisMoreMenu extends StatelessWidget {
             children: [
               Icon(
                 controller.sort == AxisSort.tree ? Icons.check : null,
-                size: 16,
-                color: AppColors.primary,
+                size: 18,
               ),
               const SizedBox(width: 8),
               const Text('树序', style: TextStyle(fontSize: 13)),
@@ -1717,8 +1717,7 @@ class _AxisMoreMenu extends StatelessWidget {
             children: [
               Icon(
                 controller.sort == AxisSort.time ? Icons.check : null,
-                size: 16,
-                color: AppColors.primary,
+                size: 18,
               ),
               const SizedBox(width: 8),
               const Text('时间序', style: TextStyle(fontSize: 13)),
@@ -1732,9 +1731,9 @@ class _AxisMoreMenu extends StatelessWidget {
           child: Text(
             '节点间距',
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color: Theme.of(ctx).colorScheme.outline,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),
@@ -1746,8 +1745,7 @@ class _AxisMoreMenu extends StatelessWidget {
               children: [
                 Icon(
                   controller.spacing == sp ? Icons.check : null,
-                  size: 16,
-                  color: AppColors.primary,
+                  size: 18,
                 ),
                 const SizedBox(width: 8),
                 Text(sp.label, style: const TextStyle(fontSize: 13)),
@@ -1760,7 +1758,7 @@ class _AxisMoreMenu extends StatelessWidget {
           height: 36,
           child: Row(
             children: [
-              Icon(Icons.account_tree_outlined, size: 16),
+              Icon(Icons.account_tree_outlined, size: 18),
               SizedBox(width: 8),
               Text('全部拉到人轴', style: TextStyle(fontSize: 13)),
             ],
@@ -1771,7 +1769,7 @@ class _AxisMoreMenu extends StatelessWidget {
           height: 36,
           child: Row(
             children: [
-              Icon(Icons.unfold_less, size: 16),
+              Icon(Icons.unfold_less, size: 18),
               SizedBox(width: 8),
               Text('恢复默认折叠', style: TextStyle(fontSize: 13)),
             ],
@@ -1783,7 +1781,7 @@ class _AxisMoreMenu extends StatelessWidget {
           height: 36,
           child: Row(
             children: [
-              Icon(Icons.refresh, size: 16),
+              Icon(Icons.refresh, size: 18),
               SizedBox(width: 8),
               Text('重置卡片布局', style: TextStyle(fontSize: 13)),
             ],
@@ -1904,7 +1902,7 @@ class _AxisCanvasHintState extends State<_AxisCanvasHint> {
         child: const Text(
           '拖到别人卡片上停一下＝换上级\n拖到空白处＝挪位置',
           key: Key('axis-drag-hint'),
-          style: TextStyle(fontSize: 11, color: Colors.white),
+          style: TextStyle(fontSize: 12, color: Colors.white),
         ),
       ),
     );

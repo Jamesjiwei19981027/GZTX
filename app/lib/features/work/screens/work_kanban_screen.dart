@@ -194,7 +194,7 @@ class _WorkKanbanScreenState extends State<WorkKanbanScreen> {
             '长按卡片可拖到其它状态列，松手即保存',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               color:
                   isDark ? AppColors.darkTextTertiary : AppColors.textTertiary,
             ),
@@ -334,7 +334,7 @@ class _Column extends StatelessWidget {
                         title,
                         style: TextStyle(
                           fontSize: 13,
-                          fontWeight: FontWeight.w600,
+                          fontWeight: FontWeight.w500,
                           color: isDark
                               ? AppColors.darkTextPrimary
                               : AppColors.textPrimary,
@@ -343,7 +343,7 @@ class _Column extends StatelessWidget {
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
+                        horizontal: 8,
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
@@ -351,13 +351,13 @@ class _Column extends StatelessWidget {
                             ? AppColors.darkSurfaceVariant
                             : Colors.white,
                         borderRadius:
-                            BorderRadius.circular(AppSpacing.radiusFull),
+                            BorderRadius.circular(AppSpacing.radiusSm),
                       ),
                       child: Text(
                         '${tasks.length}',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                           color: isDark
                               ? AppColors.darkTextSecondary
                               : AppColors.textSecondary,
@@ -367,7 +367,7 @@ class _Column extends StatelessWidget {
                     const SizedBox(width: AppSpacing.xs),
                     IconButton(
                       tooltip: '在「$title」新建事项',
-                      icon: const Icon(Icons.add, size: 16),
+                      icon: const Icon(Icons.add, size: 18),
                       onPressed: onCreate,
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
@@ -482,9 +482,9 @@ class _KanbanCard extends StatelessWidget {
             boxShadow: dragging
                 ? [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.18),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
+                      color: Colors.black.withValues(alpha: 0.05),
+                      blurRadius: 2,
+                      offset: const Offset(0, 1),
                     ),
                   ]
                 : null,
@@ -496,18 +496,17 @@ class _KanbanCard extends StatelessWidget {
                 task.title,
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.35,
-                  color: task.isDone
-                      ? (isDark
-                          ? AppColors.darkTextTertiary
-                          : AppColors.textTertiary)
-                      : (isDark
-                          ? AppColors.darkTextPrimary
-                          : AppColors.textPrimary),
-                  decoration: task.isDone ? TextDecoration.lineThrough : null,
+                style: completedTitleStyle(
+                  isDark: isDark,
+                  completed: task.isDone,
+                  base: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.35,
+                    color: isDark
+                        ? AppColors.darkTextPrimary
+                        : AppColors.textPrimary,
+                  ),
                 ),
               ),
               if (task.description != null && task.description!.isNotEmpty) ...[
@@ -517,7 +516,7 @@ class _KanbanCard extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     height: 1.4,
                     color: isDark
                         ? AppColors.darkTextSecondary
@@ -525,16 +524,16 @@ class _KanbanCard extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Wrap(
                 spacing: 4,
-                runSpacing: 2,
+                runSpacing: 4,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     task.dueDate ?? '无截止日',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: task.isOverdue
                           ? AppColors.danger
                           : (isDark
@@ -576,13 +575,13 @@ class _KanbanCard extends StatelessWidget {
                               Text(
                                 '移动状态',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   color: isDark
                                       ? AppColors.darkTextSecondary
                                       : AppColors.textSecondary,
                                 ),
                               ),
-                            const Icon(Icons.expand_more, size: 14),
+                            const Icon(Icons.expand_more, size: 18),
                           ],
                         ),
                       ),

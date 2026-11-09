@@ -38,7 +38,7 @@ class CodeFieldRow extends StatelessWidget {
             Expanded(child: field),
             const SizedBox(width: AppSpacing.sm),
             Padding(
-              padding: const EdgeInsets.only(bottom: 2),
+              padding: const EdgeInsets.only(bottom: 4),
               child: button,
             ),
           ],

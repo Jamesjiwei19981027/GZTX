@@ -87,7 +87,7 @@ class _MeAboutScreenState extends State<MeAboutScreen> {
                         ),
                         child: const AppIcon(
                           'work',
-                          size: 32,
+                          size: 18,
                           color: Colors.white,
                         ),
                       ),
@@ -96,13 +96,13 @@ class _MeAboutScreenState extends State<MeAboutScreen> {
                         '工作梯',
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w500,
                           color: isDark
                               ? AppColors.darkTextPrimary
                               : AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         '原生客户端 $meAppVersion',
                         style: TextStyle(
@@ -120,7 +120,7 @@ class _MeAboutScreenState extends State<MeAboutScreen> {
             const SizedBox(height: AppSpacing.md),
             MeCard(
               title: '服务端状态',
-              footer: '版本号取自后端 `GET /health`，用于确认所连服务与数据库状态。',
+              footer: '版本号取自后端 `GET /health`，用于确认所连服务与数据库状态',
               trailing: MeInlineButton(
                 label: _loading ? '检查中…' : '重新检查',
                 isLoading: _loading,

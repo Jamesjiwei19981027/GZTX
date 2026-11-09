@@ -48,11 +48,11 @@ export const MobileReportPolicySettings: React.FC<{
       setNotice(error instanceof Error ? error.message : '汇报策略保存失败，请重试');
     } finally { setBusy(false); }
   };
-  const field = 'w-full min-h-[44px] px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm disabled:opacity-50';
-  return <section aria-label="汇报策略设置" className="p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 space-y-3">
-    <h2 className="text-sm font-semibold">汇报策略设置</h2>
-    {notice && <p role="status" className="text-sm text-[#0058BE] dark:text-blue-300">{notice}</p>}
-    {!loaded && <button type="button" onClick={() => setAttempt(value => value + 1)} className="min-h-[44px] text-sm text-[#0058BE]">重新加载策略</button>}
+  const field = 'w-full min-h-[44px] px-3 rounded-xl bg-surface-container dark:bg-surface-container-lowest text-sm disabled:opacity-50';
+  return <section aria-label="汇报策略设置" className="p-4 rounded-xl bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant space-y-3">
+    <h2 className="text-sm font-medium tabular-nums">汇报策略设置</h2>
+    {notice && <p role="status" className="text-sm text-primary dark:text-primary">{notice}</p>}
+    {!loaded && <button type="button" onClick={() => setAttempt(value => value + 1)} className="min-h-[44px] text-sm text-primary">重新加载策略</button>}
     <form onSubmit={save} className="space-y-3">
       <fieldset disabled={!canManage || archived || !loaded || busy} className="space-y-3 disabled:opacity-60">
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={policy.enabled} onChange={event => setPolicy({ ...policy, enabled: event.target.checked })} />启用汇报策略</label>
@@ -67,9 +67,9 @@ export const MobileReportPolicySettings: React.FC<{
           {Array.from({ length: 28 }, (_, index) => index + 1).map(day => <option key={day} value={day}>{day} 日</option>)}
         </select></label>}
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={policy.remind} onChange={event => setPolicy({ ...policy, remind: event.target.checked })} />截止前提醒未提交成员</label>
-        <button type="submit" className="w-full min-h-[44px] px-4 rounded-xl bg-[#0058BE] text-white text-sm font-medium">{busy ? '正在保存…' : '保存汇报策略'}</button>
+        <button type="submit" className="w-full min-h-[44px] px-4 rounded-lg bg-primary text-on-primary text-sm font-medium tabular-nums">{busy ? '正在保存…' : '保存汇报策略'}</button>
       </fieldset>
     </form>
-    {archived && <p className="text-xs text-slate-500">项目已归档，取消归档后可修改汇报策略。</p>}
+    {archived && <p className="text-xs text-on-surface-variant">项目已归档，取消归档后可修改汇报策略。</p>}
   </section>;
 };

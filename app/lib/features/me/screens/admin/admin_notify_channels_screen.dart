@@ -50,8 +50,7 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
 
   MeApi get _api => resolveMeApi(context, widget.api);
   AuthState? get _auth => resolveMeAuthState(context, widget.authState);
-  int? get _companyId =>
-      widget.companyIdOverride ?? _auth?.currentCompany?.id;
+  int? get _companyId => widget.companyIdOverride ?? _auth?.currentCompany?.id;
 
   @override
   void initState() {
@@ -119,7 +118,8 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
       setState(() => _errorMessage = '服务器端口需为 1-65535 之间的数字');
       return;
     }
-    if (_hostController.text.trim().isEmpty || _userController.text.trim().isEmpty) {
+    if (_hostController.text.trim().isEmpty ||
+        _userController.text.trim().isEmpty) {
       setState(() => _errorMessage = '服务器地址与登录账号为必填项');
       return;
     }
@@ -194,7 +194,7 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
                   child: MePageBody(
                     children: [
                       const MeBanner(
-                        message: '当前为企业超级管理员视图，可修改企业级配置。',
+                        message: '当前为企业超级管理员视图，可修改企业级配置',
                         tone: MeTone.primary,
                       ),
                       if (_errorMessage != null)
@@ -218,7 +218,8 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
                         title: 'SMTP 邮件发送服务',
                         footer: '用于任务逾期提醒、汇报摘要与验证邮件。密码在服务端加密存储且不回显，留空表示不修改。',
                         children: [
-                          const MeFieldLabel(label: 'SMTP 服务器地址', required: true),
+                          const MeFieldLabel(
+                              label: 'SMTP 服务器地址', required: true),
                           AppTextField(
                             key: const Key('admin-smtp-host'),
                             controller: _hostController,
@@ -252,9 +253,10 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
                                     const MeFieldLabel(label: '加密方式'),
                                     MeInfoRow(
                                       label: '协议',
-                                      value: _portController.text.trim() == '465'
-                                          ? 'SSL / TLS'
-                                          : 'STARTTLS',
+                                      value:
+                                          _portController.text.trim() == '465'
+                                              ? 'SSL / TLS'
+                                              : 'STARTTLS',
                                       showDivider: false,
                                     ),
                                   ],
@@ -289,8 +291,9 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
                           AppTextField(
                             key: const Key('admin-smtp-password'),
                             controller: _passwordController,
-                            placeholder:
-                                _config.hasPassword ? '••••••••••••' : '请输入密码或授权码',
+                            placeholder: _config.hasPassword
+                                ? '••••••••••••'
+                                : '请输入密码或授权码',
                             obscureText: true,
                           ),
                           const SizedBox(height: AppSpacing.md),

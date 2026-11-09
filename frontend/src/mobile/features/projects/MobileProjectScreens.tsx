@@ -94,17 +94,17 @@ export const MobileProjectSwitchScreen: React.FC<{
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
-        <h1 className="text-base font-semibold">切换工作区与项目</h1>
+    <div className="flex flex-col h-full bg-surface dark:bg-surface text-on-surface dark:text-on-surface">
+      <header className="h-14 px-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
+        <h1 className="text-base font-medium tabular-nums">切换工作区与项目</h1>
         {onClose && (
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -mr-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -mr-2 text-on-surface-variant"
             aria-label="关闭"
           >
-            <AppIcon name="close" size={20} />
+            <AppIcon name="close" size={18} />
           </button>
         )}
       </header>
@@ -116,14 +116,14 @@ export const MobileProjectSwitchScreen: React.FC<{
           footer="“全部项目”仅作为个人待办与日程汇总，不合并各项目的原始 AI 与人轴上下文。"
         >
           <MobileListItem
-            leading={<AppIcon name="work" size={20} className="text-[#0058BE]" />}
+            leading={<AppIcon name="work" size={18} className="text-inherit" />}
             title="全部项目"
             subtitle="个人跨项目待办与日历总览"
             selected={currentProject.id === 'all'}
             showChevron={false}
             trailing={
               currentProject.id === 'all' ? (
-                <AppIcon name="check" size={20} className="text-[#0058BE]" />
+                <AppIcon name="check" size={18} className="text-inherit" />
               ) : undefined
             }
             onClick={() =>
@@ -141,7 +141,7 @@ export const MobileProjectSwitchScreen: React.FC<{
         {/* 具体项目列表 */}
         <MobileListGroup title="具体协同项目">
           {projects.length === 0 ? (
-            <div className="p-4 text-center text-xs text-slate-400">
+            <div className="p-4 text-center text-xs text-outline">
               当前工作区暂无项目
             </div>
           ) : (
@@ -162,7 +162,7 @@ export const MobileProjectSwitchScreen: React.FC<{
                   showChevron={false}
                   trailing={
                     isSelected ? (
-                      <AppIcon name="check" size={20} className="text-[#0058BE]" />
+                      <AppIcon name="check" size={18} className="text-inherit" />
                     ) : undefined
                   }
                   onClick={() => handleSelect(proj)}
@@ -173,12 +173,12 @@ export const MobileProjectSwitchScreen: React.FC<{
         </MobileListGroup>
 
         {/* 快捷操作区 */}
-        <div className="pt-2 flex flex-col gap-2.5">
+        <div className="pt-2 flex flex-col gap-2">
           {onJoinProjectClick && (
             <button
               type="button"
               onClick={onJoinProjectClick}
-              className="min-h-[48px] w-full rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[#0058BE] font-medium text-sm flex items-center justify-center gap-2 shadow-xs active:bg-slate-50 dark:active:bg-slate-800"
+              className="min-h-[48px] w-full rounded-lg bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant text-primary font-medium text-sm flex items-center justify-center gap-2 shadow-sm dark:shadow-none active:bg-surface dark:active:bg-surface-container-lowest tabular-nums"
             >
               <AppIcon name="share" size={18} />
               <span>使用邀请加入项目</span>
@@ -188,7 +188,7 @@ export const MobileProjectSwitchScreen: React.FC<{
             <button
               type="button"
               onClick={onCreateProjectClick}
-              className="min-h-[48px] w-full rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[#0058BE] font-medium text-sm flex items-center justify-center gap-2 shadow-xs active:bg-slate-50 dark:active:bg-slate-800"
+              className="min-h-[48px] w-full rounded-lg bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant text-primary font-medium text-sm flex items-center justify-center gap-2 shadow-sm dark:shadow-none active:bg-surface dark:active:bg-surface-container-lowest tabular-nums"
             >
               <AppIcon name="plus" size={18} />
               <span>新建项目</span>
@@ -244,26 +244,26 @@ export const MobileWorkspaceCreateScreen: React.FC<{
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface-container-lowest dark:bg-surface text-on-surface dark:text-on-surface">
+      <header className="h-14 px-4 border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="取消"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <h1 className="text-base font-semibold">新建项目</h1>
+        <h1 className="text-base font-medium tabular-nums">新建项目</h1>
         <div className="w-10" />
       </header>
 
       <div className="flex-1 overflow-y-auto p-5 max-w-md mx-auto w-full">
         {error && (
-          <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
-            <AppIcon name="alert" size={16} />
+          <div className="mb-4 p-3 rounded-xl bg-error-container dark:bg-error text-error dark:text-error text-xs flex items-center gap-2">
+            <AppIcon name="alert" size={18} />
             <span>{error}</span>
           </div>
         )}
@@ -283,7 +283,7 @@ export const MobileWorkspaceCreateScreen: React.FC<{
           <button
             type="submit"
             disabled={busy || !projectName.trim()}
-            className="min-h-[48px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-base shadow-sm active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 mt-6"
+            className="min-h-[48px] w-full rounded-lg bg-primary text-on-primary font-medium text-base shadow-sm dark:shadow-none active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 mt-6 tabular-nums"
           >
             {busy ? '正在创建…' : '立即创建项目'}
           </button>
@@ -397,51 +397,51 @@ export const MobileProjectOverviewScreen: React.FC<{
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface text-on-surface dark:text-on-surface">
+      <header className="h-14 px-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="返回"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <h1 className="text-base font-semibold truncate flex-1 text-center">
+        <h1 className="text-base font-medium truncate flex-1 text-center tabular-nums">
           {project.name}
         </h1>
         {canManage && onNavigateToSettings && (
           <button
             type="button"
             onClick={onNavigateToSettings}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -mr-2 text-slate-600 dark:text-slate-300"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -mr-2 text-on-surface-variant dark:text-outline"
             aria-label="项目设置"
           >
-            <AppIcon name="settings" size={20} />
+            <AppIcon name="settings" size={18} />
           </button>
         )}
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {canInvite && onNavigateToInvite && <button type="button" onClick={onNavigateToInvite}
-          className="w-full min-h-[56px] px-4 rounded-2xl bg-[#0058BE] text-white shadow-sm flex items-center gap-3 text-left">
-          <AppIcon name="team" size={22} /><span className="flex-1"><span className="block text-sm font-semibold">邀请新成员加入</span><span className="block text-xs text-blue-100 mt-1">添加项目成员，共同推进任务</span></span><AppIcon name="chevron-right" size={18} />
+          className="w-full min-h-[56px] px-4 rounded-lg bg-primary text-on-primary shadow-sm dark:shadow-none flex items-center gap-3 text-left">
+          <AppIcon name="team" size={18} /><span className="flex-1"><span className="block text-sm font-medium tabular-nums">邀请新成员加入</span><span className="block text-xs text-primary mt-1">添加项目成员，共同推进任务</span></span><AppIcon name="chevron-right" size={18} />
         </button>}
         {/* 项目基本卡片 */}
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
+        <div className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant dark:border-outline-variant shadow-sm dark:shadow-none">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-[#0058BE]/10 text-[#0058BE] flex items-center justify-center font-bold text-lg">
+            <div className="w-12 h-12 rounded-xl bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant flex items-center justify-center font-medium text-lg tabular-nums">
               {project.name.slice(0, 1)}
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-lg font-bold truncate">{project.name}</h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs px-2 py-0.5 rounded-md bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300">
+              <h2 className="text-lg font-medium truncate tabular-nums">{project.name}</h2>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs px-2 py-1 rounded-md bg-surface-container text-[#2f7d4f] dark:bg-surface-container dark:text-[#6bbf8a]">
                   {project.status === 'archived' ? '已归档' : '进行中'}
                 </span>
-                <span className="text-xs text-slate-400">
+                <span className="text-xs text-outline">
                   成员 {members.length} 人
                 </span>
               </div>
@@ -449,35 +449,35 @@ export const MobileProjectOverviewScreen: React.FC<{
           </div>
 
           {project.final_owner && (
-            <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
-              <span className="text-slate-500">项目终责负责人</span>
-              <span className="font-medium text-slate-900 dark:text-slate-100">
+            <div className="mt-4 pt-3 border-t border-outline-variant dark:border-outline-variant flex items-center justify-between text-xs">
+              <span className="text-on-surface-variant">项目终责负责人</span>
+              <span className="font-medium text-on-surface dark:text-on-surface tabular-nums">
                 {project.final_owner.nickname || project.final_owner.username}
               </span>
             </div>
           )}
         </div>
 
-        <section aria-label="项目任务待办" className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center justify-between gap-2 mb-3"><h2 className="text-base font-semibold">项目任务待办 · {tasks.length}</h2>{onNavigateToTasks && <button type="button" onClick={onNavigateToTasks} className="text-xs text-[#0058BE] dark:text-blue-300 min-h-[44px]">管理任务</button>}</div>
-          {tasksLoading && <p role="status" className="text-sm text-slate-500">正在加载全部项目任务…</p>}
-          {tasksError && <button type="button" onClick={()=>setTaskAttempt(value=>value+1)} className="min-h-[44px] text-sm text-red-600">{tasksError}，点击重试</button>}
-          {!tasksLoading && !tasksError && !tasks.length && <p className="text-sm text-slate-500 py-3">当前项目暂无任务</p>}
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+        <section aria-label="项目任务待办" className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant dark:border-outline-variant">
+          <div className="flex items-center justify-between gap-2 mb-3"><h2 className="text-base font-medium tabular-nums">项目任务待办 · {tasks.length}</h2>{onNavigateToTasks && <button type="button" onClick={onNavigateToTasks} className="text-xs text-primary dark:text-primary min-h-[44px]">管理任务</button>}</div>
+          {tasksLoading && <p role="status" className="text-sm text-on-surface-variant">正在加载全部项目任务…</p>}
+          {tasksError && <button type="button" onClick={()=>setTaskAttempt(value=>value+1)} className="min-h-[44px] text-sm text-error">{tasksError}，点击重试</button>}
+          {!tasksLoading && !tasksError && !tasks.length && <p className="text-sm text-on-surface-variant py-3">当前项目暂无任务</p>}
+          <div className="divide-y divide-outline-variant dark:divide-outline-variant">
             {tasks.map(task=><button key={task.id} type="button" onClick={()=>onSelectTask?.(task)} className="w-full min-h-[56px] py-3 flex items-start gap-3 text-left">
-              <AppIcon name={task.status==='Done' ? 'check-circle' : 'work'} size={18} className="mt-0.5 shrink-0 text-[#0058BE] dark:text-blue-300" />
-              <span className="min-w-0 flex-1"><span className={`block break-words text-sm font-medium ${task.status==='Done' ? 'line-through text-slate-500' : ''}`}>{task.title}</span><span className="block text-xs text-slate-500 mt-1">{task.assignees?.map(member=>member.name).join('、') || '未分配'}{task.dueDate ? ` · ${task.dueDate}` : ''}</span></span>
-              <span className="text-xs text-slate-500 shrink-0">{task.status==='Done' ? '已完成' : task.status==='In Progress' ? '进行中' : '待办'}</span>
+              <AppIcon name={task.status==='Done' ? 'check-circle' : 'work'} size={18} className="mt-1 shrink-0 text-inherit text-inherit" />
+              <span className="min-w-0 flex-1"><span className={`block break-words text-sm font-medium ${task.status==='Done' ? 'ink-done' : ''}`}>{task.title}</span><span className="block text-xs text-on-surface-variant mt-1">{task.assignees?.map(member=>member.name).join('、') || '未分配'}{task.dueDate ? ` · ${task.dueDate}` : ''}</span></span>
+              <span className="text-xs text-on-surface-variant shrink-0">{task.status==='Done' ? '已完成' : task.status==='In Progress' ? '进行中' : '待办'}</span>
             </button>)}
           </div>
         </section>
-        <section aria-label="项目任务看板" className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800">
-          <div className="flex items-center justify-between gap-2 mb-3"><h2 className="text-base font-semibold">任务看板</h2>{onNavigateToKanban && <button type="button" onClick={onNavigateToKanban} className="text-xs text-[#0058BE] dark:text-blue-300 min-h-[44px]">管理看板</button>}</div>
-          {tasksLoading ? <p className="text-sm text-slate-500">正在加载看板…</p> : tasksError ? <p className="text-sm text-red-600">{tasksError}</p> : <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {(['To Do','In Progress','Done'] as const).map(status=><div key={status} className="min-w-0 rounded-xl bg-slate-50 dark:bg-slate-800 p-3">
-              <h3 className="text-xs font-semibold text-slate-600 dark:text-slate-300 mb-2">{status==='Done' ? '已完成' : status==='In Progress' ? '进行中' : '待办'} · {tasks.filter(task=>task.status===status).length}</h3>
-              <div className="space-y-2">{tasks.filter(task=>task.status===status).map(task=><button key={task.id} type="button" onClick={()=>onSelectTask?.(task)} className="w-full min-h-[48px] p-3 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 text-left break-words text-sm">{task.title}</button>)}</div>
-              {!tasks.some(task=>task.status===status) && <p className="text-xs text-slate-400 py-2">暂无任务</p>}
+        <section aria-label="项目任务看板" className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant dark:border-outline-variant">
+          <div className="flex items-center justify-between gap-2 mb-3"><h2 className="text-base font-medium tabular-nums">任务看板</h2>{onNavigateToKanban && <button type="button" onClick={onNavigateToKanban} className="text-xs text-primary dark:text-primary min-h-[44px]">管理看板</button>}</div>
+          {tasksLoading ? <p className="text-sm text-on-surface-variant">正在加载看板…</p> : tasksError ? <p className="text-sm text-error">{tasksError}</p> : <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {(['To Do','In Progress','Done'] as const).map(status=><div key={status} className="min-w-0 rounded-xl bg-surface-container-lowest dark:bg-surface-container p-3">
+              <h3 className="text-xs font-medium text-on-surface-variant dark:text-outline mb-2 tabular-nums">{status==='Done' ? '已完成' : status==='In Progress' ? '进行中' : '待办'} · {tasks.filter(task=>task.status===status).length}</h3>
+              <div className="space-y-2">{tasks.filter(task=>task.status===status).map(task=><button key={task.id} type="button" onClick={()=>onSelectTask?.(task)} className="w-full min-h-[48px] py-3 border-b border-outline-variant text-left break-words text-sm"><span className={task.status === 'Done' ? 'ink-done' : ''}>{task.title}</span></button>)}</div>
+              {!tasks.some(task=>task.status===status) && <p className="text-xs text-outline py-2">暂无任务</p>}
             </div>)}
           </div>}
         </section>
@@ -485,7 +485,7 @@ export const MobileProjectOverviewScreen: React.FC<{
         <MobileListGroup title="协同导航">
           {onNavigateToTasks && (
             <MobileListItem
-              leading={<AppIcon name="work" size={20} className="text-[#0058BE]" />}
+              leading={<AppIcon name="work" size={18} className="text-inherit" />}
               title="任务待办"
               subtitle="查看与分配当前项目的全部事项"
               onClick={onNavigateToTasks}
@@ -493,7 +493,7 @@ export const MobileProjectOverviewScreen: React.FC<{
           )}
           {onNavigateToKanban && (
             <MobileListItem
-              leading={<AppIcon name="kanban" size={20} className="text-amber-500" />}
+              leading={<AppIcon name="kanban" size={18} className="text-inherit" />}
               title="任务看板"
               subtitle="按状态轻触流转事项进度"
               onClick={onNavigateToKanban}
@@ -501,7 +501,7 @@ export const MobileProjectOverviewScreen: React.FC<{
           )}
           {onNavigateToAxis && (
             <MobileListItem
-              leading={<AppIcon name="axis" size={20} className="text-purple-500" />}
+              leading={<AppIcon name="axis" size={18} className="text-inherit" />}
               title="人轴责任链"
               subtitle="直属领导、下属人员责任拓扑与汇报关系"
               onClick={onNavigateToAxis}
@@ -509,7 +509,7 @@ export const MobileProjectOverviewScreen: React.FC<{
           )}
           {onNavigateToKnowledge && (
             <MobileListItem
-              leading={<AppIcon name="file" size={20} className="text-indigo-500" />}
+              leading={<AppIcon name="file" size={18} className="text-inherit" />}
               title="项目知识空间"
               subtitle="共享知识、授权总结与个人知识沉淀"
               onClick={onNavigateToKnowledge}
@@ -609,32 +609,32 @@ export const MobileProjectSettingsScreen: React.FC<{
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface text-on-surface dark:text-on-surface">
+      <header className="h-14 px-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="返回"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <h1 className="text-base font-semibold">项目设置</h1>
+        <h1 className="text-base font-medium tabular-nums">项目设置</h1>
         <div className="w-10" />
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {message && (
-          <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-[#0058BE] text-xs">
+          <div className="p-3 rounded-xl bg-surface-container-lowest dark:bg-surface-container text-primary text-xs">
             {message}
           </div>
         )}
 
         {!canEdit && (
-          <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 text-amber-800 dark:text-amber-300 text-xs flex items-center gap-2">
-            <AppIcon name="warning" size={16} />
+          <div className="p-4 rounded-xl bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-[#d9a35b]/40 text-[#a86412] dark:text-[#d9a35b] text-xs flex items-center gap-2">
+            <AppIcon name="warning" size={18} />
             <span>你当前是普通成员，仅项目管理员 (PM) 可修改项目关键设置或归档。</span>
           </div>
         )}
@@ -642,13 +642,13 @@ export const MobileProjectSettingsScreen: React.FC<{
         <MobileListGroup title="项目信息">
           <MobileListItem
             title="项目名称"
-            trailing={<span className="text-xs text-slate-500">{project?.name}</span>}
+            trailing={<span className="text-xs text-on-surface-variant">{project?.name}</span>}
             showChevron={false}
           />
           <MobileListItem
             title="当前角色"
             trailing={
-              <span className="text-xs font-medium text-[#0058BE]">
+              <span className="text-xs font-medium text-primary tabular-nums">
                 {permissions?.is_pm ? '项目负责人 (PM)' : permissions?.is_superadmin ? '企业管理员' : '项目成员'}
               </span>
             }
@@ -656,16 +656,16 @@ export const MobileProjectSettingsScreen: React.FC<{
           />
           <MobileListItem
             title="数据隔离状态"
-            trailing={<span className="text-xs text-green-600">独立沙箱安全隔离</span>}
+            trailing={<span className="text-xs text-[#2f7d4f]">独立沙箱安全隔离</span>}
             showChevron={false}
           />
         </MobileListGroup>
 
         {canEdit && !archived && (
-          <div className="p-3 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 flex gap-2">
+          <div className="p-3 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant dark:border-outline-variant flex gap-2">
             <input aria-label="项目名称" value={nameDraft} maxLength={200} onChange={(e) => setNameDraft(e.target.value)}
-              className="flex-1 min-h-[44px] px-3 rounded-xl bg-slate-100 dark:bg-slate-800 text-sm" />
-            <button type="button" disabled={busy} onClick={() => void saveName()} className="min-h-[44px] px-4 rounded-xl bg-[#0058BE] text-white text-sm font-medium disabled:opacity-40">保存名称</button>
+              className="flex-1 min-h-[44px] px-3 rounded-lg bg-surface-container dark:bg-surface-container-lowest text-sm" />
+            <button type="button" disabled={busy} onClick={() => void saveName()} className="min-h-[44px] px-4 rounded-lg bg-primary text-on-primary text-sm font-medium disabled:opacity-40 tabular-nums">保存名称</button>
           </div>
         )}
 
@@ -681,7 +681,7 @@ export const MobileProjectSettingsScreen: React.FC<{
           <MobileListGroup title="危险操作区">
             <MobileListItem
               destructive
-              leading={<AppIcon name="archive" size={20} className="text-red-500" />}
+              leading={<AppIcon name="archive" size={18} className="text-inherit" />}
               title="归档此项目"
               subtitle="归档后项目变为只读，不再接收新的 AI 汇报与修改"
               onClick={() => setConfirmArchiveOpen(true)}
@@ -761,33 +761,33 @@ export const MobileProjectInviteScreen: React.FC<{
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface text-on-surface dark:text-on-surface">
+      <header className="h-14 px-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="返回"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <h1 className="text-base font-semibold">成员邀请</h1>
+        <h1 className="text-base font-medium tabular-nums">成员邀请</h1>
         <div className="w-10" />
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4 max-w-md mx-auto w-full">
         {error && (
-          <div className="p-3 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
-            <AppIcon name="alert" size={16} />
+          <div className="p-3 rounded-xl bg-error-container dark:bg-error text-error dark:text-error text-xs flex items-center gap-2">
+            <AppIcon name="alert" size={18} />
             <span>{error}</span>
           </div>
         )}
 
-        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs">
-          <h2 className="text-sm font-semibold mb-1">发送项目邀请</h2>
-          <p className="text-xs text-slate-500 mb-4">
+        <div className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant dark:border-outline-variant shadow-sm dark:shadow-none">
+          <h2 className="text-sm font-medium mb-1 tabular-nums">发送项目邀请</h2>
+          <p className="text-xs text-on-surface-variant mb-4">
             输入受邀同事的工作邮箱。公司已配置发信时会自动发送邀请邮件，同时生成可转发的链接。
           </p>
 
@@ -806,7 +806,7 @@ export const MobileProjectInviteScreen: React.FC<{
             <button
               type="submit"
               disabled={busy || !inviteEmail.trim()}
-              className="min-h-[48px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-sm shadow-sm active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2"
+              className="min-h-[48px] w-full rounded-lg bg-primary text-on-primary font-medium text-sm shadow-sm dark:shadow-none active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 tabular-nums"
             >
               {busy ? '处理中…' : '生成并发送邀请'}
             </button>
@@ -814,25 +814,25 @@ export const MobileProjectInviteScreen: React.FC<{
         </div>
 
         {inviteResult && (
-          <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-xs space-y-3">
-            <div className="flex items-center gap-2 text-green-600 text-sm font-semibold">
+          <div className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant dark:border-outline-variant shadow-sm dark:shadow-none space-y-3">
+            <div className="flex items-center gap-2 text-[#2f7d4f] text-sm font-medium tabular-nums">
               <AppIcon name="check-circle" size={18} />
               <span>邀请凭证已生成</span>
             </div>
 
-            <div className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl font-mono text-xs break-all text-slate-700 dark:text-slate-300">
+            <div className="p-3 bg-surface-container-lowest dark:bg-surface-container rounded-xl font-mono text-xs break-all text-on-surface dark:text-outline">
               {inviteLink}
             </div>
 
             {/* 重要设计审查提示：不把复制链接当成自动发送 */}
-            <p className="text-[11px] text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-lg leading-relaxed">
+            <p className="text-xs text-[#a86412] dark:text-[#d9a35b] bg-surface-container dark:bg-surface-container p-2 rounded-lg leading-relaxed">
               {inviteResult?.notice}
             </p>
 
             <button
               type="button"
               onClick={handleCopy}
-              className="min-h-[48px] w-full rounded-xl border border-[#0058BE] text-[#0058BE] dark:border-blue-500 dark:text-blue-400 font-semibold text-sm flex items-center justify-center gap-2 active:bg-blue-50 dark:active:bg-blue-950"
+              className="min-h-[48px] w-full rounded-lg border border-primary text-primary dark:border-primary dark:text-primary font-medium text-sm flex items-center justify-center gap-2 active:bg-surface-container dark:active:bg-primary/90 tabular-nums"
             >
               <AppIcon name={copied ? 'check' : 'copy'} size={18} />
               <span>{copied ? '已复制邀请链接到剪贴板' : '复制专属邀请链接'}</span>
@@ -899,36 +899,36 @@ export const MobileInviteAcceptScreen: React.FC<{
   };
 
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface-container-lowest dark:bg-surface text-on-surface dark:text-on-surface">
+      <header className="h-14 px-4 border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="取消"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <h1 className="text-base font-semibold">接受项目协同邀请</h1>
+        <h1 className="text-base font-medium tabular-nums">接受项目协同邀请</h1>
         <div className="w-10" />
       </header>
 
       <div className="flex-1 overflow-y-auto p-6 max-w-md mx-auto w-full flex flex-col justify-center">
         <div className="text-center mb-6">
-          <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950 text-[#0058BE] flex items-center justify-center mx-auto mb-3 shadow-xs">
-            <AppIcon name="share" size={32} />
+          <div className="w-16 h-16 rounded-xl bg-surface-container-lowest dark:bg-surface-container text-primary flex items-center justify-center mx-auto mb-3 shadow-sm dark:shadow-none">
+            <AppIcon name="share" size={18} />
           </div>
-          <h2 className="text-xl font-bold">加入项目团队</h2>
-          <p className="text-xs text-slate-500 mt-1">
+          <h2 className="text-xl font-medium tabular-nums">加入项目团队</h2>
+          <p className="text-xs text-on-surface-variant mt-1">
             接受邀请后，您将获得该项目的任务协同与人轴汇报权限
           </p>
         </div>
 
         {error && (
-          <div className="mb-4 p-3.5 rounded-xl bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
-            <AppIcon name="alert" size={16} />
+          <div className="mb-4 p-4 rounded-xl bg-error-container dark:bg-error text-error dark:text-error text-xs flex items-center gap-2">
+            <AppIcon name="alert" size={18} />
             <span>{error}</span>
           </div>
         )}
@@ -937,9 +937,9 @@ export const MobileInviteAcceptScreen: React.FC<{
           <button
             type="button"
             onClick={onRequirePhoneVerify}
-            className="mb-4 min-h-[48px] w-full rounded-xl bg-amber-500 text-white font-semibold text-xs flex items-center justify-center gap-2"
+            className="mb-4 min-h-[48px] w-full rounded-lg bg-[#a86412] text-on-surface font-medium text-xs flex items-center justify-center gap-2 tabular-nums"
           >
-            <AppIcon name="phone" size={16} />
+            <AppIcon name="phone" size={18} />
             <span>前往验证手机号后继续加入</span>
           </button>
         )}
@@ -959,7 +959,7 @@ export const MobileInviteAcceptScreen: React.FC<{
           <button
             type="submit"
             disabled={busy || !token.trim()}
-            className="min-h-[48px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-base shadow-sm active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2"
+            className="min-h-[48px] w-full rounded-lg bg-primary text-on-primary font-medium text-base shadow-sm dark:shadow-none active:opacity-90 disabled:opacity-40 transition-opacity flex items-center justify-center gap-2 tabular-nums"
           >
             {busy ? '正在加入…' : '接受并进入项目'}
           </button>

@@ -35,21 +35,21 @@ export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, on
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-xs z-[70] flex items-center justify-center p-4 animate-in fade-in duration-150"
+      className="fixed inset-0 bg-black/50  z-[70] flex items-center justify-center p-4 animate-in fade-in duration-150"
       onClick={onClose}
     >
       <div
-        className="bg-surface dark:bg-[#2e3132] rounded-3xl max-w-md w-full p-6 shadow-2xl border border-surface-variant dark:border-outline"
+        className="bg-surface-container-lowest dark:bg-surface-container rounded-[var(--radius-ink-panel)] max-w-md w-full p-6 shadow-sm dark:shadow-none border border-surface-variant dark:border-outline"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-5">
-          <h3 className="font-bold text-lg text-on-surface dark:text-[#f0f1f2] flex items-center gap-2">
-            <span className="material-symbols-outlined text-primary">keyboard</span>
+          <h3 className="font-medium text-lg text-on-surface dark:text-on-surface flex items-center gap-2 tabular-nums">
+            <span className="material-symbols-outlined text-inherit">keyboard</span>
             {zh ? '键盘快捷键' : 'Keyboard Shortcuts'}
           </h3>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-surface-container text-on-surface-variant"
+            className="p-1 rounded-lg hover:bg-surface-container text-on-surface-variant"
             aria-label={zh ? '关闭' : 'Close'}
           >
             <span className="material-symbols-outlined">close</span>
@@ -59,21 +59,21 @@ export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, on
         <div className="space-y-5 max-h-[60vh] overflow-y-auto">
           {groups.map((group) => (
             <div key={group.title}>
-              <p className="text-xs font-extrabold uppercase tracking-wider text-on-surface-variant mb-2">
+              <p className="text-xs font-normal   text-on-surface-variant mb-2 tabular-nums">
                 {group.title}
               </p>
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 {group.items.map((item) => (
                   <div
                     key={item.desc}
-                    className="flex items-center justify-between gap-3 p-2.5 bg-surface-container-low dark:bg-[#191c1d] rounded-xl"
+                    className="flex items-center justify-between gap-3 p-2 bg-surface-container-lowest dark:bg-surface-container rounded-xl"
                   >
-                    <span className="text-sm text-on-surface dark:text-[#f0f1f2]">{item.desc}</span>
+                    <span className="text-sm text-on-surface dark:text-on-surface">{item.desc}</span>
                     <span className="flex items-center gap-1 shrink-0">
                       {item.keys.map((key, i) => (
                         <React.Fragment key={key}>
                           {i > 0 && <span className="text-xs text-on-surface-variant">+</span>}
-                          <kbd className="px-2 py-1 bg-surface border border-outline-variant rounded text-xs font-mono font-bold text-on-surface dark:text-[#f0f1f2] dark:bg-[#2e3132]">
+                          <kbd className="px-2 py-1 bg-surface border border-outline-variant rounded text-xs font-mono font-medium text-on-surface dark:text-on-surface dark:bg-surface-container-high tabular-nums">
                             {key}
                           </kbd>
                         </React.Fragment>
@@ -86,7 +86,7 @@ export const ShortcutHelpModal: React.FC<ShortcutHelpModalProps> = ({ isOpen, on
           ))}
         </div>
 
-        <p className="mt-4 text-[11px] text-on-surface-variant">
+        <p className="mt-4 text-xs text-on-surface-variant">
           {zh
             ? '输入框聚焦时列表快捷键自动失效，不会打断输入。'
             : 'List shortcuts are disabled while typing in inputs.'}

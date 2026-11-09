@@ -77,6 +77,6 @@ void main() {
     await pumpAudit(tester, harness);
 
     expect(find.text('0 项待处理'), findsOneWidget);
-    expect(find.text('本次审计未发现需要处理的责任链风险。'), findsOneWidget);
+    expect(find.text('本次审计未发现需要处理的责任链风险'), findsOneWidget);
   });
 }

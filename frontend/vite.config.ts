@@ -1,7 +1,8 @@
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { realpathSync } from 'node:fs'
 import path from 'path'
-import { defineConfig } from 'vite'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 
 // DEV_API_TARGET：本机；VITE_PROXY_TARGET：docker-compose 内指向 backend 容器
 const apiProxy = {
@@ -42,6 +43,14 @@ export default defineConfig({
     host: '0.0.0.0',
     hmr: process.env.DISABLE_HMR === 'true' ? false : true,
     proxy: apiProxy,
+    // Worktrees can share node_modules through a junction. Font URLs resolve
+    // to that real directory, which must be served alongside the workspace.
+    fs: {
+      allow: [
+        searchForWorkspaceRoot(__dirname),
+        realpathSync(path.resolve(__dirname, 'node_modules')),
+      ],
+    },
     watch: {
       ignored: ['**/playwright-report/**', '**/test-results/**'],
     },

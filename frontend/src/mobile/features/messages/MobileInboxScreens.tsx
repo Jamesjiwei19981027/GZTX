@@ -162,26 +162,26 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#F2F2F7] dark:bg-black text-slate-900 dark:text-slate-100">
-      <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
+    <div className="flex flex-col h-full bg-surface dark:bg-surface text-on-surface dark:text-on-surface">
+      <header className="h-14 px-4 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex items-center justify-between shrink-0">
         {onBack && (
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-slate-500"
+            className="min-h-[48px] min-w-[48px] flex items-center justify-center -ml-2 text-on-surface-variant"
             aria-label="返回"
           >
-            <AppIcon name="back" size={20} />
+            <AppIcon name="back" size={18} />
           </button>
         )}
-        <div className="flex p-0.5 bg-slate-100 dark:bg-slate-800 rounded-xl">
+        <div className="flex p-1 bg-surface-container-lowest dark:bg-surface-container rounded-xl">
           <button
             type="button"
             onClick={() => setTab('notifications')}
-            className={`min-h-[34px] px-3 rounded-lg text-xs font-semibold transition-all ${
+            className={`min-h-[32px] px-3 rounded-lg text-xs font-medium transition-ink-colors ${
               tab === 'notifications'
-                ? 'bg-white dark:bg-slate-700 text-[#0058BE] shadow-xs'
-                : 'text-slate-500'
+                ? 'bg-surface-container-lowest dark:bg-surface-container-high text-primary shadow-sm dark:shadow-none'
+                : 'text-on-surface-variant'
             }`}
           >
             通知收件箱
@@ -189,10 +189,10 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
           <button
             type="button"
             onClick={() => setTab('external-mail')}
-            className={`min-h-[34px] px-3 rounded-lg text-xs font-semibold transition-all ${
+            className={`min-h-[32px] px-3 rounded-lg text-xs font-medium transition-ink-colors ${
               tab === 'external-mail'
-                ? 'bg-white dark:bg-slate-700 text-[#0058BE] shadow-xs'
-                : 'text-slate-500'
+                ? 'bg-surface-container-lowest dark:bg-surface-container-high text-primary shadow-sm dark:shadow-none'
+                : 'text-on-surface-variant'
             }`}
           >
             外部邮件
@@ -204,7 +204,7 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
               type="button"
               disabled={busy}
               onClick={handleMarkAllRead}
-              className="text-xs font-medium text-[#0058BE] disabled:opacity-40"
+              className="text-xs font-medium text-primary disabled:opacity-40 tabular-nums"
               title="全部标为已读"
             >
               已读
@@ -216,14 +216,14 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
       {tab === 'notifications' ? (
         <>
           {/* 98 通知筛选过滤器 */}
-          <div className="px-4 py-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex gap-2 shrink-0">
+          <div className="px-4 py-2 bg-surface-container-lowest dark:bg-surface-container-lowest border-b border-outline-variant dark:border-outline-variant flex gap-2 shrink-0">
             <button
               type="button"
               onClick={() => setFilterState('active')}
-              className={`min-h-[32px] px-3 rounded-full text-xs font-medium ${
+              className={`min-h-[32px] px-3 rounded-lg text-xs font-medium ${
                 filterState === 'active'
-                  ? 'bg-[#0058BE] text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
               }`}
             >
               未归档
@@ -231,10 +231,10 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
             <button
               type="button"
               onClick={() => setFilterState('archived')}
-              className={`min-h-[32px] px-3 rounded-full text-xs font-medium ${
+              className={`min-h-[32px] px-3 rounded-lg text-xs font-medium ${
                 filterState === 'archived'
-                  ? 'bg-[#0058BE] text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
               }`}
             >
               已归档
@@ -242,10 +242,10 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
             <button
               type="button"
               onClick={() => setFilterState('all')}
-              className={`min-h-[32px] px-3 rounded-full text-xs font-medium ${
+              className={`min-h-[32px] px-3 rounded-lg text-xs font-medium ${
                 filterState === 'all'
-                  ? 'bg-[#0058BE] text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant dark:text-outline'
               }`}
             >
               全部通知
@@ -272,23 +272,23 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
                         <div
                           className={`w-9 h-9 rounded-full flex items-center justify-center ${
                             item.read
-                              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-                              : 'bg-blue-50 dark:bg-blue-950 text-[#0058BE]'
+                              ? 'bg-surface-container dark:bg-surface-container-lowest text-outline'
+                              : 'bg-surface-container dark:bg-surface-container text-primary'
                           }`}
                         >
                           <AppIcon name="bell" size={18} />
                         </div>
                         {!item.read && (
-                          <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-[#0058BE] ring-2 ring-white dark:ring-slate-900" />
+                          <span className="absolute top-0 right-0 w-2.5 h-2.5 rounded-full bg-primary ring-2 ring-white dark:ring-outline-variant" />
                         )}
                       </div>
                     }
                     title={
                       <div className="flex items-center justify-between gap-1">
-                        <span className={`truncate ${item.read ? 'font-normal' : 'font-bold'}`}>
+                        <span className={`truncate ${item.read ? 'font-normal' : 'font-medium'}`}>
                           {item.sender?.name || '系统协同通知'}
                         </span>
-                        <span className="text-[11px] text-slate-400 font-normal shrink-0">
+                        <span className="text-xs text-outline font-normal shrink-0">
                           {item.created_at ? item.created_at.slice(5, 16) : ''}
                         </span>
                       </div>
@@ -300,7 +300,7 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
                     }
                     trailing={
                       item.requires_reply ? (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 font-medium shrink-0">
+                        <span className="text-xs px-2 py-1 rounded bg-surface-container text-[#a86412] dark:bg-surface-container dark:text-[#d9a35b] font-medium shrink-0 tabular-nums">
                           需回复
                         </span>
                       ) : undefined
@@ -317,11 +317,11 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
                   data-testid="inbox-load-more"
                   disabled={loadingMore}
                   onClick={() => void handleLoadMore()}
-                  className="min-h-[40px] px-5 rounded-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-[#0058BE] disabled:opacity-50"
+                  className="min-h-[40px] px-5 rounded-lg bg-surface-container-lowest dark:bg-surface-container-lowest border border-outline-variant dark:border-outline-variant text-xs text-primary disabled:opacity-50"
                 >
                   {loadingMore ? '正在加载…' : `加载更多（已显示 ${notifications.length} / ${notifTotal}）`}
                 </button>
-                {moreError && <p className="text-[11px] text-red-600 mt-1">{moreError}</p>}
+                {moreError && <p className="text-xs text-error mt-1">{moreError}</p>}
               </div>
             )}
           </div>
@@ -346,10 +346,10 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
           <div className="flex flex-col gap-4 pb-8">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h2 className="text-base font-bold">
+                <h2 className="text-base font-medium tabular-nums">
                   {selectedNotif.sender?.name || '系统通知'}
                 </h2>
-                <div className="text-xs text-slate-400 mt-0.5">
+                <div className="text-xs text-outline mt-1">
                   发送时间: {selectedNotif.created_at || '近期'}
                 </div>
               </div>
@@ -358,22 +358,22 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
                 <button
                   type="button"
                   onClick={() => handleArchiveNotif(selectedNotif.id, selectedNotif.archived)}
-                  className="min-h-[36px] px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1"
+                  className="min-h-[36px] px-2 rounded-lg border border-outline-variant dark:border-outline-variant text-xs text-on-surface-variant dark:text-outline flex items-center gap-1"
                 >
-                  <AppIcon name="archive" size={14} />
+                  <AppIcon name="archive" size={18} />
                   <span>{selectedNotif.archived ? '移出归档' : '归档'}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDeleteNotif(selectedNotif.id)}
-                  className="min-h-[36px] px-2.5 rounded-lg border border-red-200 text-xs text-red-500"
+                  className="min-h-[36px] px-2 rounded-lg border border-outline-variant text-xs text-error"
                 >
                   删除
                 </button>
               </div>
             </div>
 
-            <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-sm leading-relaxed whitespace-pre-wrap">
+            <div className="p-4 rounded-xl bg-surface-container-lowest dark:bg-surface-container border border-outline-variant/80 dark:border-outline-variant text-sm leading-relaxed whitespace-pre-wrap">
               {selectedNotif.body_text}
             </div>
 
@@ -389,26 +389,26 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
                   });
                   setSelectedNotif(null);
                 }}
-                className="min-h-[44px] w-full rounded-xl border border-[#0058BE] text-[#0058BE] dark:border-blue-500 dark:text-blue-400 text-xs font-semibold flex items-center justify-center gap-1.5 active:bg-blue-50"
+                className="min-h-[44px] w-full rounded-lg border border-primary text-primary dark:border-primary dark:text-primary text-xs font-medium flex items-center justify-center gap-2 active:bg-surface-container tabular-nums"
               >
-                <AppIcon name="plus" size={16} />
+                <AppIcon name="plus" size={18} />
                 <span>将此通知转为任务待办草稿</span>
               </button>
             )}
 
             {/* 回复记录与快速回复 */}
             {selectedNotif.reply_text ? (
-              <div className="p-3.5 bg-green-50 dark:bg-green-950/40 rounded-xl border border-green-200 dark:border-green-900 text-xs space-y-1">
-                <div className="font-semibold text-green-700 dark:text-green-300">
+              <div className="p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl border border-outline-variant dark:border-[#6bbf8a] text-xs space-y-1">
+                <div className="font-medium text-[#2f7d4f] dark:text-[#6bbf8a] tabular-nums">
                   我的回复 ({selectedNotif.replied_at?.slice(5, 16) || '已提交'})：
                 </div>
-                <div className="text-slate-700 dark:text-slate-300">
+                <div className="text-on-surface dark:text-outline">
                   {selectedNotif.reply_text}
                 </div>
               </div>
             ) : selectedNotif.requires_reply ? (
               <div className="space-y-2 pt-1">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                <label className="text-xs font-medium text-on-surface dark:text-outline tabular-nums">
                   快捷回复通知：
                 </label>
                 <MobileTextarea
@@ -418,13 +418,13 @@ export const MobileInboxScreen: React.FC<MobileInboxScreenProps> = ({
                   className="min-h-[80px]"
                 />
                 {replyMessage && (
-                  <div className="text-xs text-[#0058BE]">{replyMessage}</div>
+                  <div className="text-xs text-primary">{replyMessage}</div>
                 )}
                 <button
                   type="button"
                   disabled={replyBusy || !replyText.trim()}
                   onClick={handleSendReply}
-                  className="min-h-[44px] w-full rounded-xl bg-[#0058BE] text-white font-semibold text-xs active:opacity-90 disabled:opacity-40"
+                  className="min-h-[44px] w-full rounded-lg bg-primary text-on-primary font-medium text-xs active:opacity-90 disabled:opacity-40 tabular-nums"
                 >
                   {replyBusy ? '正在发送…' : '发送回复'}
                 </button>
@@ -500,22 +500,22 @@ export const MobileExternalMailView: React.FC<{
 
   if (loading) return <MobileLoadingState message="检测外部邮件 IMAP 服务状态…" />;
 
-  /* 关键规范：未配置外部邮件时展示真实未配置状态，严禁假邮件或假成功！ */
+  /* 关键规范：未配置外部邮件时展示真实未配置状态，严禁假邮件或假成功 */
   if (!mailStatus?.configured) {
     return (
       <div className="flex-1 p-6 flex flex-col items-center justify-center text-center max-w-sm mx-auto">
-        <div className="w-16 h-16 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-500 flex items-center justify-center mb-4">
-          <AppIcon name="mail" size={30} />
+        <div className="w-16 h-16 rounded-full bg-surface-container dark:bg-surface-container-lowest text-on-surface-variant flex items-center justify-center mb-4">
+          <AppIcon name="mail" size={18} />
         </div>
-        <h2 className="text-lg font-bold text-slate-900 dark:text-white mb-1">
+        <h2 className="text-lg font-medium text-on-surface dark:text-on-surface mb-1 tabular-nums">
           外部邮箱未配置
         </h2>
-        <p className="text-xs text-slate-500 leading-relaxed mb-4">
+        <p className="text-xs text-on-surface-variant leading-relaxed mb-4">
           {mailStatus?.reason || '当前企业工作区未配置 IMAP / Exchange 外部邮件服务器，无法接收外部邮件。'}
         </p>
 
-        <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 text-amber-800 dark:text-amber-300 text-xs text-left leading-relaxed space-y-1">
-          <div className="font-semibold">真实连接状态：未就绪</div>
+        <div className="p-4 rounded-xl bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-[#d9a35b] text-[#a86412] dark:text-[#d9a35b] text-xs text-left leading-relaxed space-y-1">
+          <div className="font-medium tabular-nums">真实连接状态：未就绪</div>
           <div>若需关联外部客户邮件并一键转任务，请由管理员在管理后台配置企业邮件网关。</div>
         </div>
       </div>
@@ -524,21 +524,21 @@ export const MobileExternalMailView: React.FC<{
 
   return (
     <div className="flex-1 overflow-y-auto p-4 space-y-3">
-      <div className="flex items-center justify-between text-xs text-slate-500">
+      <div className="flex items-center justify-between text-xs text-on-surface-variant">
         <span>连接账户: {mailStatus.username || mailStatus.host}</span>
         <button
           type="button"
           disabled={syncing}
           onClick={handleSync}
-          className="min-h-[34px] px-2.5 rounded-lg bg-[#0058BE] text-white font-medium flex items-center gap-1 active:opacity-90 disabled:opacity-40"
+          className="min-h-[32px] px-2 rounded-lg bg-primary text-on-primary font-medium flex items-center gap-1 active:opacity-90 disabled:opacity-40 tabular-nums"
         >
-          <AppIcon name="refresh" size={14} />
+          <AppIcon name="refresh" size={18} />
           <span>{syncing ? '同步中…' : '立即拉取邮件'}</span>
         </button>
       </div>
 
       {syncNotice && (
-        <div className="p-3 bg-blue-50 text-[#0058BE] text-xs rounded-xl">
+        <div className="p-3 bg-surface-container-lowest dark:bg-surface-container text-primary text-xs rounded-xl">
           {syncNotice}
         </div>
       )}
@@ -553,12 +553,12 @@ export const MobileExternalMailView: React.FC<{
           {mailItems.map((mail) => (
             <MobileListItem
               key={mail.id}
-              leading={<AppIcon name="mail" size={18} className="text-[#0058BE]" />}
+              leading={<AppIcon name="mail" size={18} className="text-inherit" />}
               title={mail.subject || '（无主题）'}
               subtitle={
-                <div className="space-y-0.5">
-                  <div className="text-[11px] text-slate-500">发件人: {mail.from_address}</div>
-                  <div className="text-xs text-slate-600 dark:text-slate-400 line-clamp-1">
+                <div className="space-y-1">
+                  <div className="text-xs text-on-surface-variant">发件人: {mail.from_address}</div>
+                  <div className="text-xs text-on-surface-variant dark:text-outline line-clamp-1">
                     {mail.body_text}
                   </div>
                 </div>
@@ -575,7 +575,7 @@ export const MobileExternalMailView: React.FC<{
                         sourceChannel: 'external_mail',
                       });
                     }}
-                    className="min-h-[34px] px-2 rounded-lg bg-blue-50 text-[#0058BE] text-[11px] font-semibold"
+                    className="min-h-[32px] px-2 rounded-lg bg-surface-container text-primary text-xs font-medium tabular-nums"
                   >
                     转任务
                   </button>

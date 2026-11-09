@@ -165,21 +165,21 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
   };
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={t.createTaskTitle} className="fixed inset-0 bg-black/50 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-surface dark:bg-[#2e3132] rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-surface-variant dark:border-outline my-8">
+    <div role="dialog" aria-modal="true" aria-label={t.createTaskTitle} className="fixed inset-0 bg-black/50  z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-surface-container-lowest dark:bg-surface-container rounded-[var(--radius-ink-panel)] max-w-lg w-full p-6 md:p-8 shadow-sm dark:shadow-none border border-surface-variant dark:border-outline my-8">
         {/* Header */}
         <div className="flex justify-between items-center mb-6 pb-3 border-b border-surface-variant dark:border-outline-variant">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-primary-fixed/30 text-primary flex items-center justify-center font-bold">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-primary-fixed/30 text-primary flex items-center justify-center font-medium tabular-nums">
               +
             </div>
-            <h2 className="text-xl font-bold text-on-surface dark:text-[#f0f1f2]">
+            <h2 className="text-xl font-medium text-on-surface dark:text-on-surface tabular-nums">
               {t.createTaskTitle}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-full hover:bg-surface-container text-on-surface-variant"
+            className="p-1 rounded-lg hover:bg-surface-container text-on-surface-variant"
           >
             <span className="material-symbols-outlined">close</span>
           </button>
@@ -188,7 +188,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title Input */}
           <div>
-            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+            <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
               {t.taskTitleLabel} <span className="text-error">*</span>
             </label>
             <input
@@ -197,14 +197,14 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
               onChange={(e) => setTitle(e.target.value)}
               placeholder={t.taskTitlePlaceholder}
               autoFocus
-              className="w-full px-4 py-3 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant dark:border-outline rounded-xl text-sm font-semibold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none placeholder-on-surface-variant"
+              className="w-full px-4 py-3 bg-surface-container-low dark:bg-surface-container-low border border-outline-variant dark:border-outline rounded-lg text-sm font-medium text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none placeholder-on-surface-variant tabular-nums"
               required
             />
           </div>
 
           {/* Description Input */}
           <div>
-            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+            <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
               {t.descriptionLabel}
             </label>
           <textarea
@@ -212,21 +212,21 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
               onChange={(e) => setDescription(e.target.value)}
               placeholder={t.descriptionPlaceholder}
               rows={3}
-              className="w-full px-4 py-2.5 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant dark:border-outline rounded-xl text-sm text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none placeholder-on-surface-variant resize-none"
+              className="w-full px-4 py-2 bg-surface-container-low dark:bg-surface-container-low border border-outline-variant dark:border-outline rounded-lg text-sm text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none placeholder-on-surface-variant resize-none"
           ></textarea>
           <div className="mt-2">
-            <button type="button" onClick={() => setShowSourceTools((value) => !value)} className="text-xs font-bold text-primary hover:underline">
+            <button type="button" onClick={() => setShowSourceTools((value) => !value)} className="text-xs font-medium text-primary hover:underline tabular-nums">
               {lang === 'zh' ? '从聊天自动提取任务' : 'Extract from chat'}
             </button>
             {showSourceTools && (
               <div className="mt-2 p-3 rounded-xl border border-primary/20 bg-primary/5 space-y-2">
                 <textarea value={chatText} onChange={(e) => setChatText(e.target.value)} rows={3} placeholder={lang === 'zh' ? '粘贴微信/聊天内容，生成可编辑草稿…' : 'Paste chat text to create an editable draft…'} className="w-full px-3 py-2 rounded-lg border border-outline-variant bg-surface text-xs" />
                 <div className="grid grid-cols-3 gap-2">
-                  <select value={sourceChannel} onChange={(e) => setSourceChannel(e.target.value)} className="px-2 py-1.5 rounded-lg border border-outline-variant bg-surface text-xs"><option value="wechat">WeChat</option><option value="chat">Chat</option><option value="email">Email</option></select>
-                  <input value={sourceTitle} onChange={(e) => setSourceTitle(e.target.value)} placeholder={lang === 'zh' ? '会话名' : 'Conversation'} className="px-2 py-1.5 rounded-lg border border-outline-variant bg-surface text-xs" />
-                  <input value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder={lang === 'zh' ? '原文链接' : 'Original URL'} className="px-2 py-1.5 rounded-lg border border-outline-variant bg-surface text-xs" />
+                  <select value={sourceChannel} onChange={(e) => setSourceChannel(e.target.value)} className="px-2 py-2 rounded-lg border border-outline-variant bg-surface text-xs"><option value="wechat">WeChat</option><option value="chat">Chat</option><option value="email">Email</option></select>
+                  <input value={sourceTitle} onChange={(e) => setSourceTitle(e.target.value)} placeholder={lang === 'zh' ? '会话名' : 'Conversation'} className="px-2 py-2 rounded-lg border border-outline-variant bg-surface text-xs" />
+                  <input value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} placeholder={lang === 'zh' ? '原文链接' : 'Original URL'} className="px-2 py-2 rounded-lg border border-outline-variant bg-surface text-xs" />
                 </div>
-                <button type="button" disabled={extracting || !chatText.trim()} onClick={() => void handleExtract()} className="px-3 py-1.5 rounded-lg bg-primary text-on-primary text-xs font-bold disabled:opacity-50">{extracting ? (lang === 'zh' ? '提取中…' : 'Extracting…') : (lang === 'zh' ? '生成草稿' : 'Generate draft')}</button>
+                <button type="button" disabled={extracting || !chatText.trim()} onClick={() => void handleExtract()} className="px-3 py-2 rounded-lg bg-primary text-on-primary text-xs font-medium disabled:opacity-50 tabular-nums">{extracting ? (lang === 'zh' ? '提取中…' : 'Extracting…') : (lang === 'zh' ? '生成草稿' : 'Generate draft')}</button>
               </div>
             )}
           </div>
@@ -235,13 +235,13 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
           {/* Grid Row 1: Priority & Status */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+              <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
                 {lang === 'zh' ? '优先级' : 'Priority'}
               </label>
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value as Priority)}
-                className="w-full px-3 py-2.5 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-bold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+                className="w-full px-3 py-2 bg-surface-container-low dark:bg-surface-container-low border border-outline-variant rounded-lg text-xs font-medium text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none tabular-nums"
               >
                 <option value="High">{t.priorityHigh}</option>
                 <option value="Medium">{t.priorityMedium}</option>
@@ -250,13 +250,13 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+              <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
                 {lang === 'zh' ? '看板状态' : 'Status'}
               </label>
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as Status)}
-                className="w-full px-3 py-2.5 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-bold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+                className="w-full px-3 py-2 bg-surface-container-low dark:bg-surface-container-low border border-outline-variant rounded-lg text-xs font-medium text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none tabular-nums"
               >
                 <option value="To Do">{t.toDo}</option>
                 <option value="In Progress">{t.inProgress}</option>
@@ -267,22 +267,22 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
 
           {/* Due Date */}
           <div>
-            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+            <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
               {t.dueDate}
             </label>
             <input
               type="date"
               value={dueDate}
               onChange={(e) => setDueDate(e.target.value)}
-              className="w-full px-3 py-2 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-semibold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+              className="w-full px-3 py-2 bg-surface-container-low dark:bg-surface-container-low border border-outline-variant rounded-lg text-xs font-medium text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none tabular-nums"
             />
           </div>
 
           {/* Recurrence */}
           <div>
-            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+            <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
               <span className="inline-flex items-center gap-1">
-                <span className="material-symbols-outlined text-sm align-middle">repeat</span>
+                <span className="material-symbols-outlined text-[18px] align-middle">repeat</span>
                 {lang === 'zh' ? '重复' : 'Repeat'}
               </span>
             </label>
@@ -290,7 +290,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
               data-testid="new-task-recurrence"
               value={recurrence}
               onChange={(e) => setRecurrence(e.target.value as typeof recurrence)}
-              className="w-full px-3 py-2.5 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-bold text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+              className="w-full px-3 py-2 bg-surface-container-low dark:bg-surface-container-low border border-outline-variant rounded-lg text-xs font-medium text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none tabular-nums"
             >
               <option value="">{lang === 'zh' ? '不重复' : 'Does not repeat'}</option>
               <option value="daily">{lang === 'zh' ? '每天' : 'Daily'}</option>
@@ -299,7 +299,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
               <option value="monthly">{lang === 'zh' ? '每月' : 'Monthly'}</option>
             </select>
             {recurrence !== '' && (
-              <p className="mt-1 text-[11px] text-on-surface-variant">
+              <p className="mt-1 text-xs text-on-surface-variant">
                 {lang === 'zh'
                   ? '完成本次后会自动生成下一次任务。'
                   : 'Completing this task will schedule the next occurrence.'}
@@ -308,19 +308,19 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
           </div>
 
           {/* Project assignees */}
-          <div className="p-3 rounded-xl border border-outline-variant bg-surface-container-low dark:bg-[#191c1d]">
+          <div className="p-3 rounded-xl border border-outline-variant bg-surface-container-lowest dark:bg-surface-container">
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-bold uppercase text-on-surface-variant">
+              <label className="text-xs font-medium  text-on-surface-variant tabular-nums">
                 {lang === 'zh' ? '项目负责人' : 'Project assignees'}
               </label>
               {assigneeUserIds.length > 0 && (
-                <button type="button" className="text-[11px] text-primary" onClick={() => setAssigneeUserIds([])}>
+                <button type="button" className="text-xs text-primary" onClick={() => setAssigneeUserIds([])}>
                   {lang === 'zh' ? '清空' : 'Clear'}
                 </button>
               )}
             </div>
             {members.length > 0 ? (
-              <div className="space-y-1.5 max-h-32 overflow-y-auto">
+              <div className="space-y-2 max-h-32 overflow-y-auto">
                 {members.map((member) => {
                   const checked = assigneeUserIds.includes(member.id);
                   return (
@@ -331,15 +331,15 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
                         onChange={() => setAssigneeUserIds((prev) => checked ? prev.filter((id) => id !== member.id) : [...prev, member.id])}
                         className="accent-primary"
                       />
-                      {member.avatar ? <img src={member.avatar} alt="" className="w-5 h-5 rounded-full object-cover" /> : <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-[10px] flex items-center justify-center">{member.name.slice(0, 1)}</span>}
+                      {member.avatar ? <img src={member.avatar} alt="" className="w-5 h-5 rounded-full object-cover" /> : <span className="w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center">{member.name.slice(0, 1)}</span>}
                       <span className="truncate">{member.name}</span>
-                      {member.id === currentUserId && <span className="text-[10px] text-on-surface-variant">{lang === 'zh' ? '我' : 'me'}</span>}
+                      {member.id === currentUserId && <span className="text-xs text-on-surface-variant">{lang === 'zh' ? '我' : 'me'}</span>}
                     </label>
                   );
                 })}
               </div>
             ) : (
-              <p className="text-[11px] text-on-surface-variant">
+              <p className="text-xs text-on-surface-variant">
                 {lang === 'zh' ? '个人任务将自动归属创建者；进入项目后可选择成员。' : 'Personal tasks stay with their creator; project members can be selected here.'}
               </p>
             )}
@@ -347,7 +347,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
 
           {/* Tag input */}
           <div>
-            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+            <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
               {lang === 'zh' ? '分组标签' : 'Tag'}
             </label>
             <input
@@ -355,16 +355,16 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
               value={tag}
               onChange={(e) => setTag(e.target.value)}
               placeholder="例如: 技术调研, UI设计..."
-              className="w-full px-3 py-2 bg-surface-container-low dark:bg-[#191c1d] border border-outline-variant rounded-xl text-xs font-medium text-on-surface dark:text-[#f0f1f2] focus:ring-2 focus:ring-primary focus:outline-none"
+              className="w-full px-3 py-2 bg-surface-container-low dark:bg-surface-container-low border border-outline-variant rounded-lg text-xs font-medium text-on-surface dark:text-on-surface focus:ring-2 focus:ring-primary focus:outline-none tabular-nums"
             />
             {tags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mt-2">
+              <div className="flex flex-wrap gap-2 mt-2">
                 {tags.map((item) => (
                   <button
                     key={item.id}
                     type="button"
                     onClick={() => setTag(item.name)}
-                    className={`px-2 py-1 rounded-full text-[11px] border ${
+                    className={`px-2 py-1 rounded-lg text-xs border ${
                       tag === item.name
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-outline-variant text-on-surface-variant'
@@ -379,7 +379,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
 
           {/* Attachments are uploaded after the task receives an ID. */}
           <div>
-            <label className="block text-xs font-bold uppercase text-on-surface-variant mb-1.5">
+            <label className="block text-xs font-medium  text-on-surface-variant mb-2 tabular-nums">
               {lang === 'zh' ? '添加附件' : 'Attachments'}
             </label>
             <input
@@ -389,7 +389,7 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
               className="w-full text-xs text-on-surface-variant file:mr-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-2 file:text-primary"
             />
             {attachments.length > 0 && (
-              <p className="mt-1 text-[11px] text-on-surface-variant">
+              <p className="mt-1 text-xs text-on-surface-variant">
                 {attachments.length} {lang === 'zh' ? '个文件将在创建后上传' : 'file(s) will upload after creation'}
               </p>
             )}
@@ -400,13 +400,13 @@ export const NewTaskModal: React.FC<NewTaskModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-5 py-2.5 rounded-xl border border-outline-variant font-semibold text-xs text-on-surface-variant hover:bg-surface-container transition-colors"
+              className="px-5 py-2 rounded-lg border border-outline-variant font-medium text-xs text-on-surface-variant hover:bg-surface-container transition-ink-colors tabular-nums"
             >
               {t.cancel}
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-primary text-on-primary rounded-xl font-bold text-xs shadow-md hover:opacity-90 transition-all active:scale-95"
+              className="px-6 py-2 bg-primary text-on-primary rounded-lg font-medium text-xs shadow-sm dark:shadow-none hover:opacity-90 transition-ink-colors active:scale-95 tabular-nums"
             >
               {t.create}
             </button>

@@ -114,10 +114,10 @@ class _CompanyMembersScreenState extends State<CompanyMembersScreen> {
                   ? '确认授予超级管理员？'
                   : '确认停用成员？',
           message: remove
-              ? '移出后将撤回该成员的企业与项目访问权限，历史记录仍保留。'
+              ? '移出后将撤回该成员的企业与项目访问权限，历史记录仍保留'
               : grant
-                  ? '超级管理员可管理企业成员与全部项目，请确认授权对象。'
-                  : '停用后将撤回该成员的项目访问权限；重新启用后可再次邀请加入项目。',
+                  ? '超级管理员可管理企业成员与全部项目，请确认授权对象'
+                  : '停用后将撤回该成员的项目访问权限；重新启用后可再次邀请加入项目',
           confirmLabel: remove
               ? '确认移出'
               : grant
@@ -209,7 +209,7 @@ class _CompanyMembersScreenState extends State<CompanyMembersScreen> {
                                                 style: const TextStyle(
                                                     fontSize: 16,
                                                     fontWeight:
-                                                        FontWeight.w600)),
+                                                        FontWeight.w500)),
                                             const SizedBox(
                                                 height: AppSpacing.sm),
                                             Wrap(

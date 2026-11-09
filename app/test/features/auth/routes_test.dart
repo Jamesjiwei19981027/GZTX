@@ -61,7 +61,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.text('欢迎回来'), findsOneWidget);
+      expect(find.text('登录'), findsOneWidget);
     });
 
     testWidgets('旧注册链接 /register 重定向到登录页内的注册页', (tester) async {

@@ -54,99 +54,95 @@
 }
 
 :root {
-  /* Light Theme Palette - 品牌蓝（#0058BE）为默认主色 */
-  --color-primary-val: #0058be;
+  /* Light Theme Palette - 纸与墨，墨水蓝为默认主色 */
+  --color-primary-val: #1d4e9e;
   --color-on-primary-val: #ffffff;
-  --color-primary-container-val: #d7e2ff;
-  --color-on-primary-container-val: #001a41;
-  --color-primary-fixed-val: #d7e2ff;
-  --color-on-primary-fixed-val: #001a41;
-  --color-primary-fixed-variant-val: #00419c;
-
-  --color-secondary-val: #5e5c66;
+  --color-primary-container-val: #e8eef8;
+  --color-on-primary-container-val: #173f82;
+  --color-primary-fixed-val: #e8eef8;
+  --color-on-primary-fixed-val: #173f82;
+  --color-primary-fixed-variant-val: #173f82;
+  --color-secondary-val: #5c5850;
   --color-on-secondary-val: #ffffff;
-  --color-secondary-container-val: #e4e1ec;
-  --color-on-secondary-container-val: #1b1a21;
-  --color-secondary-fixed-val: #e4e1ec;
-  --color-on-secondary-fixed-val: #1b1a21;
-
-  --color-tertiary-val: #00639b;
+  --color-secondary-container-val: #efede8;
+  --color-on-secondary-container-val: #1c1b19;
+  --color-secondary-fixed-val: #efede8;
+  --color-on-secondary-fixed-val: #1c1b19;
+  --color-tertiary-val: #7d786f;
   --color-on-tertiary-val: #ffffff;
-  --color-tertiary-container-val: #cee5ff;
-  --color-on-tertiary-container-val: #001d33;
-  --color-tertiary-fixed-val: #cee5ff;
-  --color-on-tertiary-fixed-val: #001d33;
-
-  --color-error-val: #ba1a1a;
+  --color-tertiary-container-val: #efede8;
+  --color-on-tertiary-container-val: #1c1b19;
+  --color-tertiary-fixed-val: #efede8;
+  --color-on-tertiary-fixed-val: #1c1b19;
+  --color-error-val: #b3261e;
   --color-on-error-val: #ffffff;
-  --color-error-container-val: #ffdad6;
-  --color-on-error-container-val: #410002;
-
-  --color-surface-val: #fbfaff;
-  --color-on-surface-val: #1a1c1e;
-  --color-surface-variant-val: #e7e0ec;
-  --color-on-surface-variant-val: #49454f;
-
+  --color-error-container-val: #f6dedb;
+  --color-on-error-container-val: #6f1712;
+  --color-surface-val: #f7f6f3;
+  --color-on-surface-val: #1c1b19;
+  --color-surface-variant-val: #efede8;
+  --color-on-surface-variant-val: #5c5850;
   --color-surface-container-lowest-val: #ffffff;
-  --color-surface-container-low-val: #f5f3f7;
-  --color-surface-container-val: #efeef3;
-  --color-surface-container-high-val: #e9e8ee;
-  --color-surface-container-highest-val: #e3e2e8;
-
-  --color-outline-val: #79747e;
-  --color-outline-variant-val: #cac4d0;
-
-  --color-inverse-surface-val: #2f3033;
-  --color-inverse-on-surface-val: #f1f0f4;
-  --color-inverse-primary-val: #abc7ff;
+  --color-surface-container-low-val: #f7f6f3;
+  --color-surface-container-val: #efede8;
+  --color-surface-container-high-val: #e8e6e1;
+  --color-surface-container-highest-val: #e2dfd8;
+  --color-outline-val: #7d786f;
+  --color-outline-variant-val: rgba(28, 27, 25, 0.08);
+  --color-inverse-surface-val: #1c1b19;
+  --color-inverse-on-surface-val: #f7f6f3;
+  --color-inverse-primary-val: #8fb0e8;
+  --ease-ink: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-ink-hover: 150ms;
+  --duration-ink-menu: 200ms;
+  --duration-ink-enter: 300ms;
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --radius-ink-control: 8px;
+  --radius-ink-card: 12px;
+  --radius-ink-panel: 16px;
 }
 
 .dark {
-  /* Dark Theme Palette - 品牌蓝暗色 */
-  --color-primary-val: #abc7ff;
-  --color-on-primary-val: #002f66;
-  --color-primary-container-val: #00458f;
-  --color-on-primary-container-val: #d7e2ff;
-  --color-primary-fixed-val: #d7e2ff;
-  --color-on-primary-fixed-val: #001a41;
-  --color-primary-fixed-variant-val: #00419c;
-
-  --color-secondary-val: #c8c5d0;
-  --color-on-secondary-val: #302e37;
-  --color-secondary-container-val: #46444e;
-  --color-on-secondary-container-val: #e4e1ec;
-  --color-secondary-fixed-val: #e4e1ec;
-  --color-on-secondary-fixed-val: #1b1a21;
-
-  --color-tertiary-val: #97cbff;
-  --color-on-tertiary-val: #003353;
-  --color-tertiary-container-val: #004a76;
-  --color-on-tertiary-container-val: #cee5ff;
-  --color-tertiary-fixed-val: #cee5ff;
-  --color-on-tertiary-fixed-val: #001d33;
-
-  --color-error-val: #ffb4ab;
-  --color-on-error-val: #690005;
-  --color-error-container-val: #93000a;
-  --color-on-error-container-val: #ffdad6;
-
-  --color-surface-val: #111314;
-  --color-on-surface-val: #e2e2e5;
-  --color-surface-variant-val: #49454f;
-  --color-on-surface-variant-val: #cac4d0;
-
-  --color-surface-container-lowest-val: #0c0e0f;
-  --color-surface-container-low-val: #191c1d;
-  --color-surface-container-val: #1d2021;
-  --color-surface-container-high-val: #282a2b;
-  --color-surface-container-highest-val: #333536;
-
-  --color-outline-val: #938f99;
-  --color-outline-variant-val: #49454f;
-
-  --color-inverse-surface-val: #e2e2e5;
-  --color-inverse-on-surface-val: #2f3033;
-  --color-inverse-primary-val: #0058be;
+  /* Dark Theme Palette - 墨色纸面 */
+  --color-primary-val: #8fb0e8;
+  --color-on-primary-val: #12110f;
+  --color-primary-container-val: #1d4e9e;
+  --color-on-primary-container-val: #e8eef8;
+  --color-primary-fixed-val: #e8eef8;
+  --color-on-primary-fixed-val: #173f82;
+  --color-primary-fixed-variant-val: #8fb0e8;
+  --color-secondary-val: #aaa398;
+  --color-on-secondary-val: #12110f;
+  --color-secondary-container-val: #262421;
+  --color-on-secondary-container-val: #efe9de;
+  --color-secondary-fixed-val: #efe9de;
+  --color-on-secondary-fixed-val: #1c1a18;
+  --color-tertiary-val: #8a847a;
+  --color-on-tertiary-val: #12110f;
+  --color-tertiary-container-val: #262421;
+  --color-on-tertiary-container-val: #efe9de;
+  --color-tertiary-fixed-val: #efe9de;
+  --color-on-tertiary-fixed-val: #1c1a18;
+  --color-error-val: #e5484d;
+  --color-on-error-val: #12110f;
+  --color-error-container-val: #5e1d1e;
+  --color-on-error-container-val: #f6d7d6;
+  --color-surface-val: #161513;
+  --color-on-surface-val: #efe9de;
+  --color-surface-variant-val: #262421;
+  --color-on-surface-variant-val: #aaa398;
+  --color-surface-container-lowest-val: #12110f;
+  --color-surface-container-low-val: #161513;
+  --color-surface-container-val: #1c1a18;
+  --color-surface-container-high-val: #262421;
+  --color-surface-container-highest-val: #302d28;
+  --color-outline-val: #8a847a;
+  --color-outline-variant-val: rgba(239, 233, 222, 0.08);
+  --color-inverse-surface-val: #efe9de;
+  --color-inverse-on-surface-val: #1c1b19;
+  --color-inverse-primary-val: #1d4e9e;
 }
 
 /* ===== 主题色（设置页 accent，通过 <html data-accent="..."> 生效）=====
@@ -238,8 +234,32 @@ body {
 }
 
 .animate-in {
-  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: fadeIn var(--duration-ink-enter) var(--ease-ink) forwards;
 }
+
+.ink-done {
+  color: var(--color-on-surface-variant-val);
+  text-decoration-line: line-through;
+  text-decoration-color: var(--color-primary-val);
+  text-decoration-thickness: 1.5px;
+  text-decoration-skip-ink: none;
+}
+
+.transition-ink-colors {
+  transition-property: color, background-color, border-color;
+  transition-duration: var(--duration-ink-hover);
+  transition-timing-function: var(--ease-ink);
+}
+
+.transition-ink {
+  transition-property: color, background-color, border-color, opacity, transform;
+  transition-duration: var(--duration-ink-hover);
+  transition-timing-function: var(--ease-ink);
+}
+
+.font-bold,
+.font-extrabold,
+.font-black { font-weight: var(--font-weight-medium); }
 
 /* 长列表行：视口外跳过布局/绘制。contain-intrinsic-size 给出占位高度，
    保证滚动条长度和 Ctrl+F 不会因为跳过渲染而抖。任务数上千时这一条能把
@@ -250,7 +270,7 @@ body {
 }
 
 .axis-edge-flow { stroke-dasharray: 6 6; }
-.axis-snap-guide line { stroke: var(--axis-blue, #0058be); stroke-width: 1; stroke-dasharray: 4 4; }
+.axis-snap-guide line { stroke: var(--axis-blue, #1d4e9e); stroke-width: 1; stroke-dasharray: 4 4; }
 @media (prefers-reduced-motion: no-preference) {
   @keyframes axis-edge-flow {
     from { stroke-dashoffset: 12; }

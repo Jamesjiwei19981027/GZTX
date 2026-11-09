@@ -80,20 +80,20 @@ export const MobileCallScreen: React.FC<MobileCallScreenProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950 text-white flex flex-col justify-between p-6 select-none animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] bg-surface-container-lowest text-on-surface flex flex-col justify-between p-6 select-none animate-in fade-in duration-200">
       {/* 顶部状态 */}
       <header className="flex items-center justify-between pt-6">
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <AppIcon name={callType === 'video' ? 'video' : 'phone'} size={16} />
+        <div className="flex items-center gap-2 text-xs text-outline">
+          <AppIcon name={callType === 'video' ? 'video' : 'phone'} size={18} />
           <span>{callType === 'video' ? '视频通话' : '语音通话'}</span>
         </div>
         <button
           type="button"
           onClick={closeCall}
-          className="min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2 text-slate-400 hover:text-white"
+          className="min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2 text-outline hover:text-on-surface"
           aria-label="关闭通话"
         >
-          <AppIcon name="close" size={22} />
+          <AppIcon name="close" size={18} />
         </button>
       </header>
 
@@ -102,27 +102,27 @@ export const MobileCallScreen: React.FC<MobileCallScreenProps> = ({
         {loading ? (
           <MobileLoadingState message="检测 WebRTC 与 ICE 服务器配置…" />
         ) : !callConfig?.configured ? (
-          /* 关键规范：未配置 WebRTC 通话时展示真实未配置状态，严禁假通话或假成功！ */
+          /* 关键规范：未配置 WebRTC 通话时展示真实未配置状态，严禁假通话或假成功 */
           <div className="flex flex-col items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-red-950/60 border border-red-800 text-red-400 flex items-center justify-center">
-              <AppIcon name="phone" size={36} />
+            <div className="w-20 h-20 rounded-full bg-error border border-outline-variant text-error flex items-center justify-center">
+              <AppIcon name="phone" size={18} />
             </div>
 
-            <div className="space-y-1.5">
-              <h2 className="text-lg font-bold text-white">音视频服务未配置</h2>
-              <p className="text-xs text-red-400 font-medium">
+            <div className="space-y-2">
+              <h2 className="text-lg font-medium text-on-surface tabular-nums">音视频服务未配置</h2>
+              <p className="text-xs text-error font-normal tabular-nums">
                 无法建立端到端实时音视频会话
               </p>
             </div>
 
-            <div className="p-4 rounded-2xl bg-slate-900 border border-slate-800 text-xs text-slate-300 leading-relaxed text-left space-y-2">
-              <p className="font-semibold text-slate-200">
+            <div className="p-4 rounded-xl bg-surface-container-lowest dark:bg-surface-container border border-outline-variant text-xs text-outline leading-relaxed text-left space-y-2">
+              <p className="font-normal text-outline tabular-nums">
                 真实诊断信息：
               </p>
-              <p className="text-slate-400">
+              <p className="text-outline">
                 {sessionError || callConfig?.message || '当前企业环境未配置 WebRTC STUN/TURN 穿透信令服务器，不支持建立远程音频/视频流。'}
               </p>
-              <p className="text-[11px] text-slate-500 pt-1 border-t border-slate-800">
+              <p className="text-xs text-on-surface-variant pt-1 border-t border-outline-variant">
                 系统严格遵守真实状态原则，禁止显示伪造的“通话中”或虚假振铃。请联系系统管理员在后台部署信令中继。
               </p>
             </div>
@@ -130,7 +130,7 @@ export const MobileCallScreen: React.FC<MobileCallScreenProps> = ({
             <button
               type="button"
               onClick={closeCall}
-              className="min-h-[48px] px-8 rounded-xl bg-slate-800 text-slate-200 font-semibold text-sm active:bg-slate-700 mt-2"
+              className="min-h-[48px] px-8 rounded-lg bg-surface-container-lowest text-outline font-medium text-sm active:bg-surface-container-high mt-2 tabular-nums"
             >
               返回工作台
             </button>
@@ -138,18 +138,18 @@ export const MobileCallScreen: React.FC<MobileCallScreenProps> = ({
         ) : (
           /* 已真实配置 WebRTC 时展示正常呼叫 */
           <div className="flex flex-col items-center gap-4">
-            <div className="w-24 h-24 rounded-full bg-blue-900/60 border-2 border-blue-500 text-blue-300 flex items-center justify-center text-3xl font-bold animate-pulse">
+            <div className="w-24 h-24 rounded-full bg-primary border-2 border-primary text-primary flex items-center justify-center text-3xl font-medium  tabular-nums">
               {targetName.slice(0, 1)}
             </div>
 
             <div className="space-y-1">
-              <h2 className="text-xl font-bold text-white">{targetName}</h2>
-              <p className="text-xs text-green-400 font-medium">
+              <h2 className="text-xl font-medium text-on-surface tabular-nums">{targetName}</h2>
+              <p className="text-xs text-[#2f7d4f] font-normal tabular-nums">
                 WebRTC 信令已就绪，正在连接安全加密信道…
               </p>
             </div>
 
-            <div className="text-[11px] text-slate-500 mt-2">
+            <div className="text-xs text-on-surface-variant mt-2">
               ICE 节点: {callConfig.ice_servers.length} 个服务器可用
             </div>
           </div>
@@ -162,32 +162,32 @@ export const MobileCallScreen: React.FC<MobileCallScreenProps> = ({
           <button
             type="button"
             onClick={() => setIsMuted(!isMuted)}
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-              isMuted ? 'bg-red-600 text-white' : 'bg-slate-800 text-slate-200'
+            className={`w-14 h-14 rounded-lg flex items-center justify-center transition-ink-colors ${
+              isMuted ? 'bg-error text-on-error' : 'bg-surface-container-lowest text-outline'
             }`}
             aria-label={isMuted ? '取消静音' : '静音'}
           >
-            <AppIcon name="phone" size={22} />
+            <AppIcon name="phone" size={18} />
           </button>
 
           <button
             type="button"
             onClick={closeCall}
-            className="w-16 h-16 rounded-full bg-red-600 hover:bg-red-700 active:bg-red-800 text-white flex items-center justify-center shadow-lg"
+            className="w-16 h-16 rounded-lg bg-error hover:bg-error active:bg-error text-on-error flex items-center justify-center shadow-sm dark:shadow-none"
             aria-label="挂断电话"
           >
-            <AppIcon name="phone" size={28} className="rotate-[135deg]" />
+            <AppIcon name="phone" size={18} className="rotate-[135deg]" />
           </button>
 
           <button
             type="button"
             onClick={() => setIsSpeakerOn(!isSpeakerOn)}
-            className={`w-14 h-14 rounded-full flex items-center justify-center transition-colors ${
-              isSpeakerOn ? 'bg-[#0058BE] text-white' : 'bg-slate-800 text-slate-200'
+            className={`w-14 h-14 rounded-lg flex items-center justify-center transition-ink-colors ${
+              isSpeakerOn ? 'bg-primary text-on-primary' : 'bg-surface-container-lowest text-outline'
             }`}
             aria-label={isSpeakerOn ? '扬声器开启' : '扬声器关闭'}
           >
-            <AppIcon name="bell" size={22} />
+            <AppIcon name="bell" size={18} />
           </button>
         </footer>
       )}

@@ -6,6 +6,9 @@ const test = base.extend<{ browserErrors: string[] }>({
   browserErrors: [async ({ page }, use) => {
     const errors: string[] = [];
     page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
+    page.on('response', response => {
+      if (response.status() >= 400) errors.push(`HTTP ${response.status()}: ${response.url()}`);
+    });
     page.on('console', message => {
       if (message.type() === 'error') errors.push(`console.error: ${message.text()}`);
     });
@@ -71,7 +74,7 @@ test('AI 模型配置和快捷密钥保存后均只显示已配置，不回显�
   await expect(key).toHaveAttribute('placeholder', '未配置 (请输入 API Key)');
   await key.fill(secret);
   await main.getByRole('button', { name: '保存模型配置', exact: true }).click();
-  await expect(main.getByText('AI 大模型接入参数已成功保存！', { exact: true })).toBeVisible();
+  await expect(main.getByText('AI 大模型接入参数已成功保存', { exact: true })).toBeVisible();
   expect(writes).toEqual([expect.objectContaining({ provider: 'openai', api_key: secret })]);
   await expect(key).toHaveValue('');
   await expect(key).toHaveAttribute('placeholder', '已配置 (留空保留原密钥)');

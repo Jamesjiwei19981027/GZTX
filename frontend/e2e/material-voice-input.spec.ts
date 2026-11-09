@@ -102,10 +102,10 @@ test('ASR settings report success only after the configuration is actually saved
   await page.getByLabel('语音服务密钥',{exact:true}).fill('test-voice-key');
   await page.getByRole('button',{name:'保存 ASR 语音配置',exact:true}).click();
   await expect.poll(()=>!!saved).toBe(true);
-  await expect(page.getByText('语音识别引擎参数已更新！',{exact:true})).toHaveCount(0);
+  await expect(page.getByText('语音识别引擎参数已更新',{exact:true})).toHaveCount(0);
   expect(saved.provider_id).toBe('cloud:whisper');
   expect(saved.config_json.base_url).toBe('https://speech.example.test/v1');
   finish?.();
-  await expect(page.getByText('语音识别引擎参数已更新！',{exact:true})).toBeVisible();
+  await expect(page.getByText('语音识别引擎参数已更新',{exact:true})).toBeVisible();
   await expect(page.getByLabel('语音服务密钥',{exact:true})).toHaveValue('');
 });

@@ -114,7 +114,7 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
             ),
             children: [
               Text(
-                '查看团队积累，让 AI 帮你提炼成自己的知识。',
+                '查看团队积累，让 AI 帮你提炼成自己的知识',
                 style: TextStyle(
                   fontSize: 12,
                   color: isDarkMode(context)
@@ -132,7 +132,7 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
                     label: '管理总结授权',
                     variant: AppButtonVariant.secondary,
                     isFullWidth: true,
-                    icon: const AppIcon('team', size: 16),
+                    icon: const AppIcon('team', size: 18),
                     onPressed: controller.isPending ? null : _openGrants,
                   ),
                 ),
@@ -158,7 +158,9 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
       ),
       child: Text(
         controller.error!,
-        style: TextStyle(fontSize: 12, color: AppColors.onDangerContainerOf(isDarkMode(context))),
+        style: TextStyle(
+            fontSize: 12,
+            color: AppColors.onDangerContainerOf(isDarkMode(context))),
       ),
     );
   }
@@ -182,7 +184,7 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
             '让 AI 帮我整理',
             style: TextStyle(
               fontSize: 15,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
               color: isDark ? AppColors.darkTextPrimary : AppColors.textPrimary,
             ),
           ),
@@ -201,10 +203,10 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
           if (!controller.canSummarize) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
-              '请联系项目经理开通 AI 总结权限。',
+              '请联系项目经理开通 AI 总结权限',
               style: TextStyle(
                 fontSize: 12,
-                color: isDark ? AppColors.warning : AppColors.warning,
+                color: AppColors.textTertiaryOf(isDark),
               ),
             ),
           ],
@@ -271,7 +273,7 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
                 '团队共享资料',
                 style: TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: isDark
                       ? AppColors.darkTextPrimary
                       : AppColors.textPrimary,
@@ -304,7 +306,7 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
                   '暂无共享知识',
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     color: isDark
                         ? AppColors.darkTextPrimary
                         : AppColors.textPrimary,
@@ -312,7 +314,7 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '团队已发布的资料和笔记会显示在这里。',
+                  '团队已发布的资料和笔记会显示在这里',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark
@@ -328,12 +330,10 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
             margin: const EdgeInsets.only(bottom: AppSpacing.sm),
             padding: const EdgeInsets.all(AppSpacing.md),
             decoration: BoxDecoration(
-              color: isDark ? AppColors.darkSurface : Colors.white,
-              borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-              border: Border.all(
-                color: isDark ? AppColors.darkBorder : AppColors.border,
-              ),
-            ),
+                border: Border(
+                    bottom: BorderSide(
+                        color:
+                            isDark ? AppColors.darkBorder : AppColors.border))),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -348,7 +348,7 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
                   child: InkWell(
                     onTap: () => _openPage(page),
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -356,21 +356,21 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
                             page.title,
                             style: TextStyle(
                               fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w500,
                               color: isDark
                                   ? AppColors.darkTextPrimary
                                   : AppColors.textPrimary,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           Text(
                             page.sourceLabel,
                             style: const TextStyle(
-                              fontSize: 11,
+                              fontSize: 12,
                               color: AppColors.primary,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          const SizedBox(height: 4),
                           Text(
                             page.bodyText.isEmpty ? '暂无正文' : page.bodyText,
                             maxLines: 2,
@@ -440,14 +440,14 @@ class _ProjectKnowledgeViewState extends State<ProjectKnowledgeView> {
             label: _graphVisible ? '收起来源关系图' : '查看来源关系图',
             variant: AppButtonVariant.secondary,
             isFullWidth: true,
-            icon: const AppIcon('axis', size: 16),
+            icon: const AppIcon('axis', size: 18),
             onPressed: () => setState(() => _graphVisible = !_graphVisible),
           ),
         ),
         if (_graphVisible) ...[
           const SizedBox(height: AppSpacing.sm),
           Text(
-            '连线来自共享资料中的明确引用。',
+            '连线来自共享资料中的明确引用',
             style: TextStyle(
               fontSize: 12,
               color: isDark
@@ -506,7 +506,7 @@ class _GrantSheet extends StatelessWidget {
                     '管理总结授权',
                     style: TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                       color: isDark
                           ? AppColors.darkTextPrimary
                           : AppColors.textPrimary,
@@ -518,7 +518,7 @@ class _GrantSheet extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                   icon: AppIcon(
                     'close',
-                    size: 20,
+                    size: 18,
                     color: isDark
                         ? AppColors.darkTextSecondary
                         : AppColors.textSecondary,
@@ -530,7 +530,7 @@ class _GrantSheet extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
             child: Text(
-              '授权成员使用自己的 AI 整理本项目共享知识。',
+              '授权成员使用自己的 AI 整理本项目共享知识',
               style: TextStyle(
                 fontSize: 12,
                 color: isDark
@@ -547,7 +547,7 @@ class _GrantSheet extends StatelessWidget {
               children: [
                 if (members.isEmpty)
                   Text(
-                    '当前没有可授权的项目成员。',
+                    '当前没有可授权的项目成员',
                     style: TextStyle(
                       fontSize: 12,
                       color: isDark
@@ -578,7 +578,7 @@ class _GrantSheet extends StatelessWidget {
                               Text(
                                 member.isManager ? '项目经理 · 默认授权' : '当前项目成员',
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   color: isDark
                                       ? AppColors.darkTextTertiary
                                       : AppColors.textTertiary,

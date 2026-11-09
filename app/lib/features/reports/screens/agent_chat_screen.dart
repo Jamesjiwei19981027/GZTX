@@ -218,8 +218,11 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
             const Expanded(
               child: AppEmptyState(
                 title: '请选择具体项目',
-                description: '智能体会话与上下文按项目隔离，请先切换到具体项目。',
-                icon: AppIcon('folder', size: 44, color: AppColors.primary),
+                description: '智能体会话与上下文按项目隔离，请先切换到具体项目',
+                icon: AppIcon(
+                  'folder',
+                  size: 18,
+                ),
               ),
             ),
           ],
@@ -250,14 +253,18 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                   : const Color(0xFFEAF1FD),
               child: Row(
                 children: [
-                  const AppIcon('info', size: 15, color: AppColors.primary),
+                  const AppIcon(
+                    'info',
+                    size: 18,
+                  ),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
                       '$userName的项目 AI · 上下文仅限当前项目（$projectName）',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11.5, color: AppColors.primary),
+                      style: const TextStyle(
+                          fontSize: 12, color: AppColors.primary),
                     ),
                   ),
                 ],
@@ -272,12 +279,14 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: AppSpacing.xxl),
                       child: Text(
-                        '您可以告诉我今天完成了哪些事项、遇到什么阻碍，我会帮您归纳到汇报草稿中。',
+                        '您可以告诉我今天完成了哪些事项、遇到什么阻碍，我会帮您归纳到汇报草稿中',
                         textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                        style: TextStyle(
+                            fontSize: 12, color: AppColors.textTertiary),
                       ),
                     ),
-                  for (final message in _messages) _messageBubble(context, message),
+                  for (final message in _messages)
+                    _messageBubble(context, message),
                   if (_sending)
                     const Padding(
                       padding: EdgeInsets.symmetric(vertical: AppSpacing.sm),
@@ -287,7 +296,8 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                           SizedBox(width: AppSpacing.sm),
                           Text(
                             '正在整理进展…',
-                            style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
+                            style: TextStyle(
+                                fontSize: 12, color: AppColors.textTertiary),
                           ),
                         ],
                       ),
@@ -335,8 +345,10 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
               borderRadius: BorderRadius.only(
                 topLeft: const Radius.circular(AppSpacing.radiusLg),
                 topRight: const Radius.circular(AppSpacing.radiusLg),
-                bottomLeft: Radius.circular(message.isUser ? AppSpacing.radiusLg : 4),
-                bottomRight: Radius.circular(message.isUser ? 4 : AppSpacing.radiusLg),
+                bottomLeft:
+                    Radius.circular(message.isUser ? AppSpacing.radiusLg : 4),
+                bottomRight:
+                    Radius.circular(message.isUser ? 4 : AppSpacing.radiusLg),
               ),
               border: Border.all(
                 color: dark ? AppColors.darkBorder : AppColors.border,
@@ -349,13 +361,16 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                   const Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      AppIcon('ai', size: 14, color: AppColors.primary),
+                      AppIcon(
+                        'ai',
+                        size: 18,
+                      ),
                       SizedBox(width: 4),
                       Text(
                         '已记下本次进展',
                         style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                           color: AppColors.primary,
                         ),
                       ),
@@ -365,7 +380,8 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                 ],
                 Text(
                   message.content,
-                  style: TextStyle(fontSize: 14, height: 1.45, color: textColor),
+                  style:
+                      TextStyle(fontSize: 14, height: 1.45, color: textColor),
                 ),
                 if (message.sourceLabel != null) ...[
                   const SizedBox(height: AppSpacing.sm),
@@ -377,7 +393,7 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                   Text(
                     message.sourceLabel!,
                     style: const TextStyle(
-                      fontSize: 10.5,
+                      fontSize: 12,
                       color: AppColors.textTertiary,
                     ),
                   ),
@@ -389,13 +405,17 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
             const SizedBox(height: AppSpacing.sm),
             TextButton.icon(
               onPressed: () => _addToDraft(message.content),
-              icon: const AppIcon('edit', size: 13, color: AppColors.primary),
+              icon: const AppIcon(
+                'edit',
+                size: 18,
+              ),
               label: const Text(
                 '加入汇报草稿',
                 style: TextStyle(fontSize: 12, color: AppColors.primary),
               ),
               style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 minimumSize: const Size(0, 36),
               ),
             ),
@@ -412,7 +432,8 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
       decoration: BoxDecoration(
         color: dark ? AppColors.darkSurface : Colors.white,
         border: Border(
-          top: BorderSide(color: dark ? AppColors.darkBorder : AppColors.border),
+          top:
+              BorderSide(color: dark ? AppColors.darkBorder : AppColors.border),
         ),
       ),
       child: Column(
@@ -425,7 +446,8 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                 tone: ReportBannerTone.warning,
                 icon: GestureDetector(
                   onTap: () => setState(() => _showMicHint = false),
-                  child: const AppIcon('close', size: 15, color: AppColors.warning),
+                  child: const AppIcon('close',
+                      size: 18, color: AppColors.warning),
                 ),
               ),
             ),
@@ -435,7 +457,8 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
               IconButton(
                 tooltip: '语音输入',
                 onPressed: () => setState(() => _showMicHint = true),
-                icon: const AppIcon('mic', size: 20, color: AppColors.textTertiary),
+                icon: const AppIcon('mic',
+                    size: 18, color: AppColors.textTertiary),
               ),
               Expanded(
                 child: AppTextField(
@@ -461,15 +484,16 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                     child: Center(
                       child: _sending
                           ? const SizedBox(
-                              width: 18,
-                              height: 18,
+                              width: 20,
+                              height: 20,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor:
                                     AlwaysStoppedAnimation<Color>(Colors.white),
                               ),
                             )
-                          : const AppIcon('send', size: 18, color: Colors.white),
+                          : const AppIcon('send',
+                              size: 18, color: Colors.white),
                     ),
                   ),
                 ),
@@ -478,8 +502,8 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
           ),
           const SizedBox(height: AppSpacing.xs),
           const Text(
-            '只有已提交的对话与项目材料才能进入最终汇报来源依据。',
-            style: TextStyle(fontSize: 10.5, color: AppColors.textTertiary),
+            '只有已提交的对话与项目材料才能进入最终汇报来源依据',
+            style: TextStyle(fontSize: 12, color: AppColors.textTertiary),
           ),
         ],
       ),

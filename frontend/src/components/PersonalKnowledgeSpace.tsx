@@ -41,7 +41,7 @@ const concreteProject = (id: string) => /^[1-9]\d*$/.test(id)
 function KnowledgeNode({ data }: NodeProps<WikiNode>) {
   return <div className="pk-node">
     <Handle type="target" position={Position.Left} aria-label="关联终点连接点" />
-    <strong>{data.title}</strong>
+    <strong className="font-medium">{data.title}</strong>
     <p>{data.excerpt || '点击补充正文'}</p>
     {data.tags.length > 0 && <small>{data.tags.slice(0, 2).map(tag => `#${tag}`).join(' ')}</small>}
     <Handle type="source" position={Position.Right} aria-label="关联起点连接点" />
@@ -269,7 +269,7 @@ function ScopedKnowledgeSpace({ projectId, userId, onOpenSource, reloadToken, ac
         {!loading && visibleEntries.length === 0 && <div className="pk-empty pk-empty-small"><span aria-hidden="true">◇</span><h3>{entries.length ? '没有找到相关内容' : '记下第一条工作积累'}</h3><p>{entries.length ? '换个关键词试试。' : '点“记一条”写下想法，或让 AI 整理你已有的材料和汇报。'}</p></div>}
         {view === 'list' && <ul className="pk-entry-list">{visibleEntries.map(item => <li key={item.id}>
           <button type="button" disabled={disabled} aria-label={`打开 ${item.title}`} aria-pressed={selectedId === item.id} onClick={() => openEntry(item)}>
-            <span className="pk-entry-top"><strong>{item.title}</strong><small>{sourceNames[item.source_type] ?? item.source_type}</small></span>
+            <span className="pk-entry-top"><strong className="font-medium">{item.title}</strong><small>{sourceNames[item.source_type] ?? item.source_type}</small></span>
             <span className="pk-excerpt">{item.body_text || '暂无正文'}</span>
             <span className="pk-tags">{item.tags.map(tag => <span key={tag}>#{tag}</span>)}</span>
           </button></li>)}</ul>}
@@ -284,7 +284,7 @@ function ScopedKnowledgeSpace({ projectId, userId, onOpenSource, reloadToken, ac
             <button type="submit" disabled={disabled || !linkSource || !linkTarget || linkSource === linkTarget}>{editingLink !== null ? '保存关联' : '添加关联'}</button>
             {editingLink !== null && <button type="button" disabled={disabled} onClick={clearLink}>取消编辑关联</button>}
           </form>
-          <ul className="pk-link-list">{links.map(link => <li key={link.id}><div><span>{entries.find(item => item.id === link.source_entry_id)?.title} → {entries.find(item => item.id === link.target_entry_id)?.title}</span><strong>{link.label || '未填写说明'}</strong></div><button type="button" aria-label={`编辑关联 ${link.label || '未命名关联'}`} disabled={disabled} onClick={() => editLink(link)}>编辑</button><button type="button" aria-label={`删除关联 ${link.label || '未命名关联'}`} disabled={disabled} onClick={() => void operate(() => deletePersonalKnowledgeLink(projectId, link.id), () => { setLinks(previous => previous.filter(item => item.id !== link.id)); if (editingLink === link.id) clearLink(); setNotice('关联已删除') })}>删除</button></li>)}</ul>
+          <ul className="pk-link-list">{links.map(link => <li key={link.id}><div><span>{entries.find(item => item.id === link.source_entry_id)?.title} → {entries.find(item => item.id === link.target_entry_id)?.title}</span><strong className="font-medium">{link.label || '未填写说明'}</strong></div><button type="button" aria-label={`编辑关联 ${link.label || '未命名关联'}`} disabled={disabled} onClick={() => editLink(link)}>编辑</button><button type="button" aria-label={`删除关联 ${link.label || '未命名关联'}`} disabled={disabled} onClick={() => void operate(() => deletePersonalKnowledgeLink(projectId, link.id), () => { setLinks(previous => previous.filter(item => item.id !== link.id)); if (editingLink === link.id) clearLink(); setNotice('关联已删除') })}>删除</button></li>)}</ul>
         </section></KnowledgeDialog>}
       </div>
       {active && selectedId !== null && <KnowledgeDialog title={selectedId === 'new' ? '记一条' : '查看笔记'} dirty={editorDirty} onClose={() => { setSelectedId(null); setConfirmDelete(false); setError('') }}><aside className="pk-editor" aria-label="笔记编辑区">
@@ -305,7 +305,7 @@ function ScopedKnowledgeSpace({ projectId, userId, onOpenSource, reloadToken, ac
         {confirmDelete && selectedEntry && <div role="alertdialog" aria-label="删除这条笔记？" className="pk-delete-confirm"><h3>删除这条笔记？</h3><p>原始材料、汇报和对话会保留。</p><button type="button" disabled={pending} onClick={() => setConfirmDelete(false)}>取消</button><button type="button" disabled={pending} className="pk-danger" onClick={removeEntry}>确认删除笔记</button></div>}
       </aside></KnowledgeDialog>}
     </div>
-    {active && suggestionsOpen && <KnowledgeDialog title="AI 发现的关联" onClose={() => setSuggestionsOpen(false)}>{errorPanel}<p className="pk-help">已根据你的笔记找到这些关联，确认后加入关联图。</p><ul className="pk-ai-suggestions">{suggestions.map((item, index) => <li key={index}><label><input type="checkbox" checked={chosenSuggestions.includes(index)} onChange={event => setChosenSuggestions(previous => event.target.checked ? [...previous, index] : previous.filter(id => id !== index))} /><strong>{entries.find(entry => entry.id === item.source_entry_id)?.title} → {entries.find(entry => entry.id === item.target_entry_id)?.title}</strong></label><p>{item.label} · {item.reason}</p><details><summary>查看依据</summary><blockquote>{item.source_quote}</blockquote><blockquote>{item.target_quote}</blockquote></details></li>)}</ul><div className="knowledge-save-row"><button type="button" className="pk-primary" disabled={disabled || !chosenSuggestions.length} onClick={() => void operate(() => applyKnowledgeRelationships(projectId, chosenSuggestions.map(index => suggestions[index])), result => { setLinks(previous => [...previous, ...result.links]); setSuggestionsOpen(false); setNotice(`已加入 ${result.created} 条关联`); setView('graph') })}>确认关联（{chosenSuggestions.length}）</button></div></KnowledgeDialog>}
+    {active && suggestionsOpen && <KnowledgeDialog title="AI 发现的关联" onClose={() => setSuggestionsOpen(false)}>{errorPanel}<p className="pk-help">已根据你的笔记找到这些关联，确认后加入关联图。</p><ul className="pk-ai-suggestions">{suggestions.map((item, index) => <li key={index}><label><input type="checkbox" checked={chosenSuggestions.includes(index)} onChange={event => setChosenSuggestions(previous => event.target.checked ? [...previous, index] : previous.filter(id => id !== index))} /><strong className="font-medium">{entries.find(entry => entry.id === item.source_entry_id)?.title} → {entries.find(entry => entry.id === item.target_entry_id)?.title}</strong></label><p>{item.label} · {item.reason}</p><details><summary>查看依据</summary><blockquote>{item.source_quote}</blockquote><blockquote>{item.target_quote}</blockquote></details></li>)}</ul><div className="knowledge-save-row"><button type="button" className="pk-primary" disabled={disabled || !chosenSuggestions.length} onClick={() => void operate(() => applyKnowledgeRelationships(projectId, chosenSuggestions.map(index => suggestions[index])), result => { setLinks(previous => [...previous, ...result.links]); setSuggestionsOpen(false); setNotice(`已加入 ${result.created} 条关联`); setView('graph') })}>确认关联（{chosenSuggestions.length}）</button></div></KnowledgeDialog>}
   </>
 }
 

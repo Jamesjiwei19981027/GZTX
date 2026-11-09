@@ -7,6 +7,7 @@ async function openOverview(page: Page, kind: 'mobile-home' | 'desktop-home' | '
     const url=new URL(route.request().url());
     let data:unknown={items:[]};
     if(url.pathname.endsWith('/tree'))data={nodes:[]};
+    if(url.pathname.endsWith('/my-permissions'))data={is_pm:true};
     if(url.pathname.endsWith('/projects/1'))data={id:1,name:'测试项目',status:'active'};
     if(url.pathname.endsWith('/projects/1/my-permissions'))data={
       role:role==='pm'?'pm':'member',is_pm:role==='pm',is_superadmin:false,

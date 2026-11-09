@@ -110,7 +110,7 @@ class _AdminPushCertsScreenState extends State<AdminPushCertsScreen> {
                   children: [
                     MeCard(
                       title: 'WebPush（VAPID）',
-                      footer: '用于桌面浏览器与 PWA 离线推送；公钥由服务端环境变量下发。',
+                      footer: '用于桌面浏览器与 PWA 离线推送；公钥由服务端环境变量下发',
                       trailing: MeInlineButton(
                         label: '刷新',
                         onPressed: _load,
@@ -130,8 +130,7 @@ class _AdminPushCertsScreenState extends State<AdminPushCertsScreen> {
                           Padding(
                             padding: const EdgeInsets.only(top: AppSpacing.sm),
                             child: MeBanner(
-                              message:
-                                  '公钥读取失败：${meErrorMessage(_vapidError!)}',
+                              message: '公钥读取失败：${meErrorMessage(_vapidError!)}',
                               tone: MeTone.warning,
                             ),
                           ),
@@ -152,7 +151,7 @@ class _AdminPushCertsScreenState extends State<AdminPushCertsScreen> {
                               child: Text(
                                 _vapidKey!,
                                 style: TextStyle(
-                                  fontSize: 10.5,
+                                  fontSize: 12,
                                   height: 1.4,
                                   fontFamily: 'monospace',
                                   color: isDark
@@ -167,7 +166,7 @@ class _AdminPushCertsScreenState extends State<AdminPushCertsScreen> {
                     const SizedBox(height: AppSpacing.md),
                     const MeCard(
                       title: 'iOS APNs 推送证书',
-                      footer: '证书路径与团队 ID 由服务端环境变量配置，当前版本没有查询证书有效期的接口（已上报）。',
+                      footer: '证书路径与团队 ID 由服务端环境变量配置，当前版本没有查询证书有效期的接口（已上报）',
                       children: [
                         MeInfoRow(
                           label: 'Apple Push Notification',
@@ -183,7 +182,7 @@ class _AdminPushCertsScreenState extends State<AdminPushCertsScreen> {
                     const SizedBox(height: AppSpacing.md),
                     const MeCard(
                       title: 'Android FCM 推送通道',
-                      footer: 'FCM 服务账号凭据由服务端环境变量配置，当前版本没有查询接口（已上报）。',
+                      footer: 'FCM 服务账号凭据由服务端环境变量配置，当前版本没有查询接口（已上报）',
                       children: [
                         MeInfoRow(
                           label: 'Firebase Cloud Messaging',

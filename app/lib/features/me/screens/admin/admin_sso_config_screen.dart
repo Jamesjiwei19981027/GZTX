@@ -98,8 +98,7 @@ class _AdminSsoConfigScreenState extends State<AdminSsoConfigScreen> {
       _successMessage = null;
     });
     try {
-      final updated =
-          await _api.updateLoginMethods(companyId, oidc: enabled);
+      final updated = await _api.updateLoginMethods(companyId, oidc: enabled);
       if (!mounted) return;
       setState(() {
         _loginMethods = updated;
@@ -149,7 +148,7 @@ class _AdminSsoConfigScreenState extends State<AdminSsoConfigScreen> {
                       ),
                     MeCard(
                       title: 'SSO 登录开关',
-                      footer: '开关保存到企业登录方式（服务端 require_super_admin 校验）。',
+                      footer: '开关保存到企业登录方式（服务端 require_super_admin 校验）',
                       children: [
                         Row(
                           children: [
@@ -158,7 +157,7 @@ class _AdminSsoConfigScreenState extends State<AdminSsoConfigScreen> {
                                 '允许成员使用 OIDC 单点登录',
                                 style: TextStyle(
                                   fontSize: 14,
-                                  fontWeight: FontWeight.w600,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),
@@ -170,9 +169,8 @@ class _AdminSsoConfigScreenState extends State<AdminSsoConfigScreen> {
                         ),
                         const SizedBox(height: AppSpacing.sm),
                         MeBanner(
-                          message: _loginMethods.oidc
-                              ? 'OIDC 登录已启用'
-                              : 'OIDC 登录未启用',
+                          message:
+                              _loginMethods.oidc ? 'OIDC 登录已启用' : 'OIDC 登录未启用',
                           tone: _loginMethods.oidc
                               ? MeTone.success
                               : MeTone.neutral,
@@ -183,7 +181,7 @@ class _AdminSsoConfigScreenState extends State<AdminSsoConfigScreen> {
                     const MeCard(
                       title: '服务端需配置的参数（只读）',
                       footer: '这些参数由服务端环境变量与 IdP 元数据提供，当前版本后端未开放写入接口，'
-                          '因此 APP 内只展示清单，不提供假保存（已上报）。',
+                          '因此 APP 内只展示清单，不提供假保存（已上报）',
                       children: [
                         MeInfoRow(
                           label: 'Issuer URL',
@@ -238,9 +236,9 @@ class _AdminSsoConfigScreenState extends State<AdminSsoConfigScreen> {
                     ),
                     const SizedBox(height: AppSpacing.md),
                     Text(
-                      '提示：登录方式总开关集中在「组织与登录集成」页面统一管理。',
+                      '提示：登录方式总开关集中在「组织与登录集成」页面统一管理',
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: 12,
                         color: isDark
                             ? AppColors.darkTextTertiary
                             : AppColors.textTertiary,

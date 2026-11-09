@@ -85,7 +85,7 @@ void main() {
     );
 
     expect(find.text('记下第一条工作积累'), findsOneWidget);
-    expect(find.text('点“记一条”写下想法，或让 AI 整理你已有的材料和汇报。'), findsOneWidget);
+    expect(find.text('点“记一条”写下想法，或让 AI 整理你已有的材料和汇报'), findsOneWidget);
     expect(find.text('仅自己可见 · AI 帮你找关联，原始资料保留'), findsOneWidget);
 
     await tester.tap(find.text('记一条').first);
@@ -303,7 +303,7 @@ void main() {
     await tester.tap(find.text('AI 整理'));
     await tester.pumpAndSettle();
 
-    expect(find.text('已根据你的笔记找到这些关联，确认后加入关联图。'), findsOneWidget);
+    expect(find.text('已根据你的笔记找到这些关联，确认后加入关联图'), findsOneWidget);
     expect(find.text('提供验收依据'), findsOneWidget);
     expect(find.text('依据一：客户确认先做验收清单'), findsOneWidget);
 
@@ -336,7 +336,7 @@ void main() {
     await tester.tap(find.text('AI 整理'));
     await tester.pumpAndSettle();
 
-    expect(find.text('已根据你的笔记找到这些关联，确认后加入关联图。'), findsNothing);
+    expect(find.text('已根据你的笔记找到这些关联，确认后加入关联图'), findsNothing);
     expect(controller.notice, '资料已收集，再积累几条笔记就能发现更多关联。');
     expect(controller.suggestions, isEmpty);
     expect(
@@ -471,7 +471,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('删除这条笔记？'), findsOneWidget);
-    expect(find.text('原始材料、汇报和对话会保留。'), findsOneWidget);
+    expect(find.text('原始材料、汇报和对话会保留'), findsOneWidget);
 
     await tester.tap(find.text('确认删除'));
     await tester.pumpAndSettle();
@@ -665,7 +665,7 @@ void main() {
 
     expect(find.text('已有 0 条关联'), findsOneWidget);
     expect(find.text('客户需求确认 → 接口联调记录'), findsNothing);
-    expect(find.text('还没有关联，可以让 AI 整理，或者手动添加。'), findsOneWidget);
+    expect(find.text('还没有关联，可以让 AI 整理，或者手动添加'), findsOneWidget);
     expect(controller.links, isEmpty);
     expect(helper.history.last.method, 'DELETE');
     await drainToasts(tester);

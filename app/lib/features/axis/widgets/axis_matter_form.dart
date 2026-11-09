@@ -115,7 +115,7 @@ class _AxisMatterFormState extends State<AxisMatterForm> {
           const Padding(
               padding: EdgeInsets.only(top: 8),
               child:
-                  Text('只有直属上级或项目负责人可以更换负责人。', style: TextStyle(fontSize: 12))),
+                  Text('只有直属上级或项目负责人可以更换负责人', style: TextStyle(fontSize: 12))),
         if (_error != null)
           Padding(
               padding: const EdgeInsets.only(top: 12),

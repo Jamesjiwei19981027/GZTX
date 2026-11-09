@@ -23,7 +23,7 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
   return (
     <header
       aria-label={title ? `页面标题：${title}` : undefined}
-      className={`sticky top-0 z-30 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 select-none ${className}`}
+      className={`sticky top-0 z-30 w-full bg-surface-container-lowest border-b border-outline-variant select-none ${className}`}
     >
       <div className="flex items-center justify-between h-[48px] px-2 relative">
         {/* 左侧：返回按钮或占位 */}
@@ -33,7 +33,7 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
               type="button"
               onClick={onBack}
               aria-label={backLabel}
-              className="mobile-touch-target flex items-center gap-0.5 text-[#0058BE] dark:text-blue-400 font-normal text-[16px] -ml-1 active:opacity-60 cursor-pointer"
+              className="mobile-touch-target flex items-center gap-0.5 text-primary font-normal text-[16px] -ml-1 active:opacity-60 cursor-pointer"
             >
               <AppIcon name="chevron-left" size={24} className="stroke-[2.5]" />
               <span className="truncate max-w-[80px]">{backLabel}</span>
@@ -44,11 +44,11 @@ export const MobileTopBar: React.FC<MobileTopBarProps> = ({
         {/* 中间：居中紧凑标题 */}
         {title && (
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-16">
-            <h1 className="text-[17px] font-semibold text-slate-900 dark:text-slate-100 truncate max-w-full leading-tight">
+            <h1 className="text-[17px] font-medium text-on-surface truncate max-w-full leading-tight">
               {title}
             </h1>
             {subtitle && (
-              <span className="text-[11px] text-slate-500 dark:text-slate-400 truncate max-w-full">
+              <span className="text-[11px] text-on-surface-variant truncate max-w-full">
                 {subtitle}
               </span>
             )}

@@ -51,19 +51,19 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
     {
       id: 'To Do',
       label: t.toDo,
-      color: 'border-t-4 border-outline-variant dark:border-outline',
+      color: 'border-outline-variant dark:border-outline',
       badgeColor: 'bg-surface-container-high text-on-surface-variant',
     },
     {
       id: 'In Progress',
       label: t.inProgress,
-      color: 'border-t-4 border-primary',
+      color: 'border-outline-variant',
       badgeColor: 'bg-primary-fixed text-on-primary-fixed',
     },
     {
       id: 'Done',
       label: t.done,
-      color: 'border-t-4 border-secondary',
+      color: 'border-outline-variant',
       badgeColor: 'bg-secondary text-on-secondary',
     },
   ];
@@ -72,19 +72,19 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
     switch (priority) {
       case 'High':
         return (
-          <span className="bg-error-container text-on-error-container font-bold text-[10px] px-2 py-0.5 rounded">
+          <span className="inline-flex items-center gap-2 text-xs font-medium text-on-surface-variant"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-error" />
             {lang === 'zh' ? '高' : 'High'}
           </span>
         );
       case 'Medium':
         return (
-          <span className="bg-primary-fixed text-on-primary-fixed font-semibold text-[10px] px-2 py-0.5 rounded">
+          <span className="inline-flex items-center gap-2 text-xs font-medium text-on-surface-variant"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-[#a86412]" />
             {lang === 'zh' ? '中' : 'Med'}
           </span>
         );
       case 'Low':
         return (
-          <span className="bg-surface-container-high text-on-surface-variant font-semibold text-[10px] px-2 py-0.5 rounded">
+          <span className="inline-flex items-center gap-2 text-xs font-medium text-on-surface-variant"><span aria-hidden="true" className="w-2 h-2 rounded-full bg-outline" />
             {lang === 'zh' ? '低' : 'Low'}
           </span>
         );
@@ -117,7 +117,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
       {/* Kanban Header */}
       <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-extrabold text-on-surface dark:text-[#f0f1f2] tracking-tight">
+          <h1 className="text-3xl font-medium text-on-surface dark:text-on-surface  tabular-nums">
             {t.kanban}
           </h1>
           <p className="text-xs md:text-sm text-on-surface-variant mt-1">
@@ -132,21 +132,21 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               member.avatar ? (
                 <img key={member.id} src={member.avatar} alt={member.name} title={member.name} className="w-8 h-8 rounded-full border-2 border-surface object-cover bg-surface-container" />
               ) : (
-                <span key={member.id} title={member.name} className="w-8 h-8 rounded-full border-2 border-surface bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">
+                <span key={member.id} title={member.name} className="w-8 h-8 rounded-full border-2 border-surface bg-primary/10 text-primary text-xs font-medium flex items-center justify-center tabular-nums">
                   {member.name.slice(0, 1)}
                 </span>
               )
             ))}
-            {members.length > 5 && <span className="w-8 h-8 rounded-full border-2 border-surface bg-surface-container text-[10px] font-bold flex items-center justify-center">+{members.length - 5}</span>}
+            {members.length > 5 && <span className="w-8 h-8 rounded-full border-2 border-surface bg-surface-container text-xs font-medium flex items-center justify-center tabular-nums">+{members.length - 5}</span>}
           </div>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={lang === 'zh' ? '筛选任务' : 'Filter tasks'} className="w-36 px-3 py-2 rounded-xl border border-outline-variant bg-surface text-xs" />
-          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as Priority | 'all')} className="px-3 py-2 rounded-xl border border-outline-variant bg-surface text-xs">
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={lang === 'zh' ? '筛选任务' : 'Filter tasks'} className="w-36 px-3 py-2 rounded-lg border border-outline-variant bg-surface text-xs" />
+          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as Priority | 'all')} className="px-3 py-2 rounded-lg border border-outline-variant bg-surface text-xs">
             <option value="all">{lang === 'zh' ? '全部优先级' : 'All priorities'}</option>
             <option value="High">{lang === 'zh' ? '高' : 'High'}</option>
             <option value="Medium">{lang === 'zh' ? '中' : 'Medium'}</option>
             <option value="Low">{lang === 'zh' ? '低' : 'Low'}</option>
           </select>
-          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="px-3 py-2 rounded-xl border border-outline-variant bg-surface text-xs">
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="px-3 py-2 rounded-lg border border-outline-variant bg-surface text-xs">
             <option value="all">{lang === 'zh' ? '全部分类' : 'All categories'}</option>
             {categoryOptions.map((category) => <option key={category} value={category}>{category}</option>)}
           </select>
@@ -171,36 +171,36 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               onDragOver={(e) => handleDragOver(e, col.id)}
               onDragLeave={() => setDragOverStatus(null)}
               onDrop={(e) => handleDrop(e, col.id)}
-              className={`bg-surface-container-low dark:bg-[#191c1d] rounded-2xl p-4 flex flex-col transition-all duration-200 border ${
+              className={`bg-surface-container-lowest dark:bg-surface-container rounded-xl p-4 flex flex-col transition-ink-colors duration-200 border ${
                 col.color
               } ${
                 isOver
-                  ? 'border-primary ring-2 ring-primary/20 bg-primary-fixed/10 dark:bg-[#2e3132]'
-                  : 'border-surface-variant dark:border-outline-variant shadow-sm'
+                  ? 'border-primary ring-2 ring-primary/20 bg-primary-fixed/10 dark:bg-surface-container'
+                  : 'border-surface-variant dark:border-outline-variant shadow-sm dark:shadow-none'
               }`}
             >
               {/* Column Title Header */}
               <div className="flex justify-between items-center mb-4 pb-2 border-b border-surface-variant dark:border-outline-variant">
-                <h3 className="font-bold text-base text-on-surface dark:text-[#f0f1f2] flex items-center gap-2">
+                <h3 className="font-medium text-base text-on-surface dark:text-on-surface flex items-center gap-2 tabular-nums">
                   <span>{col.label}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-extrabold ${col.badgeColor}`}>
+                  <span className={`text-xs px-2 py-1 rounded-md font-medium ${col.badgeColor}`}>
                     {colTasks.length}
                   </span>
                 </h3>
                 <button
                   onClick={() => onOpenNewTaskWithStatus(col.id)}
-                  className="p-1 hover:bg-surface dark:hover:bg-[#2e3132] rounded-lg text-on-surface-variant hover:text-primary transition-colors"
+                  className="p-1 hover:bg-surface dark:hover:bg-surface-container-high rounded-lg text-on-surface-variant hover:text-primary transition-ink-colors"
                   title={lang === 'zh' ? '添加任务到此列' : 'Add task to column'}
                 >
-                  <span className="material-symbols-outlined text-lg">add</span>
+                  <span className="material-symbols-outlined text-[18px]">add</span>
                 </button>
               </div>
 
               {/* Task Cards Column Body */}
-              <div className="space-y-3.5 min-h-[360px]">
+              <div className="space-y-4 min-h-[360px]">
                 {colTasks.length === 0 ? (
                   <div className="h-48 border-2 border-dashed border-outline-variant/40 rounded-xl flex flex-col items-center justify-center text-center p-4">
-                    <span className="material-symbols-outlined text-3xl text-on-surface-variant/50 mb-1">
+                    <span className="material-symbols-outlined text-[18px] text-inherit mb-1">
                       post_add
                     </span>
                     <span className="text-xs text-on-surface-variant">
@@ -223,15 +223,15 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         draggable
                         onDragStart={(e) => handleDragStart(e, task.id)}
                         onClick={() => onSelectTask(task)}
-                        className="bg-surface dark:bg-[#2e3132] p-4 rounded-xl border border-surface-variant dark:border-outline shadow-xs hover:shadow-md hover:border-primary/50 transition-all duration-200 cursor-grab active:cursor-grabbing group relative"
+                        className="py-4 border-b border-outline-variant hover:bg-surface-container transition-ink-colors duration-200 cursor-grab active:cursor-grabbing group relative"
                       >
                         {/* Top Labels Row */}
                         <div className="flex justify-between items-center gap-2 mb-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-sm text-on-surface-variant/70" title={lang === 'zh' ? '拖动手柄' : 'Drag handle'}>drag_indicator</span>
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-[18px] text-inherit" title={lang === 'zh' ? '拖动手柄' : 'Drag handle'}>drag_indicator</span>
                             {getPriorityBadge(task.priority)}
                             {task.tag && (
-                              <span className="text-[10px] bg-surface-container dark:bg-[#191c1d] text-on-surface-variant px-1.5 py-0.5 rounded font-medium">
+                              <span className="text-xs bg-surface-container dark:bg-surface-container-low text-on-surface-variant px-2 py-1 rounded font-medium tabular-nums">
                                 #{task.tag}
                               </span>
                             )}
@@ -251,7 +251,7 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                                 className="p-1 hover:bg-surface-container rounded text-on-surface-variant hover:text-primary"
                                 title={lang === 'zh' ? '移往前一列' : 'Move left'}
                               >
-                                <span className="material-symbols-outlined text-sm">arrow_back</span>
+                                <span className="material-symbols-outlined text-[18px]">arrow_back</span>
                               </button>
                             )}
                             {col.id !== 'Done' && (
@@ -266,14 +266,14 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                                 className="p-1 hover:bg-surface-container rounded text-on-surface-variant hover:text-primary"
                                 title={lang === 'zh' ? '移往下一列' : 'Move right'}
                               >
-                                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                                <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                               </button>
                             )}
                           </div>
                         </div>
 
                         {/* Card Title */}
-                        <h4 className="font-bold text-sm text-on-surface dark:text-[#f0f1f2] leading-snug group-hover:text-primary dark:group-hover:text-[#adc6ff] transition-colors line-clamp-2">
+                        <h4 className={`font-medium text-sm leading-snug transition-ink-colors line-clamp-2 ${task.status === 'Done' ? 'ink-done' : 'text-on-surface group-hover:text-primary'}`}>
                           {task.title}
                         </h4>
 
@@ -287,13 +287,13 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         {/* Progress bar for In Progress */}
                         {col.id === 'In Progress' && task.progress !== undefined && (
                           <div className="mt-3">
-                            <div className="flex justify-between items-center text-[11px] font-semibold text-primary mb-1">
+                            <div className="flex justify-between items-center text-xs font-medium text-primary mb-1 tabular-nums">
                               <span>{lang === 'zh' ? '研发执行进度' : 'Progress'}</span>
                               <span>{task.progress}%</span>
                             </div>
-                            <div className="w-full bg-surface-container-highest dark:bg-[#191c1d] rounded-full h-1.5 overflow-hidden">
+                            <div className="w-full bg-surface-container-highest dark:bg-surface-container-low rounded-full h-1.5 overflow-hidden">
                               <div
-                                className="bg-primary h-1.5 rounded-full transition-all duration-500"
+                                className="bg-primary h-1.5 rounded-full transition-ink-colors duration-500"
                                 style={{ width: `${task.progress}%` }}
                               ></div>
                             </div>
@@ -304,31 +304,31 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
                         <div className="flex justify-between items-center mt-3 pt-3 border-t border-surface-variant/60 dark:border-outline-variant/30 text-xs text-on-surface-variant">
                           <div className="flex items-center gap-3">
                             {totalSub > 0 && (
-                              <span className="flex items-center gap-1 font-medium">
-                                <span className="material-symbols-outlined text-xs">checklist</span>
+                              <span className="flex items-center gap-1 font-medium tabular-nums">
+                                <span className="material-symbols-outlined text-[18px]">checklist</span>
                                 {completedSub}/{totalSub}
                               </span>
                             )}
-                            <span className="flex items-center gap-1 font-medium">
-                              <span className="material-symbols-outlined text-xs">event</span>
+                            <span className="flex items-center gap-1 font-medium tabular-nums">
+                              <span className="material-symbols-outlined text-[18px]">event</span>
                               {task.dueDate.split('-').slice(1).join('/')}
                             </span>
-                            {col.id === 'Done' && relativeCompletedAt(task.completedAt, lang) && <span className="text-[10px] text-secondary">{relativeCompletedAt(task.completedAt, lang)}</span>}
+                            {col.id === 'Done' && relativeCompletedAt(task.completedAt, lang) && <span className="text-xs text-secondary">{relativeCompletedAt(task.completedAt, lang)}</span>}
                           </div>
 
                           {taskAssignees.length > 0 ? (
                             <div className="flex items-center -space-x-2" title={taskAssignees.map((member) => member.name).join(', ')}>
                               {taskAssignees.slice(0, 3).map((member) => (
                                 member.avatar ? (
-                                  <img key={member.id} src={member.avatar} alt={member.name} className="w-6 h-6 rounded-full object-cover border-2 border-surface dark:border-[#2e3132]" />
+                                  <img key={member.id} src={member.avatar} alt={member.name} className="w-6 h-6 rounded-full object-cover border-2 border-surface dark:border-surface-container-high" />
                                 ) : (
-                                  <span key={member.id} className="w-6 h-6 rounded-full border-2 border-surface dark:border-[#2e3132] bg-primary/10 text-primary text-[10px] font-bold flex items-center justify-center">{member.name.slice(0, 1)}</span>
+                                  <span key={member.id} className="w-6 h-6 rounded-full border-2 border-surface dark:border-surface-container-high bg-primary/10 text-primary text-xs font-medium flex items-center justify-center tabular-nums">{member.name.slice(0, 1)}</span>
                                 )
                               ))}
-                              {taskAssignees.length > 3 && <span className="w-6 h-6 rounded-full border-2 border-surface dark:border-[#2e3132] bg-surface-container text-[10px] font-bold flex items-center justify-center">+{taskAssignees.length - 3}</span>}
+                              {taskAssignees.length > 3 && <span className="w-6 h-6 rounded-full border-2 border-surface dark:border-surface-container-high bg-surface-container text-xs font-medium flex items-center justify-center tabular-nums">+{taskAssignees.length - 3}</span>}
                             </div>
                           ) : (
-                            <span className="material-symbols-outlined text-base text-on-surface-variant/60">
+                            <span className="material-symbols-outlined text-[18px] text-inherit">
                               account_circle
                             </span>
                           )}
@@ -342,9 +342,9 @@ export const KanbanView: React.FC<KanbanViewProps> = ({
               {/* Add Task Button at Column Footer */}
               <button
                 onClick={() => onOpenNewTaskWithStatus(col.id)}
-                className="mt-4 w-full py-2.5 bg-surface dark:bg-[#2e3132] hover:bg-surface-container border border-dashed border-outline-variant rounded-xl text-xs font-semibold text-on-surface-variant hover:text-primary transition-all flex items-center justify-center gap-1.5 shadow-xs"
+                className="mt-4 w-full py-2 bg-surface dark:bg-surface-container-high hover:bg-surface-container border border-dashed border-outline-variant rounded-lg text-xs font-medium text-on-surface-variant hover:text-primary transition-ink-colors flex items-center justify-center gap-2 shadow-sm dark:shadow-none tabular-nums"
               >
-                <span className="material-symbols-outlined text-base">add</span>
+                <span className="material-symbols-outlined text-[18px]">add</span>
                 <span>{t.newTask}</span>
               </button>
             </div>
