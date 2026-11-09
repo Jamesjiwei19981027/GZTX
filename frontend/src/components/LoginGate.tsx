@@ -63,6 +63,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
   const inviteToken = readInviteToken()
   const isInviteOnly = config.mode === 'invite_only'
   const canRegister = !isInviteOnly || Boolean(inviteToken)
+  const passwordAllowed = config.login_methods?.password !== false
 
   const [mode, setMode] = useState<Mode>(() => {
     if (inviteToken) return 'register'
@@ -115,6 +116,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
 
   async function handlePasswordLogin(e: React.FormEvent) {
     e.preventDefault()
+    if (!passwordAllowed) return
     setBusy(true)
     clearMsgs()
     try {
@@ -129,6 +131,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
 
   async function handleCodeLogin(e: React.FormEvent) {
     e.preventDefault()
+    if (!passwordAllowed) return
     setBusy(true)
     clearMsgs()
     try {
@@ -201,6 +204,7 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
   }
 
   async function sendLoginVerifyCode() {
+    if (!passwordAllowed) return
     clearMsgs()
     const ch = detectChannel(loginTarget)
     if (!ch) {
@@ -356,7 +360,9 @@ export function LoginGate({ onLoggedIn, lang = 'zh', registrationConfig }: Props
                 </p>
               </div>
 
-              {loginKind === 'password' ? (
+              {!passwordAllowed ? (
+                <p className="text-sm text-on-surface-variant" role="status">请使用企业已启用的登录入口</p>
+              ) : loginKind === 'password' ? (
                 <form onSubmit={(e) => void handlePasswordLogin(e)} className="space-y-3">
                   <label className="block text-sm">
                     <span className="text-on-surface-variant font-semibold">

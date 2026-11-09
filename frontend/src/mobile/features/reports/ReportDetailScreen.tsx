@@ -15,6 +15,7 @@ import {
   getAiDeliveryStatus,
 } from './reportCapabilities';
 import { ReportSources } from './ReportSources';
+import { ReportReviewPanel } from '../../../components/ReportReviewPanel';
 
 export interface ReportDetailScreenProps {
   user: UserProfile;
@@ -386,6 +387,7 @@ export const ReportDetailScreen: React.FC<ReportDetailScreenProps> = ({
               </section>
 
               {/* 来源依据明细 */}
+              <ReportReviewPanel key={displayReport.id} report={displayReport} onSaved={setSelectedReport} />
               <section className="space-y-2">
                 <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider px-1">
                   引用材料与依据

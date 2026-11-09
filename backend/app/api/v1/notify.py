@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.core.config import settings
 from app.core.dependencies import CurrentUser, DbSession
-from app.models.notify import NotificationRecord
+from app.models.notify import CollabInboxMessage, NotificationRecord
 from app.models.task import Task
 from app.schemas.common import ResponseData
 
@@ -16,7 +16,7 @@ router = APIRouter(prefix="/notify", tags=["通知可靠性"])
 
 
 class TestSendBody(BaseModel):
-    channel: Literal["email", "webpush"]
+    channel: Literal["email", "webpush", "in_app"]
 
 
 async def _serialize_records(db, rows, user_names: dict[int, str] | None = None) -> list[dict]:
@@ -185,7 +185,24 @@ async def test_send(data: TestSendBody, db: DbSession, user: CurrentUser):
     from app.services.rate_limit import enforce_test_send
 
     await enforce_test_send(db, user.id)
-    if data.channel == "email":
+    if data.channel == "in_app":
+        from app.models.company import CompanyMembership
+
+        company_id = await db.scalar(select(CompanyMembership.company_id).where(
+            CompanyMembership.user_id == user.id,
+            CompanyMembership.status == 'active',
+            CompanyMembership.employment_status == 'active',
+        ).order_by(CompanyMembership.id).limit(1))
+        # 无企业的个人账号也可测试本人通知；0 不对应任何企业，不参与协作授权。
+        db.add(CollabInboxMessage(
+            company_id=company_id or 0, user_id=user.id,
+            template_key='notification.test',
+            payload_json={'title': '测试通知', 'text': '这是一条测试通知，站内通知通道工作正常。'},
+            body_text='这是一条测试通知，站内通知通道工作正常。',
+            recipient_user_ids=[user.id], is_read=False,
+        ))
+        ok, error = True, None
+    elif data.channel == "email":
         ok, error = await _test_send_email(db, user)
     else:
         ok, error = await _test_send_webpush(db, user)

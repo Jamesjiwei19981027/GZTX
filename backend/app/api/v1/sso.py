@@ -1,9 +1,11 @@
 """真实企业单点登录；一次性 state 绑定发起浏览器，账号仅限受邀成员。"""
 import hashlib
+import base64
 import json
+import re
 import secrets
 from datetime import datetime, timedelta, timezone
-from urllib.parse import urlencode, urlparse
+from urllib.parse import unquote, urlencode, urlparse
 
 from fastapi import APIRouter, Query, Request, Response
 from fastapi.responses import RedirectResponse
@@ -46,11 +48,32 @@ def _callback_uri(provider: str):
 
 
 def _return_path(value: str):
-    parsed = urlparse(value)
-    if (not value.startswith("/") or value.startswith("//") or "\\" in value
-        or parsed.netloc or parsed.scheme or parsed.fragment or any(ord(c) < 32 for c in value)):
+    decoded = unquote(value)
+    try:
+        parsed = urlparse(value)
+    except ValueError as exc:
+        raise CollabError(422, 42200, '返回页面地址无效') from exc
+    if ("\\" in decoded or parsed.fragment or any(ord(c) < 32 or ord(c) == 127 for c in decoded)
+        or parsed.username or parsed.password):
         raise CollabError(422, 42200, "返回页面地址无效")
-    return value
+    if parsed.scheme == 'worktodo':
+        if value != 'worktodo://sso/callback':
+            raise CollabError(422, 42200, '返回页面地址无效')
+        return value
+    if not parsed.scheme:
+        if value.startswith('/') and not decoded.startswith('//') and not parsed.netloc:
+            return value
+    else:
+        origin = urlparse(settings.APP_URL)
+        try:
+            port = parsed.port or (443 if parsed.scheme == 'https' else 80)
+            origin_port = origin.port or (443 if origin.scheme == 'https' else 80)
+            if (parsed.scheme in {'http', 'https'} and parsed.scheme == origin.scheme
+                and parsed.hostname == origin.hostname and port == origin_port):
+                return value
+        except ValueError:
+            pass
+    raise CollabError(422, 42200, '返回页面地址无效')
 
 
 async def _single_company(db, company_id: int | None = None):
@@ -110,6 +133,7 @@ async def sso_options(db: DbSession, company_id: int | None = Query(None)):
 
 class CompleteBody(BaseModel):
     ticket: str = Field(min_length=20, max_length=256)
+    code_verifier: str | None = Field(default=None, min_length=43, max_length=128, pattern=r'^[A-Za-z0-9._~-]+$')
 
 
 def _token_response(user, company_id):
@@ -124,8 +148,15 @@ async def sso_complete(body: CompleteBody, request: Request, response: Response,
     now = _now()
     attempt = await db.scalar(select(SsoLoginAttempt).where(SsoLoginAttempt.ticket_hash == _hash(body.ticket)))
     cookie = request.cookies.get(COOKIE, "")
-    if not attempt or not cookie or not secrets.compare_digest(attempt.browser_hash, _hash(cookie)):
+    if not attempt:
         raise CollabError(422, 42200, "登录凭据无效，请重新发起单点登录")
+    mobile = attempt.return_to == 'worktodo://sso/callback'
+    if mobile or attempt.code_challenge:
+        challenge = base64.urlsafe_b64encode(hashlib.sha256((body.code_verifier or '').encode('ascii')).digest()).rstrip(b'=').decode('ascii')
+        if not body.code_verifier or not attempt.code_challenge or not secrets.compare_digest(attempt.code_challenge, challenge):
+            raise CollabError(422, 42200, '登录凭据校验失败，请重新发起单点登录')
+    if not mobile and (not cookie or not secrets.compare_digest(attempt.browser_hash, _hash(cookie))):
+        raise CollabError(422, 42200, '登录凭据无效，请重新发起单点登录')
     result = await db.execute(update(SsoLoginAttempt).where(SsoLoginAttempt.state_hash == attempt.state_hash,
         SsoLoginAttempt.completed_at.is_(None), SsoLoginAttempt.ticket_expires_at > now).values(completed_at=now))
     await db.commit()
@@ -147,9 +178,14 @@ async def sso_complete(body: CompleteBody, request: Request, response: Response,
 
 @router.get("/{provider}/start", response_model=ResponseData, summary="发起企业单点登录授权")
 async def sso_start(provider: str, request: Request, response: Response, db: DbSession, company_id: int = Query(...),
-                    return_to: str = Query("/", max_length=2048)):
+                    return_to: str = Query("/", max_length=2048),
+                    code_challenge: str | None = Query(None, max_length=128),
+                    code_challenge_method: str | None = Query(None, max_length=16)):
     _check_provider(provider)
     return_to = _return_path(return_to)
+    if return_to.startswith('worktodo:') or code_challenge is not None or code_challenge_method is not None:
+        if code_challenge_method != 'S256' or not code_challenge or not re.fullmatch(r'[A-Za-z0-9_-]{43}', code_challenge):
+            raise CollabError(422, 42200, '手机登录必须提供有效的安全校验参数')
     company = await db.get(Company, company_id)
     if not company:
         raise CollabError(404, 40400, "公司不存在")
@@ -166,11 +202,21 @@ async def sso_start(provider: str, request: Request, response: Response, db: DbS
         raise CollabError(422, 42200, str(exc)) from exc
     await db.execute(delete(SsoLoginAttempt).where(SsoLoginAttempt.expires_at < _now() - timedelta(days=1)))
     db.add(SsoLoginAttempt(state_hash=_hash(state), browser_hash=_hash(browser), company_id=company_id,
-                           provider=provider, nonce=nonce, return_to=return_to, expires_at=_now() + timedelta(minutes=10)))
+                           provider=provider, nonce=nonce, return_to=return_to, code_challenge=code_challenge,
+                           expires_at=_now() + timedelta(minutes=10)))
     await db.flush()
     response.set_cookie(COOKIE, browser, httponly=True, secure=settings.APP_URL.startswith("https://"), samesite="lax", max_age=900, path="/api/v1/sso")
     response.headers["Cache-Control"] = "no-store"
     return ResponseData(data={"authorize_url": url, "provider": provider, "configured": True})
+
+
+@router.get('/{provider}', summary='在系统浏览器发起企业单点登录')
+async def sso_browser_start(provider: str, request: Request, response: Response, db: DbSession,
+                            company_id: int = Query(...), return_to: str = Query('/', max_length=2048),
+                            code_challenge: str | None = Query(None, max_length=128),
+                            code_challenge_method: str | None = Query(None, max_length=16)):
+    result = await sso_start(provider, request, response, db, company_id, return_to, code_challenge, code_challenge_method)
+    return RedirectResponse(result.data['authorize_url'], status_code=303, headers=dict(response.headers))
 
 
 @router.get("/{provider}/callback", response_model=ResponseData, summary="处理企业单点登录回调")
@@ -217,14 +263,15 @@ async def sso_callback(provider: str, request: Request, response: Response, db: 
         await db.rollback()
         raise CollabError(403, 40302, "企业身份绑定冲突，请联系管理员") from exc
     response.headers["Cache-Control"] = "no-store"
-    if "text/html" in request.headers.get("accept", ""):
+    if attempt.return_to == 'worktodo://sso/callback' or "text/html" in request.headers.get("accept", ""):
         ticket = secrets.token_urlsafe(32)
         attempt.ticket_hash = _hash(ticket)
         attempt.user_id = user.id
         attempt.ticket_expires_at = now + timedelta(minutes=1)
         await db.flush()
         app_origin = urlparse(settings.APP_URL)
-        return_url = f"{app_origin.scheme}://{app_origin.netloc}{_return_path(attempt.return_to)}"
+        target = _return_path(attempt.return_to)
+        return_url = f"{app_origin.scheme}://{app_origin.netloc}{target}" if target.startswith('/') else target
         return RedirectResponse(return_url + "#" + urlencode({"sso_ticket": ticket}),
                                 status_code=303, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
     return _token_response(user, company.id)

@@ -5,6 +5,7 @@ import { mapMember } from '../../api/mappers';
 import { inviteDeliveryNotice, inviteProjectMember, listPresence } from '../../api/shell';
 import { inviteAcceptUrl } from '../../utils/invite';
 import { getMyPermissions } from '../../api/shell';
+import { canInviteToProject } from '../../mobile/features/projects/projectPermissions';
 import { CompanyMembersPanel } from '../CompanyMembersPanel';
 
 interface TeamViewProps {
@@ -54,7 +55,7 @@ export const TeamView: React.FC<TeamViewProps> = ({
     let cancelled = false;
     void getMyPermissions(backendPid)
       .then((p) => {
-        if (!cancelled) setCanPull(Boolean(p.is_pm || p.is_superadmin || p.can_edit_all));
+        if (!cancelled) setCanPull(canInviteToProject(p));
       })
       .catch(() => {
         if (!cancelled) setCanPull(false);

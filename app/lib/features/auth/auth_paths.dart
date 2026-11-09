@@ -12,6 +12,8 @@ class AuthPaths {
 
   /// 注册页（登录页的子路由，返回键回到登录页）
   static const String register = '/login/register';
+  static const String resetPassword = '/login/reset-password';
+  static const String ssoCallback = '/login/sso-callback';
 
   /// 旧外壳使用过的注册路径，保留重定向避免旧链接失效
   static const String legacyRegister = '/register';
@@ -23,9 +25,9 @@ class AuthPaths {
   static const String work = '/work';
 
   /// 构造验证门地址
-  static String verifyLocation({VerifyRequirement required = VerifyRequirement.email}) {
-    final value =
-        required == VerifyRequirement.phone ? 'phone' : 'email';
+  static String verifyLocation(
+      {VerifyRequirement required = VerifyRequirement.email}) {
+    final value = required == VerifyRequirement.phone ? 'phone' : 'email';
     return '$verify?required=$value';
   }
 

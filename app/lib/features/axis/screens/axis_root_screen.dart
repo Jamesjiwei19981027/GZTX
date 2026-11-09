@@ -431,9 +431,11 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                           '/axis/person/${node.id}?projectId=${controller.projectId}',
                         )
                         .then((_) => controller.load()),
-                    onOpenMatter: (item) => context.push(
-                      '/axis/node/${item.id}?projectId=${controller.projectId}',
-                    ),
+                    onOpenMatter: (item) => context
+                        .push(
+                          '/axis/node/${item.id}?projectId=${controller.projectId}',
+                        )
+                        .then((_) => controller.load()),
                     onAddSubordinate: () async {
                       await showAppBottomSheet<void>(
                         context: context,
@@ -472,9 +474,11 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                           '/axis/person/${node.id}?projectId=${controller.projectId}',
                         )
                         .then((_) => controller.load()),
-                    onOpenMatter: (item, ownerId) => context.push(
-                      '/axis/node/${item.id}?projectId=${controller.projectId}',
-                    ),
+                    onOpenMatter: (item, ownerId) => context
+                        .push(
+                          '/axis/node/${item.id}?projectId=${controller.projectId}',
+                        )
+                        .then((_) => controller.load()),
                     onError: _errorNotice,
                     onNotice: _notice,
                   ),
@@ -1181,8 +1185,7 @@ class _OverviewView extends StatelessWidget {
       context: context,
       title: '调整上级',
       items: candidates,
-      labelOf: (p) =>
-          '${p.name}（${p.roleTitle.isEmpty ? '无岗位' : p.roleTitle}）',
+      labelOf: (p) => '${p.name}（${p.roleTitle.isEmpty ? '无岗位' : p.roleTitle}）',
       emptyLabel: '无可用的上级候选人',
     );
     if (chosen == null || !context.mounted) return;
@@ -1255,8 +1258,8 @@ class _OverviewView extends StatelessWidget {
                   TextButton.icon(
                     key: const Key('axis-locate-me'),
                     style: TextButton.styleFrom(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 0),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -1277,8 +1280,8 @@ class _OverviewView extends StatelessWidget {
                   TextButton.icon(
                     key: const Key('axis-fit-screen'),
                     style: TextButton.styleFrom(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 0),
                       minimumSize: Size.zero,
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
@@ -1353,7 +1356,9 @@ class _OverviewView extends StatelessWidget {
                     onEditPerson: onOpenPerson,
                     onRelinkPerson: (person) =>
                         _openRelinkPerson(context, person),
-                    fold: controller.foldSpec,
+                    fold: controller.sort == AxisSort.tree
+                        ? controller.foldSpec
+                        : null,
                     onToggleFoldedRow: controller.togglePersonRow,
                     onPullToAxis: controller.pullToAxis,
                     onReturnFromAxis: controller.returnFromAxis,
@@ -1649,7 +1654,9 @@ class _AxisMoreMenu extends StatelessWidget {
           child: Row(
             children: [
               Icon(
-                controller.edgeStyle == AxisEdgeStyle.curve ? Icons.check : null,
+                controller.edgeStyle == AxisEdgeStyle.curve
+                    ? Icons.check
+                    : null,
                 size: 16,
                 color: AppColors.primary,
               ),
@@ -1699,7 +1706,7 @@ class _AxisMoreMenu extends StatelessWidget {
                 color: AppColors.primary,
               ),
               const SizedBox(width: 8),
-              const Text('树状序', style: TextStyle(fontSize: 13)),
+              const Text('树序', style: TextStyle(fontSize: 13)),
             ],
           ),
         ),

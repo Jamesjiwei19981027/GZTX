@@ -102,6 +102,7 @@ void main() {
           await harness.pumpApp(tester, location: '/projects/11/settings');
       expect(find.text('智能客服 2.0'), findsOneWidget);
       expect(find.text('项目负责人 (PM)'), findsOneWidget);
+      await tester.scrollUntilVisible(find.text('归档此项目'), 200);
       expect(find.text('归档此项目'), findsOneWidget);
 
       router.go('/projects/12/settings');

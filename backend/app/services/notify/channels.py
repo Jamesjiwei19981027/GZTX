@@ -18,6 +18,7 @@ TEMPLATES = {
     "review.awaiting_pm": "有复核待你确认：{summary}",
     "auth.welcome": "欢迎加入 {company_name}！请使用账号 {username} 登录 {app_url}。",
     "agent.report.submitted": "项目 {project_id} 收到下属智能体汇报：{summary}",
+    "agent.report.reviewed": "你的项目汇报已被{decision_label}，核验意见：{comment}",
     "project.report.aggregated": "项目 {project_id} 已汇总 {report_count} 份智能体汇报。",
     "notification.reply": "收到回复：{text}",
     "project.report.published": "项目「{project_name}」已发布最新项目汇总，可在汇报页查看。",
@@ -33,6 +34,7 @@ SUBJECTS = {
     "review.awaiting_pm": "待确认复核",
     "auth.welcome": "欢迎加入 {company_name}",
     "agent.report.submitted": "收到成员汇报",
+    "agent.report.reviewed": "汇报核验结果",
     "project.report.aggregated": "项目汇总已生成",
     "notification.reply": "收到通知回复",
 }

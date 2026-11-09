@@ -181,8 +181,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('login-username')), findsNothing);
     expect(find.text('账号密码登录'), findsNothing);
-    expect(find.text('找回密码帮助'), findsNothing);
-    expect(find.byKey(const ValueKey('login-target')), findsOneWidget);
+    expect(find.text('忘记密码'), findsNothing);
+    expect(find.byKey(const ValueKey('login-target')), findsNothing);
+    expect(find.textContaining('请联系管理员使用企业登录入口'), findsOneWidget);
   });
 
   test('WR-39 邀请能力按服务端 ACL 而非角色显示', () {
@@ -204,18 +205,15 @@ void main() {
         isFalse);
   });
 
-  testWidgets('WR-30 后端无核验裁决接口时按钮禁用', (tester) async {
+  testWidgets('WR-30 无核验权限时隐藏核验写入入口', (tester) async {
     MeTestHarness.useTallSurface(tester);
     final h = await ReportsTestHarness.create();
     await tester.pumpWidget(h.wrapRouted(ReportReviewScreen(
         api: h.api, projectId: 10, mode: ReportReviewMode.conflict)));
     await tester.pumpAndSettle();
-    await tester.scrollUntilVisible(find.text('记录核验意见'), 300,
-        scrollable: find.byType(Scrollable).first);
-    final button =
-        tester.widget<AppButton>(find.widgetWithText(AppButton, '记录核验意见'));
-    expect(button.onPressed, isNull);
-    expect(find.textContaining('暂不支持保存核验意见'), findsOneWidget);
+    expect(find.text('核验通过'), findsNothing);
+    expect(find.text('退回修改'), findsNothing);
+    expect(find.textContaining('只有汇报接收上级或项目负责人'), findsOneWidget);
   });
 
   testWidgets('WR-30 上传材料带上原项目和已输入说明并可返回', (tester) async {

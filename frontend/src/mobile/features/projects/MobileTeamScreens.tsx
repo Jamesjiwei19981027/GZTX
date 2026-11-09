@@ -468,7 +468,7 @@ export const MobileMemberManageGroup: React.FC<{
       .catch(() => undefined);
     if (projectId > 0) {
       getMyPermissions(projectId)
-        .then((p) => active && setCanPull(Boolean(p.is_pm || p.is_superadmin || p.can_edit_all)))
+        .then((p) => active && setCanPull(p.can_invite ?? Boolean(p.is_pm || p.is_superadmin)))
         .catch(() => undefined);
     }
     return () => {

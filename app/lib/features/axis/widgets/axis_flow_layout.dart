@@ -4,6 +4,7 @@ import 'dart:ui';
 import '../data/axis_fold.dart';
 import '../data/axis_models.dart';
 import '../data/axis_view_models.dart';
+import '../data/axis_timeline.dart';
 
 class AxisConnection {
   const AxisConnection({
@@ -90,6 +91,7 @@ class AxisFlowResult {
     this.minCorner = Offset.zero,
     this.stacks = const [],
     this.bounds,
+    this.timeline,
   });
 
   final List<AxisPlacedPerson> people;
@@ -105,6 +107,7 @@ class AxisFlowResult {
 
   /// 全部卡片与折叠组的真实外接范围（含负坐标，不含画布边距）。
   final Rect? bounds;
+  final AxisTimeline? timeline;
 
   /// 全部卡片占据的范围，含负坐标；“适应屏幕”按它居中。
   Rect get contentBounds =>
@@ -160,7 +163,7 @@ class AxisFlowLayout {
     DateTime? nearestDue(AxisPersonNode node) {
       final dates = <DateTime>[];
       for (final item in node.workItems) {
-        if (item.dueAt != null) dates.add(item.dueAt!);
+        if (item.dueAt != null && !item.isDone) dates.add(item.dueAt!);
       }
       if (dates.isEmpty) return null;
       dates.sort();
@@ -425,6 +428,19 @@ class AxisFlowLayout {
         minY = math.min(minY, member.rect.top);
       }
     }
+    final cross = (horizontal ? realMinY : realMinX);
+    final timeline = sort == AxisSort.time
+        ? buildAxisTimeline(allNodes,
+            orientation: orientation,
+            cross: (cross.isFinite ? math.min(0, cross) : 0) - 100)
+        : null;
+    if (timeline != null && timeline.items.isNotEmpty) {
+      cover(timeline.bounds);
+      minX = math.min(minX, timeline.bounds.left);
+      minY = math.min(minY, timeline.bounds.top);
+      maxX = math.max(maxX, timeline.bounds.right);
+      maxY = math.max(maxY, timeline.bounds.bottom);
+    }
     final size = Size(maxX + 96, maxY + 96);
     return AxisFlowResult(
       people: people,
@@ -433,6 +449,7 @@ class AxisFlowLayout {
       autoRects: autoRects,
       minCorner: Offset(minX, minY),
       stacks: stacks,
+      timeline: timeline,
       bounds: realMinX.isFinite
           ? Rect.fromLTRB(realMinX, realMinY, realMaxX, realMaxY)
           : Rect.fromLTWH(0, 0, personCardSize.width, personCardSize.height),

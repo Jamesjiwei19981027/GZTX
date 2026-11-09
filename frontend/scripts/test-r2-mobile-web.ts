@@ -46,7 +46,7 @@ assert.equal(canManageProject({ is_pm: false, is_superadmin: false }), false)
 assert.equal(canManageProject(null), false)
 const projectScreens = src('mobile/features/projects/MobileProjectScreens.tsx')
 assert.ok(projectScreens.includes('{canManage && onNavigateToSettings'), '齿轮要按权限显示')
-assert.ok(projectScreens.includes('{canManage && onNavigateToInvite'), '邀请按钮要按权限显示')
+assert.ok(projectScreens.includes('{canInvite && onNavigateToInvite'), '邀请按钮要按服务端邀请能力显示')
 
 // D-9：自带顶栏的页面外层不再画顶栏
 for (const screen of ['project-invite', 'project-settings', 'work-calendar', 'project-create', 'invite-accept', 'work-search']) {

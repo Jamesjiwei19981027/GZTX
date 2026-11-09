@@ -1,5 +1,6 @@
 """汇报策略与手工运行 §13"""
 from fastapi import APIRouter, Query
+from typing import Literal
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, or_, select
 
@@ -7,6 +8,7 @@ from app.core.collab_errors import fail
 from app.api.deps_collab import assert_collaboration_write
 from app.core.dependencies import CurrentUser, DbSession
 from app.models.project import Project, ProjectMember
+from app.models.company import CompanyMembership
 from app.models.report import ReportPolicy
 from app.schemas.common import ResponseData
 from app.services.acl import AclService
@@ -21,6 +23,8 @@ from app.services.hierarchical_reporting import (
     ReportGenerationUnavailable,
     rollup_member_reports,
     submit_member_report,
+    review_member_report,
+    is_member_report_reviewer,
 )
 
 router = APIRouter(tags=["智能体汇报"])
@@ -61,6 +65,29 @@ class LegacyReportGenerateBody(BaseModel):
 class LegacyReportSubmitBody(BaseModel):
     summary: str | None = None
     sources: list[AgentReportSourceBody] = Field(default_factory=list)
+
+
+class ReportReviewBody(BaseModel):
+    decision: Literal["approved", "returned"]
+    comment: str = Field(min_length=1, max_length=2000)
+
+
+def _report_record_dto(report: AgentReport, *, viewer_user_id: int, sources: list[dict], can_review: bool = False) -> dict:
+    payload = report.payload_json or {}
+    if report.author_user_id != viewer_user_id:
+        payload = {key: value for key, value in payload.items() if key in (
+            "context_scope", "grounded", "model_provider", "node_status", "progress_status", "status_label", "conflicts", "conflict", "review",
+        )}
+    return {
+        "id": report.id, "report_id": report.id, "project_id": report.project_id, "binding_id": report.binding_id,
+        "status": report.status, "summary_text": report.summary_text, "summary": report.summary_text, "content": report.summary_text,
+        "author_user_id": report.author_user_id, "parent_user_id": report.parent_user_id,
+        "created_at": report.created_at.isoformat() if report.created_at else None,
+        "submitted_at": report.submitted_at.isoformat() if report.submitted_at else None,
+        "read": report.read_at is not None, "read_at": report.read_at.isoformat() if report.read_at else None,
+        "payload_json": payload, "review": payload.get("review"), "can_review": can_review,
+        "sources": sources, "source_count": len(sources),
+    }
 
 
 @router.get("/projects/{project_id}/report-policies")
@@ -344,23 +371,8 @@ async def list_agent_reports(project_id: int, db: DbSession, user: CurrentUser):
         })
     return ResponseData(data={
         "items": [
-            {
-                "id": r.id,
-                "binding_id": r.binding_id,
-                "author_user_id": r.author_user_id,
-                "parent_user_id": r.parent_user_id,
-                "status": r.status,
-                "summary_text": r.summary_text,
-                "payload_json": r.payload_json if r.author_user_id == user.id else {
-                    k: v for k, v in (r.payload_json or {}).items()
-                    if k in ("context_scope", "grounded", "model_provider", "node_status", "progress_status", "status_label", "conflicts", "conflict")
-                },
-                "source_count": len(sources_by_report.get(r.id, [])),
-                "sources": sources_by_report.get(r.id, []),
-                "submitted_at": r.submitted_at.isoformat() if r.submitted_at else None,
-                "read": r.read_at is not None,
-                "read_at": r.read_at.isoformat() if r.read_at else None,
-            }
+            _report_record_dto(r, viewer_user_id=user.id, sources=sources_by_report.get(r.id, []),
+                can_review=p.status != "archived" and r.status in ("submitted", "aggregated") and await is_member_report_reviewer(db, report=r, reviewer_user_id=user.id))
             for r in rows
         ]
     })
@@ -517,25 +529,12 @@ async def _legacy_report_dto(db, report: AgentReport, *, viewer_user_id: int) ->
             select(AgentReportSource).where(AgentReportSource.report_id == report.id).order_by(AgentReportSource.id)
         )
     ).scalars().all() if report.author_user_id == viewer_user_id else []
-    return {
-        "id": report.id,
-        "report_id": report.id,
-        "project_id": report.project_id,
-        "status": report.status,
-        "summary_text": report.summary_text,
-        "summary": report.summary_text,
-        "content": report.summary_text,
-        "author_user_id": report.author_user_id,
-        "parent_user_id": report.parent_user_id,
-        "created_at": report.created_at.isoformat() if report.created_at else None,
-        "submitted_at": report.submitted_at.isoformat() if report.submitted_at else None,
-        "read": report.read_at is not None,
-        "read_at": report.read_at.isoformat() if report.read_at else None,
-        "sources": [
+    project = await db.get(Project, report.project_id)
+    can_review = bool(project and project.status != "archived" and report.status in ("submitted", "aggregated") and await is_member_report_reviewer(db, report=report, reviewer_user_id=viewer_user_id))
+    return _report_record_dto(report, viewer_user_id=viewer_user_id, can_review=can_review, sources=[
             {"id": s.id, "source_type": s.source_type, "source_id": s.source_id, "excerpt": s.excerpt, "metadata": s.metadata_json}
             for s in sources
-        ],
-    }
+        ])
 
 
 @router.get("/reports/my")
@@ -551,6 +550,7 @@ async def legacy_my_reports(db: DbSession, user: CurrentUser, project_id: int | 
     rows = (await db.execute(
         select(AgentReport)
         .join(ProjectMember, ProjectMember.project_id == AgentReport.project_id)
+        .join(CompanyMembership, and_(CompanyMembership.company_id == AgentReport.company_id, CompanyMembership.user_id == user.id, CompanyMembership.status == "active"))
         .where(*filters)
         .order_by(AgentReport.id.desc())
     )).scalars().all()
@@ -564,6 +564,7 @@ async def legacy_report_inbox(db: DbSession, user: CurrentUser):
         await db.execute(
             select(AgentReport)
             .join(ProjectMember, ProjectMember.project_id == AgentReport.project_id)
+            .join(CompanyMembership, and_(CompanyMembership.company_id == AgentReport.company_id, CompanyMembership.user_id == user.id, CompanyMembership.status == "active"))
             .where(
                 AgentReport.parent_user_id == user.id,
                 AgentReport.status.in_(("submitted", "aggregated")),
@@ -686,6 +687,23 @@ async def legacy_submit_report(report_id: int, body: LegacyReportSubmitBody, db:
         return fail(422, 42200, str(e))
     await db.commit()
     return ResponseData(data=await _legacy_report_dto(db, submitted, viewer_user_id=user.id))
+
+
+@router.post("/reports/{report_id}/review")
+async def review_report(report_id: int, body: ReportReviewBody, db: DbSession, user: CurrentUser):
+    """接收上级或项目 PM 核验已提交汇报，作者可回读结果。"""
+    try:
+        report = await review_member_report(db, report_id=report_id, reviewer_user_id=user.id, decision=body.decision, comment=body.comment)
+    except PermissionError:
+        return fail(403, 40300, "仅该汇报的接收上级或项目负责人可以核验")
+    except ValueError as exc:
+        if str(exc) == "report_not_found":
+            return fail(404, 40400, "汇报不存在")
+        if str(exc) == "report_not_reviewable":
+            return fail(409, 40900, "只能核验已经提交的汇报")
+        return fail(422, 42200, "请填写有效核验决定与意见")
+    await db.commit()
+    return ResponseData(data=await _legacy_report_dto(db, report, viewer_user_id=user.id))
 
 
 @router.put("/reports/inbox/{report_id}/read")

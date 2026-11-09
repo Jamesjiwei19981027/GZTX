@@ -49,6 +49,7 @@ export type NotificationPreferenceUpdate = {
 export type RegistrationConfig = {
   mode: 'open' | 'invite_only'
   phone_required: boolean
+  login_methods?: Record<string, boolean>
 }
 
 export const DEFAULT_REGISTRATION_CONFIG: RegistrationConfig = {
@@ -62,6 +63,9 @@ export async function getRegistrationConfig(): Promise<RegistrationConfig> {
     return {
       mode: data?.mode === 'invite_only' ? 'invite_only' : 'open',
       phone_required: Boolean(data?.phone_required),
+      login_methods: data?.login_methods && typeof data.login_methods === 'object'
+        ? Object.fromEntries(Object.entries(data.login_methods).filter(([, value]) => typeof value === 'boolean'))
+        : undefined,
     }
   } catch {
     return DEFAULT_REGISTRATION_CONFIG

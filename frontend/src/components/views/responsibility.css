@@ -800,3 +800,6 @@
 .axis-canvas-hint-bubble:hover {
   background: rgba(15, 23, 42, 0.98);
 }
+.axis-timeline-matter { width: 220px; height: 88px; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 10px 14px; border: 1px solid var(--axis-blue, #0058be); border-radius: 14px; background: var(--axis-card, #fff); color: var(--axis-ink, #18324d); text-align: left; box-shadow: 0 4px 14px #18324d12; cursor: pointer; }
+.axis-timeline-matter strong { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.axis-timeline-matter span, .axis-timeline-matter small { font-size: 11px; }

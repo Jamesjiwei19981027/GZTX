@@ -53,6 +53,7 @@ export const MobileMessageListScreen: React.FC<MobileMessageScreensProps & {
   onSelectDirect: (conv: DirectConversation) => void;
   onOpenInbox?: () => void;
   onOpenContacts?: () => void;
+  onOpenExtractChat?: () => void;
 }> = ({
   companyId,
   projectId,
@@ -60,6 +61,7 @@ export const MobileMessageListScreen: React.FC<MobileMessageScreensProps & {
   onSelectDirect,
   onOpenInbox,
   onOpenContacts,
+  onOpenExtractChat,
   onBack,
   lang = 'zh',
 }) => {
@@ -108,6 +110,8 @@ export const MobileMessageListScreen: React.FC<MobileMessageScreensProps & {
       <header className="h-14 px-4 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0">
         <h1 className="text-base font-semibold">消息中心</h1>
         <div className="flex items-center">
+        {onOpenExtractChat && <button type="button" onClick={onOpenExtractChat} aria-label="从聊天提取任务"
+          className="mobile-touch-target text-slate-500 dark:text-slate-300"><AppIcon name="file" size={20} /></button>}
         {onOpenInbox && <button type="button" onClick={onOpenInbox} aria-label="通知与收件箱"
           className="mobile-touch-target text-slate-500 dark:text-slate-300"><AppIcon name="bell" size={20} /></button>}
         <button

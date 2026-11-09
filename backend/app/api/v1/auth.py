@@ -4,7 +4,7 @@
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.core.dependencies import DbSession
@@ -80,14 +80,31 @@ async def _find_valid_invitation(db, token: str, email: str | None, *, check_ema
 
 
 @router.get("/registration-config", response_model=ResponseData)
-async def get_registration_config():
+async def get_registration_config(db: DbSession, company_id: int | None = Query(None, ge=1)):
     """获取注册配置（匿名，供前端决定是否显示注册入口及表单项）"""
     from app.core.config import settings
+    from app.models.company import Company
+    from app.services.login_methods import login_enabled
+    from app.services.policy_presets import DEFAULT_LOGIN_METHODS
+    from sqlalchemy import select
+
+    company = await db.get(Company, company_id) if company_id is not None else None
+    if company_id is not None and company is None:
+        raise HTTPException(status_code=404, detail='企业不存在')
+    if company_id is None and settings.DEPLOY_MODE == 'single_company':
+        companies = list((await db.scalars(select(Company))).all())
+        company = next((item for item in companies if item.slug == settings.DEFAULT_COMPANY_SLUG), None)
+        if company is None and len(companies) == 1:
+            company = companies[0]
+    # 匿名接口只输出已知开关；不能透出凭据或整个企业配置。
+    methods = (*DEFAULT_LOGIN_METHODS, 'oidc', 'saml')
+    login_methods = {key: login_enabled(company, key) if company else bool(DEFAULT_LOGIN_METHODS.get(key, False)) for key in methods}
 
     return ResponseData(
         data={
             "mode": settings.REGISTRATION_MODE,
             "phone_required": settings.PHONE_VERIFICATION_REQUIRED,
+              "login_methods": login_methods,
         }
     )
 

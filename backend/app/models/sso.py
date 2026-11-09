@@ -26,6 +26,7 @@ class SsoLoginAttempt(Base):
     browser_hash = Column(String(64), nullable=False)
     nonce = Column(String(128), nullable=False)
     return_to = Column(String(2048), nullable=False, default="/")
+    code_challenge = Column(String(128), nullable=True)
     expires_at = Column(UTCDateTime(), nullable=False, index=True)
     consumed_at = Column(UTCDateTime(), nullable=True)
     ticket_hash = Column(String(64), unique=True, nullable=True)

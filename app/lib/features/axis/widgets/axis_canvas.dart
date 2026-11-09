@@ -13,6 +13,7 @@ import '../data/axis_fold.dart';
 import '../data/axis_models.dart';
 import '../data/axis_rules.dart';
 import '../data/axis_view_models.dart';
+import '../data/axis_matter_patch.dart';
 import 'axis_flow_layout.dart';
 
 class AxisViewportController {
@@ -243,8 +244,10 @@ class _AxisCanvasState extends State<AxisCanvas>
         )
         .clamp(0.25, 1.0)
         .toDouble();
-    final dx = (_viewport.width - bounds.width * scale) / 2 - bounds.left * scale;
-    final dy = (_viewport.height - bounds.height * scale) / 2 - bounds.top * scale;
+    final dx =
+        (_viewport.width - bounds.width * scale) / 2 - bounds.left * scale;
+    final dy =
+        (_viewport.height - bounds.height * scale) / 2 - bounds.top * scale;
     _transform.value = Matrix4.identity()
       ..translateByDouble(dx, dy, 0, 1)
       ..scaleByDouble(scale, scale, scale, 1);
@@ -252,15 +255,19 @@ class _AxisCanvasState extends State<AxisCanvas>
 
   void _fitInitial() {
     if (_viewport == Size.zero) return;
+    if (widget.sort == AxisSort.time) {
+      fitToScreen();
+      return;
+    }
     const initialScale = 0.75;
     AxisPlacedPerson? targetPerson;
     if (widget.selfNodeId != null) {
       targetPerson = _layout.personById(widget.selfNodeId!);
     }
     targetPerson ??= _layout.people.cast<AxisPlacedPerson?>().firstWhere(
-      (p) => p?.node.parentId == null,
-      orElse: () => _layout.people.isNotEmpty ? _layout.people.first : null,
-    );
+          (p) => p?.node.parentId == null,
+          orElse: () => _layout.people.isNotEmpty ? _layout.people.first : null,
+        );
 
     if (targetPerson != null) {
       final center = targetPerson.center;
@@ -328,15 +335,15 @@ class _AxisCanvasState extends State<AxisCanvas>
     final box = _hitKeys[id]?.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.attached) return false;
     var rect = box.localToGlobal(Offset.zero) & box.size;
-    final isCardAction = id.endsWith(':fold') ||
-        id.endsWith(':pull') ||
-        id.endsWith(':return');
+    final isCardAction =
+        id.endsWith(':fold') || id.endsWith(':pull') || id.endsWith(':return');
     if (isCardAction) {
       // 卡片操作按钮点击区域加大：屏幕上高度不小于 44 逻辑像素（在 100% 缩放下）
       const minHeight = 44.0;
       if (rect.height < minHeight) {
         final dh = (minHeight - rect.height) / 2;
-        rect = Rect.fromLTRB(rect.left, rect.top - dh, rect.right, rect.bottom + dh);
+        rect = Rect.fromLTRB(
+            rect.left, rect.top - dh, rect.right, rect.bottom + dh);
       }
     }
     return rect.contains(global);
@@ -348,9 +355,10 @@ class _AxisCanvasState extends State<AxisCanvas>
 
   void _handleMoreMenu(AxisPersonNode node) {
     final canEdit = widget.permissions.nodeCan(node, 'can_edit');
-    final canRelink = widget.permissions.nodeCan(node, 'can_change_supervisor') ||
-        widget.permissions.canManageStructure ||
-        widget.permissions.canEditAll;
+    final canRelink =
+        widget.permissions.nodeCan(node, 'can_change_supervisor') ||
+            widget.permissions.canManageStructure ||
+            widget.permissions.canEditAll;
     showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -499,14 +507,20 @@ class _AxisCanvasState extends State<AxisCanvas>
       if (targetId != null) {
         final targetSnapshotId = targetId;
         _dwellTimer = Timer(const Duration(milliseconds: 300), () {
-          if (!mounted || _dragPersonId == null || _hoverTargetId != targetSnapshotId) return;
+          if (!mounted ||
+              _dragPersonId == null ||
+              _hoverTargetId != targetSnapshotId) {
+            return;
+          }
           final draggedNode = placed.node;
           final currentTargetNode = layout.personById(targetSnapshotId)?.node;
           if (currentTargetNode == null) return;
-          final hasPermission = widget.permissions.nodeCan(draggedNode, 'can_change_supervisor') ||
+          final hasPermission = widget.permissions
+                  .nodeCan(draggedNode, 'can_change_supervisor') ||
               widget.permissions.canManageStructure ||
               widget.permissions.canEditAll;
-          final canAddUnderTarget = widget.permissions.nodeCan(currentTargetNode, 'can_add_subordinate');
+          final canAddUnderTarget = widget.permissions
+              .nodeCan(currentTargetNode, 'can_add_subordinate');
           final verdict = AxisRules.validateDrop(
             dragged: AxisDragSubject(
               id: draggedNode.id,
@@ -546,7 +560,8 @@ class _AxisCanvasState extends State<AxisCanvas>
     final delta = _dragDelta;
     final targetId = _verdictTargetId;
     final verdict = _dropVerdict;
-    final targetNode = targetId == null ? null : layout.personById(targetId)?.node;
+    final targetNode =
+        targetId == null ? null : layout.personById(targetId)?.node;
 
     setState(() {
       _dragPersonId = null;
@@ -663,7 +678,67 @@ class _AxisCanvasState extends State<AxisCanvas>
                                     _leaderShift(stack.leaderId),
                                     isDark,
                                   ),
-                        ...layout.people.map((person) => _buildPerson(person, isDark)),
+                        ...layout.people
+                            .map((person) => _buildPerson(person, isDark)),
+                        for (final entry in layout.timeline?.items ?? [])
+                          Positioned(
+                            left: entry.rect.left,
+                            top: entry.rect.top,
+                            width: entry.rect.width,
+                            height: entry.rect.height,
+                            child: Material(
+                                color: isDark
+                                    ? AppColors.darkSurface
+                                    : AppColors.surface,
+                                borderRadius: BorderRadius.circular(14),
+                                child: InkWell(
+                                  key: Key(
+                                      'axis-timeline-matter-${entry.item.id}'),
+                                  borderRadius: BorderRadius.circular(14),
+                                  onTap: () => widget.onOpenMatter
+                                      ?.call(entry.item, entry.owner.id),
+                                  child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                          border: Border.all(
+                                              color: AppColors.primary),
+                                          borderRadius:
+                                              BorderRadius.circular(14)),
+                                      child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(entry.item.title,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                    fontSize: 13,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isDark
+                                                        ? AppColors
+                                                            .darkTextPrimary
+                                                        : AppColors
+                                                            .textPrimary)),
+                                            const SizedBox(height: 5),
+                                            Text(
+                                                '${entry.owner.name} · ${axisDateLabel(entry.item.dueAt)}',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors
+                                                        .textSecondaryOf(
+                                                            isDark))),
+                                            Text(
+                                                '${entry.item.typeLabel} · ${entry.item.statusLabel}',
+                                                style: TextStyle(
+                                                    fontSize: 11,
+                                                    color: AppColors
+                                                        .textSecondaryOf(
+                                                            isDark))),
+                                          ])),
+                                )),
+                          ),
                       ],
                     ),
                   ),
@@ -691,8 +766,10 @@ class _AxisCanvasState extends State<AxisCanvas>
         for (final m in stack.members) {
           if (m.node.id == nodeId) {
             // 若尚未展开成卡片形态（例如高度仍为折叠行高度），等待新布局生效的下一帧
-            if (!m.expanded || m.rect.height < AxisFlowLayout.personCardSize.height) {
-              WidgetsBinding.instance.addPostFrameCallback((_) => checkVisibility());
+            if (!m.expanded ||
+                m.rect.height < AxisFlowLayout.personCardSize.height) {
+              WidgetsBinding.instance
+                  .addPostFrameCallback((_) => checkVisibility());
               return;
             }
             cardRect = m.rect.shift(_leaderShift(stack.leaderId));
@@ -859,9 +936,10 @@ class _AxisCanvasState extends State<AxisCanvas>
     final canAddSubordinate =
         widget.permissions.nodeCan(node, 'can_add_subordinate');
     final canEdit = widget.permissions.nodeCan(node, 'can_edit');
-    final canRelink = widget.permissions.nodeCan(node, 'can_change_supervisor') ||
-        widget.permissions.canManageStructure ||
-        widget.permissions.canEditAll;
+    final canRelink =
+        widget.permissions.nodeCan(node, 'can_change_supervisor') ||
+            widget.permissions.canManageStructure ||
+            widget.permissions.canEditAll;
     final showMore = canEdit || canRelink;
 
     Color borderColor;
@@ -913,8 +991,9 @@ class _AxisCanvasState extends State<AxisCanvas>
         widget.nodes.where((n) => n.parentId == node.id).length;
     final fold = widget.fold;
     // 收回：只有收回后此人确实会离开人轴才显示；默认名额内的人不显示；根与当前用户上级链不提供。
-    final canReturn =
-        fold != null && !foldedMember && canReturnPerson(widget.nodes, fold, node.id);
+    final canReturn = fold != null &&
+        !foldedMember &&
+        canReturnPerson(widget.nodes, fold, node.id);
     final stackHidden = fold?.hiddenStacks.contains(node.id) ?? false;
 
     final card = Container(
@@ -1172,8 +1251,9 @@ class _AxisCanvasState extends State<AxisCanvas>
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
-              color:
-                  primary ? AppColors.primary : AppColors.textTertiaryOf(isDark),
+              color: primary
+                  ? AppColors.primary
+                  : AppColors.textTertiaryOf(isDark),
             ),
           ),
         ),
@@ -1205,184 +1285,183 @@ class _AxisCanvasState extends State<AxisCanvas>
       children: [
         // 头部
         Row(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? AppColors.primary.withValues(alpha: 0.2)
-                      : AppColors.primaryLight,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  avatarLetter,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primary,
-                  ),
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: isDark
+                    ? AppColors.primary.withValues(alpha: 0.2)
+                    : AppColors.primaryLight,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                avatarLetter,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primary,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            node.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                            ? AppColors.darkTextPrimary
-                            : AppColors.textPrimary,
-                            ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          node.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? AppColors.darkTextPrimary
+                                : AppColors.textPrimary,
                           ),
                         ),
-                        if (isRoot) ...[
-                          const SizedBox(width: 4),
-                          const _CardTag(
-                            text: '终责',
-                            backgroundColor: AppColors.warningLight,
-                            textColor: AppColors.warning,
-                          ),
-                        ],
-                        if (isMe) ...[
-                          const SizedBox(width: 4),
-                          const _CardTag(
-                            text: '我',
-                            backgroundColor: AppColors.primaryLight,
-                            textColor: AppColors.primary,
-                          ),
-                        ],
-                        if (foldedMember) ...[
-                          const SizedBox(width: 4),
-                          _CardTag(
-                            text: '下属',
-                            backgroundColor: isDark
-                                ? AppColors.darkSurfaceVariant
-                                : const Color(0xFFF1F3F6),
-                            textColor: AppColors.textTertiaryOf(isDark),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ],
-                        if (isSelfAdded) ...[
-                          const SizedBox(width: 4),
-                          _CardTag(
-                            text: '下级自建',
-                            backgroundColor: isDark
-                                ? AppColors.darkSurfaceVariant
-                                : const Color(0xFFF1F3F6),
-                            textColor: AppColors.textTertiaryOf(isDark),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ],
+                      ),
+                      if (isRoot) ...[
+                        const SizedBox(width: 4),
+                        const _CardTag(
+                          text: '终责',
+                          backgroundColor: AppColors.warningLight,
+                          textColor: AppColors.warning,
+                        ),
                       ],
+                      if (isMe) ...[
+                        const SizedBox(width: 4),
+                        const _CardTag(
+                          text: '我',
+                          backgroundColor: AppColors.primaryLight,
+                          textColor: AppColors.primary,
+                        ),
+                      ],
+                      if (foldedMember) ...[
+                        const SizedBox(width: 4),
+                        _CardTag(
+                          text: '下属',
+                          backgroundColor: isDark
+                              ? AppColors.darkSurfaceVariant
+                              : const Color(0xFFF1F3F6),
+                          textColor: AppColors.textTertiaryOf(isDark),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ],
+                      if (isSelfAdded) ...[
+                        const SizedBox(width: 4),
+                        _CardTag(
+                          text: '下级自建',
+                          backgroundColor: isDark
+                              ? AppColors.darkSurfaceVariant
+                              : const Color(0xFFF1F3F6),
+                          textColor: AppColors.textTertiaryOf(isDark),
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textTertiaryOf(isDark),
                     ),
-                    const SizedBox(height: 1),
-                    Text(
-                      node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textTertiaryOf(isDark),
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-              // 右上角按钮：只在选中时显示，无权限不渲染
-              if (selected && (canAddSubordinate || showMore))
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (canAddSubordinate)
-                      KeyedSubtree(
-                        key: _hitKey('${node.id}:add'),
-                        child: Tooltip(
-                          message: '新增下级',
-                          child: InkWell(
-                            key: Key('axis-person-add-${node.id}'),
-                            onTap: () => _handleAddChild(node),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppColors.primary.withValues(alpha: 0.2)
-                                    : AppColors.primaryLight,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: const Color(0xFFB9D3F5),
-                                ),
+            ),
+            // 右上角按钮：只在选中时显示，无权限不渲染
+            if (selected && (canAddSubordinate || showMore))
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (canAddSubordinate)
+                    KeyedSubtree(
+                      key: _hitKey('${node.id}:add'),
+                      child: Tooltip(
+                        message: '新增下级',
+                        child: InkWell(
+                          key: Key('axis-person-add-${node.id}'),
+                          onTap: () => _handleAddChild(node),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.primary.withValues(alpha: 0.2)
+                                  : AppColors.primaryLight,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: const Color(0xFFB9D3F5),
                               ),
-                              alignment: Alignment.center,
-                              child: const Text(
-                                '＋',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.primary,
-                                  height: 1.1,
-                                ),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              '＋',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                                height: 1.1,
                               ),
                             ),
                           ),
                         ),
                       ),
-                    if (canAddSubordinate && showMore)
-                      const SizedBox(width: 4),
-                    if (showMore)
-                      KeyedSubtree(
-                        key: _hitKey('${node.id}:more'),
-                        child: Tooltip(
-                          message: '更多',
-                          child: InkWell(
-                            key: Key('axis-person-more-${node.id}'),
-                            onTap: () => _handleMoreMenu(node),
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
+                    ),
+                  if (canAddSubordinate && showMore) const SizedBox(width: 4),
+                  if (showMore)
+                    KeyedSubtree(
+                      key: _hitKey('${node.id}:more'),
+                      child: Tooltip(
+                        message: '更多',
+                        child: InkWell(
+                          key: Key('axis-person-more-${node.id}'),
+                          onTap: () => _handleMoreMenu(node),
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: 24,
+                            height: 24,
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.darkSurfaceVariant
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
                                 color: isDark
-                                    ? AppColors.darkSurfaceVariant
-                                    : Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: isDark
-                                      ? AppColors.darkBorder
-                                      : AppColors.border,
-                                ),
+                                    ? AppColors.darkBorder
+                                    : AppColors.border,
                               ),
-                              alignment: Alignment.center,
-                              child: Text(
-                                '⋯',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.textSecondaryOf(isDark),
-                                  height: 1.0,
-                                ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              '⋯',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondaryOf(isDark),
+                                height: 1.0,
                               ),
                             ),
                           ),
                         ),
                       ),
-                  ],
-                ),
-            ],
-          ),
+                    ),
+                ],
+              ),
+          ],
+        ),
         const SizedBox(height: 6),
         // 任务区（剩余高度，独立成块）
         Expanded(
@@ -1545,7 +1624,9 @@ class _AxisCanvasState extends State<AxisCanvas>
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: primary ? AppColors.primary : AppColors.textTertiaryOf(isDark),
+              color: primary
+                  ? AppColors.primary
+                  : AppColors.textTertiaryOf(isDark),
             ),
           ),
         ),
@@ -1846,6 +1927,42 @@ class AxisCurvePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final timeline = layout.timeline;
+    if (timeline != null && timeline.items.isNotEmpty) {
+      final paint = Paint()
+        ..color = isDark ? const Color(0xFF80B7FF) : AppColors.primary
+        ..strokeWidth = 3;
+      canvas.drawLine(timeline.start, timeline.end, paint);
+      final horizontal = orientation == AxisOrientation.horizontal;
+      for (final tick in timeline.ticks) {
+        canvas.drawLine(
+            tick.anchor,
+            tick.anchor +
+                (horizontal ? const Offset(0, 8) : const Offset(8, 0)),
+            paint..strokeWidth = 1.5);
+        final label = TextPainter(
+            text: TextSpan(
+                text: axisDateLabel(tick.date),
+                style: TextStyle(fontSize: 12, color: paint.color)),
+            textDirection: TextDirection.ltr)
+          ..layout();
+        label.paint(
+            canvas,
+            tick.anchor +
+                (horizontal
+                    ? Offset(-label.width / 2, 12)
+                    : const Offset(12, -7)));
+      }
+      for (final entry in timeline.items) {
+        canvas.drawLine(
+            entry.anchor,
+            horizontal
+                ? Offset(entry.anchor.dx, entry.rect.bottom)
+                : Offset(entry.rect.right, entry.anchor.dy),
+            paint..strokeWidth = 1);
+        canvas.drawCircle(entry.anchor, 4, paint);
+      }
+    }
     for (final stack in layout.stacks) {
       final shift = _deltaFor(stack.leaderId);
       canvas.drawLine(
@@ -1854,8 +1971,7 @@ class AxisCurvePainter extends CustomPainter {
         Paint()
           ..strokeWidth = 1.8
           ..strokeCap = StrokeCap.round
-          ..color =
-              isDark ? const Color(0xFF4E7AA8) : const Color(0xFF6D93BE),
+          ..color = isDark ? const Color(0xFF4E7AA8) : const Color(0xFF6D93BE),
       );
     }
     for (final connection in layout.connections) {
@@ -1950,8 +2066,7 @@ class _AxisWorldStack extends Stack {
   const _AxisWorldStack({super.clipBehavior, super.children});
 
   @override
-  RenderStack createRenderObject(BuildContext context) =>
-      _RenderAxisWorldStack(
+  RenderStack createRenderObject(BuildContext context) => _RenderAxisWorldStack(
         textDirection: Directionality.of(context),
         clipBehavior: clipBehavior,
       );

@@ -357,13 +357,49 @@ export function getDescendantNodeIds(nodeId: string, nodes: PeopleAxisNode[]): S
 
 export type AxisOrderMode = 'tree' | 'time'
 
+const DAY_MS = 86_400_000
+function validAxisDay(value: string): number | null {
+  const date = value.match(/^\d{4}-\d{2}-\d{2}/)?.[0]
+  if (!date) return null
+  const stamp = Date.parse(`${date}T00:00:00Z`)
+  return Number.isFinite(stamp) && new Date(stamp).toISOString().slice(0, 10) === date ? stamp / DAY_MS : null
+}
+
+/** 日期是唯一的轴向坐标；同日及相邻事项只在垂直于主干的方向分道。 */
+export function buildAxisTimeline(nodes: PeopleAxisNode[]) {
+  const dated = nodes.flatMap(node => node.workItems.flatMap(item => {
+    const day = validAxisDay(item.dueDate || '')
+    return day === null ? [] : [{ nodeId: node.id, ownerName: node.person.name, item, day }]
+  })).sort((a, b) => a.day - b.day || a.nodeId.localeCompare(b.nodeId) || a.item.id.localeCompare(b.item.id))
+  if (!dated.length) return { items: [], ticks: [], start: 0, end: 0 }
+  const min = dated[0].day, max = dated[dated.length - 1].day
+  const span = Math.max(640, Math.min(2400, dated.length * 180))
+  const scale = span / Math.max(1, max - min)
+  const lanes: number[] = []
+  const items = dated.map(entry => {
+    const along = 120 + (entry.day - min) * scale
+    let lane = lanes.findIndex(end => along - end >= 220)
+    if (lane < 0) lane = lanes.length
+    lanes[lane] = along
+    return { ...entry, along, lane }
+  })
+  const days = Math.max(1, max - min)
+  const count = Math.min(6, days)
+  const ticks = Array.from({ length: count + 1 }, (_, i) => {
+    const day = min + Math.round(days * i / count)
+    return { date: new Date(day * DAY_MS).toISOString().slice(0, 10), along: 120 + (day - min) * scale }
+  })
+  return { items, ticks, start: 80, end: 160 + Math.max(1, max - min) * scale }
+}
+
 /** 一位负责人名下最早的未完成事项日期（YYYY-MM-DD）；没有日期返回 null。 */
 export function earliestOpenDueDate(node: PeopleAxisNode): string | null {
   let best: string | null = null
   for (const item of node.workItems) {
     if (item.status === 'Done') continue
-    const m = (item.dueDate || '').match(/^\d{4}-\d{2}-\d{2}/)
-    if (m && (best === null || m[0] < best)) best = m[0]
+    const day = validAxisDay(item.dueDate || '')
+    const date = day === null ? null : new Date(day * DAY_MS).toISOString().slice(0, 10)
+    if (date && (best === null || date < best)) best = date
   }
   return best
 }

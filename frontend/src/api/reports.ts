@@ -44,6 +44,8 @@ export type ReportAgentBinding = {
 }
 
 export type AgentReport = {
+  can_review?: boolean
+  review?: { decision: 'approved' | 'returned'; comment: string; reviewer_user_id: number; reviewed_at: string } | null
   id: number
   binding_id: number
   author_user_id: number
@@ -112,6 +114,10 @@ export async function generateMyReportDraft(projectId?: number) {
 
 export async function getReportDetail(reportId: number) {
   return apiRequest<AgentReport>(`/reports/${reportId}`)
+}
+
+export async function reviewReport(reportId: number, decision: 'approved' | 'returned', comment: string) {
+  return apiRequest<AgentReport>(`/reports/${reportId}/review`, { method: 'POST', body: JSON.stringify({ decision, comment: comment.trim() }) })
 }
 
 export async function submitReportEdit(reportId: number, body: { summary?: string; sources?: ReportSource[] } = {}) {

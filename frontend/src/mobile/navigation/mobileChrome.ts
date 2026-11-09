@@ -9,7 +9,6 @@ const SCREENS_WITH_OWN_HEADER = new Set([
   'project-settings',
   'project-invite',
   'project-create',
-  'company-create',
   'invite-accept',
   'work-calendar',
   'work-statistics',

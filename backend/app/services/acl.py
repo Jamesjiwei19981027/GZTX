@@ -51,6 +51,10 @@ class AclService:
             DelegationGrant.grantee_user_id == user_id,
             DelegationGrant.status == "active",
             or_(
+                DelegationGrant.valid_from.is_(None),
+                DelegationGrant.valid_from <= now,
+            ),
+            or_(
                 DelegationGrant.valid_to.is_(None),
                 DelegationGrant.valid_to > now,
             ),

@@ -11,6 +11,56 @@ class AuthApi {
 
   final ApiClient _client;
 
+  String get baseUrl => _client.baseUrl;
+
+  Future<void> resetPassword(
+      {required AuthChannel channel,
+      required String target,
+      required String code,
+      required String newPassword}) async {
+    await _client.post('/auth/reset-password', body: {
+      'channel': channel.apiValue,
+      'target': target.trim(),
+      'code': code.trim(),
+      'new_password': newPassword,
+    });
+  }
+
+  /// 只有后端确认凭据完整且启用的钉钉入口才展示。
+  Future<int?> availableDingtalkCompany({int? companyId}) async {
+    final dynamic res = await _client.get('/sso/options',
+        query: companyId == null ? null : {'company_id': '$companyId'});
+    if (res is Map && res['items'] is List) {
+      for (final item in res['items'] as List) {
+        if (item is Map &&
+            item['provider'] == 'dingtalk' &&
+            item['company_id'] is num) {
+          final id = (item['company_id'] as num).toInt();
+          if (companyId == null || id == companyId) return id;
+        }
+      }
+    }
+    return null;
+  }
+
+  Uri dingtalkBrowserUrl({required int companyId, required String challenge}) =>
+      Uri.parse('${baseUrl.replaceFirst(RegExp(r'/$'), '')}/sso/dingtalk')
+          .replace(queryParameters: {
+        'company_id': '$companyId',
+        'return_to': 'worktodo://sso/callback',
+        'code_challenge': challenge,
+        'code_challenge_method': 'S256',
+      });
+
+  Future<AuthSession> completeSso(
+      {required String ticket, required String verifier}) async {
+    final dynamic res = await _client.post('/sso/complete', body: {
+      'ticket': ticket,
+      'code_verifier': verifier,
+    });
+    return _parseSession(res, fallbackMessage: '企业登录失败：未获取到访问令牌');
+  }
+
   /// 账号密码登录（`username` 兼容用户名 / 邮箱 / 手机号）
   Future<AuthSession> loginWithPassword({
     required String username,

@@ -21,7 +21,8 @@ enum AuthChannel {
 /// 验证码用途：注册 / 登录
 enum SendCodePurpose {
   register('register'),
-  login('login');
+  login('login'),
+  resetPassword('reset_password');
 
   const SendCodePurpose(this.apiValue);
 
@@ -164,7 +165,7 @@ class RegistrationConfig {
   final Map<String, bool> loginMethods;
 
   bool get passwordEnabled => loginMethods['password'] != false;
-  bool get codeEnabled => loginMethods['code'] != false;
+  bool get codeEnabled => passwordEnabled && loginMethods['code'] != false;
 
   bool get isInviteOnly => mode == RegistrationMode.inviteOnly;
 

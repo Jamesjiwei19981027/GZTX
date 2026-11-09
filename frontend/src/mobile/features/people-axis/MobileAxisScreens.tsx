@@ -30,7 +30,9 @@ import {
   supervisorReportStatus,
   type AgentReport,
 } from '../../../api/reports';
-import { averagePeopleAxisProgress } from '../../../components/views/peopleAxisUtils';
+import { averagePeopleAxisProgress, applyTimeOrder, type AxisOrderMode } from '../../../components/views/peopleAxisUtils';
+import { MatterEditForm, MatterDeleteConfirm } from '../../../components/views/MatterEditDialog';
+import { restoreMatterNode } from '../../../api/manage';
 import { getMyPermissions, MyProjectPermissions } from '../../../api/shell';
 import { AppIcon } from '../../ui/AppIcon';
 import { Maximize } from 'lucide-react';
@@ -96,6 +98,15 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     Number(projectId) ||
     Number(projects.find((project) => String(project.id) !== 'all')?.id) ||
     Number(currentProject.id);
+  // 每次进入项目都有独立身份；A→B→A 也不能接纳第一次 A 的异步结果。
+  const projectScope = useMemo(() => ({ pid }), [pid, companyId, currentUser.id]);
+  const activeScopeRef = useRef<typeof projectScope | null>(projectScope);
+  activeScopeRef.current = projectScope;
+  const loadRequestRef = useRef(0);
+  useEffect(() => {
+    activeScopeRef.current = projectScope;
+    return () => { if (activeScopeRef.current === projectScope) activeScopeRef.current = null; };
+  }, [projectScope]);
 
   // 核心业务数据状态
   const [loading, setLoading] = useState(true);
@@ -109,6 +120,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   // 视图控制
   const [activeTab, setActiveTab] = useState<AxisViewTab>('mine');
   const [orientation, setOrientation] = useState<AxisOrientation>('vertical');
+  const [orderMode, setOrderMode] = useState<AxisOrderMode>(() => {
+    try { return localStorage.getItem('people_axis_order_mode') === 'time' ? 'time' : 'tree'; } catch { return 'tree'; }
+  });
   const [showAiStatus, setShowAiStatus] = useState(true);
   const [expandSubordinates, setExpandSubordinates] = useState(true);
   const [spacing, setSpacing] = useState<AxisSpacing>('standard');
@@ -135,11 +149,31 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [layoutRevision, setLayoutRevision] = useState(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [matterAction, setMatterAction] = useState<{ mode: 'edit' | 'delete'; item: AxisWorkItem } | null>(null);
+  const [undoDelete, setUndoDelete] = useState<AxisWorkItem | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  useEffect(() => {
+    if (!undoDelete) return;
+    const timer = setTimeout(() => setUndoDelete(null), 15000);
+    return () => clearTimeout(timer);
+  }, [undoDelete]);
+  useEffect(() => {
+    setMatterAction(null); setUndoDelete(null); setDetailNode(null); setPreviewNode(null);
+    setEditPersonTarget(null); setPermissionTargetNode(null); setMoveSupervisorTargetNode(null);
+    setRestoring(false); setToastMessage(null); setSelectedNodeId(null);
+    setAxisNodes([]); setProjectMembers([]); setPermissions(null); setAgentReports([]); setReportsLoadFailed(false);
+  }, [projectScope]);
+  const changeOrderMode = (mode: AxisOrderMode) => {
+    setOrderMode(mode);
+    try { localStorage.setItem('people_axis_order_mode', mode); } catch { /* 本地存储不可用 */ }
+    setFitToken(token => token + 1);
+  };
 
   const showToast = useCallback((msg: string) => {
+    if (activeScopeRef.current !== projectScope) return;
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  }, []);
+    setTimeout(() => { if (activeScopeRef.current === projectScope) setToastMessage(null); }, 3000);
+  }, [projectScope]);
 
   useEffect(() => {
     if (!moreMenuOpen) return;
@@ -154,6 +188,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
 
   // 刷新人轴核心数据
   const loadData = useCallback(async () => {
+    if (activeScopeRef.current !== projectScope) return;
+    const request = ++loadRequestRef.current;
+    const isCurrent = () => activeScopeRef.current === projectScope && loadRequestRef.current === request;
     if (!pid) {
       setLoading(false);
       return;
@@ -167,6 +204,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
         getMyPermissions(pid).catch(() => null),
         listAgentReports(pid).catch(() => null),
       ]);
+      if (!isCurrent()) return;
       const mapped = mapTreeToPeopleAxis(treeRes.nodes || [], undefined, orientation);
       setAxisNodes(mapped);
       setProjectMembers(membersRes.items || []);
@@ -179,17 +217,18 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       }
       try {
         const enriched = await enrichMattersWithEvidence(mapped);
-        setAxisNodes(enriched);
+        if (isCurrent()) setAxisNodes(enriched);
       } catch {
         // 材料获取失败时保留已映射节点
       }
     } catch (err: unknown) {
+      if (!isCurrent()) return;
       const message = err instanceof Error ? err.message : '加载人轴责任链失败';
       setError(message);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [pid]);
+  }, [pid, projectScope]);
 
   useEffect(() => {
     loadData();
@@ -222,8 +261,11 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   }, []);
 
   const canvasNodes = useMemo(
-    () => (expandSubordinates ? axisNodes : axisNodes.filter(node => !node.parentId)),
-    [expandSubordinates, axisNodes],
+    () => {
+      const visible = expandSubordinates ? axisNodes : axisNodes.filter(node => !node.parentId);
+      return orderMode === 'time' ? applyTimeOrder(visible) : visible;
+    },
+    [expandSubordinates, axisNodes, orderMode],
   );
   const flowCanvas = usePeopleAxisCanvas({
     nodes: canvasNodes,
@@ -231,7 +273,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
     edgeStyle,
     lang: 'zh',
     mobile: true,
-    foldSubordinates: true,
+    foldSubordinates: orderMode === 'tree',
     isBackendProject: true,
     backendProjectId: pid,
     serverPerms: permissions,
@@ -704,6 +746,10 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                   </button>
                 </div>
 
+                <select aria-label="人轴排序" value={orderMode} onChange={event => changeOrderMode(event.target.value as AxisOrderMode)} className="min-h-[44px] rounded-xl bg-slate-100 dark:bg-slate-800 px-2 text-xs text-slate-700 dark:text-slate-200">
+                  <option value="tree">树序</option>
+                  <option value="time">时间序</option>
+                </select>
                 {/* 定位我 */}
                 <button
                   type="button"
@@ -815,6 +861,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
             <div className="flex-1 w-full min-h-0 bg-[#eef2f7] dark:bg-[#151c24] relative">
               <PeopleAxisFlowCanvas
                 lang="zh"
+                orderMode={orderMode}
                 nodes={flowCanvas.rfNodes}
                 edges={flowCanvas.rfEdges}
                 orientation={orientation}
@@ -888,7 +935,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
             </div>
 
             <PersonMembershipActions node={previewNode} capabilities={permissions?.node_permissions?.[previewNode.id]}
-              onChanged={async()=>{setPreviewNode(null);await loadData();}} />
+              onChanged={async()=>{if (activeScopeRef.current !== projectScope) return; setPreviewNode(null);await loadData();}} />
             {/* 操作按钮区 */}
             <div className="space-y-2 pt-2">
               <button
@@ -997,13 +1044,17 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       >
         {detailNode && (
           <NodeDetailContent
-            node={detailNode}
+            node={axisNodes.find(node => node.id === detailNode.id) || detailNode}
             allNodes={axisNodes}
             agentReports={agentReports}
             reportsLoadFailed={reportsLoadFailed}
             canEdit={nodeCan(detailNode, 'can_edit_person')}
             canManagePermissions={nodeCan(detailNode, 'can_manage_permissions')}
             canChangeSupervisor={canChangeSupervisor && nodeCan(detailNode,'can_move_person')}
+            canEditMatter={(item) => permissions?.node_permissions?.[item.id]?.can_edit_person ?? Boolean(permissions?.can_edit_all || permissions?.owned_node_ids?.includes(Number(item.id)) || nodeCan(detailNode, 'can_edit_person'))}
+            canDeleteMatter={() => Boolean(permissions?.can_delete)}
+            onEditMatter={(item) => { setDetailNode(null); setMatterAction({ mode: 'edit', item }); }}
+            onDeleteMatter={(item) => { setDetailNode(null); setMatterAction({ mode: 'delete', item }); }}
             onOpenEvidence={onOpenEvidence}
             onNavigateToReport={onNavigateToReport}
             onEditPerson={() => {
@@ -1044,6 +1095,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
             allNodes={axisNodes}
             members={projectMembers}
             onSuccess={async () => {
+              if (activeScopeRef.current !== projectScope) return;
               setEditPersonTarget(null);
               showToast('人员信息保存成功');
               await loadData();
@@ -1072,6 +1124,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
           <NodePermissionsForm
             node={permissionTargetNode}
             onSuccess={async () => {
+              if (activeScopeRef.current !== projectScope) return;
               setPermissionTargetNode(null);
               showToast('节点权限已更新');
               await loadData();
@@ -1094,6 +1147,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
             targetNode={moveSupervisorTargetNode}
             allNodes={axisNodes}
             onSuccess={async () => {
+              if (activeScopeRef.current !== projectScope) return;
               setMoveSupervisorTargetNode(null);
               showToast('直属上级调整成功');
               await loadData();
@@ -1247,6 +1301,26 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
         onCancel={() => setShowResetConfirm(false)}
       />
 
+      <MobileSheet isOpen={Boolean(matterAction)} onClose={() => setMatterAction(null)} title={matterAction?.mode === 'delete' ? '删除事项' : '编辑事项'}>
+        {matterAction && <div className="axis-theme p-4 pb-8">
+          {matterAction.mode === 'edit' ? <MatterEditForm key={matterAction.item.id} item={matterAction.item}
+            members={projectMembers.map(member => ({ id: String(member.user_id), name: member.display_name || member.nickname || member.username || '项目成员', avatar: '', role: member.role || '' }))}
+            canChangeAssignee={permissions?.node_permissions?.[matterAction.item.id]?.can_manage_assignees ?? Boolean(permissions?.is_pm || permissions?.is_superadmin)}
+            onClose={() => { if (activeScopeRef.current === projectScope) setMatterAction(null); }} onSaved={async () => { if (activeScopeRef.current !== projectScope) return; setMatterAction(null); await loadData(); showToast('事项已更新'); }} />
+            : <MatterDeleteConfirm item={matterAction.item} onClose={() => setMatterAction(null)}
+              onDeleted={async item => { if (activeScopeRef.current !== projectScope) return; setMatterAction(null); setUndoDelete(item); await loadData(); }} />}
+        </div>}
+      </MobileSheet>
+      {undoDelete && <div role="status" data-testid="mobile-matter-undo" className="fixed bottom-20 left-4 right-4 z-50 flex items-center justify-between gap-3 rounded-2xl bg-slate-900 p-4 text-white text-sm shadow-xl">
+        <span className="truncate">已删除「{undoDelete.title}」</span>
+        <button type="button" disabled={restoring} className="min-h-[44px] px-3 font-bold text-cyan-300 shrink-0" onClick={async () => {
+          setRestoring(true);
+          try { await restoreMatterNode(Number(undoDelete.id)); if (activeScopeRef.current !== projectScope) return; setUndoDelete(null); await loadData(); showToast('已撤销删除'); }
+          catch (err) { showToast(err instanceof Error ? err.message : '撤销失败，请重试'); }
+          finally { if (activeScopeRef.current === projectScope) setRestoring(false); }
+        }}>{restoring ? '恢复中…' : '撤销'}</button>
+      </div>}
+
       {/* 底部轻提示 Toast */}
       {toastMessage && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-slate-900/90 text-white text-xs px-4 py-2 rounded-full shadow-lg backdrop-blur-md animate-fade-in pointer-events-none">
@@ -1280,6 +1354,10 @@ interface NodeDetailContentProps {
   onEditPerson: () => void;
   onEditPermissions: () => void;
   onMoveSupervisor: () => void;
+  canEditMatter: (item: AxisWorkItem) => boolean;
+  canDeleteMatter: (item: AxisWorkItem) => boolean;
+  onEditMatter: (item: AxisWorkItem) => void;
+  onDeleteMatter: (item: AxisWorkItem) => void;
 }
 
 const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
@@ -1295,6 +1373,10 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
   onEditPerson,
   onEditPermissions,
   onMoveSupervisor,
+  canEditMatter,
+  canDeleteMatter,
+  onEditMatter,
+  onDeleteMatter,
 }) => {
   const [tab, setTab] = useState<'matters' | 'evidence' | 'progress'>('matters');
 
@@ -1384,7 +1466,11 @@ const NodeDetailContent: React.FC<NodeDetailContentProps> = ({
                     );
                   })()}
                 </div>
-                <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                <div className="flex items-center gap-1 shrink-0">
+                  {canEditMatter(item) && <button type="button" data-testid={`axis-matter-edit-${item.id}`} className="min-h-[44px] px-2 text-xs font-semibold text-blue-700" onClick={event => { event.stopPropagation(); onEditMatter(item); }}>编辑</button>}
+                  {canDeleteMatter(item) && <button type="button" data-testid={`axis-matter-delete-${item.id}`} className="min-h-[44px] px-2 text-xs font-semibold text-red-600" onClick={event => { event.stopPropagation(); onDeleteMatter(item); }}>删除</button>}
+                  <AppIcon name="chevron-right" size={16} className="text-slate-400" />
+                </div>
               </div>
             ))
           ) : (

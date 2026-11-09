@@ -108,8 +108,8 @@ class ReportEvidenceSnapshot {
         'adopted' => '已采纳',
         'rejected' => '已退回',
         'superseded' => '已被替代',
-    'verified' => '已核验',
-    'pending' => '待验收',
+        'verified' => '已核验',
+        'pending' => '待验收',
         'submitted' || 'pending' || 'pending_review' => '待核验',
         'draft' => '草稿',
         _ => '未知状态',
@@ -192,6 +192,8 @@ class AgentReport {
     this.readAt,
     this.createdAt,
     this.submittedAt,
+    this.canReview = false,
+    this.review,
   });
 
   final int id;
@@ -208,6 +210,8 @@ class AgentReport {
   final String? readAt;
   final String? createdAt;
   final String? submittedAt;
+  final bool canReview;
+  final ReportReviewResult? review;
 
   bool get isSubmitted => status == 'submitted' || status == 'aggregated';
   bool get isUnread => !read && (readAt == null || readAt!.isEmpty);
@@ -254,6 +258,8 @@ class AgentReport {
       readAt: readAt ?? this.readAt,
       createdAt: createdAt,
       submittedAt: submittedAt,
+      canReview: canReview,
+      review: review,
     );
   }
 
@@ -288,8 +294,73 @@ class AgentReport {
       readAt: readAt,
       createdAt: json['created_at'] as String?,
       submittedAt: json['submitted_at'] as String?,
+      canReview: json['can_review'] == true,
+      review: ReportReviewResult.parse(json['review'] ??
+          (json['payload_json'] is Map
+              ? json['payload_json']['review']
+              : null)),
     );
   }
+}
+
+class ReportReviewResult {
+  const ReportReviewResult(
+      {required this.decision,
+      required this.comment,
+      this.reviewerUserId,
+      this.reviewedAt});
+  final String decision;
+  final String comment;
+  final int? reviewerUserId;
+  final String? reviewedAt;
+  String get label => decision == 'approved'
+      ? '核验通过'
+      : decision == 'returned'
+          ? '退回修改'
+          : '待核验';
+  static ReportReviewResult? parse(dynamic value) {
+    if (value is! Map) return null;
+    return ReportReviewResult(
+        decision: '${value['decision'] ?? ''}',
+        comment: '${value['comment'] ?? ''}',
+        reviewerUserId: (value['reviewer_user_id'] as num?)?.toInt(),
+        reviewedAt: value['reviewed_at'] as String?);
+  }
+}
+
+class PublishedReportSummary {
+  const PublishedReportSummary(
+      {required this.id,
+      required this.projectId,
+      required this.status,
+      required this.summaryText,
+      this.createdAt,
+      this.publishedAt,
+      this.publisherName});
+  final int id;
+  final int projectId;
+  final String status;
+  final String summaryText;
+  final String? createdAt;
+  final String? publishedAt;
+  final String? publisherName;
+  bool get isPublished => status == 'published';
+  factory PublishedReportSummary.fromJson(Map<String, dynamic> json) =>
+      PublishedReportSummary(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        projectId: (json['project_id'] as num?)?.toInt() ?? 0,
+        status: '${json['status'] ?? ''}',
+        summaryText: '${json['summary_text'] ?? ''}',
+        createdAt: json['created_at'] as String?,
+        publishedAt: json['published_at'] as String?,
+        publisherName: json['published_by_name'] as String?,
+      );
+}
+
+class ReportSummaryList {
+  const ReportSummaryList({this.items = const [], this.canPublish = false});
+  final List<PublishedReportSummary> items;
+  final bool canPublish;
 }
 
 /// 项目汇报智能体绑定

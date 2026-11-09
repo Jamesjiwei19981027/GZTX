@@ -47,6 +47,13 @@ interface PeopleAxisViewProps {
 export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId, projects, onSelectProject }) => {
   const activeProjectRef = useRef(projectId);
   activeProjectRef.current = projectId;
+  const matterScope = useMemo(() => ({ projectId }), [projectId]);
+  const activeMatterScopeRef = useRef<typeof matterScope | null>(matterScope);
+  activeMatterScopeRef.current = matterScope;
+  useEffect(() => {
+    activeMatterScopeRef.current = matterScope;
+    return () => { if (activeMatterScopeRef.current === matterScope) activeMatterScopeRef.current = null; };
+  }, [matterScope]);
   const [projectName, setProjectName] = useState('');
   const [projectCreator, setProjectCreator] = useState<number | null>(null);
   const [finalOwner, setFinalOwner] = useState({ name: lang === 'zh' ? '待指定' : 'Unassigned', avatar: '' });
@@ -317,7 +324,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   }, [projectId, lang, loadVersion]);
 
   const reloadAxisFromBackend = useCallback(async () => {
-    const isCurrent = () => activeProjectRef.current === String(backendProjectId);
+    const isCurrent = () => activeProjectRef.current === String(backendProjectId) && activeMatterScopeRef.current === matterScope;
     if (!isBackendProject || !isCurrent()) return;
     setSyncStatus('syncing');
     try {
@@ -343,7 +350,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     } finally {
       if (isCurrent()) setSyncStatus('synced');
     }
-  }, [isBackendProject, backendProjectId, showToast]);
+  }, [isBackendProject, backendProjectId, showToast, matterScope]);
 
   const [seedingSample, setSeedingSample] = useState(false);
 
@@ -520,7 +527,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     selectedNodeId,
     mineNodeIds: myScope.direct,
     scopeContextNodeIds,
-    foldSubordinates: scope === 'project',
+    foldSubordinates: scope === 'project' && orderMode === 'tree',
     canEditAny,
     canMoveNodes,
     editableNodeIds,
@@ -907,6 +914,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         canvas={{
           lang, nodes: rfNodes, edges: rfEdges, orientation: treeOrientation,
           edgeStyle,
+          orderMode,
           linkingSourceNodeId, onNodeDragStop: handleNodeDragStop, onPaneClick: handlePaneClick,
           onResetLayout: () => { resetAllDragOffsets(); setCanvasResetToken(n => n + 1); },
           onRequestReparent: handleRequestReparent,
@@ -970,7 +978,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           <MatterEditForm item={item} members={memberOptions}
             canChangeAssignee={serverPerms?.node_permissions?.[item.id]?.can_manage_assignees !== false}
             onClose={() => setMatterEdit(null)}
-            onSaved={async () => { setMatterEdit(null); await reloadAxisFromBackend(); showToast('事项已更新'); }} />
+            onSaved={async () => { if (activeMatterScopeRef.current !== matterScope) return; setMatterEdit(null); await reloadAxisFromBackend(); if (activeMatterScopeRef.current === matterScope) showToast('事项已更新'); }} />
         </AxisDialog>;
       })()}
       {matterDelete && (() => {
@@ -979,6 +987,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         return <AxisDialog title="删除事项" onClose={() => setMatterDelete(null)}>
           <MatterDeleteConfirm item={item} onClose={() => setMatterDelete(null)}
             onDeleted={async (deleted) => {
+              if (activeMatterScopeRef.current !== matterScope) return;
               setMatterDelete(null);
               setUndoDelete({ id: Number(deleted.id), title: deleted.title });
               await reloadAxisFromBackend();
@@ -992,9 +1001,9 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
             const target = undoDelete;
             setUndoDelete(null);
             void restoreMatterNode(target.id)
-              .then(() => reloadAxisFromBackend())
-              .then(() => showToast('已撤销删除'))
-              .catch(err => showToast(err instanceof Error ? err.message : '撤销失败'));
+              .then(() => { if (activeMatterScopeRef.current === matterScope) return reloadAxisFromBackend(); })
+              .then(() => { if (activeMatterScopeRef.current === matterScope) showToast('已撤销删除'); })
+              .catch(err => { if (activeMatterScopeRef.current === matterScope) showToast(err instanceof Error ? err.message : '撤销失败'); });
           }}>撤销</button>
         </div>
       )}

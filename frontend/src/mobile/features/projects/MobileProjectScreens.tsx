@@ -19,8 +19,9 @@ import {
   type MyProjectPermissions,
 } from '../../../api/shell';
 import { ApiError } from '../../../api/client';
-import { canManageProject } from './projectPermissions';
+import { canManageProject, canInviteToProject } from './projectPermissions';
 import { mapTask } from '../../../api/mappers';
+import { parseInviteInput } from '../../../utils/invite';
 import { Project, Language, Task } from '../../../types';
 import { AppIcon } from '../../ui/AppIcon';
 import { MobileField, MobileInput } from '../../ui/MobileField';
@@ -28,6 +29,7 @@ import { MobileListGroup, MobileListItem } from '../../ui/MobileList';
 import { MobileConfirm } from '../../ui/MobileConfirm';
 import { archiveProjectRequest, unarchiveProjectRequest, updateProjectInfo, notifyProjectsChanged } from '../../../api/manage';
 import { MobileEmptyState, MobileLoadingState } from '../../ui/MobileState';
+import { MobileReportPolicySettings } from './MobileReportPolicySettings';
 
 export interface MobileProjectScreensProps {
   currentProject: Project;
@@ -51,7 +53,7 @@ export const MobileProjectSwitchScreen: React.FC<{
   companyId: number | null;
   onSelectProject: (p: Project) => void;
   onCreateProjectClick?: () => void;
-  onCreateCompanyClick?: () => void;
+  onJoinProjectClick?: () => void;
   onClose?: () => void;
   lang?: Language;
 }> = ({
@@ -60,7 +62,7 @@ export const MobileProjectSwitchScreen: React.FC<{
   companyId,
   onSelectProject,
   onCreateProjectClick,
-  onCreateCompanyClick,
+  onJoinProjectClick,
   onClose,
   lang = 'zh',
 }) => {
@@ -172,6 +174,16 @@ export const MobileProjectSwitchScreen: React.FC<{
 
         {/* 快捷操作区 */}
         <div className="pt-2 flex flex-col gap-2.5">
+          {onJoinProjectClick && (
+            <button
+              type="button"
+              onClick={onJoinProjectClick}
+              className="min-h-[48px] w-full rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[#0058BE] font-medium text-sm flex items-center justify-center gap-2 shadow-xs active:bg-slate-50 dark:active:bg-slate-800"
+            >
+              <AppIcon name="share" size={18} />
+              <span>使用邀请加入项目</span>
+            </button>
+          )}
           {onCreateProjectClick && (
             <button
               type="button"
@@ -192,9 +204,8 @@ export const MobileProjectSwitchScreen: React.FC<{
 // 08 创建工作区 (项目)
 // -------------------------------------------------------------
 export const MobileWorkspaceCreateScreen: React.FC<{
-  initialMode?: 'project' | 'company';
   companyId: number | null;
-  onCreated: (created: { kind: 'project' | 'company'; id: number; name: string }) => void;
+  onCreated: (created: { kind: 'project'; id: number; name: string }) => void;
   onCancel?: () => void;
   lang?: Language;
 }> = ({
@@ -214,7 +225,7 @@ export const MobileWorkspaceCreateScreen: React.FC<{
       return;
     }
     if (!companyId) {
-      setError('未检测到有效企业所属，请先创建或加入公司');
+      setError('未检测到有效企业所属，请联系管理员获取项目邀请');
       return;
     }
     setBusy(true);
@@ -317,13 +328,15 @@ export const MobileProjectOverviewScreen: React.FC<{
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [canManage, setCanManage] = useState(false);
+  const [canInvite, setCanInvite] = useState(false);
 
   // 项目设置齿轮和邀请按钮只给 PM / 超管；权限没拿到前默认不显示
   useEffect(() => {
     let active = true;
     setCanManage(false);
+    setCanInvite(false);
     getMyPermissions(projectId)
-      .then((perms) => { if (active) setCanManage(canManageProject(perms)); })
+      .then((perms) => { if (active) { setCanManage(canManageProject(perms)); setCanInvite(canInviteToProject(perms)); } })
       .catch(() => { if (active) setCanManage(false); });
     return () => { active = false; };
   }, [projectId]);
@@ -412,7 +425,7 @@ export const MobileProjectOverviewScreen: React.FC<{
       </header>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {canManage && onNavigateToInvite && <button type="button" onClick={onNavigateToInvite}
+        {canInvite && onNavigateToInvite && <button type="button" onClick={onNavigateToInvite}
           className="w-full min-h-[56px] px-4 rounded-2xl bg-[#0058BE] text-white shadow-sm flex items-center gap-3 text-left">
           <AppIcon name="team" size={22} /><span className="flex-1"><span className="block text-sm font-semibold">邀请新成员加入</span><span className="block text-xs text-blue-100 mt-1">添加项目成员，共同推进任务</span></span><AppIcon name="chevron-right" size={18} />
         </button>}
@@ -656,6 +669,8 @@ export const MobileProjectSettingsScreen: React.FC<{
           </div>
         )}
 
+        {canManageProject(permissions) && <MobileReportPolicySettings key={projectId} projectId={projectId} canManage={canManageProject(permissions)} archived={archived} />}
+
         {canEdit && archived && (
           <MobileListGroup title="项目已归档（只读）">
             <MobileListItem title="取消归档" subtitle="恢复后项目可继续编辑" showChevron={false} showDivider={false} onClick={busy ? undefined : () => void handleUnarchive()} />
@@ -834,7 +849,7 @@ export const MobileProjectInviteScreen: React.FC<{
 // -------------------------------------------------------------
 export const MobileInviteAcceptScreen: React.FC<{
   initialToken?: string;
-  onAccepted: (result: { project_id: number; role: string }) => void;
+  onAccepted: (result: { project_id: number; role: string }) => Promise<void> | void;
   onRequirePhoneVerify?: () => void;
   onCancel?: () => void;
   lang?: Language;
@@ -852,9 +867,11 @@ export const MobileInviteAcceptScreen: React.FC<{
 
   const handleAccept = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    const cleanToken = token.trim();
-    if (!cleanToken) {
-      setError('请输入或粘贴邀请令牌');
+    let cleanToken: string;
+    try {
+      cleanToken = parseInviteInput(token);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '请粘贴有效的邀请码或邀请链接');
       return;
     }
     setBusy(true);
@@ -862,7 +879,7 @@ export const MobileInviteAcceptScreen: React.FC<{
     setNeedPhone(false);
     try {
       const res = await acceptProjectInvitation(cleanToken);
-      onAccepted(res);
+      await onAccepted(res);
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.code === 403 && err.message.includes('phone')) {
@@ -928,10 +945,10 @@ export const MobileInviteAcceptScreen: React.FC<{
         )}
 
         <form onSubmit={handleAccept} className="space-y-4">
-          <MobileField label="邀请令牌 Token" required>
+          <MobileField label="邀请码" helperText="支持网页邀请链接和手机邀请链接" required>
             <MobileInput
               type="text"
-              placeholder="粘贴或输入收到的邀请 Token"
+              placeholder="粘贴邀请码或完整邀请链接"
               value={token}
               onChange={(e) => setToken(e.target.value)}
               className="font-mono text-xs"

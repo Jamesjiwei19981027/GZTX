@@ -60,7 +60,6 @@ export const REGISTERED_SCREENS: Record<MobileTab, ReadonlySet<string>> = {
     'work-chat-extract',
     'project-switch',
     'project-create',
-    'company-create',
     'project-overview',
     'project-settings',
     'project-invite',
@@ -132,6 +131,8 @@ export function createDefaultRoute(tab: MobileTab, params: MobileRouteParams = {
 /** Old callers can keep their screen IDs; one registry decides the owning tab. */
 export function normalizeMobileRoute(input: MobileRouteInput, fallback: MobileTab = 'work'): MobileRoute {
   let screen = input.screen === 'me-knowledge' ? 'knowledge-root' : input.screen;
+  // 单公司部署不再创建公司；旧入口安全回到项目选择。
+  if (screen === 'company-create') screen = 'project-switch';
   if (screen === 'ai-chat' || screen === 'axis-evidence-submit') {
     screen = 'record-progress';
   }
