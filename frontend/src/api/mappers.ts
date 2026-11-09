@@ -468,6 +468,25 @@ export function asBackendId(id?: string | null): number | null {
   return Number.isFinite(n) && n > 0 ? n : null
 }
 
+/** 后端材料状态 -> 界面状态。只有明确 adopted 才算“已采纳”，待确认不得误显示为已采纳。 */
+export function mapEvidenceStatus(status?: string | null): AxisEvidence['status'] {
+  switch (status) {
+    case 'adopted': return 'verified'
+    case 'rejected': return 'rejected'
+    case 'pending_review': return 'awaiting_review'
+    case 'superseded': return 'superseded'
+    default: return 'pending'
+  }
+}
+
+export const EVIDENCE_STATUS_LABEL: Record<AxisEvidence['status'], string> = {
+  verified: '已采纳',
+  rejected: '已驳回',
+  awaiting_review: '待负责人确认',
+  superseded: '已被新版本替代',
+  pending: '判定中',
+}
+
 export async function enrichMattersWithEvidence(
   axisNodes: PeopleAxisNode[],
 ): Promise<PeopleAxisNode[]> {
@@ -488,6 +507,8 @@ export async function enrichMattersWithEvidence(
     evidence_kind?: string
     external_url?: string
     structured?: { evidence_kind?: string; external_url?: string }
+    can_review?: boolean
+    reject_reason?: string | null
   }
   const pairs: [number, EvItem[]][] = await Promise.all(
     matterIds.map(async (id) => {
@@ -536,7 +557,9 @@ export async function enrichMattersWithEvidence(
             ev.structured?.external_url ||
             (urlLine ? urlLine.replace(/^url:\s*/, '') : '#'),
           timestamp: (ev.submitted_at || '').slice(5, 16).replace('T', ' ') || '—',
-          status: (ev.status === 'rejected' ? 'rejected' : ev.status === 'submitted' ? 'pending' : 'verified') as AxisEvidence['status'],
+          status: mapEvidenceStatus(ev.status),
+          canReview: ev.can_review === true,
+          rejectReason: typeof ev.reject_reason === 'string' && ev.reject_reason.trim() ? ev.reject_reason.trim() : undefined,
         }
       })
       return { ...wi, evidences }

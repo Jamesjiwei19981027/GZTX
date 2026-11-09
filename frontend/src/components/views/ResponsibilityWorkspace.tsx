@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowRight, BookOpen, Check, ChevronDown, ChevronRight, FileText, GitBranch, LocateFixed, MoreHorizontal, Pencil, Plus, RefreshCw, ShieldCheck, Users, X } from 'lucide-react'
-import type { Language, PeopleAxisNode, Project } from '../../types'
+import type { AxisEvidence, Language, PeopleAxisNode, Project } from '../../types'
+import { EVIDENCE_STATUS_LABEL } from '../../api/mappers'
+import { reviewEvidencePackage } from '../../api/backend'
 import { PeopleAxisFlowCanvas, responsibilityLevelLabel, type PeopleAxisFlowCanvasProps, type PersonNodeData } from './PeopleAxisFlowCanvas'
 import { averagePeopleAxisProgress } from './peopleAxisUtils'
 import { responsibilityScope } from './peopleAxisFlowLayout'
@@ -89,9 +91,49 @@ type Props = {
   onLocate?: (id: string) => void
 }
 
-function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onAction }: {
+/** 材料行：状态、驳回原因；负责人（后端 can_review）可采纳/驳回 */
+const EvidenceRow: React.FC<{ ev: AxisEvidence & { item: string }; onReloaded: () => void }> = ({ ev, onReloaded }) => {
+  const [rejecting, setRejecting] = useState(false)
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  let href: string | undefined
+  try { const url = new URL(ev.url); if (['https:', 'http:'].includes(url.protocol)) href = url.href } catch { /* no external link */ }
+  const review = async (decision: 'adopted' | 'rejected') => {
+    const id = Number(ev.id)
+    if (!Number.isFinite(id)) return
+    setBusy(true); setError('')
+    try {
+      await reviewEvidencePackage(id, { decision, reason: decision === 'rejected' ? reason.trim() || undefined : undefined })
+      setRejecting(false); setReason('')
+      onReloaded()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : '操作失败，请重试')
+    } finally { setBusy(false) }
+  }
+  const canReview = ev.canReview === true && ev.status === 'awaiting_review'
+  return <div className="axis-evidence-row" data-testid={`axis-evidence-${ev.id}`}><FileText size={19} />
+    <div>{href ? <a href={href} target="_blank" rel="noopener noreferrer">{ev.title}</a> : <strong>{ev.title}</strong>}
+      <small>{ev.item} · {ev.timestamp}</small>
+      {ev.status === 'rejected' && ev.rejectReason && <small className="axis-reject-reason" data-testid="axis-reject-reason">驳回原因：{ev.rejectReason}</small>}
+      {canReview && !rejecting && <span className="axis-evidence-actions">
+        <button type="button" className="axis-secondary-button" disabled={busy} onClick={() => void review('adopted')}>采纳</button>
+        <button type="button" className="axis-secondary-button" disabled={busy} onClick={() => setRejecting(true)}>驳回</button>
+      </span>}
+      {canReview && rejecting && <span className="axis-evidence-actions">
+        <input value={reason} maxLength={200} placeholder="驳回原因（选填）" onChange={e => setReason(e.target.value)} aria-label="驳回原因" />
+        <button type="button" className="axis-secondary-button" disabled={busy} onClick={() => void review('rejected')}>确认驳回</button>
+        <button type="button" className="axis-text-button" disabled={busy} onClick={() => setRejecting(false)}>取消</button>
+      </span>}
+      {error && <small role="alert" style={{ color: 'var(--error, #b3261e)' }}>{error}</small>}
+    </div>
+    <span className="axis-status">{EVIDENCE_STATUS_LABEL[ev.status] || ev.status}</span>
+  </div>
+}
+
+function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onAction, onReloadEvidence }: {
   node: PeopleAxisNode; data?: PersonNodeData; nodes: PeopleAxisNode[]; lang: Language
-  onSelect: (id: string) => void; onAddEvidence: (id: string) => void; onAction: () => void
+  onSelect: (id: string) => void; onAddEvidence: (id: string) => void; onAction: () => void; onReloadEvidence: () => void
 }) {
   const [tab, setTab] = useState<'items' | 'evidence' | 'people'>('items')
   useEffect(() => setTab('items'), [node.id])
@@ -135,15 +177,7 @@ function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onActio
       </div>}
       {tab === 'evidence' && <div className="axis-evidence-list">
         {firstSubmissionItem && <button className="axis-primary-button" onClick={() => act(() => onAddEvidence(firstSubmissionItem.id))}><Plus size={16} />{zh ? '提交材料' : 'Submit evidence'}</button>}
-        {evidence.map(ev => {
-          let href: string | undefined
-          try { const url = new URL(ev.url); if (['https:', 'http:'].includes(url.protocol)) href = url.href } catch { /* no external link */ }
-          return <div className="axis-evidence-row" key={ev.id}><FileText size={19} />
-            <div>{href ? <a href={href} target="_blank" rel="noopener noreferrer">{ev.title}</a> : <strong>{ev.title}</strong>}
-              <small>{ev.item} · {ev.timestamp}</small></div>
-            <span className="axis-status">{zh ? ev.status === 'verified' ? '已采纳' : ev.status === 'rejected' ? '已驳回' : '待审核' : ev.status}</span>
-          </div>
-        })}
+        {evidence.map(ev => <EvidenceRow key={ev.id} ev={ev} onReloaded={onReloadEvidence} />)}
         {!evidence.length && <p className="axis-empty-text">{zh ? '暂无提交材料。可在事项下提交交付材料。' : 'No evidence submitted yet.'}</p>}
       </div>}
       {tab === 'people' && <div className="axis-people-list">
@@ -183,7 +217,7 @@ export function ResponsibilityWorkspace(p: Props) {
     allData.get(id)?.onCardClick(id)
   }
   const detail = selected && <NodeDetails node={selected} data={selectedData} nodes={p.nodes} lang={p.lang}
-    onSelect={id => { p.onSelect(id); if (mode === 'overview') p.onLocate?.(id) }} onAddEvidence={p.onAddEvidence} onAction={() => {}} />
+    onSelect={id => { p.onSelect(id); if (mode === 'overview') p.onLocate?.(id) }} onAddEvidence={p.onAddEvidence} onAction={() => {}} onReloadEvidence={p.onReload} />
   const renderChain = () => {
     const sorted = [...p.nodes].sort((a, b) => a.orderOnAxis - b.orderOnAxis)
     const roots = sorted.filter(n => !n.parentId || !p.nodes.some(parent => parent.id === n.parentId))

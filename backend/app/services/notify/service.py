@@ -19,6 +19,8 @@ class NotificationService:
         channels: list[str] | None = None,
         project_id: int | None = None,
     ) -> list[int]:
+        if project_id is not None and "project_id" not in (payload or {}):
+            payload = {**(payload or {}), "project_id": project_id}  # 前端据此跳转到对应项目
         chs = channels
         if chs is None:
             # resolve policy

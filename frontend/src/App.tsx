@@ -1057,6 +1057,15 @@ export default function App() {
       language: prev.language === 'zh' ? 'en' : 'zh',
     }));
   }, []);
+  /** 材料/汇报类通知：切到对应项目，再进人轴或汇报页 */
+  const handleOpenNotificationTarget = useCallback((target: import('./utils/notificationText').NotificationTarget) => {
+    if (target.projectId != null) {
+      const hit = displayProjects.find((p) => String(p.id) === String(target.projectId));
+      if (hit) setCurrentProject(hit);
+    }
+    switchView(target.view);
+  }, [displayProjects, switchView]);
+
   const handleOpenSettings = useCallback(() => switchView('settings'), [switchView]);
   const handleReload = useCallback(() => {
     void refreshFromBackend();
@@ -1394,6 +1403,7 @@ export default function App() {
          <InboxView
                 companyId={companyId}
                 canViewIntegrations={isCompanyAdmin}
+                onOpenTarget={handleOpenNotificationTarget}
                 onOpenNewTaskWithTitle={(title, desc, source) => {
                   setNewTaskDefaultTitle(title);
                   setNewTaskDefaultDesc(desc);
@@ -1524,6 +1534,7 @@ export default function App() {
           if (t) setSelectedTask(t);
         }}
         onOpenSettings={() => switchView('notifications')}
+        onOpenTarget={handleOpenNotificationTarget}
         lang={settings.language}
       />
 

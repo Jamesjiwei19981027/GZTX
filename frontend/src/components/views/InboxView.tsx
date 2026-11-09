@@ -16,6 +16,7 @@ import {
   updateExternalMailState,
 } from '../../api/shell';
 import type { ExternalMailItem } from '../../api/shell';
+import { notificationTarget, notificationTitle, type NotificationTarget } from '../../utils/notificationText';
 
 interface InboxViewProps {
   onOpenNewTaskWithTitle?: (title: string, desc: string, source?: { channel?: string; title?: string; url?: string }) => void;
@@ -23,6 +24,8 @@ interface InboxViewProps {
   companyId?: number | null;
   /** 仅公司管理员才能读取集成列表；普通成员不发请求 */
   canViewIntegrations?: boolean;
+  /** 材料/汇报类通知点击后跳转到对应项目页面 */
+  onOpenTarget?: (target: NotificationTarget) => void;
 }
 
 type InboxRow = {
@@ -41,6 +44,7 @@ type InboxRow = {
   attachments: { name?: string; original_name?: string; url?: string; download_url?: string; mime_type?: string; size?: number; file_size?: number }[];
   replyText?: string | null;
   archived: boolean;
+  target?: NotificationTarget;
 };
 
 const PROVIDER_META: Record<string, { name: string; icon: string; category: IntegrationItem['category']; description: string }> = {
@@ -87,6 +91,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
   lang,
   companyId,
   canViewIntegrations = false,
+  onOpenTarget,
 }) => {
   const [integrations, setIntegrations] = useState<IntegrationItem[]>([]);
   const [inboxItems, setInboxItems] = useState<InboxRow[]>([]);
@@ -116,11 +121,12 @@ export const InboxView: React.FC<InboxViewProps> = ({
         setInboxItems(
           (notif.items || []).map((n) => ({
             id: String(n.id),
-            source: n.template_key || 'collab',
+            source: notificationTitle(n.template_key),
+            target: notificationTarget(n.template_key, n.payload) ?? undefined,
             icon: 'inbox',
              sender: String(n.sender?.name || (n.payload as { actor?: string })?.actor || '系统'),
              senderName: String(n.sender?.name || (n.payload as { actor?: string })?.actor || '系统'),
-            subject: (n.body_text || n.template_key || '通知').slice(0, 80),
+            subject: (n.body_text || notificationTitle(n.template_key)).slice(0, 80),
             snippet: n.body_text || JSON.stringify(n.payload || {}),
             timestamp: n.created_at
               ? n.created_at.slice(5, 16).replace('T', ' ')
@@ -223,10 +229,11 @@ export const InboxView: React.FC<InboxViewProps> = ({
   const reloadNotifications = async () => {
     const notif = await listCollabNotifications(1, state);
     setInboxItems((notif.items || []).map((n) => ({
-      id: String(n.id), source: n.template_key || 'collab', icon: 'inbox',
+      id: String(n.id), source: notificationTitle(n.template_key),
+            target: notificationTarget(n.template_key, n.payload) ?? undefined, icon: 'inbox',
       sender: String(n.sender?.name || (n.payload as { actor?: string })?.actor || '系统'),
       senderName: String(n.sender?.name || (n.payload as { actor?: string })?.actor || '系统'),
-      subject: (n.body_text || n.template_key || '通知').slice(0, 80),
+      subject: (n.body_text || notificationTitle(n.template_key)).slice(0, 80),
       snippet: n.body_text || JSON.stringify(n.payload || {}),
       timestamp: n.created_at ? n.created_at.slice(5, 16).replace('T', ' ') : '—',
       tag: n.read ? 'Read' : 'New', read: n.read,
@@ -285,6 +292,7 @@ export const InboxView: React.FC<InboxViewProps> = ({
         setError(e instanceof Error ? e.message : '标记已读失败');
       }
     }
+    if (item.target && onOpenTarget) onOpenTarget(item.target);
   };
 
   const handleReply = async () => {
