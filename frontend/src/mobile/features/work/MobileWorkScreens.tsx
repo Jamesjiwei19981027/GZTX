@@ -690,8 +690,8 @@ export const MobileGlobalSearchScreen: React.FC<{
                       </span>
                     }
                     onClick={() => {
+                      // 详情以浮层打开在搜索页之上，关闭后回到搜索结果并保留关键词
                       onSelectTask(t);
-                      onClose?.();
                     }}
                   />
                 ))}

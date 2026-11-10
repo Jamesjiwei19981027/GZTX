@@ -362,7 +362,11 @@ export const RecordProgressScreen: React.FC<RecordProgressProps> = ({
                 <select
                   aria-label="选择所属项目"
                   value={selectedProjectId}
-                  onChange={(e) => { setSelectedProjectId(e.target.value); setSelectedNodeId(''); setNodeList([]); }}
+                  onChange={(e) => {
+                    // 重选同一项目不会触发重新加载事项，因此只有项目真正变化时才清空
+                    if (e.target.value === selectedProjectId) return;
+                    setSelectedProjectId(e.target.value); setSelectedNodeId(''); setNodeList([]);
+                  }}
                   disabled={submitting || suggesting}
                   className="w-full text-sm rounded-lg border border-outline-variant dark:border-outline-variant bg-surface dark:bg-surface-container-lowest px-3 py-2 text-on-surface dark:text-on-surface outline-hidden"
                 >
