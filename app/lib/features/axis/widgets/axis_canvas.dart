@@ -15,6 +15,8 @@ import '../data/axis_rules.dart';
 import '../data/axis_view_models.dart';
 import '../data/axis_matter_patch.dart';
 import 'axis_flow_layout.dart';
+import 'person_card_fields.dart';
+import '../data/person_cards.dart';
 
 class AxisViewportController {
   _AxisCanvasState? _state;
@@ -56,6 +58,7 @@ class AxisCanvas extends StatefulWidget {
     this.onNotice,
     this.onAddChild,
     this.onEditPerson,
+    this.onEditCard,
     this.onRelinkPerson,
     this.fold,
     this.onToggleFoldedRow,
@@ -95,6 +98,7 @@ class AxisCanvas extends StatefulWidget {
   final ValueChanged<String>? onNotice;
   final ValueChanged<AxisPersonNode>? onAddChild;
   final ValueChanged<AxisPersonNode>? onEditPerson;
+  final ValueChanged<AxisPersonNode>? onEditCard;
   final ValueChanged<AxisPersonNode>? onRelinkPerson;
 
   @override
@@ -365,6 +369,8 @@ class _AxisCanvasState extends State<AxisCanvas>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (node.canEditCardStyle)
+              ListTile(leading: const Icon(Icons.palette_outlined, size: 18), title: const Text('编辑卡片'), onTap: () { Navigator.of(ctx).pop(); widget.onEditCard?.call(node); }),
             if (canEdit)
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
@@ -454,6 +460,7 @@ class _AxisCanvasState extends State<AxisCanvas>
   }
 
   void _onPersonDragStart(AxisPersonNode node) {
+    _cardLongPressOffset = Offset.zero;
     _dwellTimer?.cancel();
     setState(() {
       _dragPersonId = node.id;
@@ -467,6 +474,7 @@ class _AxisCanvasState extends State<AxisCanvas>
     });
   }
 
+  Offset _cardLongPressOffset = Offset.zero;
   void _onPersonDragUpdate(Offset delta) {
     if (_dragPersonId == null) return;
     final layout = _layout;
@@ -954,7 +962,7 @@ class _AxisCanvasState extends State<AxisCanvas>
         widget.permissions.nodeCan(node, 'can_change_supervisor') ||
             widget.permissions.canManageStructure ||
             widget.permissions.canEditAll;
-    final showMore = canEdit || canRelink;
+    final showMore = canEdit || canRelink || node.canEditCardStyle;
 
     Color borderColor;
     double borderWidth = 1.0;
@@ -1011,7 +1019,18 @@ class _AxisCanvasState extends State<AxisCanvas>
       ),
       child: MediaQuery.withClampedTextScaling(
         maxScaleFactor: 1.15,
-        child: isCompact
+        child: node.cardConfig != null ? Column(children: [
+          Row(children: [Container(width: 8, height: 8, decoration: BoxDecoration(color: personCardColors[node.cardConfig!['color']], shape: BoxShape.circle)), const Spacer(),
+            if (canAddSubordinate) SizedBox(width: 36, height: 28, child: IconButton(tooltip: '新增下级', padding: EdgeInsets.zero, icon: const Icon(Icons.add, size: 18), onPressed: () => _handleAddChild(node))),
+            if (showMore) SizedBox(width: 36, height: 28, child: IconButton(key: Key('axis-person-more-${node.id}'), tooltip: '更多', padding: EdgeInsets.zero, icon: const Icon(Icons.more_horiz, size: 18), onPressed: () => _handleMoreMenu(node))),
+          ]),
+          Expanded(child: SingleChildScrollView(child: PersonCardFields(node: node, config: node.cardConfig!))),
+          Row(children: [TextButton(style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.all(4)), onPressed: () => widget.onOpenPerson?.call(node), child: const Text('查看全部', style: TextStyle(fontSize: 12))), const Spacer(),
+            if (foldedMember) ...[TextButton(style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.all(4)), onPressed: () => widget.onToggleFoldedRow?.call(node.id), child: const Text('折叠', style: TextStyle(fontSize: 12))), TextButton(style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.all(4)), onPressed: () => widget.onPullToAxis?.call(node.id), child: const Text('拉到人轴', style: TextStyle(fontSize: 12)))]
+            else if (canReturn) TextButton(style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.all(4)), onPressed: () => widget.onReturnFromAxis?.call(node.id), child: const Text('收回', style: TextStyle(fontSize: 12)))
+            else if (subordinatesCount > 0) TextButton(style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.all(4)), onPressed: () => widget.onToggleStack?.call(node.id), child: Text('下属 $subordinatesCount', style: const TextStyle(fontSize: 12))),
+          ]),
+        ]) : isCompact
             ? _buildCompactCard(
                 node,
                 isRoot,
@@ -1043,7 +1062,14 @@ class _AxisCanvasState extends State<AxisCanvas>
       width: AxisFlowLayout.personCardSize.width,
       height: AxisFlowLayout.personCardSize.height,
       // 折叠组成员不能拖动，也不是换上级的放置目标；只响应点按。
-      child: foldedMember
+      child: node.cardConfig != null ? GestureDetector(
+        onTap: () => _select(node),
+        onLongPressStart: foldedMember ? null : (_) => _onPersonDragStart(node),
+        onLongPressMoveUpdate: foldedMember ? null : (d) { final delta = d.localOffsetFromOrigin - _cardLongPressOffset; _cardLongPressOffset = d.localOffsetFromOrigin; _onPersonDragUpdate(delta); },
+        onLongPressEnd: foldedMember ? null : (_) => _onPersonDragEnd(node),
+        onLongPressCancel: foldedMember ? null : _cancelDrag,
+        child: card,
+      ) : foldedMember
           ? GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTapUp: (details) =>
@@ -1752,7 +1778,7 @@ class _FoldedRow extends StatelessWidget {
         ),
         child: MediaQuery.withClampedTextScaling(
           maxScaleFactor: 1.15,
-          child: Row(
+          child: node.cardConfig != null ? Row(children: [Expanded(child: PersonCardFields(node: node, config: node.cardConfig!, folded: true)), const Icon(Icons.keyboard_arrow_down, size: 18)]) : Row(
             children: [
               _col(
                 48,

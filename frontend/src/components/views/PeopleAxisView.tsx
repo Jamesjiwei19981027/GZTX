@@ -28,6 +28,9 @@ import { EditResponsibilityPerson } from './EditResponsibilityPerson';
 import { ResponsibilityPermissionFields, defaultResponsibilityPermissions } from './ResponsibilityPermissionFields';
 import { ProjectWikiPanel } from './ProjectWikiPanel';
 import { uploadEvidenceFile } from '../../api/projectWiki';
+import { usePersonCards } from '../../features/personCards/usePersonCards';
+import { CardEditor } from '../../features/personCards/CardEditor';
+import { saveCardStyle, saveCardView, loadCardViews } from '../../features/personCards/api';
 
 function matterTypeKey(type: 'task' | 'milestone' | 'scope'): string {
   if (type === 'milestone') return 'milestone';
@@ -70,6 +73,10 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const [editingPerson, setEditingPerson] = useState<{ nodeId: number; projectId: string } | null>(null);
   const isBackendProject = Boolean(projectId && projectId !== 'all' && Number(projectId) > 0);
   const backendProjectId = isBackendProject ? Number(projectId) : 0;
+  const cards = usePersonCards(backendProjectId);
+  const decoratedNodes = useMemo(() => cards.decorate(nodes), [nodes, cards.template, cards.view]);
+  const [cardEditor, setCardEditor] = useState<'view' | string | null>(null);
+  useEffect(() => setCardEditor(null), [projectId]);
   const memberOptions = projectMembers;
   // 权限口径与服务端 acl 一致：PM（pm_user_id 或成员角色 pm）可编辑全树；
   // 普通成员仅能编辑自己作为 primary/collaborator 责任人的节点及其子树。
@@ -292,6 +299,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         const withEvidence = await enrichMattersWithEvidence(mapped);
         if (cancelled) return;
         setProjectName(proj.name);
+        cards.setTemplate(tree.card_template_json ?? proj.card_template_json ?? {});
         setProjectCreator(proj.created_by ?? null);
         const ownerId = proj.final_owner_user_id ?? proj.pm_user_id;
         const ownerMember = mappedMembers.find(m => Number(m.id) === ownerId);
@@ -343,6 +351,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       setPmUserId(proj.pm_user_id ?? null);
       setProjectCompanyId(proj.company_id ?? null);
       setNodes(withEvidence);
+      cards.setTemplate(tree.card_template_json ?? proj.card_template_json ?? {});
       setServerPerms(permissions);
       setBackendLoadError(null);
     } catch (e) {
@@ -489,8 +498,9 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   const scope = scopeChoice === 'auto' ? (!canEditAny && myScope.direct.size > 0 ? 'mine' : 'project') : scopeChoice;
   const scopedNodes = useMemo(() => {
     const visible = scope === 'mine' && !isProjectPM ? nodes.filter(n => myScope.visible.has(n.id)) : nodes;
-    return orderMode === 'time' ? applyTimeOrder(visible) : visible;
-  }, [scope, nodes, isProjectPM, myScope, orderMode]);
+    const decorated = cards.decorate(visible);
+    return orderMode === 'time' ? applyTimeOrder(decorated) : decorated;
+  }, [scope, nodes, isProjectPM, myScope, orderMode, cards.template, cards.view]);
   const myRoleTitles = nodes.filter(n => myScope.direct.has(n.id)).map(n => n.roleTitle);
   const roleLabel = isProjectPM ? (lang === 'zh' ? '项目 PM · 统筹项目' : 'Project PM')
     : myRoleTitles.length ? [...new Set(myRoleTitles)].join(' / ')
@@ -514,7 +524,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
     linkingSourceNodeId, setLinkingSourceNodeId, setLinkingHoveredTargetId,
     pullAllToAxis, resetFold, foldFitSeq, revealPerson,
   } = usePeopleAxisCanvas({
-    nodes,
+    nodes: decoratedNodes,
     scopedNodes,
     orientation: treeOrientation,
     edgeStyle,
@@ -546,6 +556,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       const nodeId = asBackendId(id);
       if (nodeId != null) setEditingPerson({ nodeId, projectId: String(backendProjectId) });
     },
+    onEditCard: setCardEditor,
   });
 
   // 一次性定位请求：先把目标拉出/展开，再由画布在节点出现后居中
@@ -883,6 +894,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
   return (
     <div className="axis-view-root">
       <ResponsibilityWorkspace
+        onDisplaySettings={async () => { const id = backendProjectId; try { const result = await loadCardViews(); if (activeProjectRef.current !== String(id)) return; cards.setView(result.ui?.person_cards?.[String(id)] ?? {}); setCardEditor('view'); } catch (e) { showToast(e instanceof Error ? e.message : '显示设置加载失败，请重试'); } }}
         lang={lang} projectId={projectId} projects={projects} projectName={projectName}
         onSelectProject={onSelectProject} nodes={scopedNodes} selectedId={selectedNodeId}
         projectSummaries={projectSummaries} currentUserId={meId}
@@ -972,6 +984,20 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
           onChanged={() => { void reloadAxisFromBackend(); }}
         />
       )}
+        {cardEditor && isBackendProject && (() => {
+          const node = nodes.find(n => n.id === cardEditor);
+          if (cardEditor !== 'view' && !node) return null;
+          const savedProject = backendProjectId;
+          return <CardEditor key={`${savedProject}:${cardEditor}`} mode={cardEditor === 'view' ? 'view' : 'style'}
+            initial={cardEditor === 'view' ? cards.view : node?.cardStyle ?? {}} template={cards.template} node={node ?? scopedNodes[0]} style={(node ?? scopedNodes[0])?.cardStyle}
+            onClose={() => setCardEditor(null)} onSave={async value => {
+              if (cardEditor === 'view') await saveCardView(savedProject, value);
+              else await saveCardStyle(savedProject, Number(cardEditor), value);
+              if (activeProjectRef.current !== String(savedProject)) return;
+              if (cardEditor === 'view') cards.setView(value);
+              else setNodes(cur => cur.map(n => n.id === cardEditor ? { ...n, cardStyle: value } : n));
+            }} />;
+        })()}
       {matterEdit && (() => {
         const item = nodes.find(n => n.id === matterEdit.nodeId)?.workItems.find(w => w.id === matterEdit.itemId);
         if (!item) return null;

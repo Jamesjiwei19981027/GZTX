@@ -51,6 +51,7 @@ async def _node_dto(db, node: TreeNode) -> dict:
         "description": node.description,
         "node_origin": node.node_origin,
         "responsibility_permissions": node.responsibility_permissions or {},
+        "card_style_json": node.card_style_json or {},
         "sort_order": node.sort_order,
         "path": node.path,
         "depth": node.depth,

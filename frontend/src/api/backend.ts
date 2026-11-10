@@ -78,6 +78,8 @@ export type BackendAssignee = {
 }
 
 export type BackendProject = {
+  card_template_json?: import('../features/personCards/model').CardTemplate
+  can_edit_card_template?: boolean
   id: number
   company_id: number
   name: string
@@ -96,6 +98,8 @@ export type BackendProject = {
 }
 
 export type BackendTreeNode = {
+  card_style_json?: import('../features/personCards/model').CardStyle
+  can_edit_card_style?: boolean
   id: number
   parent_id: number | null
   node_type_key: string
@@ -110,6 +114,8 @@ export type BackendTreeNode = {
   due_at?: string | null
   milestone_at?: string | null
   progress_json?: {
+    updated_at?: string
+    last_record_id?: number | null
     status?: string
     percent?: number
     ui_offset?: { x: number; y: number }
@@ -427,7 +433,7 @@ export async function getProject(projectId: number) {
 }
 
 export async function getProjectTree(projectId: number) {
-  return apiRequest<{ project_id: number; nodes: BackendTreeNode[] }>(
+  return apiRequest<{ project_id: number; nodes: BackendTreeNode[]; card_template_json?: import('../features/personCards/model').CardTemplate; can_edit_card_template?: boolean }>(
     `/projects/${projectId}/tree?format=nested`,
   )
 }

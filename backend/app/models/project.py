@@ -26,6 +26,7 @@ class Project(Base):
     # 导致 PM 拖完别人看不到、换设备就丢，"仅 PM 可拖"的规则也没有服务端承载。
     final_owner_along_delta = Column(Integer, nullable=False, default=0, server_default="0")
     archive_policy_json = Column(JSON, nullable=True)
+    card_template_json = Column(JSON, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(UTCDateTime(), server_default=func.now())
     updated_at = Column(UTCDateTime(), onupdate=func.now())

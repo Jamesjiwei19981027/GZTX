@@ -43,6 +43,10 @@ import { MobileEmptyState, MobileLoadingState } from '../../ui/MobileState';
 import { MobileConfirm } from '../../ui/MobileConfirm';
 import { PeopleAxisFlowCanvas } from '../../../components/views/PeopleAxisFlowCanvas';
 import { usePeopleAxisCanvas, ReparentConfirmDialog } from '../../../components/views/usePeopleAxisCanvas';
+import { usePersonCards } from '../../../features/personCards/usePersonCards';
+import { CardEditor } from '../../../features/personCards/CardEditor';
+import { CardFields } from '../../../features/personCards/CardFields';
+import { saveCardStyle, saveCardView, loadCardViews } from '../../../features/personCards/api';
 import { getDescendantNodeIds } from '../../../components/views/peopleAxisUtils';
 import { PersonMembershipActions } from '../../../components/PersonMembershipActions';
 
@@ -111,7 +115,11 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
   // 核心业务数据状态
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [axisNodes, setAxisNodes] = useState<PeopleAxisNode[]>([]);
+  const [rawAxisNodes, setAxisNodes] = useState<PeopleAxisNode[]>([]);
+  const cards = usePersonCards(pid);
+  const axisNodes = useMemo(() => cards.decorate(rawAxisNodes), [rawAxisNodes, cards.template, cards.view]);
+  const [cardEditor, setCardEditor] = useState<string | null>(null);
+  useEffect(() => setCardEditor(null), [pid]);
   const [projectMembers, setProjectMembers] = useState<BackendMember[]>([]);
   const [permissions, setPermissions] = useState<MyProjectPermissions | null>(null);
   const [agentReports, setAgentReports] = useState<AgentReport[]>([]);
@@ -207,6 +215,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       if (!isCurrent()) return;
       const mapped = mapTreeToPeopleAxis(treeRes.nodes || [], undefined, orientation);
       setAxisNodes(mapped);
+      cards.setTemplate(treeRes.card_template_json ?? {});
       setProjectMembers(membersRes.items || []);
       setPermissions(permRes);
       if (reportsRes) {
@@ -291,6 +300,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       const node = axisNodes.find(n => n.id === nodeId) || null;
       setEditPersonTarget({ mode: 'edit', node });
     },
+    onEditCard: id => { setPreviewNode(null); setDetailNode(null); setCardEditor(id); },
     onReloadAxis: loadData,
     onShowToast: showToast,
     canEditAny: Boolean(permissions?.is_pm || permissions?.is_superadmin || permissions?.can_edit_all),
@@ -364,6 +374,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
         title={activeTab === 'mine' ? '我的职责' : '项目全貌'}
         rightAction={
           <div className="flex items-center gap-1">
+            <button type="button" aria-label="显示设置" className="mobile-touch-target p-2 text-sm" onClick={async () => { try { const result = await loadCardViews(); if (activeScopeRef.current !== projectScope) return; cards.setView(result.ui?.person_cards?.[String(pid)] ?? {}); setCardEditor('view'); } catch (e) { showToast(e instanceof Error ? e.message : '显示设置加载失败，请重试'); } }}>显示设置</button>
             {canChangeSupervisor && <button type="button" aria-label="新增主轴人员" onClick={()=>setEditPersonTarget({mode:'add'})} className="mobile-touch-target p-2 text-on-surface-variant dark:text-on-surface-variant"><AppIcon name="plus" size={18}/></button>}
             <button
               type="button"
@@ -457,7 +468,8 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 }}
                 className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl p-3  cursor-pointer  transition-transform"
               >
-                <div className="flex items-center gap-3">
+                {supervisorNode.cardConfig ? <CardFields node={supervisorNode} config={supervisorNode.cardConfig} /> : (
+<div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant font-medium flex items-center justify-center text-sm shrink-0">
                     {supervisorNode.person.name.slice(0, 1)}
                   </div>
@@ -475,6 +487,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                     </p>
                   </div>
                 </div>
+)}
+{supervisorNode.canEditCardStyle && <button type="button" className="axis-secondary-button" onClick={e => { e.stopPropagation(); setCardEditor(supervisorNode.id); }}>编辑卡片</button>}
+
 
                 {showAiStatus && !reportsLoadFailed && (
                   <div
@@ -520,7 +535,8 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                 }}
                 className="bg-surface dark:bg-surface-container border-2 border-outline-variant dark:border-outline-variant rounded-xl p-4  cursor-pointer  transition-transform"
               >
-                <div className="flex items-center gap-3">
+                {selfNode.cardConfig ? <CardFields node={selfNode} config={selfNode.cardConfig} /> : (
+<div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-full bg-surface-container text-on-surface-variant font-medium flex items-center justify-center text-base shrink-0 ">
                     {selfNode.person.name.slice(0, 1)}
                   </div>
@@ -539,6 +555,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                     </p>
                   </div>
                 </div>
+)}
+{selfNode.canEditCardStyle && <button type="button" className="axis-secondary-button" onClick={e => { e.stopPropagation(); setCardEditor(selfNode.id); }}>编辑卡片</button>}
+
 
                 {showAiStatus && !reportsLoadFailed && (
                   <div
@@ -601,7 +620,8 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                       }}
                       className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl p-3  cursor-pointer  transition-transform"
                     >
-                      <div className="flex items-center gap-3">
+                      {sub.cardConfig ? <CardFields node={sub} config={sub.cardConfig} /> : (
+<div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-surface-container dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant font-medium flex items-center justify-center text-xs shrink-0">
                           {sub.person.name.slice(0, 1)}
                         </div>
@@ -615,6 +635,9 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
                         </div>
                         <AppIcon name="chevron-right" size={18} className="text-inherit shrink-0" />
                       </div>
+)}
+{sub.canEditCardStyle && <button type="button" className="axis-secondary-button" onClick={e => { e.stopPropagation(); setCardEditor(sub.id); }}>编辑卡片</button>}
+
 
                       {showAiStatus && !reportsLoadFailed && (
                         <div className="mt-2 pt-2 border-t border-outline-variant dark:border-outline-variant text-xs text-outline dark:text-outline flex items-center justify-between">
@@ -937,6 +960,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
 
             <PersonMembershipActions node={previewNode} capabilities={permissions?.node_permissions?.[previewNode.id]}
               onChanged={async()=>{if (activeScopeRef.current !== projectScope) return; setPreviewNode(null);await loadData();}} />
+            {previewNode.canEditCardStyle && <button type="button" className="axis-secondary-button" onClick={() => { setCardEditor(previewNode.id); setPreviewNode(null); }}>编辑卡片</button>}
             {/* 操作按钮区 */}
             <div className="space-y-2 pt-2">
               <button
@@ -1045,7 +1069,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
         height="full"
       >
         {detailNode && (
-          <NodeDetailContent
+          <><button type="button" className="axis-secondary-button" hidden={!detailNode.canEditCardStyle} onClick={() => { setCardEditor(detailNode.id); setDetailNode(null); }}>编辑卡片</button><NodeDetailContent
             node={axisNodes.find(node => node.id === detailNode.id) || detailNode}
             allNodes={axisNodes}
             agentReports={agentReports}
@@ -1074,7 +1098,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
               setDetailNode(null);
               setMoveSupervisorTargetNode(target);
             }}
-          />
+          /></>
         )}
       </MobileSheet>
 
@@ -1292,6 +1316,16 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
       </MobileSheet>
 
       {/* 重置布局确认弹窗 */}
+      {cardEditor && (() => {
+        const node = axisNodes.find(n => n.id === cardEditor);
+        if (cardEditor !== 'view' && !node) return null;
+        return <CardEditor key={`${pid}:${cardEditor}`} mode={cardEditor === 'view' ? 'view' : 'style'} initial={cardEditor === 'view' ? cards.view : node?.cardStyle ?? {}} template={cards.template} style={(node ?? axisNodes[0])?.cardStyle} node={node ?? axisNodes[0]}
+          onClose={() => setCardEditor(null)} onSave={async value => {
+            if (cardEditor === 'view') await saveCardView(pid, value); else await saveCardStyle(pid, Number(cardEditor), value);
+            if (activeScopeRef.current !== projectScope) return;
+            if (cardEditor === 'view') cards.setView(value); else setAxisNodes(cur => cur.map(n => n.id === cardEditor ? { ...n, cardStyle: value } : n));
+          }} />;
+      })()}
       <MobileConfirm
         isOpen={showResetConfirm}
         title="重置卡片布局"

@@ -167,7 +167,7 @@ function mapMatter(n: BackendTreeNode): AxisWorkItem {
   const pct = n.progress_json?.percent ?? 0
   const st = n.progress_json?.status
   let status: Status = 'To Do'
-  if (st === 'done' || st === 'completed' || pct >= 100) status = 'Done'
+  if (st === 'done' || st === 'completed' || st === 'reached' || pct >= 100) status = 'Done'
   else if (pct > 0 || st === 'in_progress') status = 'In Progress'
 
   const type =
@@ -184,7 +184,9 @@ function mapMatter(n: BackendTreeNode): AxisWorkItem {
     title: n.title,
     type,
     status,
-    progress: Number(pct) || 0,
+    progress: status === 'Done' ? 100 : Number(pct) || 0,
+    lastProgressAt: n.progress_json?.last_record_id ? n.progress_json.updated_at : undefined,
+    lastProgressText: status === 'Done' ? '已完成' : `${Number(pct) || 0}%`,
     dueDate: toLocalDateString(n.due_at || n.milestone_at || ''),
     assigneeUserIds: (n.assignees || []).map(a => a.user_id),
     evidences,
@@ -295,6 +297,9 @@ export function mapTreeToPeopleAxis(
       .filter((a) => a.role_key === 'primary' || a.role_key === 'collaborator')
       .map((a) => a.user_id)
     out.push({
+      cardStyle: n.card_style_json || {},
+      canEditCardStyle: n.can_edit_card_style === true,
+      cardDescription: n.description || '',
       id: String(n.id),
       person,
       parentId: parentPersonId,

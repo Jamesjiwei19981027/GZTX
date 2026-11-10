@@ -91,6 +91,7 @@ class LayoutBody(BaseModel):
 
 
 class UiPrefsBody(BaseModel):
+    person_cards: Optional[dict[str, dict]] = None
     language: Optional[str] = None
     accent: Optional[str] = None
     theme_mode: Optional[str] = None
@@ -1392,6 +1393,16 @@ async def put_ui_prefs(body: UiPrefsBody, db: DbSession, user: CurrentUser):
     async with locked_pref_update(db, user):
         pref = dict(user.notify_pref or {})
         ui = dict(pref.get("ui") or {})
+        if data.get('person_cards') is not None:
+            from app.services.person_cards import validate_card
+            try:
+                for project_key, value in data['person_cards'].items():
+                    if not project_key.isdecimal() or int(project_key) <= 0 or str(int(project_key)) != project_key:
+                        raise ValueError('卡片偏好必须按项目编号保存')
+                    validate_card(value, 'view')
+            except ValueError as e:
+                return fail(422, 42200, str(e))
+            data['person_cards'] = {**(ui.get('person_cards') or {}), **data['person_cards']}
         ui.update({k: v for k, v in data.items() if v is not None})
         pref["ui"] = ui
         user.notify_pref = pref

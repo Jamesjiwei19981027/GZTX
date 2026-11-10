@@ -46,6 +46,39 @@ def dedupe_assignees(assignees: list[dict]) -> list[tuple[int, str]]:
 
 
 class TreeService:
+    async def save_card(self, db, project, user_id, value, node=None):
+        """唯一卡片写入口：校验权限、节点类型和审计与写入同一事务。"""
+        from app.services.person_cards import card_access, validate_card
+        from app.models.audit import AuditLog
+        # 与项目归档/负责人变更串行化；所有调用按项目→节点的相同顺序取锁。
+        await db.refresh(project, with_for_update=True)
+        if node is not None:
+            await db.refresh(node, with_for_update=True)
+        manager, editable = await card_access(db, project, user_id)
+        if (node is None and not manager) or (node is not None and node.id not in editable):
+            # 非 person 的拒绝由类型校验负责，但必须先保证请求者有项目读权。
+            from app.services.acl import AclService
+            if node is None or not await AclService().can(db, user_id, project.company_id, 'project.read', project_id=project.id):
+                raise PermissionError('无权修改卡片，仅本人、直接上级、项目负责人或创建者可编辑')
+            if await self.type_key_of(db, node) == 'person':
+                raise PermissionError('无权修改卡片，仅本人、直接上级、项目负责人或创建者可编辑')
+        if node is not None and (node.project_id != project.id or node.is_deleted or await self.type_key_of(db, node) != 'person'):
+            raise ValueError('仅人员节点允许设置卡片样式')
+        field = 'card_style_json' if node is not None else 'card_template_json'
+        target = node if node is not None else project
+        after = validate_card(value, 'style' if node is not None else 'template')
+        # before 来自上面锁定后重读的值，审计与写入同事务提交。
+        if project.status == 'archived' or (node is not None and (node.is_deleted or node.project_id != project.id)):
+            raise PermissionError('项目或人员状态已变更，请刷新后重试')
+        before = getattr(target, field) or {}
+        setattr(target, field, after)
+        db.add(AuditLog(company_id=project.company_id, project_id=project.id, actor_user_id=user_id,
+            action='card_style.update' if node is not None else 'card_template.update',
+            resource_type='tree_node' if node is not None else 'project', resource_id=str(target.id),
+            detail_json={'before': before, 'after': after}))
+        await db.flush()
+        return after
+
     async def ensure_person_members(self, db, node, user_ids):
         """Assigning responsibility admits an active company person to this project."""
         if await self.type_key_of(db, node) != PERSON_TYPE_KEY:

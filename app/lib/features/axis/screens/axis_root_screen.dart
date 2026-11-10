@@ -19,6 +19,8 @@ import '../state/axis_controller.dart';
 import '../widgets/axis_canvas.dart';
 import '../widgets/axis_common.dart';
 import '../widgets/axis_person_form.dart';
+import '../widgets/person_card_editor.dart';
+import '../widgets/person_card_fields.dart';
 
 /// 人轴根页（对应网页 `MobileAxisScreens`，axis-root）。
 ///
@@ -361,6 +363,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
     return AppScaffold(
       title: controller.tab == AxisViewTab.mine ? '我的职责' : '项目全貌',
       actions: [
+        IconButton(tooltip: '显示设置', icon: const Icon(Icons.tune, size: 18), onPressed: () { final id = controller.projectId; showPersonCardEditor(context: context, mode: 'view', initial: controller.cardView, template: controller.project?.cardTemplate ?? {}, style: controller.selfNode?.cardStyle ?? {}, node: controller.selfNode ?? (controller.nodes.isNotEmpty ? controller.nodes.first : null), onSave: (value) async { if (controller.projectId != id) throw StateError('项目已切换，请重新打开显示设置'); await controller.saveCardView(value); }); }),
         if (_canAddPerson)
           IconButton(
             key: const Key('axis-add-person'),
@@ -716,6 +719,7 @@ class _MineView extends StatelessWidget {
           if (supervisor != null)
             _MiniPersonCard(
               key: const Key('axis-supervisor-card'),
+              node: supervisor,
               title: supervisor.name,
               subtitle: '直属领导 · '
                   '${supervisor.roleTitle.isEmpty ? '管理者' : supervisor.roleTitle}',
@@ -816,6 +820,7 @@ class _MineView extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                   child: _MiniPersonCard(
                     key: Key('axis-subordinate-${sub.id}'),
+                    node: sub,
                     title: sub.name,
                     subtitle: '$role · 我的直属下属',
                     onTap: () => onOpenPerson(sub),
@@ -906,7 +911,7 @@ class _SelfCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            Row(
+            if (node.cardConfig != null) PersonCardFields(node: node, config: node.cardConfig!) else Row(
               children: [
                 AxisPersonAvatar(name: node.name, size: 44, highlight: true),
                 const SizedBox(width: AppSpacing.md),
@@ -987,6 +992,7 @@ class _MiniPersonCard extends StatelessWidget {
     required this.onTap,
     required this.showAiStatus,
     this.report,
+    this.node,
   });
 
   final String title;
@@ -994,6 +1000,7 @@ class _MiniPersonCard extends StatelessWidget {
   final VoidCallback onTap;
   final bool showAiStatus;
   final AgentReport? report;
+  final AxisPersonNode? node;
 
   @override
   Widget build(BuildContext context) {
@@ -1003,7 +1010,7 @@ class _MiniPersonCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       child: AxisCard(
-        child: Row(
+        child: node?.cardConfig != null ? PersonCardFields(node: node!, config: node!.cardConfig!) : Row(
           children: [
             AxisPersonAvatar(name: title, size: 38),
             const SizedBox(width: AppSpacing.md),
@@ -1357,6 +1364,8 @@ class _OverviewView extends StatelessWidget {
                     onNotice: onNotice,
                     onAddChild: (parent) => _openAddChild(context, parent),
                     onEditPerson: onOpenPerson,
+                    onEditCard: (person) { final id = controller.projectId; showPersonCardEditor(context: context, mode: 'style', initial: person.cardStyle ?? {}, template: controller.project?.cardTemplate ?? {}, node: person,
+                      onSave: (value) async { await controller.api.saveCardStyle(id, person.id, value); if (controller.projectId == id) await controller.load(); }); },
                     onRelinkPerson: (person) =>
                         _openRelinkPerson(context, person),
                     fold: controller.sort == AxisSort.tree

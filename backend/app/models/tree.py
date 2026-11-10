@@ -86,6 +86,7 @@ class TreeNode(Base):
     description = Column(Text, nullable=True)
     node_origin = Column(String(24), nullable=False, default="project", server_default="project")
     responsibility_permissions = Column(JSON, nullable=False, default=dict, server_default="{}")
+    card_style_json = Column(JSON, nullable=True)
     sort_order = Column(Integer, nullable=False, default=0)
     path = Column(String(500), nullable=False, default="/")
     depth = Column(Integer, nullable=False, default=0)

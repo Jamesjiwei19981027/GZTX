@@ -13,6 +13,7 @@ import {
 } from '../api/manage';
 import { listProjectReportPolicies } from '../api/reports';
 import type { TeamMember } from '../types';
+import { CardTemplateEntry } from '../features/personCards/CardTemplateEntry';
 
 interface Props {
   projectId: number;
@@ -142,6 +143,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({ projectId, canManage, me
           </div>
         )}
 
+        <CardTemplateEntry projectId={projectId} disabled={archived || busy} onChanged={onChanged} />
         <section className="space-y-3">
           <div>
             <label className={label} htmlFor="ps-name">项目名称</label>

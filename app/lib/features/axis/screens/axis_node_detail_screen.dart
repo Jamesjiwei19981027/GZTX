@@ -13,6 +13,9 @@ import '../data/axis_rules.dart';
 import '../data/axis_tree_mapper.dart';
 import '../widgets/axis_common.dart';
 import '../widgets/axis_matter_form.dart';
+import '../widgets/person_card_editor.dart';
+import '../data/person_cards.dart';
+import '../widgets/person_card_fields.dart';
 import '../data/axis_matter_patch.dart';
 
 /// 人员 / 事项详情（axis-person-detail、axis-node-detail）。
@@ -49,6 +52,7 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
   bool _matterDeleted = false;
   bool _canUndoMatter = false;
   bool _matterBusy = false;
+  AxisProjectInfo? _cardProject;
   Timer? _undoTimer;
 
   @override
@@ -123,12 +127,16 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
         api.fetchProject(projectId),
       ]);
       if (!mounted || epoch != _epoch) return;
+      final cardProject = results[2] as AxisProjectInfo;
+      final cardView = cardProject.cardTemplate != null ? await api.fetchCardView(projectId) : <String, dynamic>{};
+      if (!mounted || epoch != _epoch) return;
       setState(() {
+        _cardProject = cardProject;
         _nodeJson = nodeJson;
         _tree = AxisTreeMapper.mapTree(
           results[0] as List<Map<String, dynamic>>,
           finalOwnerUserId: (results[2] as AxisProjectInfo).pmUserId,
-        );
+        ).map((n) => n.copyWith(profileAvatarUrl: n.profileAvatarUrl.isEmpty ? '' : api.resolveAvatar(n.profileAvatarUrl), cardConfig: cardProject.cardTemplate != null || n.cardStyle != null ? mergePersonCard(cardProject.cardTemplate ?? {}, n.cardStyle ?? {}, cardView) : null)).toList();
         _permissions = results[1] as AxisPermissions;
         _projectId = projectId;
         _loading = false;
@@ -783,6 +791,8 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
+          if (person.cardConfig != null) PersonCardFields(node: person, config: person.cardConfig!),
+          if (person.canEditCardStyle) TextButton.icon(icon: const Icon(Icons.palette_outlined, size: 18), label: const Text('编辑卡片'), onPressed: () { final id = _projectId; if (id == null) return; showPersonCardEditor(context: context, mode: 'style', node: person, initial: person.cardStyle ?? {}, template: _cardProject?.cardTemplate ?? {}, onSave: (value) async { await _api!.saveCardStyle(id, person.id, value); if (mounted && _projectId == id) await _load(); }); }),
           AxisCard(
             child: Column(
               children: [
