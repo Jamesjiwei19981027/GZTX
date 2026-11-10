@@ -12,6 +12,7 @@ import '../data/axis_models.dart';
 import '../data/axis_report_helpers.dart';
 import '../data/axis_tree_mapper.dart';
 import '../data/axis_view_models.dart';
+import '../data/person_cards.dart';
 
 /// 人轴页面状态与数据编排。
 ///
@@ -50,6 +51,15 @@ class AxisController extends ChangeNotifier {
   List<AxisMember> members = const [];
   AxisPermissions permissions = AxisPermissions.empty;
   AxisProjectInfo? project;
+  Map<String, dynamic> cardView = {};
+  Future<void> saveCardView(Map<String, dynamic> value) async {
+    final id = _projectId;
+    await api.saveCardView(id, value);
+    if (_disposed || _projectId != id) return;
+    cardView = value;
+    nodes = nodes.map((n) => n.copyWith(cardConfig: mergePersonCard(project?.cardTemplate ?? {}, n.cardStyle ?? {}, value))).toList();
+    notifyListeners();
+  }
 
   AxisViewTab tab = AxisViewTab.mine;
   AxisOrientation orientation = AxisOrientation.vertical;
@@ -397,9 +407,16 @@ class AxisController extends ChangeNotifier {
       final members = results[1] as List<AxisMember>;
       final permissions = results[2] as AxisPermissions;
       final project = results[3] as AxisProjectInfo;
+      Map<String, dynamic> view = {};
+      if (project.cardTemplate != null) view = await api.fetchCardView(_projectId);
+      if (!_isFresh(epoch)) return;
+      cardView = view;
 
       final mapped = AxisTreeMapper.mapTree(tree);
-      nodes = mapped;
+      nodes = mapped.map((n) => n.copyWith(
+        profileAvatarUrl: n.profileAvatarUrl.isEmpty ? '' : api.resolveAvatar(n.profileAvatarUrl),
+        cardConfig: project.cardTemplate != null || n.cardStyle != null ? mergePersonCard(project.cardTemplate ?? {}, n.cardStyle ?? {}, view) : null,
+      )).toList();
       this.members = members;
       this.permissions = permissions;
       this.project = project;
@@ -455,6 +472,7 @@ class AxisController extends ChangeNotifier {
     members = const [];
     permissions = AxisPermissions.empty;
     project = null;
+    cardView = {};
     selectedNodeId = null;
     pulledIds = {};
     expandedRowIds = {};

@@ -9,6 +9,8 @@ import { averagePeopleAxisProgress, type AxisOrderMode } from './peopleAxisUtils
 import { responsibilityScope } from './peopleAxisFlowLayout'
 import { AxisAvatar, AxisMatter, AxisProgress, AxisOriginBadge } from './ResponsibilityParts'
 import './responsibility.css'
+import { CardFields } from '../../features/personCards/CardFields'
+import { CARD_PALETTE } from '../../features/personCards/model'
 
 /** Modal surface shared by the phone detail sheet and canvas settings. */
 export function AxisDialog({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
@@ -48,6 +50,7 @@ export function AxisDialog({ title, onClose, children }: { title: string; onClos
 
 export type AxisProjectSummary = { id: string; name: string; nodes: PeopleAxisNode[]; myRole: string; ownedNodeIds: string[] }
 type Props = {
+  onDisplaySettings?: () => void
   lang: Language
   projectId?: string
   projects?: Project[]
@@ -160,6 +163,7 @@ function NodeDetails({ node, data, nodes, lang, onSelect, onAddEvidence, onActio
   const act = (fn: () => void) => { onAction(); fn() }
   const firstSubmissionItem = node.workItems.find(item => data?.evidenceItemPermissions[item.id])
   return <div className="axis-detail-content">
+    {node.canEditCardStyle && <button type="button" className="axis-secondary-button" onClick={() => data?.onEditCard?.(node.id)}>编辑卡片</button>}
     <div className="axis-detail-profile"><AxisAvatar person={node.person} /><div><h2>{node.person.name}</h2><p>{node.roleTitle}</p></div></div>
     {data && <div className="axis-rank-row"><span>{responsibilityLevelLabel(data.level, lang)}</span><AxisOriginBadge origin={node.nodeOrigin} lang={lang} />{data.isMine && <b>{zh ? '我负责' : 'My role'}</b>}</div>}
     {node.nodeOrigin === 'subordinate' && <p className="axis-muted">{zh ? `下辖挂载点 · ${parent?.person.name || '直属上级'}` : `Subordinate attachment · ${parent?.person.name || 'Parent'}`}</p>}
@@ -247,15 +251,17 @@ export function ResponsibilityWorkspace(p: Props) {
       const expanded = p.expanded[node.id] !== false
       return <div className={`axis-chain-branch ${depth > 0 ? 'is-child' : ''}${node.nodeOrigin === 'subordinate' ? ' is-subordinate' : ''}`} key={node.id}>
         <article className={`axis-chain-card${node.nodeOrigin === 'subordinate' ? ' is-subordinate' : ''}`}>
-          <button className="axis-chain-select" data-testid={`axis-chain-node-${node.id}`} data-node-origin={node.nodeOrigin || 'project'} onClick={() => choose(node.id)}>
+          <button aria-label={`查看${node.person.name}的责任详情`} className="axis-chain-select" data-testid={`axis-chain-node-${node.id}`} data-node-origin={node.nodeOrigin || 'project'} onClick={() => choose(node.id)}>
             <div className="axis-rank-row"><span>{responsibilityLevelLabel(depth + 1, p.lang)}</span><AxisOriginBadge origin={node.nodeOrigin} lang={p.lang} />{allData.get(node.id)?.isMine ? <b>{zh ? '我负责' : 'My role'}</b> : allData.get(node.id)?.isScopeContext && <small>{zh ? '上级链路' : 'Reporting path'}</small>}</div>
-            <div className="axis-person-heading"><AxisAvatar person={node.person} /><div className="axis-person-label"><strong>{node.person.name}</strong><span>{node.roleTitle}</span></div>
+            {node.cardConfig && <CardFields node={node} config={node.cardConfig} />}
+            {!node.cardConfig && <div className="axis-person-heading"><AxisAvatar person={node.person} /><div className="axis-person-label"><strong>{node.person.name}</strong><span>{node.roleTitle}</span></div>
               {node.aiContext?.riskLevel === 'high' ? <span className="axis-status is-risk">{zh ? '需关注' : 'At risk'}</span> : <ChevronRight size={18} className="axis-muted-icon" />}
-            </div>
-            <AxisProgress value={averagePeopleAxisProgress([node])} label />
+            </div>}
+            {!node.cardConfig && <><AxisProgress value={averagePeopleAxisProgress([node])} label />
             {node.workItems[0] && <AxisMatter item={node.workItems[0]} lang={p.lang} />}
-            <span className="axis-chain-count">{node.workItems.length} {zh ? '个事项' : 'items'}{kids.length > 0 ? ` · ${kids.length} ${zh ? '位下级' : 'subordinates'}` : ''}</span>
+            <span className="axis-chain-count">{node.workItems.length} {zh ? '个事项' : 'items'}{kids.length > 0 ? ` · ${kids.length} ${zh ? '位下级' : 'subordinates'}` : ''}</span></>}
           </button>
+          {node.canEditCardStyle && <button type="button" className="axis-text-button" onClick={() => allData.get(node.id)?.onEditCard?.(node.id)}>编辑卡片</button>}
           {allData.get(node.id)?.canEdit && <div className="axis-chain-management">
             {allData.get(node.id)?.canAddSubordinate && <button onClick={() => allData.get(node.id)?.onAddChild(node.id)}><Plus size={18} />{zh ? '新增下级' : 'Add subordinate'}</button>}
             <button onClick={() => allData.get(node.id)?.onEditPerson(node.id)}><Pencil size={18} />{zh ? '编辑人员' : 'Edit person'}</button>
@@ -291,6 +297,7 @@ export function ResponsibilityWorkspace(p: Props) {
     </header>
     {p.isProject && <nav className="axis-quick-actions" aria-label={zh ? '人轴协作与检查' : 'Delegation and review'}>
       {p.onDelegate && <button className="axis-settings-row" onClick={p.onDelegate}><ShieldCheck size={18} />{zh ? '委托授权' : 'Manage delegations'}</button>}
+      {p.onDisplaySettings && <button className="axis-settings-row" onClick={p.onDisplaySettings}>显示设置</button>}
       <button className="axis-settings-row" disabled={p.auditing} onClick={p.onAudit}><Check size={18} />{zh ? p.auditing ? '审计中…' : 'AI 责任链审计' : 'AI responsibility audit'}</button>
     </nav>}
     <div className="axis-summary"><div className="axis-summary-progress"><strong>{p.isProject ? (zh ? p.scope === 'mine' ? '我的职责' : '项目全貌' : 'Responsibility') : (zh ? `${p.projectSummaries.length} 个项目` : `${p.projectSummaries.length} projects`)}</strong><AxisProgress value={p.isProject ? p.progress : averagePeopleAxisProgress(summaryNodes)} /><b>{p.isProject ? p.progress : averagePeopleAxisProgress(summaryNodes)}%</b></div>

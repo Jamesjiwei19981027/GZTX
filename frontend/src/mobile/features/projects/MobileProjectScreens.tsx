@@ -30,6 +30,7 @@ import { MobileConfirm } from '../../ui/MobileConfirm';
 import { archiveProjectRequest, unarchiveProjectRequest, updateProjectInfo, notifyProjectsChanged } from '../../../api/manage';
 import { MobileEmptyState, MobileLoadingState } from '../../ui/MobileState';
 import { MobileReportPolicySettings } from './MobileReportPolicySettings';
+import { CardTemplateEntry } from '../../../features/personCards/CardTemplateEntry';
 
 export interface MobileProjectScreensProps {
   currentProject: Project;
@@ -669,6 +670,7 @@ export const MobileProjectSettingsScreen: React.FC<{
           </div>
         )}
 
+        <CardTemplateEntry projectId={projectId} disabled={archived || busy} />
         {canManageProject(permissions) && <MobileReportPolicySettings key={projectId} projectId={projectId} canManage={canManageProject(permissions)} archived={archived} />}
 
         {canEdit && archived && (

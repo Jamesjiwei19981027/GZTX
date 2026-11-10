@@ -70,6 +70,7 @@ class AxisWorkItem {
     required this.status,
     required this.percent,
     this.dueAt,
+    this.lastProgressAt,
   });
 
   final int id;
@@ -80,6 +81,7 @@ class AxisWorkItem {
   final String status;
   final int percent;
   final DateTime? dueAt;
+  final DateTime? lastProgressAt;
 
   bool get isMilestone => nodeTypeKey == 'milestone';
 
@@ -115,6 +117,7 @@ class AxisWorkItem {
       status: _asString(progress['status']),
       percent: axisProgressPercent(progress),
       dueAt: due is String ? DateTime.tryParse(due)?.toLocal() : null,
+      lastProgressAt: progress['last_record_id'] != null && progress['updated_at'] is String ? DateTime.tryParse(progress['updated_at'] as String) : null,
     );
   }
 }
@@ -166,10 +169,18 @@ class AxisPersonNode {
     this.startAt,
     this.dueAt,
     this.sortOrder = 0,
+    this.cardStyle,
+    this.cardConfig,
+    this.canEditCardStyle = false,
+    this.profileAvatarUrl = '',
   });
 
   final int id;
   final int? parentId;
+  final Map<String, dynamic>? cardStyle;
+  final Map<String, dynamic>? cardConfig;
+  final bool canEditCardStyle;
+  final String profileAvatarUrl;
 
   /// 后端节点标题（新增人员时等于姓名）。
   final String title;
@@ -216,12 +227,18 @@ class AxisPersonNode {
       responsibilityPermissions['channel_access'] == true;
 
   AxisPersonNode copyWith({
+    Map<String, dynamic>? cardConfig,
+    String? profileAvatarUrl,
     Offset? layoutOffset,
     Offset? horizontalOffset,
     Offset? verticalOffset,
   }) =>
       AxisPersonNode(
         id: id,
+        cardStyle: cardStyle,
+        cardConfig: cardConfig ?? this.cardConfig,
+        canEditCardStyle: canEditCardStyle,
+        profileAvatarUrl: profileAvatarUrl ?? this.profileAvatarUrl,
         parentId: parentId,
         title: title,
         description: description,
@@ -354,6 +371,8 @@ class AxisProjectInfo {
     this.createdBy,
     this.finalOwnerAlongDelta = 0,
     this.status,
+    this.cardTemplate,
+    this.canEditCardTemplate = false,
   });
 
   final int id;
@@ -363,6 +382,8 @@ class AxisProjectInfo {
   /// 已停用：终责轴向位置不再使用，仅为兼容服务端字段保留解析。
   final double finalOwnerAlongDelta;
   final String? status;
+  final Map<String, dynamic>? cardTemplate;
+  final bool canEditCardTemplate;
 
   factory AxisProjectInfo.fromJson(Map<String, dynamic> json) {
     return AxisProjectInfo(
@@ -372,6 +393,8 @@ class AxisProjectInfo {
       createdBy: _asNullableInt(json['created_by']),
       finalOwnerAlongDelta: _asDouble(json['final_owner_along_delta']),
       status: json['status'] as String?,
+      cardTemplate: json['card_template_json'] is Map ? Map<String, dynamic>.from(json['card_template_json'] as Map) : null,
+      canEditCardTemplate: json['can_edit_card_template'] == true,
     );
   }
 }

@@ -116,6 +116,8 @@ class ProjectDetail {
     this.finalOwnerName,
     this.finalOwnerUserId,
     this.createdBy,
+    this.cardTemplate = const {},
+    this.canEditCardTemplate = false,
   });
 
   final int id;
@@ -128,6 +130,8 @@ class ProjectDetail {
   final String? finalOwnerName;
   final int? finalOwnerUserId;
   final int? createdBy;
+  final Map<String, dynamic> cardTemplate;
+  final bool canEditCardTemplate;
 
   factory ProjectDetail.fromJson(Map<String, dynamic> json) {
     final owner = _asMap(json['final_owner']);
@@ -146,6 +150,8 @@ class ProjectDetail {
           _asInt(json['final_owner_user_id']) ??
           (owner == null ? null : _asInt(owner['user_id'])),
       createdBy: _asInt(json['created_by']),
+        cardTemplate: json['card_template_json'] is Map ? Map<String, dynamic>.from(json['card_template_json'] as Map) : {},
+        canEditCardTemplate: json['can_edit_card_template'] == true,
     );
   }
 

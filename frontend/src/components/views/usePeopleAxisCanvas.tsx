@@ -109,6 +109,7 @@ export interface UsePeopleAxisCanvasOptions {
   onAddChild?: (parentId: string) => void
   onAddWorkItem?: (nodeId: string) => void
   onEditPerson?: (nodeId: string) => void
+  onEditCard?: (nodeId: string) => void
   onReloadAxis?: () => Promise<void>
   onShowToast?: (message: string) => void
   onSyncStatus?: (status: 'syncing' | 'synced') => void
@@ -542,6 +543,7 @@ export function usePeopleAxisCanvas(options: UsePeopleAxisCanvasOptions) {
     layout.stacks.forEach(entries => entries.forEach(e => stacked.add(e.memberId)))
     const buildData = (n: PeopleAxisNode): PersonNodeData => {
       const data: PersonNodeData = {
+        onEditCard: id => { if (isBackendProject && n.canEditCardStyle) cb.current.onEditCard?.(id) },
         node: n,
         lang,
         level: layout.levels.get(n.id) || 1,

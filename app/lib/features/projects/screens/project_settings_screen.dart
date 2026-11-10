@@ -10,6 +10,8 @@ import '../models/project_models.dart';
 import 'project_report_policy_screen.dart';
 import '../widgets/project_error_view.dart';
 import '../widgets/project_widgets.dart';
+import '../../axis/widgets/person_card_editor.dart';
+import '../../axis/data/axis_api.dart';
 
 class ProjectSettingsScreen extends StatefulWidget {
   const ProjectSettingsScreen({super.key, required this.projectId});
@@ -447,6 +449,8 @@ class _ProjectSettingsScreenState extends State<ProjectSettingsScreen> {
             ),
           ],
         ),
+        if (project?.canEditCardTemplate == true && !archived)
+          AppListSection(header: '人员卡片', children: [AppListTile(title: '卡片模板', subtitle: '字段、密度与默认颜色', onTap: () { final id = widget.projectId; showPersonCardEditor(context: context, mode: 'template', initial: project!.cardTemplate, onSave: (value) async { await AxisApi(_repo.api).saveCardTemplate(id, value); if (mounted && widget.projectId == id) await _load(); }); })]),
         if (_canManage && !archived)
           AppListSection(header: '项目管理', children: [
             AppListTile(title: '修改项目名称', onTap: _busy ? null : _rename),

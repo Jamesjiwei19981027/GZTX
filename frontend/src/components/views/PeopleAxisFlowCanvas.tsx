@@ -1,4 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { CardFields, FoldedCardLabel } from '../../features/personCards/CardFields'
+import { CARD_PALETTE } from '../../features/personCards/model'
 import {
   ReactFlow, ReactFlowProvider, Panel, BaseEdge, Handle, Position, Background,
   ViewportPortal, useInternalNode, useNodesState, useReactFlow, useViewport, useStore, useNodesInitialized,
@@ -17,6 +19,7 @@ import { type AxisOrientation, CARD_W, CARD_H, FOLDED_ROW_H, FOLDED_ROW_H_MOBILE
 import { summarizeCardTasks, cardTaskChip, cardOverdueCount } from '../../api/mappers'
 
 export interface PersonNodeData extends Record<string, unknown> {
+  onEditCard?: (id: string) => void
   timelineItem?: AxisWorkItem
   node: PeopleAxisNode
   lang: Language
@@ -103,7 +106,7 @@ const FoldedRowNode: React.FC<NodeProps<FoldedRowFlowNode>> = ({ data: d }) => {
       {d.foldedFirst && <i className="axis-fold-stem" aria-hidden="true" />}
       <button
         type="button"
-        className="axis-folded-row nodrag nopan"
+        className={`axis-folded-row nodrag nopan${n.cardConfig ? ' has-card-config' : ''}`}
         data-testid={`axis-folded-row-${n.id}`}
         aria-expanded={false}
         aria-label={zh ? `展开 ${n.person.name}` : `Expand ${n.person.name}`}
@@ -113,7 +116,7 @@ const FoldedRowNode: React.FC<NodeProps<FoldedRowFlowNode>> = ({ data: d }) => {
           d.onToggleRow?.(n.id)
         }}
       >
-        <strong className="axis-folded-name">{n.person.name}</strong>
+        {n.cardConfig ? <FoldedCardLabel node={n} config={n.cardConfig} /> : <strong className="axis-folded-name">{n.person.name}</strong>}
         <span className="axis-folded-role">{n.roleTitle}</span>
         <span className="axis-folded-count">{zh ? `任务 ${total}` : `Tasks ${total}`}</span>
         {overdue > 0 ? <span className="axis-folded-over">{zh ? `逾期 ${overdue}` : `Overdue ${overdue}`}</span> : <span aria-hidden="true" />}
@@ -149,8 +152,10 @@ const PersonCard: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
     <div
       data-node-anchor={n.id}
       data-node-origin={n.nodeOrigin || 'project'}
+      aria-label={`人员卡片 ${n.person.name}`}
+      style={n.cardConfig ? { '--card-accent': CARD_PALETTE[n.cardConfig.color].color } as React.CSSProperties : undefined}
       data-testid={d.mobile ? `mobile-axis-node-${n.id}` : undefined}
-      className={`axis-map-card${d.foldedMember ? ' is-folded-member' : ''}${isTerminal ? ' is-terminal' : ''}${isCompact ? ' is-compact' : ''}${d.isSelected ? ' is-selected' : ''}${d.isLinkingSource ? ' is-link-source' : ''}${d.linkingActive ? ' nopan' : ''}${d.linkingActive && !d.isLinkingSource ? ' is-link-target' : ''}${d.dropState === 'ok' ? ' drop-ok' : d.dropState === 'bad' ? ' drop-bad' : ''}`}
+      className={`axis-map-card${n.cardConfig ? ' has-card-config' : ''}${d.foldedMember ? ' is-folded-member' : ''}${isTerminal ? ' is-terminal' : ''}${isCompact ? ' is-compact' : ''}${d.isSelected ? ' is-selected' : ''}${d.isLinkingSource ? ' is-link-source' : ''}${d.linkingActive ? ' nopan' : ''}${d.linkingActive && !d.isLinkingSource ? ' is-link-target' : ''}${d.dropState === 'ok' ? ' drop-ok' : d.dropState === 'bad' ? ' drop-bad' : ''}`}
       onMouseEnter={() => d.linkingActive && !d.isLinkingSource && d.onHoverTarget(n.id)}
       onMouseLeave={() => d.linkingActive && d.onHoverTarget(null)}
     >
@@ -179,7 +184,7 @@ const PersonCard: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
           {!isCompact && <div className="axis-card-role">{n.roleTitle}</div>}
         </div>
 
-        {!isCompact && (
+        {(!isCompact || n.cardConfig) && (
           <div className="axis-card-corner" ref={menuRef}>
             {d.canAddSubordinate && (!d.mobile || d.isSelected) && (
               <button
@@ -211,7 +216,7 @@ const PersonCard: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
                 <Undo2 size={18} />
               </button>
             )}
-            {(d.canEdit || d.canRelink) && (!d.mobile || d.isSelected) && (
+            {(d.canEdit || d.canRelink || n.canEditCardStyle) && (!d.mobile || d.isSelected) && (
               <button
                 type="button"
                 className="axis-card-icon-btn nodrag"
@@ -228,6 +233,7 @@ const PersonCard: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
             )}
             {menuOpen && (
               <div className="axis-card-menu nodrag" onClick={e => e.stopPropagation()}>
+                {n.canEditCardStyle && <button type="button" onClick={() => { setMenuOpen(false); d.onEditCard?.(n.id) }}>编辑卡片</button>}
                 {d.canEdit && (
                   <button
                     type="button"
@@ -265,7 +271,7 @@ const PersonCard: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
         )}
       </div>
 
-      {isCompact && (d.foldedMember || d.canReturn) && (
+      {isCompact && !n.cardConfig && (d.foldedMember || d.canReturn) && (
         <div className="axis-compact-actions">
           {d.foldedMember && (
             <>
@@ -299,7 +305,8 @@ const PersonCard: React.FC<NodeProps<PersonFlowNode>> = ({ data: d }) => {
           )}
         </div>
       )}
-      {isCompact ? (
+      {n.cardConfig && <div className="person-card-scroll nodrag nopan nowheel"><CardFields node={n} config={n.cardConfig} /></div>}
+      {isCompact && !n.cardConfig ? (
         <div className="axis-compact-status">
           {overdueCount > 0 ? (
             <>

@@ -25,6 +25,7 @@ from app.schemas.project import (
     PullMemberBody,
 )
 from app.schemas.tree import NodeCreate
+from app.schemas.person_cards import CardTemplateBody, CardStyleBody
 from app.services.acl import AclService
 from app.services.entitlement import EntitlementService
 from app.services.import_token_store import import_token_store
@@ -51,6 +52,7 @@ def _project_dto(p: Project, my_role: str | None = None, member_count: int | Non
         # 终责卡片沿主干的偏移，服务端持久化 → 跨端、跨设备一致
         "final_owner_along_delta": p.final_owner_along_delta or 0,
         "created_by": p.created_by,
+        "card_template_json": p.card_template_json or {},
         "created_at": p.created_at.isoformat() if p.created_at else None,
         "archived_at": p.archived_at.isoformat() if p.archived_at else None,
         "my_role": my_role,
@@ -220,10 +222,51 @@ async def get_project(project_id: int, db: DbSession, user: CurrentUser):
     return ResponseData(
         data=await _attach_final_owner(
             db,
-            _project_dto(p, my_role=pm.role if pm else None, member_count=cnt),
+            {**_project_dto(p, my_role=pm.role if pm else None, member_count=cnt),
+             'can_edit_card_template': bool(m.employment_status == 'active' and p.status != 'archived' and
+                 (user.id in (p.created_by, p.pm_user_id) or pm and pm.role == 'pm'))},
             user.id,
         )
     )
+
+
+@router.put('/projects/{project_id}/card-template', summary='保存项目卡片模板')
+async def put_card_template(project_id: int, body: CardTemplateBody, db: DbSession, user: CurrentUser):
+    return await _save_card_config(project_id, body.model_dump(exclude_unset=True), db, user)
+
+
+@router.put('/projects/{project_id}/nodes/{node_id}/card-style', summary='保存人员卡片样式')
+async def put_card_style(project_id: int, node_id: int, body: CardStyleBody, db: DbSession, user: CurrentUser):
+    node = await db.get(TreeNode, node_id)
+    if not node or node.is_deleted or node.project_id != project_id:
+        return fail(404, 40400, '项目或节点不存在')
+    return await _save_card_config(project_id, body.model_dump(exclude_unset=True), db, user, node)
+
+
+async def _save_card_config(project_id, body, db, user, node=None):
+    from app.services.person_cards import locked_card_update
+    async with locked_card_update(project_id):
+        return await _save_card_config_locked(project_id, body, db, user, node)
+
+
+async def _save_card_config_locked(project_id, body, db, user, node=None):
+    from app.core.collab_errors import CollabError
+    project = await db.get(Project, project_id)
+    if not project:
+        return fail(404, 40400, '项目不存在')
+    if project.status == 'archived':
+        return fail(403, 40311, '归档项目不允许修改卡片')
+    try:
+        await assert_company_write(db, project.company_id, feature='project_tree')
+        value = await tsvc.save_card(db, project, user.id, body, node)
+    except CollabError as e:
+        return fail(e.http_status, e.code, e.message)
+    except PermissionError as e:
+        return fail(403, 40300, str(e))
+    except ValueError as e:
+        return fail(422, 42200, str(e))
+    await db.commit()
+    return ResponseData(data={'card_style_json' if node is not None else 'card_template_json': value})
 
 
 @router.get("/projects/{project_id}/my-permissions")
@@ -631,6 +674,7 @@ async def _node_dto(db, node: TreeNode, with_children: bool = False) -> dict:
         "description": node.description,
         "node_origin": node.node_origin,
         "responsibility_permissions": node.responsibility_permissions or {},
+        "card_style_json": node.card_style_json or {},
         "sort_order": node.sort_order,
         "path": node.path,
         "depth": node.depth,
@@ -699,6 +743,7 @@ async def _node_dtos_batched(db, nodes: list[TreeNode]) -> list[dict]:
                 "description": node.description,
                 "node_origin": node.node_origin,
                 "responsibility_permissions": node.responsibility_permissions or {},
+                "card_style_json": node.card_style_json or {},
                 "sort_order": node.sort_order,
                 "path": node.path,
                 "depth": node.depth,
@@ -736,8 +781,13 @@ async def get_tree(
         )
     ).scalars().all()
     dtos = await _node_dtos_batched(db, list(rows))
+    from app.services.person_cards import card_access
+    can_template, editable = await card_access(db, p, user.id)
+    for dto in dtos:
+        dto['can_edit_card_style'] = dto['id'] in editable
+    card_meta = {'card_template_json': p.card_template_json or {}, 'can_edit_card_template': can_template}
     if format == "flat":
-        return ResponseData(data={"project_id": p.id, "nodes": dtos})
+        return ResponseData(data={"project_id": p.id, "nodes": dtos, **card_meta})
 
     by_id = {d["id"]: {**d, "children": []} for d in dtos}
     roots = []
@@ -747,7 +797,7 @@ async def get_tree(
             by_id[pid]["children"].append(d)
         else:
             roots.append(d)
-    return ResponseData(data={"project_id": p.id, "nodes": roots})
+    return ResponseData(data={"project_id": p.id, "nodes": roots, **card_meta})
 
 
 @router.post("/projects/{project_id}/nodes")

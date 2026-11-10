@@ -154,6 +154,9 @@ class AxisTreeMapper {
         AxisPersonNode(
           id: id,
           parentId: parentId,
+          cardStyle: node['card_style_json'] is Map ? Map<String, dynamic>.from(node['card_style_json'] as Map) : null,
+          canEditCardStyle: node['can_edit_card_style'] == true,
+          profileAvatarUrl: (primary?['avatar_url'] ?? '').toString(),
           title: (node['title'] ?? '').toString(),
           description: description,
           name: name,

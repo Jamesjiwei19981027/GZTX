@@ -163,6 +163,8 @@ export interface AxisEvidence {
 }
 
 export interface AxisWorkItem {
+  lastProgressAt?: string;
+  lastProgressText?: string;
   id: string;
   title: string;
   type: 'task' | 'milestone' | 'scope';
@@ -177,6 +179,10 @@ export interface AxisWorkItem {
 }
 
 export interface PeopleAxisNode {
+  cardStyle?: import('./features/personCards/model').CardStyle;
+  cardConfig?: import('./features/personCards/model').ResolvedCard;
+  canEditCardStyle?: boolean;
+  cardDescription?: string;
   id: string;
   person: TeamMember;
   parentId?: string; // If undefined, node is on the main responsibility trunk. If set, node is a subordinate ("人挂到人上 = 下级人员")
