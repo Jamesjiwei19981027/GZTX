@@ -2,12 +2,25 @@ package com.worktodo.worktodo_app
 
 import io.flutter.embedding.android.FlutterActivity
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
+    override fun onNewIntent(intent: Intent) {
+        // FlutterActivity 不会替换 getIntent()；先更新，确保热点击也按本次 URI 判断。
+        setIntent(intent)
+        super.onNewIntent(intent)
+    }
+
+    // 保留邀请/SSO 深链；极光厂商 intent 的 n_extra 不交给 Flutter 路由。
+    // https://pub.dev/packages/jpush_flutter
+    override fun shouldHandleDeeplinking(): Boolean {
+        val uri = intent?.data
+        return uri == null || (uri.scheme == "worktodo" && (uri.host == "invite" || uri.host == "sso"))
+    }
     private var microphoneResult: MethodChannel.Result? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

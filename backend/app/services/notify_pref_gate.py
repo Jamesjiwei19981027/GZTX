@@ -13,6 +13,7 @@ from app.core.config import settings
 
 # 提醒渠道 -> 偏好里的渠道名；短信等没有对应开关的渠道不受限
 _CHANNEL_TO_PREF = {
+    "push": "push",
     "email": "email",
     "web_push": "push",
     "web_popup": "push",

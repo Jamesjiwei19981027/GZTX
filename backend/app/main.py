@@ -635,6 +635,8 @@ async def validation_error_logger(request, exc: RequestValidationError):
 
 
 # 注册 API 路由
+from app.api.v1 import push as push_api
+app.include_router(push_api.router, prefix="/api/v1")
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(tasks.router, prefix="/api/v1")
 app.include_router(categories.router, prefix="/api/v1")

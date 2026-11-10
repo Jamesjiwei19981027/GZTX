@@ -7,6 +7,7 @@ import '../models/company.dart';
 import '../models/project.dart';
 import '../models/user.dart';
 import '../../features/projects/invite_link.dart';
+import '../../push/push_service.dart';
 
 /// 认证与当前会话状态
 enum AuthStatus {
@@ -24,6 +25,7 @@ class AuthState extends ChangeNotifier {
   }
 
   void _handleAuthExpired() {
+    PushService.instance.stop();
     _status = AuthStatus.unauthenticated;
     _currentUser = null;
     _currentCompany = null;
@@ -147,6 +149,7 @@ class AuthState extends ChangeNotifier {
 
       _status = AuthStatus.authenticated;
       notifyListeners();
+      PushService.instance.register(_api);
     } catch (e) {
       await _applySessionError(e, duringBootstrap: true);
     }
@@ -210,6 +213,7 @@ class AuthState extends ChangeNotifier {
   /// 退出登录
   Future<void> logout() async {
     try {
+      await PushService.instance.unregister(_api);
       if (_api.tokens.hasAccess) {
         await _api.post('/auth/logout').catchError((_) => null);
       }

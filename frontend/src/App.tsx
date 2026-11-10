@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { enqueuePrefWrite } from './api/serialQueue';
+import { bindNativePushSession } from './push/nativePush';
 import { PROJECTS_CHANGED_EVENT } from './api/manage';
 import {
   Task,
@@ -202,6 +203,9 @@ export default function App() {
   const isMobileView = useIsMobileViewport();
   const toast = useToast();
   const [authed, setAuthed] = useState(() => !!getToken());
+  useEffect(() => {
+    if (authed) return bindNativePushSession();
+  }, [authed]);
   /** null=检查中；false=需补验邮箱；true=邮箱已验证（个人待办可用） */
   const [verified, setVerified] = useState<boolean | null>(() =>
     getToken() ? null : true,
@@ -1233,6 +1237,7 @@ export default function App() {
 
       {isMobileView ? (
         <MobileAppShell
+          pushReady={!loadingBoot}
           user={user}
           tasks={filteredTasks}
           projects={displayProjects}

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notify import NotifyJob, NotifyPolicy
 
-DEFAULT_CHANNELS = ["in_app", "wechat", "email"]
+DEFAULT_CHANNELS = ["in_app", "wechat", "email", "push"]
 
 
 class NotificationService:
@@ -46,10 +46,24 @@ class NotificationService:
                         break
             chs = list(chosen.channels_json) if chosen and chosen.channels_json else list(DEFAULT_CHANNELS)
 
+        # 既有业务显式列出 in_app/email 的调用同样获得系统推送伴随通道。
+        # 只发邮件等非站内任务不额外推送；用户级开关仍在入队/消费时复查。
+        chs = list(chs)
+        if 'in_app' in chs and 'push' not in chs:
+            chs.append('push')
         # sms reserved: skip actual unless explicitly only
         job_ids: list[int] = []
         for uid in user_ids:
             for ch in chs:
+                if ch == "push":
+                    from app.core.config import settings
+                    from app.models.user import User
+                    from app.services.notify_pref_gate import channel_enabled
+                    if not settings.jpush_enabled:
+                        continue
+                    user = await db.get(User, uid)
+                    if not user or not user.is_active or not channel_enabled(user.notify_pref, 'push'):
+                        continue
                 job = NotifyJob(
                     company_id=company_id,
                     user_id=uid,

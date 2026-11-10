@@ -245,6 +245,15 @@ class MeApi {
     return MeNotifyTestResult.fromJson(data);
   }
 
+  Future<bool> pushEnabled() async {
+    try {
+      final data = await _client.get('/push/status');
+      return data is Map && data['enabled'] == true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<List<MeNotifyRecord>> listNotifyRecords({int limit = 50}) async {
     final data = await _client.get(
       '/notify/records',

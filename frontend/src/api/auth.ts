@@ -1,4 +1,5 @@
 import { apiRequest, getRefreshToken, setRefreshToken, setToken } from './client'
+import { unregisterNativePush } from '../push/nativePush'
 
 export type BackendUser = {
   id: number
@@ -238,6 +239,7 @@ export async function changePassword(oldPassword: string, newPassword: string) {
 }
 
 export async function logout() {
+  await unregisterNativePush()
   try {
     // 携带 refresh_token 让服务端撤销其 jti（旧后端忽略该字段，向后兼容）
     const refresh = getRefreshToken()

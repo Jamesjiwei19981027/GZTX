@@ -35,6 +35,7 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
   final _endController = TextEditingController();
 
   bool _loading = true;
+  bool _pushEnabled = false;
   Object? _loadError;
   MeNotifyPref _pref = const MeNotifyPref();
   bool _saving = false;
@@ -64,10 +65,12 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
     });
     try {
       final user = await _api.fetchMe();
+      final pushEnabled = await _api.pushEnabled();
       if (!mounted) return;
       final pref = MeNotifyPref.fromJson(user.notifyPref);
       setState(() {
         _pref = pref;
+        _pushEnabled = pushEnabled;
         _startController.text = pref.quietHoursStart;
         _endController.text = pref.quietHoursEnd;
         _loading = false;
@@ -219,7 +222,9 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
   Widget _channelsCard() {
     return MeCard(
       title: '接收渠道',
-      footer: 'App 打开时接收通知；切到后台或关闭后不提供系统推送。其他渠道开关会同步到个人通知偏好。',
+      footer: _pushEnabled
+          ? '系统推送需授予系统通知权限；渠道开关同步到个人通知偏好。'
+          : 'App 打开时接收通知；切到后台或关闭后不提供系统推送。其他渠道开关会同步到个人通知偏好。',
       children: [
         _switchRow(
           title: '邮件通知',
@@ -231,6 +236,14 @@ class _MeNotificationsScreenState extends State<MeNotificationsScreen> {
           ),
         ),
         const MeInfoRow(label: '站内通知', value: 'App 打开时接收通知'),
+        if (_pushEnabled)
+          _switchRow(
+            title: '系统推送',
+            subtitle: '在安卓通知栏接收工作提醒，可在系统设置调整权限',
+            value: _pref.push,
+            onChanged: (value) => _savePref(_pref.copyWith(push: value),
+                successMessage: value ? '已开启系统推送' : '已关闭系统推送'),
+          ),
         _switchRow(
           title: '微信服务号提醒',
           subtitle: '需先在「第三方服务绑定」中完成微信绑定',

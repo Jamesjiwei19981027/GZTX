@@ -5,13 +5,30 @@ import { MobileRouteOutlet, MobileRouteOutletSharedProps } from './navigation/Mo
 import { MobileTabBar } from './ui/MobileTabBar';
 import { mapLegacyViewToMobileRoute } from './navigation/mobileRoutes';
 import { readDeepLink } from '../utils/deepLink';
+import { subscribePushOpen } from '../push/nativePush';
+import { readyPushTarget } from '../push/pushTarget';
 
 export interface MobileAppShellProps extends MobileRouteOutletSharedProps {
   unreadMessagesCount?: number;
+  pushReady?: boolean;
 }
 
 const MobileAppShellInner: React.FC<MobileAppShellProps> = (props) => {
-  const { currentTab, switchTab } = useMobileNavigation();
+  const { currentTab, switchTab, push } = useMobileNavigation();
+  const [pendingPush, setPendingPush] = React.useState<Record<string, unknown> | null>(null);
+  React.useEffect(() => subscribePushOpen(setPendingPush), []);
+  React.useEffect(() => {
+    if (!pendingPush) return;
+    const target = readyPushTarget(pendingPush, props.projects.map(project => project.id), props.pushReady !== false);
+    if (!target) return;
+    const projectId = target.params?.projectId;
+    if (projectId) {
+      const project = props.projects.find(item => String(item.id) === projectId);
+      if (project) props.onSelectProject(project);
+    }
+    setPendingPush(null);
+    push(target);
+  }, [pendingPush, push, props.projects, props.onSelectProject, props.pushReady]);
 
   const badges = {
     messages: props.unreadMessagesCount && props.unreadMessagesCount > 0 ? props.unreadMessagesCount : undefined,

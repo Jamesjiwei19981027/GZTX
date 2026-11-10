@@ -2,6 +2,7 @@
 ORM 模型导出
 """
 from app.models.user import User
+from app.models.push_device import PushDevice
 from app.models.category import Category
 from app.models.tag import Tag, task_tags
 from app.models.task import Task

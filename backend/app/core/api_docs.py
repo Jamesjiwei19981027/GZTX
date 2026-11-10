@@ -42,6 +42,7 @@ WorkTodo 后端全部接口。Web、APP、小程序与联调脚本共用同一�
 # 展示顺序即 Swagger 分组顺序；名称必须与各 router 的 tags 一致
 TAGS_METADATA: list[dict[str, str]] = [
     {"name": "系统", "description": "健康检查等系统接口"},
+    {"name": "系统推送", "description": "推送启用状态与当前账号的安卓/苹果设备登记、注销"},
     {"name": "认证", "description": "注册、登录、验证码、刷新令牌；`/auth/token` 供 Swagger 授权使用"},
     {"name": "用户", "description": "当前用户资料、绑定、隐私与账号注销"},
     {"name": "任务", "description": "个人与项目任务、回收站、统计"},
