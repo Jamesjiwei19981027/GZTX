@@ -13,7 +13,9 @@ for (const width of [1280, 390]) {
       await route.fulfill({ json: { code: 200, data: { id: 1 } } });
     });
     await page.route('**/jpush-harness', route => route.fulfill({ contentType: 'text/html', body: `
-      <html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div>
+      <html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+      <script type="module">import R from '/@react-refresh'; R.injectIntoGlobalHook(window);window.$RefreshReg$=()=>{};window.$RefreshSig$=()=>type=>type;window.__vite_plugin_react_preamble_installed__=true;</script>
+      </head><body><div id="root"></div>
       <script type="module" src="/e2e/jpush-harness.tsx"></script></body></html>` }));
     await page.goto('/jpush-harness');
     await expect(page.getByRole('checkbox', { name: '手机推送' })).toHaveCount(0);
