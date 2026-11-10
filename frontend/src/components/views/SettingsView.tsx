@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PushPreferenceSwitch } from '../PushPreferenceSwitch';
 import { AppSettings, UserProfile, Language, AccentColor } from '../../types';
 import { getT } from '../../i18n';
 import { getBrandName } from '../../constants/brand';
@@ -658,6 +659,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 {/* Desktop */}
+                <PushPreferenceSwitch checked={settings.notifications.push} onChange={push => onUpdateSettings({ notifications: { ...settings.notifications, push } })} />
                 <div className="flex items-center justify-between p-4 bg-surface-container-lowest dark:bg-surface-container rounded-xl">
                   <div className="flex items-center gap-3">
                     <span className="material-symbols-outlined text-inherit text-[18px]">desktop_windows</span>

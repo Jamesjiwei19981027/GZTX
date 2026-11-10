@@ -30,6 +30,7 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   clock: ^1.1.2
+  jpush_flutter: 3.6.0
 
 dev_dependencies:
   flutter_test:

@@ -29,6 +29,9 @@ async def process_one_job(db: AsyncSession, job_id: int) -> NotifyJob | None:
             )
         elif job.channel == "email":
             ok = await ch.send_email_channel(user, job.template_key, payload, db=db, company_id=job.company_id)
+        elif job.channel == "push":
+            from app.services.notify.push import send_push_channel
+            ok = await send_push_channel(db, user, job.template_key, payload)
         elif job.channel == "wechat":
             ok = await ch.send_wechat_channel(user, job.template_key, payload)
         elif job.channel == "sms":

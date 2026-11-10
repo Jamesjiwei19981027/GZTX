@@ -13,6 +13,7 @@
  */
 
 import { priorityLabel } from '../../../utils/taskLabels';
+import { PushPreferenceSwitch } from '../../../components/PushPreferenceSwitch';
 import React, { useState, useEffect, useTransition } from 'react';
 import { useMobileNavigation } from '../../navigation/MobileNavigationProvider';
 import { useNativeRuntime } from '../../runtime/NativeRuntimeProvider';
@@ -913,18 +914,11 @@ export const MobileNotificationSettingsScreen: React.FC<SettingsSharedProps> = (
               />
             </div>
 
-            <div className="flex items-center justify-between p-4">
-              <div className="flex flex-col">
-                <span className="text-base text-on-surface dark:text-on-surface">系统推送 (Push)</span>
-                <span className="text-xs text-on-surface-variant">任务分配、即时会话提及与紧急提醒</span>
-              </div>
-              <input
-                type="checkbox"
-                checked={notifications.push}
-                onChange={(e) => updateNotify('push', e.target.checked)}
-                className="w-5 h-5 accent-[#0058BE] cursor-pointer"
-              />
-            </div>
+            <PushPreferenceSwitch
+              checked={notifications.push}
+              native={typeof window !== 'undefined' && Boolean(window.FlutterBridge)}
+              onChange={value => updateNotify('push', value)}
+            />
 
             <div className="flex items-center justify-between p-4">
               <div className="flex flex-col">

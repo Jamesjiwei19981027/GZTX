@@ -157,6 +157,8 @@ export async function apiRequest<T>(
     throw new ApiError(429, RATE_LIMIT_MESSAGE)
   }
 
+  if (res.status === 204 && res.ok) return undefined as T
+
   let body: ApiBody<T> | null = null
   try {
     body = (await res.json()) as ApiBody<T>
@@ -174,5 +176,6 @@ export async function apiRequest<T>(
   if (!res.ok || !businessOk) {
     throw new ApiError(extractErrorCode(body, res.status), extractErrorMessage(body, res.status))
   }
-  return body.data as T
+  // 与 App 的 ApiClient 一致：有 data 则解包，否则保留原始对象（如 /push/status）。
+  return (body && Object.prototype.hasOwnProperty.call(body, 'data') ? body.data : body) as T
 }

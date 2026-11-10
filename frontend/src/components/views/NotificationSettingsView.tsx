@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PushPreferenceSwitch } from '../PushPreferenceSwitch';
 import { AppSettings, Language } from '../../types';
 import {
   getEmailStatus,
@@ -174,6 +175,7 @@ export const NotificationSettingsView: React.FC<NotificationSettingsViewProps> =
             <input type="checkbox" checked={settings.notifications[key]} onChange={(e) => updateNotifications({ [key]: e.target.checked })} className="w-5 h-5 accent-primary rounded" />
           </label>
         ))}
+        <PushPreferenceSwitch checked={settings.notifications.push} onChange={push => updateNotifications({ push })} />
         <label className="flex items-center justify-between p-4 bg-surface-container-low dark:bg-surface-container-high rounded-xl cursor-pointer">
           <span className="flex items-center gap-3"><span className="material-symbols-outlined text-inherit text-[18px]">notifications_active</span><span><span className="block font-medium text-sm tabular-nums">{zh ? '浏览器推送' : 'Browser push'}</span><span className="block text-xs text-on-surface-variant mt-1">{zh ? '授权后接收实时提醒' : 'Authorize this browser for real-time alerts'}</span></span></span>
           <input type="checkbox" checked={settings.notifications.push} onChange={(e) => {

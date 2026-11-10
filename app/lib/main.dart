@@ -10,10 +10,12 @@ import 'features/auth/gate/auth_gate_host.dart';
 import 'features/me/appearance/me_appearance.dart';
 import 'router/app_router.dart';
 import 'screens/web_shell_screen.dart';
+import 'push/privacy_consent_gate.dart';
+import 'push/push_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const WorkTodoApp());
+  runApp(const PrivacyConsentGate(child: WorkTodoApp()));
 }
 
 enum AppShellMode { native, webShell }
@@ -94,17 +96,48 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
       _authState = auth;
       _appearanceSync = MeAppearanceSessionSync(auth, _appearance);
       _appRouter = AppRouter(authState: auth);
+      auth.addListener(_openPendingPush);
+      PushService.instance.onNotification = _openPendingPush;
+      PushService.instance.onRegistration = () {
+        if (auth.isAuthenticated) PushService.instance.register(auth.api);
+      };
       auth.bootstrap();
     }
   }
 
   void _disposeNativeState() {
+    _authState?.removeListener(_openPendingPush);
+    PushService.instance.onNotification = null;
+    PushService.instance.onRegistration = null;
     _appearanceSync?.dispose();
     _appearanceSync = null;
     _appRouter?.router.dispose();
     _authState?.dispose();
     _appRouter = null;
     _authState = null;
+  }
+
+  void _openPendingPush() {
+    final service = PushService.instance;
+    final event = service.pendingNotification;
+    if (event == null || _authState?.isAuthenticated != true) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          _appRouter == null ||
+          _authState?.isAuthenticated != true ||
+          service.pendingNotification != event) {
+        return;
+      }
+      final target = pushDestination(event);
+      service.pendingNotification = null;
+      final router = _appRouter!.router;
+      router.goNamed('messages-root');
+      if (target != null) {
+        router.pushNamed(target.name,
+            pathParameters: target.pathParameters,
+            queryParameters: target.queryParameters);
+      }
+    });
   }
 
   @override

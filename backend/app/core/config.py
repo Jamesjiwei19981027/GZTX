@@ -5,7 +5,7 @@
 import os
 from typing import List
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
+from pydantic import field_validator, Field
 
 
 class Settings(BaseSettings):
@@ -80,6 +80,15 @@ class Settings(BaseSettings):
     VAPID_PUBLIC_KEY: str = ""
     VAPID_PRIVATE_KEY: str = ""
     VAPID_SUBJECT: str = "mailto:admin@example.com"
+
+    # 为空表示关闭；禁止把这两个字段输出到日志或接口。
+    JPUSH_APP_KEY: str = Field(default="", repr=False)
+    JPUSH_MASTER_SECRET: str = Field(default="", repr=False)
+    JPUSH_APNS_PRODUCTION: bool = False
+
+    @property
+    def jpush_enabled(self) -> bool:
+        return bool(self.JPUSH_APP_KEY.strip() and self.JPUSH_MASTER_SECRET.strip())
 
     # Team collab / license
     # Production: set LICENSE_VERIFY_MODE=ed25519 and LICENSE_PUBLIC_KEY=<urlsafe-b64 public key>
@@ -241,6 +250,11 @@ class Settings(BaseSettings):
         """
         if self.DEBUG:
             return
+
+        for name in ("JPUSH_APP_KEY", "JPUSH_MASTER_SECRET"):
+            value = getattr(self, name).strip()
+            if value and self._is_placeholder_secret(value):
+                raise RuntimeError(f"{name} 是占位值；请填写真实凭据或留空关闭极光推送")
 
         if self._is_placeholder_secret(self.SECRET_KEY) or len(self.SECRET_KEY or "") < 24:
             raise RuntimeError(
