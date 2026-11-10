@@ -935,6 +935,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         onDeleteMatter={isBackendProject ? (nodeId, itemId) => setMatterDelete({ nodeId, itemId }) : undefined}
         onAddEvidence={id => { if (!canSubmitEvidence(id)) return; setIsAddingEvidence(id); setNewEvDescription(''); setNewEvFiles([]); }}
         onAudit={handleRunAxisAudit} auditing={auditLoading} onReload={() => setLoadVersion(version => version + 1)}
+        onReloadAxis={() => { void reloadAxisFromBackend(); }}
         onOpenWiki={() => setWikiProject({ id: backendProjectId,
           name: projects?.find(project => project.id === String(backendProjectId))?.name || projectName || `${lang === 'zh' ? '项目' : 'Project'} #${backendProjectId}` })}
         onDelegate={isBackendProject && projectCompanyId != null

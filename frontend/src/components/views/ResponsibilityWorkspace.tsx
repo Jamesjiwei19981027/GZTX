@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowRight, BookOpen, Check, ChevronDown, ChevronRight, FileText, GitBranch, LocateFixed, MoreHorizontal, Pencil, Plus, RefreshCw, Settings, ShieldCheck, Users, X } from 'lucide-react'
 import type { AxisEvidence, Language, PeopleAxisNode, Project } from '../../types'
-import { EVIDENCE_STATUS_LABEL } from '../../api/mappers'
+import { EVIDENCE_STATUS_LABEL, mapEvidenceStatus } from '../../api/mappers'
 import { reviewEvidencePackage } from '../../api/backend'
 import { PeopleAxisFlowCanvas, responsibilityLevelLabel, type PeopleAxisFlowCanvasProps, type PersonNodeData } from './PeopleAxisFlowCanvas'
 import { averagePeopleAxisProgress, type AxisOrderMode } from './peopleAxisUtils'
@@ -81,6 +81,8 @@ type Props = {
   onOpenWiki?: () => void
   auditing: boolean
   onReload: () => void
+  /** 只重拉人轴（不重置项目元数据和面板），用于材料审查后原地刷新；缺省回退 onReload */
+  onReloadAxis?: () => void
   onDelegate?: () => void
   onSeed: () => void
   seeding: boolean
@@ -100,11 +102,13 @@ type Props = {
 }
 
 /** 材料行：状态、驳回原因；负责人（后端 can_review）可采纳/驳回 */
-const EvidenceRow: React.FC<{ ev: AxisEvidence & { item: string }; onReloaded: () => void }> = ({ ev, onReloaded }) => {
+const EvidenceRow: React.FC<{ ev: AxisEvidence & { item: string }; onReloaded: () => void }> = ({ ev: source, onReloaded }) => {
   const [rejecting, setRejecting] = useState(false)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [reviewed, setReviewed] = useState<{ source: typeof source; value: typeof source } | null>(null)
+  const ev = reviewed?.source.id === source.id && reviewed.source.status === source.status ? reviewed.value : source
   let href: string | undefined
   try { const url = new URL(ev.url); if (['https:', 'http:'].includes(url.protocol)) href = url.href } catch { /* no external link */ }
   const review = async (decision: 'adopted' | 'rejected') => {
@@ -112,7 +116,9 @@ const EvidenceRow: React.FC<{ ev: AxisEvidence & { item: string }; onReloaded: (
     if (!Number.isFinite(id)) return
     setBusy(true); setError('')
     try {
-      await reviewEvidencePackage(id, { decision, reason: decision === 'rejected' ? reason.trim() || undefined : undefined })
+      const result = await reviewEvidencePackage(id, { decision, reason: decision === 'rejected' ? reason.trim() || undefined : undefined })
+      setReviewed({ source, value: { ...source, status: mapEvidenceStatus(result.status), canReview: result.can_review,
+        rejectReason: result.reject_reason || undefined } })
       setRejecting(false); setReason('')
       onReloaded()
     } catch (e) {
@@ -125,8 +131,8 @@ const EvidenceRow: React.FC<{ ev: AxisEvidence & { item: string }; onReloaded: (
       <small>{ev.item} · {ev.timestamp}</small>
       {ev.status === 'rejected' && ev.rejectReason && <small className="axis-reject-reason" data-testid="axis-reject-reason">驳回原因：{ev.rejectReason}</small>}
       {canReview && !rejecting && <span className="axis-evidence-actions">
-        <button type="button" className="axis-secondary-button" disabled={busy} onClick={() => void review('adopted')}>采纳</button>
-        <button type="button" className="axis-secondary-button" disabled={busy} onClick={() => setRejecting(true)}>驳回</button>
+        <button type="button" data-testid={`axis-evidence-adopt-${ev.id}`} className="axis-secondary-button" disabled={busy} onClick={() => void review('adopted')}>采纳</button>
+        <button type="button" data-testid={`axis-evidence-reject-${ev.id}`} className="axis-secondary-button" disabled={busy} onClick={() => setRejecting(true)}>驳回</button>
       </span>}
       {canReview && rejecting && <span className="axis-evidence-actions">
         <input value={reason} maxLength={200} placeholder="驳回原因（选填）" onChange={e => setReason(e.target.value)} aria-label="驳回原因" />
@@ -135,7 +141,7 @@ const EvidenceRow: React.FC<{ ev: AxisEvidence & { item: string }; onReloaded: (
       </span>}
       {error && <small role="alert" style={{ color: 'var(--error, #b3261e)' }}>{error}</small>}
     </div>
-    <span className={`axis-status${ev.status === 'adopted' ? ' is-done' : ev.status === 'rejected' ? ' is-risk' : ev.status === 'awaiting_review' ? ' is-active' : ''}`}>{EVIDENCE_STATUS_LABEL[ev.status] || ev.status}</span>
+    <span className={`axis-status${ev.status === 'verified' ? ' is-done' : ev.status === 'rejected' ? ' is-risk' : ev.status === 'awaiting_review' ? ' is-active' : ''}`}>{EVIDENCE_STATUS_LABEL[ev.status] || ev.status}</span>
   </div>
 }
 
@@ -228,7 +234,7 @@ export function ResponsibilityWorkspace(p: Props) {
     allData.get(id)?.onCardClick(id)
   }
   const detail = selected && <NodeDetails node={selected} data={selectedData} nodes={p.nodes} lang={p.lang}
-    onSelect={id => { p.onSelect(id); if (mode === 'overview') p.onLocate?.(id) }} onAddEvidence={p.onAddEvidence} onAction={() => {}} onReloadEvidence={p.onReload}
+    onSelect={id => { p.onSelect(id); if (mode === 'overview') p.onLocate?.(id) }} onAddEvidence={p.onAddEvidence} onAction={() => {}} onReloadEvidence={p.onReloadAxis ?? p.onReload}
     onEditMatter={p.onEditMatter} onDeleteMatter={p.onDeleteMatter} />
   const renderChain = () => {
     const sorted = [...p.nodes].sort((a, b) => a.orderOnAxis - b.orderOnAxis)

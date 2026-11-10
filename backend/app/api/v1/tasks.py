@@ -70,6 +70,8 @@ async def _validate_collab_scope(
     project = await db.get(Project, project_id)
     if not project:
         raise HTTPException(status_code=404, detail="项目不存在")
+    if project.status == "archived":
+        raise HTTPException(status_code=409, detail="归档项目不允许创建或绑定任务")
     membership = await db.execute(
         select(ProjectMember.id).where(
             ProjectMember.project_id == project_id,

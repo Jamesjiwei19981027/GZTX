@@ -43,7 +43,7 @@ from app.models.user import User
 from app.schemas.common import ResponseData
 from app.services.acl import AclService
 from app.services.tree_service import TreeService
-from app.services.communication_summary import summarize_lines_with_llm, summary_dto
+from app.services.communication_summary import SUMMARY_SOURCE_LIMIT, summarize_lines_with_llm, summary_dto
 from app.services.work_contacts import allowed_work_contacts
 from app.services.responsibility_access import can_access_project_channels
 
@@ -729,7 +729,7 @@ async def _create_scope_summary(db, *, user_id: int, company_id: int, project_id
         requested_by=user_id,
         source_from_id=messages[0].get("id") if messages else None,
         source_to_id=messages[-1].get("id") if messages else None,
-        source_count=result["source_count"],
+        source_count=len(messages),
         summary_text=result["summary_text"],
         key_points_json=result["key_points"],
         decisions_json=result["decisions"],
@@ -769,8 +769,9 @@ async def summarize_channel(channel_id: int, db: DbSession, user: CurrentUser):
         return fail(e.http_status, e.code, e.message)
     rows = (await db.execute(
         select(TeamChannelMessage).where(TeamChannelMessage.channel_id == channel_id)
-        .order_by(TeamChannelMessage.id.asc()).limit(500)
+        .order_by(TeamChannelMessage.id.desc()).limit(SUMMARY_SOURCE_LIMIT)
     )).scalars().all()
+    rows.reverse()
     row = await _create_scope_summary(
         db,
         user_id=user.id,
@@ -806,8 +807,9 @@ async def summarize_conversation(conversation_id: int, db: DbSession, user: Curr
         return fail(e.http_status, e.code, e.message)
     rows = (await db.execute(
         select(DirectMessage).where(DirectMessage.conversation_id == conversation_id)
-        .order_by(DirectMessage.id.asc()).limit(500)
+        .order_by(DirectMessage.id.desc()).limit(SUMMARY_SOURCE_LIMIT)
     )).scalars().all()
+    rows.reverse()
     row = await _create_scope_summary(
         db,
         user_id=user.id,

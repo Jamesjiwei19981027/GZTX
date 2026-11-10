@@ -108,6 +108,10 @@ assert.deepEqual(paging.mergeMessagesById([msg(1), msg(2)], [msg(2), msg(3)]).ma
 // 轮询只刷新最新一页，已加载的更早消息保留
 const prev = [msg(1), msg(2), msg(101), msg(102)]
 assert.deepEqual(paging.replaceLatestPage(prev, [msg(101), msg(102), msg(103)]).map((m) => m.id), [1, 2, 101, 102, 103])
+assert.deepEqual(
+  paging.replaceLatestPage([{ id: '1' }, { id: '101' }], [{ id: '101' }, { id: '102' }]).map((m) => m.id),
+  ['1', '101', '102'],
+)
 assert.equal(paging.hasMoreOlderMessages(100), true)
 assert.equal(paging.hasMoreOlderMessages(37), false)
 assert.equal(paging.hasMoreByTotal(50, 120), true)

@@ -30,7 +30,7 @@ import {
 } from '../../api/shell';
 import type { CallConfig, CollabFile, DirectConversation, CommunicationSummary } from '../../api/shell';
 import { getToken } from '../../api/client';
-import { hasMoreOlderMessages } from '../../utils/messagePaging';
+import { hasMoreOlderMessages, replaceLatestPage } from '../../utils/messagePaging';
 
 interface MessagesViewProps {
   user: UserProfile;
@@ -142,7 +142,7 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       };
     });
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (refresh = false) => {
     if (!companyId) {
       setMessages([]);
       setChannelMap({});
@@ -155,41 +155,44 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
     loadSeqRef.current = requestId;
     const isStale = () => loadSeqRef.current !== requestId;
 
-    setLoading(true);
+    if (!refresh) setLoading(true);
     setError(null);
     setLoadFailed(false);
-    olderPageRef.current = 1;
-    setCanLoadOlder(false);
+    if (!refresh) { olderPageRef.current = 1; setCanLoadOlder(false); }
     try {
+      if (activeChannel === 'direct') {
+        const conversationRes = await listDirectConversations(companyId);
+        if (isStale()) return;
+        const availableConversations = conversationRes.items || [];
+        setConversations(availableConversations);
+        // 切换企业时由下方 effect 清空旧会话 ID；这里保留当前选中的会话
+        // （刚新建的会话可能尚未出现在列表里，不能因此丢掉收件人）。
+        const conversationId = activeConversationId || availableConversations[0]?.id || null;
+        setActiveConversationId(conversationId);
+        if (!conversationId) { setMessages([]); return; }
+        const msgRes = await listDirectMessages(conversationId);
+        if (isStale()) return;
+        if (!refresh) setCanLoadOlder(hasMoreOlderMessages((msgRes.items || []).length));
+        const latestMessages: MessageItem[] = (msgRes.items || []).map((m) => ({
+          id: String(m.id),
+          senderName: m.sender_name,
+          senderAvatar: m.sender_avatar || user.avatar,
+          content: m.body,
+          timestamp: formatMessageTime(m.created_at, lang),
+          channel: 'direct' as const,
+          likes: 0,
+          repliesCount: 0,
+          attachments: mapAttachments(m.attachments),
+        }));
+        setMessages(previous => refresh ? replaceLatestPage(previous, latestMessages) : latestMessages);
+        return;
+      }
       const pid = projectId && projectId !== 'all' ? Number(projectId) : undefined;
       const chRes = await listChannels(companyId, Number.isFinite(pid) ? pid : undefined);
       if (isStale()) return;
       const map: Record<string, number> = {};
       for (const c of chRes.items || []) map[c.key] = c.id;
       setChannelMap(map);
-      if (activeChannel === 'direct') {
-        const conversationRes = await listDirectConversations(companyId);
-        if (isStale()) return;
-        setConversations(conversationRes.items || []);
-        const conversationId = activeConversationId || conversationRes.items?.[0]?.id || null;
-        setActiveConversationId(conversationId);
-        if (!conversationId) { setMessages([]); return; }
-        const msgRes = await listDirectMessages(conversationId);
-        if (isStale()) return;
-        setCanLoadOlder(hasMoreOlderMessages((msgRes.items || []).length));
-        setMessages((msgRes.items || []).map((m) => ({
-          id: String(m.id),
-          senderName: m.sender_name,
-          senderAvatar: m.sender_avatar || user.avatar,
-          content: m.body,
-          timestamp: formatMessageTime(m.created_at, lang),
-          channel: 'direct',
-          likes: 0,
-          repliesCount: 0,
-          attachments: mapAttachments(m.attachments),
-        })));
-        return;
-      }
       const chId = map[activeChannel];
       if (!chId) {
         setMessages([]);
@@ -215,9 +218,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
       if (isStale()) return;
       setError('消息加载失败，请重试');
       setLoadFailed(true);
-      setMessages([]);
+      if (!refresh) setMessages([]);
     } finally {
-      if (!isStale()) setLoading(false);
+      if (!isStale() && !refresh) setLoading(false);
     }
   }, [companyId, projectId, activeChannel, activeConversationId, lang, user.avatar]);
 
@@ -276,6 +279,27 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 切换企业后旧企业的私信会话 ID 失效，清空后由 load 选最新会话。
+  const prevCompanyRef = useRef(companyId);
+  useEffect(() => {
+    if (prevCompanyRef.current === companyId) return;
+    prevCompanyRef.current = companyId;
+    setActiveConversationId(null);
+  }, [companyId]);
+
+  useEffect(() => {
+    if (activeChannel !== 'direct' || !companyId || newChatOpen) return;
+    const refresh = () => { if (document.visibilityState === 'visible') void load(true); };
+    const timer = window.setInterval(refresh, 10_000);
+    window.addEventListener('focus', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', refresh);
+      document.removeEventListener('visibilitychange', refresh);
+    };
+  }, [activeChannel, companyId, newChatOpen, load]);
 
   useEffect(() => {
     if (!companyId) {
@@ -765,8 +789,9 @@ export const MessagesView: React.FC<MessagesViewProps> = ({
               <div className="mt-3 pt-3 border-t border-outline-variant/30 space-y-1">
                 <button type="button" onClick={() => setNewChatOpen(true)} className="w-full px-3 py-2 rounded-lg text-primary text-left text-sm font-medium tabular-nums">{lang === 'zh' ? '新建私聊' : 'New private chat'}</button>
                 {conversations.map((conversation) => (
-                  <button key={conversation.id} type="button" onClick={() => setActiveConversationId(conversation.id)} className={`w-full text-left px-3 py-2 rounded-lg text-xs ${activeConversationId === conversation.id ? 'bg-primary/10 text-primary font-medium' : 'text-on-surface-variant hover:bg-surface-container'}`}>
+                  <button key={conversation.id} type="button" data-testid={`direct-conversation-${conversation.id}`} onClick={() => setActiveConversationId(conversation.id)} className={`w-full text-left px-3 py-2 rounded-lg text-xs ${activeConversationId === conversation.id ? 'bg-primary/10 text-primary font-medium' : 'text-on-surface-variant hover:bg-surface-container'}`}>
                     {conversation.title || conversation.members.map((member) => member.name).join(', ') || (lang === 'zh' ? '私信会话' : 'Direct conversation')}
+                    {conversation.last_message && <span className="block truncate text-on-surface-variant mt-1">{conversation.last_message.body}</span>}
                   </button>
                 ))}
                 {!conversations.length && <p className="text-xs text-on-surface-variant px-3">{lang === 'zh' ? '暂无私信会话，请选择工作联系人。' : 'Choose a work contact to start a chat.'}</p>}

@@ -45,7 +45,6 @@ async def test_create_task(client: AsyncClient, auth_headers, test_user, db_sess
     assert data["data"]["status"] == 0
     assert data["data"].get("origin", "personal") == "personal"
 
-
 @pytest.mark.asyncio
 async def test_create_task_rejects_unknown_origin(
     client: AsyncClient, auth_headers, test_user, db_session

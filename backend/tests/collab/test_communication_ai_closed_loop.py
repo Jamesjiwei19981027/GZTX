@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.models.shell import DirectConversation, DirectConversationMember
+from app.models.shell import DirectConversation, DirectConversationMember, DirectMessage, TeamChannel, TeamChannelMessage
 
 
 @pytest.mark.asyncio
@@ -41,6 +41,56 @@ async def test_channel_history_can_be_summarized_and_is_project_scoped(async_cli
 
 
 @pytest.mark.asyncio
+async def test_channel_summary_uses_latest_messages_window(async_client, db_session, seed_ids):
+    info = seed_ids
+    channel = TeamChannel(company_id=info["company_id"], project_id=info["project_id"], key="latest-window", name="最新窗口")
+    db_session.add(channel)
+    await db_session.flush()
+    db_session.add_all([
+        TeamChannelMessage(
+            channel_id=channel.id,
+            user_id=info["member_user_id"],
+            body="决定最新消息" if index == 500 else f"历史消息 {index}",
+        )
+        for index in range(501)
+    ])
+    await db_session.commit()
+
+    response = await async_client.post(
+        f"/api/v1/channels/{channel.id}/summaries",
+        headers=info["member_headers"],
+        json={},
+    )
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["source_count"] == 100
+    assert data["source_to_id"] > data["source_from_id"]
+    assert data["source_to_id"] - data["source_from_id"] + 1 == data["source_count"]
+    assert "最新消息" in data["summary_text"]
+
+
+@pytest.mark.asyncio
+async def test_conversation_summary_uses_latest_window_and_matching_range(async_client, db_session, seed_ids):
+    info = seed_ids
+    conversation = DirectConversation(company_id=info["company_id"], created_by=info["member_user_id"])
+    db_session.add(conversation)
+    await db_session.flush()
+    db_session.add(DirectConversationMember(conversation_id=conversation.id, user_id=info["member_user_id"]))
+    messages = [DirectMessage(conversation_id=conversation.id, user_id=info["member_user_id"],
+        body="决定最终按最新方案发布" if i == 1008 else f"旧记录 {i}") for i in range(1009)]
+    db_session.add_all(messages)
+    await db_session.commit()
+    response = await async_client.post(f"/api/v1/conversations/{conversation.id}/summaries",
+        headers=info["member_headers"], json={})
+    assert response.status_code == 200, response.text
+    data = response.json()["data"]
+    assert data["source_to_id"] == messages[-1].id
+    assert data["source_from_id"] == messages[-100].id
+    assert data["source_count"] == 100
+    assert "最新方案发布" in data["summary_text"]
+
+
+@pytest.mark.asyncio
 async def test_direct_conversation_summary_rejects_non_member(async_client, db_session, seed_ids):
     info = seed_ids
     conversation = DirectConversation(
@@ -60,6 +110,42 @@ async def test_direct_conversation_summary_rejects_non_member(async_client, db_s
         json={},
     )
     assert denied.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_passive_direct_participant_sees_conversation_and_message(async_client, seed_ids):
+    info = seed_ids
+    created = await async_client.post(
+        f"/api/v1/companies/{info['company_id']}/conversations",
+        headers=info["member_headers"],
+        json={
+            "member_user_ids": [info["pm_user_id"]],
+            "kind": "direct",
+            "project_id": info["project_id"],
+        },
+    )
+    assert created.status_code == 200, created.text
+    conversation_id = created.json()["data"]["id"]
+    posted = await async_client.post(
+        f"/api/v1/conversations/{conversation_id}/messages",
+        headers=info["member_headers"],
+        json={"body": "成员发来的私信"},
+    )
+    assert posted.status_code == 200, posted.text
+
+    listed = await async_client.get(
+        f"/api/v1/companies/{info['company_id']}/conversations",
+        headers=info["pm_headers"],
+    )
+    assert listed.status_code == 200, listed.text
+    assert any(item["id"] == conversation_id for item in listed.json()["data"]["items"])
+
+    messages = await async_client.get(
+        f"/api/v1/conversations/{conversation_id}/messages",
+        headers=info["pm_headers"],
+    )
+    assert messages.status_code == 200, messages.text
+    assert messages.json()["data"]["items"][-1]["body"] == "成员发来的私信"
 
 
 @pytest.mark.asyncio

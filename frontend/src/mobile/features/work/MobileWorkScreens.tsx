@@ -244,6 +244,38 @@ export const MobileWorkbenchScreen: React.FC<MobileWorkbenchProps> = ({
                   ))
               )}
             </MobileListGroup>
+            <MobileListGroup title="已完成" footer="已完成事项仍保留在工作台，可点圆圈撤销完成。">
+              {tasks.filter((t) => t.status === 'Done').length === 0 ? (
+                <div className="p-4 text-center text-xs text-on-surface-variant">暂无已完成事项</div>
+              ) : (
+                tasks
+                  .filter((t) => t.status === 'Done')
+                  .map((task) => (
+                    <MobileListItem
+                      key={`done-${task.id}`}
+                      leading={
+                        <button
+                          type="button"
+                          data-testid={`workbench-uncomplete-${task.id}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleTaskCompletion?.(task);
+                          }}
+                          className="min-h-[44px] min-w-[44px] -ml-2 flex items-center justify-center text-secondary"
+                          aria-label="标为未完成"
+                        >
+                          <div className="w-5 h-5 rounded-full border-2 border-secondary bg-secondary text-on-secondary flex items-center justify-center">
+                            <AppIcon name="check" size={14} />
+                          </div>
+                        </button>
+                      }
+                      title={<span className="ink-done">{task.title}</span>}
+                      subtitle="已完成 · 点击圆圈可撤销"
+                      onClick={() => onSelectTask(task)}
+                    />
+                  ))
+              )}
+            </MobileListGroup>
         </section>
         {onNavigateToAssistant && <WorkAssistantEntry onOpen={onNavigateToAssistant} lang={lang} />}
         <section aria-label="待办汇总" className="grid grid-cols-3 gap-2.5">
@@ -534,6 +566,7 @@ export const MobileGlobalSearchScreen: React.FC<{
   return (
     <div className="flex flex-col h-full bg-surface text-on-surface">
       <header className="h-14 px-4 bg-surface-container-lowest border-b border-outline-variant flex items-center gap-2 shrink-0">
+        <h1 className="text-base font-medium shrink-0">搜索</h1>
         <div className="flex-1">
           <MobileInput
             placeholder="搜索任务标题、项目、标签…"

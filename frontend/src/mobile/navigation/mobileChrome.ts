@@ -14,6 +14,9 @@ const SCREENS_WITH_OWN_HEADER = new Set([
   'work-statistics',
   'work-trash',
   'work-search',
+  'me-security',
+  'me-appearance',
+  'axis-delegations',
 ]);
 
 export function screenOwnsHeader(screen: string): boolean {

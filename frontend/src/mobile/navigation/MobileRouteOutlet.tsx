@@ -165,6 +165,9 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
   }, []);
 
   const [detailTask, setDetailTask] = useState<Task | null>(null);
+  useEffect(() => {
+    setDetailTask(current => current ? props.tasks.find(task => task.id === current.id) || current : null);
+  }, [props.tasks]);
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [newTaskDate, setNewTaskDate] = useState<string>();

@@ -7,6 +7,7 @@ import {
   REGISTERED_SCREENS,
   normalizeMobileRoute,
 } from '../src/mobile/navigation/mobileRoutes';
+import { screenOwnsHeader } from '../src/mobile/navigation/mobileChrome';
 
 console.log('--- Testing resolveBackAction truth table ---');
 
@@ -70,6 +71,9 @@ assert.equal(isValidScreenForTab('work', 'ai-root'), true);
 assert.equal(isValidScreenForTab('knowledge', 'knowledge-root'), true);
 assert.equal(isValidScreenForTab('messages', 'messages-root'), true);
 assert.equal(isValidScreenForTab('me', 'me-root'), true);
+assert.equal(screenOwnsHeader('me-security'), true, '账号安全页面自带返回顶栏');
+assert.equal(screenOwnsHeader('me-appearance'), true, '外观页面自带返回顶栏');
+assert.equal(screenOwnsHeader('axis-delegations'), true, '委托授权页面自带返回顶栏');
 
 console.log('--- Testing Legacy Deep Link Mapping ---');
 const r1 = mapLegacyViewToMobileRoute('tasks', { taskId: 'task-123' });

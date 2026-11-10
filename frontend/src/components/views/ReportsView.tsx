@@ -20,7 +20,7 @@ import { ProjectSummaryPanel } from '../ProjectSummaryPanel';
 import { ReportReviewPanel } from '../ReportReviewPanel';
 import { ProjectSettingsModal } from '../ProjectSettingsModal';
 import { getMyPermissions } from '../../api/shell';
-import { listProjectMembers } from '../../api/backend';
+import { listMyCompanies, listProjectMembers } from '../../api/backend';
 import { mapMember } from '../../api/mappers';
 import { downloadCsv } from '../../api/manage';
 import { buildReportCsvRows } from '../../utils/reportExport';
@@ -98,10 +98,18 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
     setLeadershipError(null);
     setReportError(null);
     if (!numericProjectId) return () => { cancelled = true; };
-    void getLatestProjectAgentReport(numericProjectId)
+    const permissionsPromise = getMyPermissions(numericProjectId);
+    void permissionsPromise
+      .then((permissions) => permissions.is_pm || permissions.is_superadmin
+        ? getLatestProjectAgentReport(numericProjectId) : null)
       .then((report) => { if (!cancelled) setAgentSummary(report?.summary_text || null); })
       .catch(() => { /* 非项目管理者无权读取项目汇总。 */ });
-    void Promise.all([listProjectReportPolicies(numericProjectId), listReportAgentBindings(numericProjectId), listAgentReports(numericProjectId), listReportInbox().catch(() => ({ items: [] as AgentReport[] })), listMyReports(numericProjectId).catch(() => ({ items: [] as AgentReport[] }))])
+    const inbox = permissionsPromise
+      .then((permissions) => permissions.is_pm || permissions.is_superadmin
+        ? listReportInbox()
+        : { items: [] as AgentReport[] })
+      .catch(() => ({ items: [] as AgentReport[] }));
+    void Promise.all([listProjectReportPolicies(numericProjectId), listReportAgentBindings(numericProjectId), listAgentReports(numericProjectId), inbox, listMyReports(numericProjectId).catch(() => ({ items: [] as AgentReport[] }))])
       .then(([policies, bindings, reports, inbox, mine]) => {
         if (cancelled) return;
         const serverDraft = (mine.items || []).find((item) => item.status === 'draft' && (item.summary_text || '').trim());
@@ -121,7 +129,11 @@ const ProjectReportsContent: React.FC<ReportsViewProps> = ({ tasks, lang, projec
   useEffect(() => {
     let cancelled = false;
     if (!companyId) return () => { cancelled = true; };
-    void getLatestLeadershipReport(companyId)
+    void listMyCompanies()
+      .then((companies) => {
+        const membership = companies.items.find(company => company.id === companyId)?.my_membership;
+        return membership?.is_org_leader || membership?.is_super_admin ? getLatestLeadershipReport(companyId) : null;
+      })
       .then((report) => { if (!cancelled) setLeadershipReport(report); })
       .catch(() => { /* Non-leaders receive 403; the project report remains usable. */ });
     return () => { cancelled = true; };

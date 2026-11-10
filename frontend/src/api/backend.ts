@@ -518,7 +518,9 @@ export async function listNodeEvidence(nodeId: number) {
       evidence_kind?: string
       external_url?: string
       structured?: { evidence_kind?: string; external_url?: string; version?: number | string }
-      version?: number | string
+       version?: number | string
+       can_review?: boolean
+       reject_reason?: string | null
       files?: Array<{
         file_id: number
         original_name: string
@@ -537,6 +539,7 @@ export interface BackendEvidencePackage {
   node_id: number
   submitter_user_id: number
   status: string
+  reject_reason?: string | null
   summary_text?: string
   structured?: any
   links?: any[]

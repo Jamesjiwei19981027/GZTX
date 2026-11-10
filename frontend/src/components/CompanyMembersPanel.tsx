@@ -27,7 +27,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 type Pending =
-  | { kind: 'disable' | 'remove' | 'revokeAdmin'; member: CompanyMember }
+  | { kind: 'disable' | 'enable' | 'remove' | 'revokeAdmin'; member: CompanyMember }
   | null;
 
 /** 团队页「公司成员」：改角色、停用 / 启用、移除、拉入项目。 */
@@ -208,6 +208,7 @@ export const CompanyMembersPanel: React.FC<Props> = ({
                     {m.status === 'active' ? (
                       <button
                         type="button"
+                        data-testid={`company-member-disable-${m.user_id}`}
                         className={btn}
                         disabled={busy || isSelf}
                         title={isSelf ? '不能停用自己' : undefined}
@@ -215,22 +216,17 @@ export const CompanyMembersPanel: React.FC<Props> = ({
                       >
                         停用
                       </button>
-                    ) : (
+                    ) : m.status === 'disabled' ? (
                       <button
                         type="button"
+                        data-testid={`company-member-enable-${m.user_id}`}
                         className={btn}
                         disabled={busy}
-                        onClick={() =>
-                          void run(
-                            m,
-                            () => patchCompanyMember(companyId, m.user_id, { status: 'active' }),
-                            `已启用「${name(m)}」。原来的项目成员关系不会自动恢复，请用「拉入项目」重新加入。`,
-                          )
-                        }
+                        onClick={() => setPending({ kind: 'enable', member: m })}
                       >
                         启用
                       </button>
-                    )}
+                    ) : null}
                     <button
                       type="button"
                       className={`${btn} text-error`}
@@ -278,6 +274,8 @@ export const CompanyMembersPanel: React.FC<Props> = ({
             <h3 className="text-lg font-medium tabular-nums">
               {pending.kind === 'disable'
                 ? `停用「${name(pending.member)}」？`
+                : pending.kind === 'enable'
+                  ? `启用「${name(pending.member)}」？`
                 : pending.kind === 'remove'
                   ? `把「${name(pending.member)}」移出公司？`
                   : `撤销「${name(pending.member)}」的超级管理员？`}
@@ -285,6 +283,8 @@ export const CompanyMembersPanel: React.FC<Props> = ({
             <p className="text-sm text-on-surface-variant">
               {pending.kind === 'disable'
                 ? '停用后对方无法登录，并会立刻退出他参与的所有项目。以后重新启用时，需要用「拉入项目」逐个加回项目。'
+                : pending.kind === 'enable'
+                  ? '启用后可重新登录。原来的项目成员关系不会自动恢复，需要通过「拉入项目」重新加入。'
                 : pending.kind === 'remove'
                   ? '移出后对方无法登录，并退出所有项目；历史任务和汇报会保留。需要重新邀请才能再加入。'
                   : '撤销后对方不再能管理公司成员与企业设置。'}
@@ -300,6 +300,8 @@ export const CompanyMembersPanel: React.FC<Props> = ({
                   const m = pending.member;
                   if (pending.kind === 'disable') {
                     void run(m, () => patchCompanyMember(companyId, m.user_id, { status: 'disabled' }), `已停用「${name(m)}」`);
+                  } else if (pending.kind === 'enable') {
+                    void run(m, () => patchCompanyMember(companyId, m.user_id, { status: 'active' }), `已启用「${name(m)}」。原来的项目成员关系不会自动恢复，请用「拉入项目」重新加入。`);
                   } else if (pending.kind === 'remove') {
                     void run(m, () => removeCompanyMember(companyId, m.user_id), `已把「${name(m)}」移出公司`);
                   } else {

@@ -33,6 +33,13 @@ tsvc = TreeService()
 acl = AclService()
 
 
+async def _reject_archived_project_write(db, project_id: int):
+    project = await db.get(Project, project_id)
+    if project and project.status == "archived":
+        return fail(403, 40311, "归档项目不允许写入人轴或材料")
+    return None
+
+
 async def _node_dto(db, node: TreeNode) -> dict:
     key, tmpl = await tsvc.get_type_key(db, node)
     return {
@@ -81,6 +88,9 @@ async def patch_node(node_id: int, body: NodePatch, db: DbSession, user: Current
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
+    archived = await _reject_archived_project_write(db, node.project_id)
+    if archived:
+        return archived
     try:
         await assert_company_write(db, node.company_id, feature="project_tree")
     except CollabError as e:
@@ -165,6 +175,9 @@ async def move_node(node_id: int, body: NodeMove, db: DbSession, user: CurrentUs
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
+    archived = await _reject_archived_project_write(db, node.project_id)
+    if archived:
+        return archived
     project = await db.get(Project, node.project_id)
     access = await get_responsibility_access(db, project, user.id)
     if not access.for_node(node.id).get('can_move_person'):
@@ -262,6 +275,9 @@ async def restore_node(node_id: int, db: DbSession, user: CurrentUser):
     node = await db.get(TreeNode, node_id)
     if not node:
         return fail(404, 40400, "节点不存在")
+    archived = await _reject_archived_project_write(db, node.project_id)
+    if archived:
+        return archived
     if not await _can_edit_matter(db, user, node):
         return fail(403, 40300, "无权恢复该事项")
     await assert_company_write(db, node.company_id, feature="project_tree")
@@ -298,6 +314,9 @@ async def put_assignees(
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
+    archived = await _reject_archived_project_write(db, node.project_id)
+    if archived:
+        return archived
     can = await acl.can(
         db, user.id, node.company_id, "tree.edit_any", project_id=node.project_id
     ) or await acl.can(
@@ -337,6 +356,9 @@ async def upload_evidence_file(
     """上传材料文件"""
     if project_id is None:
         return fail(422, 42200, "必须指定 project_id")
+    archived = await _reject_archived_project_write(db, project_id)
+    if archived:
+        return archived
     try:
         await assert_company_write(db, company_id, feature="project_tree")
     except CollabError as e:
@@ -391,6 +413,9 @@ async def post_evidence(
     node = await db.get(TreeNode, node_id)
     if not node or node.is_deleted:
         return fail(404, 40400, "节点不存在")
+    archived = await _reject_archived_project_write(db, node.project_id)
+    if archived:
+        return archived
     try:
         await assert_company_write(db, node.company_id, feature="project_tree")
     except CollabError as e:

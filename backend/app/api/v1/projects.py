@@ -758,6 +758,8 @@ async def create_node(
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
+    if p.status == "archived":
+        return fail(409, 40906, "归档项目不允许新增人轴节点")
     access = await get_responsibility_access(db, p, user.id)
     can = await acl.can(
         db, user.id, p.company_id, "tree.edit_any", project_id=p.id
@@ -847,6 +849,8 @@ async def import_preview(
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
+    if p.status == "archived":
+        return fail(409, 40906, "归档项目不允许导入人轴节点")
     if not await acl.can(db, user.id, p.company_id, "tree.edit_any", project_id=p.id):
         return fail(403, 40305, "需要 PM")
     tasks = (
@@ -891,6 +895,8 @@ async def import_confirm(
     p = await _get_project(db, project_id)
     if not p:
         return fail(404, 40400, "项目不存在")
+    if p.status == "archived":
+        return fail(409, 40906, "归档项目不允许导入人轴节点")
     if not await acl.can(db, user.id, p.company_id, "tree.edit_any", project_id=p.id):
         return fail(403, 40305, "需要 PM")
     await assert_company_write(db, p.company_id, feature="project_tree")

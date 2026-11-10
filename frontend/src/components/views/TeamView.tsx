@@ -189,6 +189,12 @@ export const TeamView: React.FC<TeamViewProps> = ({
           </p>
         </div>
         <div className="flex gap-2">
+          {isCompanyAdmin && companyId && (
+            <button type="button" data-testid="team-manage-member-status" onClick={() => setTab('company')}
+              className="px-4 py-2 rounded-lg border border-outline-variant/50 text-sm font-medium cursor-pointer tabular-nums">
+              成员停用/启用
+            </button>
+          )}
           {onCreateCompany && !companyId && (
             <button
               type="button"

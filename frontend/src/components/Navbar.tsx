@@ -75,7 +75,7 @@ const NavbarImpl: React.FC<NavbarProps> = ({
                 <div className="text-xs font-medium text-on-surface-variant px-3 py-2   tabular-nums">
                   {t.projectSpace}
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 max-h-[min(60vh,28rem)] overflow-y-auto overscroll-contain pr-1" data-testid="project-menu-scroll">
                   {projects.map((proj) => (
                     <button
                       key={proj.id}

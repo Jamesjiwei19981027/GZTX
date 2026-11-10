@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Iterable
 
+SUMMARY_SOURCE_LIMIT = 100
+
 
 def _clean(value: Any) -> str:
     return " ".join(str(value or "").split()).strip()
@@ -12,7 +14,7 @@ def _clean(value: Any) -> str:
 def summarize_lines(lines: Iterable[str], *, provider: str = "deterministic") -> dict[str, Any]:
     """Produce a useful, auditable summary without inventing facts."""
     source = [_clean(line) for line in lines if _clean(line)]
-    source = source[-100:]
+    source = source[-SUMMARY_SOURCE_LIMIT:]
     decisions = [line for line in source if any(word in line for word in ("决定", "确认", "结论", "同意"))]
     action_items = [line for line in source if any(word in line for word in ("待办", "需要", "负责", "截止", "跟进"))]
     risks = [line for line in source if any(word in line for word in ("风险", "阻塞", "问题", "依赖", "缺少"))]
@@ -44,6 +46,7 @@ async def summarize_lines_with_llm(db, *, company_id: int | None, user, lines: I
     audit the source lines even when a model is unavailable. Only the prose summary is
     replaced by a successful model response.
     """
+    lines = list(lines)
     base = summarize_lines(lines)
     try:
         from app.services.llm_settings import chat_completion, resolve_llm
@@ -51,7 +54,7 @@ async def summarize_lines_with_llm(db, *, company_id: int | None, user, lines: I
         llm = await resolve_llm(db, company_id=company_id, user=user)
         if not llm or llm.provider == "fake" or not llm.is_usable() or not llm.use_for_agent:
             return base
-        source = "\n".join(base["key_points"])
+        source = "\n".join([_clean(line) for line in lines if _clean(line)][-SUMMARY_SOURCE_LIMIT:])
         prompt = (
             "请把下面的团队聊天或通话转写整理成简洁、可执行的中文汇报。"
             "只使用原文事实，不要臆测；保留决定、待办和风险。\n\n" + source

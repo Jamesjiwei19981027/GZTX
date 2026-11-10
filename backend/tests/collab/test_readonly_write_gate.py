@@ -118,3 +118,56 @@ async def test_writes_work_when_company_active(async_client, seed_ids):
         json={"parent_id": seed_ids["root_node_id"], "node_type_key": "work_item", "title": "正常新增"},
     )
     assert r.status_code == 200, r.text
+
+
+@pytest.mark.asyncio
+async def test_project_writes_are_rejected_when_project_archived(
+    async_client, seed_ids, db_session
+):
+    from app.models.project import Project
+    from app.models.category import Category
+
+    project = await db_session.get(Project, seed_ids["project_id"])
+    project.status = "archived"
+    category = Category(
+        user_id=seed_ids["pm_user_id"],
+        name="项目任务分类",
+        color="#409EFF",
+        is_default=True,
+    )
+    db_session.add(category)
+    await db_session.commit()
+
+    task = await async_client.post(
+        "/api/v1/tasks",
+        headers=seed_ids["pm_headers"],
+        json={
+            "title": "归档项目任务",
+            "company_id": seed_ids["company_id"],
+            "project_id": seed_ids["project_id"],
+            "origin": "project_link",
+            "category_id": category.id,
+        },
+    )
+    assert task.status_code == 409, task.text
+    assert "归档" in task.text
+
+    node = await async_client.post(
+        f"/api/v1/projects/{seed_ids['project_id']}/nodes",
+        headers=seed_ids["pm_headers"],
+        json={
+            "parent_id": seed_ids["root_node_id"],
+            "node_type_key": "work_item",
+            "title": "归档项目节点",
+        },
+    )
+    assert node.status_code == 409, node.text
+    assert "归档" in node.text
+
+    patched = await async_client.patch(
+        f"/api/v1/nodes/{seed_ids['root_node_id']}",
+        headers=seed_ids["pm_headers"],
+        json={"title": "归档项目节点改名"},
+    )
+    assert patched.status_code == 403, patched.text
+    assert "归档" in patched.text

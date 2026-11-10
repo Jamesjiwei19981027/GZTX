@@ -1091,8 +1091,9 @@ export const AdminOrgSsoSection: React.FC<EnterpriseSectionProps> = ({ isAdmin, 
 // ==========================================
 // 4. 第三方服务绑定 (Third-Party Services)
 // ==========================================
-export const AdminIntegrationsSection: React.FC<EnterpriseSectionProps> = ({ companyId, lang = 'zh' }) => {
+export const AdminIntegrationsSection: React.FC<EnterpriseSectionProps> = ({ isAdmin, companyId, lang = 'zh' }) => {
   const [bindNotice, setBindNotice] = useState<string | null>(null);
+  const [showConfig, setShowConfig] = useState(false);
   const [integrations, setIntegrations] = useState<
     Array<{ provider: string; enabled?: boolean; status?: string; last_sync_at?: string; has_credentials?: boolean }>
   >([]);
@@ -1117,6 +1118,7 @@ export const AdminIntegrationsSection: React.FC<EnterpriseSectionProps> = ({ com
   const badgeClass = (tone: 'ok' | 'warn' | 'none') =>
     tone === 'ok' ? 'text-[#2f7d4f]' : tone === 'warn' ? 'text-[#a86412]' : 'text-on-surface-variant';
   const renderBadge = (provider: string) => {
+    if (provider === 'wecom' || provider === 'feishu') return <span data-testid={`integration-unsupported-${provider}`} className="text-xs text-on-surface-variant">暂不支持</span>;
     const b = badgeOf(provider);
     return (
       <div className="text-right">
@@ -1157,6 +1159,13 @@ export const AdminIntegrationsSection: React.FC<EnterpriseSectionProps> = ({ com
           {integrationsError}
         </div>
       )}
+
+      <button type="button" data-testid="integration-open-config" aria-expanded={showConfig}
+        onClick={() => setShowConfig(value => !value)}
+        className="px-4 py-2 rounded-lg border border-outline-variant text-sm text-primary">
+        {showConfig ? '收起接入配置' : '填写钉钉 / 企业单点登录接入配置'}
+      </button>
+      {showConfig && <AdminOrgSsoSection isAdmin={isAdmin} companyId={companyId} lang={lang} />}
 
       {/* 协同与办公渠道卡片 */}
       <div className="bg-surface-container-lowest dark:bg-surface-container rounded-xl p-5 border border-outline-variant/60 space-y-4">
