@@ -42,11 +42,12 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
 
   void _selectProject(Project project) {
     final auth = context.authStateRead;
+    // 先关闭当前路由，避免 AuthState 刷新路由匹配后再 pop 旧页面。
+    if (context.canPop()) {
+      context.pop();
+    }
     auth.selectProject(project);
     showAppToast(context, '已切换到「${project.name}」', type: ToastType.success);
-    if (Navigator.of(context).canPop()) {
-      Navigator.of(context).pop();
-    }
   }
 
   Future<void> _selectCompany() async {

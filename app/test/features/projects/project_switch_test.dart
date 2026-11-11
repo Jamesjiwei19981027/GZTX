@@ -46,7 +46,7 @@ void main() {
     testWidgets('点击其他项目后更新全局当前项目并提示', (tester) async {
       final harness = ProjectsTestHarness();
       final auth = await harness.bootstrap();
-      await harness.pumpScreen(tester, const ProjectSwitchScreen());
+      await harness.pumpApp(tester, location: '/projects/switch');
 
       await tester.tap(find.text('数据中台'));
       await tester.pumpAndSettle();
@@ -55,7 +55,7 @@ void main() {
       expect(auth.currentProject?.name, '数据中台');
       expect(find.text('已切换到「数据中台」'), findsOneWidget);
       resetToastForTesting();
-      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
     });
 
     testWidgets('刷新失败时给出可见提示且不丢失已有列表', (tester) async {
