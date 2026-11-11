@@ -12,6 +12,20 @@ from app.services.tree_service import TreeService
 
 
 class ProjectService:
+    async def check_project_quota(self, db: AsyncSession, company: Company) -> None:
+        """项目配额只计未归档项目：归档即释放名额，取消归档时重新占用。"""
+        count = (
+            await db.execute(
+                select(func.count())
+                .select_from(Project)
+                .where(Project.company_id == company.id, Project.status != "archived")
+            )
+        ).scalar() or 0
+        try:
+            EntitlementService().check_quota(company, "max_projects", int(count))
+        except QuotaExceeded as e:
+            raise PermissionError(f"quota:{e.metric}") from e
+
     async def create_project(
         self, db: AsyncSession, *, company: Company, name: str, creator_user_id: int
     ) -> Project:
@@ -20,17 +34,7 @@ class ProjectService:
             raise PermissionError("license_required")
         if not ent.has_feature(company, "project_tree"):
             raise PermissionError("feature_off")
-        count = (
-            await db.execute(
-                select(func.count())
-                .select_from(Project)
-                .where(Project.company_id == company.id)
-            )
-        ).scalar() or 0
-        try:
-            ent.check_quota(company, "max_projects", int(count))
-        except QuotaExceeded as e:
-            raise PermissionError(f"quota:{e.metric}") from e
+        await self.check_project_quota(db, company)
 
         p = Project(
             company_id=company.id,
@@ -269,7 +273,10 @@ class ProjectService:
         return project
 
     async def unarchive(self, db: AsyncSession, project: Project) -> Project:
-        """取消归档：恢复为进行中，清除归档时间。"""
+        """取消归档：恢复为进行中，清除归档时间。归档不占配额，所以恢复前要重新校验。"""
+        company = await db.get(Company, project.company_id)
+        if company is not None:
+            await self.check_project_quota(db, company)
         project.status = "active"
         project.archived_at = None
         await db.flush()

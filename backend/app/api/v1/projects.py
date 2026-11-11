@@ -604,7 +604,12 @@ async def unarchive_project(project_id: int, db: DbSession, user: CurrentUser):
         return fail(403, 40305, "需要项目负责人或超管")
     await assert_company_write(db, p.company_id, feature="project_tree")
     if p.status == "archived":
-        await psvc.unarchive(db, p)
+        try:
+            await psvc.unarchive(db, p)
+        except PermissionError as e:
+            if str(e).startswith("quota:"):
+                return fail(409, 40901, "项目配额已满，请先归档其他项目再恢复")
+            raise
         await db.commit()
     return ResponseData(
         data={"status": p.status, "archived_at": None}
