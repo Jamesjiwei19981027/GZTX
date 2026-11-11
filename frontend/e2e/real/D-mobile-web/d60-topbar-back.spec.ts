@@ -99,8 +99,6 @@ for (const role of ['member', 'admin'] as const) {
     console.log('NO_BACK_PAGES', role, JSON.stringify(badBack))
     expect(entryFailures, '各入口应可实际进入').toEqual([])
     expect(badBack, '二级页应可返回').toEqual([])
-    expect(doubles.filter(name => !name.startsWith('消息>通知与收件箱:')), '其他页面不应出现双顶栏').toEqual([])
-    test.fail(true, '缺陷 Rx-01：手机通知与收件箱同时显示外层返回顶栏和页面内顶栏')
     expect(doubles, '不应出现双顶栏').toEqual([])
   })
 }
