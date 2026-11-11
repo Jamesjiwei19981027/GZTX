@@ -1,0 +1,12 @@
+# 运行产物与本机状态（含测试账号令牌），不入库
+*.json
+*.log
+*.txt
+*.png
+shots/
+_out*/
+_review/
+probe*.mjs
+_probe.spec.ts
+_explore.spec.ts
+Z-ui/

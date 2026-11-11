@@ -1422,13 +1422,16 @@ async def get_ui_prefs(db: DbSession, user: CurrentUser):
 async def put_presence(body: PresenceBody, db: DbSession, user: CurrentUser):
     """上报在线状态"""
     status = body.status if body.status in ("online", "busy", "offline") else "online"
-    row = await db.get(UserPresence, user.id)
-    if not row:
-        row = UserPresence(user_id=user.id, status=status)
-        db.add(row)
+    # 首次打开页面时可能并发上报两次：先查后插会撞主键，改为原子 upsert
+    if db.get_bind().dialect.name == 'postgresql':
+        from sqlalchemy.dialects.postgresql import insert
     else:
-        row.status = status
-        row.last_seen_at = datetime.now(timezone.utc)
+        from sqlalchemy.dialects.sqlite import insert
+    now = datetime.now(timezone.utc)
+    stmt = insert(UserPresence).values(user_id=user.id, status=status, last_seen_at=now)
+    await db.execute(stmt.on_conflict_do_update(
+        index_elements=[UserPresence.user_id], set_={'status': status, 'last_seen_at': now},
+    ))
     await db.commit()
     return ResponseData(data={"user_id": user.id, "status": status})
 

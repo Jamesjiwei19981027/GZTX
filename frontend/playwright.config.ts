@@ -11,6 +11,8 @@ import { defineConfig, devices } from '@playwright/test'
  */
 export default defineConfig({
   testDir: './e2e',
+  // e2e/real 是直连点测环境的真后端用例，只在显式设置 E2E_REAL=1 时运行，默认与 CI 不跑
+  testIgnore: process.env.E2E_REAL === '1' ? [] : ['**/real/**'],
   // 用例之间共享同一套种子账号与数据库，禁止并发，避免相互污染数据。
   workers: 1,
   fullyParallel: false,
