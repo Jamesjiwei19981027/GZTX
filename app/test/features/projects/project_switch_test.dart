@@ -58,6 +58,33 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     });
 
+    testWidgets('项目较多时显示搜索框，按名称过滤并提示无结果', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap(projectList: [
+        for (var i = 1; i <= 12; i++)
+          projectJson(id: 100 + i, name: i == 7 ? 'Alpha 交付' : '项目$i'),
+      ]);
+      await harness.pumpScreen(tester, const ProjectSwitchScreen());
+
+      final search = find.widgetWithText(TextField, '搜索项目名称');
+      expect(search, findsOneWidget);
+      await tester.enterText(search, 'alpha');
+      await tester.pumpAndSettle();
+      expect(find.text('Alpha 交付'), findsOneWidget);
+      expect(find.text('项目1'), findsNothing);
+
+      await tester.enterText(search, '不存在');
+      await tester.pumpAndSettle();
+      expect(find.text('没有名称包含「不存在」的项目'), findsOneWidget);
+    });
+
+    testWidgets('项目不多时不显示搜索框', (tester) async {
+      final harness = ProjectsTestHarness();
+      await harness.bootstrap();
+      await harness.pumpScreen(tester, const ProjectSwitchScreen());
+      expect(find.widgetWithText(TextField, '搜索项目名称'), findsNothing);
+    });
+
     testWidgets('刷新失败时给出可见提示且不丢失已有列表', (tester) async {
       final harness = ProjectsTestHarness();
       final auth = await harness.bootstrap();

@@ -70,6 +70,8 @@ void main() {
         (widget) => widget is AppIcon && widget.name == 'send',
       );
       expect(sendFinder, findsOneWidget);
+      // 发送按钮对读屏可见：带“发送”语义标签
+      expect(find.bySemanticsLabel('发送'), findsOneWidget);
       await tester.tap(sendFinder);
       await tester.pump();
 
