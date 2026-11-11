@@ -4,6 +4,8 @@
  */
 const SCREENS_WITH_OWN_HEADER = new Set([
   'messages-contacts',
+  'messages-inbox',
+  'messages-notifications',
   'project-switch',
   'project-overview',
   'project-settings',

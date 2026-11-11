@@ -74,6 +74,8 @@ assert.equal(isValidScreenForTab('me', 'me-root'), true);
 assert.equal(screenOwnsHeader('me-security'), true, '账号安全页面自带返回顶栏');
 assert.equal(screenOwnsHeader('me-appearance'), true, '外观页面自带返回顶栏');
 assert.equal(screenOwnsHeader('axis-delegations'), true, '委托授权页面自带返回顶栏');
+assert.equal(screenOwnsHeader('messages-inbox'), true, '通知与收件箱页面自带返回顶栏，外层不再重复');
+assert.equal(screenOwnsHeader('messages-notifications'), true, '通知页面自带返回顶栏，外层不再重复');
 
 console.log('--- Testing Legacy Deep Link Mapping ---');
 const r1 = mapLegacyViewToMobileRoute('tasks', { taskId: 'task-123' });
