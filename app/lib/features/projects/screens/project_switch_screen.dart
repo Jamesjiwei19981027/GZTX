@@ -20,8 +20,12 @@ class ProjectSwitchScreen extends StatefulWidget {
   State<ProjectSwitchScreen> createState() => _ProjectSwitchScreenState();
 }
 
+/// 项目数超过该值时显示搜索框，便于在上百个项目中快速定位。
+const int projectSearchThreshold = 8;
+
 class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
   bool _refreshing = false;
+  String _query = '';
 
   Future<void> _refresh() async {
     if (_refreshing) return;
@@ -135,6 +139,13 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
       );
     }
 
+    final keyword = _query.toLowerCase();
+    final filtered = keyword.isEmpty
+        ? projects
+        : projects
+            .where((p) => p.name.toLowerCase().contains(keyword))
+            .toList();
+
     return ListView(
       padding:
           const EdgeInsets.only(top: AppSpacing.md, bottom: AppSpacing.xxl),
@@ -163,11 +174,23 @@ class _ProjectSwitchScreenState extends State<ProjectSwitchScreen> {
             ),
           ],
         ),
+        if (projects.length > projectSearchThreshold)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg, AppSpacing.md, AppSpacing.lg, 0),
+            child: AppTextField(
+              placeholder: '搜索项目名称',
+              prefix: const AppIcon('search', size: 18),
+              textInputAction: TextInputAction.search,
+              onChanged: (value) => setState(() => _query = value.trim()),
+            ),
+          ),
         AppListSection(
           header: '具体协同项目',
-          footer: '当前企业：${company.name}',
+          footer:
+              filtered.isEmpty ? '没有名称包含「$_query」的项目' : '当前企业：${company.name}',
           children: [
-            for (final project in projects)
+            for (final project in filtered)
               AppListTile(
                 leading: _ProjectColorDot(color: project.color),
                 title: project.name,

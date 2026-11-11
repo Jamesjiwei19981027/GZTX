@@ -472,28 +472,34 @@ class _AgentChatScreenState extends State<AgentChatScreen> {
                 ),
               ),
               const SizedBox(width: AppSpacing.sm),
-              SizedBox(
-                width: 44,
-                height: 44,
-                child: Material(
-                  color: AppColors.primary,
-                  borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                  child: InkWell(
+              Semantics(
+                button: true,
+                enabled: !_sending,
+                label: _sending ? '发送中' : '发送',
+                excludeSemantics: true,
+                child: SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: Material(
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
-                    onTap: _sending ? null : _send,
-                    child: Center(
-                      child: _sending
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation<Color>(Colors.white),
-                              ),
-                            )
-                          : const AppIcon('send',
-                              size: 18, color: Colors.white),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(AppSpacing.radiusMd),
+                      onTap: _sending ? null : _send,
+                      child: Center(
+                        child: _sending
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                            : const AppIcon('send',
+                                size: 18, color: Colors.white),
+                      ),
                     ),
                   ),
                 ),
