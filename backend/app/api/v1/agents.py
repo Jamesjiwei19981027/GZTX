@@ -17,7 +17,7 @@ router = APIRouter(prefix="/agents", tags=["智能体"])
 runtime = AgentRuntime()
 
 DEFAULT_SYSTEM_PROMPT = (
-    "你是 WorkTodo 协作助手。简洁中文回答。用户可用 [node:ID] 引用节点。"
+    "你是烂笔头协作助手。简洁中文回答。用户可用 [node:ID] 引用节点。"
 )
 
 

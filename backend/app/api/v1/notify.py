@@ -125,7 +125,7 @@ async def _test_send_email(db, user) -> tuple[bool, Optional[str]]:
         return False, "SMTP 未配置：请在「设置 → 邮件」或「公司设置 → SMTP」中填写主机/账号/密码"
 
     user_name = user.nickname or user.username
-    subject = "WorkTodo - 测试通知"
+    subject = "烂笔头 - 测试通知"
     text_body = f"Hi {user_name}，这是一封测试邮件：邮件提醒通道工作正常。"
     html_body = (
         f"<p>Hi {user_name}，</p>"
@@ -169,7 +169,7 @@ async def _test_send_webpush(db, user) -> tuple[bool, Optional[str]]:
     ok = await asyncio.to_thread(
         send_web_push,
         user,
-        "WorkTodo - 测试通知",
+        "烂笔头 - 测试通知",
         "浏览器推送通道工作正常，任务提醒将以此方式送达。",
         "/settings",
         1,

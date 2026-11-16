@@ -139,7 +139,7 @@ async def _deliver(channel: str, target: str, code: str, *, db: AsyncSession | N
         from app.services.smtp_settings import smtp_for_system, smtp_from_env
         from app.utils import email as email_utils
 
-        subject = "WorkTodo 验证码"
+        subject = "烂笔头验证码"
         body = f"您的验证码是 {code}，{CODE_TTL_MINUTES} 分钟内有效。若非本人操作请忽略。"
         # 发信配置：默认公司（企业管理页填写）> 环境变量
         resolved = await smtp_for_system(db) if db is not None else smtp_from_env()

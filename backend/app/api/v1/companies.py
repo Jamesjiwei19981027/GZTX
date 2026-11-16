@@ -273,7 +273,7 @@ async def test_company_smtp(
         _send_smtp,
         to_email=user.email,
         from_addr=resolved.from_addr,
-        subject="[WorkTodo] 公司 SMTP 测试",
+        subject="[烂笔头] 企业邮件发送测试",
         text_body=f"公司「{company.name}」SMTP 配置可用。",
         html_body=f"<p>公司「{company.name}」SMTP 配置可用。</p>",
         smtp_host=resolved.host,

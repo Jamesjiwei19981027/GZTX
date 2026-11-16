@@ -382,7 +382,7 @@ async def _build_user_ics(db, user_id: int, include_completed: bool = False) -> 
         "PRODID:-//WorkTodo//Task Export//CN",
         "CALSCALE:GREGORIAN",
         "METHOD:PUBLISH",
-        "X-WR-CALNAME:WorkTodo",
+        "X-WR-CALNAME:烂笔头",
     ]
     for t in tasks:
         due = t.due_date

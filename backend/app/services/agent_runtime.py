@@ -459,7 +459,7 @@ class AgentRuntime:
                 llm = await resolve_llm(db, company_id=cid, user=chat_user)
                 if llm.use_for_agent and llm.is_usable() and llm.provider != "fake":
                     system_prompt = (
-                        "你是 WorkTodo 协作助手。简洁中文回答。"
+                        "你是烂笔头协作助手。简洁中文回答。"
                         "用户可用 [node:ID] 引用节点。"
                     )
                     if session.agent_definition_id:

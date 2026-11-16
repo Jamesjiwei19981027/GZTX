@@ -137,7 +137,7 @@ async def get_privacy_summary(db: DbSession, user: CurrentUser):
     task_count = int((await db.execute(select(func.count()).select_from(Task).where(Task.user_id == user.id))).scalar() or 0)
     return ResponseData(data={
         "stored_data": {"tasks": task_count, "profile": True, "notification_preferences": True},
-        "retention": "Tasks remain until you delete them or close the account.",
+        "retention": "任务会一直保留，直到你删除任务或注销账号。",
         "export_endpoint": "/api/v1/users/me/export",
         "delete_endpoint": "/api/v1/users/me/delete",
     })

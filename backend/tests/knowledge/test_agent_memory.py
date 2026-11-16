@@ -8,7 +8,7 @@ from app.models.agent import AgentMessage, AgentSession
 from app.services.agent_runtime import AgentRuntime
 from app.services.llm_settings import ResolvedLlm
 
-MAIN_SYSTEM_KEYWORD = "WorkTodo 协作助手"
+MAIN_SYSTEM_KEYWORD = "烂笔头协作助手"
 SUMMARY_SYSTEM_KEYWORD = "对话摘要助手"
 
 
