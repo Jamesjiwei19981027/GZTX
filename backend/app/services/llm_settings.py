@@ -40,6 +40,12 @@ LLM_PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
         "default_model": "deepseek-chat",
         "needs_key": True,
     },
+    "openai_responses": {
+        "label": "OpenAI Responses 协议（如 igrok / Grok）",
+        "default_base_url": "https://api.openai.com/v1",
+        "default_model": "",
+        "needs_key": True,
+    },
     "azure_openai": {
         "label": "Azure OpenAI",
         "default_base_url": "https://YOUR_RESOURCE.openai.azure.com",
@@ -587,10 +593,14 @@ async def chat_completion(
         }
 
     base = llm.base_url.rstrip("/")
-    url = f"{base}/chat/completions"
     headers = {"Content-Type": "application/json"}
     if llm.api_key:
         headers["Authorization"] = f"Bearer {llm.api_key}"
+    if llm.provider == "openai_responses":
+        return await _responses_completion(
+            llm, base=base, headers=headers, messages=messages, max_tokens=max_tokens
+        )
+    url = f"{base}/chat/completions"
     body = {
         "model": llm.model,
         "messages": messages,
@@ -625,6 +635,83 @@ async def chat_completion(
             }
     except Exception as e:
         logger.warning("llm chat_completion failed: %s", e)
+        return {
+            "ok": False,
+            "provider": llm.provider,
+            "content": "",
+            "error": str(e),
+            "raw": None,
+        }
+
+
+def _responses_output_text(data: dict[str, Any]) -> str:
+    """从 Responses 协议返回中取出最终文本（跳过推理摘要等非 message 项）。"""
+    text = data.get("output_text")
+    if isinstance(text, str) and text:
+        return text
+    parts: list[str] = []
+    for item in data.get("output") or []:
+        if not isinstance(item, dict) or item.get("type") != "message":
+            continue
+        for block in item.get("content") or []:
+            if isinstance(block, dict) and block.get("type") in ("output_text", "text"):
+                parts.append(str(block.get("text") or ""))
+    return "".join(parts)
+
+
+# 推理模型的推理过程也计入输出额度，额度太小会只推理不出正文
+RESPONSES_MIN_OUTPUT_TOKENS = 4096
+
+
+async def _responses_completion(
+    llm: ResolvedLlm,
+    *,
+    base: str,
+    headers: dict[str, str],
+    messages: list[dict[str, str]],
+    max_tokens: int | None,
+) -> dict[str, Any]:
+    """OpenAI Responses 协议（POST /responses）；返回结构与 chat_completion 一致。"""
+    limit = max_tokens if max_tokens is not None else llm.max_tokens
+    body = {
+        "model": llm.model,
+        "input": [
+            {"role": m.get("role") or "user", "content": m.get("content") or ""}
+            for m in messages
+        ],
+        "max_output_tokens": max(int(limit or 0), RESPONSES_MIN_OUTPUT_TOKENS),
+        "store": False,
+    }
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            resp = await client.post(f"{base}/responses", headers=headers, json=body)
+            data = resp.json() if resp.content else {}
+            if resp.status_code >= 400:
+                err = data.get("error") if isinstance(data, dict) else None
+                msg = (
+                    err.get("message")
+                    if isinstance(err, dict)
+                    else (str(err) if err else resp.text[:300])
+                )
+                return {
+                    "ok": False,
+                    "provider": llm.provider,
+                    "content": "",
+                    "error": f"HTTP {resp.status_code}: {msg}",
+                    "raw": data,
+                }
+            content = _responses_output_text(data if isinstance(data, dict) else {})
+            if not content:
+                return {
+                    "ok": False,
+                    "provider": llm.provider,
+                    "content": "",
+                    "error": "模型没有返回正文（可能输出额度不足或仍在推理）",
+                    "raw": data,
+                }
+            return {"ok": True, "provider": llm.provider, "content": content, "raw": data}
+    except Exception as e:
+        logger.warning("llm responses completion failed: %s", e)
         return {
             "ok": False,
             "provider": llm.provider,

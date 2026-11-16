@@ -22,7 +22,7 @@ from app.models.project import Project
 from app.models.report import AgentReport, AgentReportSource
 from app.services.acl import AclService
 from app.services.tree_service import TreeService
-from app.services.llm_settings import llm_from_company, resolve_llm, chat_completion
+from app.services.llm_settings import llm_from_company, llm_from_env, resolve_llm, chat_completion
 
 logger = logging.getLogger(__name__)
 RISK = {'low': 0, 'medium': 1, 'high': 2}
@@ -299,7 +299,7 @@ async def run(db, project, user, scope='self', node_id=None, custom_instruction=
     mode, source, reason, model = 'rule', None, 'legacy_rule' if force_rule else 'no_model', None
     if not force_rule and people:
         try:
-            llm = await resolve_llm(db, company_id=project.company_id, user=user) if custom_instruction else await llm_from_company(db, project.company_id)
+            llm = await resolve_llm(db, company_id=project.company_id, user=user) if custom_instruction else (await llm_from_company(db, project.company_id) or llm_from_env())
             if llm and llm.provider not in ('', 'fake') and llm.is_usable():
                 source = 'personal' if llm.source == 'user' else llm.source
                 model = llm.model
