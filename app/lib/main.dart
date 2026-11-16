@@ -201,6 +201,8 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
+            // 界面只有简体中文；固定语言，避免英文系统下组件自带提示变成英文
+            locale: const Locale('zh', 'CN'),
             supportedLocales: const [
               Locale('zh', 'CN'),
               Locale('en', 'US'),
@@ -218,6 +220,7 @@ class _WorkTodoAppState extends State<WorkTodoApp> {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      locale: const Locale('zh', 'CN'),
       supportedLocales: const [Locale('zh', 'CN'), Locale('en', 'US')],
       home: widget.webShellFactory?.call() ?? const WebShellScreen(),
     );

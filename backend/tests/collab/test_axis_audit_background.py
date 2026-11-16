@@ -63,6 +63,41 @@ async def test_model_failure_is_done_rule_with_chinese_reason(async_client, seed
     assert data['started_at'] and data['finished_at']
 
 
+async def test_main_model_retries_once_after_upstream_failure(async_client, seed_ids, monkeypatch, caplog):
+    calls = []
+    async def complete(*args, **kwargs):
+        calls.append(kwargs['timeout'])
+        if len(calls) == 1:
+            return {'ok': False, 'content': '', 'error': 'HTTP 502: upstream busy, key sk-abcdef1234567890'}
+        return valid_reply(kwargs)
+    monkeypatch.setattr(service, 'chat_completion', complete)
+    monkeypatch.setattr(service.logger, 'disabled', False)  # 迁移的 fileConfig 会关掉已有日志器
+    url, _ = await start(async_client, seed_ids)
+    with caplog.at_level('WARNING', logger=service.logger.name):
+        await jobs.process_pending_audits()
+    data = (await async_client.get(url, headers=seed_ids['pm_headers'])).json()['data']
+    assert data['status'] == 'done' and data['mode'] == 'ai' and data['fallback_reason'] is None
+    assert calls[:2] == [180, 180], '主模型失败后应再试一次'
+    assert 'attempt 1/2' in caplog.text and 'HTTP 502: upstream busy' in caplog.text
+    assert 'abcdef1234567890' not in caplog.text, '日志不得包含密钥片段'
+
+
+async def test_main_model_gives_up_after_two_failures(async_client, seed_ids, monkeypatch, caplog):
+    calls = []
+    async def complete(*args, **kwargs):
+        calls.append(kwargs['timeout'])
+        return {'ok': False, 'content': '', 'error': 'HTTP 503: unavailable'}
+    monkeypatch.setattr(service, 'chat_completion', complete)
+    monkeypatch.setattr(service.logger, 'disabled', False)
+    url, baseline = await start(async_client, seed_ids)
+    with caplog.at_level('WARNING', logger=service.logger.name):
+        await jobs.process_pending_audits()
+    data = (await async_client.get(url, headers=seed_ids['pm_headers'])).json()['data']
+    assert data['status'] == 'done' and data['mode'] == 'rule' and data['nodes'] == baseline['nodes']
+    assert len(calls) == service.MAIN_ATTEMPTS == 2
+    assert 'attempt 2/2' in caplog.text and 'HTTP 503' in caplog.text
+
+
 async def test_success_runs_outside_request_and_once(async_client, seed_ids, monkeypatch):
     calls = []
     entered, release = asyncio.Event(), asyncio.Event()
