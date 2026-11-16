@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../design/design.dart';
+import '../../../core/errors/app_error.dart';
 import '../data/axis_api.dart';
 import '../data/axis_matter_patch.dart';
 import '../data/axis_models.dart';
+import '../data/axis_rules.dart';
 import 'axis_common.dart';
 
 class AxisMatterForm extends StatefulWidget {
@@ -13,12 +15,35 @@ class AxisMatterForm extends StatefulWidget {
       required this.original,
       required this.members,
       required this.canChangeAssignee,
-      required this.onSaved});
+      required this.onSaved})
+      : parent = null,
+        projectId = null,
+        permissions = AxisPermissions.empty,
+        onCreated = null,
+        allNodes = const [];
+
+  const AxisMatterForm.create({
+    super.key,
+    required this.api,
+    required AxisPersonNode this.parent,
+    required int this.projectId,
+    required this.permissions,
+    required this.allNodes,
+    required this.members,
+    required this.canChangeAssignee,
+    required this.onSaved,
+    this.onCreated,
+  }) : original = const {};
   final AxisApi api;
   final Map<String, dynamic> original;
   final List<AxisMember> members;
   final bool canChangeAssignee;
   final VoidCallback onSaved;
+  final ValueChanged<int?>? onCreated;
+  final AxisPersonNode? parent;
+  final int? projectId;
+  final AxisPermissions permissions;
+  final List<AxisPersonNode> allNodes;
 
   @override
   State<AxisMatterForm> createState() => _AxisMatterFormState();
@@ -29,7 +54,10 @@ class _AxisMatterFormState extends State<AxisMatterForm> {
       TextEditingController(text: widget.original['title']?.toString() ?? '');
   late final _date = TextEditingController(
       text: axisDateLabel(AxisWorkItem.fromJson(widget.original).dueAt));
-  late int? _assignee = axisMatterAssignee(widget.original);
+  late int? _assignee = widget.parent == null
+      ? axisMatterAssignee(widget.original)
+      : widget.parent!.primaryAssignee?.userId;
+  String _type = 'work_item';
   bool _busy = false;
   String? _error;
 
@@ -41,6 +69,18 @@ class _AxisMatterFormState extends State<AxisMatterForm> {
   }
 
   Future<void> _save() async {
+    if (_busy) return;
+    if (widget.parent != null) {
+      final rule = AxisRules.validateAddMatter(
+          parent: widget.parent,
+          permissions: widget.permissions,
+          nodes: widget.allNodes,
+          nodeTypeKey: _type);
+      if (!rule.allowed) {
+        setState(() => _error = rule.reason);
+        return;
+      }
+    }
     final due = _date.text.trim();
     if (_title.text.trim().isEmpty || !validAxisDateInput(due)) {
       setState(() => _error =
@@ -56,7 +96,17 @@ class _AxisMatterFormState extends State<AxisMatterForm> {
       _error = null;
     });
     try {
-      if (patch.isNotEmpty) {
+      if (widget.parent != null) {
+        final id = await widget.api.createMatter(
+          projectId: widget.projectId!,
+          parentId: widget.parent!.id,
+          nodeTypeKey: _type,
+          title: _title.text,
+          dueDate: due,
+          assigneeUserId: _assignee,
+        );
+        if (mounted) widget.onCreated?.call(id);
+      } else if (patch.isNotEmpty) {
         await widget.api
             .updateMatter((widget.original['id'] as num).toInt(), patch);
       }
@@ -65,7 +115,12 @@ class _AxisMatterFormState extends State<AxisMatterForm> {
       if (mounted) {
         setState(() {
           _busy = false;
-          _error = axisErrorMessage(error);
+          final message = axisErrorMessage(error);
+          _error = widget.parent != null &&
+                  (error is ApiException || error is ValidationException) &&
+                  !RegExp(r'[\u4e00-\u9fff]').hasMatch(message)
+              ? '添加事项失败，请检查新增权限、事项内容及项目状态后重试'
+              : message;
         });
       }
     }
@@ -80,6 +135,24 @@ class _AxisMatterFormState extends State<AxisMatterForm> {
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (widget.parent != null) ...[
+          Align(
+              alignment: Alignment.centerLeft,
+              child: Text('挂载人员：${widget.parent!.name}')),
+          const SizedBox(height: AppSpacing.md),
+          DropdownButtonFormField<String>(
+            key: const Key('axis-matter-type'),
+            initialValue: _type,
+            decoration: const InputDecoration(labelText: '事项类型'),
+            items: const [
+              DropdownMenuItem(value: 'work_item', child: Text('工作项')),
+              DropdownMenuItem(value: 'milestone', child: Text('里程碑')),
+              DropdownMenuItem(value: 'scope', child: Text('范围')),
+            ],
+            onChanged: _busy ? null : (value) => setState(() => _type = value!),
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
         TextField(
             key: const Key('axis-matter-title'),
             controller: _title,
@@ -92,8 +165,11 @@ class _AxisMatterFormState extends State<AxisMatterForm> {
             controller: _date,
             enabled: !_busy,
             keyboardType: TextInputType.datetime,
-            decoration: const InputDecoration(
-                labelText: '截止日期', hintText: '例如：2026-12-10，留空清除')),
+            decoration: InputDecoration(
+                labelText: _type == 'milestone' ? '里程碑日期' : '截止日期',
+                hintText: widget.parent == null
+                    ? '例如：2026-12-10，留空清除'
+                    : '例如：2026-12-10，可留空')),
         const SizedBox(height: AppSpacing.md),
         DropdownButtonFormField<int>(
             key: const Key('axis-matter-assignee'),
@@ -101,7 +177,9 @@ class _AxisMatterFormState extends State<AxisMatterForm> {
             decoration: const InputDecoration(labelText: '负责人'),
             items: [
               if (_assignee == null)
-                const DropdownMenuItem<int>(value: null, child: Text('保持不变')),
+                DropdownMenuItem<int>(
+                    value: null,
+                    child: Text(widget.parent == null ? '保持不变' : '未指定')),
               if (_assignee != null && !members.containsKey(_assignee))
                 DropdownMenuItem(value: _assignee, child: const Text('当前负责人')),
               for (final member in members.values)
@@ -123,7 +201,7 @@ class _AxisMatterFormState extends State<AxisMatterForm> {
         const SizedBox(height: AppSpacing.lg),
         AppButton(
             key: const Key('axis-matter-save'),
-            label: '保存事项',
+            label: widget.parent == null ? '保存事项' : '添加事项',
             isLoading: _busy,
             isFullWidth: true,
             onPressed: _busy ? null : _save),

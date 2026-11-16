@@ -12,7 +12,9 @@ class AxisApi {
   AxisApi(this._client);
 
   final ApiClient _client;
-  String resolveAvatar(String url) => url.startsWith('/') ? Uri.parse(_client.baseUrl).resolve(url).toString() : url;
+  String resolveAvatar(String url) => url.startsWith('/')
+      ? Uri.parse(_client.baseUrl).resolve(url).toString()
+      : url;
 
   Future<Map<String, dynamic>> fetchCardView(int projectId) async {
     final data = _map(await _client.get('/users/me/ui-prefs'));
@@ -20,15 +22,20 @@ class AxisApi {
   }
 
   Future<void> saveCardView(int projectId, Map<String, dynamic> value) async {
-    await _client.put('/users/me/ui-prefs', body: {'person_cards': {projectId.toString(): value}});
+    await _client.put('/users/me/ui-prefs', body: {
+      'person_cards': {projectId.toString(): value}
+    });
   }
 
-  Future<void> saveCardTemplate(int projectId, Map<String, dynamic> value) async {
+  Future<void> saveCardTemplate(
+      int projectId, Map<String, dynamic> value) async {
     await _client.put('/projects/$projectId/card-template', body: value);
   }
 
-  Future<void> saveCardStyle(int projectId, int nodeId, Map<String, dynamic> value) async {
-    await _client.put('/projects/$projectId/nodes/$nodeId/card-style', body: value);
+  Future<void> saveCardStyle(
+      int projectId, int nodeId, Map<String, dynamic> value) async {
+    await _client.put('/projects/$projectId/nodes/$nodeId/card-style',
+        body: value);
   }
 
   Map<String, dynamic> _map(Object? data) =>
@@ -136,6 +143,30 @@ class AxisApi {
               ],
       },
     );
+  }
+
+  /// 新建事项沿用建节点接口，由 TreeService 校验父人员、权限和项目隔离。
+  Future<int?> createMatter({
+    required int projectId,
+    required int parentId,
+    required String nodeTypeKey,
+    required String title,
+    String dueDate = '',
+    int? assigneeUserId,
+  }) async {
+    final result = await _client.post('/projects/$projectId/nodes', body: {
+      'parent_id': parentId,
+      'node_type_key': nodeTypeKey,
+      'title': title.trim(),
+      if (dueDate.isNotEmpty)
+        (nodeTypeKey == 'milestone' ? 'milestone_at' : 'due_at'):
+            '${dueDate}T23:59:59',
+      'assignees': [
+        if (assigneeUserId != null)
+          {'user_id': assigneeUserId, 'role_key': 'primary'},
+      ],
+    });
+    return result is Map ? (result['id'] as num?)?.toInt() : null;
   }
 
   /// 修改节点标题、描述、指派或权限（`PATCH /nodes/{id}`）。

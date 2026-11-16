@@ -57,7 +57,11 @@ class AxisController extends ChangeNotifier {
     await api.saveCardView(id, value);
     if (_disposed || _projectId != id) return;
     cardView = value;
-    nodes = nodes.map((n) => n.copyWith(cardConfig: mergePersonCard(project?.cardTemplate ?? {}, n.cardStyle ?? {}, value))).toList();
+    nodes = nodes
+        .map((n) => n.copyWith(
+            cardConfig: mergePersonCard(
+                project?.cardTemplate ?? {}, n.cardStyle ?? {}, value)))
+        .toList();
     notifyListeners();
   }
 
@@ -88,6 +92,9 @@ class AxisController extends ChangeNotifier {
   bool reportsError = false;
 
   int? selectedNodeId;
+
+  /// 本次创建的事项优先进入卡片摘要，避免被已有事项挤出。
+  int? preferredMatterId;
 
   /// 当前用户自己的人员卡片（primary/collaborator 指派）。
   AxisPersonNode? get selfNode {
@@ -408,15 +415,24 @@ class AxisController extends ChangeNotifier {
       final permissions = results[2] as AxisPermissions;
       final project = results[3] as AxisProjectInfo;
       Map<String, dynamic> view = {};
-      if (project.cardTemplate != null) view = await api.fetchCardView(_projectId);
+      if (project.cardTemplate != null) {
+        view = await api.fetchCardView(_projectId);
+      }
       if (!_isFresh(epoch)) return;
       cardView = view;
 
       final mapped = AxisTreeMapper.mapTree(tree);
-      nodes = mapped.map((n) => n.copyWith(
-        profileAvatarUrl: n.profileAvatarUrl.isEmpty ? '' : api.resolveAvatar(n.profileAvatarUrl),
-        cardConfig: project.cardTemplate != null || n.cardStyle != null ? mergePersonCard(project.cardTemplate ?? {}, n.cardStyle ?? {}, view) : null,
-      )).toList();
+      nodes = mapped
+          .map((n) => n.copyWith(
+                profileAvatarUrl: n.profileAvatarUrl.isEmpty
+                    ? ''
+                    : api.resolveAvatar(n.profileAvatarUrl),
+                cardConfig: project.cardTemplate != null || n.cardStyle != null
+                    ? mergePersonCard(
+                        project.cardTemplate ?? {}, n.cardStyle ?? {}, view)
+                    : null,
+              ))
+          .toList();
       this.members = members;
       this.permissions = permissions;
       this.project = project;
@@ -474,6 +490,7 @@ class AxisController extends ChangeNotifier {
     project = null;
     cardView = {};
     selectedNodeId = null;
+    preferredMatterId = null;
     pulledIds = {};
     expandedRowIds = {};
     hiddenStackIds = {};

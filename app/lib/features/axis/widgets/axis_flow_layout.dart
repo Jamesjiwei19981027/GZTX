@@ -140,7 +140,10 @@ class AxisFlowLayout {
     Map<int, Offset> offsets = const {},
     bool resetLayout = false,
     AxisFoldSpec? fold,
+    Map<int, double> cardHeights = const {},
   }) {
+    double heightOf(AxisPersonNode node) =>
+        cardHeights[node.id] ?? personCardSize.height;
     final memberIds = fold == null ? null : axisMemberIds(nodes, fold);
     final allNodes = nodes;
     if (memberIds != null) {
@@ -214,7 +217,7 @@ class AxisFlowLayout {
       var total = foldedStemHeight + foldedRowGap * (list.length - 1);
       for (final member in list) {
         total += fold!.expandedRows.contains(member.id)
-            ? personCardSize.height
+            ? heightOf(member)
             : foldedRowHeight;
       }
       return total;
@@ -222,7 +225,7 @@ class AxisFlowLayout {
 
     // 足迹 = 卡片 + 折叠组；横向计入 cross 跨度，纵向计入层高。
     double footprintOf(AxisPersonNode node) =>
-        personCardSize.height + stackHeight(node.id);
+        heightOf(node) + stackHeight(node.id);
 
     final horizontal = orientation == AxisOrientation.horizontal;
     final crossGap = siblingGap * spacing.siblingFactor;
@@ -280,13 +283,13 @@ class AxisFlowLayout {
               along,
               cross,
               personCardSize.width,
-              personCardSize.height,
+              heightOf(node),
             )
           : Rect.fromLTWH(
               cross,
               along,
               personCardSize.width,
-              personCardSize.height,
+              heightOf(node),
             );
       autoRects[node.id] = rect;
       var childCross = crossStart;
@@ -336,7 +339,7 @@ class AxisFlowLayout {
       final members = <AxisFoldedMember>[];
       for (final node in list) {
         final expanded = fold!.expandedRows.contains(node.id);
-        final height = expanded ? personCardSize.height : foldedRowHeight;
+        final height = expanded ? heightOf(node) : foldedRowHeight;
         members.add(
           AxisFoldedMember(
             node: node,
