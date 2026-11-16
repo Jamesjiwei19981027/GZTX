@@ -91,8 +91,10 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
     super.dispose();
   }
 
-  void _openNewChat() {
-    context.push('/messages/contacts');
+  Future<void> _openNewChat() async {
+    await context.push('/messages/contacts');
+    // 从联系人发起的新私聊要立刻出现在列表里
+    if (mounted) await _controller?.load();
   }
 
   void _openInbox() {
@@ -279,6 +281,15 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
       );
     }
 
+    final selfId = context.authStateOrNull?.currentUser?.id;
+    // 按最近消息时间倒序，无消息的排最后
+    final conversations = [...controller.conversations]..sort((a, b) {
+        final at = a.lastMessageAt, bt = b.lastMessageAt;
+        if (at == null && bt == null) return b.id.compareTo(a.id);
+        if (at == null) return 1;
+        if (bt == null) return -1;
+        return bt.compareTo(at);
+      });
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.sm),
@@ -286,14 +297,15 @@ class _MessagesRootScreenState extends State<MessagesRootScreen> {
         AppListSection(
           header: '私聊与讨论组',
           children: [
-            for (final conversation in controller.conversations)
+            for (final conversation in conversations)
               AppListTile(
-                leading: MessageAvatar(label: conversation.displayTitle),
-                title: conversation.displayTitle,
+                leading: MessageAvatar(
+                    label: conversation.displayTitleFor(selfId)),
+                title: conversation.displayTitleFor(selfId),
                 subtitle: _conversationSubtitle(conversation),
                 onTap: () => context.push(
                   '/messages/chat/${conversation.id}'
-                  '?type=direct&name=${Uri.encodeComponent(conversation.displayTitle)}',
+                  '?type=direct&name=${Uri.encodeComponent(conversation.displayTitleFor(selfId))}',
                 ),
               ),
           ],

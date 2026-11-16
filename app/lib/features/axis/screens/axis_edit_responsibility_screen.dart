@@ -182,7 +182,10 @@ class _AxisEditResponsibilityScreenState
             if (!mounted) return;
             setState(() => _dirty = false);
             showAppToast(context, '人员信息保存成功', type: ToastType.success);
-            Navigator.of(context).maybePop();
+            // 已保存：等返回拦截按 _dirty=false 重建后再退出，否则会误弹“放弃修改？”
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) Navigator.of(context).maybePop();
+            });
           },
         ),
       ),

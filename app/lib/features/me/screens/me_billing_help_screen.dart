@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../config/brand.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../design/design.dart';
 import '../appearance/me_appearance.dart';
@@ -105,24 +106,19 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                         footer: '个人数据遵照隐私合规要求处理，敏感凭据在服务端加密存储',
                         children: [
                           MeInfoRow(
-                            label: '审计数据保留',
+                            label: '数据保留',
                             value: (_privacy?.retention ?? '').trim().isEmpty
                                 ? '按企业合规归档'
                                 : _privacy!.retention,
                           ),
-                          MeInfoRow(
-                            label: '数据导出通道',
-                            value:
-                                (_privacy?.exportEndpoint ?? '').trim().isEmpty
-                                    ? '未开放'
-                                    : _privacy!.exportEndpoint,
+                          // 接口返回的是内部路径，不能直接展示给用户
+                          const MeInfoRow(
+                            label: '数据导出',
+                            value: '在「账号与安全 → 注销此账号」页导出为文件',
                           ),
-                          MeInfoRow(
-                            label: '账号注销通道',
-                            value:
-                                (_privacy?.deleteEndpoint ?? '').trim().isEmpty
-                                    ? '见「账号与安全 → 注销此账号」'
-                                    : _privacy!.deleteEndpoint,
+                          const MeInfoRow(
+                            label: '账号注销',
+                            value: '在「账号与安全 → 注销此账号」中操作',
                             showDivider: false,
                           ),
                         ],
@@ -170,7 +166,7 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                         child: Column(
                           children: [
                             Text(
-                              '工作梯 APP',
+                              '${Brand.name} APP',
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
@@ -196,6 +192,18 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
                   ),
       ),
     );
+  }
+
+  static String _managedByLabel(String? raw) {
+    switch ((raw ?? '').trim()) {
+      case 'company_admin':
+        return '企业管理员';
+      case 'self':
+      case '':
+        return '个人自管';
+      default:
+        return raw!.trim();
+    }
   }
 
   Widget _planCard() {
@@ -244,7 +252,7 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
           const SizedBox(height: AppSpacing.sm),
           Text(
             (billing?.planCode ?? '').trim().isEmpty
-                ? '企业专业版 · 多端协同'
+                ? (billing?.isActive == true ? '企业版' : '基础版')
                 : billing!.planCode!,
             style: const TextStyle(
               fontSize: 20,
@@ -254,7 +262,7 @@ class _MeBillingHelpScreenState extends State<MeBillingHelpScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            '服务管理方：${(billing?.managedBy ?? '').trim().isEmpty ? '工作梯协作平台' : billing!.managedBy}',
+            '服务管理方：${_managedByLabel(billing?.managedBy)}',
             style: const TextStyle(fontSize: 12, color: Color(0xFFD6E4FA)),
           ),
           if ((billing?.companyName ?? '').trim().isNotEmpty) ...[

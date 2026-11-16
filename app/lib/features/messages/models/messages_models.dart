@@ -104,9 +104,17 @@ class DirectConversation {
   final DateTime? lastMessageAt;
 
   /// 与网页版 MobileMessageScreens.tsx 一致：标题优先取会话标题，其次成员名，最后会话编号
-  String get displayTitle {
+  String get displayTitle => displayTitleFor(null);
+
+  /// 会话名：私聊列表里不显示自己，只显示对方（多人时用顿号连接）。
+  String displayTitleFor(int? selfUserId) {
     final explicit = title?.trim() ?? '';
     if (explicit.isNotEmpty) return explicit;
+    final others = members
+        .where((m) => selfUserId == null || m.userId != selfUserId)
+        .map((m) => m.name)
+        .where((n) => n.trim().isNotEmpty);
+    if (others.isNotEmpty) return others.join('、');
     final names = members.map((m) => m.name).where((n) => n.trim().isNotEmpty);
     if (names.isNotEmpty) return names.join('、');
     return '会话 #$id';

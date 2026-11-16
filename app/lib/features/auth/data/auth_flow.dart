@@ -45,6 +45,13 @@ class AuthFlow {
       if (session.projectId != null) {
         PendingInviteHolder.clear();
         authState.clearPendingInviteToken();
+        // 受邀项目设为当前项目，回到工作台时直接是这个项目
+        for (final p in authState.projects) {
+          if (p.id == session.projectId) {
+            authState.selectProject(p);
+            break;
+          }
+        }
         context.go('/projects/${session.projectId}');
         return;
       }

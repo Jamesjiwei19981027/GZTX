@@ -66,13 +66,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('直接私聊 (1)'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('张三、李四'));
+    await tester.tap(find.text('李四'));
     await tester.pumpAndSettle();
 
     final uri = router.state.uri;
     expect(uri.path, '/messages/chat/55');
     expect(uri.queryParameters['type'], 'direct');
-    expect(uri.queryParameters['name'], '张三、李四');
+    expect(uri.queryParameters['name'], '李四');
     expect(find.text('私聊里的第一条消息'), findsOneWidget);
     expect(requests(helper, 'GET', '/conversations/55/messages'), isNotEmpty);
 

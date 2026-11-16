@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:worktodo_app/core/auth/auth_provider.dart';
 import 'package:worktodo_app/core/models/company.dart';
 import 'package:worktodo_app/design/design.dart';
@@ -108,16 +109,26 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
       _nameError = null;
     });
     final auth = context.authStateRead;
+    final router = GoRouter.maybeOf(context);
+    final navigator = Navigator.of(context);
     try {
       final created = await ProjectsRepository(auth.api)
           .createProject(name: name, companyId: company.id);
-      await auth.refreshProjects();
-      final matched = auth.projects.where((item) => item.id == created.id);
-      auth.selectProject(matched.isNotEmpty ? matched.first : created);
       if (!mounted) return;
       setState(() => _busy = false);
       showAppToast(context, '项目「${created.name}」已创建', type: ToastType.success);
-      Navigator.of(context).maybePop();
+      // 必须先关闭新建页（及上游切换页）再刷新项目列表、切换项目：
+      // AuthState 一通知，路由就按当前地址重建，之后再 pop 页面会残留在屏幕上。
+      if (router != null) {
+        while (router.canPop()) {
+          router.pop();
+        }
+      } else {
+        navigator.maybePop();
+      }
+      await auth.refreshProjects();
+      final matched = auth.projects.where((item) => item.id == created.id);
+      auth.selectProject(matched.isNotEmpty ? matched.first : created);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -164,7 +175,8 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
           '公司「${created.name}」已创建',
           type: ToastType.success,
         );
-        Navigator.of(context).maybePop();
+        // 切换公司会刷新路由，maybePop 不再生效，直接回到工作台
+        _backToWork();
       } else {
         setState(() {
           _busy = false;
@@ -211,12 +223,23 @@ class _ProjectCreateScreenState extends State<ProjectCreateScreen> {
         '已切换到公司「${company.name}」',
         type: ToastType.success,
       );
-      Navigator.of(context).maybePop();
+      // 切换公司会刷新路由，maybePop 不再生效，直接回到工作台
+      _backToWork();
     } else {
       setState(() {
         _busy = false;
         _error = '仍无法切换到公司「${company.name}」，请检查网络后重试。公司已创建，无需重新创建。';
       });
+    }
+  }
+
+  /// 切换公司会刷新路由，maybePop 不再生效：有路由时直接回工作台，否则按普通页面返回
+  void _backToWork() {
+    final router = GoRouter.maybeOf(context);
+    if (router != null) {
+      router.go('/work');
+    } else {
+      Navigator.of(context).maybePop();
     }
   }
 

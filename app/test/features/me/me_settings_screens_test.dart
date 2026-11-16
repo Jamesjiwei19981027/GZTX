@@ -25,7 +25,7 @@ void main() {
       expect(find.text('企业专业版'), findsOneWidget);
       expect(find.text('服务管理方：平台运维'), findsOneWidget);
       expect(find.text('180 天'), findsOneWidget);
-      expect(find.text('/api/v1/users/me/export'), findsOneWidget);
+      expect(find.text('在「账号与安全 → 注销此账号」页导出为文件'), findsOneWidget);
     });
 
     testWidgets('单个接口失败时保留另一半内容并提示', (tester) async {

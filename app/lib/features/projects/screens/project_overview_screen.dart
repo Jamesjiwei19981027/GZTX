@@ -155,24 +155,50 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return AppScaffold(
-      title: _project?.name ?? '项目概览',
-      actions: [
-        GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () async {
-            final projectId = widget.projectId;
-            await Navigator.of(context).push(MaterialPageRoute<void>(
-                builder: (_) => ProjectSettingsScreen(projectId: projectId)));
-            if (mounted && projectId == widget.projectId) _loadAll();
-          },
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12),
-            child: AppIcon('settings', size: 18),
+    // 从邀请注册/外部链接直接进入时没有上一页，返回统一回到工作台
+    final canPop = Navigator.of(context).canPop();
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) context.go('/work');
+      },
+      child: AppScaffold(
+        title: _project?.name ?? '项目概览',
+        leading: canPop
+            ? null
+            : Semantics(
+                button: true,
+                label: '返回工作台',
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => context.go('/work'),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: AppIcon('back', size: 18),
+                  ),
+                ),
+              ),
+        actions: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () async {
+              final projectId = widget.projectId;
+              await Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => ProjectSettingsScreen(projectId: projectId)));
+              if (mounted && projectId == widget.projectId) _loadAll();
+            },
+            child: Semantics(
+              button: true,
+              label: '项目设置',
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                child: AppIcon('settings', size: 18),
+              ),
+            ),
           ),
-        ),
-      ],
-      body: _buildBody(),
+        ],
+        body: _buildBody(),
+      ),
     );
   }
 

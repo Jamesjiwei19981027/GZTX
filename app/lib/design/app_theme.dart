@@ -72,7 +72,12 @@ ThemeData appThemeFor(Brightness brightness, {ThemeData? base}) {
   final raised =
       isDark ? AppColors.darkSurfaceVariant : AppColors.surfaceVariant;
   final primary = isDark ? AppColors.darkPrimary : AppColors.primary;
-  final text = (base?.textTheme ?? const TextTheme()).apply(
+  // 无 base 时必须从带颜色的排版起步：空 TextTheme 经 apply 仍为空，
+  // 未显式指定颜色的 Text 会被引擎画成白色，在白底卡片上“消失”。
+  final typography = Typography.material2021();
+  final text = (base?.textTheme ??
+          (isDark ? typography.white : typography.black))
+      .apply(
     fontFamily: 'Inter',
     fontFamilyFallback: const ['NotoSansSC'],
     bodyColor: foreground,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../config/brand.dart';
 import '../../../core/auth/auth_state.dart';
 import '../../../design/design.dart';
 import '../appearance/me_appearance.dart';
@@ -93,7 +94,7 @@ class _MeAboutScreenState extends State<MeAboutScreen> {
                       ),
                       const SizedBox(height: AppSpacing.sm),
                       Text(
-                        '工作梯',
+                        Brand.name,
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w500,
@@ -120,7 +121,7 @@ class _MeAboutScreenState extends State<MeAboutScreen> {
             const SizedBox(height: AppSpacing.md),
             MeCard(
               title: '服务端状态',
-              footer: '版本号取自后端 `GET /health`，用于确认所连服务与数据库状态',
+              footer: '用于确认当前连接的服务与数据库是否正常',
               trailing: MeInlineButton(
                 label: _loading ? '检查中…' : '重新检查',
                 isLoading: _loading,
@@ -186,7 +187,7 @@ class _MeAboutScreenState extends State<MeAboutScreen> {
                   icon: 'file',
                   onTap: () => showLicensePage(
                     context: context,
-                    applicationName: '工作梯',
+                    applicationName: Brand.name,
                     applicationVersion: meAppVersion,
                   ),
                 ),

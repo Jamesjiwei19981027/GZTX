@@ -142,6 +142,9 @@ class AuthState extends ChangeNotifier {
       // 2. 获取企业/公司列表
       _applyCompanies(await _fetchCompanies());
 
+      // 读取本机记住的上次所选项目，项目列表加载后优先恢复
+      _rememberedProjectId = await _readRememberedProjectId();
+
       // 3. 获取项目列表
       _projectLoadSeq++;
       _applyProjects(await _fetchProjects(_currentCompany?.id));
@@ -259,7 +262,37 @@ class AuthState extends ChangeNotifier {
     if (_currentProject?.id == project.id && !_allProjectsSelected) return;
     _allProjectsSelected = false;
     _currentProject = project;
+    _rememberedProjectId = project.id;
+    _writeRememberedProjectId(project.id);
     notifyListeners();
+  }
+
+  /// 本机记住的上次所选项目（按用户分键），仅用于启动时恢复
+  int? _rememberedProjectId;
+
+  String? get _rememberedProjectKey =>
+      _currentUser == null ? null : 'last_project_id_${_currentUser!.id}';
+
+  Future<int?> _readRememberedProjectId() async {
+    final key = _rememberedProjectKey;
+    if (key == null) return null;
+    try {
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(milliseconds: 500));
+      return prefs.getInt(key);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> _writeRememberedProjectId(int id) async {
+    final key = _rememberedProjectKey;
+    if (key == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance()
+          .timeout(const Duration(milliseconds: 500));
+      await prefs.setInt(key, id);
+    } catch (_) {}
   }
 
   void selectAllProjects() {
@@ -381,6 +414,10 @@ class AuthState extends ChangeNotifier {
           _projects.any((p) => p.id == _currentProject!.id)) {
         _currentProject =
             _projects.firstWhere((p) => p.id == _currentProject!.id);
+      } else if (_rememberedProjectId != null &&
+          _projects.any((p) => p.id == _rememberedProjectId)) {
+        _currentProject =
+            _projects.firstWhere((p) => p.id == _rememberedProjectId);
       } else {
         _currentProject = _projects.first;
       }

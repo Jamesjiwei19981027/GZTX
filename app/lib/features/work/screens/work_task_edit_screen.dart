@@ -119,6 +119,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
     if (widget.initialStatus != null) {
       _status = widget.initialStatus!;
     }
+    _lastTitleText = _titleController.text;
     _titleController.addListener(_markDirty);
     _descriptionController.addListener(_markDirty);
   }
@@ -146,6 +147,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
   void _resetForm() {
     _taskScope = null;
     _members = const [];
+    _lastTitleText = '';
     _titleController.text = '';
     _descriptionController.text = '';
     _priority = 1;
@@ -174,7 +176,14 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
     }
   }
 
+  String? _lastTitleText;
+
+  // 控制器监听在光标、选区变化时也会回调（如进入页面自动聚焦），只有文字真的变了才算修改
   void _markDirty() {
+    final text = _titleController.text;
+    final previous = _lastTitleText;
+    _lastTitleText = text;
+    if (previous == null || previous == text) return;
     if (!_dirty) setState(() => _dirty = true);
   }
 
@@ -251,6 +260,7 @@ class _WorkTaskEditScreenState extends State<WorkTaskEditScreen> {
 
       setState(() {
         _taskScope = targetScope;
+        _lastTitleText = task.title; // 程序回填不算用户修改
         _titleController.text = task.title;
         _descriptionController.text = task.description ?? '';
         _priority = task.priority;

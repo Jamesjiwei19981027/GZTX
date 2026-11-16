@@ -14,6 +14,15 @@ extension AuthContextExtension on BuildContext {
   AuthState get authState => watch<AuthState>();
   AuthState get authStateRead => read<AuthState>();
 
+  /// 可选读取：组件单测等没有挂 AuthState 的场景返回 null
+  AuthState? get authStateOrNull {
+    try {
+      return read<AuthState>();
+    } on ProviderNotFoundException {
+      return null;
+    }
+  }
+
   ApiClient get apiClient => read<AuthState>().api;
 
   User? get currentUser => watch<AuthState>().currentUser;
