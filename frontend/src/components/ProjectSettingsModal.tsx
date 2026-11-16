@@ -1,3 +1,4 @@
+import { AuditPermissions } from '../features/audits/AuditPermissions';
 import React, { useEffect, useState } from 'react';
 import { getProject, type BackendProject } from '../api/backend';
 import {
@@ -218,6 +219,7 @@ export const ProjectSettingsModal: React.FC<Props> = ({ projectId, canManage, me
           </div>
         </section>
 
+        <AuditPermissions key={projectId} projectId={projectId} disabled={archived || busy} />
         {canManage && (
           <section className="space-y-2 border-t border-outline-variant/30 pt-4">
             <h4 className="text-sm font-medium text-error tabular-nums">归档</h4>

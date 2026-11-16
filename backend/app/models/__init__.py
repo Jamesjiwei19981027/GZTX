@@ -26,6 +26,7 @@ from app.models.tree import NodeType, TreeNode, NodeAssignment, default_progress
 from app.models.evidence import EvidencePackage, EvidenceFile, AsyncJob
 from app.models.progress import ProgressRecord, AdoptionRecord
 from app.models.audit import AuditLog, ReviewCase
+from app.models.audit_run import AuditRun
 from app.models.wiki import ProjectWikiEntry
 from app.models.knowledge import EvidenceFileText, KnowledgeChunk
 from app.models.personal_knowledge import PersonalKnowledgeEntry, PersonalKnowledgeLink

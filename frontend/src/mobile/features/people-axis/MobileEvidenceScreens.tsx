@@ -1,3 +1,4 @@
+import { AuditPanel } from '../../../features/audits/AuditPanel';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { UserProfile, AxisEvidence } from '../../../types';
 import {
@@ -33,7 +34,7 @@ import {
   DELEGATION_SCOPE_DESCRIPTION,
   delegationValidTo,
 } from '../../../api/delegations';
-import { runAxisAudit, getMyPermissions } from '../../../api/shell';
+import { getMyPermissions } from '../../../api/shell';
 import { AppIcon } from '../../ui/AppIcon';
 import { MobileTopBar } from '../../ui/MobileTopBar';
 import { MobileField, MobileInput, MobileTextarea, MobileSwitch } from '../../ui/MobileField';
@@ -1202,182 +1203,9 @@ export interface MobileAxisAuditScreenProps {
   onOpenPackage?: (pkgId: number) => void;
 }
 
-export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({
-  projectId,
-  projectName,
-  currentUser,
-  onBack,
-  onOpenPackage,
-}) => {
-  const [running, setRunning] = useState(false);
-  const [auditResult, setAuditResult] = useState<{
-    overall_risk: string;
-    generated_at: string;
-    nodes: {
-      node_id: number;
-      title: string;
-      risk_level: string;
-      summary: string;
-      suggested_actions: string[];
-    }[];
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isModelUnconfigured, setIsModelUnconfigured] = useState(false);
-
-  const executeAudit = useCallback(async () => {
-    setRunning(true);
-    setError(null);
-    setIsModelUnconfigured(false);
-    try {
-      const res = await runAxisAudit(projectId);
-      setAuditResult(res);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '审计运行失败';
-      setError(msg);
-      if (
-        msg.includes('模型') ||
-        msg.includes('LLM') ||
-        msg.includes('422') ||
-        msg.includes('503') ||
-        msg.includes('未配置')
-      ) {
-        setIsModelUnconfigured(true);
-      }
-    } finally {
-      setRunning(false);
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    executeAudit();
-  }, [executeAudit]);
-
-  return (
-    <div className="axis-theme tabular-nums flex flex-col flex-1 h-full w-full bg-surface dark:bg-surface select-none overflow-hidden">
-      <MobileTopBar
-        title="AI 责任链审计"
-        showBack={Boolean(onBack)}
-        onBack={onBack}
-        backLabel="返回"
-      />
-
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 mobile-scroll-container">
-        {/* 未配置模型或错误提示 */}
-        {isModelUnconfigured && (
-          <div className="p-4 bg-surface-container dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl space-y-2 text-xs text-on-surface-variant">
-            <div className="flex items-center gap-2 font-medium text-sm">
-              <AppIcon name="warning" size={18} className="text-inherit shrink-0" />
-              <span>未配置审计模型</span>
-            </div>
-            <p className="leading-relaxed">
-              当前项目或企业尚未在设置中配置并启用可用的 LLM 审计模型。真实审计功能需要配置模型后方可执行。
-            </p>
-            <button
-              type="button"
-              onClick={executeAudit}
-              className="mt-2 px-3 py-1 rounded-lg bg-primary text-on-primary font-medium text-xs inline-flex items-center gap-1 active:bg-primary cursor-pointer"
-            >
-              <AppIcon name="refresh" size={18} />
-              重试运行审计
-            </button>
-          </div>
-        )}
-
-        {error && !isModelUnconfigured && (
-          <div className="p-3 bg-surface-container text-error rounded-xl text-xs flex items-center gap-1 border border-outline-variant">
-            <AppIcon name="alert" size={18} className="shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
-
-        {/* 头部完成状态卡片 */}
-        <div className="p-4 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl  space-y-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="p-1 rounded-lg bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant">
-                <AppIcon name="file" size={18} />
-              </span>
-              <h3 className="text-sm font-medium text-on-surface dark:text-on-surface">
-                责任链审计完成
-              </h3>
-            </div>
-            <span className="px-2 py-0 rounded-lg text-xs font-medium bg-surface-container text-[var(--axis-amber)] dark:bg-surface-container dark:text-[var(--axis-amber)]">
-              {auditResult ? `${auditResult.nodes.length} 项待处理` : '待处理'}
-            </span>
-          </div>
-          {Boolean(auditResult?.generated_at || projectName?.trim()) && (
-            <p className="text-xs text-outline">
-              {[
-                auditResult?.generated_at
-                  ? new Date(auditResult.generated_at).toLocaleString()
-                  : '',
-                projectName?.trim() || '',
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </p>
-          )}
-        </div>
-
-        {/* 待确认问题列表 */}
-        <section className="space-y-2">
-          <h2 className="text-xs font-medium text-outline   px-1">
-            待确认问题
-          </h2>
-          <div className="bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl divide-y divide-outline-variant dark:divide-outline-variant overflow-hidden ">
-            {auditResult && auditResult.nodes.length > 0 ? (
-              auditResult.nodes.map((node) => (
-                <div key={node.node_id} className="p-3 flex items-center justify-between">
-                  <div>
-                    <strong className="text-xs font-medium text-on-surface dark:text-on-surface block">
-                      {node.title}
-                    </strong>
-                    <p className="text-xs text-outline mt-0">{node.summary}</p>
-                  </div>
-                  <span
-                    className={`px-2 py-0 rounded text-xs font-medium ${
-                      node.risk_level === 'high'
-                        ? 'axis-status is-risk'
-                        : 'axis-status is-active'
-                    }`}
-                  >
-                    {node.risk_level === 'high' ? '高' : '中'}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="p-4 text-center text-xs text-outline">暂无风险节点</div>
-            )}
-          </div>
-        </section>
-
-        {/* 审计依据材料 */}
-        <section className="space-y-2">
-          <h2 className="text-xs font-medium text-outline   px-1">
-            审计依据
-          </h2>
-          <div className="p-4 bg-surface-container-lowest dark:bg-surface-container border border-outline-variant dark:border-outline-variant rounded-xl text-center text-xs text-outline">
-            暂无关联审计材料
-          </div>
-        </section>
-
-        <div className="p-3 bg-surface dark:bg-surface-container rounded-xl text-xs text-on-surface-variant dark:text-on-surface-variant flex items-center gap-2 border border-outline-variant dark:border-outline-variant">
-          <AppIcon name="info" size={18} className="shrink-0" />
-          <span>AI 结果交由管理者确认，可在核验后处理责任和任务。</span>
-        </div>
-
-        <div className="pt-2 pb-6">
-          <button
-            type="button"
-            onClick={executeAudit}
-            disabled={running}
-            className="w-full min-h-[48px] rounded-lg border border-outline-variant dark:border-outline-variant bg-surface-container-lowest dark:bg-surface-container text-on-surface-variant dark:text-on-surface font-medium text-xs flex items-center justify-center gap-1 active:bg-surface cursor-pointer"
-          >
-            <AppIcon name="refresh" size={18} className={running ? 'animate-spin' : ''} />
-            <span>{running ? '正在审计…' : '重新运行审计'}</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+export const MobileAxisAuditScreen: React.FC<MobileAxisAuditScreenProps> = ({ projectId, projectName, onBack }) => (
+  <div className="axis-theme flex flex-col flex-1 h-full min-h-0 w-full bg-surface text-on-surface">
+    <MobileTopBar title="AI 审计" showBack={Boolean(onBack)} onBack={onBack} backLabel="返回" />
+    <div className="flex-1 min-h-0 overflow-y-auto"><AuditPanel key={projectId} projectId={projectId} projectName={projectName} /></div>
+  </div>
+);

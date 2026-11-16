@@ -2,6 +2,7 @@ import '../../../core/api/api_client.dart';
 import '../../../core/errors/app_error.dart';
 import '../../reports/models/report_models.dart';
 import 'axis_models.dart';
+import 'axis_audit_models.dart';
 import 'axis_view_models.dart' show AxisOrientation;
 
 /// T04 人轴接口层。
@@ -257,11 +258,35 @@ class AxisApi {
     return _client.post('/delegations/$delegationId/revoke', body: const {});
   }
 
-  /// AI 责任链审计（`POST /projects/{id}/axis-audit`）。
+  Future<AxisAuditOptions> fetchAuditOptions(int projectId) async =>
+      AxisAuditOptions(_map(await _client.get('/projects/$projectId/audit-options')));
+
+  Future<AxisAuditHistory> fetchAudits(int projectId, {int offset = 0}) async =>
+      AxisAuditHistory(_map(await _client.get('/projects/$projectId/audits',
+          query: {'offset': '$offset', 'limit': '30'})));
+
+  Future<AxisAuditRecord> fetchAudit(int projectId, int auditId) async =>
+      AxisAuditRecord(_map(await _client.get('/projects/$projectId/audits/$auditId')));
+
+  Future<AxisAuditOptions> saveAuditPermission(int projectId, int nodeId, bool? value) async =>
+      AxisAuditOptions(_map(await _client.put('/projects/$projectId/nodes/$nodeId/audit-permission',
+          body: {'allow_audit_subordinates': value})));
+
+  Future<AxisAuditRecord> createAudit(int projectId, AxisAuditScope scope, String instruction) async {
+    final text = instruction.trim();
+    if (text.runes.length > 500) throw '自定义审查要求最多 500 字';
+    return AxisAuditRecord(_map(await _client.post('/projects/$projectId/audits', body: {
+      'scope': scope.scope,
+      if (scope.scope == 'node') 'node_id': scope.nodeId,
+      if (text.isNotEmpty) 'custom_instruction': text,
+    })));
+  }
+
+  /// 保留原调用签名，默认审计本人，新页面使用完整存档模型。
   Future<AxisAuditResult> runAudit(int projectId) async {
     final data = await _client.post(
-      '/projects/$projectId/axis-audit',
-      body: const {},
+      '/projects/$projectId/audits',
+      body: const {'scope': 'self'},
     );
     return AxisAuditResult.fromJson(_map(data));
   }

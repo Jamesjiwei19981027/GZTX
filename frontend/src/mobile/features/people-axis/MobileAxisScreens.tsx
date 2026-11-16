@@ -416,7 +416,7 @@ export const MobileAxisScreens: React.FC<MobileAxisScreensProps> = ({
           <AppIcon name="lock" size={18} />委托授权
         </button>}
         {onOpenAudit && <button type="button" onClick={() => onOpenAudit(pid)} className="min-h-[44px] flex items-center justify-center gap-2 rounded-lg bg-surface dark:bg-surface-container text-on-surface-variant dark:text-on-surface-variant text-xs font-medium">
-          <AppIcon name="file" size={18} />AI 责任链审计
+          <AppIcon name="file" size={18} />AI 审计
         </button>}
       </nav>
 

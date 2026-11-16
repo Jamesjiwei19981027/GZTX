@@ -1,3 +1,4 @@
+import { AuditPermissions } from '../../../features/audits/AuditPermissions';
 import React, { useEffect, useState } from 'react';
 import {
   acceptProjectInvitation,
@@ -671,6 +672,7 @@ export const MobileProjectSettingsScreen: React.FC<{
         )}
 
         <CardTemplateEntry projectId={projectId} disabled={archived || busy} />
+        <AuditPermissions key={projectId} projectId={projectId} disabled={archived || busy} />
         {canManageProject(permissions) && <MobileReportPolicySettings key={projectId} projectId={projectId} canManage={canManageProject(permissions)} archived={archived} />}
 
         {canEdit && archived && (

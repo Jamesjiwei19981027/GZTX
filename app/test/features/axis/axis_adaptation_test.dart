@@ -10,6 +10,7 @@ import 'package:worktodo_app/features/axis/screens/axis_progress_screen.dart';
 import 'package:worktodo_app/features/axis/screens/axis_root_screen.dart';
 
 import 'axis_test_harness.dart';
+import 'axis_audit_fixture.dart';
 
 /// 320 窄屏、430 宽屏、系统字号 200%、深色模式下的布局适配检查。
 ///
@@ -60,6 +61,7 @@ void main() {
           '/projects/${AxisTestHarness.projectId}/axis-audit',
           AxisTestHarness.auditPayload(),
         );
+        if (name == 'AI 审计') registerAuditFixture(harness);
         final page = await build(harness);
 
         bool hasOverflow = false;
@@ -173,10 +175,10 @@ void main() {
     );
   });
 
-  testWidgets('AI 责任链审计适配', (tester) async {
+  testWidgets('AI 审计适配', (tester) async {
     await checkPage(
       tester,
-      'AI 责任链审计',
+      'AI 审计',
       (h) async => AxisAuditScreen(
         api: h.api,
         authState: h.authState,

@@ -57,6 +57,7 @@ TAGS_METADATA: list[dict[str, str]] = [
     {"name": "单点登录", "description": "第三方单点登录跳转与回调"},
     {"name": "项目", "description": "项目、成员、邀请、人轴工作树与批量导入"},
     {"name": "人轴节点与材料", "description": "人轴节点增删改移、负责人、材料提交与进度"},
+    {"name": "AI 审计", "description": "按人轴授权的 AI 审计、规则降级、审计档案与下属审计权限"},
     {"name": "委托授权", "description": "把系统内指定项目操作授权给他人，可设有效期与撤销"},
     {"name": "智能体", "description": "个人与项目智能体管理、对话"},
     {"name": "智能体汇报", "description": "智能体逐级汇报、汇总与领导层汇报"},

@@ -1,0 +1,38 @@
+.audit-panel { --audit-bg:#f7f6f3; --audit-card:#fff; --audit-text:#1c1b19; --audit-muted:#5c5850; --audit-line:rgba(28,27,25,.12); --audit-raised:#efede8; --audit-blue:#1d4e9e; color:var(--audit-text); background:var(--audit-bg); display:grid; gap:24px; padding:16px; width:100%; min-width:0; box-sizing:border-box; font-size:14px; line-height:1.6; font-variant-numeric:tabular-nums; }
+.dark .audit-panel { --audit-bg:#161513; --audit-card:#1c1a18; --audit-text:#efe9de; --audit-muted:#aaa398; --audit-line:rgba(239,233,222,.12); --audit-raised:#262421; --audit-blue:#8fb0e8; }
+.audit-panel h2,.audit-panel h3,.audit-panel h4 { margin:0; font-weight:500; }
+.audit-panel h2 { font-size:20px; margin-bottom:16px; }
+.audit-panel h3 { font-size:16px; }
+.audit-panel h4 { font-size:14px; margin-top:12px; }
+.audit-panel p { margin:8px 0; overflow-wrap:anywhere; }
+.audit-section { background:var(--audit-card); border:1px solid var(--audit-line); border-radius:12px; padding:20px; min-width:0; }
+.audit-panel label { display:grid; gap:8px; margin-bottom:16px; font-weight:400; }
+.audit-panel select,.audit-panel textarea { width:100%; max-width:100%; min-width:0; box-sizing:border-box; border:1px solid var(--audit-line); border-radius:8px; background:var(--audit-raised); color:var(--audit-text); padding:12px; font:inherit; }
+.audit-panel textarea { resize:vertical; }
+.audit-panel button { border:1px solid var(--audit-line); border-radius:8px; padding:12px 16px; font:inherit; color:inherit; background:var(--audit-card); min-height:44px; cursor:pointer; }
+.audit-panel .audit-primary { background:var(--audit-blue); color:#fff; border-color:var(--audit-blue); width:100%; font-weight:500; }
+.dark .audit-panel .audit-primary { color:#12110f; }
+.audit-panel button:disabled,.audit-panel select:disabled { opacity:.55; cursor:default; }
+.audit-panel :is(button,select,textarea):focus-visible { outline:2px solid var(--audit-blue); outline-offset:2px; }
+.audit-panel .audit-muted,.audit-panel small { color:var(--audit-muted); font-size:13px; font-weight:400; }
+.audit-panel small { display:block; margin-top:4px; }
+.audit-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+.audit-heading h2 { margin-bottom:0; }
+.audit-risk { display:inline-flex; align-items:center; gap:8px; font-size:13px; white-space:nowrap; }
+.audit-risk i { display:block; width:8px; height:8px; border-radius:50%; background:#7d786f; }
+.audit-risk-high i { background:#b3261e; }.audit-risk-medium i { background:#a86412; }
+.dark .audit-risk-high i { background:#e5484d; }.dark .audit-risk-medium i { background:#d9a35b; }
+.audit-mode { color:var(--audit-muted); }
+.audit-person { border-top:1px solid var(--audit-line); margin-top:16px; padding-top:16px; }
+.audit-findings,.audit-history { list-style:none; padding:0; margin:12px 0; }
+.audit-findings li { padding:12px 0; border-bottom:1px solid var(--audit-line); }
+.audit-finding-type { color:var(--audit-muted); font-size:13px; }
+.audit-person ul:not(.audit-findings) { padding-left:20px; margin:8px 0; }
+.audit-panel .audit-error { color:#b3261e; overflow-wrap:anywhere; }.dark .audit-panel .audit-error { color:#e5484d; }
+.audit-error button { margin-left:8px; }
+.audit-history li+li { border-top:1px solid var(--audit-line); }
+.audit-panel .audit-history button { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; width:100%; text-align:left; border:0; border-radius:0; padding:16px 0; }
+.audit-permissions { padding:16px 0; background:transparent; border-top:1px solid var(--audit-line); gap:8px; }
+.audit-panel .audit-permission-row { display:grid; grid-template-columns:minmax(0,1fr) minmax(112px,160px); gap:16px; align-items:center; margin:0; padding:12px 0; border-top:1px solid var(--audit-line); }
+.audit-permission-row span { overflow-wrap:anywhere; }
+@media(max-width:480px) { .audit-panel { gap:16px; }.audit-section { padding:16px; }.audit-panel h2 { font-size:16px; }.audit-panel .audit-permission-row { grid-template-columns:minmax(0,1fr) minmax(112px,128px); gap:8px; } }

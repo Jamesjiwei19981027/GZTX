@@ -46,6 +46,42 @@ def dedupe_assignees(assignees: list[dict]) -> list[tuple[int, str]]:
 
 
 class TreeService:
+    async def audit_snapshot(self, db, project_id, lock=False):
+        """审计读取节点的唯一入口，限定项目并排除软删除。"""
+        query = select(TreeNode).where(
+            TreeNode.project_id == project_id, TreeNode.is_deleted.is_(False)
+        ).order_by(TreeNode.id).execution_options(populate_existing=True)
+        nodes = list((await db.execute(query.with_for_update() if lock else query)).scalars())
+        ids = [n.id for n in nodes]
+        types = dict((await db.execute(select(NodeType.id, NodeType.key))).all())
+        query = select(NodeAssignment).where(NodeAssignment.node_id.in_(ids)).execution_options(populate_existing=True)
+        assignments = (await db.execute(query.with_for_update() if lock else query)).scalars().all() if ids else []
+        owners = {n.id: [] for n in nodes}
+        for assignment in assignments:
+            if assignment.role_key == 'primary':
+                owners[assignment.node_id].append(assignment.user_id)
+        return nodes, {n.id: types.get(n.node_type_id, '') for n in nodes}, owners
+
+    async def save_audit_permission(self, db, project, user_id, node_id, value):
+        from app.core.collab_errors import CollabError
+        from app.models.audit import AuditLog
+        from app.api.deps_collab import assert_collaboration_write
+        await db.refresh(project, with_for_update=True)
+        if user_id not in (project.pm_user_id, project.created_by):
+            raise CollabError(403, 40301, '仅项目负责人或创建者可设置下属审计权限')
+        await assert_collaboration_write(db, project.company_id, project_id=project.id, user_id=user_id)
+        node = (await db.execute(select(TreeNode).where(TreeNode.id == node_id,
+            TreeNode.project_id == project.id, TreeNode.is_deleted.is_(False))
+            .with_for_update().execution_options(populate_existing=True))).scalar_one_or_none()
+        if node is None or await self.type_key_of(db, node) != 'person':
+            raise CollabError(422, 42200, '请选择本项目有效的人员节点')
+        before = node.allow_audit_subordinates
+        node.allow_audit_subordinates = value
+        db.add(AuditLog(company_id=project.company_id, project_id=project.id, actor_user_id=user_id,
+            action='audit_permission.update', resource_type='tree_node', resource_id=str(node.id),
+            detail_json={'before': before, 'after': value}))
+        await db.flush()
+
     async def save_card(self, db, project, user_id, value, node=None):
         """唯一卡片写入口：校验权限、节点类型和审计与写入同一事务。"""
         from app.services.person_cards import card_access, validate_card

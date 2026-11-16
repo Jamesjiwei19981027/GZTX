@@ -9,6 +9,7 @@ import 'package:worktodo_app/features/axis/screens/axis_root_screen.dart';
 
 import '../../helpers/golden_test_helper.dart';
 import 'axis_test_harness.dart';
+import 'axis_audit_fixture.dart';
 
 /// T04 人轴各页面 iOS / 安卓双平台截图基准。
 ///
@@ -129,14 +130,11 @@ void main() {
   );
 
   testWidgets(
-    'AI 责任链审计双平台截图',
+    'AI 审计双平台截图',
     tags: ['golden'],
     (tester) async {
       final harness = await AxisTestHarness.create();
-      harness.helper.whenPost(
-        '/projects/${AxisTestHarness.projectId}/axis-audit',
-        AxisTestHarness.auditPayload(),
-      );
+      registerAuditFixture(harness);
       await testAdaptiveGolden(
         tester: tester,
         widget: AxisAuditScreen(

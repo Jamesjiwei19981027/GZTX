@@ -1,3 +1,4 @@
+import { AuditPanel } from '../../features/audits/AuditPanel';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PersonMembershipActions } from '../PersonMembershipActions';
 import { MaterialTextInput } from '../MaterialTextInput';
@@ -12,7 +13,7 @@ import {
 } from '../../api/backend';
 import { mapMember, mapTreeToPeopleAxis, extraRootIds, asBackendId, enrichMattersWithEvidence } from '../../api/mappers';
 import { withAxisPersonMetadata } from '../../api/axisPerson';
-import { getMyPermissions, getPeopleAxisAggregate, runAxisAudit, MyProjectPermissions } from '../../api/shell';
+import { getMyPermissions, getPeopleAxisAggregate, MyProjectPermissions } from '../../api/shell';
 import { fetchMe } from '../../api/auth';
 import { averagePeopleAxisProgress, applyTimeOrder, type AxisOrderMode } from './peopleAxisUtils';
 import { MatterEditForm, MatterDeleteConfirm } from './MatterEditDialog';
@@ -106,7 +107,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
       // ignore
     }
   }, []);
-  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditOpen, setAuditOpen] = useState(false);
 
   // Flagship Visual Controls
   const [treeOrientation, setTreeOrientation] = useState<'horizontal' | 'vertical'>('horizontal');
@@ -859,40 +860,17 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
 
   // Shared by the desktop progress banner and the mobile info sheet.
   const handleRunAxisAudit = useCallback(() => {
-    if (!isBackendProject) return;
-    setAuditLoading(true);
-    void runAxisAudit(backendProjectId)
-      .then((res) => {
-        const byId = new Map(res.nodes.map((n) => [String(n.node_id), n]));
-        setNodes((prev) =>
-          prev.map((n) => {
-            const a = byId.get(n.id);
-            if (!a) return n;
-            return {
-              ...n,
-              aiContext: {
-                riskLevel: (a.risk_level as 'low' | 'medium' | 'high') || 'low',
-                summary: a.summary,
-                lastAnalysis: res.generated_at,
-                suggestedActions: a.suggested_actions || [],
-              },
-            };
-          }),
-        );
-        showToast(
-          lang === 'zh'
-            ? `人轴审计完成：整体风险 ${res.overall_risk}`
-            : `Axis audit done: ${res.overall_risk}`,
-        );
-      })
-      .catch((err) => showToast(err instanceof Error ? err.message : '审计失败'))
-      .finally(() => setAuditLoading(false));
-  }, [isBackendProject, backendProjectId, lang, showToast]);
+    if (isBackendProject) setAuditOpen(true);
+  }, [isBackendProject]);
+  useEffect(() => { setAuditOpen(false); }, [backendProjectId]);
 
   const extraRoots = useMemo(() => extraRootIds(nodes), [nodes]);
 
   return (
     <div className="axis-view-root">
+      {auditOpen && isBackendProject && <AxisDialog title="AI 审计" onClose={() => setAuditOpen(false)}>
+        <AuditPanel key={backendProjectId} projectId={backendProjectId} projectName={projectName} />
+      </AxisDialog>}
       <ResponsibilityWorkspace
         onDisplaySettings={async () => { const id = backendProjectId; try { const result = await loadCardViews(); if (activeProjectRef.current !== String(id)) return; cards.setView(result.ui?.person_cards?.[String(id)] ?? {}); setCardEditor('view'); } catch (e) { showToast(e instanceof Error ? e.message : '显示设置加载失败，请重试'); } }}
         lang={lang} projectId={projectId} projects={projects} projectName={projectName}
@@ -946,7 +924,7 @@ export const PeopleAxisView: React.FC<PeopleAxisViewProps> = ({ lang, projectId,
         onEditMatter={isBackendProject ? (nodeId, itemId) => setMatterEdit({ nodeId, itemId }) : undefined}
         onDeleteMatter={isBackendProject ? (nodeId, itemId) => setMatterDelete({ nodeId, itemId }) : undefined}
         onAddEvidence={id => { if (!canSubmitEvidence(id)) return; setIsAddingEvidence(id); setNewEvDescription(''); setNewEvFiles([]); }}
-        onAudit={handleRunAxisAudit} auditing={auditLoading} onReload={() => setLoadVersion(version => version + 1)}
+        onAudit={handleRunAxisAudit} auditing={false} onReload={() => setLoadVersion(version => version + 1)}
         onReloadAxis={() => { void reloadAxisFromBackend(); }}
         onOpenWiki={() => setWikiProject({ id: backendProjectId,
           name: projects?.find(project => project.id === String(backendProjectId))?.name || projectName || `${lang === 'zh' ? '项目' : 'Project'} #${backendProjectId}` })}

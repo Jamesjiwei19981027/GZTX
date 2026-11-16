@@ -1214,91 +1214,11 @@ async def aggregate_people_axis(
 
 @router.post("/projects/{project_id}/axis-audit", response_model=ResponseData)
 async def axis_audit(project_id: int, db: DbSession, user: CurrentUser):
-    """人轴风险审计：基于进度/证据的启发式（不依赖前端 Gemini）。"""
-    p = await db.get(Project, project_id)
-    if not p:
-        return fail(404, 40400, "项目不存在")
-    if not await acl.can(db, user.id, p.company_id, "project.read", project_id=p.id):
-        return fail(403, 40301, "无权查看项目")
-
-    nodes = (
-        await db.execute(
-            select(TreeNode).where(
-                TreeNode.project_id == project_id, TreeNode.is_deleted.is_(False)
-            )
-        )
-    ).scalars().all()
-    type_keys = {}
-    people = []
-    for n in nodes:
-        key, _ = await tsvc.get_type_key(db, n)
-        type_keys[n.id] = key
-        if key == "person":
-            people.append(n)
-
-    node_audits = []
-    for person in people:
-        children = [n for n in nodes if n.parent_id == person.id]
-        matters = [c for c in children if type_keys.get(c.id) != "person"]
-        blocked = 0
-        stale = 0
-        done = 0
-        for m in matters:
-            pj = m.progress_json or {}
-            st = pj.get("status")
-            pct = float(pj.get("percent") or 0)
-            if st in ("blocked", "at_risk") or pct < 0:
-                blocked += 1
-            if st in ("done", "completed", "reached") or pct >= 100:
-                done += 1
-            # 无进展且无证据 → stale
-            ev_cnt = (
-                await db.execute(
-                    select(func.count())
-                    .select_from(EvidencePackage)
-                    .where(EvidencePackage.node_id == m.id)
-                )
-            ).scalar() or 0
-            if pct < 10 and int(ev_cnt) == 0 and matters:
-                stale += 1
-        risk = "low"
-        if blocked >= 2 or stale >= 3:
-            risk = "high"
-        elif blocked >= 1 or stale >= 1:
-            risk = "medium"
-        suggested = []
-        if blocked:
-            suggested.append("跟进被阻塞事项并补充证据")
-        if stale:
-            suggested.append("推动无进展事项提交首份证据")
-        if not matters:
-            suggested.append("为人节点挂载范围/工作项")
-        if not suggested:
-            suggested.append("保持节奏，按期复核终责链路")
-        node_audits.append(
-            {
-                "node_id": person.id,
-                "title": person.title,
-                "risk_level": risk,
-                "summary": f"事项 {len(matters)}，完成 {done}，阻塞 {blocked}，停滞 {stale}",
-                "suggested_actions": suggested,
-            }
-        )
-
-    overall = "low"
-    if any(a["risk_level"] == "high" for a in node_audits):
-        overall = "high"
-    elif any(a["risk_level"] == "medium" for a in node_audits):
-        overall = "medium"
-
-    return ResponseData(
-        data={
-            "project_id": project_id,
-            "overall_risk": overall,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "nodes": node_audits,
-        }
-    )
+    """兼容一个版本：收紧范围、存档并明确规则模式。"""
+    from app.services import axis_audit as service
+    p = await service.readable_project(db, project_id, user.id)
+    scope = 'project' if service.is_manager(p, user.id) else 'self'
+    return ResponseData(data=await service.run(db, p, user, scope=scope, force_rule=True))
 
 
 @router.put("/nodes/{node_id}/layout", response_model=ResponseData)

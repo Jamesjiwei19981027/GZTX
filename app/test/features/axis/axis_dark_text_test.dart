@@ -8,6 +8,7 @@ import 'package:worktodo_app/features/axis/screens/axis_audit_screen.dart';
 import 'package:worktodo_app/features/axis/screens/axis_progress_screen.dart';
 
 import 'axis_test_harness.dart';
+import 'axis_audit_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -43,26 +44,25 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final harness = await AxisTestHarness.create();
-    harness.helper.whenPost(
-      '/projects/${AxisTestHarness.projectId}/axis-audit',
-      AxisTestHarness.auditPayload(),
-    );
+    registerAuditFixture(harness);
 
     await tester.pumpWidget(wrapInDarkTheme(
       AxisAuditScreen(api: harness.api, authState: harness.authState),
       harness,
     ));
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('audit-run')));
+    await tester.pumpAndSettle();
 
     // 找到审计结果卡片中的整体风险与生成时间说明文字
-    final summaryRiskFinder = find.textContaining('整体风险中等');
+    final summaryRiskFinder = find.textContaining('整体风险中等 ·');
     expect(summaryRiskFinder, findsOneWidget);
     final summaryText = tester.widget<Text>(summaryRiskFinder);
     expect(summaryText.style?.color, AppColors.darkTextSecondary);
     expect(summaryText.style?.color, isNot(AppColors.textSecondary));
 
     // 找到节点审计明细里的动作建议文字
-    final actionFinder = find.text('推动无进展事项提交首份证据');
+    final actionFinder = find.text('核验交付材料');
     expect(actionFinder, findsOneWidget);
     final actionText = tester.widget<Text>(actionFinder);
     expect(actionText.style?.color, AppColors.darkTextSecondary);

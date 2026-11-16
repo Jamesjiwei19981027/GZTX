@@ -129,18 +129,32 @@ export async function getProjectActivity(projectId: number) {
   }>(`/projects/${projectId}/activity?limit=40`)
 }
 
-export async function runAxisAudit(projectId: number) {
-  return apiRequest<{
-    overall_risk: string
-    generated_at: string
-    nodes: {
-      node_id: number
-      title: string
-      risk_level: string
-      summary: string
-      suggested_actions: string[]
-    }[]
-  }>(`/projects/${projectId}/axis-audit`, { method: 'POST', body: '{}' })
+export type AuditScope = 'self' | 'node' | 'project'
+export interface AuditScopeOption { scope: AuditScope; node_id?: number; label: string }
+export interface AuditPermissionPerson { node_id: number; title: string; person_depth: number; allow_audit_subordinates: boolean | null; effective: boolean }
+export interface AuditOptions { can_manage: boolean; scopes: AuditScopeOption[]; people: AuditPermissionPerson[] }
+export interface AuditRequest { scope: AuditScope; node_id?: number; custom_instruction?: string }
+export interface AuditRun {
+  id: number; project_id: number; scope: AuditScope; node_id?: number | null; custom_instruction?: string | null
+  mode: 'ai' | 'rule'; model_source?: string | null; overall_risk: string; generated_at: string
+  restricted: boolean; mode_message: string; fallback_reason?: string | null
+  nodes: { node_id: number; title: string; risk_level: string; summary: string
+    findings: { type: string; description: string; matter_ids: number[] }[]; suggested_actions: string[] }[]
+}
+export function runAxisAudit(projectId: number, body: AuditRequest = { scope: 'self' }) {
+  return apiRequest<AuditRun>(`/projects/${projectId}/audits`, { method: 'POST', body: JSON.stringify(body) })
+}
+export function getAuditOptions(projectId: number) {
+  return apiRequest<AuditOptions>(`/projects/${projectId}/audit-options`)
+}
+export function listAuditRuns(projectId: number, offset = 0) {
+  return apiRequest<{ items: AuditRun[]; has_more: boolean }>(`/projects/${projectId}/audits?offset=${offset}&limit=30`)
+}
+export function getAuditRun(projectId: number, auditId: number) {
+  return apiRequest<AuditRun>(`/projects/${projectId}/audits/${auditId}`)
+}
+export function setAuditPermission(projectId: number, nodeId: number, value: boolean | null) {
+  return apiRequest<AuditOptions>(`/projects/${projectId}/nodes/${nodeId}/audit-permission`, { method: 'PUT', body: JSON.stringify({ allow_audit_subordinates: value }) })
 }
 
 export async function putNodeLayout(

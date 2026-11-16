@@ -298,7 +298,7 @@ export function ResponsibilityWorkspace(p: Props) {
     {p.isProject && <nav className="axis-quick-actions" aria-label={zh ? '人轴协作与检查' : 'Delegation and review'}>
       {p.onDelegate && <button className="axis-settings-row" onClick={p.onDelegate}><ShieldCheck size={18} />{zh ? '委托授权' : 'Manage delegations'}</button>}
       {p.onDisplaySettings && <button className="axis-settings-row" onClick={p.onDisplaySettings}>显示设置</button>}
-      <button className="axis-settings-row" disabled={p.auditing} onClick={p.onAudit}><Check size={18} />{zh ? p.auditing ? '审计中…' : 'AI 责任链审计' : 'AI responsibility audit'}</button>
+      <button className="axis-settings-row" disabled={p.auditing} onClick={p.onAudit}><Check size={18} />{zh ? p.auditing ? '审计中…' : 'AI 审计' : 'AI responsibility audit'}</button>
     </nav>}
     <div className="axis-summary"><div className="axis-summary-progress"><strong>{p.isProject ? (zh ? p.scope === 'mine' ? '我的职责' : '项目全貌' : 'Responsibility') : (zh ? `${p.projectSummaries.length} 个项目` : `${p.projectSummaries.length} projects`)}</strong><AxisProgress value={p.isProject ? p.progress : averagePeopleAxisProgress(summaryNodes)} /><b>{p.isProject ? p.progress : averagePeopleAxisProgress(summaryNodes)}%</b></div>
       <span className="axis-summary-count"><Users size={18} />{summaryNodes.length} {zh ? '位负责人' : 'owners'}<span>·</span>{count} {zh ? '个事项' : 'items'}</span>

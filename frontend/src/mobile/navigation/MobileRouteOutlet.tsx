@@ -522,6 +522,7 @@ export const MobileRouteOutlet: React.FC<MobileRouteOutletSharedProps> = (props)
             (props.currentProject.id !== 'all' ? props.currentProject : undefined);
           return (
             <MobileEvidenceScreens
+              key={`audit-${axisProjectId}`}
               mode="audit"
               projectId={axisProjectId}
               projectName={currentAuditProject?.name}
