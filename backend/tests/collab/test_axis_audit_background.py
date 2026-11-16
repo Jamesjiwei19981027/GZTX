@@ -19,7 +19,7 @@ from app.services.llm_settings import ResolvedLlm
 async def controlled_model(monkeypatch, async_engine):
     async def resolve(*args, **kwargs):
         return ResolvedLlm('openai_responses', 'https://unused.invalid/v1', 'grok-test', 'test', source='company')
-    monkeypatch.setattr(service, 'llm_from_company', resolve)
+    monkeypatch.setattr(service, 'llm_for_company', resolve)
     monkeypatch.setattr(jobs, 'async_session_factory', async_sessionmaker(async_engine, expire_on_commit=False))
 
 

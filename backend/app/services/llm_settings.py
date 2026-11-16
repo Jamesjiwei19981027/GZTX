@@ -538,6 +538,22 @@ def llm_from_env() -> ResolvedLlm | None:
     )
 
 
+def _is_real(llm: ResolvedLlm | None) -> bool:
+    """真实可调用的模型：已启用、配置齐全且不是本地桩。"""
+    return bool(llm and llm.enabled and llm.provider not in ("", "fake") and llm.is_usable())
+
+
+async def llm_for_company(db: AsyncSession, company_id: int | None) -> ResolvedLlm | None:
+    """企业级调用用的模型：企业真实模型 > 部署级环境变量模型；都没有时返回企业原配置（可能是桩）或 None。"""
+    company = await llm_from_company(db, company_id)
+    if _is_real(company):
+        return company
+    env = llm_from_env()
+    if _is_real(env):
+        return env
+    return company
+
+
 async def resolve_llm(
     db: AsyncSession | None = None,
     *,
@@ -550,7 +566,8 @@ async def resolve_llm(
         return u
     if db is not None and company_id:
         c = await llm_from_company(db, company_id)
-        if c and c.enabled and c.is_usable():
+        # 企业存的是本地桩时不挡住部署级真实模型
+        if _is_real(c):
             return c
     if db is not None and not company_id:
         try:
@@ -559,7 +576,7 @@ async def resolve_llm(
             co = await get_default_company(db)
             if co:
                 c = await llm_from_company(db, co.id)
-                if c and c.enabled and c.is_usable():
+                if _is_real(c):
                     return c
         except Exception:
             pass

@@ -13,7 +13,7 @@ from app.models.project import Project
 from app.models.tree import TreeNode
 from app.services.acl import AclService
 from app.schemas.common import ResponseData
-from app.services.llm_settings import chat_completion, llm_from_company
+from app.services.llm_settings import chat_completion, llm_for_company
 from sqlalchemy import select
 
 logger = logging.getLogger(__name__)
@@ -116,7 +116,7 @@ async def suggest_record_target(
         company_id = project.company_id
     else:
         company_id = await _resolve_company_id(db, user.id)
-    llm = await llm_from_company(db, company_id)
+    llm = await llm_for_company(db, company_id)
 
     # provider=fake 或不可用或未配置时一律走规则，source="rule"
     if not llm or llm.provider == "fake" or not llm.is_usable():

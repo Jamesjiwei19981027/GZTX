@@ -18,7 +18,6 @@ async def controlled_audit_environment(monkeypatch, async_engine):
     from sqlalchemy.ext.asyncio import async_sessionmaker
     from app.services import axis_audit as service
     from app.services import llm_settings
-    monkeypatch.setattr(service, 'llm_from_env', lambda: None)
     monkeypatch.setattr(llm_settings, 'llm_from_env', lambda: None)
     import importlib.util
     if importlib.util.find_spec('app.services.axis_audit_jobs'):
@@ -146,7 +145,7 @@ async def test_bad_model_falls_back(async_client, seed_ids, monkeypatch, reply, 
         return ResolvedLlm('ollama', 'http://unused', 'test', '', source='company')
     async def complete(*args, **kwargs):
         return {'ok': True, 'content': reply}
-    monkeypatch.setattr(service, 'llm_from_company', resolve)
+    monkeypatch.setattr(service, 'llm_for_company', resolve)
     monkeypatch.setattr(service, 'chat_completion', complete)
     r = await async_client.post(f'/api/v1/projects/{seed_ids["project_id"]}/audits',
         headers=seed_ids['pm_headers'], json={'scope': 'project'})
@@ -191,7 +190,7 @@ async def test_real_model_input_and_out_of_scope_ids(async_client, seed_ids, db_
             ], 'suggested_actions': ['核验交付']},
             {'node_id': 999999, 'risk_level': 'high', 'summary': '越界人员', 'findings': [], 'suggested_actions': []},
         ]}, ensure_ascii=False)}
-    monkeypatch.setattr(service, 'llm_from_company', company)
+    monkeypatch.setattr(service, 'llm_for_company', company)
     monkeypatch.setattr(service, 'resolve_llm', personal)
     monkeypatch.setattr(service, 'chat_completion', complete)
     for body, source in (({'scope': 'self'}, 'company'), ({'scope': 'self', 'custom_instruction': '检查交付'}, 'personal')):
@@ -249,7 +248,7 @@ async def test_model_wait_rechecks_permission(async_client, audit_tree, seed_ids
         root.allow_audit_subordinates = False
         await db_session.commit()
         return {'ok': False}
-    monkeypatch.setattr(service, 'llm_from_company', company)
+    monkeypatch.setattr(service, 'llm_for_company', company)
     monkeypatch.setattr(service, 'chat_completion', complete)
     r = await async_client.post(f'/api/v1/projects/{p}/audits', headers=headers[0],
         json={'scope': 'node', 'node_id': people[0].id})
@@ -293,7 +292,7 @@ async def test_recipient_ai_is_generated_from_isolated_material(async_client, au
         return {'ok': True, 'content': json.dumps({'overall_risk': 'medium', 'nodes': [
             {'node_id': row['node_id'], 'risk_level': 'medium', 'summary': '本人材料待核验' if isolated else '管理秘密和其他人的问题',
              'findings': [], 'suggested_actions': []} for row in input_people]}, ensure_ascii=False)}
-    monkeypatch.setattr(service, 'llm_from_company', company)
+    monkeypatch.setattr(service, 'llm_for_company', company)
     # 自定义解析仍必须选择用户配置；本测试固定到同一个受控模型。
     monkeypatch.setattr(service, 'resolve_llm', company)
     monkeypatch.setattr(service, 'chat_completion', complete)
@@ -357,7 +356,7 @@ async def test_fake_model_and_cross_project(async_client, seed_ids, monkeypatch)
         return ResolvedLlm('fake', '', 'fake', '', source='company')
     async def forbidden(*args, **kwargs):
         pytest.fail('fake 不得调用模型')
-    monkeypatch.setattr(service, 'llm_from_company', fake)
+    monkeypatch.setattr(service, 'llm_for_company', fake)
     monkeypatch.setattr(service, 'chat_completion', forbidden)
     url = f'/api/v1/projects/{seed_ids["project_id"]}'
     r = await async_client.post(url + '/audits', headers=seed_ids['pm_headers'], json={'scope': 'project'})

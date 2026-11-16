@@ -109,7 +109,7 @@ async def test_suggest_llm_valid_json(client: AsyncClient, auth_headers):
         "content": '```json\n{"target": "knowledge", "reason": "AI识别为技术备忘"}\n```',
     }
 
-    with patch("app.api.v1.record_progress.llm_from_company", new=AsyncMock(return_value=mock_llm)), \
+    with patch("app.api.v1.record_progress.llm_for_company", new=AsyncMock(return_value=mock_llm)), \
          patch("app.api.v1.record_progress.chat_completion", new=AsyncMock(return_value=mock_chat_res)):
         res = await client.post(
             "/api/v1/record-progress/suggest",
@@ -141,7 +141,7 @@ async def test_suggest_llm_gibberish_fallback(client: AsyncClient, auth_headers,
         "content": "这是一堆不是JSON的乱码回答，比如：???@@@!!!",
     }
 
-    with patch("app.api.v1.record_progress.llm_from_company", new=AsyncMock(return_value=mock_llm)), \
+    with patch("app.api.v1.record_progress.llm_for_company", new=AsyncMock(return_value=mock_llm)), \
          patch("app.api.v1.record_progress.chat_completion", new=AsyncMock(return_value=mock_chat_res)):
         res = await client.post(
             "/api/v1/record-progress/suggest",

@@ -201,9 +201,9 @@ async def run_evidence_judge(db: AsyncSession, job_id: int) -> AsyncJob:
         prefer_llm = False
         cfg = None
         try:
-            from app.services.llm_settings import llm_from_company
+            from app.services.llm_settings import llm_for_company
 
-            cfg = await llm_from_company(db, pkg.company_id)
+            cfg = await llm_for_company(db, pkg.company_id)
             prefer_llm = bool(cfg and cfg.provider != "fake" and cfg.enabled and cfg.use_for_judge and cfg.is_usable())
         except Exception:
             prefer_llm = False

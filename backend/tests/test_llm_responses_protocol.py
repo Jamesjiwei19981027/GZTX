@@ -133,3 +133,29 @@ async def test_audit_timeout_reaches_http_transport(monkeypatch, provider, budge
     reply = await chat_completion(_llm(provider=provider), messages=[{'role': 'user', 'content': 'x'}], timeout=budget)
     assert reply['ok']
     assert seen == [{'connect': budget, 'read': budget, 'write': budget, 'pool': budget}]
+
+
+@pytest.mark.asyncio
+async def test_company_stub_does_not_block_env_model(monkeypatch):
+    """企业只存了本地桩时，企业级调用改用部署级真实模型；企业配了真实模型则优先企业。"""
+    env = _llm(source="env")
+    stub = ResolvedLlm(provider="fake", base_url="", model="fake", api_key="")
+    real = _llm(provider="openai_compatible", model="company-model", source="company")
+    monkeypatch.setattr(llm_settings, "llm_from_env", lambda: env)
+
+    async def company_stub(db, cid):
+        return stub
+
+    monkeypatch.setattr(llm_settings, "llm_from_company", company_stub)
+    assert (await llm_settings.llm_for_company(None, 1)) is env
+    assert (await llm_settings.resolve_llm(object(), company_id=1)) is env
+
+    async def company_real(db, cid):
+        return real
+
+    monkeypatch.setattr(llm_settings, "llm_from_company", company_real)
+    assert (await llm_settings.llm_for_company(None, 1)) is real
+
+    monkeypatch.setattr(llm_settings, "llm_from_env", lambda: None)
+    monkeypatch.setattr(llm_settings, "llm_from_company", company_stub)
+    assert (await llm_settings.llm_for_company(None, 1)) is stub

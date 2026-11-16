@@ -79,7 +79,7 @@ async def test_suggest_rejects_inaccessible_and_cross_project_nodes(client, db_s
     async def model(db, company_id):
         calls.append(company_id)
         return None
-    monkeypatch.setattr(record_progress, "llm_from_company", model)
+    monkeypatch.setattr(record_progress, "llm_for_company", model)
     p = team["project"]
     other = Project(company_id=p.company_id, name="另一个项目", status="active", created_by=team["pm"].id)
     db_session.add(other)

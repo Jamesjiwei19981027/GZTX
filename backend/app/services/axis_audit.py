@@ -22,7 +22,7 @@ from app.models.project import Project
 from app.models.report import AgentReport, AgentReportSource
 from app.services.acl import AclService
 from app.services.tree_service import TreeService
-from app.services.llm_settings import llm_from_company, llm_from_env, resolve_llm, chat_completion
+from app.services.llm_settings import llm_for_company, resolve_llm, chat_completion
 
 logger = logging.getLogger(__name__)
 RISK = {'low': 0, 'medium': 1, 'high': 2}
@@ -405,7 +405,7 @@ async def complete_audit(db, audit_id):
         reason = '本人尚无人员节点，以下为规则检查'
     else:
         try:
-            llm = await resolve_llm(db, company_id=project.company_id, user=user) if instruction else (await llm_from_company(db, project.company_id) or llm_from_env())
+            llm = await resolve_llm(db, company_id=project.company_id, user=user) if instruction else await llm_for_company(db, project.company_id)
         except Exception:
             reason = 'AI 配置暂不可用，以下为规则检查'
         if not reason and (not llm or llm.provider in ('', 'fake') or not llm.is_usable()):
