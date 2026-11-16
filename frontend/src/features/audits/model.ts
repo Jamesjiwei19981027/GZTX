@@ -1,5 +1,8 @@
 import type { AuditRequest, AuditRun, AuditScopeOption } from '../../api/shell'
 
+/** 审计详情的可选扩展，兼容没有总体结论的旧档案。 */
+export type AuditResult = AuditRun & { overall_summary?: string | null }
+
 export function scopeKey(option: AuditScopeOption): string {
   return option.scope === 'node' ? `node:${option.node_id}` : option.scope
 }

@@ -32,8 +32,17 @@ class AxisStoredAuditResult extends StatelessWidget {
           '${record.summary.overallRiskLabel} · ${AxisRules.formatDateTime(record.summary.generatedAt)}',
           style: secondary),
       Text(record.restricted ? '针对本人的部分' : '我发起的审计', style: secondary),
-      if (record.instruction?.isNotEmpty == true)
+      if (!record.restricted && record.instruction?.isNotEmpty == true)
         Text('审查要求：${record.instruction}', style: secondary),
+      if (!record.restricted &&
+          record.overallSummary?.trim().isNotEmpty == true) ...[
+        const Divider(height: 32),
+        const Text('总体结论',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 8),
+        Text(record.overallSummary!,
+            style: const TextStyle(fontSize: 14, height: 1.5)),
+      ],
       if (record.summary.nodes.isEmpty)
         const Padding(
             padding: EdgeInsets.symmetric(vertical: 16),

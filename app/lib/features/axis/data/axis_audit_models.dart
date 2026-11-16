@@ -67,6 +67,7 @@ class AxisAuditRecord {
             (json['mode'] == 'ai' ? 'AI 审计' : '未配置 AI，以下为规则检查'),
         restricted = json['restricted'] == true,
         instruction = json['custom_instruction'] as String?,
+        overallSummary = json['overall_summary'] as String?,
         summary = AxisAuditResult.fromJson(json),
         findings = {
           for (final row in _rows(json['nodes']))
@@ -89,6 +90,7 @@ class AxisAuditRecord {
   final String modeMessage;
   final bool restricted;
   final String? instruction;
+  final String? overallSummary;
   final AxisAuditResult summary;
   final Map<int, List<AxisAuditFinding>> findings;
 }

@@ -23,6 +23,8 @@
 .audit-risk-high i { background:#b3261e; }.audit-risk-medium i { background:#a86412; }
 .dark .audit-risk-high i { background:#e5484d; }.dark .audit-risk-medium i { background:#d9a35b; }
 .audit-mode { color:var(--audit-muted); }
+.audit-overall { border-top:1px solid var(--audit-line); margin-top:16px; padding-top:16px; }
+.audit-overall p,.audit-instruction { white-space:pre-wrap; }
 .audit-person { border-top:1px solid var(--audit-line); margin-top:16px; padding-top:16px; }
 .audit-findings,.audit-history { list-style:none; padding:0; margin:12px 0; }
 .audit-findings li { padding:12px 0; border-bottom:1px solid var(--audit-line); }

@@ -42,6 +42,18 @@ const html = renderToStaticMarkup(<AuditResultView result={sample as unknown as 
 for (const text of ['未配置 AI，以下为规则检查', '针对本人的部分', '设计负责人', '言行不符', '标记完成但缺少材料', '#15', '核验交付']) assert.ok(html.includes(text), text)
 assert.ok(!html.includes('保密管理要求'))
 
+const summaryResult = { ...sample, restricted: false, custom_instruction: '重点看谁最拖后腿，并给出催办顺序', overall_summary: '先催办小李，再催办小王。\n每日确认交付。' }
+const summaryHtml = renderToStaticMarkup(<AuditResultView result={summaryResult} />)
+assert.ok(summaryHtml.includes('总体结论'), '发起人展示总体结论')
+assert.ok(summaryHtml.includes('先催办小李，再催办小王。'), '展示跨人员催办顺序')
+assert.ok(summaryHtml.indexOf('审查要求') < summaryHtml.indexOf('总体结论'), '要求原文位于总体结论上方')
+assert.ok(summaryHtml.indexOf('总体结论') < summaryHtml.indexOf('设计负责人'), '总体结论位于逐人结果上方')
+for (const result of [{ ...summaryResult, restricted: true }, { ...summaryResult, overall_summary: null }, { ...summaryResult, overall_summary: '  ' }, sample]) {
+  const rendered = renderToStaticMarkup(<AuditResultView result={result} />)
+  assert.ok(!rendered.includes('总体结论'), '被审人或旧记录无结论时隐藏区块')
+  if (result.restricted) assert.ok(!rendered.includes('重点看谁最拖后腿'), '被审人不展示全局审查要求')
+}
+
 // 将 running 错当成规则检查完成，会让用户以为 AI 已结束。
 const running = { ...sample, status: 'running', started_at: null, finished_at: null } as unknown as api.AuditRun
 const done = { ...running, status: 'done', mode: 'ai', mode_message: 'AI 审计已完成', nodes: [{ ...sample.nodes[0], summary: 'AI 已核验交付材料' }] } as api.AuditRun
@@ -119,3 +131,40 @@ try {
   stopRetry()
 } finally { mock.timers.reset() }
 console.log('AI 审计：新接口、范围约束、自定义要求、状态渲染、五秒轮询、历史恢复、去重、终态停止与旧响应隔离通过')
+
+// 真实浏览器复用桌面、手机和正式 APP Web Shell 的同一结果组件。
+// 内存编译并拦截页面，不启动业务服务，也不访问外网。
+const { build } = await import('esbuild')
+const { chromium } = await import('@playwright/test')
+const { readFile } = await import('node:fs/promises')
+const bundle = await build({
+  stdin: { contents: `import React from 'react'; import { createRoot } from 'react-dom/client'; import { AuditResultView } from './src/features/audits/AuditResultView'; const root=createRoot(document.getElementById('root')); window.showAudit=(result)=>root.render(<div className="audit-panel"><AuditResultView result={result}/></div>);`, resolveDir: process.cwd(), loader: 'tsx' },
+  bundle: true, write: false, format: 'iife',
+})
+const css = await readFile('src/features/audits/audits.css', 'utf8')
+const browser = await chromium.launch({ headless: true })
+try {
+  const page = await browser.newPage()
+  await page.route('**/*', route => route.fulfill({ contentType: 'text/html', body: `<meta charset="utf-8"><style>body{margin:0}${css}</style><div id="root"></div><script>${bundle.outputFiles[0].text}</script>` }))
+  await page.goto('https://audit-summary.test/')
+  for (const width of [1280, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 })
+    const longResult = { ...summaryResult, overall_summary: summaryResult.overall_summary + '待核验交付材料。'.repeat(80) }
+    await page.evaluate(result => (window as unknown as { showAudit: (result: unknown) => void }).showAudit(result), longResult)
+    await page.getByRole('heading', { name: '总体结论' }).waitFor()
+    assert.ok((await page.getByLabel('总体结论').innerText()).includes('先催办小李，再催办小王。'))
+    const positions = await page.evaluate(() => ({
+      instruction: document.querySelector('.audit-instruction')!.getBoundingClientRect().top,
+      overall: document.querySelector('.audit-overall')!.getBoundingClientRect().top,
+      person: document.querySelector('.audit-person')!.getBoundingClientRect().top,
+      overflow: document.documentElement.scrollWidth > innerWidth,
+    }))
+    assert.ok(positions.instruction < positions.overall && positions.overall < positions.person, `${width}px 要求、结论、逐人结果顺序`)
+    assert.equal(positions.overflow, false, `${width}px 长结论不得横向溢出`)
+    await page.evaluate(result => (window as unknown as { showAudit: (result: unknown) => void }).showAudit(result), { ...longResult, restricted: true })
+    await page.getByText('针对本人的部分').waitFor()
+    assert.equal(await page.getByRole('heading', { name: '总体结论' }).count(), 0, `${width}px 被审人隐藏结论`)
+    assert.equal(await page.locator('.audit-instruction').count(), 0, `${width}px 被审人隐藏要求`)
+  }
+} finally { await browser.close() }
+console.log('AI 审计第三轮：桌面与 390/320px 手机真实 Chromium 的总体结论、要求顺序、长文换行与被审人隐藏通过')

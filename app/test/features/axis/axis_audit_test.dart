@@ -1,10 +1,51 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:worktodo_app/features/axis/screens/axis_audit_screen.dart';
+import 'package:worktodo_app/features/axis/screens/axis_audit_result.dart';
+import 'package:worktodo_app/features/axis/data/axis_audit_models.dart';
+import '../../helpers/golden_test_helper.dart';
 import 'axis_audit_fixture.dart';
 import 'axis_test_harness.dart';
 
 void main() {
+  testWidgets('总体结论双平台截图', tags: ['golden'], (tester) async {
+    final record = AxisAuditRecord({
+      ...storedAuditFixture(mode: 'ai'),
+      'custom_instruction': '重点看谁最拖后腿，并给出催办顺序',
+      'overall_summary': '当前应优先核验设计交付材料，再确认后续事项的依赖。\n催办顺序：先补齐材料，再确认完成时间。',
+    });
+    await testAdaptiveGolden(
+      tester: tester,
+      widget: Scaffold(
+          body: SingleChildScrollView(
+              child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: AxisStoredAuditResult(record: record)))),
+      goldenFileNamePrefix: 'axis_audit_summary',
+    );
+  });
+
+  testWidgets('窄屏两倍字号可阅读最长总体结论且无布局溢出', (tester) async {
+    tester.view.physicalSize = const Size(320, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(MaterialApp(
+        home: MediaQuery(
+      data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+      child: Scaffold(
+          body: SingleChildScrollView(
+              child: AxisStoredAuditResult(
+        record: AxisAuditRecord({
+          ...storedAuditFixture(),
+          'overall_summary': List.filled(800, '结').join()
+        }),
+      ))),
+    )));
+    await tester.pumpAndSettle();
+    expect(find.text('总体结论'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
   Future<void> pumpAudit(WidgetTester tester, AxisTestHarness harness) async {
     tester.view.physicalSize = const Size(430, 1400);
     tester.view.devicePixelRatio = 1;
@@ -39,6 +80,30 @@ void main() {
     expect(find.text('中风险'), findsOneWidget);
     expect(find.text('推动无进展事项提交首份证据'), findsOneWidget);
   });
+  for (final restricted in [false, true]) {
+    testWidgets('总体结论和审查要求仅发起人可见 restricted=$restricted', (tester) async {
+      final harness = await AxisTestHarness.create();
+      registerAuditFixture(harness, withHistory: false);
+      harness.helper.whenPost('/projects/1/audits', {
+        ...storedAuditFixture(mode: 'ai', restricted: restricted),
+        'custom_instruction': '重点看谁最拖后腿，并给出催办顺序',
+        'overall_summary': '先催办小李，再催办小王。',
+      });
+      await pumpAudit(tester, harness);
+      await run(tester);
+      expect(find.text('总体结论'), restricted ? findsNothing : findsOneWidget);
+      expect(find.text('先催办小李，再催办小王。'),
+          restricted ? findsNothing : findsOneWidget);
+      expect(find.textContaining('审查要求：'),
+          restricted ? findsNothing : findsOneWidget);
+      if (!restricted) {
+        expect(tester.getTopLeft(find.textContaining('审查要求：')).dy,
+            lessThan(tester.getTopLeft(find.text('总体结论')).dy));
+        expect(tester.getTopLeft(find.text('总体结论')).dy,
+            lessThan(tester.getTopLeft(find.text('设计负责人')).dy));
+      }
+    });
+  }
   testWidgets('无模型时展示规则结果而非错误状态', (tester) async {
     final harness = await AxisTestHarness.create();
     registerAuditFixture(harness, withHistory: false);
@@ -48,6 +113,7 @@ void main() {
     expect(find.text('未配置 AI，以下为规则检查'), findsOneWidget);
     expect(find.text('完成状态缺少材料支撑'), findsOneWidget);
     expect(find.text('重试'), findsNothing);
+    expect(find.text('总体结论'), findsNothing);
   });
   testWidgets('加载断网时给出中文提示并重试读取', (tester) async {
     final harness = await AxisTestHarness.create();

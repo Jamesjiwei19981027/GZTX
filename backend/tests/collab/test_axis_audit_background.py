@@ -56,6 +56,8 @@ async def test_model_failure_is_done_rule_with_chinese_reason(async_client, seed
     data = (await async_client.get(url, headers=seed_ids['pm_headers'])).json()['data']
     assert data['status'] == 'done' and data['mode'] == 'rule'
     assert data['nodes'] == baseline['nodes']
+    assert data['overall_summary'] == baseline['overall_summary']
+    assert '未经 AI 分析' in data['overall_summary']
     assert '规则检查' in data['fallback_reason']
     assert 'secret-provider' not in json.dumps(data)
     assert data['started_at'] and data['finished_at']
@@ -214,7 +216,7 @@ async def test_recipient_model_concurrency_is_at_most_four(monkeypatch):
     rules = [{'node_id': i, 'title': f'人员{i}', 'subject_user_ids': [i], 'risk_level': 'low',
         'findings': [], 'suggested_actions': [], 'summary': '规则'} for i in range(5)]
     llm = ResolvedLlm('openai_responses', 'https://unused.invalid/v1', 'grok-test', 'test')
-    nodes, recipients = await service.model_analysis(llm, rules, inputs, None)
+    nodes, recipients, _ = await service.model_analysis(llm, rules, inputs, None)
     assert len(nodes) == len(recipients) == calls == 5
     assert peak == 4
 
