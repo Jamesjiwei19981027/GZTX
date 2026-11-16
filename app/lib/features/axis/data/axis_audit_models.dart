@@ -59,6 +59,10 @@ class AxisAuditRecord {
   AxisAuditRecord(Map<String, dynamic> json)
       : id = (json['id'] as num?)?.toInt() ?? 0,
         mode = json['mode'] as String? ?? 'rule',
+        status = json['status'] as String? ?? 'done',
+        startedAt = DateTime.tryParse(json['started_at'] as String? ?? ''),
+        finishedAt = DateTime.tryParse(json['finished_at'] as String? ?? ''),
+        fallbackReason = json['fallback_reason'] as String?,
         modeMessage = json['mode_message'] as String? ??
             (json['mode'] == 'ai' ? 'AI 审计' : '未配置 AI，以下为规则检查'),
         restricted = json['restricted'] == true,
@@ -71,6 +75,17 @@ class AxisAuditRecord {
         };
   final int id;
   final String mode;
+  final String status;
+  final DateTime? startedAt;
+  final DateTime? finishedAt;
+  final String? fallbackReason;
+  bool get isRunning => status == 'running';
+  String get statusLabel => isRunning
+      ? '进行中'
+      : status == 'failed' ||
+              (mode == 'rule' && fallbackReason?.isNotEmpty == true)
+          ? '已退回规则检查'
+          : '已完成';
   final String modeMessage;
   final bool restricted;
   final String? instruction;

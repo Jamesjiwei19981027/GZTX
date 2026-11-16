@@ -1,12 +1,14 @@
 import React from 'react'
 import type { AuditRun } from '../../api/shell'
 import { parseApiDateTime } from '../../utils/datetime'
-import { riskLabel } from './model'
+import { AUDIT_RUNNING_MESSAGE, auditStatusLabel, riskLabel } from './model'
 
 export function AuditResultView({ result }: { result: AuditRun }) {
   return <section className="audit-section" aria-label="审计详情">
     <div className="audit-heading"><h2>审计结果</h2><span className={`audit-risk audit-risk-${result.overall_risk}`}><i />{riskLabel(result.overall_risk)}</span></div>
-    <p className="audit-mode" role="status">{result.mode_message || (result.mode === 'ai' ? 'AI 审计' : '未配置 AI，以下为规则检查')}</p>
+    <p className="audit-mode" role="status">{auditStatusLabel(result)} · {result.status === 'running' ? AUDIT_RUNNING_MESSAGE : (result.mode_message || (result.mode === 'ai' ? 'AI 审计' : '未配置 AI，以下为规则检查'))}</p>
+    {result.status === 'running' && <p className="audit-muted">以下为已完成的规则检查结果，AI 审计完成后会自动更新</p>}
+    {result.status !== 'running' && result.fallback_reason && <p className="audit-muted">{result.fallback_reason}</p>}
     <p className="audit-muted">{parseApiDateTime(result.generated_at).toLocaleString('zh-CN')} · {result.restricted ? '针对本人的部分' : '我发起的审计'}</p>
     {result.custom_instruction && <p className="audit-instruction">审查要求：{result.custom_instruction}</p>}
     {result.nodes.length === 0 && <p>此范围暂无可审计的人员信息</p>}

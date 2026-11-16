@@ -46,7 +46,7 @@ async def audit_permission(project_id: int, node_id: int, body: AuditPermissionB
     return ResponseData(data=await svc.options(db, p, user.id))
 
 
-@router.post('/projects/{project_id}/audits', response_model=ResponseData, summary='发起并存档 AI 审计')
+@router.post('/projects/{project_id}/audits', response_model=ResponseData, summary='发起后台 AI 审计并立即返回规则快照')
 async def create_audit(project_id: int, body: AuditBody, db: DbSession, user: CurrentUser):
     p = await svc.readable_project(db, project_id, user.id)
     return ResponseData(data=await svc.run(db, p, user, **body.model_dump()))

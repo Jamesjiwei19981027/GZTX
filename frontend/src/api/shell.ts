@@ -137,6 +137,7 @@ export interface AuditRequest { scope: AuditScope; node_id?: number; custom_inst
 export interface AuditRun {
   id: number; project_id: number; scope: AuditScope; node_id?: number | null; custom_instruction?: string | null
   mode: 'ai' | 'rule'; model_source?: string | null; overall_risk: string; generated_at: string
+  status?: 'running' | 'done' | 'failed'; started_at?: string | null; finished_at?: string | null
   restricted: boolean; mode_message: string; fallback_reason?: string | null
   nodes: { node_id: number; title: string; risk_level: string; summary: string
     findings: { type: string; description: string; matter_ids: number[] }[]; suggested_actions: string[] }[]

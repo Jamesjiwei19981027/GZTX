@@ -520,6 +520,8 @@ async def lifespan(app: FastAPI):
     # 多 worker 部署时给主服务设 false，另起一个单进程的 scheduler 容器设 true。
     scheduler = None
     if settings.SCHEDULER_ENABLED:
+        from app.services.axis_audit_jobs import recover_interrupted_audits
+        await recover_interrupted_audits()
         scheduler = create_scheduler()
         print("[Scheduler] Started APScheduler")
     else:
@@ -546,6 +548,9 @@ def create_scheduler():
     from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
     scheduler = AsyncIOScheduler()
+    from app.services.axis_audit_jobs import process_pending_audits
+    scheduler.add_job(process_pending_audits, 'interval', seconds=5,
+        id='process_pending_audits', max_instances=1, coalesce=True)
     scheduler.add_job(
         check_new_emails,
         "interval",

@@ -1,4 +1,4 @@
-"""不可变的 AI / 规则审计结果快照。"""
+"""审计运行状态及 AI / 规则结果快照。"""
 from sqlalchemy import Column, Integer, String, Text, JSON, ForeignKey, Index
 from sqlalchemy.sql import func
 from app.db.base import Base
@@ -17,6 +17,9 @@ class AuditRun(Base):
     node_id = Column(Integer, nullable=True)
     custom_instruction = Column(Text, nullable=True)
     mode = Column(String(8), nullable=False)
+    status = Column(String(8), nullable=False, default='done', server_default='done', index=True)
+    started_at = Column(UTCDateTime(), nullable=True)
+    finished_at = Column(UTCDateTime(), nullable=True)
     model_source = Column(String(16), nullable=True)
     overall_risk = Column(String(16), nullable=False)
     result_json = Column(JSON, nullable=False)

@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { getAuditOptions, getAuditRun, listAuditRuns, runAxisAudit, type AuditOptions, type AuditRun } from '../../api/shell'
-import { parseApiDateTime } from '../../utils/datetime'
-import { buildAuditRequest, riskLabel, scopeKey } from './model'
+import { getAuthSessionGeneration, getToken, subscribeAuthSession } from '../../api/client'
+import { buildAuditRequest, latestAuditRun, scopeKey } from './model'
+import { AuditHistory } from './AuditHistory'
 import { AuditResultView } from './AuditResultView'
+import { startAuditPolling } from './polling'
 import './audits.css'
 
 const message = (error: unknown) => error instanceof Error ? error.message : '审计加载失败，请重试'
@@ -19,53 +21,111 @@ export const AuditPanel: React.FC<{ projectId: number; projectName?: string }> =
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reload, setReload] = useState(0)
+  const [sessionGeneration, setSessionGeneration] = useState(getAuthSessionGeneration)
   const epoch = useRef(0)
+  const stopActivePolling = useRef<(() => void) | null>(null)
   const resultElement = useRef<HTMLDivElement>(null)
+  const currentRuns = useRef({ projectId, history, result })
+  currentRuns.current = { projectId, history, result }
+  const detailRequests = useRef(new Map<string, Promise<AuditRun>>())
+  function isCurrent(ticket: number, session: number) {
+    const activeSession = getAuthSessionGeneration()
+    return ticket === epoch.current && session === activeSession
+  }
+  useEffect(() => subscribeAuthSession(generation => {
+    epoch.current++
+    stopActivePolling.current?.()
+    detailRequests.current = new Map()
+    currentRuns.current = { ...currentRuns.current, history: [], result: null }
+    setOptions(null); setHistory([]); setResult(null); setHasMore(false); setScope('self'); setInstruction(''); setError(''); setLoading(true); setBusy(false)
+    setSessionGeneration(generation)
+  }), [])
+  function fetchDetail(id: number) {
+    const key = `${projectId}:${id}`
+    const pending = detailRequests.current
+    if (!pending.has(key)) {
+      const request = getAuditRun(projectId, id).finally(() => { if (pending.get(key) === request) pending.delete(key) })
+      pending.set(key, request)
+    }
+    return pending.get(key)!
+  }
   useEffect(() => {
     const ticket = ++epoch.current
+    const session = sessionGeneration
     setOptions(null); setHistory([]); setResult(null); setHasMore(false); setScope('self'); setInstruction(''); setError(''); setLoading(true); setBusy(false)
+    detailRequests.current = new Map()
     if (!Number.isInteger(projectId) || projectId <= 0) { setError('请先选择具体项目'); setLoading(false); return }
+    if (!getToken()) { setError('请重新登录后查看审计'); setLoading(false); return }
+    const stopPolling = startAuditPolling({
+      projectId,
+      getRuns: () => {
+        const current = currentRuns.current
+        if (current.projectId !== projectId || !isCurrent(ticket, session)) return []
+        // 详情和列表可能处于不同快照；任一仍在运行就补取详情，由轮询器去重。
+        return [...current.history, ...(current.result ? [current.result] : [])]
+      },
+      fetchRun: fetchDetail,
+      onUpdate: row => {
+        if (!isCurrent(ticket, session)) return
+        setHistory(previous => previous.map(record => record.id === row.id ? latestAuditRun(record, row) : record))
+        setResult(previous => previous?.id === row.id ? latestAuditRun(previous, row) : previous)
+      },
+    })
+    stopActivePolling.current = stopPolling
     void Promise.all([getAuditOptions(projectId), listAuditRuns(projectId)]).then(([available, records]) => {
-      if (ticket !== epoch.current) return
+      if (!isCurrent(ticket, session)) return
       setOptions(available); setHistory(records.items); setHasMore(records.has_more)
-    }).catch(e => { if (ticket === epoch.current) setError(message(e)) }).finally(() => { if (ticket === epoch.current) setLoading(false) })
-    return () => { epoch.current++ }
-  }, [projectId, reload])
+    }).catch(e => { if (isCurrent(ticket, session)) setError(message(e)) }).finally(() => { if (isCurrent(ticket, session)) setLoading(false) })
+    return () => { epoch.current++; stopPolling() }
+  }, [projectId, reload, sessionGeneration])
   async function run() {
     const ticket = epoch.current
+    const session = sessionGeneration
+    if (!isCurrent(ticket, session)) return
     setBusy(true); setError('')
     try {
       const response = await runAxisAudit(projectId, buildAuditRequest(scope, instruction, options?.scopes || []))
-      if (ticket !== epoch.current) return
+      if (!isCurrent(ticket, session)) return
       setResult(response)
+      setHistory(previous => [response, ...previous.filter(row => row.id !== response.id)])
       try {
         const records = await listAuditRuns(projectId)
-        if (ticket !== epoch.current) return
-        setHistory(records.items); setHasMore(records.has_more)
-      } catch (e) { if (ticket === epoch.current) setError(`审计已存档，历史刷新失败：${message(e)}`) }
-    } catch (e) { if (ticket === epoch.current) setError(message(e)) }
-    finally { if (ticket === epoch.current) setBusy(false) }
+        if (!isCurrent(ticket, session)) return
+        setHistory(previous => records.items.map(row => latestAuditRun(previous.find(record => record.id === row.id), row))); setHasMore(records.has_more)
+      } catch (e) { if (isCurrent(ticket, session)) setError(`审计已存档，历史刷新失败：${message(e)}`) }
+    } catch (e) { if (isCurrent(ticket, session)) setError(message(e)) }
+    finally { if (isCurrent(ticket, session)) setBusy(false) }
   }
   async function open(id: number) {
     const ticket = epoch.current
+    const session = sessionGeneration
+    if (!isCurrent(ticket, session)) return
     setBusy(true); setError('')
     try {
-      const response = await getAuditRun(projectId, id)
-      if (ticket !== epoch.current) return
-      setResult(response)
+      const response = await fetchDetail(id)
+      if (!isCurrent(ticket, session)) return
+      const known = currentRuns.current.history.find(row => row.id === response.id)
+      setResult(previous => latestAuditRun(previous?.id === response.id ? previous : known, response))
+      setHistory(previous => previous.map(row => row.id === response.id ? latestAuditRun(row, response) : row))
       resultElement.current?.scrollIntoView?.({ block: 'start' })
-    } catch (e) { if (ticket === epoch.current) setError(message(e)) }
-    finally { if (ticket === epoch.current) setBusy(false) }
+    } catch (e) { if (isCurrent(ticket, session)) setError(message(e)) }
+    finally { if (isCurrent(ticket, session)) setBusy(false) }
   }
   async function more() {
     const ticket = epoch.current
+    const session = sessionGeneration
+    if (!isCurrent(ticket, session)) return
     setBusy(true); setError('')
     try {
       const records = await listAuditRuns(projectId, history.length)
-      if (ticket !== epoch.current) return
-      setHistory(previous => [...new Map([...previous, ...records.items].map(row => [row.id, row])).values()]); setHasMore(records.has_more)
-    } catch (e) { if (ticket === epoch.current) setError(message(e)) }
-    finally { if (ticket === epoch.current) setBusy(false) }
+      if (!isCurrent(ticket, session)) return
+      setHistory(previous => {
+        const rows = new Map<number, AuditRun>(previous.map(row => [row.id, row] as const))
+        records.items.forEach(row => rows.set(row.id, latestAuditRun(rows.get(row.id), row)))
+        return [...rows.values()]
+      }); setHasMore(records.has_more)
+    } catch (e) { if (isCurrent(ticket, session)) setError(message(e)) }
+    finally { if (isCurrent(ticket, session)) setBusy(false) }
   }
   return <div className="audit-panel" aria-busy={busy || loading}>
     {projectName && <p className="audit-muted">{projectName}</p>}
@@ -84,10 +144,7 @@ export const AuditPanel: React.FC<{ projectId: number; projectName?: string }> =
     <section className="audit-section"><h2>审计历史</h2>
       <p className="audit-muted">我发起的和针对本人的审计</p>
       {!loading && history.length === 0 && <p>暂无审计记录</p>}
-      <ul className="audit-history">{history.map(row => <li key={row.id}><button type="button" disabled={busy} onClick={() => void open(row.id)} aria-label={`查看审计记录 ${row.id}`}>
-        <span>{parseApiDateTime(row.generated_at).toLocaleString('zh-CN')}<small>{row.restricted ? '针对本人' : '我发起的'} · {row.mode === 'ai' ? 'AI 审计' : '规则检查'}</small></span>
-        <span className={`audit-risk audit-risk-${row.overall_risk}`}><i />{riskLabel(row.overall_risk)}</span>
-      </button></li>)}</ul>
+      <AuditHistory records={history} busy={busy} onOpen={id => void open(id)} />
       {hasMore && <button type="button" disabled={busy} onClick={() => void more()}>加载更多</button>}
     </section>
   </div>

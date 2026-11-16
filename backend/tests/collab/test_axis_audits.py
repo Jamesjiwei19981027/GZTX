@@ -12,6 +12,42 @@ from app.services.tree_service import TreeService
 from .conftest import _make_user
 
 
+@pytest_asyncio.fixture(autouse=True)
+async def controlled_audit_environment(monkeypatch, async_engine):
+    """后台任务只使用本测试库；未指定模型的用例禁止落到环境真实供应商。"""
+    from sqlalchemy.ext.asyncio import async_sessionmaker
+    from app.services import axis_audit as service
+    from app.services import llm_settings
+    monkeypatch.setattr(service, 'llm_from_env', lambda: None)
+    monkeypatch.setattr(llm_settings, 'llm_from_env', lambda: None)
+    import importlib.util
+    if importlib.util.find_spec('app.services.axis_audit_jobs'):
+        from app.services import axis_audit_jobs as jobs
+        monkeypatch.setattr(jobs, 'async_session_factory', async_sessionmaker(async_engine, expire_on_commit=False))
+
+
+async def finish_audit(client, project_id, headers, response):
+    from app.services.axis_audit_jobs import process_pending_audits
+    assert response.status_code == 200, response.text
+    assert response.json()['data']['status'] == 'running'
+    await process_pending_audits()
+    return await client.get(f'/api/v1/projects/{project_id}/audits/{response.json()["data"]["id"]}', headers=headers)
+
+
+async def test_start_returns_before_model_and_keeps_rules(async_client, seed_ids, monkeypatch):
+    from app.services import axis_audit as service
+    async def forbidden(*args, **kwargs):
+        pytest.fail('发起请求不得等待或调用模型')
+    monkeypatch.setattr(service, 'chat_completion', forbidden)
+    r = await async_client.post(f'/api/v1/projects/{seed_ids["project_id"]}/audits',
+        headers=seed_ids['pm_headers'], json={'scope': 'project'})
+    assert r.status_code == 200, r.text
+    data = r.json()['data']
+    assert data['status'] == 'running'
+    assert data['mode'] == 'rule' and data['nodes']
+    assert data['finished_at'] is None
+
+
 @pytest_asyncio.fixture
 async def audit_tree(db_session, seed_ids):
     from app.models.company import CompanyMembership
@@ -86,14 +122,22 @@ async def test_archive_recipient_projection(async_client, audit_tree, seed_ids):
         assert d.get('custom_instruction') is None
         assert d.get('node_id') is None
         assert d['restricted'] is True
+        assert d['status'] == 'running'
         assert '保密的管理要求' not in json.dumps(d, ensure_ascii=False)
     r = await async_client.get(url + f'/{audit_id}', headers=seed_ids['outsider_headers'])
     assert r.status_code == 403
+    from app.services.axis_audit_jobs import process_pending_audits
+    await process_pending_audits()
+    d = (await async_client.get(url + f'/{audit_id}', headers=headers[2])).json()['data']
+    assert d['status'] == 'done' and d['mode'] == 'rule'
+    assert {n['node_id'] for n in d['nodes']} == {people[2].id}
+    assert '保密的管理要求' not in json.dumps(d, ensure_ascii=False)
+    assert d['finished_at'] and d['started_at']
 
 
 @pytest.mark.parametrize('reply,mode,reason', [
-    ('bad JSON', 'rule', 'invalid_model_result'),
-    (json.dumps({'overall_risk': 'high', 'nodes': []}), 'rule', 'invalid_model_result'),
+    ('bad JSON', 'rule', 'AI 返回的审计结果格式不正确，以下为规则检查'),
+    (json.dumps({'overall_risk': 'high', 'nodes': []}), 'rule', 'AI 返回的审计结果格式不正确，以下为规则检查'),
 ])
 async def test_bad_model_falls_back(async_client, seed_ids, monkeypatch, reply, mode, reason):
     from app.services import axis_audit as service
@@ -107,7 +151,9 @@ async def test_bad_model_falls_back(async_client, seed_ids, monkeypatch, reply, 
     r = await async_client.post(f'/api/v1/projects/{seed_ids["project_id"]}/audits',
         headers=seed_ids['pm_headers'], json={'scope': 'project'})
     assert r.status_code == 200, r.text
+    r = await finish_audit(async_client, seed_ids['project_id'], seed_ids['pm_headers'], r)
     assert r.json()['data']['mode'] == mode
+    assert r.json()['data']['status'] == 'done'
     assert r.json()['data']['fallback_reason'] == reason
 
 
@@ -151,7 +197,9 @@ async def test_real_model_input_and_out_of_scope_ids(async_client, seed_ids, db_
     for body, source in (({'scope': 'self'}, 'company'), ({'scope': 'self', 'custom_instruction': '检查交付'}, 'personal')):
         r = await async_client.post(f'/api/v1/projects/{seed_ids["project_id"]}/audits', headers=seed_ids['member_headers'], json=body)
         assert r.status_code == 200, r.text
+        r = await finish_audit(async_client, seed_ids['project_id'], seed_ids['member_headers'], r)
         d = r.json()['data']
+        assert d['status'] == 'done'
         assert d['mode'] == 'ai'
         assert d['model_source'] == source
         assert [n['node_id'] for n in d['nodes']] == [person_id]
@@ -205,7 +253,11 @@ async def test_model_wait_rechecks_permission(async_client, audit_tree, seed_ids
     monkeypatch.setattr(service, 'chat_completion', complete)
     r = await async_client.post(f'/api/v1/projects/{p}/audits', headers=headers[0],
         json={'scope': 'node', 'node_id': people[0].id})
-    assert r.status_code == 403, r.text
+    assert r.status_code == 200, r.text
+    r = await finish_audit(async_client, p, headers[0], r)
+    assert r.json()['data']['status'] == 'failed'
+    assert r.json()['data']['mode'] == 'rule'
+    assert '丢弃' in r.json()['data']['fallback_reason']
 
 
 def test_recipient_workload_has_no_peer_totals():
@@ -249,6 +301,7 @@ async def test_recipient_ai_is_generated_from_isolated_material(async_client, au
     r = await async_client.post(url, headers=seed_ids['pm_headers'], json={'scope': 'project', 'custom_instruction': '管理秘密'})
     assert r.status_code == 200, r.text
     audit_id = r.json()['data']['id']
+    r = await finish_audit(async_client, p, seed_ids['pm_headers'], r)
     assert len(isolated_ids) == 4
     r = await async_client.get(url + f'/{audit_id}', headers=headers[2])
     text = json.dumps(r.json(), ensure_ascii=False)
@@ -308,6 +361,7 @@ async def test_fake_model_and_cross_project(async_client, seed_ids, monkeypatch)
     monkeypatch.setattr(service, 'chat_completion', forbidden)
     url = f'/api/v1/projects/{seed_ids["project_id"]}'
     r = await async_client.post(url + '/audits', headers=seed_ids['pm_headers'], json={'scope': 'project'})
+    r = await finish_audit(async_client, seed_ids['project_id'], seed_ids['pm_headers'], r)
     d = r.json()['data']
     assert d['mode'] == 'rule' and d['mode_message'] == '未配置 AI，以下为规则检查'
     r = await async_client.post(url + '/audits', headers=seed_ids['pm_headers'], json={'scope': 'node', 'node_id': 999999})
@@ -329,10 +383,19 @@ def test_incremental_audit_migration(tmp_path, monkeypatch):
         conn.execute(text('INSERT INTO tree_nodes (id) VALUES (1)'))
     cfg = Config('alembic.ini')
     command.stamp(cfg, 'fs7a8b9c0d1e')
+    command.upgrade(cfg, 'ft8b9c0d1e2f')
+    with engine.begin() as conn:
+        conn.execute(text("INSERT INTO audit_runs (id, company_id, project_id, initiator_user_id, scope, mode, overall_risk, result_json) VALUES (1, 1, 1, 1, 'self', 'rule', 'low', '{}')"))
     command.upgrade(cfg, 'head')
     assert 'audit_runs' in inspect(engine).get_table_names()
     with engine.connect() as conn:
         assert conn.execute(text('SELECT allow_audit_subordinates FROM tree_nodes')).scalar() is None
+        row = conn.execute(text('SELECT status, started_at, finished_at FROM audit_runs')).one()
+        assert row[0] == 'done' and row[1] and row[2]
+    command.downgrade(cfg, 'ft8b9c0d1e2f')
+    assert 'status' not in {c['name'] for c in inspect(engine).get_columns('audit_runs')}
+    with engine.connect() as conn:
+        assert conn.execute(text('SELECT COUNT(*) FROM audit_runs')).scalar() == 1
     command.downgrade(cfg, 'fs7a8b9c0d1e')
     assert 'audit_runs' not in inspect(engine).get_table_names()
     assert 'allow_audit_subordinates' not in {c['name'] for c in inspect(engine).get_columns('tree_nodes')}

@@ -17,6 +17,8 @@ from app.main import create_scheduler
 async def run() -> None:
     settings.validate_production_secrets()
     await init_db()
+    from app.services.axis_audit_jobs import recover_interrupted_audits
+    await recover_interrupted_audits()
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):

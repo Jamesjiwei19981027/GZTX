@@ -18,7 +18,16 @@ class AxisStoredAuditResult extends StatelessWidget {
       const Text('审计结果',
           style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
       const SizedBox(height: 8),
-      Text(record.modeMessage, style: secondary),
+      Text(record.statusLabel, style: secondary),
+      if (record.isRunning) ...[
+        const SizedBox(height: 8),
+        Text('AI 正在审计，通常需要 1～3 分钟，可以离开此页，完成后在历史里查看', style: secondary),
+        const SizedBox(height: 8),
+        Text('以下为规则检查结果，AI 审计完成后自动更新', style: secondary),
+      ] else
+        Text(record.modeMessage, style: secondary),
+      if (!record.isRunning && record.fallbackReason?.isNotEmpty == true)
+        Text(record.fallbackReason!, style: secondary),
       Text(
           '${record.summary.overallRiskLabel} · ${AxisRules.formatDateTime(record.summary.generatedAt)}',
           style: secondary),

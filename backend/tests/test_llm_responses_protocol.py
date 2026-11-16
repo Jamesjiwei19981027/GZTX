@@ -119,3 +119,17 @@ async def test_chat_completions_path_unchanged(monkeypatch):
     )
     assert result["content"] == "ok"
     assert seen["url"].endswith("/chat/completions")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('provider', ['openai_responses', 'openai_compatible'])
+@pytest.mark.parametrize('budget', [120.0, 180.0])
+async def test_audit_timeout_reaches_http_transport(monkeypatch, provider, budget):
+    seen = []
+    def handler(request):
+        seen.append(request.extensions['timeout'])
+        return httpx.Response(200, json={'output_text': 'ok', 'choices': [{'message': {'content': 'ok'}}]})
+    _patch_transport(monkeypatch, handler)
+    reply = await chat_completion(_llm(provider=provider), messages=[{'role': 'user', 'content': 'x'}], timeout=budget)
+    assert reply['ok']
+    assert seen == [{'connect': budget, 'read': budget, 'write': budget, 'pool': budget}]

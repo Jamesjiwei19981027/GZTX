@@ -159,6 +159,9 @@ async def init_db():
                 "ALTER TABLE reminders ADD COLUMN attempts INTEGER DEFAULT 0",
                 "ALTER TABLE reminders ADD COLUMN last_error VARCHAR(500)",
                 "ALTER TABLE notify_jobs ADD COLUMN claimed_at DATETIME",
+                "ALTER TABLE audit_runs ADD COLUMN status VARCHAR(8) NOT NULL DEFAULT 'done'",
+                "ALTER TABLE audit_runs ADD COLUMN started_at DATETIME",
+                "ALTER TABLE audit_runs ADD COLUMN finished_at DATETIME",
             ):
                 try:
                     await conn.execute(text(col_sql))
@@ -183,6 +186,7 @@ async def init_db():
                 "CREATE INDEX IF NOT EXISTS ix_notify_jobs_status_id ON notify_jobs (status, id)",
                 "CREATE INDEX IF NOT EXISTS ix_notify_jobs_claimed ON notify_jobs (status, claimed_at)",
                 "CREATE UNIQUE INDEX IF NOT EXISTS uq_node_assignee_role ON node_assignments (node_id, user_id, role_key)",
+                "CREATE INDEX IF NOT EXISTS ix_audit_runs_status ON audit_runs (status)",
             ):
                 try:
                     await conn.execute(text(index_sql))

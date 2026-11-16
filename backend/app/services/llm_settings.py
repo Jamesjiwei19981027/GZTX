@@ -581,6 +581,7 @@ async def chat_completion(
     messages: list[dict[str, str]],
     temperature: float | None = None,
     max_tokens: int | None = None,
+    timeout: float = 60.0,
 ) -> dict[str, Any]:
     """OpenAI-compatible chat/completions；fake 本地回声。"""
     if llm.provider == "fake" or not llm.is_usable():
@@ -598,7 +599,7 @@ async def chat_completion(
         headers["Authorization"] = f"Bearer {llm.api_key}"
     if llm.provider == "openai_responses":
         return await _responses_completion(
-            llm, base=base, headers=headers, messages=messages, max_tokens=max_tokens
+            llm, base=base, headers=headers, messages=messages, max_tokens=max_tokens, timeout=timeout
         )
     url = f"{base}/chat/completions"
     body = {
@@ -608,7 +609,7 @@ async def chat_completion(
         "max_tokens": max_tokens if max_tokens is not None else llm.max_tokens,
     }
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(url, headers=headers, json=body)
             data = resp.json() if resp.content else {}
             if resp.status_code >= 400:
@@ -670,6 +671,7 @@ async def _responses_completion(
     headers: dict[str, str],
     messages: list[dict[str, str]],
     max_tokens: int | None,
+    timeout: float = 60.0,
 ) -> dict[str, Any]:
     """OpenAI Responses 协议（POST /responses）；返回结构与 chat_completion 一致。"""
     limit = max_tokens if max_tokens is not None else llm.max_tokens
@@ -683,7 +685,7 @@ async def _responses_completion(
         "store": False,
     }
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.post(f"{base}/responses", headers=headers, json=body)
             data = resp.json() if resp.content else {}
             if resp.status_code >= 400:

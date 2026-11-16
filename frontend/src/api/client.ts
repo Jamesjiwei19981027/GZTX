@@ -5,6 +5,61 @@
 
 const TOKEN_KEY = 'access_token'
 const REFRESH_KEY = 'refresh_token'
+let authSessionGeneration = 0
+let authSessionIdentity: string | null | undefined
+const authSessionListeners = new Set<(generation: number) => void>()
+
+// 只用于失效客户端缓存；授权仍由服务器验证。续期的 exp/jti 改变不代表换用户。
+function tokenIdentity(token: string | null): string | null {
+  if (!token) return null
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    if (typeof payload.sub === 'string' || typeof payload.sub === 'number') return `user:${payload.sub}`
+  } catch { /* 非 JWT 调试凭证按整个值隔离。 */ }
+  return `token:${token}`
+}
+
+function syncAuthSession(token: string | null) {
+  const identity = tokenIdentity(token)
+  if (authSessionIdentity === undefined) { authSessionIdentity = identity; return }
+  if (identity === authSessionIdentity) return
+  authSessionIdentity = identity
+  authSessionGeneration++
+  authSessionListeners.forEach(listener => listener(authSessionGeneration))
+}
+
+/** 响应落地前也读取实际存储，覆盖跨标签 storage 事件尚未分发的窗口。 */
+export function getAuthSessionGeneration(): number {
+  syncAuthSession(getToken())
+  return authSessionGeneration
+}
+
+function onAuthStorage(event: StorageEvent) {
+  if (event.storageArea !== localStorage || (event.key !== TOKEN_KEY && event.key !== null)) return
+  // 保留快速退出后又登录同一账号的会话边界，不只读取最终 token。
+  if (event.key === TOKEN_KEY) { syncAuthSession(event.oldValue); syncAuthSession(event.newValue) }
+  else syncAuthSession(null)
+  getAuthSessionGeneration()
+}
+const syncStoredAuthSession = () => { getAuthSessionGeneration() }
+
+export function subscribeAuthSession(listener: (generation: number) => void): () => void {
+  getAuthSessionGeneration()
+  authSessionListeners.add(listener)
+  if (authSessionListeners.size === 1 && typeof window !== 'undefined') {
+    window.addEventListener('storage', onAuthStorage)
+    window.addEventListener('focus', syncStoredAuthSession)
+  }
+  // 渲染到 effect 订阅之间可能已换用户，新增订阅者必须接收当前代次。
+  listener(authSessionGeneration)
+  return () => {
+    authSessionListeners.delete(listener)
+    if (authSessionListeners.size === 0 && typeof window !== 'undefined') {
+      window.removeEventListener('storage', onAuthStorage)
+      window.removeEventListener('focus', syncStoredAuthSession)
+    }
+  }
+}
 
 export function getApiBase(): string {
   return (import.meta as ImportMeta & { env: Record<string, string> }).env
@@ -36,8 +91,10 @@ export function sendPresenceKeepalive(status: 'online' | 'offline'): boolean {
 }
 
 export function setToken(token: string | null) {
+  getAuthSessionGeneration()
   if (token) localStorage.setItem(TOKEN_KEY, token)
   else localStorage.removeItem(TOKEN_KEY)
+  syncAuthSession(token)
 }
 
 export function getRefreshToken(): string | null {

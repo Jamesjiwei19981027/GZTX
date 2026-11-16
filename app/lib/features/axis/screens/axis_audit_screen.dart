@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../../core/auth/auth_state.dart';
@@ -36,6 +38,11 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
   int _epoch = 0;
   int? _loadedProjectId;
   String? _loadedAuthKey;
+  Timer? _pollTimer;
+  bool _polling = false;
+  bool _routeActive = true;
+  bool _reloadOnResume = false;
+  int _pollRevision = 0;
   String get _authKey =>
       '${_auth?.currentUser?.id}:${_auth?.status}:${_auth?.api.tokens.sessionGeneration}';
   int? get _projectId => widget.projectId ?? _auth?.currentProject?.id;
@@ -63,7 +70,24 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_api == null) _configure();
+    final active = ModalRoute.of(context)?.isCurrent ?? true;
+    if (_api == null) {
+      _routeActive = active;
+      _configure();
+    } else if (_routeActive != active) {
+      _routeActive = active;
+      if (active) {
+        if (_reloadOnResume) {
+          _load();
+        } else {
+          _schedulePoll();
+        }
+      } else {
+        _reloadOnResume = _loading || _busy;
+        _epoch++;
+        _stopPolling();
+      }
+    }
   }
 
   @override
@@ -79,6 +103,7 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
   @override
   void dispose() {
     _epoch++;
+    _stopPolling();
     _auth?.removeListener(_authChanged);
     _instruction.dispose();
     _scroll.dispose();
@@ -86,6 +111,7 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
   }
 
   Future<void> _load() async {
+    _stopPolling();
     _retry = _load;
     final ticket = ++_epoch;
     final projectId = _projectId;
@@ -131,7 +157,90 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
     } catch (e) {
       if (mounted && ticket == _epoch) setState(() => _error = e);
     } finally {
-      if (mounted && ticket == _epoch) setState(() => _loading = false);
+      if (mounted && ticket == _epoch) {
+        setState(() => _loading = false);
+        _schedulePoll();
+      }
+    }
+  }
+
+  void _stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _pollRevision++;
+  }
+
+  Set<int> get _runningIds => {
+        if (_result?.isRunning == true) _result!.id,
+        for (final record in _history)
+          if (record.isRunning) record.id,
+      };
+
+  void _schedulePoll() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    if (!mounted ||
+        !_routeActive ||
+        _loading ||
+        _busy ||
+        _polling ||
+        _loadedProjectId == null ||
+        _runningIds.isEmpty ||
+        (_auth != null && !_auth!.isAuthenticated)) {
+      return;
+    }
+    _pollTimer = Timer(const Duration(seconds: 5), _poll);
+  }
+
+  AxisAuditRecord _latestRecord(AxisAuditRecord record) {
+    if (!record.isRunning) return record;
+    if (_result?.id == record.id && !_result!.isRunning) return _result!;
+    for (final row in _history) {
+      if (row.id == record.id && !row.isRunning) return row;
+    }
+    return record;
+  }
+
+  void _replaceRecord(AxisAuditRecord incoming) {
+    final record = _latestRecord(incoming);
+    if (_result?.id == record.id) _result = record;
+    _history = [
+      for (final row in _history) row.id == record.id ? record : row,
+    ];
+  }
+
+  Future<void> _poll() async {
+    _pollTimer = null;
+    if (_polling || _busy || !_routeActive) {
+      _schedulePoll();
+      return;
+    }
+    final projectId = _loadedProjectId;
+    if (projectId == null) return;
+    final ticket = _epoch;
+    final revision = _pollRevision;
+    final api = _api!;
+    _polling = true;
+    try {
+      // 每条记录同一轮只请求一次；整轮完成后再安排下一次，慢请求不会重叠。
+      await Future.wait(_runningIds.map((id) async {
+        try {
+          final record = await api.fetchAudit(projectId, id);
+          if (!mounted ||
+              ticket != _epoch ||
+              revision != _pollRevision ||
+              !_routeActive) {
+            return;
+          }
+          setState(() => _replaceRecord(record));
+        } catch (_) {
+          // 临时断网保留规则快照，下一轮恢复读取，不重新发起模型。
+        }
+      }));
+    } finally {
+      // 取消仅使旧响应失效；仍等待这轮请求结束，避免返回页面时重叠请求。
+      _polling = false;
+      _schedulePoll();
     }
   }
 
@@ -155,12 +264,18 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
       final result =
           await _api!.createAudit(projectId, selected.first, _instruction.text);
       if (!mounted || ticket != _epoch) return;
-      setState(() => _result = result);
+      setState(() {
+        _result = result;
+        _history = [result, ..._history.where((row) => row.id != result.id)];
+      });
       try {
         final history = await _api!.fetchAudits(projectId);
         if (!mounted || ticket != _epoch) return;
         setState(() {
-          _history = history.items;
+          _history = [
+            if (!history.items.any((row) => row.id == result.id)) result,
+            ...history.items.map(_latestRecord),
+          ];
           _hasMore = history.hasMore;
         });
       } catch (e) {
@@ -174,7 +289,10 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
     } catch (e) {
       if (mounted && ticket == _epoch) setState(() => _error = e);
     } finally {
-      if (mounted && ticket == _epoch) setState(() => _busy = false);
+      if (mounted && ticket == _epoch) {
+        setState(() => _busy = false);
+        _schedulePoll();
+      }
     }
   }
 
@@ -189,12 +307,18 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
     try {
       final result = await _api!.fetchAudit(_loadedProjectId!, id);
       if (!mounted || ticket != _epoch) return;
-      setState(() => _result = result);
+      setState(() {
+        _result = _latestRecord(result);
+        _replaceRecord(_result!);
+      });
       if (_scroll.hasClients) _scroll.jumpTo(0);
     } catch (e) {
       if (mounted && ticket == _epoch) setState(() => _error = e);
     } finally {
-      if (mounted && ticket == _epoch) setState(() => _busy = false);
+      if (mounted && ticket == _epoch) {
+        setState(() => _busy = false);
+        _schedulePoll();
+      }
     }
   }
 
@@ -216,15 +340,18 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
         _history = append
             ? {
                 ...{for (final row in _history) row.id: row},
-                ...{for (final row in history.items) row.id: row}
+                ...{for (final row in history.items) row.id: _latestRecord(row)}
               }.values.toList()
-            : history.items;
+            : history.items.map(_latestRecord).toList();
         _hasMore = history.hasMore;
       });
     } catch (e) {
       if (mounted && ticket == _epoch) setState(() => _error = e);
     } finally {
-      if (mounted && ticket == _epoch) setState(() => _busy = false);
+      if (mounted && ticket == _epoch) {
+        setState(() => _busy = false);
+        _schedulePoll();
+      }
     }
   }
 
@@ -252,6 +379,7 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
           _busy = false;
           _permissionRevision++;
         });
+        _schedulePoll();
       }
     }
   }
@@ -381,7 +509,7 @@ class _AxisAuditScreenState extends State<AxisAuditScreen> {
                                                           .darkTextPrimary
                                                       : AppColors.textPrimary)),
                                           Text(
-                                              '${record.restricted ? '针对本人' : '我发起的'} · ${record.mode == 'ai' ? 'AI 审计' : '规则检查'} · ${record.summary.overallRiskLabel}',
+                                              '${record.restricted ? '针对本人' : '我发起的'} · ${record.statusLabel} · ${record.mode == 'ai' ? 'AI 审计' : '规则检查'} · ${record.summary.overallRiskLabel}',
                                               style: secondary),
                                         ]),
                                   )),
