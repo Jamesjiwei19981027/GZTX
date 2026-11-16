@@ -331,7 +331,7 @@ class _AdminNotifyChannelsScreenState extends State<AdminNotifyChannelsScreen> {
                         children: [
                           MeInfoRow(
                             label: 'Web / APP 推送',
-                            value: '见「推送证书状态」',
+                            value: '见「推送设置」',
                           ),
                           MeInfoRow(
                             label: '微信模板消息',

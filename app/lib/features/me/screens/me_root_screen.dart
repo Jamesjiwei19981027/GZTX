@@ -436,8 +436,8 @@ class _MeRootScreenState extends State<MeRootScreen> {
           onTap: () => _open('/me/admin/org-sso'),
         ),
         AppListTile(
-          title: '推送证书状态',
-          subtitle: 'APNs / FCM / WebPush 诊断',
+          title: '推送设置',
+          subtitle: '极光推送与本机状态',
           leading: const AppIcon('smartphone', size: 18),
           onTap: () => _open('/me/admin/push-certs'),
         ),

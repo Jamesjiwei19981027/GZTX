@@ -58,7 +58,7 @@ const List<(String, _AdminPageBuilder)> _adminPages = [
   ('AI 模型配置', _llmConfig),
   ('模型密钥配置', _modelKeys),
   ('组织与登录集成', _orgSso),
-  ('推送证书状态', _pushCerts),
+  ('推送设置', _pushCerts),
   ('语音识别配置', _asrConfig),
   ('单点登录配置', _ssoConfig),
 ];
@@ -603,23 +603,16 @@ void main() {
     expect(find.text('已允许 OIDC 单点登录'), findsOneWidget);
   });
 
-  testWidgets('推送证书：WebPush 未配置时显示待配置并提示原因', (tester) async {
+  testWidgets('推送设置：极光推送未启用时显示站内通知说明', (tester) async {
     MeTestHarness.useTallSurface(tester);
     final harness = await MeTestHarness.create(isAdmin: true);
-    harness.helper.whenGet(
-      '/notifications/vapid-public-key',
-      {
-        'detail': {'code': 503, 'message': 'Web Push 未配置'},
-      },
-      statusCode: 503,
-    );
+    harness.helper.whenGet('/push/status', {'enabled': false});
 
     await tester.pumpWidget(harness.wrap(_pushCerts(harness)));
     await tester.pumpAndSettle();
 
-    expect(find.text('待配置'), findsOneWidget);
-    expect(find.textContaining('公钥读取失败'), findsOneWidget);
-    expect(find.textContaining('无查询接口'), findsNWidgets(2));
+    expect(find.text('未启用'), findsOneWidget);
+    expect(find.text('服务端尚未配置极光推送，暂只有站内通知'), findsOneWidget);
   });
 
   testWidgets('语音识别：保存时提交 provider_id 与 config_json', (tester) async {

@@ -247,11 +247,19 @@ class MeApi {
 
   Future<bool> pushEnabled() async {
     try {
-      final data = await _client.get('/push/status');
-      return data is Map && data['enabled'] == true;
+      return await fetchPushEnabled();
     } catch (_) {
       return false;
     }
+  }
+
+  /// 状态页需区分读取失败与服务端未启用，错误交由页面处理。
+  Future<bool> fetchPushEnabled() async {
+    final data = await _client.get('/push/status');
+    if (data is! Map || data['enabled'] is! bool) {
+      throw ApiException('推送状态读取失败，请稍后重试');
+    }
+    return data['enabled'] as bool;
   }
 
   Future<List<MeNotifyRecord>> listNotifyRecords({int limit = 50}) async {
@@ -270,16 +278,6 @@ class MeApi {
       }
     }
     return list;
-  }
-
-  /// WebPush 公钥。未配置时后端返回 503，这里向上抛出，由页面显示「未配置」。
-  Future<String> fetchVapidPublicKey() async {
-    final data = await _client.get('/notifications/vapid-public-key');
-    final key = _asMap(data)['publicKey'] as String? ?? '';
-    if (key.isEmpty) {
-      throw ApiException('WebPush 公钥为空');
-    }
-    return key;
   }
 
   // ---------------------------------------------------------------------------

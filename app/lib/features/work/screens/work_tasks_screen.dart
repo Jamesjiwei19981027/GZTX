@@ -298,6 +298,18 @@ class _WorkTasksScreenState extends State<WorkTasksScreen> {
     return AppScaffold(
       title: '我的任务',
       actions: [
+        Tooltip(
+          message: '新建任务',
+          excludeFromSemantics: true,
+          child: Semantics(
+            label: '新建任务',
+            button: true,
+            child: IconButton(
+              onPressed: _createTask,
+              icon: const AppIcon('plus', size: 18),
+            ),
+          ),
+        ),
         TextButton(
           onPressed: () => setState(() {
             _batchMode = !_batchMode;

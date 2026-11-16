@@ -293,7 +293,7 @@ void main() {
   );
 
   testWidgets(
-    '管理员-推送证书状态页双平台截图',
+    '管理员-推送设置页双平台截图',
     tags: ['golden'],
     (tester) async {
       final harness = await harnessFor(isAdmin: true);

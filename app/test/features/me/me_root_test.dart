@@ -41,7 +41,7 @@ void main() {
     expect(find.text('AI 模型配置'), findsOneWidget);
     expect(find.text('模型密钥配置'), findsOneWidget);
     expect(find.text('组织与登录集成'), findsOneWidget);
-    expect(find.text('推送证书状态'), findsOneWidget);
+    expect(find.text('推送设置'), findsOneWidget);
     expect(find.text('语音识别配置'), findsOneWidget);
     expect(find.text('单点登录配置'), findsOneWidget);
   });

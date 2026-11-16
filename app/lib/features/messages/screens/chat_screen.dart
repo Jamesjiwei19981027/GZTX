@@ -7,6 +7,7 @@ import '../../../core/auth/auth_provider.dart';
 import '../../../core/media/system_links.dart';
 import '../../../design/design.dart';
 import '../../../router/app_destination.dart';
+import '../messages_config.dart';
 import '../controllers/chat_controller.dart';
 import '../data/message_file_transfer.dart';
 import '../data/message_links.dart';
@@ -317,16 +318,18 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     return AppScaffold(
       title: widget.name,
       actions: [
-        IconButton(
-          tooltip: '语音通话',
-          onPressed: controller == null ? null : () => _openCall('audio'),
-          icon: const AppIcon('phone', size: 18),
-        ),
-        IconButton(
-          tooltip: '视频通话',
-          onPressed: controller == null ? null : () => _openCall('video'),
-          icon: const AppIcon('video', size: 18),
-        ),
+        if (kCallsEnabled) ...[
+          IconButton(
+            tooltip: '语音通话',
+            onPressed: controller == null ? null : () => _openCall('audio'),
+            icon: const AppIcon('phone', size: 18),
+          ),
+          IconButton(
+            tooltip: '视频通话',
+            onPressed: controller == null ? null : () => _openCall('video'),
+            icon: const AppIcon('video', size: 18),
+          ),
+        ],
         IconButton(
           tooltip: 'AI 总结聊天记录',
           onPressed: controller == null ? null : _summarize,

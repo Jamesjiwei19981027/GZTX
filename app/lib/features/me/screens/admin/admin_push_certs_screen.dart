@@ -2,16 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/auth/auth_state.dart';
 import '../../../../design/design.dart';
+import '../../../../push/push_service.dart';
 import '../../appearance/me_appearance.dart';
 import '../../data/me_api.dart';
 import '../../state/me_admin.dart';
 import '../../state/me_runtime.dart';
 import '../../widgets/me_common.dart';
 
-/// 推送证书状态（对应网页 `AdminPushCertsScreen`，设计 ID 91）
-///
-/// 仅 WebPush 有真实接口（`GET /notifications/vapid-public-key`，未配置时后端 503）；
-/// APNs / FCM 证书由服务端环境变量配置，没有查询接口，因此只做诚实的只读说明。
+/// 极光推送设置。保留原页面类型与路由，兼容已有入口。
 class AdminPushCertsScreen extends StatefulWidget {
   const AdminPushCertsScreen({
     super.key,
@@ -34,8 +32,8 @@ class _AdminPushCertsScreenState extends State<AdminPushCertsScreen> {
   bool _loading = true;
   Object? _error;
   MeAdminAccess _admin = MeAdminAccess.none;
-  String? _vapidKey;
-  Object? _vapidError;
+  bool? _pushEnabled;
+  bool _pushFailed = false;
 
   MeApi get _api => resolveMeApi(context, widget.api);
   AuthState? get _auth => resolveMeAuthState(context, widget.authState);
@@ -51,7 +49,8 @@ class _AdminPushCertsScreenState extends State<AdminPushCertsScreen> {
     setState(() {
       _loading = true;
       _error = null;
-      _vapidError = null;
+      _pushEnabled = null;
+      _pushFailed = false;
     });
     final companyId = _companyId;
     if (companyId == null) {
@@ -69,24 +68,25 @@ class _AdminPushCertsScreenState extends State<AdminPushCertsScreen> {
         });
         return;
       }
-      String? key;
-      Object? vapidError;
+      bool? enabled;
+      var failed = false;
       try {
-        key = await api.fetchVapidPublicKey();
-      } catch (e) {
-        vapidError = e;
+        enabled = await api.fetchPushEnabled();
+      } catch (_) {
+        failed = true;
       }
       if (!mounted) return;
       setState(() {
         _admin = access;
-        _vapidKey = key;
-        _vapidError = vapidError;
+        _pushEnabled = enabled;
+        _pushFailed = failed;
         _loading = false;
       });
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       setState(() {
-        _error = e;
+        // 不将服务端英文错误、字段或地址直接展示给用户。
+        _error = StateError('管理权限读取失败');
         _loading = false;
       });
     }
@@ -94,11 +94,11 @@ class _AdminPushCertsScreenState extends State<AdminPushCertsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = isDarkMode(context);
+    final push = PushService.instance;
     return MeScreenAppearance(
       controller: widget.appearance,
       child: AppScaffold(
-        title: '推送证书状态',
+        title: '推送设置',
         body: _companyId == null
             ? const MeNoCompanyNotice()
             : MeAdminGuard(
@@ -109,88 +109,61 @@ class _AdminPushCertsScreenState extends State<AdminPushCertsScreen> {
                 child: MePageBody(
                   children: [
                     MeCard(
-                      title: 'WebPush（VAPID）',
-                      footer: '用于桌面浏览器与 PWA 离线推送；公钥由服务端环境变量下发',
-                      trailing: MeInlineButton(
-                        label: '刷新',
-                        onPressed: _load,
-                      ),
+                      title: '极光推送',
+                      footer: _pushEnabled == null
+                          ? null
+                          : _pushEnabled!
+                              ? '服务端已启用极光推送，可向已登记设备发送通知'
+                              : '服务端尚未配置极光推送，暂只有站内通知',
+                      trailing: MeInlineButton(label: '刷新', onPressed: _load),
                       children: [
                         MeInfoRow(
-                          label: '公钥状态',
+                          label: '服务端状态',
+                          value: '',
                           valueWidget: MeBadge(
-                            label: _vapidKey != null ? '已部署' : '待配置',
-                            tone: _vapidKey != null
+                            label: _pushEnabled == null
+                                ? '暂无法确认'
+                                : _pushEnabled!
+                                    ? '已启用'
+                                    : '未启用',
+                            tone: _pushEnabled == true
                                 ? MeTone.success
                                 : MeTone.warning,
                           ),
-                          value: '',
+                          showDivider: false,
                         ),
-                        if (_vapidError != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: AppSpacing.sm),
+                        if (_pushFailed)
+                          const Padding(
+                            padding: EdgeInsets.only(top: AppSpacing.sm),
                             child: MeBanner(
-                              message: '公钥读取失败：${meErrorMessage(_vapidError!)}',
+                              message: '推送状态读取失败，请稍后刷新重试',
                               tone: MeTone.warning,
                             ),
                           ),
-                        if (_vapidKey != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: AppSpacing.sm),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(AppSpacing.sm),
-                              decoration: BoxDecoration(
-                                color: isDark
-                                    ? AppColors.darkSurfaceVariant
-                                    : const Color(0xFFF5F6F7),
-                                borderRadius: BorderRadius.circular(
-                                  AppSpacing.radiusMd,
-                                ),
-                              ),
-                              child: Text(
-                                _vapidKey!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  height: 1.4,
-                                  fontFamily: 'monospace',
-                                  color: isDark
-                                      ? AppColors.darkTextSecondary
-                                      : AppColors.textSecondary,
-                                ),
-                              ),
-                            ),
-                          ),
                       ],
                     ),
                     const SizedBox(height: AppSpacing.md),
-                    const MeCard(
-                      title: 'iOS APNs 推送证书',
-                      footer: '证书路径与团队 ID 由服务端环境变量配置，当前版本没有查询证书有效期的接口（已上报）',
+                    MeCard(
+                      title: '本机状态',
                       children: [
                         MeInfoRow(
-                          label: 'Apple Push Notification',
-                          value: '由服务端配置',
+                          label: '隐私授权',
+                          value: push.consentGranted ? '已同意' : '未同意',
                         ),
                         MeInfoRow(
-                          label: '证书有效期',
-                          value: '无查询接口',
-                          showDivider: false,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    const MeCard(
-                      title: 'Android FCM 推送通道',
-                      footer: 'FCM 服务账号凭据由服务端环境变量配置，当前版本没有查询接口（已上报）',
-                      children: [
-                        MeInfoRow(
-                          label: 'Firebase Cloud Messaging',
-                          value: '由服务端配置',
+                          label: '本机推送配置',
+                          value: push.configured ? '已配置' : '未配置',
                         ),
                         MeInfoRow(
-                          label: '服务账号状态',
-                          value: '无查询接口',
+                          label: '推送初始化',
+                          value: push.initialized ? '已完成' : '尚未完成',
+                        ),
+                        // 现有服务只有设备标识，不能据此声称服务端登记成功。
+                        MeInfoRow(
+                          label: '设备标识',
+                          value: push.registrationId?.isNotEmpty == true
+                              ? '已获取'
+                              : '尚未获取',
                           showDivider: false,
                         ),
                       ],
