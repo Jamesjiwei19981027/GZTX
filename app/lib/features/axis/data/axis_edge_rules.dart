@@ -125,8 +125,8 @@ FloatingEdgeGeometry floatingEdgeGeometry(
   Rect target, [
   BorderAnchor? sourceAnchor,
 ]) {
-  final from = sourceAnchor ??
-      borderAnchor(source, target.center.dx, target.center.dy);
+  final from =
+      sourceAnchor ?? borderAnchor(source, target.center.dx, target.center.dy);
   final to = borderAnchor(
     target,
     sourceAnchor?.x ?? source.center.dx,
@@ -200,18 +200,14 @@ BorderAnchor subordinatePortAnchor(
   final double tx;
   final double ty;
   if (targets.isNotEmpty) {
-    tx =
-        targets.map((t) => t.center.dx).reduce((a, b) => a + b) /
+    tx = targets.map((t) => t.center.dx).reduce((a, b) => a + b) /
         targets.length;
-    ty =
-        targets.map((t) => t.center.dy).reduce((a, b) => a + b) /
+    ty = targets.map((t) => t.center.dy).reduce((a, b) => a + b) /
         targets.length;
   } else {
-    tx =
-        source.center.dx +
+    tx = source.center.dx +
         (orientation == AxisOrientation.horizontal ? source.width : 0);
-    ty =
-        source.center.dy +
+    ty = source.center.dy +
         (orientation == AxisOrientation.vertical ? source.height : 0);
   }
   final anchor = borderAnchor(source, tx, ty);
@@ -239,7 +235,9 @@ BorderAnchor subordinatePortAnchor(
   final perimeter = 2 * (w + h);
   if (perimeter == 0) return anchor;
   final p = (distance + 32) % perimeter;
-  if (p < w) return BorderAnchor(x: round2(left + p), y: top, side: RectSide.top);
+  if (p < w) {
+    return BorderAnchor(x: round2(left + p), y: top, side: RectSide.top);
+  }
   if (p < w + h) {
     return BorderAnchor(x: right, y: round2(top + p - w), side: RectSide.right);
   }
@@ -291,14 +289,16 @@ Set<String> highlightConnectionIds(List<AxisPersonNode> nodes, int? focusId) {
 AxisSnapResult snapToParentAxis({
   required Offset childTopLeft,
   required Size cardSize,
+  Size? parentSize,
   required Offset parentTopLeft,
   required AxisOrientation orientation,
   double threshold = 16,
 }) {
   final childCenter =
       childTopLeft + Offset(cardSize.width / 2, cardSize.height / 2);
-  final parentCenter =
-      parentTopLeft + Offset(cardSize.width / 2, cardSize.height / 2);
+  final actualParentSize = parentSize ?? cardSize;
+  final parentCenter = parentTopLeft +
+      Offset(actualParentSize.width / 2, actualParentSize.height / 2);
   final crossDelta = orientation == AxisOrientation.horizontal
       ? childCenter.dy - parentCenter.dy
       : childCenter.dx - parentCenter.dx;
@@ -311,8 +311,8 @@ AxisSnapResult snapToParentAxis({
     );
   }
   final position = orientation == AxisOrientation.horizontal
-      ? Offset(childTopLeft.dx, parentTopLeft.dy)
-      : Offset(parentTopLeft.dx, childTopLeft.dy);
+      ? Offset(childTopLeft.dx, parentCenter.dy - cardSize.height / 2)
+      : Offset(parentCenter.dx - cardSize.width / 2, childTopLeft.dy);
   final lineStart = orientation == AxisOrientation.horizontal
       ? Offset(parentCenter.dx, parentCenter.dy)
       : Offset(parentCenter.dx, parentCenter.dy);
@@ -348,7 +348,8 @@ Rect clampDropBubble({
   double gap = 6.0,
 }) {
   final idealLeft = targetRect.center.dx - bubbleSize.width / 2;
-  final maxLeft = math.max(margin, viewportSize.width - margin - bubbleSize.width);
+  final maxLeft =
+      math.max(margin, viewportSize.width - margin - bubbleSize.width);
   final left = idealLeft.clamp(margin, maxLeft);
 
   final fitsOnTop = (targetRect.top - bubbleSize.height - gap) >= margin;
@@ -357,7 +358,8 @@ Rect clampDropBubble({
     top = targetRect.top - bubbleSize.height - gap;
   } else {
     top = targetRect.bottom + gap;
-    final maxTop = math.max(margin, viewportSize.height - margin - bubbleSize.height);
+    final maxTop =
+        math.max(margin, viewportSize.height - margin - bubbleSize.height);
     if (top > maxTop) {
       top = maxTop;
     }
@@ -368,4 +370,3 @@ Rect clampDropBubble({
 
   return Rect.fromLTWH(left, top, bubbleSize.width, bubbleSize.height);
 }
-

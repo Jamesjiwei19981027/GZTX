@@ -48,6 +48,7 @@ class AxisCanvas extends StatefulWidget {
     this.permissions = AxisPermissions.empty,
     this.selfNodeId,
     this.selectedNodeId,
+    this.preferredMatterId,
     this.showAiStatus = true,
     this.viewportController,
     this.onOpenPerson,
@@ -57,6 +58,7 @@ class AxisCanvas extends StatefulWidget {
     this.onLayoutChanged,
     this.onNotice,
     this.onAddChild,
+    this.onAddMatter,
     this.onEditPerson,
     this.onEditCard,
     this.onRelinkPerson,
@@ -86,6 +88,7 @@ class AxisCanvas extends StatefulWidget {
   final AxisPermissions permissions;
   final int? selfNodeId;
   final int? selectedNodeId;
+  final int? preferredMatterId;
   final bool showAiStatus;
   final AxisViewportController? viewportController;
   final ValueChanged<AxisPersonNode>? onOpenPerson;
@@ -97,6 +100,7 @@ class AxisCanvas extends StatefulWidget {
       onLayoutChanged;
   final ValueChanged<String>? onNotice;
   final ValueChanged<AxisPersonNode>? onAddChild;
+  final ValueChanged<AxisPersonNode>? onAddMatter;
   final ValueChanged<AxisPersonNode>? onEditPerson;
   final ValueChanged<AxisPersonNode>? onEditCard;
   final ValueChanged<AxisPersonNode>? onRelinkPerson;
@@ -123,6 +127,12 @@ class _AxisCanvasState extends State<AxisCanvas>
   Timer? _dwellTimer;
   int? _selectedId;
   bool _isCompact = false;
+  final Map<int, double> _cardHeights = {};
+
+  void _recordCardHeight(int id, Size size) {
+    if (!mounted || (_cardHeights[id] ?? 0) == size.height) return;
+    setState(() => _cardHeights[id] = size.height);
+  }
 
   AxisFlowResult get _layout => AxisFlowLayout.compute(
         nodes: widget.nodes,
@@ -132,6 +142,11 @@ class _AxisCanvasState extends State<AxisCanvas>
         offsets: widget.offsets,
         resetLayout: widget.resetLayout,
         fold: widget.fold,
+        cardHeights: {
+          for (final node in widget.nodes)
+            if (node.cardConfig != null && _cardHeights.containsKey(node.id))
+              node.id: _cardHeights[node.id]!,
+        },
       );
 
   @override
@@ -265,7 +280,10 @@ class _AxisCanvasState extends State<AxisCanvas>
     }
     const initialScale = 0.75;
     AxisPlacedPerson? targetPerson;
-    if (widget.selfNodeId != null) {
+    if (_selectedId != null) {
+      targetPerson = _layout.personById(_selectedId!);
+    }
+    if (targetPerson == null && widget.selfNodeId != null) {
       targetPerson = _layout.personById(widget.selfNodeId!);
     }
     targetPerson ??= _layout.people.cast<AxisPlacedPerson?>().firstWhere(
@@ -358,7 +376,12 @@ class _AxisCanvasState extends State<AxisCanvas>
   }
 
   void _handleMoreMenu(AxisPersonNode node) {
-    final canEdit = widget.permissions.nodeCan(node, 'can_edit');
+    final canEdit = widget.permissions.nodeCan(node, 'can_edit_person');
+    final addMatter = AxisRules.validateAddMatter(
+      parent: node,
+      permissions: widget.permissions,
+      nodes: widget.nodes,
+    );
     final canRelink =
         widget.permissions.nodeCan(node, 'can_change_supervisor') ||
             widget.permissions.canManageStructure ||
@@ -369,8 +392,29 @@ class _AxisCanvasState extends State<AxisCanvas>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (widget.onAddMatter != null)
+              ListTile(
+                key: const Key('axis-add-matter'),
+                leading: const Icon(Icons.playlist_add, size: 18),
+                title: const Text('添加事项'),
+                enabled: addMatter.allowed,
+                subtitle:
+                    addMatter.reason == null ? null : Text(addMatter.reason!),
+                onTap: addMatter.allowed
+                    ? () {
+                        Navigator.of(ctx).pop();
+                        widget.onAddMatter?.call(node);
+                      }
+                    : null,
+              ),
             if (node.canEditCardStyle)
-              ListTile(leading: const Icon(Icons.palette_outlined, size: 18), title: const Text('编辑卡片'), onTap: () { Navigator.of(ctx).pop(); widget.onEditCard?.call(node); }),
+              ListTile(
+                  leading: const Icon(Icons.palette_outlined, size: 18),
+                  title: const Text('编辑卡片'),
+                  onTap: () {
+                    Navigator.of(ctx).pop();
+                    widget.onEditCard?.call(node);
+                  }),
             if (canEdit)
               ListTile(
                 leading: const Icon(Icons.edit_outlined),
@@ -495,7 +539,8 @@ class _AxisCanvasState extends State<AxisCanvas>
       if (parent != null) {
         final result = snapToParentAxis(
           childTopLeft: placed.rect.topLeft + nextDelta,
-          cardSize: AxisFlowLayout.personCardSize,
+          cardSize: placed.rect.size,
+          parentSize: parent.rect.size,
           parentTopLeft: parent.rect.topLeft,
           orientation: widget.orientation,
         );
@@ -789,7 +834,9 @@ class _AxisCanvasState extends State<AxisCanvas>
           if (m.node.id == nodeId) {
             // 若尚未展开成卡片形态（例如高度仍为折叠行高度），等待新布局生效的下一帧
             if (!m.expanded ||
-                m.rect.height < AxisFlowLayout.personCardSize.height) {
+                (m.node.cardConfig != null &&
+                    (_cardHeights[nodeId] == null ||
+                        m.rect.height != _cardHeights[nodeId]))) {
               WidgetsBinding.instance
                   .addPostFrameCallback((_) => checkVisibility());
               return;
@@ -950,19 +997,23 @@ class _AxisCanvasState extends State<AxisCanvas>
     final isDropVerdictOk = isDropTarget && (_dropVerdict?.allowed == true);
     final isDropVerdictBad = isDropTarget && (_dropVerdict?.allowed == false);
 
-    final summary = summarizeCardTasks(node.workItems, clock.now());
+    final summary = summarizeCardTasks(node.workItems, clock.now(),
+        preferredId: widget.preferredMatterId);
     final isRoot = node.isTerminalPm;
     final isMe = widget.selfNodeId == node.id;
     final isSelfAdded = node.nodeOrigin == 'subordinate';
 
     final canAddSubordinate =
         widget.permissions.nodeCan(node, 'can_add_subordinate');
-    final canEdit = widget.permissions.nodeCan(node, 'can_edit');
+    final canEdit = widget.permissions.nodeCan(node, 'can_edit_person');
     final canRelink =
         widget.permissions.nodeCan(node, 'can_change_supervisor') ||
             widget.permissions.canManageStructure ||
             widget.permissions.canEditAll;
-    final showMore = canEdit || canRelink || node.canEditCardStyle;
+    final showMore = canEdit ||
+        canRelink ||
+        node.canEditCardStyle ||
+        widget.onAddMatter != null;
 
     Color borderColor;
     double borderWidth = 1.0;
@@ -1008,9 +1059,14 @@ class _AxisCanvasState extends State<AxisCanvas>
 
     final card = Container(
       key: Key('axis-person-${node.id}'),
-      padding: isCompact
-          ? const EdgeInsets.symmetric(horizontal: 20, vertical: 12)
-          : const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      constraints: node.cardConfig == null
+          ? null
+          : BoxConstraints(minHeight: AxisFlowLayout.personCardSize.height),
+      padding: node.cardConfig != null
+          ? const EdgeInsets.fromLTRB(12, 12, 12, 8)
+          : isCompact
+              ? const EdgeInsets.symmetric(horizontal: 20, vertical: 12)
+              : const EdgeInsets.fromLTRB(12, 12, 12, 8),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
@@ -1019,71 +1075,217 @@ class _AxisCanvasState extends State<AxisCanvas>
       ),
       child: MediaQuery.withClampedTextScaling(
         maxScaleFactor: 1.15,
-        child: node.cardConfig != null ? Column(children: [
-          Row(children: [Container(width: 8, height: 8, decoration: BoxDecoration(color: personCardColors[node.cardConfig!['color']], shape: BoxShape.circle)), const Spacer(),
-            if (canAddSubordinate) SizedBox(width: 36, height: 28, child: IconButton(tooltip: '新增下级', padding: EdgeInsets.zero, icon: const Icon(Icons.add, size: 18), onPressed: () => _handleAddChild(node))),
-            if (showMore) SizedBox(width: 36, height: 28, child: IconButton(key: Key('axis-person-more-${node.id}'), tooltip: '更多', padding: EdgeInsets.zero, icon: const Icon(Icons.more_horiz, size: 18), onPressed: () => _handleMoreMenu(node))),
-          ]),
-          Expanded(child: SingleChildScrollView(child: PersonCardFields(node: node, config: node.cardConfig!))),
-          Row(children: [TextButton(style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.all(4)), onPressed: () => widget.onOpenPerson?.call(node), child: const Text('查看全部', style: TextStyle(fontSize: 12))), const Spacer(),
-            if (foldedMember) ...[TextButton(style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.all(4)), onPressed: () => widget.onToggleFoldedRow?.call(node.id), child: const Text('折叠', style: TextStyle(fontSize: 12))), TextButton(style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.all(4)), onPressed: () => widget.onPullToAxis?.call(node.id), child: const Text('拉到人轴', style: TextStyle(fontSize: 12)))]
-            else if (canReturn) TextButton(style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.all(4)), onPressed: () => widget.onReturnFromAxis?.call(node.id), child: const Text('收回', style: TextStyle(fontSize: 12)))
-            else if (subordinatesCount > 0) TextButton(style: TextButton.styleFrom(minimumSize: Size.zero, padding: const EdgeInsets.all(4)), onPressed: () => widget.onToggleStack?.call(node.id), child: Text('下属 $subordinatesCount', style: const TextStyle(fontSize: 12))),
-          ]),
-        ]) : isCompact
-            ? _buildCompactCard(
-                node,
-                isRoot,
-                isDark,
-                foldedMember: foldedMember,
-                canReturn: canReturn,
-              )
-            : _buildFullCard(
+        child: node.cardConfig != null
+            ? _buildConfiguredCard(
                 node: node,
                 summary: summary,
-                isRoot: isRoot,
-                isMe: isMe,
-                isSelfAdded: isSelfAdded,
                 selected: selected,
+                isMe: isMe,
+                isDark: isDark,
                 canAddSubordinate: canAddSubordinate,
                 showMore: showMore,
-                subordinatesCount: subordinatesCount,
-                isDark: isDark,
                 foldedMember: foldedMember,
                 canReturn: canReturn,
+                subordinatesCount: subordinatesCount,
                 stackHidden: stackHidden,
-              ),
+              )
+            : isCompact
+                ? _buildCompactCard(
+                    node,
+                    isRoot,
+                    isDark,
+                    foldedMember: foldedMember,
+                    canReturn: canReturn,
+                  )
+                : _buildFullCard(
+                    node: node,
+                    summary: summary,
+                    isRoot: isRoot,
+                    isMe: isMe,
+                    isSelfAdded: isSelfAdded,
+                    selected: selected,
+                    canAddSubordinate: canAddSubordinate,
+                    showMore: showMore,
+                    subordinatesCount: subordinatesCount,
+                    isDark: isDark,
+                    foldedMember: foldedMember,
+                    canReturn: canReturn,
+                    stackHidden: stackHidden,
+                  ),
       ),
     );
 
     return Positioned(
       left: rect.left,
       top: rect.top,
-      width: AxisFlowLayout.personCardSize.width,
-      height: AxisFlowLayout.personCardSize.height,
+      width: rect.width,
+      height: node.cardConfig == null ? rect.height : null,
       // 折叠组成员不能拖动，也不是换上级的放置目标；只响应点按。
-      child: node.cardConfig != null ? GestureDetector(
-        onTap: () => _select(node),
-        onLongPressStart: foldedMember ? null : (_) => _onPersonDragStart(node),
-        onLongPressMoveUpdate: foldedMember ? null : (d) { final delta = d.localOffsetFromOrigin - _cardLongPressOffset; _cardLongPressOffset = d.localOffsetFromOrigin; _onPersonDragUpdate(delta); },
-        onLongPressEnd: foldedMember ? null : (_) => _onPersonDragEnd(node),
-        onLongPressCancel: foldedMember ? null : _cancelDrag,
-        child: card,
-      ) : foldedMember
+      child: node.cardConfig != null
           ? GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTapUp: (details) =>
-                  _onCardTap(node, summary, details.globalPosition),
-              child: card,
+              onTap: () => widget.onOpenPerson?.call(node),
+              onLongPressStart:
+                  foldedMember ? null : (_) => _onPersonDragStart(node),
+              onLongPressMoveUpdate: foldedMember
+                  ? null
+                  : (d) {
+                      final delta =
+                          d.localOffsetFromOrigin - _cardLongPressOffset;
+                      _cardLongPressOffset = d.localOffsetFromOrigin;
+                      _onPersonDragUpdate(delta);
+                    },
+              onLongPressEnd:
+                  foldedMember ? null : (_) => _onPersonDragEnd(node),
+              onLongPressCancel: foldedMember ? null : _cancelDrag,
+              child: _CardSizeReporter(
+                onSize: (size) => _recordCardHeight(node.id, size),
+                child: card,
+              ),
             )
-          : _AxisDragRegion(
-              onTap: (global) => _onCardTap(node, summary, global),
-              onStart: () => _onPersonDragStart(node),
-              onUpdate: _onPersonDragUpdate,
-              onEnd: () => _onPersonDragEnd(node),
-              onCancel: _cancelDrag,
-              child: card,
+          : foldedMember
+              ? GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapUp: (details) =>
+                      _onCardTap(node, summary, details.globalPosition),
+                  child: card,
+                )
+              : _AxisDragRegion(
+                  onTap: (global) => _onCardTap(node, summary, global),
+                  onStart: () => _onPersonDragStart(node),
+                  onUpdate: _onPersonDragUpdate,
+                  onEnd: () => _onPersonDragEnd(node),
+                  onCancel: _cancelDrag,
+                  child: card,
+                ),
+    );
+  }
+
+  Widget _buildConfiguredCard({
+    required AxisPersonNode node,
+    required AxisCardTaskSummary summary,
+    required bool selected,
+    required bool isMe,
+    required bool isDark,
+    required bool canAddSubordinate,
+    required bool showMore,
+    required bool foldedMember,
+    required bool canReturn,
+    required int subordinatesCount,
+    required bool stackHidden,
+  }) {
+    final config = node.cardConfig!;
+    Widget action(String label, VoidCallback? callback, {Key? key}) =>
+        TextButton(
+          key: key,
+          style: TextButton.styleFrom(
+            minimumSize: const Size(44, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            textStyle: const TextStyle(fontSize: 12),
+          ),
+          onPressed: callback,
+          child: Text(label),
+        );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 选中区独立于整卡详情入口，选中按钮显隐不改变卡片高度。
+        SizedBox(
+            height: 44,
+            child: Row(children: [
+              IconButton(
+                key: Key('axis-person-select-${node.id}'),
+                tooltip: selected ? '取消选择人员' : '选择人员',
+                constraints:
+                    const BoxConstraints.tightFor(width: 40, height: 44),
+                padding: EdgeInsets.zero,
+                onPressed: () => _select(node),
+                icon: Container(
+                  key: Key('person-card-color-${node.id}'),
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: personCardColors[config['color']] ??
+                        personCardColors['ink'],
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+              if (node.isTerminalPm)
+                const _CardTag(
+                    text: '终责',
+                    backgroundColor: AppColors.warningLight,
+                    textColor: AppColors.warning),
+              if (isMe) ...[
+                const SizedBox(width: 4),
+                const _CardTag(
+                    text: '我',
+                    backgroundColor: AppColors.primaryLight,
+                    textColor: AppColors.primary),
+              ],
+              const Spacer(),
+              if (selected && canAddSubordinate)
+                SizedBox(
+                    width: 40,
+                    child: IconButton(
+                      key: Key('axis-person-add-${node.id}'),
+                      tooltip: '新增下级',
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.add, size: 18),
+                      onPressed: () => _handleAddChild(node),
+                    )),
+              if (selected && showMore)
+                SizedBox(
+                    width: 40,
+                    child: IconButton(
+                      key: Key('axis-person-more-${node.id}'),
+                      tooltip: '更多',
+                      padding: EdgeInsets.zero,
+                      icon: const Icon(Icons.more_horiz, size: 18),
+                      onPressed: () => _handleMoreMenu(node),
+                    )),
+            ])),
+        PersonCardFields(node: node, config: config, showColor: false),
+        // 保留实际事项入口，创建后无需打开详情即可看到事项标题。
+        if (summary.total > 0) ...[
+          const Divider(height: 16),
+          for (final item in summary.visible)
+            TextButton(
+              key: Key('axis-card-matter-${item.id}'),
+              style: TextButton.styleFrom(
+                minimumSize: const Size.fromHeight(44),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                alignment: Alignment.centerLeft,
+              ),
+              onPressed: () => widget.onOpenMatter?.call(item, node.id),
+              child: Text('${item.typeLabel} · ${item.title}',
+                  style: completedTitleStyle(
+                      isDark: isDark,
+                      completed: item.isDone,
+                      base: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondaryOf(isDark)))),
             ),
+        ],
+        Wrap(spacing: 4, children: [
+          action('查看全部', () => widget.onOpenPerson?.call(node)),
+          if (foldedMember) ...[
+            action('折叠', () => widget.onToggleFoldedRow?.call(node.id),
+                key: Key('axis-fold-${node.id}')),
+            action('拉到人轴', () => widget.onPullToAxis?.call(node.id),
+                key: Key('axis-pull-${node.id}')),
+          ] else ...[
+            if (canReturn)
+              action('收回', () => widget.onReturnFromAxis?.call(node.id),
+                  key: Key('axis-return-${node.id}')),
+            if (subordinatesCount > 0)
+              action('下属 $subordinatesCount ${stackHidden ? '›' : '⌄'}',
+                  () => widget.onToggleStack?.call(node.id),
+                  key: Key('axis-stack-toggle-${node.id}')),
+          ],
+        ]),
+      ],
     );
   }
 
@@ -1746,6 +1948,39 @@ class _AxisCanvasState extends State<AxisCanvas>
 }
 
 /// 折叠行：姓名、职责、任务总数、逾期数（为 0 不显示）、向下箭头；点按就地展开。
+/// 真实排版后把自然高度交回布局器；文本换行、标签、密度与系统字号共用此结果。
+/// 不按字段数猜高度，也不在卡内放滚动区域。回调在帧末合并进下一帧布局。
+class _CardSizeReporter extends SingleChildRenderObjectWidget {
+  const _CardSizeReporter({required this.onSize, required super.child});
+  final ValueChanged<Size> onSize;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderCardSize(onSize);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderCardSize renderObject) {
+    renderObject.onSize = onSize;
+  }
+}
+
+class _RenderCardSize extends RenderProxyBox {
+  _RenderCardSize(this.onSize);
+  ValueChanged<Size> onSize;
+  Size? _reported;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (_reported == size) return;
+    _reported = size;
+    final measured = size;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (attached) onSize(measured);
+    });
+  }
+}
+
 class _FoldedRow extends StatelessWidget {
   const _FoldedRow({
     super.key,
@@ -1778,60 +2013,67 @@ class _FoldedRow extends StatelessWidget {
         ),
         child: MediaQuery.withClampedTextScaling(
           maxScaleFactor: 1.15,
-          child: node.cardConfig != null ? Row(children: [Expanded(child: PersonCardFields(node: node, config: node.cardConfig!, folded: true)), const Icon(Icons.keyboard_arrow_down, size: 18)]) : Row(
-            children: [
-              _col(
-                48,
-                node.name,
-                TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: isDark
-                      ? AppColors.darkTextPrimary
-                      : AppColors.textPrimary,
+          child: node.cardConfig != null
+              ? Row(children: [
+                  Expanded(
+                      child: PersonCardFields(
+                          node: node, config: node.cardConfig!, folded: true)),
+                  const Icon(Icons.keyboard_arrow_down, size: 18)
+                ])
+              : Row(
+                  children: [
+                    _col(
+                      48,
+                      node.name,
+                      TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: isDark
+                            ? AppColors.darkTextPrimary
+                            : AppColors.textPrimary,
+                      ),
+                      const Key('folded-col-name'),
+                    ),
+                    const SizedBox(width: 4),
+                    _col(
+                      64,
+                      node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle,
+                      TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textTertiaryOf(isDark),
+                      ),
+                      const Key('folded-col-role'),
+                    ),
+                    const SizedBox(width: 4),
+                    _col(
+                      40,
+                      '任务 $total',
+                      TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textTertiaryOf(isDark),
+                      ),
+                      const Key('folded-col-total'),
+                    ),
+                    const SizedBox(width: 4),
+                    // 逾期为 0 时该列留空，后面的内容不左移。
+                    _col(
+                      40,
+                      overdue > 0 ? '逾期 $overdue' : '',
+                      const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.danger,
+                      ),
+                      const Key('folded-col-overdue'),
+                    ),
+                    const Spacer(),
+                    Icon(
+                      Icons.keyboard_arrow_down,
+                      size: 18,
+                      color: AppColors.textTertiaryOf(isDark),
+                    ),
+                  ],
                 ),
-                const Key('folded-col-name'),
-              ),
-              const SizedBox(width: 4),
-              _col(
-                64,
-                node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle,
-                TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textTertiaryOf(isDark),
-                ),
-                const Key('folded-col-role'),
-              ),
-              const SizedBox(width: 4),
-              _col(
-                40,
-                '任务 $total',
-                TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textTertiaryOf(isDark),
-                ),
-                const Key('folded-col-total'),
-              ),
-              const SizedBox(width: 4),
-              // 逾期为 0 时该列留空，后面的内容不左移。
-              _col(
-                40,
-                overdue > 0 ? '逾期 $overdue' : '',
-                const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.danger,
-                ),
-                const Key('folded-col-overdue'),
-              ),
-              const Spacer(),
-              Icon(
-                Icons.keyboard_arrow_down,
-                size: 18,
-                color: AppColors.textTertiaryOf(isDark),
-              ),
-            ],
-          ),
         ),
       ),
     );

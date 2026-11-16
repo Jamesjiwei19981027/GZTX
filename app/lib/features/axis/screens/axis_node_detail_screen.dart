@@ -128,7 +128,9 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
       ]);
       if (!mounted || epoch != _epoch) return;
       final cardProject = results[2] as AxisProjectInfo;
-      final cardView = cardProject.cardTemplate != null ? await api.fetchCardView(projectId) : <String, dynamic>{};
+      final cardView = cardProject.cardTemplate != null
+          ? await api.fetchCardView(projectId)
+          : <String, dynamic>{};
       if (!mounted || epoch != _epoch) return;
       setState(() {
         _cardProject = cardProject;
@@ -136,7 +138,17 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
         _tree = AxisTreeMapper.mapTree(
           results[0] as List<Map<String, dynamic>>,
           finalOwnerUserId: (results[2] as AxisProjectInfo).pmUserId,
-        ).map((n) => n.copyWith(profileAvatarUrl: n.profileAvatarUrl.isEmpty ? '' : api.resolveAvatar(n.profileAvatarUrl), cardConfig: cardProject.cardTemplate != null || n.cardStyle != null ? mergePersonCard(cardProject.cardTemplate ?? {}, n.cardStyle ?? {}, cardView) : null)).toList();
+        )
+            .map((n) => n.copyWith(
+                profileAvatarUrl: n.profileAvatarUrl.isEmpty
+                    ? ''
+                    : api.resolveAvatar(n.profileAvatarUrl),
+                cardConfig:
+                    cardProject.cardTemplate != null || n.cardStyle != null
+                        ? mergePersonCard(cardProject.cardTemplate ?? {},
+                            n.cardStyle ?? {}, cardView)
+                        : null))
+            .toList();
         _permissions = results[1] as AxisPermissions;
         _projectId = projectId;
         _loading = false;
@@ -216,6 +228,45 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
       }
     } catch (error) {
       _toast(axisErrorMessage(error), type: ToastType.error);
+    }
+  }
+
+  Future<void> _addMatter(AxisPersonNode person) async {
+    final epoch = _epoch;
+    final projectId = _projectId;
+    if (projectId == null) return;
+    final check = AxisRules.validateAddMatter(
+        parent: person, permissions: _permissions, nodes: _tree);
+    if (!check.allowed) {
+      _toast(check.reason!);
+      return;
+    }
+    try {
+      final members = await _api!.fetchMembers(projectId);
+      if (!mounted || epoch != _epoch) return;
+      final saved = await showAppBottomSheet<bool>(
+        context: context,
+        title: '添加事项',
+        builder: (ctx) => AxisMatterForm.create(
+          api: _api!,
+          projectId: projectId,
+          parent: person,
+          permissions: _permissions,
+          allNodes: _tree,
+          members: members,
+          canChangeAssignee:
+              _permissions.nodeCan(person, 'can_manage_assignees'),
+          onSaved: () => Navigator.of(ctx).pop(true),
+        ),
+      );
+      if (saved == true && mounted && epoch == _epoch) {
+        await _load();
+        _toast(_error == null ? '事项已添加' : '事项已添加，列表刷新失败，请重试');
+      }
+    } catch (error) {
+      if (mounted && epoch == _epoch) {
+        _toast(axisErrorMessage(error), type: ToastType.error);
+      }
     }
   }
 
@@ -777,6 +828,11 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
     final subordinates =
         _tree.where((node) => node.parentId == person.id).toList();
     final canEdit = _permissions.nodeCan(person, 'can_edit_person');
+    final addMatter = AxisRules.validateAddMatter(
+      parent: person,
+      permissions: _permissions,
+      nodes: _tree,
+    );
     final canManagePermissions =
         _permissions.nodeCan(person, 'can_manage_permissions');
     final canMove = _permissions.nodeCan(person, 'can_move_person') &&
@@ -791,8 +847,26 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         children: [
-          if (person.cardConfig != null) PersonCardFields(node: person, config: person.cardConfig!),
-          if (person.canEditCardStyle) TextButton.icon(icon: const Icon(Icons.palette_outlined, size: 18), label: const Text('编辑卡片'), onPressed: () { final id = _projectId; if (id == null) return; showPersonCardEditor(context: context, mode: 'style', node: person, initial: person.cardStyle ?? {}, template: _cardProject?.cardTemplate ?? {}, onSave: (value) async { await _api!.saveCardStyle(id, person.id, value); if (mounted && _projectId == id) await _load(); }); }),
+          if (person.cardConfig != null)
+            PersonCardFields(node: person, config: person.cardConfig!),
+          if (person.canEditCardStyle)
+            TextButton.icon(
+                icon: const Icon(Icons.palette_outlined, size: 18),
+                label: const Text('编辑卡片'),
+                onPressed: () {
+                  final id = _projectId;
+                  if (id == null) return;
+                  showPersonCardEditor(
+                      context: context,
+                      mode: 'style',
+                      node: person,
+                      initial: person.cardStyle ?? {},
+                      template: _cardProject?.cardTemplate ?? {},
+                      onSave: (value) async {
+                        await _api!.saveCardStyle(id, person.id, value);
+                        if (mounted && _projectId == id) await _load();
+                      });
+                }),
           AxisCard(
             child: Column(
               children: [
@@ -888,6 +962,20 @@ class _AxisNodeDetailScreenState extends State<AxisNodeDetailScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.md),
+          AppButton(
+            key: const Key('axis-add-matter'),
+            label: '添加事项',
+            variant: AppButtonVariant.secondary,
+            onPressed: addMatter.allowed ? () => _addMatter(person) : null,
+          ),
+          if (addMatter.reason != null)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
+              child: Text(addMatter.reason!,
+                  style: TextStyle(
+                      fontSize: 12, color: AppColors.textSecondaryOf(isDark))),
+            ),
+          const SizedBox(height: AppSpacing.sm),
           AxisWideAction(
             label: '查看 AI 汇报与材料对照',
             icon: const Icon(Icons.description_outlined),

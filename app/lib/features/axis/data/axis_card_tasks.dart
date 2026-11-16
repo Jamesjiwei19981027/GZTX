@@ -46,7 +46,8 @@ AxisCardChip cardTaskChip(AxisWorkItem item, DateTime today) {
     );
   }
   final todayZero = DateTime(today.year, today.month, today.day);
-  final dueZero = DateTime(item.dueAt!.year, item.dueAt!.month, item.dueAt!.day);
+  final dueZero =
+      DateTime(item.dueAt!.year, item.dueAt!.month, item.dueAt!.day);
   if (dueZero.isBefore(todayZero)) {
     final diffDays = todayZero.difference(dueZero).inDays;
     return AxisCardChip(
@@ -72,7 +73,8 @@ int cardOverdueCount(List<AxisWorkItem> items, DateTime today) {
   final day = DateTime(today.year, today.month, today.day);
   return items.where((item) {
     if (item.isDone || item.dueAt == null) return false;
-    final dueZero = DateTime(item.dueAt!.year, item.dueAt!.month, item.dueAt!.day);
+    final dueZero =
+        DateTime(item.dueAt!.year, item.dueAt!.month, item.dueAt!.day);
     return dueZero.isBefore(day);
   }).length;
 }
@@ -118,9 +120,14 @@ List<AxisWorkItem> sortCardTasks(List<AxisWorkItem> items, DateTime today) {
 
 AxisCardTaskSummary summarizeCardTasks(
   List<AxisWorkItem> items,
-  DateTime today,
-) {
+  DateTime today, {
+  int? preferredId,
+}) {
   final sorted = sortCardTasks(items, today);
+  final preferredIndex = sorted.indexWhere((item) => item.id == preferredId);
+  if (preferredIndex > 0) {
+    sorted.insert(0, sorted.removeAt(preferredIndex));
+  }
   final day = DateTime(today.year, today.month, today.day);
   final overdue = sorted
       .where(
