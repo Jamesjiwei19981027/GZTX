@@ -9,10 +9,12 @@ class PersonCardFields extends StatelessWidget {
       {super.key,
       required this.node,
       required this.config,
+      this.showColor = true,
       this.folded = false});
   final AxisPersonNode node;
   final Map<String, dynamic> config;
   final bool folded;
+  final bool showColor;
 
   Widget _tag(Map tag, Color text) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -34,6 +36,7 @@ class PersonCardFields extends StatelessWidget {
         personCardColors[config['color']] ?? personCardColors['ink']!;
     final tags = config['tags'] as List? ?? [];
     final point = Container(
+        key: Key('person-card-color-${node.id}'),
         width: 8,
         height: 8,
         decoration: BoxDecoration(color: accent, shape: BoxShape.circle));
@@ -140,7 +143,9 @@ class PersonCardFields extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Padding(padding: EdgeInsets.only(bottom: spacing), child: point),
+              if (showColor)
+                Padding(
+                    padding: EdgeInsets.only(bottom: spacing), child: point),
               for (final key in config['fields'] as List? ?? personCardFields)
                 if (values[key] != null)
                   Padding(

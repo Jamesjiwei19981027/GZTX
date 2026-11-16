@@ -56,7 +56,7 @@ void main() {
         AdminModelKeysScreen(api: h.api, authState: h.authState),
     '管理员组织集成': (h) =>
         AdminOrgSsoScreen(api: h.api, authState: h.authState),
-    '管理员推送证书': (h) =>
+    '管理员推送设置': (h) =>
         AdminPushCertsScreen(api: h.api, authState: h.authState),
     '管理员语音识别': (h) =>
         AdminAsrConfigScreen(api: h.api, authState: h.authState),

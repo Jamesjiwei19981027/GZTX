@@ -19,6 +19,7 @@ import '../state/axis_controller.dart';
 import '../widgets/axis_canvas.dart';
 import '../widgets/axis_common.dart';
 import '../widgets/axis_person_form.dart';
+import '../widgets/axis_matter_form.dart';
 import '../widgets/person_card_editor.dart';
 import '../widgets/person_card_fields.dart';
 
@@ -169,6 +170,46 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
         onCancel: () => Navigator.of(ctx).pop(),
       ),
     );
+  }
+
+  Future<void> _openAddMatter(AxisPersonNode parent) async {
+    final controller = _controller;
+    if (controller == null) return;
+    final check = AxisRules.validateAddMatter(
+        parent: parent,
+        permissions: controller.permissions,
+        nodes: controller.nodes);
+    if (!check.allowed) {
+      _notice(check.reason!);
+      return;
+    }
+    final projectId = controller.projectId;
+    int? createdMatterId;
+    final saved = await showAppBottomSheet<bool>(
+      context: context,
+      title: '添加事项',
+      builder: (ctx) => AxisMatterForm.create(
+        api: controller.api,
+        projectId: projectId,
+        parent: parent,
+        permissions: controller.permissions,
+        allNodes: controller.nodes,
+        members: controller.members,
+        canChangeAssignee:
+            controller.permissions.nodeCan(parent, 'can_manage_assignees'),
+        onCreated: (id) => createdMatterId = id,
+        onSaved: () => Navigator.of(ctx).pop(true),
+      ),
+    );
+    if (saved != true || !mounted || controller.projectId != projectId) return;
+    controller.preferredMatterId = createdMatterId;
+    await controller.load();
+    if (!mounted || controller.projectId != projectId) return;
+    controller.select(parent.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _viewport.focusNode(parent.id);
+    });
+    _notice(controller.error == null ? '事项已添加' : '事项已添加，画布刷新失败，请重试');
   }
 
   Future<void> _openSettings() async {
@@ -363,7 +404,28 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
     return AppScaffold(
       title: controller.tab == AxisViewTab.mine ? '我的职责' : '项目全貌',
       actions: [
-        IconButton(tooltip: '显示设置', icon: const Icon(Icons.tune, size: 18), onPressed: () { final id = controller.projectId; showPersonCardEditor(context: context, mode: 'view', initial: controller.cardView, template: controller.project?.cardTemplate ?? {}, style: controller.selfNode?.cardStyle ?? {}, node: controller.selfNode ?? (controller.nodes.isNotEmpty ? controller.nodes.first : null), onSave: (value) async { if (controller.projectId != id) throw StateError('项目已切换，请重新打开显示设置'); await controller.saveCardView(value); }); }),
+        IconButton(
+            tooltip: '显示设置',
+            icon: const Icon(Icons.tune, size: 18),
+            onPressed: () {
+              final id = controller.projectId;
+              showPersonCardEditor(
+                  context: context,
+                  mode: 'view',
+                  initial: controller.cardView,
+                  template: controller.project?.cardTemplate ?? {},
+                  style: controller.selfNode?.cardStyle ?? {},
+                  node: controller.selfNode ??
+                      (controller.nodes.isNotEmpty
+                          ? controller.nodes.first
+                          : null),
+                  onSave: (value) async {
+                    if (controller.projectId != id) {
+                      throw StateError('项目已切换，请重新打开显示设置');
+                    }
+                    await controller.saveCardView(value);
+                  });
+            }),
         if (_canAddPerson)
           IconButton(
             key: const Key('axis-add-person'),
@@ -469,6 +531,7 @@ class _AxisRootScreenState extends State<AxisRootScreen> {
                 : _OverviewView(
                     controller: controller,
                     viewport: _viewport,
+                    onAddMatter: _openAddMatter,
                     onAddRoot: _canAddPerson
                         ? () => _openAddPerson(asRoot: true)
                         : null,
@@ -911,46 +974,49 @@ class _SelfCard extends StatelessWidget {
         ),
         child: Column(
           children: [
-            if (node.cardConfig != null) PersonCardFields(node: node, config: node.cardConfig!) else Row(
-              children: [
-                AxisPersonAvatar(name: node.name, size: 44, highlight: true),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              '${node.name} · 我',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
+            if (node.cardConfig != null)
+              PersonCardFields(node: node, config: node.cardConfig!)
+            else
+              Row(
+                children: [
+                  AxisPersonAvatar(name: node.name, size: 44, highlight: true),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Flexible(
+                              child: Text(
+                                '${node.name} · 我',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: AppSpacing.xs),
-                          const AxisStatusChip(label: '当前责任人'),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle}'
-                        ' · ${node.department.isEmpty ? '项目团队' : node.department}',
-                        maxLines: 2,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textSecondaryOf(isDark),
+                            const SizedBox(width: AppSpacing.xs),
+                            const AxisStatusChip(label: '当前责任人'),
+                          ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 4),
+                        Text(
+                          '${node.roleTitle.isEmpty ? '岗位未指定' : node.roleTitle}'
+                          ' · ${node.department.isEmpty ? '项目团队' : node.department}',
+                          maxLines: 2,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondaryOf(isDark),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
             if (showAiStatus) ...[
               const Divider(height: 20),
               Row(
@@ -1010,62 +1076,64 @@ class _MiniPersonCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.radiusLg),
       child: AxisCard(
-        child: node?.cardConfig != null ? PersonCardFields(node: node!, config: node!.cardConfig!) : Row(
-          children: [
-            AxisPersonAvatar(name: title, size: 38),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+        child: node?.cardConfig != null
+            ? PersonCardFields(node: node!, config: node!.cardConfig!)
+            : Row(
                 children: [
-                  Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    maxLines: 2,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondaryOf(isDark),
-                    ),
-                  ),
-                  if (showAiStatus) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                  AxisPersonAvatar(name: title, size: 38),
+                  const SizedBox(width: AppSpacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        if (pres.icon != null) ...[
-                          Icon(
-                            pres.icon,
-                            size: 18,
-                            color: pres.iconColor ?? pres.textColor,
-                          ),
-                          const SizedBox(width: 4),
-                        ],
                         Text(
-                          pres.text,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: pres.textColor,
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 14,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                        const SizedBox(height: 4),
+                        Text(
+                          subtitle,
+                          maxLines: 2,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondaryOf(isDark),
+                          ),
+                        ),
+                        if (showAiStatus) ...[
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (pres.icon != null) ...[
+                                Icon(
+                                  pres.icon,
+                                  size: 18,
+                                  color: pres.iconColor ?? pres.textColor,
+                                ),
+                                const SizedBox(width: 4),
+                              ],
+                              Text(
+                                pres.text,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: pres.textColor,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
-                  ],
+                  ),
+                  const Icon(Icons.chevron_right, size: 18),
                 ],
               ),
-            ),
-            const Icon(Icons.chevron_right, size: 18),
-          ],
-        ),
       ),
     );
   }
@@ -1092,6 +1160,7 @@ class _OverviewView extends StatelessWidget {
   const _OverviewView({
     required this.controller,
     required this.viewport,
+    required this.onAddMatter,
     required this.onOpenPerson,
     required this.onOpenMatter,
     required this.onError,
@@ -1101,6 +1170,7 @@ class _OverviewView extends StatelessWidget {
 
   final AxisController controller;
   final AxisViewportController viewport;
+  final ValueChanged<AxisPersonNode> onAddMatter;
   final VoidCallback? onAddRoot;
   final ValueChanged<AxisPersonNode> onOpenPerson;
   final void Function(AxisWorkItem item, int ownerId) onOpenMatter;
@@ -1347,6 +1417,7 @@ class _OverviewView extends StatelessWidget {
                     permissions: controller.permissions,
                     selfNodeId: controller.selfNode?.id,
                     selectedNodeId: controller.selectedNodeId,
+                    preferredMatterId: controller.preferredMatterId,
                     showAiStatus: controller.showAiStatus,
                     viewportController: viewport,
                     onOpenPerson: onOpenPerson,
@@ -1363,9 +1434,24 @@ class _OverviewView extends StatelessWidget {
                     },
                     onNotice: onNotice,
                     onAddChild: (parent) => _openAddChild(context, parent),
+                    onAddMatter: onAddMatter,
                     onEditPerson: onOpenPerson,
-                    onEditCard: (person) { final id = controller.projectId; showPersonCardEditor(context: context, mode: 'style', initial: person.cardStyle ?? {}, template: controller.project?.cardTemplate ?? {}, node: person,
-                      onSave: (value) async { await controller.api.saveCardStyle(id, person.id, value); if (controller.projectId == id) await controller.load(); }); },
+                    onEditCard: (person) {
+                      final id = controller.projectId;
+                      showPersonCardEditor(
+                          context: context,
+                          mode: 'style',
+                          initial: person.cardStyle ?? {},
+                          template: controller.project?.cardTemplate ?? {},
+                          node: person,
+                          onSave: (value) async {
+                            await controller.api
+                                .saveCardStyle(id, person.id, value);
+                            if (controller.projectId == id) {
+                              await controller.load();
+                            }
+                          });
+                    },
                     onRelinkPerson: (person) =>
                         _openRelinkPerson(context, person),
                     fold: controller.sort == AxisSort.tree

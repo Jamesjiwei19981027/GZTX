@@ -3,7 +3,9 @@ import 'package:intl/intl.dart';
 import 'axis_models.dart';
 
 class AxisDropResult {
-  const AxisDropResult.allowed() : allowed = true, reason = null;
+  const AxisDropResult.allowed()
+      : allowed = true,
+        reason = null;
   const AxisDropResult.rejected(this.reason) : allowed = false;
   final bool allowed;
   final String? reason;
@@ -27,6 +29,42 @@ const int axisMaxPersonLevels = 4;
 
 class AxisRules {
   const AxisRules._();
+
+  /// 服务端能力快照优先：管理者可被允许越过节点的新增策略。
+  /// 缺少能力快照时才沿人员上级链检查策略，写入仍由后端最终校验。
+  static AxisDropResult validateAddMatter({
+    required AxisPersonNode? parent,
+    required AxisPermissions permissions,
+    List<AxisPersonNode> nodes = const [],
+    String nodeTypeKey = 'work_item',
+  }) {
+    if (parent == null) return const AxisDropResult.rejected('事项只能挂在「人」下面');
+    if (!const ['work_item', 'milestone', 'scope'].contains(nodeTypeKey)) {
+      return const AxisDropResult.rejected('请选择工作项、里程碑或范围');
+    }
+    final explicit =
+        permissions.nodePermissions[parent.id.toString()]?['can_add_work_item'];
+    if (explicit == true) return const AxisDropResult.allowed();
+    if (explicit == false) {
+      return const AxisDropResult.rejected('该人员或上级未开放添加事项权限，或你没有编辑权限');
+    }
+    if (!permissions.nodeCan(parent, 'can_add_work_item')) {
+      return const AxisDropResult.rejected('你没有在该人员下添加事项的权限');
+    }
+    if (!permissions.canManageStructure) {
+      final byId = {for (final node in nodes) node.id: node};
+      AxisPersonNode? current = parent;
+      final seen = <int>{};
+      while (current != null && seen.add(current.id)) {
+        if (current.responsibilityPermissions['allow_add_work_items'] ==
+            false) {
+          return const AxisDropResult.rejected('该人员或上级未开放添加事项权限');
+        }
+        current = byId[current.parentId];
+      }
+    }
+    return const AxisDropResult.allowed();
+  }
 
   static int personLevel(int nodeId, List<AxisPersonNode> nodes) {
     final byId = {for (final node in nodes) node.id: node};
@@ -147,9 +185,8 @@ class AxisRules {
     required List<AxisPersonNode> nodes,
     String query = '',
   }) {
-    final descendants = current == null
-        ? <int>{}
-        : descendantPersonIds(current.id, nodes);
+    final descendants =
+        current == null ? <int>{} : descendantPersonIds(current.id, nodes);
     final q = query.trim().toLowerCase();
     return nodes.where((candidate) {
       if (current != null && candidate.id == current.id) return false;

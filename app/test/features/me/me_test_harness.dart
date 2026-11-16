@@ -58,6 +58,7 @@ class MeTestHarness {
     // 创建的加载 Future 被下一个用例复用而永远等不到完成
     MeAppearanceController.resetInstanceForTest();
     final helper = MockApiClientHelper();
+    helper.whenGet('/push/status', {'enabled': false});
     final userData = Map<String, dynamic>.from(user ?? userJson);
     helper.whenGet('/users/me', userData);
     helper.whenGet(

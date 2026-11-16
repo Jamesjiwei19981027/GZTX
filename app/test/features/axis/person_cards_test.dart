@@ -130,6 +130,8 @@ void main() {
                     sort: AxisSort.tree,
                     onEditCard: (_) => edited = true)))));
     await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.byKey(const Key('axis-person-select-1')));
+    await tester.pump();
     await tester.tap(find.byKey(const Key('axis-person-more-1')));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
